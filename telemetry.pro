@@ -31,6 +31,8 @@ DISTFILES += \
     tests/README.md \
     $$files($$PWD/tests/*.pro) \
     $$files($$PWD/tests/*.cpp) \
+    $$files($$PWD/tests/field_layout/*) \
+    $$files($$PWD/tests/field_layout/h7s/*) \
     $$files($$PWD/archive/id_ranges/*)
 
 # Default rules for deployment.

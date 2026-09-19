@@ -1,0 +1,28 @@
+{
+  "commit": "688ae7eee3f95f8aca312c24bb38fc79d8053907",
+  "normalization": "CRLF to LF for source files",
+  "files": {
+    "lib/delegate/LICENSE": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+    "lib/delegate/README.md": "f022fad7a33be31fda5436ed949713f41cb12eef82cd9a8cf80e2a69e665c594",
+    "lib/delegate/delegate.pri": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+    "lib/delegate/tiny_delegate.hpp": "82af1433730d1f7224c07b21c1b0d0b5e0941b84d171faa9f137b85bd58ffa68",
+    "lib/magic_enum/LICENSE": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
+    "lib/magic_enum/README.md": "0a9526d29a7a7e78a96dc223b8d6388b5dbd211991f1357ce202ea0583cdec26",
+    "lib/magic_enum/magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+    "lib/magic_enum/magic_enum.pri": "2223ceb1ae85ef1533be06fb0f360445314af620e992e7be63c6366f90822374",
+    "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+    "lib/telemetry/README.md": "0bf5a9afccc946dd02b26101abeb7b11703c8f1e43bc2956067763ac8df46625",
+    "lib/telemetry/TelemetryCatalog.h": "5a3cbb635f85ecc0721e38ed9972d0c7c000d16f6a94256acac0fb027a6986b3",
+    "lib/telemetry/TelemetryCompiler.h": "8faffc99d7bee04523ec75901648e6d4397c8e588d21b69dd15a9564fb0b5445",
+    "lib/telemetry/TelemetryConversion.h": "077fa9b6257a47baa07dd56eaf9446daf6bbacf877bdcc5771271774c91885b2",
+    "lib/telemetry/TelemetryEnum.h": "e82a2e5c36c0777d439e720e3d3cec99a42c3b97bbad3810bad7047ec84db0a5",
+    "lib/telemetry/TelemetryFieldType.h": "c072313c8d41833fa7ffc957436bc8e2ab548cb2a26433b34a7458e6805efa76",
+    "lib/telemetry/TelemetryGetter.h": "6a7b62fa4c374b5dda827c59e611eb782536364b73ecf5f944a35c4a3b290d6d",
+    "lib/telemetry/TelemetryIndex.h": "f41c5bab39d3639c1a7dded06a3ff4a923d51b5a1529ca1a7f6490f80f84ff3f",
+    "lib/telemetry/TelemetryJson.cpp": "f8ee4aff7dd287fb7458bbb609a2cc3d5e412637acffb33fb9428e56db96855c",
+    "lib/telemetry/TelemetryJson.h": "a06cec2d27d9acfe238acc06ef2a966f8456b019776b8311bd683bf2fb67e7db",
+    "lib/telemetry/TelemetryScalar.h": "5bd8754dafb44cd670e37796cfb1cf06f29790921c5ea78d9f190592c39e35cb",
+    "lib/telemetry/TelemetrySetter.h": "b44732ad6f43124a5060d3bbe1885e0648e646e4a6e26a2f65897ef6d8247454",
+    "lib/telemetry/telemetry.pri": "78e932a876e7586592a4c1ea85f005565cf925d5df3cda311a23c7a0be7e0b92"
+  }
+}

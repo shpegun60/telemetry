@@ -1,0 +1,66 @@
+# H7S telemetry Field benchmark
+
+Author: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
+
+This harness uses a copied NUCLEO-H7S3L8 Cube scaffold from the COBS project.
+The original project is not edited. Its `bench_init`/`bench_loop` hooks,
+600 MHz clock setup, USART3 at 115200 and internal-flash linker script are
+required. The runner builds all selected images before touching the board.
+
+Copy `Boot/Core`, `Drivers` and `Boot/STM32H7S3L8HX_FLASH.ld` from
+`COBS/stm32_cube_test/h7s_cobs_test` into an ignored local build directory.
+Do not copy its `out` directory. Keep every original vendor license/header.
+The recorded copy is `build/field_layout_experiment/h7s/scaffold`.
+
+```powershell
+$armCompiler = (Get-ChildItem 'C:/ST/*/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32*/tools/bin/arm-none-eabi-g++.exe' | Select-Object -First 1).FullName
+# Build only:
+python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-build
+# Fresh build, real DWT measurements, and original-image restoration:
+python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-live --run --serial 002A001F3033510135393935 --port COM6
+# The current production checkout, without candidate overlays:
+python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-current --variants Current --run
+```
+
+Select the actual probe serial and COM port on another machine. `pyserial`
+and STM32CubeProgrammer are needed only with `--run`. Existing output
+directories are refused. Build products, the original image, read-back image,
+UART reports, source/image hashes and all timing windows remain there.
+
+Before any programming, the runner reads the current 64 KiB internal flash.
+Every image must fit that region and is verified after programming. A `finally`
+block restores the backup and compares a new 64 KiB read-back hash. Option
+bytes and external memory are not programmed. An interrupted host process or
+power loss still requires manual restoration from the retained `before.bin`.
+
+## Measurement contract
+
+- Four historical candidates A/B/B32/C, each at `-O2` and `-Os`; `Current`
+  uses the exact production library. C++17, Cortex-M7 hard float, no LTO,
+  exceptions or RTTI. Historical inputs are pinned to `688ae7e`.
+- Internal Flash holds 128 constant fields; a placement-constructed 1024-field
+  array occupies cacheable AXI SRAM. Its first 128 fields are a separate
+  small-RAM control. Array bases are aligned to 32 bytes for every variant.
+- Eight repeated field kinds match the compiler fixture. Setup validates
+  every readable value and ID and both missing-ID boundaries before timing.
+  C's const subobjects are reconstructed only before publishing the views;
+  the final pointer is laundered. No allocation occurs during measurement.
+- Six ID profiles: repeated native F32, bounded F32, native U16, enum U16;
+  sequential; deterministic shuffled IDs. A complete 1024-entry sequence is
+  precomputed in DTCM so random-number generation and sequence cache traffic
+  do not enter the comparison.
+- Five runtime operations: lookup, Scalar read, float read, float write and
+  U16 write. Two known-ID controls run on the first Flash field. The measured
+  loops include call/loop/result-consumption cost; no baseline is subtracted.
+- Each window cleans/invalidates D-cache, invalidates I-cache, warms 2048
+  calls, then times 32768 calls. Interrupts are masked during warmup/timing,
+  and restored immediately afterwards. UART formatting/transmission is outside
+  the window. There are five repeats, 460 windows per image.
+- The host requires the exact device/layout/clock report, complete coverage,
+  unique window keys, bounded positive cycle counts and independently computed
+  result checksums. A failure is retained and still triggers restoration.
+
+This measures the H7S3's M7 and its 32 KiB D-cache, not H753 memory latency.
+Small hot tables, large RAM tables and constant-ID access remain separate in
+the [results](RESULTS.md). Firmware-wide latency, interrupt response and cold
+single-read latency are not established by these masked steady-state windows.
