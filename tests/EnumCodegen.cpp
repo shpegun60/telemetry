@@ -15,7 +15,7 @@ constexpr auto set = +[](const Scalar& value) noexcept {
     telemetry_enum_sink = value.get<std::uint16_t>();
     return WriteResult::Applied;
 };
-constexpr Field plain[] = {{0, "Mode", "", numericType<std::uint16_t>(0, 2, 0), get, set}};
+constexpr Field plain[] = {{0, "Mode", "", numericType<std::uint16_t>(0, 0, 2), get, set}};
 constexpr Field described[] = {{0, "Mode", "", enumType<Mode>(), get, set}};
 constexpr Catalog plainCatalogs[] = {{0, "v", plain}};
 constexpr Catalog enumCatalogs[] = {{0, "v", described}};

@@ -18,12 +18,17 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept;
 
 // {"schema":"<hash>","catalogs":[{"id":0,"name":"meter","fields":[
 //   {"i":0,"id":0,"n":"Ua","u":"V","t":"f32","w":false,
-//    "min":-3.4028234663852886e+38,"max":3.4028234663852886e+38,"default":0},...]}]}
+//    "min":null,"max":null,"default":0},...]}]}
 // Catalog id is the group position; field id packs (group << 16) | i.
 // w reports setter presence; it also participates in the schema fingerprint.
 // Every field exports min, max and default, including read-only fields. Null
 // types export null for all three. They participate in the fingerprint and
 // describe numeric write limits; reading never validates against those limits.
+// For ordinary numeric fields, a null min/max means that endpoint is the native
+// bound of t (finite for floats). Each endpoint is compacted independently,
+// including an explicitly supplied native bound. Enum and Bool bounds are
+// always explicit. Custom bounds and defaults retain their values. Internal
+// limits are always exact; compaction adds no read/write checks.
 // F32 metadata uses 17 digits so parsing it as double preserves its numeric
 // value and advertised endpoints remain writable through checked conversion.
 // Enum-described fields retain their ordinary numeric t and add an "enum"

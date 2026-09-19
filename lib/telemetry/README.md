@@ -111,14 +111,23 @@ Floating bounds use `lowest()`, not `min()` (which is a small positive number).
 Use a constexpr factory for custom definitions:
 
 ```cpp
-constexpr auto voltage = numericType<float>(0.0f, 300.0f, 230.0f);
-constexpr auto count = numericType<std::uint16_t>(10, 20, 15);
+constexpr auto voltage = numericType<float>(230, 0, 300); // default, min, max.
+constexpr auto count = numericType<std::uint16_t>(15, 10, 20);
 constexpr auto ordinary = numericType<double>(); // Native extrema, default 0.
+constexpr auto chosenDefault = numericType<float>(230); // Native extrema, default 230.
+constexpr auto nonnegative = numericType<float>(230, 0); // Native max, default 230.
 constexpr auto anotherDefault = count.withDefault(12);
 constexpr auto anotherRange = count.withLimits(0, 100, 50);
 ```
 
-The three arguments undergo checked conversion to the declared type, using
+`numericType<T>` takes **default, minimum, maximum**, in that order. Either
+bound can be omitted from the end; omitted bounds use the native extrema.
+The zero-argument overload directly constructs the same descriptor as the
+corresponding ScalarType, with `restricted_ = false`. Changing only the
+default also leaves native bounds unrestricted. `withLimits` keeps its
+explicit `minimum, maximum, default` order.
+
+Arguments undergo checked conversion to the declared type, using
 the same rounding/truncation policy as writes. All must be finite and satisfy
 `minimum <= default <= maximum`. Invalid constexpr definitions fail compilation
 at `invalidFieldLimits`; the same programming error terminates via `std::abort`
@@ -142,10 +151,30 @@ To apply it explicitly, call `field.write(field.declaredType.defaultValue())`.
 Every schema field, including read-only fields, exports `min`, `max` and
 `default`; Null metadata exports null properties. Changes to any of these
 values change the schema fingerprint.
-F32 metadata uses 17 significant digits for its promoted double value, so
-clients parsing JSON numbers as double can write advertised extrema back
-without crossing the native F32 range. The Qt schema display keeps the raw
-JSON text, preserving U64/S64 metadata digits too.
+For ordinary numeric fields, a **null bound means the native endpoint of `t`**
+(finite for F32/F64). Each bound is compacted independently, including an
+explicitly supplied native endpoint. Resolve null using `t` while retaining
+the normal write checks:
+
+```cpp
+numericType<float>();             // "min":null,"max":null,"default":0
+numericType<float>(230);          // "min":null,"max":null,"default":230
+numericType<float>(230, 0);       // "min":0,"max":null,"default":230
+numericType<float>(230, 0, 300);  // "min":0,"max":300,"default":230
+numericType<std::uint16_t>();     // "min":null,"max":null,"default":0
+numericType<bool>();              // "min":false,"max":true,"default":false
+enumType<Mode>();                 // "min":0,"max":2,"default":0 for Off=0, Auto=1, Manual=2.
+```
+
+Internal `minimum()`/`maximum()` still return exact Scalars. Defaults remain
+explicit, even when equal to a native endpoint. **Enum and Bool bounds are
+always explicit**, including enum extrema equal to the underlying type's
+native limits. An enum's omitted default remains its smallest named code.
+Custom F32 bounds and defaults use 17 significant digits for the promoted
+double, so clients parsing JSON
+as double can write them back exactly. The Qt display keeps the raw JSON
+text, preserving U64/S64 metadata digits too. Clients must resolve a null
+numeric bound from `t`; the schema fingerprint changes with this format.
 
 Internally one private variant stores a triple of native numbers under one
 tag. This avoids three separate Scalar tags and keeps all three values of
@@ -531,15 +560,15 @@ lookup. The schema includes each group's numeric `id` and each field's local
 `i` plus packed `id`:
 
 ```json
-{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"min":-1.7976931348623157e+308,"max":1.7976931348623157e+308,"default":0}]}
+{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"min":null,"max":null,"default":0}]}
 ```
 
 Values retain named arrays such as `{"sensor":[24.5]}`. The order-sensitive
 FNV-1a fingerprint includes group IDs, all four field-ID bytes, declared
 metadata, setter presence (`w`), min/max/default, enum codes/names/order when
 present, and record/string boundaries. Limits are hashed by numeric value
-bits with explicit byte order, never by object padding. This version adds
-required metadata and changes fingerprints for numeric-only schemas too.
+bits with explicit byte order, never by object padding. A format marker
+changes with compact native-bound encoding so previous cached schemas refresh.
 It is a version hint, not a promise
 against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
@@ -637,7 +666,9 @@ names and field arrays reside in `.rodata`, with no startup constructors or
 behavior after increasing the size of a Field.
 
 `LimitsCodegen.cpp` confirms that bounded F32/U16 reads still branch directly
-to getters. The default U16 write has no interval comparison; a custom U16
+to getters. ScalarType, zero-argument numericType and default-only numericType
+have the same numeric write operations for U16/F32, apart from addresses and
+branch encodings. The default U16 write has no interval comparison; a custom U16
 10..20 interval becomes subtraction and one unsigned comparison. F32 uses
 two F32 comparisons, without double conversion. A constant rejected write
 becomes `movs r0, #3; bx lr`, without a callback or runtime bound lookup.

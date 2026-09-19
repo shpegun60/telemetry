@@ -40,6 +40,7 @@ void checkBuffers(Serialize serialize, const char* message)
         {1, "second", "A", ScalarType::F64, []() noexcept { return -0.25; }},
         {2, "maximum", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
         {3, "minimum", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
+        {4, "limited", "", numericType<float>(1.2f, -1.25f, 2.5f)},
     };
     const Catalog catalogs[] = {{0, "v", fields}};
     const CatalogIndex index{catalogs};
@@ -151,8 +152,8 @@ void checkLocale()
     }
     const std::string selectedName = std::setlocale(LC_NUMERIC, nullptr);
     const Field fields[] = {
-        {0, "float", "", ScalarType::F32, []() noexcept { return 1.5f; }},
-        {1, "double", "", ScalarType::F64, []() noexcept { return -2.25; }},
+        {0, "float", "", numericType<float>(1.25f, 0.5f, 2.5f), []() noexcept { return 1.5f; }},
+        {1, "double", "", numericType<double>(-2.25, -3.5, 0), []() noexcept { return -2.25; }},
     };
     const Catalog catalogs[] = {{0, "v", fields}};
     char text[128];
@@ -161,6 +162,11 @@ void checkLocale()
            "locale regression actually runs with a decimal comma");
     expect(size != 0 && std::strcmp(text, "{\"v\":[1.5,-2.25]}") == 0,
            "JSON keeps a decimal point and correct array length in a comma locale");
+    char schema[512];
+    expect(writeSchema(catalogs, std::size(catalogs), schema, sizeof(schema)) != 0
+        && std::strstr(schema, "\"min\":0.5,\"max\":2.5,\"default\":1.25") != nullptr
+        && std::strstr(schema, "\"min\":-3.5,\"max\":0,\"default\":-2.25") != nullptr,
+        "custom floating bounds and defaults retain a JSON decimal point in a comma locale");
     expect(selectedName == std::setlocale(LC_NUMERIC, nullptr),
            "serialization does not change the application's numeric locale");
     checkBuffers(static_cast<Serialize>(&writeValues), "locale conversion respects every output boundary");

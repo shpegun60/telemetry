@@ -20,7 +20,7 @@ REJECTIONS = {
     14: r"requires an enum type", 15: r"does not have a name|must have names",
     16: r"codes must be unique", 17: r"dictionary is empty",
     18: r"no matching", 19: r"no matching",
-    **{case: r"invalidFieldLimits" for case in range(20, 28)},
+    **{case: r"invalidFieldLimits" for case in range(20, 31)},
 }
 
 

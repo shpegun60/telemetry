@@ -58,7 +58,7 @@ constexpr Field meterFields[] = {
     {makeId(0, 6), "UaBind", "V", ScalarType::F32, Getter::bind<&readUa>()},
     // 5. A const method on a known global object, also constexpr-bindable.
     {makeId(0, 7), "UaMethod", "V", ScalarType::F32, Getter::bind<&Meter::readVoltage>(meter)},
-    {makeId(0, 8), "VoltageLimit", "V", telemetry::numericType<float>(1.0f, 1000.0f, 250.0f),
+    {makeId(0, 8), "VoltageLimit", "V", telemetry::numericType<float>(250.0f, 1.0f, 1000.0f),
      []() noexcept { return meter.threshold; },
      [](const Scalar& value) noexcept {
          if (value.type() != ScalarType::F32) return WriteResult::InvalidValue;

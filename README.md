@@ -124,6 +124,9 @@ auto value = demo.index().read(telemetry::makeId(1, 0)); // Scalar, value.type()
 
 The schema publishes group IDs, packed field IDs, local positions `i` and
 setter presence `w`, and required `min`, `max`, `default` properties.
+Native endpoints of ordinary numeric fields use `null`: resolve them from `t`.
+Custom bounds and defaults remain explicit. Enum and Bool bounds are always
+explicit, even at the native endpoints of their underlying type.
 VoltageLimit (ID 8) and Mode (ID 9) are writable; other fields are read-only.
 VoltageLimit declares write limits 1..1000 and default 250:
 
@@ -132,7 +135,10 @@ const auto result = demo.index().write(telemetry::makeId(0, 8), 275);
 // Applied; an ordinary int is converted to the field's F32 before its setter.
 ```
 
-`numericType<float>(1, 1000, 250)` defines those limits at compile time.
+`numericType<float>(250, 1, 1000)` defines those limits at compile time, with
+arguments in **default, min, max** order. `numericType<float>(250)` keeps the
+native extrema; `numericType<float>()` also keeps default zero and is equivalent
+to `ScalarType::F32`.
 `enumType<Mode>(Mode::Auto)` derives enum extrema automatically and sets a
 chosen default. Defaults are metadata, never automatic writes. Only writes
 check the inclusive interval, after conversion. Reads ignore the interval.
@@ -190,10 +196,10 @@ Verified after numeric, lifetime-contract, serialization, enum and write-limit r
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  99/99 core, 87/87 write/getter, 87/87 read, 17/17 JSON, 121/121 numeric
-  oracle, 45/45 enum and 66/66 limits checks passed with C++17 (522 total).
-  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 524 total).
-  Twenty-seven expected compilation failures cover invalid bindings/reads,
+  99/99 core, 87/87 write/getter, 87/87 read, 18/18 JSON, 121/121 numeric
+  oracle, 45/45 enum and 107/107 limits checks passed with C++17 (564 total).
+  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 566 total).
+  Thirty expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also

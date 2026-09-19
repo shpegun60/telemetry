@@ -15,9 +15,14 @@ constexpr auto setInteger = +[](const Scalar& value) noexcept {
     telemetry_limits_integer = value.get<std::uint16_t>(); return WriteResult::Applied;
 };
 constexpr Field rows[] = {
-    {0, "f32", "", numericType<float>(-10, 300, 0), getFloat, setFloat},
-    {1, "u16", "", numericType<std::uint16_t>(10, 20, 15), getInteger, setInteger},
+    {0, "f32", "", numericType<float>(0, -10, 300), getFloat, setFloat},
+    {1, "u16", "", numericType<std::uint16_t>(15, 10, 20), getInteger, setInteger},
     {2, "full", "", ScalarType::U16, getInteger, setInteger},
+    {3, "native", "", numericType<std::uint16_t>(), getInteger, setInteger},
+    {4, "default", "", numericType<std::uint16_t>(230), getInteger, setInteger},
+    {5, "native_f32", "", numericType<float>(), getFloat, setFloat},
+    {6, "plain_f32", "", ScalarType::F32, getFloat, setFloat},
+    {7, "default_f32", "", numericType<float>(230), getFloat, setFloat},
 };
 constexpr Catalog catalogs[] = {{0, "v", rows}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
@@ -31,5 +36,10 @@ __attribute__((noinline)) std::uint16_t limits_read_integer() noexcept { return 
 __attribute__((noinline)) telemetry::WriteResult limits_write_float(float value) noexcept { return index.write(0, value); }
 __attribute__((noinline)) telemetry::WriteResult limits_write_integer(std::uint16_t value) noexcept { return index.write(1, value); }
 __attribute__((noinline)) telemetry::WriteResult limits_write_full(std::uint16_t value) noexcept { return index.write(2, value); }
+__attribute__((noinline)) telemetry::WriteResult limits_write_native(std::uint16_t value) noexcept { return index.write(3, value); }
+__attribute__((noinline)) telemetry::WriteResult limits_write_default(std::uint16_t value) noexcept { return index.write(4, value); }
+__attribute__((noinline)) telemetry::WriteResult limits_write_native_float(float value) noexcept { return index.write(5, value); }
+__attribute__((noinline)) telemetry::WriteResult limits_write_plain_float(float value) noexcept { return index.write(6, value); }
+__attribute__((noinline)) telemetry::WriteResult limits_write_default_float(float value) noexcept { return index.write(7, value); }
 __attribute__((noinline)) telemetry::WriteResult limits_write_rejected() noexcept { return index.write(1, 21); }
 }

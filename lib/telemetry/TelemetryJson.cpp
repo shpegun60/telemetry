@@ -219,6 +219,36 @@ bool append_metadata_(Writer& out, const Scalar& value) noexcept
     return append_scalar_(out, value);
 }
 
+template <class T>
+bool append_numeric_bound_(Writer& out, const Scalar& value, bool minimum) noexcept
+{
+    const T native = minimum ? std::numeric_limits<T>::lowest() : std::numeric_limits<T>::max();
+    return value.get<T>() == native ? out.append("null") : append_metadata_(out, value);
+}
+
+bool append_bound_(Writer& out, const Scalar& value, bool minimum, bool enumBound) noexcept
+{
+    // Schema-only shorthand: null means the native endpoint of the numeric
+    // type. Compare each endpoint independently and without widening to double.
+    // Enum and Bool bounds are always explicit, even at native endpoints.
+    if (!enumBound) {
+        switch (value.type()) {
+            case ScalarType::F32: return append_numeric_bound_<float>(out, value, minimum);
+            case ScalarType::F64: return append_numeric_bound_<double>(out, value, minimum);
+            case ScalarType::U8: return append_numeric_bound_<std::uint8_t>(out, value, minimum);
+            case ScalarType::U16: return append_numeric_bound_<std::uint16_t>(out, value, minimum);
+            case ScalarType::U32: return append_numeric_bound_<std::uint32_t>(out, value, minimum);
+            case ScalarType::U64: return append_numeric_bound_<std::uint64_t>(out, value, minimum);
+            case ScalarType::S8: return append_numeric_bound_<std::int8_t>(out, value, minimum);
+            case ScalarType::S16: return append_numeric_bound_<std::int16_t>(out, value, minimum);
+            case ScalarType::S32: return append_numeric_bound_<std::int32_t>(out, value, minimum);
+            case ScalarType::S64: return append_numeric_bound_<std::int64_t>(out, value, minimum);
+            default: break;
+        }
+    }
+    return append_metadata_(out, value);
+}
+
 struct EnumJsonContext {
     Writer& out;
     bool first = true;
@@ -302,7 +332,9 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
             hash = fnv1a_(hash, field.unit);
             hash = fnv1a_(hash, type_name_(field.declaredType));
             hash = hash_byte_(hash, field.set ? 1u : 0u);
-            hash = hash_byte_(hash, 'L');
+            // Revise the format marker for native numeric bounds as null.
+            // Continue hashing the actual bounds, independent of their text.
+            hash = hash_byte_(hash, 'B');
             hash = hash_scalar_(hash, field.declaredType.minimum());
             hash = hash_scalar_(hash, field.declaredType.maximum());
             hash = hash_scalar_(hash, field.declaredType.defaultValue());
@@ -330,14 +362,15 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
                         (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id), catalogs[c].name)) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
+            const bool hasEnum = field.declaredType.hasEnum();
             if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s",
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i),
                             field.id, field.name, field.unit, type_name_(field.declaredType),
                             field.set ? "true" : "false")) return 0;
-            if (!out.append(",\"min\":") || !append_metadata_(out, field.declaredType.minimum())
-                || !out.append(",\"max\":") || !append_metadata_(out, field.declaredType.maximum())
+            if (!out.append(",\"min\":") || !append_bound_(out, field.declaredType.minimum(), true, hasEnum)
+                || !out.append(",\"max\":") || !append_bound_(out, field.declaredType.maximum(), false, hasEnum)
                 || !out.append(",\"default\":") || !append_metadata_(out, field.declaredType.defaultValue())) return 0;
-            if (field.declaredType.hasEnum()) {
+            if (hasEnum) {
                 if (!out.append(",\"enum\":{")) return 0;
                 EnumJsonContext context{out};
                 if (!field.declaredType.describeEnum(&context, &append_enum_entry_)) return 0;

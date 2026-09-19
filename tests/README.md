@@ -14,7 +14,7 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes seven suites, verifies twenty-seven rejected programs, checks
+The runner executes seven suites, verifies thirty rejected programs, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks and stop on the first diagnostic. Compiler warnings
@@ -103,6 +103,9 @@ documented in the library and dependency READMEs.
 
 ## Write-limit checkpoint, 2026-09-19
 
+This records checkpoint `1893e61`; the default-first API and compact schema
+checkpoint below supersede its argument order and native-bound JSON text.
+
 The seventh suite adds 66 checks and constexpr assertions for native extrema,
 custom bounds, defaults, enum-derived limits, full-width 64-bit comparisons,
 inclusive endpoints, conversion before range checks and required schema
@@ -136,6 +139,48 @@ one unsigned comparison. A known rejected write is a constant return without
 callback dispatch. Enum/plain fields with equal limits have equal numeric
 operations, with table-address and instruction-encoding differences. These
 are compiled-object results, not measured board cycles or cache behavior.
+
+## Default-first factory and compact bounds, 2026-09-19
+
+`numericType<T>` now takes default, minimum, maximum. Zero arguments keep
+the native range and zero/false default; one sets only the default; two set
+default/minimum and retain the native maximum. Compile-time assertions cover
+all native alternatives, and three new rejected programs cover default
+overflow, NaN and a default below a supplied minimum.
+
+Ordinary numeric fields serialize each native bound as null, resolved from
+the schema's `t`. Custom endpoints remain exact numbers. Enum and Bool
+bounds always stay explicit, including enum extrema equal to native limits.
+Defaults are always explicit. New checks cover all eleven alternatives,
+partial ranges, adjacent U64/S64 endpoints, F32/F64 limits resolved or parsed
+as double and written back, and metadata under a decimal-comma locale.
+The format marker changes schema fingerprints so cached old schemas refresh.
+
+Reviewed every active library source/header, the used delegate bindings,
+demo lifetimes, numeric conversions, lookup, serialization and build files.
+Runtime metadata construction exposed GCC 13's maybe-uninitialized diagnostic
+on intermediate optional results. Normalizing local Scalars before extracting
+native values removes those intermediates and the diagnostic without disabling
+warnings; constant evaluation and the public conversion policy are preserved.
+No additional library defects were found within the caller contracts below.
+
+GCC 13.1 and Clang 18 passed 564 C++17 / 566 C++20 checks and all 30 expected
+compile failures, standalone headers and rejected floating optimization flags.
+Clang C++17 also passed ASan, UBSan and float-cast-overflow. Qt 6.10.1 Release
+passed offscreen startup. The parsed demo schema has 20 fields and is 2002
+UTF-8 bytes, down from 2359 with the previous serializer. Mode retains
+0..2/default 1, Bool retains false..true/default false, and value JSON still
+contains exact U64/S64 digits.
+
+CubeIDE GCC 14.3.1 compiled 17 sources (library, demo, seven suites, seven
+probes and the minimal consumer) at both `-O2`/`-Os`, without exceptions/RTTI
+and with warnings as errors. The minimal consumer linked with newlib-nano.
+In `LimitsCodegen.cpp`, ScalarType, zero-argument numericType and default-only
+numericType produce identical numeric write operations for U16 and F32,
+apart from addresses/branch encodings. U16 has no range comparison; F32
+retains only its native finite-value checks. Bounded reads still branch
+directly to getters. No read/write path consults enum metadata. These are
+compiled-object observations; no board execution or cycle timing was done.
 
 ## Contracts the caller supplies
 

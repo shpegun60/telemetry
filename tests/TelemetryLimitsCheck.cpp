@@ -27,7 +27,7 @@ Owner source;
 enum class Mode : std::int16_t { Low = -4, High = 8 };
 enum class Wide : std::uint64_t { Low = UINT64_MAX - 2, High = UINT64_MAX };
 enum class Signed : std::int64_t { Low = INT64_MIN, High = INT64_MAX };
-constexpr auto bounded = numericType<std::uint16_t>(10, 20, 15);
+constexpr auto bounded = numericType<std::uint16_t>(15, 10, 20);
 constexpr Field rows[] = {{0, "level", "", bounded,
     Getter::bind<&Owner::read>(source), Setter::bind<&Owner::write>(source)}};
 constexpr Catalog catalogs[] = {{0, "v", rows}};
@@ -35,7 +35,14 @@ constexpr auto index = CatalogIndex::bind<catalogs>();
 static_assert(bounded.minimum().get<std::uint16_t>() == 10);
 static_assert(bounded.maximum().get<std::uint16_t>() == 20);
 static_assert(bounded.defaultValue().get<std::uint16_t>() == 15);
-static_assert(numericType<std::uint16_t>(10, 20, 12.75).defaultValue().get<std::uint16_t>() == 12);
+static_assert(numericType<std::uint16_t>(12.75, 10, 20).defaultValue().get<std::uint16_t>() == 12);
+constexpr auto voltage = numericType<float>(230, 0, 300);
+static_assert(voltage.defaultValue().get<float>() == 230);
+static_assert(voltage.minimum().get<float>() == 0 && voltage.maximum().get<float>() == 300);
+constexpr auto positive = numericType<float>(230, 0);
+static_assert(positive.defaultValue().get<float>() == 230 && positive.minimum().get<float>() == 0);
+static_assert(positive.maximum().get<float>() == std::numeric_limits<float>::max());
+static_assert(numericType<std::uint16_t>(12.75).defaultValue().get<std::uint16_t>() == 12);
 static_assert(enumType<Mode>().minimum().get<std::int16_t>() == -4);
 static_assert(enumType<Mode>().maximum().get<std::int16_t>() == 8);
 static_assert(enumType<Mode>().defaultValue().get<std::int16_t>() == -4);
@@ -50,16 +57,29 @@ void checkNative()
 {
     constexpr FieldType implicit = Scalar::from(T{}).type();
     constexpr auto named = numericType<T>();
+    constexpr auto chosen = numericType<T>(std::numeric_limits<T>::max());
     static_assert(implicit.minimum().template get<T>() == std::numeric_limits<T>::lowest());
     static_assert(implicit.maximum().template get<T>() == std::numeric_limits<T>::max());
     static_assert(implicit.defaultValue().template get<T>() == T{});
     static_assert(named.minimum().template get<T>() == std::numeric_limits<T>::lowest());
+    static_assert(named.maximum().template get<T>() == std::numeric_limits<T>::max());
+    static_assert(named.defaultValue().template get<T>() == T{});
+    static_assert(chosen.minimum().template get<T>() == std::numeric_limits<T>::lowest());
+    static_assert(chosen.maximum().template get<T>() == std::numeric_limits<T>::max());
+    static_assert(chosen.defaultValue().template get<T>() == std::numeric_limits<T>::max());
     Owner owner;
     const Field field{0, "native", "", implicit, Getter::bind<&Owner::read>(owner), Setter::bind<&Owner::write>(owner)};
     expect(field.write(std::numeric_limits<T>::lowest()) == WriteResult::Applied
         && owner.value.get<T>() == std::numeric_limits<T>::lowest(), "native minimum is writable without precision loss");
     expect(field.write(std::numeric_limits<T>::max()) == WriteResult::Applied
         && owner.value.get<T>() == std::numeric_limits<T>::max(), "native maximum is writable without precision loss");
+    const Catalog catalog{0, "v", &field, 1};
+    char text[512];
+    const char* const metadata = std::is_same_v<T, bool>
+        ? "\"min\":false,\"max\":true,\"default\":false"
+        : "\"min\":null,\"max\":null,\"default\":0";
+    expect(writeSchema(&catalog, 1, text, sizeof(text)) != 0 && std::strstr(text, metadata) != nullptr,
+           "every ordinary numeric type compacts native bounds while Bool stays explicit");
 }
 
 void checkRange()
@@ -102,7 +122,7 @@ void checkFloating()
         expect(read && (std::isnan(value) ? std::isnan(*read) : *read == value),
                "floating reads preserve special values regardless of write bounds");
     }
-    const Field limited{0, "limited", "", numericType<float>(-1.0f, 1.0f, -0.0f), nullptr, Setter::bind<&Owner::write>(owner)};
+    const Field limited{0, "limited", "", numericType<float>(-0.0f, -1.0f, 1.0f), nullptr, Setter::bind<&Owner::write>(owner)};
     expect(limited.write(-1.0f) == WriteResult::Applied && limited.write(1.0f) == WriteResult::Applied,
            "float interval endpoints are inclusive");
     expect(limited.write(std::nextafter(1.0f, 2.0f)) == WriteResult::InvalidValue
@@ -125,7 +145,7 @@ void checkEnumsAndWideValues()
     expect(wide.write(UINT64_MAX - 1) == WriteResult::Applied
         && owner.value.get<std::uint64_t>() == UINT64_MAX - 1, "U64 limits and gaps compare without a double intermediate");
     expect(wide.write(UINT64_MAX - 3) == WriteResult::InvalidValue, "U64 lower endpoint remains exact");
-    const Field negative{0, "negative", "", numericType<std::int64_t>(INT64_MIN, INT64_MIN + 2, INT64_MIN),
+    const Field negative{0, "negative", "", numericType<std::int64_t>(INT64_MIN, INT64_MIN, INT64_MIN + 2),
         nullptr, Setter::bind<&Owner::write>(owner)};
     expect(negative.write(INT64_MIN + 1) == WriteResult::Applied
         && negative.write(INT64_MIN + 3) == WriteResult::InvalidValue, "S64 limits compare exactly near minimum");
@@ -155,40 +175,96 @@ void checkSchema()
         {2, "mode", "", enumType<Mode>(Mode::High)},
         {3, "empty", "", ScalarType::Null},
         {4, "wide", "", enumType<Wide, Wide::Low, Wide::High>()},
+        {5, "signed", "", numericType<std::int64_t>(INT64_MIN, INT64_MIN, INT64_MIN + 2)},
+        {6, "unsigned", "", numericType<std::uint64_t>(UINT64_MAX - 2, UINT64_MAX - 2, UINT64_MAX)},
+        {7, "adjacent", "", numericType<std::uint64_t>(UINT64_MAX - 2, UINT64_MAX - 2, UINT64_MAX - 1)},
     };
     const Catalog groups[] = {{0, "v", fields}};
     char text[2048];
     expect(writeSchema(groups, 1, text, sizeof(text)) != 0, "schema with required limits serializes");
-    expect(std::strstr(text, "\"min\":0,\"max\":255,\"default\":0") != nullptr, "ordinary read-only fields export native extrema and default");
+    expect(std::strstr(text, "\"min\":null,\"max\":null,\"default\":0") != nullptr, "ordinary read-only fields export compact native bounds and explicit default");
     expect(std::strstr(text, "\"min\":10,\"max\":20,\"default\":15") != nullptr, "custom interval and default export unconditionally");
     expect(std::strstr(text, "\"min\":-4,\"max\":8,\"default\":8,\"enum\"") != nullptr, "enum schema includes extrema and chosen default");
     expect(std::strstr(text, "\"min\":null,\"max\":null,\"default\":null") != nullptr, "Null metadata still exports all required properties");
     expect(std::strstr(text, "\"min\":18446744073709551613,\"max\":18446744073709551615,\"default\":18446744073709551613") != nullptr,
-           "64-bit metadata exports exact integer digits");
-    expect(fingerprint(bounded) != fingerprint(numericType<std::uint16_t>(9, 20, 15)), "minimum participates in schema fingerprint");
-    expect(fingerprint(bounded) != fingerprint(numericType<std::uint16_t>(10, 21, 15)), "maximum participates in schema fingerprint");
+           "enum bounds stay explicit at native endpoints with exact 64-bit digits");
+    expect(std::strstr(text, "\"min\":null,\"max\":-9223372036854775806,\"default\":-9223372036854775808") != nullptr,
+           "S64 compaction keeps adjacent custom bounds and the native default exact");
+    expect(std::strstr(text, "\"min\":18446744073709551613,\"max\":null,\"default\":18446744073709551613") != nullptr,
+           "ordinary U64 compacts only its native maximum");
+    expect(std::strstr(text, "\"min\":18446744073709551613,\"max\":18446744073709551614,\"default\":18446744073709551613") != nullptr,
+           "a U64 maximum one below the native endpoint stays numeric");
+    expect(fingerprint(bounded) != fingerprint(numericType<std::uint16_t>(15, 9, 20)), "minimum participates in schema fingerprint");
+    expect(fingerprint(bounded) != fingerprint(numericType<std::uint16_t>(15, 10, 21)), "maximum participates in schema fingerprint");
     expect(fingerprint(bounded) != fingerprint(bounded.withDefault(16)), "default participates in schema fingerprint");
     expect(fingerprint(ScalarType::F32) == fingerprint(numericType<float>()), "equivalent type construction produces identical metadata fingerprint");
 }
 
-void checkSchemaRoundTrip()
+template <class T>
+void checkCompactFloating()
+{
+    const auto hasMetadata = [](FieldType type, const char* metadata) {
+        const Field fields[] = {{0, "number", "", type}};
+        const Catalog groups[] = {{0, "v", fields}};
+        char text[512];
+        return writeSchema(groups, 1, text, sizeof(text)) != 0 && std::strstr(text, metadata) != nullptr;
+    };
+    constexpr T low = std::numeric_limits<T>::lowest();
+    constexpr T high = std::numeric_limits<T>::max();
+    expect(hasMetadata(Scalar::from(T{}).type(), "\"min\":null,\"max\":null,\"default\":0"),
+           "plain floating type exports native endpoints as null");
+    expect(hasMetadata(numericType<T>(), "\"min\":null,\"max\":null,\"default\":0"),
+           "zero-argument numeric factory has the same compact metadata");
+    expect(hasMetadata(numericType<T>(230), "\"min\":null,\"max\":null,\"default\":230"),
+           "a chosen default leaves both native endpoints compact");
+    expect(hasMetadata(numericType<T>(230, 0), "\"min\":0,\"max\":null,\"default\":230"),
+           "only the omitted upper bound is null for a custom minimum");
+    expect(hasMetadata(numericType<T>(230, low, 300), "\"min\":null,\"max\":300,\"default\":230"),
+           "only the native lower bound is null for a custom maximum");
+    expect(hasMetadata(numericType<T>(230, 0, 300), "\"min\":0,\"max\":300,\"default\":230"),
+           "two custom floating endpoints remain numeric");
+    expect(fingerprint(numericType<T>()) == fingerprint(numericType<T>(0, low, high)),
+           "explicit and implicit native limits have the same schema fingerprint");
+    Owner owner;
+    const Field field{0, "number", "", numericType<T>(230),
+        Getter::bind<&Owner::read>(owner), Setter::bind<&Owner::write>(owner)};
+    expect(field.write(low) == WriteResult::Applied && field.read<T>() == low
+        && field.write(high) == WriteResult::Applied && field.read<T>() == high,
+        "compact schema leaves the full native read/write range intact");
+    expect(field.write(std::numeric_limits<T>::infinity()) == WriteResult::InvalidValue
+        && field.write(std::numeric_limits<T>::quiet_NaN()) == WriteResult::InvalidValue,
+        "unrestricted floating writes still reject infinity and NaN");
+}
+
+template <class T>
+void checkSchemaRoundTrip(bool nativeBounds)
 {
     Owner owner;
-    const Field fields[] = {{0, "f32", "", numericType<float>().withDefault(1.2f),
+    const T low = nativeBounds ? std::numeric_limits<T>::lowest()
+                              : std::nextafter(std::numeric_limits<T>::lowest(), T{0});
+    const T high = nativeBounds ? std::numeric_limits<T>::max()
+                               : std::nextafter(std::numeric_limits<T>::max(), T{0});
+    const Field fields[] = {{0, "number", "", numericType<T>(T{1.2}, low, high),
         nullptr, Setter::bind<&Owner::write>(owner)}};
     const Catalog groups[] = {{0, "v", fields}};
     char text[1024];
     const bool serialized = writeSchema(groups, 1, text, sizeof(text)) != 0;
     const char* const properties[] = {"\"min\":", "\"max\":", "\"default\":"};
-    const float expected[] = {std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max(), 1.2f};
+    const T expected[] = {low, high, T{1.2}};
     for (std::size_t i = 0; i < 3; ++i) {
         const char* const property = serialized ? std::strstr(text, properties[i]) : nullptr;
+        const char* const start = property ? property + std::strlen(properties[i]) : "";
+        const bool isNull = std::strncmp(start, "null", 4) == 0;
         char* end = nullptr;
-        const double parsed = property ? std::strtod(property + std::strlen(properties[i]), &end) : 0;
-        expect(property && end != property + std::strlen(properties[i])
+        // Resolve a native endpoint using t; parse custom numbers as double.
+        const double parsed = isNull ? static_cast<double>(i == 0 ? std::numeric_limits<T>::lowest()
+                                                                 : std::numeric_limits<T>::max())
+                                     : std::strtod(start, &end);
+        expect(property && isNull == (nativeBounds && i < 2)
+            && (isNull || (end != start && (*end == ',' || *end == '}')))
             && parsed == static_cast<double>(expected[i]) && fields[0].write(parsed) == WriteResult::Applied
-            && owner.value.get<float>() == expected[i],
-            "F32 metadata parsed as double writes back exactly, including native extrema");
+            && owner.value.get<T>() == expected[i],
+            "floating metadata resolves null bounds or parses double and writes back exactly");
     }
 }
 }
@@ -198,7 +274,10 @@ int main()
     checkNative<float>(); checkNative<double>(); checkNative<bool>();
     checkNative<std::uint8_t>(); checkNative<std::uint16_t>(); checkNative<std::uint32_t>(); checkNative<std::uint64_t>();
     checkNative<std::int8_t>(); checkNative<std::int16_t>(); checkNative<std::int32_t>(); checkNative<std::int64_t>();
-    checkRange(); checkFloating(); checkEnumsAndWideValues(); checkSchema(); checkSchemaRoundTrip();
+    checkRange(); checkFloating(); checkEnumsAndWideValues(); checkSchema();
+    checkCompactFloating<float>(); checkCompactFloating<double>();
+    checkSchemaRoundTrip<float>(true); checkSchemaRoundTrip<float>(false);
+    checkSchemaRoundTrip<double>(true); checkSchemaRoundTrip<double>(false);
     std::printf("%d/%d telemetry limit checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

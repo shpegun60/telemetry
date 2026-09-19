@@ -72,24 +72,28 @@ public:
     // Return a new descriptor; published metadata remains immutable.
     constexpr FieldType withLimits(Scalar minimum, Scalar maximum, Scalar initial) const noexcept
     {
+        // Normalize local values before extracting the native limits. This
+        // also keeps runtime construction free of intermediate optionals.
+        if (!convertScalar(minimum, valueType_, minimum)
+            || !convertScalar(maximum, valueType_, maximum)
+            || !convertScalar(initial, valueType_, initial)) detail::invalidFieldLimits();
         FieldType result = *this;
         const bool valid = std::visit([&](auto& limits) constexpr noexcept {
             using L = std::decay_t<decltype(limits)>;
             if constexpr (std::is_same_v<L, std::monostate>) return false;
             else {
                 using T = decltype(limits.minimum);
-                const auto low = convertScalar<T>(minimum);
-                const auto high = convertScalar<T>(maximum);
-                const auto start = convertScalar<T>(initial);
-                if (!low || !high || !start) return false;
+                const T low = minimum.get<T>();
+                const T high = maximum.get<T>();
+                const T start = initial.get<T>();
                 if constexpr (std::is_floating_point_v<T>) {
-                    if (!detail::scalarFinite(*low) || !detail::scalarFinite(*high)
-                        || !detail::scalarFinite(*start)) return false;
+                    if (!detail::scalarFinite(low) || !detail::scalarFinite(high)
+                        || !detail::scalarFinite(start)) return false;
                 }
-                if (!(*low <= *start && *start <= *high)) return false;
-                limits = {*low, *high, *start};
-                result.restricted_ = *low != std::numeric_limits<T>::lowest()
-                    || *high != std::numeric_limits<T>::max();
+                if (!(low <= start && start <= high)) return false;
+                limits = {low, high, start};
+                result.restricted_ = low != std::numeric_limits<T>::lowest()
+                    || high != std::numeric_limits<T>::max();
                 return true;
             }
         }, result.limits_);
@@ -179,8 +183,12 @@ constexpr FieldType numericType() noexcept
     return Scalar::from(T{}).type();
 }
 
+// Default first; omitted bounds retain the full native range. Keep Scalar
+// parameters so conversions are checked before any narrowing to T occurs.
 template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
-constexpr FieldType numericType(Scalar minimum, Scalar maximum, Scalar initial) noexcept
+constexpr FieldType numericType(Scalar initial,
+    Scalar minimum = Scalar::from(std::numeric_limits<T>::lowest()),
+    Scalar maximum = Scalar::from(std::numeric_limits<T>::max())) noexcept
 {
     return numericType<T>().withLimits(minimum, maximum, initial);
 }
