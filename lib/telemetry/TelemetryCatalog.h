@@ -15,12 +15,13 @@
 #include "TelemetrySetter.h"
 #include "TelemetryConversion.h"
 #include "TelemetryFieldType.h"
+#include "TelemetryCacheline.h"
 
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version or a link-time guard.
-// Revision 2 introduces the 32-byte-aligned Field layout. Rebuild all consumers.
-inline constexpr std::uint32_t telemetryAbiVersion = 2;
+// Revision 3 separates read/write contracts and makes definitions immutable.
+inline constexpr std::uint32_t telemetryAbiVersion = 3;
 
 // Packed identity: high 16 bits are the zero-based group position; low
 // 16 bits are the zero-based field position within that group.
@@ -51,33 +52,47 @@ constexpr FieldOffset indexOf(FieldId id) noexcept
 // All referenced objects, arrays and strings must outlive their consumers.
 // Field metadata and addresses stay unchanged from Catalog construction;
 // only values inside the bound source objects may change during use.
-// ARM32: Getter, Setter and the numeric FieldType header occupy the first
-// 32-byte line. The 96-byte stride keeps that prefix aligned in every row.
+// ARM32: Getter/readType occupy line 0; Setter, numeric tag and bounds line 1.
+// The default Scalar and enum description are cold; the Field stride stays 96.
 // Positional table initialization is preserved by the constexpr constructor.
-struct alignas(32) Field {
-    Getter get = nullptr;
-    Setter set = nullptr;
-    FieldType declaredType = ScalarType::Null;
-    FieldId id = 0;
-    const char* name = "";
-    const char* unit = "";
+// RW32: independent read and write prefixes in one array element.
+struct alignas(cacheLineBytes) Field {
+    const Getter get;
+    const ScalarType readType;
+    const FieldId id;
+    const char* const name;
+    const char* const unit;
+
+    alignas(cacheLineBytes) const Setter set;
+    const FieldType declaredType;
+
+    static_assert(sizeof(Getter) + sizeof(ScalarType) <= cacheLineBytes,
+                  "Cache line must contain the getter and read type");
+    static_assert(sizeof(Setter) % alignof(FieldType) == 0
+                  && sizeof(Setter) + FieldType::writeBytes_() <= cacheLineBytes,
+                  "Cache line must contain the complete setter/type/bounds contract");
 
     constexpr Field(FieldId fieldId = 0, const char* fieldName = "",
                     const char* fieldUnit = "", FieldType fieldType = ScalarType::Null,
                     Getter getter = nullptr, Setter setter = nullptr) noexcept
-        : get(getter), set(setter), declaredType(fieldType), id(fieldId),
-          name(fieldName), unit(fieldUnit) {}
+        : get(getter), readType(static_cast<ScalarType>(fieldType)), id(fieldId),
+          name(fieldName), unit(fieldUnit), set(setter), declaredType(fieldType) {}
 
-    // declaredType is the value contract for both reads and writes. Invoke the
+    constexpr Field(const Field&) noexcept = default;
+    constexpr Field(Field&&) noexcept = default;
+    // Const members keep the duplicated read tag and complete definition in sync.
+    // Assignment is implicitly deleted; copy/move construction remains trivial.
+
+    // readType is the value contract for both reads and writes. Invoke the
     // getter once, then normalize in place; a failed conversion yields Null.
     // Matching numeric types preserve their payload without a numeric cast.
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read() const noexcept
     {
         Scalar value = get();
-        return convertScalar(value, declaredType, value) ? value : Scalar::null();
+        return convertScalar(value, readType, value) ? value : Scalar::null();
     }
 
-    // Normalize to declaredType before adapting to the requested C++ type.
+    // Normalize to readType before adapting to the requested C++ type.
     // This must preserve the declared type's rounding, truncation and range
     // even when T happens to equal the getter's original result type.
     template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
@@ -89,10 +104,10 @@ struct alignas(32) Field {
         // conversion already enforces the field's complete value contract.
         // Return it directly without constructing another Scalar in between.
         if constexpr (std::is_same_v<T, Scalar::NativeType<requestedType>>) {
-            if (declaredType == requestedType) return convertScalar<T>(value);
+            if (readType == requestedType) return convertScalar<T>(value);
         }
         std::optional<T> result;
-        if (convertScalar(value, declaredType, value)) result = convertScalar<T>(value);
+        if (convertScalar(value, readType, value)) result = convertScalar<T>(value);
         return result;
     }
 
@@ -112,6 +127,7 @@ struct alignas(32) Field {
         return set(converted);
     }
 };
+
 
 struct Catalog {
     const GroupId id = 0;

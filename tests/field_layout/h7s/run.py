@@ -21,7 +21,7 @@ EXP = HERE.parent
 BASE = runpy.run_path(str(EXP / 'run.py'))
 VARIANTS = ['A', 'B', 'B32', 'C', 'Current']
 LAYOUTS = {'A': (80, 8, 56, 68, 16), 'B': (80, 8, 0, 12, 24),
-           'B32': (96, 32, 0, 12, 24), 'C': (96, 32, 0, 12, 40), 'Current': (96, 32, 0, 12, 24)}
+           'B32': (96, 32, 0, 12, 24), 'C': (96, 32, 0, 12, 40), 'Current': (96, 32, 0, 32, 40)}
 
 
 def sha(path):

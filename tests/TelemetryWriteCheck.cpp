@@ -337,8 +337,7 @@ void checkBindingsAndWrites()
                && std::strstr(schema, "\"t\":\"f32\",\"w\":true")
                && std::strstr(schema, "\"t\":\"f32\",\"w\":false"),
            "schema distinguishes writable and read-only fields");
-    Field readonly[] = {rows[0]};
-    readonly[0].set = nullptr;
+    const Field readonly[] = {{rows[0].id, rows[0].name, rows[0].unit, rows[0].declaredType, rows[0].get, nullptr}};
     const Catalog readonlyGroup{0, "config", readonly};
     const Catalog writableGroup{0, "config", rows, 1};
     expect(schemaCrc(&readonlyGroup, 1) != schemaCrc(&writableGroup, 1), "setter presence changes the schema fingerprint");

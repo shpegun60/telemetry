@@ -7,6 +7,7 @@
 #include <cstring>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 namespace {
 using namespace telemetry;
@@ -51,6 +52,59 @@ static_assert(enumType<Mode, Mode::High, Mode::Low>().defaultValue().get<std::in
 static_assert(enumType<Wide, Wide::Low, Wide::High>().minimum().get<std::uint64_t>() == UINT64_MAX - 2);
 static_assert(enumType<Signed, Signed::High, Signed::Low>().minimum().get<std::int64_t>() == INT64_MIN);
 static_assert(std::is_same_v<decltype(index.read<0>()), std::optional<std::uint16_t>>);
+
+constexpr bool checkConstantCopies()
+{
+    FieldType type = ScalarType::F32;
+    type = numericType<std::uint64_t>(UINT64_MAX, UINT64_MAX - 2, UINT64_MAX);
+    if (type.minimum().get<std::uint64_t>() != UINT64_MAX - 2) return false;
+    FieldType copy = type;
+    type = numericType<std::int64_t>(INT64_MIN, INT64_MIN, -1);
+    const FieldType moved = std::move(type);
+    return moved.maximum().get<std::int64_t>() == -1
+        && moved.defaultValue().get<std::int64_t>() == INT64_MIN
+        && copy.defaultValue().get<std::uint64_t>() == UINT64_MAX;
+}
+static_assert(checkConstantCopies(), "Typed bounds keep their active member through constexpr copies");
+
+void checkDescriptorTransitions()
+{
+    // Every native tag, restricted alternatives, wide integers and dictionaries.
+    // Assignment remains supported for standalone FieldType construction; Field
+    // makes the finished definition const so its cached read tag cannot diverge.
+    const FieldType types[] = {
+        ScalarType::Null, static_cast<ScalarType>(255),
+        numericType<float>(), numericType<double>(), numericType<bool>(),
+        numericType<std::uint8_t>(), numericType<std::uint16_t>(), numericType<std::uint32_t>(), numericType<std::uint64_t>(),
+        numericType<std::int8_t>(), numericType<std::int16_t>(), numericType<std::int32_t>(), numericType<std::int64_t>(),
+        numericType<float>(1.25f, -2.5f, 3.75f), numericType<double>(-1.25, -3.75, 2.5), numericType<bool>(true, true, true),
+        numericType<std::uint8_t>(1, 1, 3), numericType<std::uint16_t>(1, 1, 3), numericType<std::uint32_t>(1, 1, 3),
+        numericType<std::uint64_t>(UINT64_MAX, UINT64_MAX - 2, UINT64_MAX),
+        numericType<std::int8_t>(-1, -3, 1), numericType<std::int16_t>(-1, -3, 1), numericType<std::int32_t>(-1, -3, 1),
+        numericType<std::int64_t>(INT64_MIN, INT64_MIN, -1), enumType<Mode>(), enumType<Wide, Wide::Low, Wide::High>(),
+    };
+    auto schema = [](const FieldType& type, char* buffer, std::size_t size) {
+        const Field fields[] = {{0, "value", "", type}};
+        const Catalog group{0, "v", fields};
+        return writeSchema(&group, 1, buffer, size);
+    };
+    bool valid = true;
+    char expected[1024], actual[1024];
+    for (const auto& next : types) {
+        const auto size = schema(next, expected, sizeof(expected));
+        for (const auto& previous : types) {
+            FieldType changed = previous;
+            changed = next;
+            FieldType copy = changed;
+            changed = FieldType{ScalarType::Bool};
+            FieldType moved = std::move(copy);
+            copy = previous;
+            valid = valid && size != 0 && schema(moved, actual, sizeof(actual)) == size
+                && std::strcmp(expected, actual) == 0;
+        }
+    }
+    expect(valid, "676 descriptor transitions preserve active bounds, defaults and enum callbacks");
+}
 
 template <class T>
 void checkNative()
@@ -271,6 +325,7 @@ void checkSchemaRoundTrip(bool nativeBounds)
 
 int main()
 {
+    checkDescriptorTransitions();
     checkNative<float>(); checkNative<double>(); checkNative<bool>();
     checkNative<std::uint8_t>(); checkNative<std::uint16_t>(); checkNative<std::uint32_t>(); checkNative<std::uint64_t>();
     checkNative<std::int8_t>(); checkNative<std::int16_t>(); checkNative<std::int32_t>(); checkNative<std::int64_t>();

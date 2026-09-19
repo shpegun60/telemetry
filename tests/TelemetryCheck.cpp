@@ -42,7 +42,8 @@ static_assert(defaultField.id == 0 && defaultField.name[0] == '\0'
 static_assert(defaultCatalog.id == 0 && defaultCatalog.name[0] == '\0'
               && defaultCatalog.fields == nullptr && defaultCatalog.count == 0);
 static_assert(!std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
-static_assert(alignof(Field) == 32);
+static_assert(alignof(Field) == telemetry::cacheLineBytes);
+static_assert(!std::is_copy_assignable_v<Field> && !std::is_move_assignable_v<Field>);
 static_assert(std::is_trivially_copyable_v<Scalar> && std::is_standard_layout_v<Scalar>);
 static_assert(std::is_nothrow_default_constructible_v<Scalar>
               && std::is_nothrow_default_constructible_v<Field>
@@ -216,9 +217,9 @@ static_assert(sizeof(Getter) == 12, "Cortex-M getter size with native return alt
 static_assert(sizeof(Setter) == 8, "Cortex-M setter size");
 static_assert(sizeof(Scalar) == 16, "Cortex-M scalar size");
 static_assert(sizeof(Field) == 96, "Cortex-M field stride must preserve the 32-byte prefix alignment");
-static_assert(offsetof(Field, get) == 0 && offsetof(Field, set) == 12
-              && offsetof(Field, declaredType) == 24,
-              "Cortex-M read and dispatch metadata must stay in the first 32 bytes");
+static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 12
+              && offsetof(Field, set) == 32 && offsetof(Field, declaredType) == 40,
+              "Cortex-M read and write contracts must occupy separate lines");
 static_assert(sizeof(Catalog) == 16, "Cortex-M catalog size");
 static_assert(sizeof(CatalogIndex) == 8, "Cortex-M index size");
 #endif
@@ -537,13 +538,11 @@ void checkSchemaIdentity()
     expect(telemetry::schemaCrc(&ca, 1) != telemetry::schemaCrc(&cb, 1),
            "schema hash separates string boundaries");
 
-    Field changedType[] = {a[0]};
-    changedType[0].declaredType = ScalarType::U32;
+    const Field changedType[] = {{a[0].id, a[0].name, a[0].unit, ScalarType::U32, a[0].get, a[0].set}};
     const Catalog typeVariant{0, "a", changedType, 1};
     expect(telemetry::schemaCrc(&ca, 1) != telemetry::schemaCrc(&typeVariant, 1),
            "schema hash includes declared types");
-    Field changedUnit[] = {a[0]};
-    changedUnit[0].unit = "V";
+    const Field changedUnit[] = {{a[0].id, a[0].name, "V", a[0].declaredType, a[0].get, a[0].set}};
     const Catalog unitVariant{0, "a", changedUnit, 1};
     expect(telemetry::schemaCrc(&ca, 1) != telemetry::schemaCrc(&unitVariant, 1),
            "schema hash includes units");
@@ -578,22 +577,21 @@ void checkFieldNames()
     static_assert(!telemetry::names_unique(emptyNames, std::size(emptyNames)));
 
     // Runtime-created definitions also exercise the checks under sanitizers.
-    Field rows[] = {unique[0], unique[1], unique[2]};
+    const Field rows[] = {unique[0], unique[1], unique[2]};
     expect(telemetry::names_unique(rows, 0) && telemetry::names_unique(rows, 1)
         && telemetry::names_unique(rows, std::size(rows)),
         "empty, single and distinct field names are accepted");
     expect(telemetry::names_unique(nullptr, 0) && !telemetry::names_unique(nullptr, 1),
         "null field storage is valid only with an empty count");
-    rows[0].name = nullptr;
-    expect(telemetry::names_unique(rows, 0) && !telemetry::names_unique(rows, 1)
-        && !telemetry::names_unique(rows, std::size(rows)),
+    const Field firstNullRows[] = {nullFirst[0], rows[1], rows[2]};
+    expect(telemetry::names_unique(firstNullRows, 0) && !telemetry::names_unique(firstNullRows, 1)
+        && !telemetry::names_unique(firstNullRows, std::size(firstNullRows)),
         "a null first field name is rejected even for one field");
-    rows[0] = unique[0];
-    rows[2].name = nullptr;
-    expect(!telemetry::names_unique(rows, std::size(rows)), "a later null field name is rejected");
+    const Field laterNullRows[] = {rows[0], rows[1], {2, nullptr}};
+    expect(!telemetry::names_unique(laterNullRows, std::size(laterNullRows)), "a later null field name is rejected");
     const char separateName[] = {'m', 'e', 't', 'e', 'r', '\0'};
-    rows[2].name = separateName;
-    expect(!telemetry::names_unique(rows, std::size(rows)),
+    const Field duplicateRows[] = {rows[0], rows[1], {2, separateName}};
+    expect(!telemetry::names_unique(duplicateRows, std::size(duplicateRows)),
         "field name uniqueness compares text from different storage");
     expect(!telemetry::names_unique(emptyNames, std::size(emptyNames)),
         "duplicate empty field names are rejected");

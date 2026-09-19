@@ -1,4 +1,4 @@
-# Field layout A/B/C experiment
+# Field layout comparisons
 
 This is a local compiler/layout experiment against stable commit
 `688ae7eee3f95f8aca312c24bb38fc79d8053907`. It needs no board or Qt runtime.
@@ -13,9 +13,13 @@ are generated only inside the requested build directory, with a readable
 | B | Getter, Setter, FieldType, id, name, unit; unchanged read/write methods. A constexpr constructor retains positional row initialization and defaults. |
 | C | 32-byte alignment; Getter, Setter, cached type/flags in the first line; all definition members const; assignment disabled. Numeric validation uses cold bounds only for restricted writes. |
 | A32 | A with only `alignas(32)`: 96-byte stride, original member order. |
-| B32 | B with only `alignas(32)`: 96-byte stride, compact read prefix. Selected for production. |
+| B32 | B with only `alignas(32)`: 96-byte stride, compact read prefix. Former production baseline. |
 | B64 | B with `alignas(64)`: 128-byte stride. Measured as a control, excluded from the production choice. |
-| Current | Unmodified library and tests from the current checkout. |
+| Current | Unmodified library and tests from the current checkout: RW32, separate read/write lines, immutable Field, 96-byte ARM stride. |
+
+The [RW32 hardware report](h7s/RW32_RESULTS.md) records the current production
+choice. The historical candidates remain reproducible against their pinned
+inputs; `Current` intentionally follows the checked-out revision.
 
 C is a combined layout and validation-path experiment. Its results do not
 isolate alignment alone. B isolates member reordering in reads/writes, while
@@ -32,7 +36,7 @@ General aggregate/designated initialization and member mutation are not retained
 
 ## Run locally
 
-From this experimental checkout, Python 3.9+ and the CubeIDE compiler are sufficient
+From the repository root, Python 3.9+ and the CubeIDE compiler are sufficient
 for the ARM measurements. Resolve the installed kit rather than using CubeCLT:
 
 ```powershell
@@ -44,8 +48,8 @@ python tests/field_layout/run.py --mode arm --variants A32 B32 --arm-cxx $armCom
 Select the desired CubeIDE executable explicitly when several installations
 exist. Its sibling `objdump`, `objcopy` and `nm` are used automatically.
 `--build-dir` also accepts an absolute path or a sibling project's build folder.
-The recorded local run writes to `telemetry/build/field_layout_experiment` in
-the original workspace, while this checkout stays on the experiment branch.
+The original local run wrote to `telemetry/build/field_layout_experiment`.
+Use a fresh build directory for each comparison; no branch switch is required.
 
 Host behavior checks use GCC/Clang and do not need an ARM compiler:
 

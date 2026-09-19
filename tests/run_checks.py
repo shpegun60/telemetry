@@ -73,6 +73,10 @@ def main():
         run(flags + [f"-DTELEMETRY_READ_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryReadCompileFail.cpp"], f"reject-{case}", message)
     print(f"{len(REJECTIONS)} expected compilation failures verified", flush=True)
+    for case in range(1, 10):
+        run(flags + [f"-DTELEMETRY_FIELD_FAIL_CASE={case}", "-fsyntax-only", "tests/TelemetryFieldCompileFail.cpp"],
+            f"immutable-field-{case}", r"deleted|const|read.only")
+    print("9 immutable Field rejections verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")
@@ -82,6 +86,37 @@ def main():
         run(flags + [option, "-include", "TelemetryConversion.h", "-fsyntax-only", str(empty)],
             "reject" + option, r"Compile telemetry conversions without")
     print("Standalone headers and fast-math rejection verified", flush=True)
+
+    cache = output / "CachelineCheck.cpp"
+    cache.write_text('#include "TelemetryCacheline.h"\nstatic_assert(telemetry::cacheLineBytes == EXPECTED_SIZE);\n', encoding="utf-8")
+    cache_cases = [
+        (64, ["-DTELEMETRY_FORCE_CACHELINE=64"]),
+        (128, ["-DTELEMETRY_FORCE_CACHELINE=128"]),
+        (64, ["-DTELEMETRY_CACHELINE_BYTES=64"]),
+        (64, ["-DTELEMETRY_CACHELINE_BYTES=64", "-DTELEMETRY_FORCE_CACHELINE=64"]),
+        (32, ["-D__ARM_ARCH_PROFILE=77"]),
+        (32, ["-D__ARM_ARCH_8M_BASE__=1"]),
+        (32, ["-D__ARM_ARCH_PROFILE=77", "-D__APPLE__=1", "-D__aarch64__=1"]),
+        (128, ["-D__APPLE__=1", "-D__aarch64__=1"]),
+        (64, ["-D__ARM_ARCH_PROFILE=77", "-DTELEMETRY_FORCE_CACHELINE=64"]),
+    ]
+    for case, (expected, definitions) in enumerate(cache_cases):
+        run(flags + definitions + [f"-DEXPECTED_SIZE={expected}", "-fsyntax-only", str(cache)], f"cacheline-{case}")
+    for value in (0, 16, 48, -32):
+        run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={value}", "-DEXPECTED_SIZE=64", "-fsyntax-only", str(cache)],
+            f"cacheline-reject-{value}", r"must be a power of two")
+    run(flags + ["-DTELEMETRY_FORCE_CACHELINE=32", "-DTELEMETRY_CACHELINE_BYTES=64", "-DEXPECTED_SIZE=64", "-fsyntax-only", str(cache)],
+        "cacheline-conflict", r"Conflicting telemetry cache-line overrides")
+    print("9 cache-line configurations and 5 invalid overrides verified", flush=True)
+    field_layout = output / "CachelineFieldCheck.cpp"
+    field_layout.write_text('#include "TelemetryCatalog.h"\n'
+        'static_assert(alignof(telemetry::Field) == EXPECTED_SIZE);\n'
+        'static_assert(offsetof(telemetry::Field, set) == EXPECTED_SIZE);\n'
+        'static_assert(sizeof(telemetry::Field) % EXPECTED_SIZE == 0);\n', encoding="utf-8")
+    for size in (64, 128):
+        run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={size}", f"-DEXPECTED_SIZE={size}", "-fsyntax-only", str(field_layout)],
+            f"cacheline-field-{size}")
+    print("Field layout obeys explicit 64/128-byte alignment", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
-# Field layout: measured H7S result and production choice
+# Field layout: historical B32 production choice
 
-Selected **B32**: reorder Getter/Setter/FieldType before names and IDs, then
+This records the B32 selection at `61443b0`. The current implementation is
+[RW32](RW32_RESULTS.md), which retains the 96-byte ARM stride and separates
+read and write contracts into different cache lines. The original B32 results
+and receipts below remain unchanged as the comparison baseline.
+
+At that checkpoint, selected **B32**: reorder Getter/Setter/FieldType before names and IDs, then
 align Field to 32 bytes. ARM32 Field is 96 bytes. Read/write algorithms,
 numeric conversion, limits, enum handling and metadata contents stay unchanged.
 There is no duplicated type/flag state and assignment remains available.

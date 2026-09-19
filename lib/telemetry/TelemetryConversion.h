@@ -28,7 +28,9 @@ static_assert(std::numeric_limits<float>::max_exponent > 64,
               "Every supported integer must fit in the floating-point range");
 
 template <class Number>
-constexpr bool scalarFinite(Number number) noexcept
+// Keep this small check inline even at -Os: an outlined call can make generic
+// readers preserve an FPU register across the rare float-to-bool conversion.
+TELEMETRY_FORCE_INLINE constexpr bool scalarFinite(Number number) noexcept
 {
     constexpr Number limit = std::numeric_limits<Number>::max();
     return number >= -limit && number <= limit;

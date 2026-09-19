@@ -18,8 +18,8 @@ $armCompiler = (Get-ChildItem 'C:/ST/*/STM32CubeIDE/plugins/com.st.stm32cube.ide
 python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-build
 # Fresh build, real DWT measurements, and original-image restoration:
 python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-live --run --serial 002A001F3033510135393935 --port COM6
-# The current production checkout, without candidate overlays:
-python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-current --variants Current --run
+# Compare pinned B32 against the current production checkout (RW32):
+python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-current --variants B32 Current --run
 ```
 
 Select the actual probe serial and COM port on another machine. `pyserial`
@@ -43,7 +43,7 @@ power loss still requires manual restoration from the retained `before.bin`.
   small-RAM control. Array bases are aligned to 32 bytes for every variant.
 - Eight repeated field kinds match the compiler fixture. Setup validates
   every readable value and ID and both missing-ID boundaries before timing.
-  C's const subobjects are reconstructed only before publishing the views;
+  Const definitions in C and Current are reconstructed only before publishing the views;
   the final pointer is laundered. No allocation occurs during measurement.
 - Six ID profiles: repeated native F32, bounded F32, native U16, enum U16;
   sequential; deterministic shuffled IDs. A complete 1024-entry sequence is
@@ -62,7 +62,8 @@ power loss still requires manual restoration from the retained `before.bin`.
 
 This measures the H7S3's M7 and its 32 KiB D-cache, not H753 memory latency.
 Small hot tables, large RAM tables and constant-ID access remain separate in
-the [results](RESULTS.md). Firmware-wide latency, interrupt response and cold
+the [RW32 results](RW32_RESULTS.md) and [historical B32 results](RESULTS.md).
+Firmware-wide latency, interrupt response and cold
 single-read latency are not established by these masked steady-state windows.
 
 The retained evidence can be checked offline, including deliberately damaged
@@ -71,14 +72,21 @@ copies of the records. These commands do not access the board:
 ```sh
 python tests/field_layout/h7s/verify.py --self-test
 python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
+python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/rw32-receipt.json --samples tests/field_layout/h7s/rw32-samples.csv --self-test
 ```
 
-Each image now records SHA-256 of `Probe.o` and `Benchmark.o`. The two retained
+Each image now records SHA-256 of `Probe.o` and `Benchmark.o`. The two historical
 receipts were supplemented from the original local objects, after checking
 their original ELF and binary hashes; `object_hash_provenance` records this
 later step explicitly. Timing samples and original image hashes were not
 changed. The final receipt also declares B32/Current Probe equivalence for
-O2/Os, which the verifier checks against those object hashes.
+O2/Os, which the verifier checks against those object hashes. In that historical
+receipt, Current still meant B32. In `rw32-receipt.json`, Current is RW32;
+the implementations differ and no Probe-equivalence claim is made.
+
+Add `--artifacts build/rw32-live-inline` to the RW32 command to check its
+retained binaries and objects. RW32 source/object hashes were recorded during
+the run, with the normalized export described in the receipt.
 
 Add `--artifacts build/field_layout_experiment/h7s/final-live` to the final
 verification command to check the actual retained object, ELF and binary bytes.

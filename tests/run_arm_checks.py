@@ -33,6 +33,8 @@ def check_probe(name, headers, symbols):
             raise RuntimeError(f"{name}: unexpected writable storage in {section}")
     if "_GLOBAL__sub_I" in symbols:
         raise RuntimeError(f"{name}: dynamic initialization function found")
+    if "scalarFinite" in symbols:
+        raise RuntimeError(f"{name}: finite-value check was outlined instead of inlined")
     if name == "IndexCodegen":
         expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 32,
                     "telemetry_probe_group0_fields": 4 * 96,
@@ -78,7 +80,7 @@ def main():
         raise RuntimeError(f"Expected arm-none-eabi, got {target}")
     sources = [ROOT / "lib/telemetry/TelemetryJson.cpp", ROOT / "app/demo/DemoCatalog.cpp"]
     sources += sorted(source for source in (ROOT / "tests").glob("*.cpp")
-                      if source.name != "TelemetryReadCompileFail.cpp")
+                      if not source.name.endswith("CompileFail.cpp"))
     for optimization in ("-O2", "-Os"):
         flags = [compiler, *FLAGS, optimization]
         probes = 0

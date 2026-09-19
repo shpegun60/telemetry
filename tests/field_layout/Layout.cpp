@@ -13,6 +13,10 @@ static_assert(sizeof(Field) == 96 && alignof(Field) == 32);
 static_assert(offsetof(Field, type) < 32 && offsetof(Field, flags) < 32);
 static_assert(offsetof(Field, get) + sizeof(telemetry::Getter) <= 32);
 static_assert(offsetof(Field, set) + sizeof(telemetry::Setter) <= 32);
+#elif TELEMETRY_LAYOUT_VARIANT == 6
+static_assert(sizeof(Field) == 96 && alignof(Field) == 32);
+static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 12);
+static_assert(offsetof(Field, set) == 32 && offsetof(Field, declaredType) == 40);
 #elif TELEMETRY_LAYOUT_VARIANT == 5
 static_assert(sizeof(Field) == 128 && alignof(Field) == 64);
 static_assert(offsetof(Field, get) == 0 && offsetof(Field, declaredType) == 24);
@@ -31,6 +35,8 @@ extern const std::uint32_t layout_metrics[] __attribute__((used, section(".rodat
     0x4c41594f, 1, sizeof(Field), alignof(Field), offsetof(Field, get), offsetof(Field, set),
 #if TELEMETRY_LAYOUT_VARIANT == 2
     offsetof(Field, type), offsetof(Field, flags),
+#elif TELEMETRY_LAYOUT_VARIANT == 6
+    offsetof(Field, readType), UINT32_MAX,
 #else
     UINT32_MAX, UINT32_MAX, // No duplicate members in A/B.
 #endif

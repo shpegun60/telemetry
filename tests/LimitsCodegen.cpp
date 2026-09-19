@@ -27,7 +27,7 @@ constexpr Field rows[] = {
 constexpr Catalog catalogs[] = {{0, "v", rows}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 #if UINTPTR_MAX == UINT32_MAX
-static_assert(sizeof(FieldType) == 40 && sizeof(Field) == 96);
+static_assert(sizeof(FieldType) == 48 && sizeof(Field) == 96);
 static_assert(alignof(Field) == 32);
 #endif
 }

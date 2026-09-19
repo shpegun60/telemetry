@@ -13,19 +13,22 @@ Maximum changed-stack bytes over the recorded cases, including nested C
 library calls. The output buffer and catalog tables were static, outside
 the measured stack.
 
-| Operation | O2 | Os |
-|---|---:|---:|
-| 512-byte instrument control | 512 | 512 |
-| Native-bound schema | 848 | 824 |
-| Custom float/double bounds and enum schema | **968** | **944** |
-| F32 values, 21 input cases | 792 | 768 |
-| F64 values, 21 input cases | **880** | **856** |
-| U64/S64/U32/S32 extremes and bool | 576 | 512 |
-| Truncated schema | 544 | 584 |
-| Truncated floating values | 752 | 728 |
-| Null output buffer | 56 | 116 |
+The B32 columns preserve the `9f95e49` checkpoint; RW32 is the current layout.
 
-Both images passed 294 windows, **588 total**. Each case used three repeats
+| Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os |
+|---|---:|---:|---:|---:|
+| 512-byte instrument control | 512 | 512 | 512 | 512 |
+| Native-bound schema | 848 | 824 | 848 | 816 |
+| Custom float/double bounds and enum schema | **968** | **944** | **968** | **936** |
+| F32 values, 21 input cases | 792 | 768 | 792 | 768 |
+| F64 values, 21 input cases | **880** | **856** | **880** | **856** |
+| U64/S64/U32/S32 extremes and bool | 576 | 512 | 576 | 512 |
+| Truncated schema | 544 | 584 | 544 | 576 |
+| Truncated floating values | 752 | 728 | 752 | 728 |
+| Null output buffer | 56 | 116 | 56 | 108 |
+
+Each complete run has two images with 294 windows each, **588 total**.
+Each case used three repeats
 and two complementary fill patterns. The float cases include signed zero,
 subnormals, smallest normals, finite extremes, fractional/exponent values,
 infinities and NaN. The host checked complete unique coverage, JSON contents,
@@ -52,7 +55,7 @@ an observed memory-write watermark, **not a mathematical bound on the deepest
 stack pointer**: reserved but untouched stack slots need not change a canary.
 Neither NMI/fault nesting nor arbitrary application getters are covered.
 
-The retained `.su` data illustrates why individual frames are insufficient:
+The historical B32 `.su` data illustrates why individual frames are insufficient:
 
 | Standalone compiler frame | O2 | Os |
 |---|---:|---:|
@@ -87,8 +90,10 @@ python tests/json_stack/run.py --cube build/field_layout_experiment/h7s/scaffold
 python tests/json_stack/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/json-stack-live --run --serial 002A001F3033510135393935 --port COM6
 # Offline check, including deliberately damaged evidence:
 python tests/json_stack/verify.py --self-test
+# Current RW32 evidence:
+python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test
 # Also compare retained local ELF, binary and object bytes:
-python tests/json_stack/verify.py --self-test --artifacts build/json-stack-live-1
+python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test --artifacts build/rw32-json-live-2
 ```
 
 The serial and port must identify the intended board. Both images are built
@@ -96,9 +101,16 @@ and constrained to the backed-up 64 KiB internal Flash before programming.
 A `finally` block restores the original image; an interrupted host or power
 loss still requires restoration from the retained `before.bin`.
 
-[receipt.json](receipt.json) contains every measurement, JSON result, image and
-object identity, source hashes, compiler frames and restoration hashes. The
-recorded local run is `build/json-stack-live-1`; full ELF/binary/object files,
+[receipt.json](receipt.json) preserves the B32 baseline in
+`build/json-stack-live-1`. [rw32-receipt.json](rw32-receipt.json) records the
+current RW32 run in `build/rw32-json-live-2`. Each contains every measurement,
+JSON result, image/object identity, source hashes, compiler frames and
+restoration hashes. Full ELF/binary/object files,
 programmer/UART logs and original firmware stay there. Shared hashes identify
 those artifacts but are not board attestation. CI checks the recorded evidence
 and rejects ten mutation controls without requiring a board.
+
+The preceding local attempt `build/rw32-json-live` stopped on an ST-LINK
+programming failure before the Os measurement. Its finally block restored and
+verified the original image. It is retained locally and excluded from these
+results; the complete retry above passed both images and restoration.

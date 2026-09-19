@@ -22,7 +22,7 @@ constexpr Catalog enumCatalogs[] = {{0, "v", described}};
 constexpr auto plainIndex = CatalogIndex::bind<plainCatalogs>();
 constexpr auto enumIndex = CatalogIndex::bind<enumCatalogs>();
 #if UINTPTR_MAX == UINT32_MAX
-static_assert(sizeof(FieldType) == 40 && sizeof(Field) == 96 && sizeof(Scalar) == 16);
+static_assert(sizeof(FieldType) == 48 && sizeof(Field) == 96 && sizeof(Scalar) == 16);
 static_assert(alignof(Field) == 32);
 #endif
 }

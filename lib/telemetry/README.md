@@ -29,6 +29,7 @@ redistributed library files; delegate and magic_enum retain their upstream MIT l
 - `TelemetrySetter.h`: optional write callbacks and `WriteResult`.
 - `TelemetryConversion.h`: constexpr checked numeric conversions.
 - `TelemetryFieldType.h`: numeric type, write limits/defaults and an optional schema description callback.
+- `TelemetryCacheline.h`: compile-time alignment policy and explicit target override.
 - `TelemetryEnum.h`: opt-in `enumType<E>()` factory with compile-time enumerator names.
 - `TelemetryCatalog.h`: packed IDs, Field, Catalog and name uniqueness.
 - `TelemetryIndex.h`: direct lookup, typed reads and optional static catalog binding.
@@ -98,30 +99,46 @@ The same defaults apply in `constexpr` declarations and when trailing
 arguments are omitted from a Field initializer. Its constexpr constructor
 retains the order `{id, name, unit, declaredType, getter, setter}`.
 Field is no longer an aggregate: designated initializers are not supported.
-Copy construction, assignment and public metadata access remain available.
-An empty getter returns Null. Assign real names/IDs and types before using
-default fields as published catalog entries.
+Copy/move construction and public metadata reads remain available. Field
+members are const; assignment and individual definition edits are rejected.
+Pass names, IDs, types and bindings to the constructor. An empty getter returns Null.
 
-Field is aligned to 32 bytes and occupies 96 bytes on ARM32. Getter, Setter
-and the numeric FieldType header share the first 32-byte line; the stride
-preserves that alignment throughout an array. A Flash-resident table costs
-16 additional bytes per row
-compared with the old 80-byte layout; a RAM-resident table pays that cost in RAM.
-See the [measurement report](../../tests/field_layout/h7s/RESULTS.md).
+The RW32 Field occupies 96 bytes on Cortex-M7, as did B32. Getter and its
+cached numeric type use the first 32-byte line; Setter, write type/flags and
+all bounds use the second. Defaults and the enum description occupy the third;
+names and IDs fill unused space in the first. Read/write touch only their
+respective Field metadata line, in addition to index, owner and callback data.
+See the [RW32 measurement report](../../tests/field_layout/h7s/RW32_RESULTS.md).
+
+Alignment comes from `TELEMETRY_CACHELINE_BYTES` and the constexpr wrapper
+`telemetry::cacheLineBytes`. Override globally with, for example,
+`-DTELEMETRY_FORCE_CACHELINE=64`. Cortex-M defaults to 32; ordinary desktop
+targets default to 64; Apple ARM defaults to 128. These are compile-time
+policies based on target macros, not a hardware query. Unknown targets need
+an explicit setting if the default does not match their cache geometry.
+No Qt or SPSC headers are required. Invalid powers/sizes and conflicting
+overrides fail compilation. Field also rejects a line too small to contain
+its complete write contract on the target ABI.
+
+The setting must be identical in every translation unit and static library.
+Changing it changes alignment, member offsets and possibly sizeof(Field).
+With the 64-bit Qt/MinGW ABI and default 64-byte lines, Field is 128 bytes;
+the Cortex-M7 default remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is 2 for this in-memory layout. It is a
+`telemetry::telemetryAbiVersion` is 3 for this in-memory layout. It is a
 compile-time revision marker, not a JSON version or a linker mismatch check.
-On ARM32 the old layout was 80 bytes, alignment 8, getter offset 56; the new
-layout is 96 bytes, alignment 32, getter offset 0. **Clean and rebuild every
+On Cortex-M7 both B32 and RW32 are 96 bytes/aligned to 32, but Setter moves
+from offset 12 to 32 and declaredType from 24 to 40. An equal sizeof does not
+make the layouts binary-compatible. **Clean and rebuild every
 translation unit and static library that uses these headers.** Mixing stale
 objects built against different layouts is invalid. Never persist or transmit
 the raw bytes of Field, Scalar or delegate objects.
 
 Positional construction keeps its documented order. Member-order-dependent
 structured bindings are source-incompatible: the declaration order is now
-`get, set, declaredType, id, name, unit`. Prefer named member access. C++20
+`get, readType, id, name, unit, set, declaredType`. Prefer named member access. C++20
 designated initialization must be replaced with positional construction.
 
 Ordinary `Field[]`, `std::array<Field, N>` and conforming C++17 allocation
@@ -139,16 +156,18 @@ field->~Field();
 ```
 
 A plain byte buffer or `malloc` is not guaranteed to provide this extended
-alignment. Do not pack these objects. A local `Field[20]` now occupies 1920
-bytes on ARM32 instead of 1600, plus possible stack realignment overhead.
+alignment. Do not pack these objects. A local `Field[20]` occupies 1920
+bytes on ARM32 (as in B32; older 80-byte rows needed 1600), plus possible stack realignment overhead.
 Prefer static constexpr definitions when owners and bindings permit them;
 budget runtime tables explicitly when they live on a task's stack.
 
-Finish all definition edits before constructing Catalog. Keep field IDs,
-names, units, types and bindings unchanged afterwards: Catalog retains the
-validated prefix and does not revalidate edited rows on access. Changing
-values inside bound owners is allowed under the caller's synchronization
-contract. The public setup-time assignment API remains available.
+Build the complete definition through the constructor. Field enforces its
+immutability, including the read tag duplicated from declaredType. Existing
+`field.declaredType.minimum()` and `.hasEnum()` calls keep their syntax.
+Copy construction works; `field = other` and `field.declaredType = ...` do not.
+To change a definition, build a replacement table and its Catalog/view with
+the required lifetimes. Values inside bound owners remain mutable under the
+caller's synchronization contract. Catalog retains its validated prefix.
 
 ## Write limits and defaults
 
@@ -227,12 +246,14 @@ as double can write them back exactly. The Qt display keeps the raw JSON
 text, preserving U64/S64 metadata digits too. Clients must resolve a null
 numeric bound from `t`; the schema fingerprint changes with this format.
 
-Internally one private variant stores a triple of native numbers under one
-tag. This avoids three separate Scalar tags and keeps all three values of
-one type. On ARM32 FieldType occupies 40 bytes and Field 80, rather than the
-96-byte Field needed by three separate Scalars. There is no heap allocation
-or borrowed pointer to temporary bounds. Constant tables can remain in Flash;
-runtime tables occupy their owner's storage. Rebuild consumers for this layout.
+FieldType separates a 16-byte native bounds payload from its cold default
+Scalar and enum callback. Bounds have private typed union alternatives: the
+same constructor selects the active alternative and numeric tag, and whole
+descriptor copying preserves them together. There is no type punning or
+independent public tag/payload mutation. Scalar itself retains std::variant.
+On Cortex-M7 FieldType is 48 bytes and Field remains 96. There is no heap
+allocation or borrowed pointer to temporary bounds. Constant tables can remain
+in Flash; runtime definitions occupy their owner's storage.
 
 ## Enum dictionaries for schemas
 
@@ -314,9 +335,10 @@ decimal strings, independent of JavaScript Number precision.
 `Field::declaredType` is now a `FieldType`, implicitly constructible from and
 convertible to `ScalarType`. Existing positional rows containing `ScalarType::F32`
 and comparisons with ScalarType keep working. Use `ScalarType type = field.declaredType`
-when a concrete enum is needed; `auto` now deduces FieldType. Assigning a
-ScalarType before publication clears dictionary metadata and restores native
-limits with zero/false default. Data paths never read the schema callback.
+when a concrete enum is needed; `auto` deduces FieldType. A standalone
+FieldType builder can be reassigned a ScalarType to clear its dictionary and
+restore native limits/defaults. A constructed Field holds its descriptor const.
+Data paths never read the schema callback.
 
 ## Packed IDs and direct lookup
 
@@ -727,15 +749,15 @@ passed view takes 14 instructions in the measured object; a fixed constexpr
 view takes 13. A known ID becomes a constant address (`ldr; bx`), and a known
 missing ID becomes null. These are instruction counts, not measured cycles.
 
-On ARM32, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 40, Field 80,
+On Cortex-M7, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 48, Field 96,
 Catalog 16 and CatalogIndex 8 bytes. Native function alternatives account
 for the extra 4 bytes over the previous Getter; an empty setter still occupies
-its 8-byte slot. FieldType owns one native limits triple and its optional schema callback.
+its 8-byte slot. FieldType owns native bounds, a default Scalar and an optional schema callback.
 The probe's constant metadata resides in `.rodata`,
 with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
 Flash/RAM placement is determined by linking.
-For 1000 fields the Field array alone occupies 80,000 bytes (about 78.1 KiB),
+For 1000 fields the Field array alone occupies 96,000 bytes (93.75 KiB),
 before strings, callback code or catalogs. This is the current cost of owning
 limits/defaults in every descriptor. Sharing separate schema descriptors is
 a possible future layout change, not an optimization applied by this release.
@@ -744,8 +766,8 @@ The enum/plain U16 pairs in `EnumCodegen.cpp` use the same bounds and numeric
 operations at both optimization levels, apart from table addresses/offsets
 and the corresponding instruction encodings.
 Known typed reads branch straight to their shared getter. Dynamic Field
-reads/writes access the numeric tag at offset 16 and the getter/setter slots;
-they never load the schema callback at offset 20. Reads never load limits.
+reads access the numeric tag at offset 12; writes use the descriptor tag at
+offset 40. They never load the schema callback at offset 80. Reads never load limits.
 The enum probe's constant
 names and field arrays reside in `.rodata`, with no startup constructors or
 `.data`/`.bss` storage. These observations do not assert identical cache

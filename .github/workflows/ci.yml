@@ -39,7 +39,9 @@ jobs:
         run: |
           python3 tests/field_layout/h7s/verify.py --self-test
           python3 tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
+          python3 tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/rw32-receipt.json --samples tests/field_layout/h7s/rw32-samples.csv --self-test
           python3 tests/json_stack/verify.py --self-test
+          python3 tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test
 
   arm:
     name: Cortex-M7 compile and link

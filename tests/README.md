@@ -1,8 +1,10 @@
 # Telemetry checks
 
-The current Field layout uses a 32-byte alignment and 96-byte ARM32 stride.
-The [layout experiment and H7S measurements](field_layout/h7s/RESULTS.md)
-record the production choice. ARM guards check its size and hot member offsets;
+The current RW32 Field uses a 32-byte alignment and 96-byte ARM32 stride,
+with separate read and write cache lines. The
+[RW32 H7S measurements](field_layout/h7s/RW32_RESULTS.md) record the production
+choice; the [B32 report](field_layout/h7s/RESULTS.md) is its historical baseline.
+ARM guards check size, hot member offsets and inlining of the finite-value check;
 the historical 80-byte measurements later in this file describe earlier layouts.
 
 The [JSON stack fixture](json_stack/README.md) records 588 real H7S measurements,
@@ -23,25 +25,30 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes seven suites, verifies thirty-five rejected programs, checks
+The runner executes seven suites (585 C++17 / 587 C++20 checks), verifies
+thirty-five rejected programs and nine immutable-Field rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
-flags are rejected. Sanitized runs enable address, undefined-behavior and
+flags are rejected. It also checks nine cache-line configurations, five invalid
+overrides and Field layout with explicit 64/128-byte alignment. Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop
 on the first diagnostic. Compiler warnings are errors. Each command's output
 is retained in a separate log.
 
-The audit follow-up adds six field-name checks (109 core, 584 total C++17
+The preceding audit checkpoint `9f95e49` added six field-name checks (109 core, 584 total C++17
 checks; 586 in C++20). `names_unique` now rejects null storage with nonzero
 count and null names at every position, including singleton tables. Runtime
 and constexpr cases cover empty tables/names, duplicates in separate storage,
 and null names. Lookup/read/write implementations and the B32 layout are
-unchanged; current O2/Os `Probe.o` bytes still match the published `61443b0`
-objects. CI also runs the offline layout and stack evidence verifiers with
+unchanged at that checkpoint; its O2/Os `Probe.o` bytes matched the published `61443b0`
+objects. RW32 changes those objects and adds a 676-transition descriptor
+copy/move/assignment check, plus constexpr checks across different active types.
+CI also runs the offline layout and stack evidence verifiers with
 their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
 
-The library migration notes now cover ABI revision 2, clean rebuilding of all
-translation units/static libraries, 32-byte raw-storage alignment, local-table
-stack cost, structured bindings and fixed definitions after Catalog creation.
+The library migration notes now cover ABI revision 3, immutable Field definitions,
+clean rebuilding of all translation units/static libraries with the same
+cache-line configuration, raw-storage alignment, local-table stack cost and
+structured bindings. Positional initialization and public metadata reads remain.
 H7S measurements do not establish H753 firmware timing: a DWT run and task
 stack measurement on the actual H753 integration remain target-specific work.
 

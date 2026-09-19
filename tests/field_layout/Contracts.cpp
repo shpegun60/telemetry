@@ -20,10 +20,14 @@ static_assert(partial.id == 12 && moved.id == 12 && partial.name[0] == '\0');
 static_assert(std::is_trivially_copyable_v<Field>);
 static_assert(std::is_trivially_copy_constructible_v<Field> && std::is_trivially_move_constructible_v<Field>);
 static_assert(std::is_copy_constructible_v<Field> && std::is_move_constructible_v<Field>);
-#if TELEMETRY_LAYOUT_VARIANT == 2
+#if TELEMETRY_LAYOUT_VARIANT == 2 || TELEMETRY_LAYOUT_VARIANT == 6
 static_assert(!std::is_copy_assignable_v<Field> && !std::is_move_assignable_v<Field>);
+#if TELEMETRY_LAYOUT_VARIANT == 2
 static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().type)), ScalarType>);
 static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().flags)), std::uint8_t>);
+#else
+static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().readType)), ScalarType>);
+#endif
 static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().declaredType)), FieldType>);
 static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().get)), Getter>);
 static_assert(!std::is_assignable_v<decltype((std::declval<Field&>().set)), Setter>);

@@ -64,7 +64,7 @@ constexpr auto enumLimits(const std::array<E, N>& values) noexcept
         if (number < low) low = number;
         if (number > high) high = number;
     }
-    return NumericLimits<Raw>{low, high, low};
+    return NumericBounds<Raw>{low, high};
 }
 
 } // namespace detail
@@ -88,14 +88,14 @@ constexpr FieldType enumType() noexcept
                           "Enum dictionary values must have names");
             constexpr auto limits = detail::enumLimits(std::array<E, sizeof...(Values)>{Values...});
             return FieldType{type, &detail::describeEnum<E, Values...>}
-                .withLimits(limits.minimum, limits.maximum, limits.initial);
+                .withLimits(limits.minimum, limits.maximum, limits.minimum);
         } else {
             constexpr auto values = magic_enum::enum_values<E>();
             static_assert(values.size() != 0, "Enum dictionary is empty; configure the range or list values");
             if constexpr (values.size() != 0) {
                 constexpr auto limits = detail::enumLimits(values);
                 return FieldType{type, detail::automaticEnumDescription<E>(std::make_index_sequence<values.size()>{})}
-                    .withLimits(limits.minimum, limits.maximum, limits.initial);
+                    .withLimits(limits.minimum, limits.maximum, limits.minimum);
             } else return {};
         }
     } else {

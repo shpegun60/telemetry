@@ -192,16 +192,18 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers, Cortex-M7 compile/storage/link checks and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verified after numeric, lifetime-contract, serialization, enum and write-limit review
+Verified after numeric, lifetime-contract, serialization, enum, write-limit and RW32 review
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  103/103 core, 92/92 write/getter, 87/87 read, 23/23 JSON, 121/121 numeric
-  oracle, 45/45 enum and 107/107 limits checks passed with C++17 (578 total).
-  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 580 total).
+  109/109 core, 92/92 write/getter, 87/87 read, 23/23 JSON, 121/121 numeric
+  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (585 total).
+  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 587 total).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
-  Standalone public headers compile; fast-math and finite-math-only builds
+  Nine additional programs reject mutation/assignment of immutable Field
+  definitions. Cache-line defaults and explicit overrides have positive and
+  negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
@@ -231,8 +233,12 @@ on 2026-09-19:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 40, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 48, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
   on ARM32.
+- [RW32 measurements](tests/field_layout/h7s/RW32_RESULTS.md) cover the separate
+  read/write metadata lines. Cache-line alignment is configurable through
+  `TELEMETRY_FORCE_CACHELINE`; Field definitions are immutable and ABI revision
+  3 requires a clean rebuild of consumers.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The
   storage comparison retains the former union's sizes and instructions in

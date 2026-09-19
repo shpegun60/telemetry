@@ -1,6 +1,6 @@
 /**
  * @file TelemetryFieldType.h
- * @brief Numeric field types, checked write limits, defaults and optional enum schema metadata.
+ * @brief typed write bounds separated from default/enum metadata.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see LICENSE in this directory.
  */
@@ -8,97 +8,145 @@
 #define TELEMETRY_FIELD_TYPE_H
 
 #include "TelemetryConversion.h"
+#include <cstddef>
 #include <cstdlib>
 #include <limits>
 #include <string_view>
-#include <variant>
 
 namespace telemetry {
-
-// The value and name are borrowed for the duration of the sink call. Return false
-// to stop enumeration immediately. No source getter or setter is involved.
 using EnumEntrySink = bool (*)(void*, const Scalar&, std::string_view) noexcept;
 using EnumDescription = bool (*)(void*, EnumEntrySink) noexcept;
 
 namespace detail {
 template <class T>
-struct NumericLimits {
+struct NumericBounds {
     T minimum = std::numeric_limits<T>::lowest();
     T maximum = std::numeric_limits<T>::max();
-    T initial{};
 };
-
-// Invalid definitions fail constant evaluation in constexpr tables. The same
-// programming error terminates deterministically when constructed at runtime.
 [[noreturn]] inline void invalidFieldLimits() noexcept { std::abort(); }
 } // namespace detail
 
 class FieldType {
-    using Limits = std::variant<std::monostate,
-        detail::NumericLimits<float>, detail::NumericLimits<double>,
-        detail::NumericLimits<std::uint32_t>, detail::NumericLimits<std::int32_t>,
-        detail::NumericLimits<std::uint64_t>, detail::NumericLimits<bool>,
-        detail::NumericLimits<std::uint8_t>, detail::NumericLimits<std::uint16_t>,
-        detail::NumericLimits<std::int8_t>, detail::NumericLimits<std::int16_t>,
-        detail::NumericLimits<std::int64_t>>;
+    // Only the private constructors select an active member. valueType_ is
+    // derived from that same T; neither the tag nor payload is publicly mutable.
+    // All alternatives are trivial and whole-object copying preserves both.
+    union Bounds {
+        detail::NumericBounds<float> f32;
+        detail::NumericBounds<double> f64;
+        detail::NumericBounds<std::uint32_t> u32;
+        detail::NumericBounds<std::int32_t> s32;
+        detail::NumericBounds<std::uint64_t> u64;
+        detail::NumericBounds<bool> boolean;
+        detail::NumericBounds<std::uint8_t> u8;
+        detail::NumericBounds<std::uint16_t> u16;
+        detail::NumericBounds<std::int8_t> s8;
+        detail::NumericBounds<std::int16_t> s16;
+        detail::NumericBounds<std::int64_t> s64;
+        constexpr Bounds() noexcept : f32{} {}
+        constexpr explicit Bounds(detail::NumericBounds<float> value) noexcept : f32(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<double> value) noexcept : f64(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::uint32_t> value) noexcept : u32(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::int32_t> value) noexcept : s32(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::uint64_t> value) noexcept : u64(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<bool> value) noexcept : boolean(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::uint8_t> value) noexcept : u8(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::uint16_t> value) noexcept : u16(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::int8_t> value) noexcept : s8(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::int16_t> value) noexcept : s16(value) {}
+        constexpr explicit Bounds(detail::NumericBounds<std::int64_t> value) noexcept : s64(value) {}
+    };
+
+    template <class T>
+    TELEMETRY_FORCE_INLINE constexpr const detail::NumericBounds<T>& boundsFor_() const noexcept
+    {
+        if constexpr (std::is_same_v<T, float>) return bounds_.f32;
+        else if constexpr (std::is_same_v<T, double>) return bounds_.f64;
+        else if constexpr (std::is_same_v<T, std::uint32_t>) return bounds_.u32;
+        else if constexpr (std::is_same_v<T, std::int32_t>) return bounds_.s32;
+        else if constexpr (std::is_same_v<T, std::uint64_t>) return bounds_.u64;
+        else if constexpr (std::is_same_v<T, bool>) return bounds_.boolean;
+        else if constexpr (std::is_same_v<T, std::uint8_t>) return bounds_.u8;
+        else if constexpr (std::is_same_v<T, std::uint16_t>) return bounds_.u16;
+        else if constexpr (std::is_same_v<T, std::int8_t>) return bounds_.s8;
+        else if constexpr (std::is_same_v<T, std::int16_t>) return bounds_.s16;
+        else if constexpr (std::is_same_v<T, std::int64_t>) return bounds_.s64;
+    }
+
+    template <class T, unsigned Which>
+    constexpr Scalar projectAs_() const noexcept
+    {
+        if constexpr (Which == 0) return Scalar::from(boundsFor_<T>().minimum);
+        else return Scalar::from(boundsFor_<T>().maximum);
+    }
 
     template <unsigned Which>
     constexpr Scalar project_() const noexcept
     {
-        return std::visit([](const auto& limits) constexpr noexcept -> Scalar {
-            if constexpr (std::is_same_v<std::decay_t<decltype(limits)>, std::monostate>) return {};
-            else if constexpr (Which == 0) return Scalar::from(limits.minimum);
-            else if constexpr (Which == 1) return Scalar::from(limits.maximum);
-            else return Scalar::from(limits.initial);
-        }, limits_);
+        switch (valueType_) {
+            case ScalarType::F32: return projectAs_<float, Which>();
+            case ScalarType::F64: return projectAs_<double, Which>();
+            case ScalarType::U32: return projectAs_<std::uint32_t, Which>();
+            case ScalarType::S32: return projectAs_<std::int32_t, Which>();
+            case ScalarType::U64: return projectAs_<std::uint64_t, Which>();
+            case ScalarType::Bool: return projectAs_<bool, Which>();
+            case ScalarType::U8: return projectAs_<std::uint8_t, Which>();
+            case ScalarType::U16: return projectAs_<std::uint16_t, Which>();
+            case ScalarType::S8: return projectAs_<std::int8_t, Which>();
+            case ScalarType::S16: return projectAs_<std::int16_t, Which>();
+            case ScalarType::S64: return projectAs_<std::int64_t, Which>();
+            default: return {};
+        }
     }
 
+    template <class T>
+    constexpr FieldType(detail::NumericBounds<T> bounds, T initial, EnumDescription describe) noexcept
+        : valueType_(Scalar::from(T{}).type()),
+          restricted_(bounds.minimum != std::numeric_limits<T>::lowest()
+              || bounds.maximum != std::numeric_limits<T>::max()),
+          bounds_(bounds), initial_(Scalar::from(initial)), describe_(describe) {}
+
+    template <class T>
+    constexpr FieldType checked_(const Scalar& minimum, const Scalar& maximum, const Scalar& initial) const noexcept
+    {
+        const T low = minimum.get<T>(), high = maximum.get<T>(), start = initial.get<T>();
+        if constexpr (std::is_floating_point_v<T>) {
+            if (!detail::scalarFinite(low) || !detail::scalarFinite(high)
+                || !detail::scalarFinite(start)) detail::invalidFieldLimits();
+        }
+        if (!(low <= start && start <= high)) detail::invalidFieldLimits();
+        return FieldType(detail::NumericBounds<T>{low, high}, start, describe_);
+    }
+
+
 public:
-    // Native extrema and zero/false default. Floating extrema are finite.
-    // Implicit construction preserves rows containing ScalarType::F32, etc.
     constexpr FieldType(ScalarType type = ScalarType::Null) noexcept
-        : valueType_(type), limits_(nativeLimits_(type)) {}
+        : valueType_(type), bounds_(nativeBounds_(type)), initial_(nativeDefault_(type)) {}
 
     TELEMETRY_FORCE_INLINE constexpr operator ScalarType() const noexcept { return valueType_; }
     constexpr bool hasEnum() const noexcept { return describe_ != nullptr; }
-
-    // These projections belong to metadata consumers, not the read path.
     constexpr Scalar minimum() const noexcept { return project_<0>(); }
     constexpr Scalar maximum() const noexcept { return project_<1>(); }
-    constexpr Scalar defaultValue() const noexcept { return project_<2>(); }
+    constexpr Scalar defaultValue() const noexcept { return initial_; }
 
-    // Definitions use the same checked numeric conversions as writes. All
-    // three values must be finite, with minimum <= initial <= maximum.
-    // Return a new descriptor; published metadata remains immutable.
     constexpr FieldType withLimits(Scalar minimum, Scalar maximum, Scalar initial) const noexcept
     {
-        // Normalize local values before extracting the native limits. This
-        // also keeps runtime construction free of intermediate optionals.
         if (!convertScalar(minimum, valueType_, minimum)
             || !convertScalar(maximum, valueType_, maximum)
             || !convertScalar(initial, valueType_, initial)) detail::invalidFieldLimits();
-        FieldType result = *this;
-        const bool valid = std::visit([&](auto& limits) constexpr noexcept {
-            using L = std::decay_t<decltype(limits)>;
-            if constexpr (std::is_same_v<L, std::monostate>) return false;
-            else {
-                using T = decltype(limits.minimum);
-                const T low = minimum.get<T>();
-                const T high = maximum.get<T>();
-                const T start = initial.get<T>();
-                if constexpr (std::is_floating_point_v<T>) {
-                    if (!detail::scalarFinite(low) || !detail::scalarFinite(high)
-                        || !detail::scalarFinite(start)) return false;
-                }
-                if (!(low <= start && start <= high)) return false;
-                limits = {low, high, start};
-                result.restricted_ = low != std::numeric_limits<T>::lowest()
-                    || high != std::numeric_limits<T>::max();
-                return true;
-            }
-        }, result.limits_);
-        if (!valid) detail::invalidFieldLimits();
-        return result;
+        switch (valueType_) {
+            case ScalarType::F32: return checked_<float>(minimum, maximum, initial);
+            case ScalarType::F64: return checked_<double>(minimum, maximum, initial);
+            case ScalarType::U32: return checked_<std::uint32_t>(minimum, maximum, initial);
+            case ScalarType::S32: return checked_<std::int32_t>(minimum, maximum, initial);
+            case ScalarType::U64: return checked_<std::uint64_t>(minimum, maximum, initial);
+            case ScalarType::Bool: return checked_<bool>(minimum, maximum, initial);
+            case ScalarType::U8: return checked_<std::uint8_t>(minimum, maximum, initial);
+            case ScalarType::U16: return checked_<std::uint16_t>(minimum, maximum, initial);
+            case ScalarType::S8: return checked_<std::int8_t>(minimum, maximum, initial);
+            case ScalarType::S16: return checked_<std::int16_t>(minimum, maximum, initial);
+            case ScalarType::S64: return checked_<std::int64_t>(minimum, maximum, initial);
+            default: detail::invalidFieldLimits();
+        }
     }
 
     constexpr FieldType withDefault(Scalar initial) const noexcept
@@ -106,8 +154,6 @@ public:
         return withLimits(minimum(), maximum(), initial);
     }
 
-    // A numeric-only descriptor or an absent sink returns false. A context
-    // may be null when the supplied sink does not need application state.
     bool describeEnum(void* context, EnumEntrySink sink) const noexcept
     {
         return describe_ != nullptr && sink != nullptr && describe_(context, sink);
@@ -117,21 +163,39 @@ private:
     constexpr FieldType(ScalarType type, EnumDescription describe) noexcept
         : FieldType(type) { describe_ = describe; }
 
-    static constexpr Limits nativeLimits_(ScalarType type) noexcept
+    static constexpr Bounds nativeBounds_(ScalarType type) noexcept
     {
         switch (type) {
-            case ScalarType::F32: return detail::NumericLimits<float>{};
-            case ScalarType::F64: return detail::NumericLimits<double>{};
-            case ScalarType::U8: return detail::NumericLimits<std::uint8_t>{};
-            case ScalarType::U16: return detail::NumericLimits<std::uint16_t>{};
-            case ScalarType::U32: return detail::NumericLimits<std::uint32_t>{};
-            case ScalarType::U64: return detail::NumericLimits<std::uint64_t>{};
-            case ScalarType::S8: return detail::NumericLimits<std::int8_t>{};
-            case ScalarType::S16: return detail::NumericLimits<std::int16_t>{};
-            case ScalarType::S32: return detail::NumericLimits<std::int32_t>{};
-            case ScalarType::S64: return detail::NumericLimits<std::int64_t>{};
-            case ScalarType::Bool: return detail::NumericLimits<bool>{};
-            default: return std::monostate{};
+            case ScalarType::F32: return Bounds(detail::NumericBounds<float>{});
+            case ScalarType::F64: return Bounds(detail::NumericBounds<double>{});
+            case ScalarType::U32: return Bounds(detail::NumericBounds<std::uint32_t>{});
+            case ScalarType::S32: return Bounds(detail::NumericBounds<std::int32_t>{});
+            case ScalarType::U64: return Bounds(detail::NumericBounds<std::uint64_t>{});
+            case ScalarType::Bool: return Bounds(detail::NumericBounds<bool>{});
+            case ScalarType::U8: return Bounds(detail::NumericBounds<std::uint8_t>{});
+            case ScalarType::U16: return Bounds(detail::NumericBounds<std::uint16_t>{});
+            case ScalarType::S8: return Bounds(detail::NumericBounds<std::int8_t>{});
+            case ScalarType::S16: return Bounds(detail::NumericBounds<std::int16_t>{});
+            case ScalarType::S64: return Bounds(detail::NumericBounds<std::int64_t>{});
+            default: return {};
+        }
+    }
+
+    static constexpr Scalar nativeDefault_(ScalarType type) noexcept
+    {
+        switch (type) {
+            case ScalarType::F32: return Scalar::from(float{});
+            case ScalarType::F64: return Scalar::from(double{});
+            case ScalarType::U32: return Scalar::from(std::uint32_t{});
+            case ScalarType::S32: return Scalar::from(std::int32_t{});
+            case ScalarType::U64: return Scalar::from(std::uint64_t{});
+            case ScalarType::Bool: return Scalar::from(bool{});
+            case ScalarType::U8: return Scalar::from(std::uint8_t{});
+            case ScalarType::U16: return Scalar::from(std::uint16_t{});
+            case ScalarType::S8: return Scalar::from(std::int8_t{});
+            case ScalarType::S16: return Scalar::from(std::int16_t{});
+            case ScalarType::S64: return Scalar::from(std::int64_t{});
+            default: return {};
         }
     }
 
@@ -139,28 +203,29 @@ private:
     TELEMETRY_FORCE_INLINE constexpr bool contains_(const Scalar& value) const noexcept
     {
         const T number = value.get<T>();
-        const auto& limits = std::get<detail::NumericLimits<T>>(limits_);
-        return number >= limits.minimum && number <= limits.maximum;
+        const auto& bounds = boundsFor_<T>();
+        return number >= bounds.minimum && number <= bounds.maximum;
     }
 
-    // Field calls this only after successful conversion to valueType_.
-    // No enum metadata is consulted. Full-range integer writes need no
-    // additional comparisons; float writes always reject NaN and infinity.
     TELEMETRY_FORCE_INLINE constexpr bool acceptsConverted_(const Scalar& value) const noexcept
     {
-        if (!restricted_ && valueType_ != ScalarType::F32 && valueType_ != ScalarType::F64) return true;
+        if (!restricted_) {
+            if (valueType_ == ScalarType::F32) return detail::scalarFinite(value.get<float>());
+            if (valueType_ == ScalarType::F64) return detail::scalarFinite(value.get<double>());
+            return true;
+        }
         switch (valueType_) {
             case ScalarType::F32: return contains_<float>(value);
             case ScalarType::F64: return contains_<double>(value);
+            case ScalarType::U32: return contains_<std::uint32_t>(value);
+            case ScalarType::S32: return contains_<std::int32_t>(value);
+            case ScalarType::U64: return contains_<std::uint64_t>(value);
+            case ScalarType::Bool: return contains_<bool>(value);
             case ScalarType::U8: return contains_<std::uint8_t>(value);
             case ScalarType::U16: return contains_<std::uint16_t>(value);
-            case ScalarType::U32: return contains_<std::uint32_t>(value);
-            case ScalarType::U64: return contains_<std::uint64_t>(value);
             case ScalarType::S8: return contains_<std::int8_t>(value);
             case ScalarType::S16: return contains_<std::int16_t>(value);
-            case ScalarType::S32: return contains_<std::int32_t>(value);
             case ScalarType::S64: return contains_<std::int64_t>(value);
-            case ScalarType::Bool: return contains_<bool>(value);
             default: return false;
         }
     }
@@ -171,11 +236,14 @@ private:
 
     ScalarType valueType_ = ScalarType::Null;
     bool restricted_ = false;
+    Bounds bounds_{};
+    Scalar initial_{};
     EnumDescription describe_ = nullptr;
-    Limits limits_{};
-};
 
-static_assert(std::is_trivially_copyable_v<FieldType>, "Field type metadata must remain trivial");
+    static constexpr std::size_t writeBytes_() noexcept { return offsetof(FieldType, initial_); }
+    static_assert(sizeof(Bounds) == 16 && std::is_trivially_copyable_v<Bounds>);
+};
+static_assert(std::is_trivially_copyable_v<FieldType>);
 
 template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
 constexpr FieldType numericType() noexcept
@@ -183,8 +251,6 @@ constexpr FieldType numericType() noexcept
     return Scalar::from(T{}).type();
 }
 
-// Default first; omitted bounds retain the full native range. Keep Scalar
-// parameters so conversions are checked before any narrowing to T occurs.
 template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
 constexpr FieldType numericType(Scalar initial,
     Scalar minimum = Scalar::from(std::numeric_limits<T>::lowest()),
@@ -192,7 +258,6 @@ constexpr FieldType numericType(Scalar initial,
 {
     return numericType<T>().withLimits(minimum, maximum, initial);
 }
-
 } // namespace telemetry
 
 #endif
