@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryIndex.h
+ * @brief Direct catalog lookup and runtime or compile-time typed access.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_INDEX_H
 #define TELEMETRY_INDEX_H
 

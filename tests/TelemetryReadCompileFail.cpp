@@ -28,6 +28,24 @@ auto rejected = CatalogIndex::bind<runtimeCatalogs>(); // Metadata is not conste
 void rejected(Scalar& value) { value.type() = ScalarType::U64; } // Tag is not writable.
 #elif TELEMETRY_READ_FAIL_CASE == 7
 auto rejected = Scalar::fromF32(1).getIf<float>(); // Borrowing from a temporary.
+#elif TELEMETRY_READ_FAIL_CASE == 8
+float throwingRead() { return 1; }
+auto rejected = Getter::bind<&throwingRead>();
+#elif TELEMETRY_READ_FAIL_CASE == 9
+WriteResult throwingWrite(const Scalar&) { return WriteResult::Applied; }
+auto rejected = Setter::bind<&throwingWrite>();
+#elif TELEMETRY_READ_FAIL_CASE == 10
+struct Owner { float read() const noexcept { return 1; } };
+auto rejected = Getter::bind<&Owner::read>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 11
+constexpr auto noFunction = static_cast<float (*)() noexcept>(nullptr);
+auto rejected = Getter::bind<noFunction>();
+#elif TELEMETRY_READ_FAIL_CASE == 12
+using Rows = Field[1];
+auto rejected = Catalog{0, "temporary", Rows{}, 1};
+#elif TELEMETRY_READ_FAIL_CASE == 13
+using Groups = Catalog[1];
+auto rejected = CatalogIndex{Groups{}, 1};
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 7"
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 13"
 #endif

@@ -146,8 +146,10 @@ The previous range/pointer-slot implementation is retained in
 
 Build the independent checks by opening
 [telemetry_check.pro](tests/telemetry_check.pro),
-[telemetry_write_check.pro](tests/telemetry_write_check.pro) and
-[telemetry_read_check.pro](tests/telemetry_read_check.pro) with the same
+[telemetry_write_check.pro](tests/telemetry_write_check.pro),
+[telemetry_read_check.pro](tests/telemetry_read_check.pro),
+[telemetry_json_check.pro](tests/telemetry_json_check.pro) and
+[telemetry_numeric_check.pro](tests/telemetry_numeric_check.pro) with the same
 kit, or run qmake and mingw32-make from a separate build directory:
 
 ```powershell
@@ -160,24 +162,36 @@ mingw32-make -j4
 Pop-Location
 ```
 
-The checks use the same `.pri` as the application. Library integration and
-contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
+The checks use the same `.pri` as the application. A [Qt-independent test
+runner](tests/README.md) also builds the suites, checks expected compilation
+failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
+Clang sanitizers and an offscreen Qt application check.
+Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verified after shared declared-type normalization and native conversion optimization
+Verified after numeric, lifetime-contract and serialization review
 on 2026-09-19:
 
-- Qt 6.10.1 / MinGW 13.1.0: Debug application build and offscreen startup;
-  99/99 core, 87/87 write/getter and 87/87 read checks passed with C++17.
+- Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
+  99/99 core, 87/87 write/getter, 87/87 read, 17/17 JSON and 121/121 numeric
+  oracle checks passed with C++17 (411 total).
   C++20 also checks char8_t (88/88 write/getter and 88/88 read checks).
-  Seven expected compilation failures cover invalid static bindings/reads
-  and invalid Scalar access in both language modes. The Qt table also
+  Thirteen expected compilation failures cover invalid bindings/reads,
+  temporary arrays and invalid Scalar access in both language modes.
+  Standalone public headers compile; fast-math and finite-math-only builds
+  are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
-- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all three suites passed. The existing
-  zero-argument formatter warning in `TelemetryJson.cpp` was kept nonfatal.
+- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all five suites
+  passed with warnings treated as errors and no warning exemptions.
+  Clang C++20 Release passed the same suites and compilation checks.
 - CubeIDE GCC 14.3.1: library, demo and checks compiled for Cortex-M7 with
-  C++17 and warnings treated as errors. Compile-time checks also reject
-  temporary-array bindings, including pointer/count call syntax.
+  C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
+  as errors. A minimal JSON consumer also linked with newlib-nano and enabled
+  floating formatting. This was a link check, not execution on a board.
+- Serialization now rejects null output safely, stops reading after an output
+  failure, preserves F32 precision and emits a JSON decimal point in a comma
+  locale. U64/S64 formatting no longer needs `long long` support in printf;
+  the installed CubeIDE newlib-nano configuration disables that support.
 - [IndexCodegen.cpp](tests/IndexCodegen.cpp), built for Cortex-M7 at `-O2`
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's

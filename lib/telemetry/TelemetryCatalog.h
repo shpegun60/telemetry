@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryCatalog.h
+ * @brief Packed field IDs, read/write field contracts and borrowed catalogs.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_CATALOG_H
 #define TELEMETRY_CATALOG_H
 

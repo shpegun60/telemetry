@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryConversion.h
+ * @brief Checked numeric conversions shared by field reads and writes.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_CONVERSION_H
 #define TELEMETRY_CONVERSION_H
 

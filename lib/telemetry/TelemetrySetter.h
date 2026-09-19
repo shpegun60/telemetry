@@ -1,10 +1,11 @@
+/**
+ * @file TelemetrySetter.h
+ * @brief Optional non-owning write callbacks and synchronous write results.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_SETTER_H
 #define TELEMETRY_SETTER_H
-
-// Socket compatibility macros must not rewrite the bind declarations.
-#ifdef bind
-#undef bind
-#endif
 
 #include <type_traits>
 #include <utility>

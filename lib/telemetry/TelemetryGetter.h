@@ -1,10 +1,11 @@
+/**
+ * @file TelemetryGetter.h
+ * @brief Non-owning noexcept getters for Scalar and native numeric sources.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_GETTER_H
 #define TELEMETRY_GETTER_H
-
-// Socket compatibility macros must not rewrite the bind declarations.
-#ifdef bind
-#undef bind
-#endif
 
 #include <type_traits>
 #include <utility>

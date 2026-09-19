@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryJson.h
+ * @brief Bounded JSON serialization and an order-sensitive schema fingerprint.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_JSON_H
 #define TELEMETRY_JSON_H
 
@@ -19,14 +25,19 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept;
 // Pointer/count overloads create such a view for the duration of the call.
 // Names must be ASCII identifiers; units must not contain JSON quotes,
 // backslashes or control characters. All strings must be non-null.
-// Returns the length excluding the terminator, or 0 on insufficient space.
-// On failure the partial buffer must not be sent as JSON.
+// Returns the length excluding the terminator, or 0 on insufficient space
+// or a null buffer (regardless of size). A nonempty output buffer always
+// remains NUL-terminated. On failure the partial buffer must not be sent.
+// Output storage must not overlap metadata, strings or source values.
 std::size_t writeSchema(const Catalog* catalogs, std::size_t count,
                         char* buffer, std::size_t size) noexcept;
 std::size_t writeSchema(const CatalogIndex& index, char* buffer, std::size_t size) noexcept;
 
 // {"meter":[229.98,13247,null,...],"sensor":[...]}
-// Null/empty getters, tag mismatches and non-finite floats become JSON null.
+// Null/empty getters, failed conversions and non-finite floats become JSON null.
+// Finite F32/F64 use max_digits10 precision and a JSON decimal point in any
+// numeric locale. Do not change the process locale concurrently with calls.
+// Getter calls stop at the first output failure; earlier reads are not undone.
 // All integers are exact in the text. JavaScript Number cannot represent
 // every U64/S64 integer outside [-(2^53 - 1), 2^53 - 1].
 // The caller supplies the buffers, scheduling and any envelope.

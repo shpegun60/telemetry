@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryCompiler.h
+ * @brief Compiler attributes shared by the small telemetry adapters.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_COMPILER_H
 #define TELEMETRY_COMPILER_H
 

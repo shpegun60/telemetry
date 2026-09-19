@@ -1,5 +1,8 @@
 # Telemetry library
 
+Standalone catalog, numeric conversion and JSON library for C++17.
+Authors: Ruslan Kovtun (shpegun60), codexAi.
+
 Copy this directory and its sibling `delegate` directory into a consumer,
 keeping both under the same `lib` directory, and include the reusable `.pri`:
 
@@ -245,9 +248,10 @@ catalog when changing definitions. Default construction gives an empty
 catalog with group ID zero and an empty name; normal published catalogs
 still need unique names.
 
-Array-reference constructors deduce actual counts and reject temporary
-arrays, including the explicit-count form. The pointer/count forms must
-refer to real arrays of the declared extent. Source field definitions,
+Array-reference constructors without a count deduce the actual extent.
+Temporary arrays are rejected, including in explicit-count calls. Every
+explicit count must describe a live array of at least that extent; the 65536
+capacity cap cannot discover the allocation behind a pointer. Source field definitions,
 array order and addresses must remain unchanged from Catalog construction
 through the last read. Catalog arrays must outlive their CatalogIndex;
 getters'/setters' source objects and all strings must outlive their consumers.
@@ -393,15 +397,29 @@ against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
 
 Buffers belong to the caller; a zero returned length means failure and
-partial JSON must not be sent. Names must be unique ASCII identifiers
+partial JSON must not be sent. A null buffer fails regardless of its size;
+a non-null buffer with positive size remains NUL-terminated. Serialization
+stops at the first output failure, including further getter calls. Previously
+read fields are not rolled back. The output must not overlap the metadata,
+its strings or the source values. Names must be unique ASCII identifiers
 (catalog names globally, field names within each catalog). Unit strings must
 not contain JSON quotes, backslashes or control characters; strings must be
 non-null. `names_unique` remains available for static field tables.
 
 Null, failed normalization and non-finite floating-point values serialize as
-JSON null. Every integer retains all decimal digits, including
+JSON null. F32 and F64 use 9 and 17 significant digits respectively, preserving
+round trips instead of shortening F32 to seven digits. JSON always uses a
+decimal point, including under a decimal-comma locale; serialization does not
+change the locale. The application must not concurrently call `setlocale`.
+Floating formatting uses a bounded 64-byte temporary and the C library's
+`snprintf`; newlib-nano builds need floating formatting enabled at link time
+(for the verified CubeIDE configuration, `-Wl,-u,_printf_float`).
+
+Every integer retains all decimal digits, including
 `UINT64_MAX` and `INT64_MIN`; 8-bit integers serialize as numbers, not
-characters. JavaScript Number cannot represent every U64/S64 integer outside
+characters. U64/S64 use bounded decimal conversion with unsigned magnitude
+arithmetic, so INT64_MIN does not overflow and newlib-nano's optional
+`long long` printf support is not required. JavaScript Number cannot represent every U64/S64 integer outside
 `[-(2^53 - 1), 2^53 - 1]`. Serialization does not provide a write transport,
 subscriptions or scheduling.
 
@@ -418,7 +436,16 @@ endpoints. It checks all 121 source/declared type pairs through both reads
 and writes, and verifies that an explicit read type cannot bypass declared
 rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
-seven expected compilation failures, with invocation flags in its comment.
+thirteen expected compilation failures, covering static reads and invalid
+bindings. [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
+buffer lengths, checks null output and early stopping, requires a decimal-comma
+locale in CI, and checks 4096 samples plus endpoints for each of F32/F64/U64/S64.
+[TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
+121 conversion pairs against an independent extended-precision oracle with
+explicit truncation, checking endpoints and 1024 source samples per pair.
+That oracle runs on hosts with at least 64 long-double mantissa bits.
+The [test runner and instructions](../../tests/README.md) reproduce all suites,
+standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
 with reproduction flags in its opening comment; use the same flags for
 [ConversionCodegen.cpp](../../tests/ConversionCodegen.cpp),

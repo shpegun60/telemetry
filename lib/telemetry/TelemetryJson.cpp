@@ -1,8 +1,17 @@
+/**
+ * @file TelemetryJson.cpp
+ * @brief Serialize validated catalogs and values into caller-owned JSON buffers.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #include "TelemetryJson.h"
 
 #include <cmath>
+#include <clocale>
 #include <cstdio>
+#include <cstring>
 #include <inttypes.h>
+#include <limits>
 
 namespace telemetry {
 
@@ -45,18 +54,27 @@ std::uint32_t fnv1a_(std::uint32_t hash, const char* text) noexcept
 class Writer {
 public:
     Writer(char* const buffer, const std::size_t size) noexcept
-        : buffer_(buffer), size_(size) {}
+        : buffer_(buffer), size_(size), ok_(buffer != nullptr && size != 0)
+    {
+        if (ok_) buffer_[0] = '\0';
+    }
 
-    template <typename... Args>
-    bool append(const char* format, Args... args) noexcept
+    bool append(const char* text) noexcept
+    {
+        return appendText_(text, std::strlen(text));
+    }
+
+    template <typename First, typename... Args>
+    bool append(const char* format, First first, Args... args) noexcept
     {
         if (!ok_ || (offset_ >= size_)) {
             ok_ = false;
             return false;
         }
         const int written =
-            std::snprintf(buffer_ + offset_, size_ - offset_, format, args...);
+            std::snprintf(buffer_ + offset_, size_ - offset_, format, first, args...);
         if ((written < 0) || (static_cast<std::size_t>(written) >= (size_ - offset_))) {
+            buffer_[offset_] = '\0';
             ok_ = false;
             return false;
         }
@@ -64,71 +82,115 @@ public:
         return true;
     }
 
+    bool appendFloating(double number, int precision) noexcept
+    {
+        if (!ok_) return false;
+        // %g uses the current decimal separator. Format locally, then replace
+        // that separator without changing the application's numeric locale.
+        char text[64];
+        const int written = std::snprintf(text, sizeof(text), "%.*g", precision, number);
+        if (written < 0 || static_cast<std::size_t>(written) >= sizeof(text)) {
+            ok_ = false;
+            return false;
+        }
+        const char* const decimal = std::localeconv()->decimal_point;
+        if (std::strcmp(decimal, ".") != 0 && decimal[0] != '\0') {
+            if (const char* const point = std::strstr(text, decimal)) {
+                return appendText_(text, static_cast<std::size_t>(point - text))
+                    && append(".") && append(point + std::strlen(decimal));
+            }
+        }
+        return appendText_(text, static_cast<std::size_t>(written));
+    }
+
+    bool appendInteger(std::uint64_t number) noexcept { return appendDecimal_(number, false); }
+
+    bool appendInteger(std::int64_t number) noexcept
+    {
+        const bool negative = number < 0;
+        // Unsigned subtraction also handles INT64_MIN without signed overflow.
+        const auto bits = static_cast<std::uint64_t>(number);
+        return appendDecimal_(negative ? std::uint64_t{0} - bits : bits, negative);
+    }
+
+    bool ok() const noexcept { return ok_; }
     std::size_t length() const noexcept { return ok_ ? offset_ : 0u; }
 
 private:
+    bool appendDecimal_(std::uint64_t number, bool negative) noexcept
+    {
+        // Newlib-nano need not support printf's long-long format. Keep the
+        // full integer value independent of that optional C library feature.
+        char text[std::numeric_limits<std::uint64_t>::digits10 + 2];
+        char* const end = text + sizeof(text);
+        char* first = end;
+        do {
+            *--first = static_cast<char>('0' + number % 10);
+            number /= 10;
+        } while (number != 0);
+        if (negative) *--first = '-';
+        return appendText_(first, static_cast<std::size_t>(end - first));
+    }
+
+    bool appendText_(const char* text, std::size_t length) noexcept
+    {
+        if (!ok_ || length >= size_ - offset_) {
+            ok_ = false;
+            return false;
+        }
+        std::memcpy(buffer_ + offset_, text, length);
+        offset_ += length;
+        buffer_[offset_] = '\0';
+        return true;
+    }
+
     char* buffer_;
     std::size_t size_;
     std::size_t offset_ = 0u;
-    bool ok_ = true;
+    bool ok_;
 };
 
-void append_value_(Writer& out, const Field& field) noexcept
+bool append_value_(Writer& out, const Field& field) noexcept
 {
     const Scalar value = field.read();
 
     if (value.type() == ScalarType::Null) {
         // Field::read already normalizes to declaredType. Null represents an
         // unavailable value or a conversion that cannot satisfy that type.
-        (void) out.append("null");
-        return;
+        return out.append("null");
     }
 
     switch (value.type()) {
         case ScalarType::F32:
             if (std::isfinite(value.get<float>())) {
-                (void) out.append("%.7g", static_cast<double>(value.get<float>()));
-            } else {
-                (void) out.append("null");
+                return out.appendFloating(value.get<float>(), std::numeric_limits<float>::max_digits10);
             }
-            break;
+            return out.append("null");
         case ScalarType::F64:
             if (std::isfinite(value.get<double>())) {
-                (void) out.append("%.17g", value.get<double>());
-            } else {
-                (void) out.append("null");
+                return out.appendFloating(value.get<double>(), std::numeric_limits<double>::max_digits10);
             }
-            break;
+            return out.append("null");
         case ScalarType::U8:
-            (void) out.append("%u", static_cast<unsigned>(value.get<std::uint8_t>()));
-            break;
+            return out.append("%u", static_cast<unsigned>(value.get<std::uint8_t>()));
         case ScalarType::U16:
-            (void) out.append("%u", static_cast<unsigned>(value.get<std::uint16_t>()));
-            break;
+            return out.append("%u", static_cast<unsigned>(value.get<std::uint16_t>()));
         case ScalarType::U32:
-            (void) out.append("%" PRIu32, value.get<std::uint32_t>());
-            break;
+            return out.append("%" PRIu32, value.get<std::uint32_t>());
         case ScalarType::S8:
-            (void) out.append("%d", static_cast<int>(value.get<std::int8_t>()));
-            break;
+            return out.append("%d", static_cast<int>(value.get<std::int8_t>()));
         case ScalarType::S16:
-            (void) out.append("%d", static_cast<int>(value.get<std::int16_t>()));
-            break;
+            return out.append("%d", static_cast<int>(value.get<std::int16_t>()));
         case ScalarType::S32:
-            (void) out.append("%" PRId32, value.get<std::int32_t>());
-            break;
+            return out.append("%" PRId32, value.get<std::int32_t>());
         case ScalarType::U64:
-            (void) out.append("%" PRIu64, value.get<std::uint64_t>());
-            break;
+            return out.appendInteger(value.get<std::uint64_t>());
         case ScalarType::S64:
-            (void) out.append("%" PRId64, value.get<std::int64_t>());
-            break;
+            return out.appendInteger(value.get<std::int64_t>());
         case ScalarType::Bool:
-            (void) out.append(value.get<bool>() ? "true" : "false");
-            break;
+            return out.append(value.get<bool>() ? "true" : "false");
         default:
-            (void) out.append("null");
-            break;
+            return out.append("null");
     }
 }
 
@@ -166,19 +228,20 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     Writer out {buffer, size};
-    (void) out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
-                      static_cast<unsigned long>(schemaCrc(index)));
+    if (!out.ok()) return 0;
+    if (!out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
+                    static_cast<unsigned long>(schemaCrc(index)))) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
-        (void) out.append("%s{\"id\":%u,\"name\":\"%s\",\"fields\":[",
-                          (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id), catalogs[c].name);
+        if (!out.append("%s{\"id\":%u,\"name\":\"%s\",\"fields\":[",
+                        (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id), catalogs[c].name)) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
-            (void) out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s}",
-                              (i == 0u) ? "" : ",", static_cast<unsigned>(i),
-                              field.id, field.name, field.unit, type_name_(field.declaredType),
-                              field.set ? "true" : "false");
+            if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s}",
+                            (i == 0u) ? "" : ",", static_cast<unsigned>(i),
+                            field.id, field.name, field.unit, type_name_(field.declaredType),
+                            field.set ? "true" : "false")) return 0;
         }
-        (void) out.append("]}");
+        if (!out.append("]}")) return 0;
     }
     (void) out.append("]}");
     return out.length();
@@ -189,16 +252,14 @@ std::size_t writeValues(const CatalogIndex& index, char* const buffer, const std
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     Writer out {buffer, size};
-    (void) out.append("{");
+    if (!out.append("{")) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
-        (void) out.append("%s\"%s\":[", (c == 0u) ? "" : ",", catalogs[c].name);
+        if (!out.append("%s\"%s\":[", (c == 0u) ? "" : ",", catalogs[c].name)) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
-            if (i != 0u) {
-                (void) out.append(",");
-            }
-            append_value_(out, catalogs[c].fields[i]);
+            if (i != 0u && !out.append(",")) return 0;
+            if (!append_value_(out, catalogs[c].fields[i])) return 0;
         }
-        (void) out.append("]");
+        if (!out.append("]")) return 0;
     }
     (void) out.append("}");
     return out.length();

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: ${{ matrix.cxx }} ${{ matrix.standard }} ${{ matrix.mode }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++, clang++-18]
+        standard: [c++17, c++20]
+        mode: [release]
+        include:
+          - {cxx: clang++-18, standard: c++17, mode: sanitized}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare decimal-comma locale
+        run: sudo localedef -i de_DE -f UTF-8 de_DE.UTF-8
+      - name: Compile and check
+        env:
+          CXX: ${{ matrix.cxx }}
+          STANDARD: ${{ matrix.standard }}
+          MODE: ${{ matrix.mode }}
+          TELEMETRY_TEST_LOCALE: de_DE.UTF-8
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          python3 tests/run_checks.py --std "$STANDARD" --build-dir build/checks "${flags[@]}"
+
+  qt:
+    name: Qt playground
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev
+      - name: Build
+        run: |
+          mkdir -p build/qt
+          cd build/qt
+          qmake6 ../../telemetry.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
+          make -j2
+      - name: Startup check
+        run: build/qt/telemetry_playground -platform offscreen --smoke-test

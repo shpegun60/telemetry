@@ -1,3 +1,7 @@
+# telemetry.pri - Reusable qmake integration for the standalone telemetry library.
+# Authors: Ruslan Kovtun (shpegun60), codexAi.
+# License: MIT; see LICENSE in this directory.
+#
 # Copy the telemetry and sibling delegate directories into a consumer.
 # The library itself uses only C++17; Qt belongs to the application.
 include($$PWD/../delegate/delegate.pri)

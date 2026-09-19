@@ -1,3 +1,9 @@
+/**
+ * @file TelemetryScalar.h
+ * @brief Allocation-free numeric values with private variant storage and checked access.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * License: MIT; see LICENSE in this directory.
+ */
 #ifndef TELEMETRY_SCALAR_H
 #define TELEMETRY_SCALAR_H
 

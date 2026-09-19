@@ -25,6 +25,9 @@ DISTFILES += \
     README.md \
     lib/delegate/README.md \
     lib/delegate/LICENSE \
+    .github/workflows/ci.yml \
+    tests/run_checks.py \
+    tests/README.md \
     $$files($$PWD/tests/*.pro) \
     $$files($$PWD/tests/*.cpp) \
     $$files($$PWD/archive/id_ranges/*)
