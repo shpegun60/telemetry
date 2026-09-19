@@ -112,6 +112,45 @@ void checkMetadataStrings()
         "truncation inside an escaped catalog name prevents source reads");
 }
 
+void checkNullMetadata()
+{
+    Source source;
+    const Field validFields[] = {
+        {0, "value", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+    };
+    const Catalog nullCatalogName[] = {{0, nullptr, validFields}};
+    char text[512];
+    expect(schemaCrc(nullCatalogName, std::size(nullCatalogName)) == 0
+               && writeSchema(nullCatalogName, std::size(nullCatalogName), text, sizeof(text)) == 0,
+           "schema fingerprint and output reject a null catalog name safely");
+    source.reads = 0;
+    expect(writeValues(nullCatalogName, std::size(nullCatalogName), text, sizeof(text)) == 0
+               && source.reads == 0,
+           "value output rejects a null catalog name before invoking getters");
+
+    const Field nullFieldName[] = {
+        {0, nullptr, "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+    };
+    const Catalog badNameCatalog[] = {{0, "v", nullFieldName}};
+    expect(schemaCrc(badNameCatalog, std::size(badNameCatalog)) == 0
+               && writeSchema(badNameCatalog, std::size(badNameCatalog), text, sizeof(text)) == 0,
+           "schema fingerprint and output reject a null field name safely");
+
+    const Field nullFieldUnit[] = {
+        {0, "value", nullptr, ScalarType::F32, Getter::bind<&Source::read>(source)},
+    };
+    const Catalog badUnitCatalog[] = {{0, "v", nullFieldUnit}};
+    expect(schemaCrc(badUnitCatalog, std::size(badUnitCatalog)) == 0
+               && writeSchema(badUnitCatalog, std::size(badUnitCatalog), text, sizeof(text)) == 0,
+           "schema fingerprint and output reject a null field unit safely");
+
+    source.reads = 0;
+    expect(writeValues(badNameCatalog, std::size(badNameCatalog), text, sizeof(text)) != 0
+               && writeValues(badUnitCatalog, std::size(badUnitCatalog), text, sizeof(text)) != 0
+               && source.reads == 2 && std::strcmp(text, "{\"v\":[123]}") == 0,
+           "value output does not inspect schema-only field names or units");
+}
+
 void checkEarlyStop()
 {
     Source source;
@@ -252,6 +291,7 @@ int main()
     checkBuffers(static_cast<Serialize>(&writeValues), "values respect every output boundary");
     checkEarlyStop();
     checkMetadataStrings();
+    checkNullMetadata();
     checkRoundTrip<float>("F32 boundaries and 4096 bit patterns preserve values and signed zero");
     checkRoundTrip<double>("F64 boundaries and 4096 bit patterns preserve values and signed zero");
     checkIntegerText<std::uint64_t>("U64 boundaries and 4096 values preserve every decimal digit");

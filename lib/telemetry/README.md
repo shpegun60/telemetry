@@ -120,15 +120,35 @@ No Qt or SPSC headers are required. Invalid powers/sizes and conflicting
 overrides fail compilation. Field also rejects a line too small to contain
 its complete write contract on the target ABI.
 
-The setting must be identical in every translation unit and static library.
-Changing it changes alignment, member offsets and possibly sizeof(Field).
-With the 64-bit Qt/MinGW ABI and default 64-byte lines, Field is 128 bytes;
-the Cortex-M7 default remains **96 bytes**, aligned to **32**.
+The setting must be identical in every translation unit and static library
+inside one executable. Changing it changes alignment, member offsets and
+possibly sizeof(Field). Separate executables may choose independently: a
+32-byte STM32 build and a 64-byte Qt host exchange JSON/IDs, not raw Field
+objects, so their in-memory layouts need not match. With the 64-bit Qt/MinGW
+ABI and default 64-byte lines, Field is 128 bytes; the Cortex-M7 default
+remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
 `telemetry::telemetryAbiVersion` is 3 for this in-memory layout. It is a
-compile-time revision marker, not a JSON version or a linker mismatch check.
+compile-time revision marker, not a JSON version. `telemetryAbiSignature`
+additionally hashes that revision, the selected cache line, pointer width,
+relevant type sizes/alignments and every public Field/Catalog member offset.
+The compiled JSON entry points carry the complete, unhashed tuple in their C++
+link symbols; the numeric signature is for diagnostics rather than collision
+handling.
+Consequently, `TelemetryJson.cpp` built for one layout cannot satisfy calls
+built for another layout; the mismatch fails while linking. A module boundary
+that exchanges telemetry definitions but never calls the compiled JSON API can
+make the same check explicit once with `telemetry::requireTelemetryAbi()`.
+That function is supplied by `TelemetryJson.cpp`; purely inline code that calls
+neither it nor JSON has no automatic link anchor.
+
+The guard adds no instruction to Field lookup/read/write. It compares no value
+at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
+settings and require the final link to fail. Separate executables still use
+their own signatures normally.
+
 On Cortex-M7 both B32 and RW32 are 96 bytes/aligned to 32, but Setter moves
 from offset 12 to 32 and declaredType from 24 to 40. An equal sizeof does not
 make the layouts binary-compatible. **Clean and rebuild every
@@ -683,10 +703,10 @@ change the locale. The application must not concurrently call `setlocale`.
 Floating formatting uses a bounded 64-byte temporary and the C library's
 `snprintf`; newlib-nano builds need floating formatting enabled at link time
 (for the verified CubeIDE configuration, `-Wl,-u,_printf_float`).
-That temporary is not the total call-stack cost. A separate H7S measurement
-observed up to 968 bytes for schema and 880 bytes for value serialization,
-including the nested newlib-nano calls, with the output buffer outside the
-stack. Add any local output buffer, caller/getter frames and task/interrupt
+That temporary is not the total call-stack cost. The current guarded serializer
+was measured on H7S at up to 960/936 bytes for schema (`-O2`/`-Os`) and
+880/856 bytes for values, including the nested newlib-nano calls, with the
+output buffer outside the stack. Add any local output buffer, caller/getter frames and task/interrupt
 headroom when budgeting integration. These observed cases are not a proven
 worst-case bound; see [JSON stack measurements](../../tests/json_stack/README.md).
 
@@ -715,7 +735,8 @@ thirty-five expected compilation failures, covering static reads, invalid
 bindings, enum contracts and inconsistent limit definitions.
 [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
-locale in CI, and checks 4096 samples plus endpoints for each of F32/F64/U64/S64.
+locale in CI, rejects null catalog/field/unit metadata safely, and checks 4096
+samples plus endpoints for each of F32/F64/U64/S64.
 [TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
 121 conversion pairs against an independent extended-precision oracle with
 explicit truncation, checking endpoints and 1024 source samples per pair.
@@ -738,7 +759,8 @@ with reproduction flags in its opening comment; use the same flags for
 [LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp).
 The [ARM runner](../../tests/run_arm_checks.py) compiles all seven probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
-probe storage, pins exported table sizes and links the newlib-nano consumer.
+probe storage, pins exported table sizes, links the newlib-nano consumer and
+requires a deliberately mixed 32/64-byte ABI link to fail.
 GitHub Actions runs it with Ubuntu's ARM GCC; the same runner also passes
 with the local CubeIDE compiler. Disassembly is retained for manual inspection;
 instruction-by-instruction equivalence is not asserted by the CI script.

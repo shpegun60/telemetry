@@ -13,19 +13,21 @@ Maximum changed-stack bytes over the recorded cases, including nested C
 library calls. The output buffer and catalog tables were static, outside
 the measured stack.
 
-The B32 columns preserve the `9f95e49` checkpoint; RW32 is the current layout.
+The B32 columns preserve the `9f95e49` checkpoint; RW32 records the initial
+RW32 publication. The final columns repeat the complete run after the ABI link
+guard and null-metadata hardening.
 
-| Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os |
-|---|---:|---:|---:|---:|
-| 512-byte instrument control | 512 | 512 | 512 | 512 |
-| Native-bound schema | 848 | 824 | 848 | 816 |
-| Custom float/double bounds and enum schema | **968** | **944** | **968** | **936** |
-| F32 values, 21 input cases | 792 | 768 | 792 | 768 |
-| F64 values, 21 input cases | **880** | **856** | **880** | **856** |
-| U64/S64/U32/S32 extremes and bool | 576 | 512 | 576 | 512 |
-| Truncated schema | 544 | 584 | 544 | 576 |
-| Truncated floating values | 752 | 728 | 752 | 728 |
-| Null output buffer | 56 | 116 | 56 | 108 |
+| Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os | Guard O2 | Guard Os |
+|---|---:|---:|---:|---:|---:|---:|
+| 512-byte instrument control | 512 | 512 | 512 | 512 | 512 | 512 |
+| Native-bound schema | 848 | 824 | 848 | 816 | 840 | 816 |
+| Custom float/double bounds and enum schema | **968** | **944** | **968** | **936** | **960** | **936** |
+| F32 values, 21 input cases | 792 | 768 | 792 | 768 | 792 | 768 |
+| F64 values, 21 input cases | **880** | **856** | **880** | **856** | **880** | **856** |
+| U64/S64/U32/S32 extremes and bool | 576 | 512 | 576 | 512 | 576 | 512 |
+| Truncated schema | 544 | 584 | 544 | 576 | 536 | 576 |
+| Truncated floating values | 752 | 728 | 752 | 728 | 752 | 728 |
+| Null output buffer | 56 | 116 | 56 | 108 | 56 | 108 |
 
 Each complete run has two images with 294 windows each, **588 total**.
 Each case used three repeats
@@ -92,8 +94,11 @@ python tests/json_stack/run.py --cube build/field_layout_experiment/h7s/scaffold
 python tests/json_stack/verify.py --self-test
 # Current RW32 evidence:
 python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test
+# Current ABI-guard/null-metadata evidence:
+python tests/json_stack/verify.py --receipt tests/json_stack/abi-guard-receipt.json --self-test
 # Also compare retained local ELF, binary and object bytes:
 python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test --artifacts build/rw32-json-live-2
+python tests/json_stack/verify.py --receipt tests/json_stack/abi-guard-receipt.json --self-test --artifacts build/json-stack-abi-release-live
 ```
 
 The serial and port must identify the intended board. Both images are built
@@ -103,11 +108,16 @@ loss still requires restoration from the retained `before.bin`.
 
 [receipt.json](receipt.json) preserves the B32 baseline in
 `build/json-stack-live-1`. [rw32-receipt.json](rw32-receipt.json) records the
-current RW32 run in `build/rw32-json-live-2`. Each contains every measurement,
+initial RW32 run in `build/rw32-json-live-2`.
+[abi-guard-receipt.json](abi-guard-receipt.json) records the current guarded
+serializer run. Each contains every measurement,
 JSON result, image/object identity, source hashes, compiler frames and
 restoration hashes. Full ELF/binary/object files,
 programmer/UART logs and original firmware stay there. Shared hashes identify
-those artifacts but are not board attestation. CI checks the recorded evidence
+those artifacts but are not board attestation. Every run restored the same
+original 64 KiB image with SHA-256
+`a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
+CI checks the recorded evidence
 and rejects ten mutation controls without requiring a board.
 
 The preceding local attempt `build/rw32-json-live` stopped on an ST-LINK

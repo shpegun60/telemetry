@@ -130,6 +130,15 @@ public:
         return append("\"");
     }
 
+    TELEMETRY_FORCE_INLINE bool appendRequiredString(const char* text) noexcept
+    {
+        if (text == nullptr) {
+            ok_ = false;
+            return false;
+        }
+        return appendString(std::string_view{text});
+    }
+
     bool ok() const noexcept { return ok_; }
     std::size_t length() const noexcept { return ok_ ? offset_ : 0u; }
 
@@ -311,18 +320,24 @@ bool hash_enum_entry_(void* context, const Scalar& value, std::string_view name)
 
 }  // namespace
 
-std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
+namespace detail {
+
+void requireTelemetryAbi(CurrentAbiTag) noexcept {}
+
+std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
 {
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     std::uint32_t hash = 2166136261u;
     for (std::size_t c = 0u; c < count; ++c) {
+        if (catalogs[c].name == nullptr) return 0;
         hash = hash_byte_(hash, 'C');
         hash = hash_byte_(hash, static_cast<std::uint8_t>(catalogs[c].id));
         hash = hash_byte_(hash, static_cast<std::uint8_t>(catalogs[c].id >> 8));
         hash = fnv1a_(hash, catalogs[c].name);
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
+            if (field.name == nullptr || field.unit == nullptr) return 0;
             hash = hash_byte_(hash, 'F');
             // Explicit byte order, independent of host endianness/padding.
             for (unsigned shift = 0; shift < 32; shift += 8) {
@@ -349,26 +364,28 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
     return hash;
 }
 
-std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std::size_t size) noexcept
+std::size_t writeSchemaAbi(const CatalogIndex& index, char* const buffer,
+                           const std::size_t size, CurrentAbiTag tag) noexcept
 {
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     Writer out {buffer, size};
     if (!out.ok()) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
-                    static_cast<unsigned long>(schemaCrc(index)))) return 0;
+                    static_cast<unsigned long>(schemaCrcAbi(index, tag)))) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
         if (!out.append("%s{\"id\":%u,\"name\":",
                         (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id))
-            || !out.appendString(catalogs[c].name) || !out.append(",\"fields\":[")) return 0;
+            || !out.appendRequiredString(catalogs[c].name)
+            || !out.append(",\"fields\":[")) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
             const bool hasEnum = field.declaredType.hasEnum();
             if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":",
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i),
                             field.id)
-                || !out.appendString(field.name) || !out.append(",\"u\":")
-                || !out.appendString(field.unit)
+                || !out.appendRequiredString(field.name) || !out.append(",\"u\":")
+                || !out.appendRequiredString(field.unit)
                 || !out.append(",\"t\":\"%s\",\"w\":%s", type_name_(field.declaredType),
                             field.set ? "true" : "false")) return 0;
             if (!out.append(",\"min\":") || !append_bound_(out, field.declaredType.minimum(), true, hasEnum)
@@ -388,15 +405,18 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
     return out.length();
 }
 
-std::size_t writeValues(const CatalogIndex& index, char* const buffer, const std::size_t size) noexcept
+std::size_t writeValuesAbi(const CatalogIndex& index, char* const buffer,
+                           const std::size_t size, CurrentAbiTag) noexcept
 {
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     Writer out {buffer, size};
     if (!out.append("{")) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
+        if (catalogs[c].name == nullptr) return 0;
         if ((c != 0u && !out.append(","))
-            || !out.appendString(catalogs[c].name) || !out.append(":[")) return 0;
+            || !out.appendString(std::string_view{catalogs[c].name})
+            || !out.append(":[")) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             if (i != 0u && !out.append(",")) return 0;
             if (!append_scalar_(out, catalogs[c].fields[i].read())) return 0;
@@ -407,21 +427,23 @@ std::size_t writeValues(const CatalogIndex& index, char* const buffer, const std
     return out.length();
 }
 
-std::uint32_t schemaCrc(const Catalog* catalogs, std::size_t count) noexcept
+std::uint32_t schemaCrcAbi(const Catalog* catalogs, std::size_t count, CurrentAbiTag tag) noexcept
 {
-    return schemaCrc(CatalogIndex{catalogs, count});
+    return schemaCrcAbi(CatalogIndex{catalogs, count}, tag);
 }
 
-std::size_t writeSchema(const Catalog* catalogs, std::size_t count,
-                        char* buffer, std::size_t size) noexcept
+std::size_t writeSchemaAbi(const Catalog* catalogs, std::size_t count,
+                           char* buffer, std::size_t size, CurrentAbiTag tag) noexcept
 {
-    return writeSchema(CatalogIndex{catalogs, count}, buffer, size);
+    return writeSchemaAbi(CatalogIndex{catalogs, count}, buffer, size, tag);
 }
 
-std::size_t writeValues(const Catalog* catalogs, std::size_t count,
-                        char* buffer, std::size_t size) noexcept
+std::size_t writeValuesAbi(const Catalog* catalogs, std::size_t count,
+                           char* buffer, std::size_t size, CurrentAbiTag tag) noexcept
 {
-    return writeValues(CatalogIndex{catalogs, count}, buffer, size);
+    return writeValuesAbi(CatalogIndex{catalogs, count}, buffer, size, tag);
 }
+
+} // namespace detail
 
 }  // namespace telemetry

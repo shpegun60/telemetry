@@ -7,9 +7,10 @@ choice; the [B32 report](field_layout/h7s/RESULTS.md) is its historical baseline
 ARM guards check size, hot member offsets and inlining of the finite-value check;
 the historical 80-byte measurements later in this file describe earlier layouts.
 
-The [JSON stack fixture](json_stack/README.md) records 588 real H7S measurements,
-including the newlib-nano formatter. Its largest observed stack write was 968
-bytes; this excludes caller-owned output buffers and is not a worst-case bound.
+The [JSON stack fixture](json_stack/README.md) records 588 real H7S measurements
+per revision, including the newlib-nano formatter. The guarded serializer's
+largest observed stack writes are 960 bytes at `-O2` and 936 at `-Os`; this
+excludes caller-owned output buffers and is not a worst-case bound.
 
 Run from the repository root with Python 3 and a GCC-compatible C++ compiler.
 The checks have no Qt dependency. Generated binaries and logs go only to the
@@ -25,11 +26,16 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes seven suites (585 C++17 / 587 C++20 checks), verifies
+The runner executes seven suites (590 C++17 / 592 C++20 checks), verifies
 thirty-five rejected programs and nine immutable-Field rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
-overrides and Field layout with explicit 64/128-byte alignment. Sanitized runs enable address, undefined-behavior and
+overrides and Field layout with explicit 64/128-byte alignment. A caller and
+static archive with matching 64-byte layouts must link and run; a 128-byte
+caller against the 64-byte archive must fail through its ABI-tagged symbol.
+[TelemetryAbiLinkCheck.cpp](TelemetryAbiLinkCheck.cpp) is the common positive
+and deliberately mismatched caller used by both host and ARM runners.
+Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop
 on the first diagnostic. Compiler warnings are errors. Each command's output
 is retained in a separate log.
@@ -83,7 +89,9 @@ initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. Source static assertions also
 pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
-nosys stubs and enabled float formatting; it is not executed.
+nosys stubs and enabled float formatting; it is not executed. The compiled JSON
+object is also placed in a static archive: a normal 32-byte caller must link,
+while a forced 64-byte caller against that archive must fail.
 
 Compiler versions, sections, symbols, disassembly and linker diagnostics are
 retained under `--build-dir`; CI uploads those logs. This protects compilation,

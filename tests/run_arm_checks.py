@@ -61,15 +61,21 @@ def main():
         raise RuntimeError(f"ARM compiler not found: {args.cxx}")
     objdump = args.objdump or str(Path(compiler).with_name(
         "arm-none-eabi-objdump" + (".exe" if os.name == "nt" else "")))
+    archiver = str(Path(compiler).with_name(
+        "arm-none-eabi-ar" + (".exe" if os.name == "nt" else "")))
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
 
-    def run(command, label):
+    def run(command, label, rejection=None):
         result = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True,
                                 encoding="utf-8", errors="replace", timeout=180)
         (output / (label + ".log")).write_text(result.stdout, encoding="utf-8")
-        if result.returncode != 0:
+        if rejection is not None:
+            valid = result.returncode != 0 and re.search(rejection, result.stdout, re.IGNORECASE)
+        else:
+            valid = result.returncode == 0
+        if not valid:
             print(result.stdout, file=sys.stderr)
             raise RuntimeError(f"{label} failed (exit {result.returncode}); see {output}")
         return result.stdout
@@ -100,8 +106,23 @@ def main():
         run(flags + ["tests/EmbeddedLinkCheck.cpp", "lib/telemetry/TelemetryJson.cpp",
                      "--specs=nano.specs", "--specs=nosys.specs", "-Wl,-u,_printf_float",
                      "-o", str(executable)], "consumer" + optimization + "-link")
+        mismatch = output / ("TelemetryAbiLinkCheck-mismatch" + optimization + ".o")
+        run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", "tests/TelemetryAbiLinkCheck.cpp",
+                     "-o", str(mismatch)], "abi-mismatch" + optimization + "-compile")
+        json_object = output / ("TelemetryJson" + optimization + ".o")
+        archive = output / ("libTelemetryAbi" + optimization + ".a")
+        run([archiver, "rcs", str(archive), str(json_object)],
+            "abi-archive" + optimization)
+        matching = output / ("TelemetryAbiLinkCheck" + optimization + ".o")
+        run(flags + [str(matching), str(archive), "--specs=nano.specs", "--specs=nosys.specs",
+                     "-o", str(output / ("abi-match" + optimization + ".elf"))],
+            "abi-match" + optimization + "-link")
+        run(flags + [str(mismatch), str(archive), "--specs=nano.specs", "--specs=nosys.specs",
+                     "-o", str(output / ("abi-mismatch" + optimization + ".elf"))],
+            "abi-mismatch" + optimization + "-link",
+            r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
         print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
-              "newlib-nano consumer linked", flush=True)
+              "newlib-nano consumer and matching ABI archive linked, mixed ABI rejected", flush=True)
 
 
 if __name__ == "__main__":

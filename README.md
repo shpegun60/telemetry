@@ -196,9 +196,9 @@ Verified after numeric, lifetime-contract, serialization, enum, write-limit and 
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  109/109 core, 92/92 write/getter, 87/87 read, 23/23 JSON, 121/121 numeric
-  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (585 total).
-  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 587 total).
+  109/109 core, 92/92 write/getter, 87/87 read, 28/28 JSON, 121/121 numeric
+  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (590 total).
+  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 592 total).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
@@ -229,6 +229,12 @@ on 2026-09-19:
   failure, preserves F32 precision and emits a JSON decimal point in a comma
   locale. U64/S64 formatting no longer needs `long long` support in printf;
   the installed CubeIDE newlib-nano configuration disables that support.
+- Schema serialization/fingerprinting reject null catalog, field and unit
+  metadata safely. Compiled JSON calls encode the exact layout tuple from which
+  `telemetryAbiSignature` is derived; host and Cortex-M7 checks prove matching
+  layouts link and mixed layouts do not.
+  A repeated 588-window H7S stack run measured 960/936 bytes (`-O2`/`-Os`)
+  and restored the original firmware byte for byte.
 - [IndexCodegen.cpp](tests/IndexCodegen.cpp), built for Cortex-M7 at `-O2`
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
@@ -238,7 +244,8 @@ on 2026-09-19:
 - [RW32 measurements](tests/field_layout/h7s/RW32_RESULTS.md) cover the separate
   read/write metadata lines. Cache-line alignment is configurable through
   `TELEMETRY_FORCE_CACHELINE`; Field definitions are immutable and ABI revision
-  3 requires a clean rebuild of consumers.
+  3 requires a clean rebuild of consumers. The ABI guard adds no code to the
+  hot path; all fourteen O2/Os ARM codegen probe objects remain byte-identical.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The
   storage comparison retains the former union's sizes and instructions in

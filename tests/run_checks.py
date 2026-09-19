@@ -28,6 +28,7 @@ REJECTIONS = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cxx", default=os.environ.get("CXX", "g++"))
+    parser.add_argument("--ar", default=os.environ.get("AR", "ar"))
     parser.add_argument("--std", choices=("c++17", "c++20"), default="c++17")
     parser.add_argument("--build-dir", type=Path, required=True)
     parser.add_argument("--sanitize", action="store_true")
@@ -117,6 +118,29 @@ def main():
         run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={size}", f"-DEXPECTED_SIZE={size}", "-fsyntax-only", str(field_layout)],
             f"cacheline-field-{size}")
     print("Field layout obeys explicit 64/128-byte alignment", flush=True)
+
+    # The ABI tag is carried by the compiled JSON entry points. Equal layouts
+    # link normally; a caller built with a different Field layout must fail at
+    # link time instead of using incompatible member offsets or array strides.
+    json_object = output / "TelemetryJson-abi64.o"
+    archive = output / "libTelemetryAbi64.a"
+    caller_object = output / "TelemetryAbiLinkCheck-abi64.o"
+    mismatch_object = output / "TelemetryAbiLinkCheck-abi128.o"
+    executable = output / ("TelemetryAbiLinkCheck" + (".exe" if os.name == "nt" else ""))
+    abi64 = ["-DTELEMETRY_FORCE_CACHELINE=64"]
+    run(flags + build_flags + abi64 + ["-c", "lib/telemetry/TelemetryJson.cpp", "-o", str(json_object)],
+        "abi64-json-compile")
+    run([args.ar, "rcs", str(archive), str(json_object)], "abi64-archive")
+    run(flags + build_flags + abi64 + ["-c", "tests/TelemetryAbiLinkCheck.cpp", "-o", str(caller_object)],
+        "abi64-caller-compile")
+    run(flags + build_flags + [str(caller_object), str(archive), "-o", str(executable)],
+        "abi64-link")
+    run([str(executable)], "abi64-run")
+    run(flags + build_flags + ["-DTELEMETRY_FORCE_CACHELINE=128", "-c",
+        "tests/TelemetryAbiLinkCheck.cpp", "-o", str(mismatch_object)], "abi128-caller-compile")
+    run(flags + build_flags + [str(mismatch_object), str(archive), "-o", str(executable)],
+        "abi-mismatch-link", r"undefined reference|unresolved external|AbiTag")
+    print("Matching telemetry ABI archive linked; mixed 64/128-byte layouts were rejected", flush=True)
 
 
 if __name__ == "__main__":
