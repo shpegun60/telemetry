@@ -28,7 +28,7 @@ redistributed library files; delegate and magic_enum retain their upstream MIT l
 - `TelemetryGetter.h`: constexpr non-owning getters returning Scalar or native numbers.
 - `TelemetrySetter.h`: optional write callbacks and `WriteResult`.
 - `TelemetryConversion.h`: constexpr checked numeric conversions.
-- `TelemetryFieldType.h`: numeric type plus an optional schema description callback.
+- `TelemetryFieldType.h`: numeric type, write limits/defaults and an optional schema description callback.
 - `TelemetryEnum.h`: opt-in `enumType<E>()` factory with compile-time enumerator names.
 - `TelemetryCatalog.h`: packed IDs, Field, Catalog and name uniqueness.
 - `TelemetryIndex.h`: direct lookup, typed reads and optional static catalog binding.
@@ -99,6 +99,61 @@ members are omitted from a Field initializer. Field remains an aggregate.
 An empty getter returns Null. Assign real names/IDs and types before using
 default fields as published catalog entries.
 
+## Write limits and defaults
+
+`FieldType` always supplies `minimum()`, `maximum()` and `defaultValue()` as
+Scalar values of the declared numeric type. `ScalarType::F32` in a row still
+works: its limits are `numeric_limits<float>::lowest()` and `max()`, and its
+default is zero. All integer types use their native extrema; Bool uses
+false/true with default false. Null and unknown types have Null metadata.
+Floating bounds use `lowest()`, not `min()` (which is a small positive number).
+
+Use a constexpr factory for custom definitions:
+
+```cpp
+constexpr auto voltage = numericType<float>(0.0f, 300.0f, 230.0f);
+constexpr auto count = numericType<std::uint16_t>(10, 20, 15);
+constexpr auto ordinary = numericType<double>(); // Native extrema, default 0.
+constexpr auto anotherDefault = count.withDefault(12);
+constexpr auto anotherRange = count.withLimits(0, 100, 50);
+```
+
+The three arguments undergo checked conversion to the declared type, using
+the same rounding/truncation policy as writes. All must be finite and satisfy
+`minimum <= default <= maximum`. Invalid constexpr definitions fail compilation
+at `invalidFieldLimits`; the same programming error terminates via `std::abort`
+when constructed at runtime. No exceptions are required. Runtime user input
+belongs in `write()`, which reports `InvalidValue` normally.
+
+Write order is: find the field, check setter presence, convert to declaredType,
+check the inclusive numeric interval, then call the setter once. No clamping
+occurs. U16 with limits 10..20 accepts 20.9 as 20 and rejects 9.9 as 9. Full
+native integer intervals skip redundant comparisons. Floating writes reject
+NaN and infinity even with native default bounds.
+
+Reading only normalizes to declaredType. It neither checks nor clamps to
+min/max, including in typed/inferred reads and `writeValues()`. A getter
+returning 100.75 for a U16 field with limits 10..20 publishes 100. Raw numeric
+conversion and floating reads retain their previous NaN/Inf behavior; value
+JSON still represents non-finite readings as null.
+
+Default is descriptive metadata, not an automatic write or fallback reading.
+To apply it explicitly, call `field.write(field.declaredType.defaultValue())`.
+Every schema field, including read-only fields, exports `min`, `max` and
+`default`; Null metadata exports null properties. Changes to any of these
+values change the schema fingerprint.
+F32 metadata uses 17 significant digits for its promoted double value, so
+clients parsing JSON numbers as double can write advertised extrema back
+without crossing the native F32 range. The Qt schema display keeps the raw
+JSON text, preserving U64/S64 metadata digits too.
+
+Internally one private variant stores a triple of native numbers under one
+tag. This avoids three separate Scalar tags and keeps all three values of
+one type. On ARM32 FieldType occupies 40 bytes and Field 80, rather than the
+96-byte Field needed by three separate Scalars. There is no heap allocation
+or borrowed pointer to temporary bounds. Constant tables can remain in Flash;
+runtime tables occupy their owner's storage. Rebuild consumers for this layout.
+
 ## Enum dictionaries for schemas
 
 An enum describes names for a numeric field. Its underlying type determines
@@ -122,19 +177,24 @@ constexpr Catalog catalogs[] = {{0, "settings", fields}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 
 auto number = index.read<makeId(0, 0)>(); // optional<uint16_t>, not optional<Mode>.
-auto result = index.write(makeId(0, 0), 100); // U16 code 100 is representable.
+auto result = index.write(makeId(0, 0), 100); // InvalidValue: outside 0..2.
 ```
 
 The owner explicitly casts to/from its enum. Getters, setters and public
-read/write calls continue to use native numbers or Scalar. The dictionary
-does not restrict values: code 100 succeeds even though it has no label.
-Any semantic validation belongs to the owner. Normal numeric bounds and
-declared-type normalization apply unchanged.
+read/write calls continue to use native numbers or Scalar. During compilation,
+`enumType` derives min/max from its listed codes and chooses the smallest
+code as default. `enumType<Mode>(Mode::Auto)` overrides that default while
+retaining automatic bounds. `.withDefault(number)` and `.withLimits(min, max,
+default)` also work and retain the dictionary.
+
+Writes check only the resulting numeric interval. Gaps between named codes
+remain writable: codes 0 and 10 admit 5. Membership/semantic validation belongs
+to the owner. Reads ignore the write interval and may publish code 100.
 
 `writeSchema()` emits the numeric type and an extra property:
 
 ```json
-{"t":"u16","enum":{"0":"Off","1":"Auto","2":"Manual"}}
+{"t":"u16","min":0,"max":2,"default":0,"enum":{"0":"Off","1":"Auto","2":"Manual"}}
 ```
 
 `writeValues()` still emits numbers. Lookup and read/write never inspect enum
@@ -146,7 +206,8 @@ name search. Names and description code still occupy program storage; final
 Flash/RAM placement depends on the linker.
 
 Automatic discovery uses magic_enum's configured range (default **-128..127**).
-Values outside it are omitted, even when other enumerators were found. For
+Values outside it are omitted from both names and automatic bounds, even
+when other enumerators were found. For
 sparse or large codes, list the values as template arguments; no scanning or
 manually written label strings is needed, and the specified order is kept:
 
@@ -174,9 +235,8 @@ decimal strings, independent of JavaScript Number precision.
 convertible to `ScalarType`. Existing aggregate rows containing `ScalarType::F32`
 and comparisons with ScalarType keep working. Use `ScalarType type = field.declaredType`
 when a concrete enum is needed; `auto` now deduces FieldType. Assigning a
-ScalarType before publication clears dictionary metadata. Rebuild consumers:
-the ARM32 Field layout grows from 36 to 40 bytes, including numeric-only rows.
-The added four bytes hold the schema callback and are never read by data paths.
+ScalarType before publication clears dictionary metadata and restores native
+limits with zero/false default. Data paths never read the schema callback.
 
 ## Packed IDs and direct lookup
 
@@ -406,7 +466,7 @@ result = field.write(12.7);                    // e.g. U16 receives 12.
 
 The index uses the same direct lookup and accepted prefixes as reads.
 It returns NotFound for a missing ID, ReadOnly for an empty setter,
-InvalidValue when conversion fails, or the owner's result after one call.
+InvalidValue when conversion or the numeric interval check fails, or the owner's result after one call.
 The owner receives a Scalar already converted to `declaredType`. No getter
 is invoked by a write. Explicit Scalar inputs are also accepted.
 
@@ -418,18 +478,19 @@ is invoked by a write. Explicit Scalar inputs are also accepted.
 - Finite zero becomes false; other finite numbers become true. Bool becomes
   numeric zero or one. NaN/Inf cannot be written into integer or bool fields.
 - Floating targets may round. Finite overflow is rejected; underflow may
-  round to zero. NaN/Inf remain available to floating-point owners to validate.
+  round to zero. Finite min/max bounds reject NaN/Inf before the setter.
 - Null and unknown destination tags are rejected. Compile without fast-math/finite-only
   assumptions so floating-point range checks retain their meaning.
 
 Conversion is constexpr and shared by all field reads and writes. Equal native
-types copy directly, without numeric conversion or range checks. A Scalar
+types copy directly, without numeric conversion or representability checks. A Scalar
 already carrying the requested numeric tag is also copied directly. Integer
 widening omits bounds checks where every source value fits. Float inputs stay
 float for bool/integer checks; there is no universal double or int64
 intermediate. Float-to-double needs just widening; double-to-float checks
 finite overflow and handles NaN/Inf explicitly. Necessary range checks remain
 when a runtime value might not fit.
+The separate write interval check runs after conversion; reads never apply it.
 
 Float-to-integer uses a normal C++ `static_cast` after checking the bounds;
 there is no separate round/trunc call in the implementation. Both Scalar reads
@@ -452,7 +513,7 @@ to Flash. Queued writes need a separate completion contract.
 The callback's argument is borrowed for the duration of the call only. Copy
 it if it must be retained. Calling a populated `field.set(...)` directly is
 a low-level operation: use `field.write(...)` or `index.write(...)` to obtain
-type conversion and its checks. Bindings and metadata remain fixed during use.
+type conversion and numeric interval checks. Bindings and metadata remain fixed during use.
 
 ## Serialization
 
@@ -470,14 +531,16 @@ lookup. The schema includes each group's numeric `id` and each field's local
 `i` plus packed `id`:
 
 ```json
-{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false}]}
+{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"min":-1.7976931348623157e+308,"max":1.7976931348623157e+308,"default":0}]}
 ```
 
 Values retain named arrays such as `{"sensor":[24.5]}`. The order-sensitive
 FNV-1a fingerprint includes group IDs, all four field-ID bytes, declared
-metadata, setter presence (`w`), enum codes/names/order when present, and
-record/string boundaries. Numeric-only fingerprints and JSON stay unchanged
-by enum support. It is a version hint, not a promise
+metadata, setter presence (`w`), min/max/default, enum codes/names/order when
+present, and record/string boundaries. Limits are hashed by numeric value
+bits with explicit byte order, never by object padding. This version adds
+required metadata and changes fingerprints for numeric-only schemas too.
+It is a version hint, not a promise
 against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
 
@@ -521,8 +584,9 @@ endpoints. It checks all 121 source/declared type pairs through both reads
 and writes, and verifies that an explicit read type cannot bypass declared
 rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
-nineteen expected compilation failures, covering static reads, invalid
-bindings and enum contracts. [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
+twenty-seven expected compilation failures, covering static reads, invalid
+bindings, enum contracts and inconsistent limit definitions.
+[TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
 locale in CI, and checks 4096 samples plus endpoints for each of F32/F64/U64/S64.
 [TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
@@ -532,6 +596,9 @@ That oracle runs on hosts with at least 64 long-double mantissa bits.
 [TelemetryEnumCheck.cpp](../../tests/TelemetryEnumCheck.cpp) covers numeric-only
 data paths with enum metadata, underlying types, explicit 64-bit codes,
 schema fingerprints, custom names and all output-buffer boundaries.
+[TelemetryLimitsCheck.cpp](../../tests/TelemetryLimitsCheck.cpp) checks native
+and custom intervals, constexpr definitions, automatic enum extrema, defaults,
+inclusive boundaries, write-only validation and mandatory metadata exports.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
@@ -539,8 +606,9 @@ with reproduction flags in its opening comment; use the same flags for
 [ConversionCodegen.cpp](../../tests/ConversionCodegen.cpp),
 [DeclaredTypeCodegen.cpp](../../tests/DeclaredTypeCodegen.cpp),
 [ScalarStorageCodegen.cpp](../../tests/ScalarStorageCodegen.cpp),
-[ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp) and
-[EnumCodegen.cpp](../../tests/EnumCodegen.cpp).
+[ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp),
+[EnumCodegen.cpp](../../tests/EnumCodegen.cpp) and
+[LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp).
 
 CubeIDE GCC 14.3.1, C++17, Cortex-M7, `-O2` and `-Os` produce direct lookups
 with no loops, helper calls or allocations. Successful lookup through a
@@ -548,23 +616,31 @@ passed view takes 14 instructions in the measured object; a fixed constexpr
 view takes 13. A known ID becomes a constant address (`ldr; bx`), and a known
 missing ID becomes null. These are instruction counts, not measured cycles.
 
-On ARM32, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 8, Field 40,
+On ARM32, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 40, Field 80,
 Catalog 16 and CatalogIndex 8 bytes. Native function alternatives account
 for the extra 4 bytes over the previous Getter; an empty setter still occupies
-its 8-byte slot. FieldType adds four bytes for its optional schema callback.
+its 8-byte slot. FieldType owns one native limits triple and its optional schema callback.
 The probe's constant metadata resides in `.rodata`,
 with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
 Flash/RAM placement is determined by linking.
 
-The enum/plain U16 pairs in `EnumCodegen.cpp` have identical numeric
-operations at both optimization levels, apart from table addresses/offsets.
+The enum/plain U16 pairs in `EnumCodegen.cpp` use the same bounds and numeric
+operations at both optimization levels, apart from table addresses/offsets
+and the corresponding instruction encodings.
 Known typed reads branch straight to their shared getter. Dynamic Field
-reads/writes access the numeric tag at offset 12 and the getter/setter slots;
-they never load the schema callback at offset 16. The enum probe's constant
+reads/writes access the numeric tag at offset 16 and the getter/setter slots;
+they never load the schema callback at offset 20. Reads never load limits.
+The enum probe's constant
 names and field arrays reside in `.rodata`, with no startup constructors or
 `.data`/`.bss` storage. These observations do not assert identical cache
 behavior after increasing the size of a Field.
+
+`LimitsCodegen.cpp` confirms that bounded F32/U16 reads still branch directly
+to getters. The default U16 write has no interval comparison; a custom U16
+10..20 interval becomes subtraction and one unsigned comparison. F32 uses
+two F32 comparisons, without double conversion. A constant rejected write
+becomes `movs r0, #3; bx lr`, without a callback or runtime bound lookup.
 
 Known native getter rows use direct calls at both `-O2` and `-Os`, with no
 runtime alternative selection. Both explicit and inferred F32 read probes

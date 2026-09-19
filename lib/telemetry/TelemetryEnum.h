@@ -52,12 +52,28 @@ constexpr EnumDescription automaticEnumDescription(std::index_sequence<I...>) no
     return &describeEnum<E, values[I]...>;
 }
 
+template <class E, std::size_t N>
+constexpr auto enumLimits(const std::array<E, N>& values) noexcept
+{
+    static_assert(N != 0, "Enum limits require at least one named code");
+    using Raw = std::underlying_type_t<E>;
+    Raw low = static_cast<Raw>(values[0]);
+    Raw high = low;
+    for (const E value : values) {
+        const Raw number = static_cast<Raw>(value);
+        if (number < low) low = number;
+        if (number > high) high = number;
+    }
+    return NumericLimits<Raw>{low, high, low};
+}
+
 } // namespace detail
 
 // With no explicit values, magic_enum discovers the enumerators in its
 // configured scan range (upstream default -128..127). For sparse or large
 // codes use enumType<E, E::First, E::Second>(); names still come from E.
-// This is descriptive metadata, never an allowed-values check for reads/writes.
+// Named extrema define the numeric write interval; its initial default is
+// the smallest named code. Gaps remain writable; no membership check occurs.
 template <class E, E... Values>
 constexpr FieldType enumType() noexcept
 {
@@ -70,15 +86,31 @@ constexpr FieldType enumType() noexcept
             static_assert(detail::uniqueEnumCodes<E, Values...>(), "Enum dictionary codes must be unique");
             static_assert(((!magic_enum::enum_name<Values>().empty()) && ...),
                           "Enum dictionary values must have names");
-            return {type, &detail::describeEnum<E, Values...>};
+            constexpr auto limits = detail::enumLimits(std::array<E, sizeof...(Values)>{Values...});
+            return FieldType{type, &detail::describeEnum<E, Values...>}
+                .withLimits(limits.minimum, limits.maximum, limits.initial);
         } else {
             constexpr auto values = magic_enum::enum_values<E>();
             static_assert(values.size() != 0, "Enum dictionary is empty; configure the range or list values");
-            return {type, detail::automaticEnumDescription<E>(std::make_index_sequence<values.size()>{})};
+            if constexpr (values.size() != 0) {
+                constexpr auto limits = detail::enumLimits(values);
+                return FieldType{type, detail::automaticEnumDescription<E>(std::make_index_sequence<values.size()>{})}
+                    .withLimits(limits.minimum, limits.maximum, limits.initial);
+            } else return {};
         }
     } else {
         return {};
     }
+}
+
+// The caller can choose a named initial value while keeping automatic limits.
+template <class E, E... Values>
+constexpr FieldType enumType(E initial) noexcept
+{
+    static_assert(std::is_enum_v<E>, "enumType requires an enum type");
+    if constexpr (std::is_enum_v<E>) {
+        return enumType<E, Values...>().withDefault(static_cast<std::underlying_type_t<E>>(initial));
+    } else return {};
 }
 
 } // namespace telemetry

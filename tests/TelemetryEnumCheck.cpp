@@ -147,19 +147,19 @@ void checkNumericPaths()
     const auto scalar = index.read(0);
     expect(scalar.type() == ScalarType::U16 && scalar.get<std::uint16_t>() == 100 && reads == 3,
            "Scalar read keeps U16 without introducing an enum alternative");
-    expect(index.write(0, 65535) == WriteResult::Applied && current == UINT16_MAX && writes == 1 && reads == 3,
-           "write accepts the entire base-type range without reading the getter");
-    expect(index.write(0, 12.75f) == WriteResult::Applied && current == 12 && writes == 2,
+    expect(index.write(0, 65535) == WriteResult::InvalidValue && current == 100 && writes == 0 && reads == 3,
+           "numeric enum extrema reject an out-of-interval code before the setter");
+    expect(index.write(0, 2.75f) == WriteResult::Applied && current == 2 && writes == 1,
            "ordinary float-to-U16 truncation applies to enum metadata too");
-    expect(index.write(0, 65536) == WriteResult::InvalidValue && current == 12 && writes == 2,
+    expect(index.write(0, 65536) == WriteResult::InvalidValue && current == 2 && writes == 1,
            "out-of-range write is rejected before invoking the owner");
-    expect(index.write(0, -1) == WriteResult::InvalidValue && writes == 2, "negative U16 write is rejected");
+    expect(index.write(0, -1) == WriteResult::InvalidValue && writes == 1, "negative U16 write is rejected");
     const Field converted{0, "converted", "", enumType<Mode>(), []() noexcept { return 12.75; }};
     expect(converted.read<double>() == 12.0, "read normalization still follows the declared underlying type");
     const Field invalid{0, "invalid", "", enumType<Mode>(), []() noexcept { return 65536u; }};
     expect(invalid.read().type() == ScalarType::Null, "out-of-range getter is unavailable");
     char text[64];
-    expect(writeValues(index, text, sizeof(text)) != 0 && std::strcmp(text, "{\"v\":[12]}") == 0,
+    expect(writeValues(index, text, sizeof(text)) != 0 && std::strcmp(text, "{\"v\":[2]}") == 0,
            "values JSON contains only numbers, never enum names");
 }
 
@@ -167,7 +167,7 @@ void checkSchemas()
 {
     reads = writes = 0;
     const auto automatic = schema(enumType<Mode>());
-    expect(automatic.find("\"t\":\"u16\",\"w\":true,\"enum\":{\"0\":\"Off\",\"1\":\"Auto\",\"2\":\"Manual\"}") != std::string::npos,
+    expect(automatic.find("\"t\":\"u16\",\"w\":true,\"min\":0,\"max\":2,\"default\":0,\"enum\":{\"0\":\"Off\",\"1\":\"Auto\",\"2\":\"Manual\"}") != std::string::npos,
            "schema keeps the numeric type and adds the generated dictionary");
     expect(automatic == schema(enumType<Mode, Mode::Off, Mode::Auto, Mode::Manual>()),
            "automatic and explicit identical entries produce identical schema and fingerprint");
@@ -185,7 +185,7 @@ void checkSchemas()
            "explicit sparse U64 entries keep every decimal digit including maximum");
     expect(schema(enumType<Signed, Signed::First, Signed::Last>()).find("\"enum\":{\"-9223372036854775808\":\"First\",\"9223372036854775807\":\"Last\"}") != std::string::npos,
            "explicit S64 endpoints use exact signed keys without signed overflow");
-    expect(schema(enumType<Flag>()).find("\"t\":\"bool\",\"w\":true,\"enum\":{\"0\":\"No\",\"1\":\"Yes\"}") != std::string::npos,
+    expect(schema(enumType<Flag>()).find("\"t\":\"bool\",\"w\":true,\"min\":false,\"max\":true,\"default\":false,\"enum\":{\"0\":\"No\",\"1\":\"Yes\"}") != std::string::npos,
            "bool enum uses bool values and zero/one dictionary keys");
     expect(schema(enumType<OddName>()).find("\"-1\":\"quote\\\"slash\\\\\\u000a\\u0009\\u0000end\"") != std::string::npos,
            "custom names escape quotes, slashes, controls and embedded NUL");

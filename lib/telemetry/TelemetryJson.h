@@ -17,9 +17,15 @@ std::uint32_t schemaCrc(const Catalog* catalogs, std::size_t count) noexcept;
 std::uint32_t schemaCrc(const CatalogIndex& index) noexcept;
 
 // {"schema":"<hash>","catalogs":[{"id":0,"name":"meter","fields":[
-//   {"i":0,"id":0,"n":"Ua","u":"V","t":"f32","w":false},...]}]}
+//   {"i":0,"id":0,"n":"Ua","u":"V","t":"f32","w":false,
+//    "min":-3.4028234663852886e+38,"max":3.4028234663852886e+38,"default":0},...]}]}
 // Catalog id is the group position; field id packs (group << 16) | i.
 // w reports setter presence; it also participates in the schema fingerprint.
+// Every field exports min, max and default, including read-only fields. Null
+// types export null for all three. They participate in the fingerprint and
+// describe numeric write limits; reading never validates against those limits.
+// F32 metadata uses 17 digits so parsing it as double preserves its numeric
+// value and advertised endpoints remain writable through checked conversion.
 // Enum-described fields retain their ordinary numeric t and add an "enum"
 // object mapping decimal code strings to names, e.g. {"0":"Off","1":"Auto"}.
 // Codes and names participate in the fingerprint. Descriptions are generated

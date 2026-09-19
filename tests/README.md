@@ -14,7 +14,7 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes six suites, verifies nineteen rejected programs, checks
+The runner executes seven suites, verifies twenty-seven rejected programs, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks and stop on the first diagnostic. Compiler warnings
@@ -68,6 +68,9 @@ consumer nor firmware was executed on a board during this audit. Its source is
 
 ## Enum metadata checkpoint, 2026-09-19
 
+This records the enum-only checkpoint `ae1d2dd`. The subsequent write-limit
+checkpoint below changes write acceptance and the metadata layout.
+
 The sixth suite adds 45 checks: all numeric underlying widths, numeric-only
 read/write behavior even for unlisted codes, checked conversion, exact U64/S64
 dictionary keys, automatic and explicit names, metadata copying/defaults,
@@ -97,6 +100,42 @@ nested in a class template needs its enumerator list instantiated before an
 automatic scan. Using a named enumerator first, or listing explicit values
 in `enumType`, does that. Default scan limits and this prerequisite are
 documented in the library and dependency READMEs.
+
+## Write-limit checkpoint, 2026-09-19
+
+The seventh suite adds 66 checks and constexpr assertions for native extrema,
+custom bounds, defaults, enum-derived limits, full-width 64-bit comparisons,
+inclusive endpoints, conversion before range checks and required schema
+properties. Reads ignore the interval while retaining declared-type conversion.
+Defaults do not initialize owners or replace unavailable readings. Eight new
+compile rejection cases cover inconsistent, non-finite and unrepresentable
+definitions. The independent numeric oracle now separately checks finite
+write acceptance while retaining NaN/Inf conversion and read coverage.
+F32 schema extrema and defaults round-trip through a double JSON reader and
+remain writable. Metadata uses 17 significant digits for this contract;
+the former nine-digit maximum could exceed FLT_MAX when parsed as double.
+
+GCC 13.1 and Clang 18 passed 522 C++17 / 524 C++20 checks and all 27 expected
+rejections. Clang C++17 also passed ASan, UBSan and float-cast-overflow. The
+limits suite passed its qmake build; the Qt Release application passed
+offscreen startup. Parsed demo JSON contains all three required properties
+for every one of its 20 fields. Mode has bounds 0..2 and default 1;
+VoltageLimit has bounds 1..1000 and default 250.
+
+CubeIDE GCC 14.3.1 compiled the library, demo, seven suites, seven codegen
+probes and minimal JSON consumer at `-O2`/`-Os`, without exceptions or RTTI.
+The minimal consumer linked with newlib-nano. Native limits use one variant
+holding a triple, keeping ARM32 FieldType at 40 bytes and Field at 80 bytes;
+three separate Scalars would require a 96-byte Field. Numeric tags are at
+Field offset 16, schema callbacks at 20. Reads do not load limits or callbacks.
+
+The new limits probe shows direct getter branches for bounded reads, no
+interval comparison for a full-range U16 write, and native F32 comparisons
+for restricted float writes. A 10..20 U16 interval folds to subtraction and
+one unsigned comparison. A known rejected write is a constant return without
+callback dispatch. Enum/plain fields with equal limits have equal numeric
+operations, with table-address and instruction-encoding differences. These
+are compiled-object results, not measured board cycles or cache behavior.
 
 ## Contracts the caller supplies
 

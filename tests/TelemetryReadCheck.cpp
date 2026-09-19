@@ -170,9 +170,9 @@ void checkIdentityPayload()
     if (const auto* value = read.getIf<float>()) std::memcpy(&readBits, value, sizeof(readBits));
     const auto written = field.write(input);
     if (const auto* value = owner.value.getIf<float>()) std::memcpy(&writeBits, value, sizeof(writeBits));
-    expect(written == WriteResult::Applied && readBits == bits && writeBits == bits
-               && owner.reads == 1 && owner.writes == 1,
-           "matching declared F32 reads and writes preserve the NaN payload");
+    expect(written == WriteResult::InvalidValue && readBits == bits && writeBits == bits
+               && owner.reads == 1 && owner.writes == 0,
+           "F32 reads preserve NaN payload; finite write bounds reject it before the setter");
 
     owner.value = -0.0f;
     const auto signedZero = field.read<float>();

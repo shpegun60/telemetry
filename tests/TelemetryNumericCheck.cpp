@@ -90,9 +90,11 @@ bool checkValue(Scalar input, const std::optional<To>& expected)
     if (!agrees(read, expected) || typed.has_value() != converted
         || (typed && !equal(*typed, *expected)) || source.reads != 2 || source.writes != 0) return false;
     const auto written = field.write(input);
-    return written == (converted ? WriteResult::Applied : WriteResult::InvalidValue)
-        && source.reads == 2 && source.writes == (converted ? 1 : 0)
-        && (!converted || agrees(source.value, expected));
+    bool writable = converted;
+    if constexpr (std::is_floating_point_v<To>) writable = writable && std::isfinite(*expected);
+    return written == (writable ? WriteResult::Applied : WriteResult::InvalidValue)
+        && source.reads == 2 && source.writes == (writable ? 1 : 0)
+        && (!writable || agrees(source.value, expected));
 }
 
 std::uint64_t nextBits(std::uint64_t& state)

@@ -167,13 +167,10 @@ private:
     bool ok_;
 };
 
-bool append_value_(Writer& out, const Field& field) noexcept
+bool append_scalar_(Writer& out, const Scalar& value) noexcept
 {
-    const Scalar value = field.read();
-
     if (value.type() == ScalarType::Null) {
-        // Field::read already normalizes to declaredType. Null represents an
-        // unavailable value or a conversion that cannot satisfy that type.
+        // Null represents unavailable values or metadata without a numeric type.
         return out.append("null");
     }
 
@@ -211,6 +208,17 @@ bool append_value_(Writer& out, const Field& field) noexcept
     }
 }
 
+bool append_metadata_(Writer& out, const Scalar& value) noexcept
+{
+    // A client commonly parses schema numbers into double. Nine F32 digits
+    // can round FLT_MAX above its exact value, making the advertised maximum
+    // fail a checked double -> float write. Preserve the promoted value.
+    if (value.type() == ScalarType::F32) {
+        return out.appendFloating(value.get<float>(), std::numeric_limits<double>::max_digits10);
+    }
+    return append_scalar_(out, value);
+}
+
 struct EnumJsonContext {
     Writer& out;
     bool first = true;
@@ -236,6 +244,26 @@ std::uint32_t hash_u64_(std::uint32_t hash, std::uint64_t value) noexcept
         hash = hash_byte_(hash, static_cast<std::uint8_t>(value >> shift));
     }
     return hash;
+}
+
+std::uint32_t hash_scalar_(std::uint32_t hash, const Scalar& value) noexcept
+{
+    hash = hash_byte_(hash, static_cast<std::uint8_t>(value.type()));
+    if (value.type() == ScalarType::Null) return hash;
+    if (value.type() == ScalarType::F32) {
+        const float number = value.get<float>();
+        std::uint32_t bits;
+        std::memcpy(&bits, &number, sizeof(bits));
+        return hash_u64_(hash, bits);
+    }
+    if (value.type() == ScalarType::F64) {
+        const double number = value.get<double>();
+        std::uint64_t bits;
+        std::memcpy(&bits, &number, sizeof(bits));
+        return hash_u64_(hash, bits);
+    }
+    const auto signedValue = convertScalar<std::int64_t>(value);
+    return hash_u64_(hash, signedValue ? static_cast<std::uint64_t>(*signedValue) : value.get<std::uint64_t>());
 }
 
 bool hash_enum_entry_(void* context, const Scalar& value, std::string_view name) noexcept
@@ -274,6 +302,10 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
             hash = fnv1a_(hash, field.unit);
             hash = fnv1a_(hash, type_name_(field.declaredType));
             hash = hash_byte_(hash, field.set ? 1u : 0u);
+            hash = hash_byte_(hash, 'L');
+            hash = hash_scalar_(hash, field.declaredType.minimum());
+            hash = hash_scalar_(hash, field.declaredType.maximum());
+            hash = hash_scalar_(hash, field.declaredType.defaultValue());
             if (field.declaredType.hasEnum()) {
                 hash = hash_byte_(hash, 'D');
                 (void) field.declaredType.describeEnum(&hash, &hash_enum_entry_);
@@ -302,6 +334,9 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i),
                             field.id, field.name, field.unit, type_name_(field.declaredType),
                             field.set ? "true" : "false")) return 0;
+            if (!out.append(",\"min\":") || !append_metadata_(out, field.declaredType.minimum())
+                || !out.append(",\"max\":") || !append_metadata_(out, field.declaredType.maximum())
+                || !out.append(",\"default\":") || !append_metadata_(out, field.declaredType.defaultValue())) return 0;
             if (field.declaredType.hasEnum()) {
                 if (!out.append(",\"enum\":{")) return 0;
                 EnumJsonContext context{out};
@@ -326,7 +361,7 @@ std::size_t writeValues(const CatalogIndex& index, char* const buffer, const std
         if (!out.append("%s\"%s\":[", (c == 0u) ? "" : ",", catalogs[c].name)) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             if (i != 0u && !out.append(",")) return 0;
-            if (!append_value_(out, catalogs[c].fields[i])) return 0;
+            if (!append_scalar_(out, catalogs[c].fields[i].read())) return 0;
         }
         if (!out.append("]")) return 0;
     }

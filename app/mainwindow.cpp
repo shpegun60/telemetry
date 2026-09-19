@@ -60,7 +60,7 @@ MainWindow::MainWindow(QWidget *parent)
     fields_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     layout->addWidget(fields_);
 
-    char schema[2048];
+    char schema[4096];
     const auto length = telemetry::writeSchema(demo_.index(), schema, sizeof(schema));
     const auto document = QJsonDocument::fromJson(QByteArray(schema, static_cast<int>(length)));
     for (const auto& entry : document.object().value("catalogs").toArray()) {
@@ -79,8 +79,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     auto* schemaText = new QPlainTextEdit(this);
     schemaText->setReadOnly(true);
+    // Keep full U64/S64 metadata digits. Parsing into a QJsonDocument is
+    // useful for table structure, but reserializing it can round U64 extrema.
     schemaText->setPlainText(length == 0 ? "Schema buffer is too small" :
-                            QString::fromUtf8(document.toJson(QJsonDocument::Compact)));
+                            QString::fromUtf8(schema, static_cast<int>(length)));
     schemaText->setMaximumHeight(110);
     layout->addWidget(new QLabel("Schema JSON", this));
     layout->addWidget(schemaText);

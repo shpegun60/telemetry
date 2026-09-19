@@ -58,14 +58,14 @@ constexpr Field meterFields[] = {
     {makeId(0, 6), "UaBind", "V", ScalarType::F32, Getter::bind<&readUa>()},
     // 5. A const method on a known global object, also constexpr-bindable.
     {makeId(0, 7), "UaMethod", "V", ScalarType::F32, Getter::bind<&Meter::readVoltage>(meter)},
-    {makeId(0, 8), "VoltageLimit", "V", ScalarType::F32,
+    {makeId(0, 8), "VoltageLimit", "V", telemetry::numericType<float>(1.0f, 1000.0f, 250.0f),
      []() noexcept { return meter.threshold; },
      [](const Scalar& value) noexcept {
          if (value.type() != ScalarType::F32) return WriteResult::InvalidValue;
          return meter.setThreshold(value.get<float>()) ? WriteResult::Applied : WriteResult::InvalidValue;
      }},
     // Enum names belong only to the schema; source callbacks use numbers.
-    {makeId(0, 9), "Mode", "", telemetry::enumType<Mode>(),
+    {makeId(0, 9), "Mode", "", telemetry::enumType<Mode>(Mode::Auto),
      []() noexcept { return static_cast<std::underlying_type_t<Mode>>(meter.mode); },
      [](const Scalar& value) noexcept {
          meter.mode = static_cast<Mode>(value.get<std::uint16_t>());

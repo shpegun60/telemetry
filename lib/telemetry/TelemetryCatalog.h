@@ -84,7 +84,7 @@ struct Field {
     }
 
     // Presence is checked before conversion, so a read-only field always reports
-    // ReadOnly. Conversion failure never calls the setter or reads the getter.
+    // ReadOnly. Conversion/range failure never calls the setter or reads the getter.
     template <class T, std::enable_if_t<detail::isScalarNumber<T> || std::is_same_v<T, Scalar>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     WriteResult write(T value) const noexcept
@@ -95,6 +95,7 @@ struct Field {
         // empty Scalar to clear before storing a successful write value.
         Scalar converted = Scalar::from(value);
         if (!convertScalar(converted, declaredType, converted)) return WriteResult::InvalidValue;
+        if (!declaredType.acceptsConverted_(converted)) return WriteResult::InvalidValue;
         return set(converted);
     }
 };

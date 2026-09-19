@@ -43,11 +43,11 @@ void checkBuffers(Serialize serialize, const char* message)
     };
     const Catalog catalogs[] = {{0, "v", fields}};
     const CatalogIndex index{catalogs};
-    char reference[512];
+    char reference[2048];
     const auto length = serialize(index, reference, sizeof(reference));
     bool correct = length > 0 && length + 2 < sizeof(reference);
     for (std::size_t size = 0; size <= length + 2; ++size) {
-        char guarded[520];
+        char guarded[2056];
         std::fill(std::begin(guarded), std::end(guarded), '#');
         char* const buffer = guarded + 3;
         const auto written = serialize(index, buffer, size);

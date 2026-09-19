@@ -64,6 +64,23 @@ auto rejected = index.read<Mode>(0); // Applications cast the numeric result.
 #elif TELEMETRY_READ_FAIL_CASE == 19
 enum class Mode : std::uint8_t { Off, Auto };
 auto rejected = index.write(0, Mode::Auto); // Applications supply a number.
+#elif TELEMETRY_READ_FAIL_CASE == 20
+constexpr auto rejected = numericType<int>(20, 10, 15); // Reversed interval.
+#elif TELEMETRY_READ_FAIL_CASE == 21
+constexpr auto rejected = numericType<float>(0, 10, 11); // Default outside interval.
+#elif TELEMETRY_READ_FAIL_CASE == 22
+constexpr auto rejected = numericType<std::uint8_t>(0, 256, 0); // Bound not representable.
+#elif TELEMETRY_READ_FAIL_CASE == 23
+constexpr auto rejected = numericType<float>(-1, 1, std::numeric_limits<float>::quiet_NaN());
+#elif TELEMETRY_READ_FAIL_CASE == 24
+constexpr auto rejected = numericType<double>(-1, std::numeric_limits<double>::infinity(), 0);
+#elif TELEMETRY_READ_FAIL_CASE == 25
+constexpr auto rejected = numericType<int>(Scalar::null(), 10, 0);
+#elif TELEMETRY_READ_FAIL_CASE == 26
+constexpr auto rejected = FieldType{}.withLimits(0, 1, 0); // Null cannot have numeric limits.
+#elif TELEMETRY_READ_FAIL_CASE == 27
+enum class Mode : std::uint8_t { Off, Auto };
+constexpr auto rejected = enumType<Mode>().withDefault(2);
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 19"
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 27"
 #endif

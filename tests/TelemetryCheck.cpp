@@ -214,7 +214,7 @@ static_assert(!CanBind<Sensor&&>::value);
 static_assert(sizeof(Getter) == 12, "Cortex-M getter size with native return alternatives");
 static_assert(sizeof(Setter) == 8, "Cortex-M setter size");
 static_assert(sizeof(Scalar) == 16, "Cortex-M scalar size");
-static_assert(sizeof(Field) == 40, "Cortex-M field size with optional enum description");
+static_assert(sizeof(Field) == 80, "Cortex-M field size with limits and optional enum description");
 static_assert(sizeof(Catalog) == 16, "Cortex-M catalog size");
 static_assert(sizeof(CatalogIndex) == 8, "Cortex-M index size");
 #endif
@@ -396,7 +396,7 @@ void checkIdCapacity()
     const Field* endpoint = maximumIndex.find(UINT32_MAX);
     expect(endpoint != nullptr && endpoint->get().get<float>() == 1.5f,
            "the maximum packed ID invokes the selected getter");
-    std::vector<char> schema(capacity * 160u + 1024u);
+    std::vector<char> schema(capacity * 256u + 1024u);
     expect(telemetry::writeSchema(maximumIndex, schema.data(), schema.size()) != 0
                && std::strstr(schema.data(), "{\"id\":65535,\"name\":\"maximum\"") != nullptr
                && std::strstr(schema.data(), "\"id\":4294967295,") != nullptr,
@@ -496,7 +496,7 @@ void checkJson()
     char schema[2048];
     const auto schemaLength = telemetry::writeSchema(catalogs, std::size(catalogs), schema, sizeof(schema));
     expect(schemaLength != 0, "schema serializes");
-    expect(std::strstr(schema, "{\"i\":4,\"id\":4,\"n\":\"u64\",\"u\":\"\",\"t\":\"u64\",\"w\":false}") != nullptr,
+    expect(std::strstr(schema, "{\"i\":4,\"id\":4,\"n\":\"u64\",\"u\":\"\",\"t\":\"u64\",\"w\":false,") != nullptr,
            "schema preserves field index, type and name");
     expect(std::strstr(schema, "{\"i\":0,\"id\":0,\"n\":\"f32\"") != nullptr,
            "schema emits zero as a numeric field ID");

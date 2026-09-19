@@ -74,7 +74,7 @@ vendored headers and licenses retain their original bytes across checkouts.
 
 ## Playground examples
 
-The table displays nineteen fields with stable global IDs and refreshes every 500 ms. The schema and
+The table displays twenty fields with stable global IDs and refreshes every 500 ms. The schema and
 value JSON are shown below it; Pause/Resume stops and starts the simulated
 updates. `--smoke-test` closes the application after 1.2 seconds, so it can
 also be launched with Qt's `-platform offscreen` for a short startup check.
@@ -106,8 +106,9 @@ signed minima for every 8/16/32/64-bit type. Their display reads the simulated
 sources directly, keeping all U64/S64 digits without conversion to double.
 The sources stay stable while the table and JSON are refreshed.
 The `Mode` row uses `enumType<Mode>()`: its value remains U16 while schema
-JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. No enum check
-runs during lookup, read or write. See the [enum contract and large-code
+JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. Its write interval
+is 0..2 and default is Auto (1). No dictionary check runs during lookup, read
+or write. See the [enum contract and large-code
 examples](lib/telemetry/README.md#enum-dictionaries-for-schemas).
 Each field row starts
 with `makeId(group, position)`. `DemoCatalog::find(id)` uses one direct
@@ -122,13 +123,20 @@ auto value = demo.index().read(telemetry::makeId(1, 0)); // Scalar, value.type()
 ```
 
 The schema publishes group IDs, packed field IDs, local positions `i` and
-setter presence `w`. VoltageLimit (ID 8) is writable; all other demo fields
-remain read-only. Its owner accepts finite voltages in `(0, 1000]`:
+setter presence `w`, and required `min`, `max`, `default` properties.
+VoltageLimit (ID 8) and Mode (ID 9) are writable; other fields are read-only.
+VoltageLimit declares write limits 1..1000 and default 250:
 
 ```cpp
 const auto result = demo.index().write(telemetry::makeId(0, 8), 275);
 // Applied; an ordinary int is converted to the field's F32 before its setter.
 ```
+
+`numericType<float>(1, 1000, 250)` defines those limits at compile time.
+`enumType<Mode>(Mode::Auto)` derives enum extrema automatically and sets a
+chosen default. Defaults are metadata, never automatic writes. Only writes
+check the inclusive interval, after conversion. Reads ignore the interval.
+See [write limits and defaults](lib/telemetry/README.md#write-limits-and-defaults).
 
 Sensor methods return plain double/bool, and Meter methods use plain float;
 source getters do not need to know Scalar. The catalog owns the adaptation.
@@ -157,8 +165,9 @@ Build the independent checks by opening
 [telemetry_write_check.pro](tests/telemetry_write_check.pro),
 [telemetry_read_check.pro](tests/telemetry_read_check.pro),
 [telemetry_json_check.pro](tests/telemetry_json_check.pro),
-[telemetry_numeric_check.pro](tests/telemetry_numeric_check.pro) and
-[telemetry_enum_check.pro](tests/telemetry_enum_check.pro) with the same
+[telemetry_numeric_check.pro](tests/telemetry_numeric_check.pro),
+[telemetry_enum_check.pro](tests/telemetry_enum_check.pro) and
+[telemetry_limits_check.pro](tests/telemetry_limits_check.pro) with the same
 kit, or run qmake and mingw32-make from a separate build directory:
 
 ```powershell
@@ -177,20 +186,20 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verified after numeric, lifetime-contract, serialization and enum metadata review
+Verified after numeric, lifetime-contract, serialization, enum and write-limit review
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
   99/99 core, 87/87 write/getter, 87/87 read, 17/17 JSON, 121/121 numeric
-  oracle and 45/45 enum checks passed with C++17 (456 total).
-  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 458 total).
-  Nineteen expected compilation failures cover invalid bindings/reads,
-  temporary arrays, invalid Scalar access and enum contracts in both language modes.
+  oracle, 45/45 enum and 66/66 limits checks passed with C++17 (522 total).
+  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 524 total).
+  Twenty-seven expected compilation failures cover invalid bindings/reads,
+  temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
-- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all six suites
+- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all seven suites
   passed with warnings treated as errors and no warning exemptions.
   Clang C++20 Release passed the same suites and compilation checks.
 - CubeIDE GCC 14.3.1: library, demo and checks compiled for Cortex-M7 with
@@ -205,7 +214,7 @@ on 2026-09-19:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 8, Field 40, Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 40, Field 80, Catalog 16 and CatalogIndex 8 bytes
   on ARM32.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The
@@ -219,11 +228,15 @@ on 2026-09-19:
   empty Scalar and have no memset call. Bounds, truncation and F32 rounding
   remain effective when the requested read type is wider than declaredType.
 - [EnumCodegen.cpp](tests/EnumCodegen.cpp) compares U16 fields with and without
-  schema dictionaries. Matching read/write paths have the same operations at
-  both optimization levels; table addresses/offsets differ. Runtime Field
-  access loads the numeric type and getter/setter, never the schema callback.
-  The added callback costs four bytes per Field on ARM32. Enum names and field
+  schema dictionaries and identical numeric limits. Matching read/write paths
+  have the same numeric operations at both optimization levels; table
+  addresses/offsets and instruction encodings differ. Runtime Field access
+  never loads the schema callback. Enum names and field
   tables remain constant data; JSON dictionaries are produced only for schema requests.
+- [LimitsCodegen.cpp](tests/LimitsCodegen.cpp): bounded reads branch directly
+  to getters. Full-range U16 writes have no interval comparison; a custom
+  10..20 interval uses subtraction and one unsigned comparison. F32 bounds
+  use native F32 comparisons. A known rejected write folds to a constant result.
 
 These ARM checks inspect compiled objects; they do not link firmware, run on
 a board or measure cycles. Getter invocation is distinct from ID lookup;
