@@ -64,3 +64,11 @@ This measures the H7S3's M7 and its 32 KiB D-cache, not H753 memory latency.
 Small hot tables, large RAM tables and constant-ID access remain separate in
 the [results](RESULTS.md). Firmware-wide latency, interrupt response and cold
 single-read latency are not established by these masked steady-state windows.
+
+The retained evidence can be checked offline, including deliberately damaged
+copies of the records. These commands do not access the board:
+
+```sh
+python tests/field_layout/h7s/verify.py --self-test
+python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
+```

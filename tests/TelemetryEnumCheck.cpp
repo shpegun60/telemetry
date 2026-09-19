@@ -71,7 +71,7 @@ constexpr auto index = CatalogIndex::bind<catalogs>();
 static_assert(fields[0].declaredType == ScalarType::U16);
 static_assert(fields[0].declaredType.hasEnum());
 static_assert(std::is_same_v<decltype(index.read<0>()), std::optional<std::uint16_t>>);
-static_assert(std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
+static_assert(!std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
 static_assert(!std::is_constructible_v<Scalar, Mode>);
 static_assert(!detail::isScalarReadType<Mode> && !detail::isScalarNumber<Mode>);
 static_assert(Scalar::typeCount == 12);

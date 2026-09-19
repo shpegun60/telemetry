@@ -95,9 +95,19 @@ Catalog group;   // id 0, name "", fields nullptr, count 0.
 ```
 
 The same defaults apply in `constexpr` declarations and when trailing
-members are omitted from a Field initializer. Field remains an aggregate.
+arguments are omitted from a Field initializer. Its constexpr constructor
+retains the order `{id, name, unit, declaredType, getter, setter}`.
+Field is no longer an aggregate: designated initializers are not supported.
+Copy construction, assignment and public metadata access remain available.
 An empty getter returns Null. Assign real names/IDs and types before using
 default fields as published catalog entries.
+
+Field is aligned to 32 bytes and occupies 96 bytes on ARM32. Getter, Setter
+and the numeric FieldType header share the first 32-byte line; the stride
+preserves that alignment throughout an array. Rebuild all consumers after
+this layout change. A Flash-resident table costs 16 additional bytes per row
+compared with the old 80-byte layout; a RAM-resident table pays that cost in RAM.
+See the [measurement report](../../tests/field_layout/h7s/RESULTS.md).
 
 ## Write limits and defaults
 
@@ -261,7 +271,7 @@ control bytes, including embedded NUL. Full 64-bit dictionary keys are exact
 decimal strings, independent of JavaScript Number precision.
 
 `Field::declaredType` is now a `FieldType`, implicitly constructible from and
-convertible to `ScalarType`. Existing aggregate rows containing `ScalarType::F32`
+convertible to `ScalarType`. Existing positional rows containing `ScalarType::F32`
 and comparisons with ScalarType keep working. Use `ScalarType type = field.declaredType`
 when a concrete enum is needed; `auto` now deduces FieldType. Assigning a
 ScalarType before publication clears dictionary metadata and restores native

@@ -47,13 +47,22 @@ constexpr FieldOffset indexOf(FieldId id) noexcept
 // All referenced objects, arrays and strings must outlive their consumers.
 // Field metadata and addresses stay unchanged from Catalog construction;
 // only values inside the bound source objects may change during use.
-struct Field {
+// ARM32: Getter, Setter and the numeric FieldType header occupy the first
+// 32-byte line. The 96-byte stride keeps that prefix aligned in every row.
+// Positional table initialization is preserved by the constexpr constructor.
+struct alignas(32) Field {
+    Getter get = nullptr;
+    Setter set = nullptr;
+    FieldType declaredType = ScalarType::Null;
     FieldId id = 0;
     const char* name = "";
     const char* unit = "";
-    FieldType declaredType = ScalarType::Null;
-    Getter get = nullptr;
-    Setter set = nullptr;
+
+    constexpr Field(FieldId fieldId = 0, const char* fieldName = "",
+                    const char* fieldUnit = "", FieldType fieldType = ScalarType::Null,
+                    Getter getter = nullptr, Setter setter = nullptr) noexcept
+        : get(getter), set(setter), declaredType(fieldType), id(fieldId),
+          name(fieldName), unit(fieldUnit) {}
 
     // declaredType is the value contract for both reads and writes. Invoke the
     // getter once, then normalize in place; a failed conversion yields Null.

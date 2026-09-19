@@ -1,5 +1,10 @@
 # Telemetry checks
 
+The current Field layout uses a 32-byte alignment and 96-byte ARM32 stride.
+The [layout experiment and H7S measurements](field_layout/h7s/RESULTS.md)
+record the production choice. ARM guards check its size and hot member offsets;
+the historical 80-byte measurements later in this file describe earlier layouts.
+
 Run from the repository root with Python 3 and a GCC-compatible C++ compiler.
 The checks have no Qt dependency. Generated binaries and logs go only to the
 directory specified by `--build-dir`:

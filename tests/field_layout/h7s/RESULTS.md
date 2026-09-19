@@ -72,3 +72,26 @@ rejections. Clang 18 C++17 ASan/UBSan/float-cast-overflow passed all three.
 A32/B32 separately passed 578 GCC C++17 checks and 35 expected rejections.
 Schema and value JSON matched across candidates. The production implementation
 also retains the independent host/ARM storage and code-generation checks.
+
+## Final production verification
+
+The final production header was built alongside the pinned B32 control and
+run again at O2/Os: four images, **1840 further windows**, all checksums correct.
+The [final receipt](final-receipt.json) and [samples](final-samples.csv) preserve
+that run. Its normalized header hash matches the compiled Current images;
+the complete Probe objects are byte-identical to B32 at both optimizations.
+The largest difference between corresponding medians was 0.01227 cycles/call.
+The original firmware was restored again with the same read-back hash.
+
+The final source passed GCC 13.1 C++17/C++20 (578/580 checks), 35 expected
+compile failures per run, standalone-header and floating-option guards;
+Clang 18 C++17 ASan/UBSan/float-cast-overflow, with no skipped coverage;
+CubeIDE GCC 14.3.1 O2/Os (17 translation units, seven read-only codegen probes
+and newlib-nano links per optimization); and Qt 6.10.1 Release with warnings
+as errors and a successful offscreen startup/exit.
+
+Both retained hardware evidence sets pass the offline verifier, including
+seven mutation controls for missing/duplicate windows, wrong checksum/image,
+invalid cycles and incomplete/restoration-hash failures. These checks support
+the measured cases and caller contracts; they do not prove arbitrary callbacks
+or a universal best latency on every target.

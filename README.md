@@ -231,7 +231,7 @@ on 2026-09-19:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 40, Field 80, Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 40, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
   on ARM32.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The

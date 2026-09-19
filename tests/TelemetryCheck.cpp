@@ -41,7 +41,8 @@ static_assert(defaultField.id == 0 && defaultField.name[0] == '\0'
               && !defaultField.get && !defaultField.set);
 static_assert(defaultCatalog.id == 0 && defaultCatalog.name[0] == '\0'
               && defaultCatalog.fields == nullptr && defaultCatalog.count == 0);
-static_assert(std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
+static_assert(!std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
+static_assert(alignof(Field) == 32);
 static_assert(std::is_trivially_copyable_v<Scalar> && std::is_standard_layout_v<Scalar>);
 static_assert(std::is_nothrow_default_constructible_v<Scalar>
               && std::is_nothrow_default_constructible_v<Field>
@@ -76,7 +77,7 @@ void checkDefaultInitialization()
     expect(partial.id == makeId(3, 7) && partial.name[0] == '\0'
                && partial.unit[0] == '\0' && partial.declaredType == ScalarType::Null
                && !partial.get && !partial.set,
-           "omitted aggregate members use the same Field defaults");
+           "omitted row arguments use the same Field defaults");
     const Catalog catalogs[1];
     const CatalogIndex index{catalogs};
     expect(index.size() == 1 && index.find(0) == nullptr,
@@ -214,7 +215,10 @@ static_assert(!CanBind<Sensor&&>::value);
 static_assert(sizeof(Getter) == 12, "Cortex-M getter size with native return alternatives");
 static_assert(sizeof(Setter) == 8, "Cortex-M setter size");
 static_assert(sizeof(Scalar) == 16, "Cortex-M scalar size");
-static_assert(sizeof(Field) == 80, "Cortex-M field size with limits and optional enum description");
+static_assert(sizeof(Field) == 96, "Cortex-M field stride must preserve the 32-byte prefix alignment");
+static_assert(offsetof(Field, get) == 0 && offsetof(Field, set) == 12
+              && offsetof(Field, declaredType) == 24,
+              "Cortex-M read and dispatch metadata must stay in the first 32 bytes");
 static_assert(sizeof(Catalog) == 16, "Cortex-M catalog size");
 static_assert(sizeof(CatalogIndex) == 8, "Cortex-M index size");
 #endif
