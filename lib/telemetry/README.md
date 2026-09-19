@@ -149,8 +149,8 @@ JSON still represents non-finite readings as null.
 Default is descriptive metadata, not an automatic write or fallback reading.
 To apply it explicitly, call `field.write(field.declaredType.defaultValue())`.
 Every schema field, including read-only fields, exports `min`, `max` and
-`default`; Null metadata exports null properties. Changes to any of these
-values change the schema fingerprint.
+`default`; Null metadata exports null properties. All three values participate
+in the schema fingerprint.
 For ordinary numeric fields, a **null bound means the native endpoint of `t`**
 (finite for F32/F64). Each bound is compacted independently, including an
 explicitly supplied native endpoint. Resolve null using `t` while retaining
@@ -456,6 +456,13 @@ constexpr Field fields[] = {
 };
 ```
 
+Let the object type be deduced in `bind<&Owner::method>(owner)`. Temporary
+objects are rejected, including when a caller explicitly supplies `const Owner`
+as the template type. Explicit reference template types are rejected too.
+Binding an existing const object is supported; the owner must remain alive
+at the same address until the final invocation. Returning a binding to a local
+object or manually creating a dangling reference still violates that contract.
+
 Explicit `Scalar::fromF32(...)` and typed `-> Scalar` returns remain valid.
 Getter initially packages its result using the native C++ type; `Field::read`
 normalizes it to the field's declared type. Any supported numeric/bool source
@@ -484,6 +491,7 @@ remain read-only. Setter is a noexcept policy wrapper over
 ReadOnly, including when initialized or assigned a typed null pointer.
 It accepts named functions, `&function`, bare/+ captureless lambdas,
 `Setter::bind<&function>()` and `Setter::bind<&Owner::method>(owner)`.
+Method bindings have the same lvalue and lifetime requirements as Getter.
 
 Both public write methods are templates; ordinary callers use native values:
 
@@ -578,10 +586,20 @@ partial JSON must not be sent. A null buffer fails regardless of its size;
 a non-null buffer with positive size remains NUL-terminated. Serialization
 stops at the first output failure, including further getter calls. Previously
 read fields are not rolled back. The output must not overlap the metadata,
-its strings or the source values. Names must be unique ASCII identifiers
-(catalog names globally, field names within each catalog). Unit strings must
-not contain JSON quotes, backslashes or control characters; strings must be
-non-null. `names_unique` remains available for static field tables.
+its strings or the source values. Names and units are non-null, NUL-terminated
+UTF-8 strings. Quotes, backslashes and control bytes are escaped in both schema
+and value-object keys, just as they are in enum labels. Names must remain
+unique (catalog names globally, field names within each catalog).
+Use `names_unique(fields, count)` for field tables and
+`catalog_names_unique(catalogs, count)` for catalog tables. Both are optional
+definition-time checks, outside lookup/read/write; for example:
+
+```cpp
+static_assert(catalog_names_unique(catalogs, std::size(catalogs)));
+```
+
+The catalog helper also rejects null names and a null pointer with a nonzero
+count. As with every pointer/count API, the count must describe actual storage.
 
 Null, failed normalization and non-finite floating-point values serialize as
 JSON null. F32 and F64 use 9 and 17 significant digits respectively, preserving
@@ -613,7 +631,7 @@ endpoints. It checks all 121 source/declared type pairs through both reads
 and writes, and verifies that an explicit read type cannot bypass declared
 rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
-twenty-seven expected compilation failures, covering static reads, invalid
+thirty-five expected compilation failures, covering static reads, invalid
 bindings, enum contracts and inconsistent limit definitions.
 [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
@@ -638,6 +656,12 @@ with reproduction flags in its opening comment; use the same flags for
 [ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp),
 [EnumCodegen.cpp](../../tests/EnumCodegen.cpp) and
 [LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp).
+The [ARM runner](../../tests/run_arm_checks.py) compiles all seven probes and
+all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
+probe storage, pins exported table sizes and links the newlib-nano consumer.
+GitHub Actions runs it with Ubuntu's ARM GCC; the same runner also passes
+with the local CubeIDE compiler. Disassembly is retained for manual inspection;
+instruction-by-instruction equivalence is not asserted by the CI script.
 
 CubeIDE GCC 14.3.1, C++17, Cortex-M7, `-O2` and `-Os` produce direct lookups
 with no loops, helper calls or allocations. Successful lookup through a
@@ -653,6 +677,10 @@ The probe's constant metadata resides in `.rodata`,
 with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
 Flash/RAM placement is determined by linking.
+For 1000 fields the Field array alone occupies 80,000 bytes (about 78.1 KiB),
+before strings, callback code or catalogs. This is the current cost of owning
+limits/defaults in every descriptor. Sharing separate schema descriptors is
+a possible future layout change, not an optimization applied by this release.
 
 The enum/plain U16 pairs in `EnumCodegen.cpp` use the same bounds and numeric
 operations at both optimization levels, apart from table addresses/offsets

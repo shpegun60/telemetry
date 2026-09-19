@@ -87,6 +87,21 @@ constexpr auto rejected = numericType<std::uint8_t>(256); // Check before narrow
 constexpr auto rejected = numericType<float>(std::numeric_limits<float>::quiet_NaN());
 #elif TELEMETRY_READ_FAIL_CASE == 30
 constexpr auto rejected = numericType<int>(5, 10); // Chosen minimum above default.
+#elif TELEMETRY_READ_FAIL_CASE == 31
+struct Owner { float read() const noexcept { return 1; } };
+auto rejected = Getter::bind<&Owner::read, const Owner>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 32
+struct Owner { float read() const noexcept { return 1; } };
+auto rejected = Getter::bind<&Owner::read, const Owner&>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 33
+struct Owner { WriteResult write(const Scalar&) const noexcept { return WriteResult::Applied; } };
+auto rejected = Setter::bind<&Owner::write, const Owner>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 34
+struct Owner { WriteResult write(const Scalar&) const noexcept { return WriteResult::Applied; } };
+auto rejected = Setter::bind<&Owner::write, const Owner&>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 35
+struct Owner { WriteResult write(const Scalar&) const noexcept { return WriteResult::Applied; } };
+auto rejected = Setter::bind<&Owner::write>(Owner{});
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 30"
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 35"
 #endif

@@ -558,6 +558,30 @@ void checkSchemaIdentity()
     expect(!telemetry::names_unique(duplicate, std::size(duplicate)), "duplicate names are detected");
 }
 
+void checkCatalogNames()
+{
+    constexpr Catalog unique[] = {{0, "meter", nullptr, 0}, {1, "sensor", nullptr, 0}};
+    static_assert(telemetry::catalog_names_unique(unique, std::size(unique)));
+    static_assert(telemetry::catalog_names_unique(nullptr, 0));
+    expect(telemetry::catalog_names_unique(unique, 0) && telemetry::catalog_names_unique(unique, 1)
+        && telemetry::catalog_names_unique(unique, std::size(unique)),
+        "empty, single and distinct catalog names are accepted");
+
+    const char separateName[] = {'m', 'e', 't', 'e', 'r', '\0'};
+    const Catalog duplicate[] = {unique[0], {1, separateName, nullptr, 0}};
+    expect(!telemetry::catalog_names_unique(duplicate, std::size(duplicate)),
+        "catalog name uniqueness compares text from different storage");
+    constexpr Catalog emptyNames[] = {{0, "", nullptr, 0}, {1, "", nullptr, 0}};
+    static_assert(!telemetry::catalog_names_unique(emptyNames, std::size(emptyNames)));
+    expect(!telemetry::catalog_names_unique(emptyNames, std::size(emptyNames)),
+        "duplicate empty catalog names are rejected");
+    constexpr Catalog nullName{0, nullptr, nullptr, 0};
+    static_assert(!telemetry::catalog_names_unique(&nullName, 1));
+    expect(!telemetry::catalog_names_unique(nullptr, 1)
+        && !telemetry::catalog_names_unique(&nullName, 1),
+        "nonempty null catalog storage and null names fail validation");
+}
+
 } // namespace
 
 int main()
@@ -570,6 +594,7 @@ int main()
     checkIdCapacity();
     checkJson();
     checkSchemaIdentity();
+    checkCatalogNames();
     std::printf("%d/%d telemetry checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

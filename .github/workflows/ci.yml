@@ -35,6 +35,25 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           python3 tests/run_checks.py --std "$STANDARD" --build-dir build/checks "${flags[@]}"
 
+  arm:
+    name: Cortex-M7 compile and link
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM GCC and newlib-nano
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Compile, inspect constant storage and link
+        run: python3 tests/run_arm_checks.py --build-dir build/arm
+      - name: Retain compiler and object inspection logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cortex-m7-check-logs
+          path: build/arm/*.log
+          if-no-files-found: ignore
+
   qt:
     name: Qt playground
     runs-on: ubuntu-24.04

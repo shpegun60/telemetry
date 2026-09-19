@@ -163,6 +163,20 @@ constexpr bool names_unique(const Field* fields, std::size_t count) noexcept
     return true;
 }
 
+// Optional definition-time validation, never part of lookup/read/write.
+// The pointer/count must describe an actual array; nullptr is valid only empty.
+constexpr bool catalog_names_unique(const Catalog* catalogs, std::size_t count) noexcept
+{
+    if (catalogs == nullptr) return count == 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (catalogs[i].name == nullptr) return false;
+        for (std::size_t j = 0; j < i; ++j) {
+            if (str_equal(catalogs[i].name, catalogs[j].name)) return false;
+        }
+    }
+    return true;
+}
+
 } // namespace telemetry
 
 #endif

@@ -95,7 +95,8 @@ public:
 
     // The object must stay alive at the same address for every invocation.
     // A const object is supported when Method can be called on const T.
-    template <auto Method, class T>
+    // Let T be deduced; explicit reference types must not hide a temporary.
+    template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bind(T& object) noexcept
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
@@ -104,6 +105,10 @@ public:
                       "The getter must return a Scalar-compatible value and be noexcept");
         return Getter(Delegate::bind<Method>(object));
     }
+
+    // Also catches an explicit const T, whose T& could otherwise bind an rvalue.
+    template <auto Method, class T>
+    static Getter bind(T&&) = delete;
 
 private:
     template <std::size_t Index>

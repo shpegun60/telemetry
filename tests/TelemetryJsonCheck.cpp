@@ -32,18 +32,8 @@ struct Source {
 
 using Serialize = std::size_t (*)(const CatalogIndex&, char*, std::size_t) noexcept;
 
-void checkBuffers(Serialize serialize, const char* message)
+bool buffersAgree(Serialize serialize, const CatalogIndex& index)
 {
-    Source source;
-    const Field fields[] = {
-        {0, "first", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
-        {1, "second", "A", ScalarType::F64, []() noexcept { return -0.25; }},
-        {2, "maximum", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
-        {3, "minimum", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
-        {4, "limited", "", numericType<float>(1.2f, -1.25f, 2.5f)},
-    };
-    const Catalog catalogs[] = {{0, "v", fields}};
-    const CatalogIndex index{catalogs};
     char reference[2048];
     const auto length = serialize(index, reference, sizeof(reference));
     bool correct = length > 0 && length + 2 < sizeof(reference);
@@ -61,11 +51,65 @@ void checkBuffers(Serialize serialize, const char* message)
         if (size != 0) correct = correct && std::memchr(buffer, '\0', size) != nullptr;
         if (fits) correct = correct && std::strcmp(buffer, reference) == 0;
     }
-    expect(correct, message);
+    return correct;
+}
+
+void checkBuffers(Serialize serialize, const char* message)
+{
+    Source source;
+    const Field fields[] = {
+        {0, "first", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {1, "second", "A", ScalarType::F64, []() noexcept { return -0.25; }},
+        {2, "maximum", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
+        {3, "minimum", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
+        {4, "limited", "", numericType<float>(1.2f, -1.25f, 2.5f)},
+    };
+    const Catalog catalogs[] = {{0, "v", fields}};
+    const CatalogIndex index{catalogs};
+    expect(buffersAgree(serialize, index), message);
     source.reads = 0;
     expect(serialize(index, nullptr, 0) == 0
                && serialize(index, nullptr, 128) == 0 && source.reads == 0,
            "null output at either size fails without invoking getters");
+}
+
+void checkMetadataStrings()
+{
+    const char label[] = "A\"B\\C\n\t\r\x01\x1f \xc2\xb0" "C";
+    const char escaped[] = "\"A\\\"B\\\\C\\u000a\\u0009\\u000d\\u0001\\u001f \xc2\xb0" "C\"";
+    char controls[32]{};
+    for (unsigned i = 1; i < 32; ++i) controls[i - 1] = static_cast<char>(i);
+    const char escapedControls[] =
+        "\"\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\u0008"
+        "\\u0009\\u000a\\u000b\\u000c\\u000d\\u000e\\u000f\\u0010"
+        "\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018"
+        "\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f\"";
+    Source source;
+    const Field fields[] = {
+        {0, label, controls, ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {1, "", "", ScalarType::Null},
+    };
+    const Catalog catalogs[] = {{0, label, fields}, {1, controls, nullptr, 0}};
+    const CatalogIndex index{catalogs};
+    char schema[2048];
+    const auto schemaSize = writeSchema(index, schema, sizeof(schema));
+    expect(schemaSize != 0
+        && std::strstr(schema, (std::string("\"name\":") + escaped + ",\"fields\":[").c_str()) != nullptr
+        && std::strstr(schema, (std::string("\"n\":") + escaped + ",\"u\":" + escapedControls).c_str()) != nullptr
+        && std::strstr(schema, "\"n\":\"\",\"u\":\"\"") != nullptr
+        && std::strstr(schema, (std::string("\"name\":") + escapedControls + ",\"fields\":[]").c_str()) != nullptr,
+        "schema escapes quotes, backslashes and all control bytes while preserving UTF-8 and empty strings");
+    char values[512];
+    expect(writeValues(index, values, sizeof(values)) != 0
+        && values == std::string("{") + escaped + ":[123,null]," + escapedControls + ":[]}",
+        "value object keys use the same escaped catalog names as schema");
+    expect(buffersAgree(static_cast<Serialize>(&writeSchema), index),
+        "escaped schema strings respect every output boundary");
+    expect(buffersAgree(static_cast<Serialize>(&writeValues), index),
+        "escaped value keys respect every output boundary");
+    source.reads = 0;
+    expect(writeValues(index, values, 6) == 0 && source.reads == 0,
+        "truncation inside an escaped catalog name prevents source reads");
 }
 
 void checkEarlyStop()
@@ -207,6 +251,7 @@ int main()
     checkBuffers(static_cast<Serialize>(&writeSchema), "schema respects every output boundary");
     checkBuffers(static_cast<Serialize>(&writeValues), "values respect every output boundary");
     checkEarlyStop();
+    checkMetadataStrings();
     checkRoundTrip<float>("F32 boundaries and 4096 bit patterns preserve values and signed zero");
     checkRoundTrip<double>("F64 boundaries and 4096 bit patterns preserve values and signed zero");
     checkIntegerText<std::uint64_t>("U64 boundaries and 4096 values preserve every decimal digit");

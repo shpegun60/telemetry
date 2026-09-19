@@ -103,7 +103,8 @@ constexpr FieldType enumType() noexcept
     }
 }
 
-// The caller can choose a named initial value while keeping automatic limits.
+// The caller can choose an initial numeric value within the automatic limits,
+// including an unnamed code between the named extrema.
 template <class E, E... Values>
 constexpr FieldType enumType(E initial) noexcept
 {

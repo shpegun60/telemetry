@@ -15,12 +15,13 @@ REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
     4: r"no matching", 5: r"constant\s+expression|constexpr",
     6: r"lvalue|not assignable", 7: r"deleted", 8: r"noexcept", 9: r"noexcept",
-    10: r"no matching|cannot bind|expects an lvalue", 11: r"cannot be null",
+    10: r"no matching|cannot bind|expects an lvalue|deleted", 11: r"cannot be null",
     12: r"deleted", 13: r"deleted",
     14: r"requires an enum type", 15: r"does not have a name|must have names",
     16: r"codes must be unique", 17: r"dictionary is empty",
     18: r"no matching", 19: r"no matching",
     **{case: r"invalidFieldLimits" for case in range(20, 31)},
+    **{case: r"deleted" for case in range(31, 36)},
 }
 
 
@@ -40,9 +41,10 @@ def main():
     if args.sanitize:
         build_flags = ["-O1", "-g", "-fno-omit-frame-pointer",
                        "-fsanitize=address,undefined,float-cast-overflow",
+                       "-fsanitize-address-use-after-scope",
                        "-fno-sanitize-recover=all"]
     environment = os.environ.copy()
-    environment.setdefault("ASAN_OPTIONS", "detect_leaks=1")
+    environment.setdefault("ASAN_OPTIONS", "detect_leaks=1:detect_stack_use_after_return=1")
     environment.setdefault("UBSAN_OPTIONS", "halt_on_error=1")
 
     def run(command, label, rejection=None):

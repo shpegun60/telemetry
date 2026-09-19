@@ -38,9 +38,9 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept;
 // Only accepted contiguous prefixes are serialized. The CatalogIndex
 // overload reuses a validated group view without rescanning group IDs.
 // Pointer/count overloads create such a view for the duration of the call.
-// Catalog/field names must be ASCII identifiers; units must not contain JSON
-// quotes, backslashes or control characters. These strings must be non-null.
-// Enum labels may be UTF-8; JSON special/control bytes are escaped.
+// Names, units and enum labels use UTF-8; JSON special/control bytes are escaped.
+// Catalog/field names and units must be non-null, NUL-terminated strings.
+// Catalog names must be globally unique; field names unique within a catalog.
 // Returns the length excluding the terminator, or 0 on insufficient space
 // or a null buffer (regardless of size). A nonempty output buffer always
 // remains NUL-terminated. On failure the partial buffer must not be sent.

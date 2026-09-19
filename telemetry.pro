@@ -27,6 +27,7 @@ DISTFILES += \
     lib/delegate/LICENSE \
     .github/workflows/ci.yml \
     tests/run_checks.py \
+    tests/run_arm_checks.py \
     tests/README.md \
     $$files($$PWD/tests/*.pro) \
     $$files($$PWD/tests/*.cpp) \

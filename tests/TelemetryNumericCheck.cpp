@@ -68,7 +68,7 @@ bool agrees(const Scalar& actual, const std::optional<To>& expected)
     return number != nullptr && equal(*number, *expected);
 }
 
-template <class To>
+template <class To, class From>
 bool checkValue(Scalar input, const std::optional<To>& expected)
 {
     const auto type = Scalar::from(To{}).type();
@@ -81,6 +81,7 @@ bool checkValue(Scalar input, const std::optional<To>& expected)
     Scalar aliased = input;
     if (convertScalar(aliased, type, aliased) != converted) return false;
     if (converted && !agrees(aliased, expected)) return false;
+    if (!converted && (aliased.type() != input.type() || !equal(aliased.get<From>(), input.get<From>()))) return false;
 
     Source source{input};
     const Field field{0, "value", "", type,
@@ -124,7 +125,7 @@ void checkPair()
 {
     bool correct = true;
     const auto check = [&](From number) {
-        correct = checkValue<To>(Scalar::from(number), reference<To>(number)) && correct;
+        correct = checkValue<To, From>(Scalar::from(number), reference<To>(number)) && correct;
     };
     check(From{0});
     check(From{1});

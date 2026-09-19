@@ -66,7 +66,8 @@ public:
 
     // The object must remain alive at the same address for every invocation.
     // Const objects are supported when Method is callable on const T.
-    template <auto Method, class T>
+    // Let T be deduced; explicit reference types must not hide a temporary.
+    template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Setter bind(T& object) noexcept
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
@@ -75,6 +76,10 @@ public:
                       "The setter must accept const Scalar&, return WriteResult and be noexcept");
         return Setter(Delegate::bind<Method>(object));
     }
+
+    // Also catches an explicit const T, whose T& could otherwise bind an rvalue.
+    template <auto Method, class T>
+    static Setter bind(T&&) = delete;
 
 private:
     static constexpr Function as_function_(Function function) noexcept { return function; }

@@ -358,14 +358,18 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
     if (!out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
                     static_cast<unsigned long>(schemaCrc(index)))) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
-        if (!out.append("%s{\"id\":%u,\"name\":\"%s\",\"fields\":[",
-                        (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id), catalogs[c].name)) return 0;
+        if (!out.append("%s{\"id\":%u,\"name\":",
+                        (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id))
+            || !out.appendString(catalogs[c].name) || !out.append(",\"fields\":[")) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
             const bool hasEnum = field.declaredType.hasEnum();
-            if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s",
+            if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":",
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i),
-                            field.id, field.name, field.unit, type_name_(field.declaredType),
+                            field.id)
+                || !out.appendString(field.name) || !out.append(",\"u\":")
+                || !out.appendString(field.unit)
+                || !out.append(",\"t\":\"%s\",\"w\":%s", type_name_(field.declaredType),
                             field.set ? "true" : "false")) return 0;
             if (!out.append(",\"min\":") || !append_bound_(out, field.declaredType.minimum(), true, hasEnum)
                 || !out.append(",\"max\":") || !append_bound_(out, field.declaredType.maximum(), false, hasEnum)
@@ -391,7 +395,8 @@ std::size_t writeValues(const CatalogIndex& index, char* const buffer, const std
     Writer out {buffer, size};
     if (!out.append("{")) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
-        if (!out.append("%s\"%s\":[", (c == 0u) ? "" : ",", catalogs[c].name)) return 0;
+        if ((c != 0u && !out.append(","))
+            || !out.appendString(catalogs[c].name) || !out.append(":[")) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             if (i != 0u && !out.append(",")) return 0;
             if (!append_scalar_(out, catalogs[c].fields[i].read())) return 0;

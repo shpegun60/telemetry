@@ -189,6 +189,44 @@ struct Owner {
         return WriteResult::Applied;
     }
 };
+
+struct BindingOwner {
+    mutable float value = 1;
+    float read() const noexcept { return value; }
+    WriteResult write(const Scalar& input) const noexcept
+    {
+        value = input.get<float>();
+        return WriteResult::Applied;
+    }
+};
+
+template <class T, class Argument, class = void> struct CanExplicitGetter : std::false_type {};
+template <class T, class Argument>
+struct CanExplicitGetter<T, Argument, std::void_t<decltype(
+    Getter::bind<&BindingOwner::read, T>(std::declval<Argument>()))>> : std::true_type {};
+template <class T, class Argument, class = void> struct CanExplicitSetter : std::false_type {};
+template <class T, class Argument>
+struct CanExplicitSetter<T, Argument, std::void_t<decltype(
+    Setter::bind<&BindingOwner::write, T>(std::declval<Argument>()))>> : std::true_type {};
+
+static_assert(CanExplicitGetter<BindingOwner, BindingOwner&>::value);
+static_assert(CanExplicitSetter<BindingOwner, BindingOwner&>::value);
+static_assert(CanExplicitGetter<const BindingOwner, const BindingOwner&>::value);
+static_assert(CanExplicitSetter<const BindingOwner, const BindingOwner&>::value);
+static_assert(!CanExplicitGetter<const BindingOwner, BindingOwner&&>::value);
+static_assert(!CanExplicitSetter<const BindingOwner, BindingOwner&&>::value);
+static_assert(!CanExplicitGetter<const BindingOwner, const BindingOwner&&>::value);
+static_assert(!CanExplicitSetter<const BindingOwner, const BindingOwner&&>::value);
+static_assert(!CanExplicitGetter<const BindingOwner&, BindingOwner&&>::value);
+static_assert(!CanExplicitSetter<const BindingOwner&, BindingOwner&&>::value);
+static_assert(!CanExplicitGetter<BindingOwner&, BindingOwner&>::value);
+static_assert(!CanExplicitSetter<BindingOwner&, BindingOwner&>::value);
+
+const BindingOwner constantOwner;
+constexpr auto constantGetter = Getter::bind<&BindingOwner::read, const BindingOwner>(constantOwner);
+constexpr auto constantSetter = Setter::bind<&BindingOwner::write, const BindingOwner>(constantOwner);
+static_assert(constantGetter && constantSetter);
+
 Owner globalOwner;
 WriteResult namedWrite(const Scalar& value) noexcept { return globalOwner.write(value); }
 constexpr Setter bindingForms[] = {
@@ -314,6 +352,45 @@ void checkBindingsAndWrites()
     expect(byte.write(1000) == WriteResult::InvalidValue && same(captured, Scalar::fromU8(12)), "out-of-range byte writes do not truncate bits");
 }
 
+void checkLifetimeContracts()
+{
+    BindingOwner owner;
+    const auto get = Getter::bind<&BindingOwner::read, BindingOwner>(owner);
+    const auto set = Setter::bind<&BindingOwner::write, BindingOwner>(owner);
+    expect(set(13.0f) == WriteResult::Applied && get().get<float>() == 13,
+           "explicit non-reference object types retain valid lvalue bindings");
+    expect(constantSetter(17.0f) == WriteResult::Applied && constantGetter().get<float>() == 17,
+           "constexpr explicit const object bindings keep live mutable state");
+
+    struct Prefix { std::uint64_t sentinel = UINT64_MAX; };
+    struct Derived : Prefix, BindingOwner {} derived;
+    const auto derivedGet = Getter::bind<&BindingOwner::read>(derived);
+    const auto derivedSet = Setter::bind<&BindingOwner::write>(derived);
+    expect(derivedSet(23.0f) == WriteResult::Applied && derivedGet().get<float>() == 23
+        && derived.sentinel == UINT64_MAX,
+        "member bindings preserve base adjustment in a multiply inherited owner");
+
+#if defined(__cpp_exceptions) || defined(_CPPUNWIND)
+    struct ThrowingGetterConversion {
+        operator Getter::Function() const { throw 1; }
+    };
+    struct ThrowingSetterConversion {
+        operator Setter::Function() const { throw 2; }
+    };
+    static_assert(!std::is_nothrow_constructible_v<Getter, ThrowingGetterConversion>);
+    static_assert(!std::is_nothrow_constructible_v<Setter, ThrowingSetterConversion>);
+    Getter preservedGetter = get;
+    Setter preservedSetter = set;
+    bool getterThrew = false, setterThrew = false;
+    try { preservedGetter = ThrowingGetterConversion{}; } catch (int) { getterThrew = true; }
+    try { preservedSetter = ThrowingSetterConversion{}; } catch (int) { setterThrew = true; }
+    expect(getterThrew && preservedGetter().get<float>() == 13,
+           "failed function-pointer conversion preserves the old getter binding");
+    expect(setterThrew && preservedSetter(29.0f) == WriteResult::Applied && owner.value == 29,
+           "failed function-pointer conversion preserves the old setter binding");
+#endif
+}
+
 } // namespace
 
 int main()
@@ -340,6 +417,7 @@ int main()
     checkNativeGetter<char8_t>("native char8_t getters");
 #endif
     checkBindingsAndWrites();
+    checkLifetimeContracts();
     std::printf("%d/%d write and native getter checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

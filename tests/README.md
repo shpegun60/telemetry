@@ -14,11 +14,12 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes seven suites, verifies thirty rejected programs, checks
+The runner executes seven suites, verifies thirty-five rejected programs, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. Sanitized runs enable address, undefined-behavior and
-float-cast-overflow checks and stop on the first diagnostic. Compiler warnings
-are errors. Each command's output is retained in a separate log.
+float-cast-overflow checks, including stack use after scope/return, and stop
+on the first diagnostic. Compiler warnings are errors. Each command's output
+is retained in a separate log.
 
 JSON locale checks try a German numeric locale on Linux and Windows. Set
 `TELEMETRY_TEST_LOCALE=de_DE.UTF-8` (Linux) or `German_Germany.1252` (Windows)
@@ -31,6 +32,32 @@ so it can represent all 64-bit integers exactly. It uses extended precision
 and explicit `trunc` as an independent reference; the production code uses
 source-precision comparisons before casting. Hosts without that precision
 report the oracle as skipped; other suites still cover numeric endpoints.
+
+## Cortex-M7 compile and link checks
+
+```sh
+python3 tests/run_arm_checks.py --build-dir build/arm
+```
+
+The ARM compiler and its sibling objdump must be on PATH. Supply `--cxx` or
+`ARM_CXX` to select a CubeIDE `arm-none-eabi-g++` executable; `--objdump` can
+override its sibling tool. The same script runs in GitHub Actions using the
+Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
+compiler is separate from the CubeIDE compiler used for local firmware work.
+
+At both `-O2` and `-Os` it compiles all positive test sources, the library,
+demo and codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
+and warnings as errors. All seven codegen objects must have no startup
+initialization and no writable data sections: their mutable owners are
+deliberately external. The four exported IndexCodegen metadata symbols must
+exist in `.rodata` with their expected sizes. Source static assertions also
+pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
+nosys stubs and enabled float formatting; it is not executed.
+
+Compiler versions, sections, symbols, disassembly and linker diagnostics are
+retained under `--build-dir`; CI uploads those logs. This protects compilation,
+constant storage and linking. Instruction-level performance still requires
+inspection of disassembly; neither script proves board timing or stack peaks.
 
 ## Audit checkpoint, 2026-09-19
 
@@ -142,6 +169,9 @@ are compiled-object results, not measured board cycles or cache behavior.
 
 ## Default-first factory and compact bounds, 2026-09-19
 
+This records checkpoint `28cc59c`; the follow-up below fixes an explicit-type
+binding issue missed by the earlier lifetime checks.
+
 `numericType<T>` now takes default, minimum, maximum. Zero arguments keep
 the native range and zero/false default; one sets only the default; two set
 default/minimum and retain the native maximum. Compile-time assertions cover
@@ -182,6 +212,51 @@ retains only its native finite-value checks. Bounded reads still branch
 directly to getters. No read/write path consults enum metadata. These are
 compiled-object observations; no board execution or cycle timing was done.
 
+## Final lifetime and integration follow-up, 2026-09-19
+
+Rechecked active library code, tests, dependency bindings, demo ownership,
+documentation and CI. A supplied external review was checked against source
+and reproductions, rather than taken as verification by itself.
+
+The confirmed defect was in both method-binding wrappers. Explicit
+`bind<&Owner::method, const Owner>(Owner{})` and the `const Owner&` form could
+borrow a temporary, even though ordinary deduced rvalues were rejected.
+Clang AddressSanitizer reproduced stack-use-after-return for all four
+getter/setter combinations on `28cc59c`. The wrappers now reject reference
+template types and delete the rvalue overload. Four new compile-fail cases
+cover those bypasses; another covers ordinary setter rvalues. Positive checks
+cover live explicit/const owners, constexpr binding, multiple-inheritance
+member adjustment and preservation of existing bindings when a function-pointer
+conversion throws. Caller-owned lifetime and synchronization remain required.
+
+Schema and value serialization now escape catalog names, field names and units
+using the existing bounded string writer. They accept UTF-8, quotes, backslashes
+and control bytes. Tests cover every non-NUL control byte, empty names/units,
+all output capacities around escaped text and stopping before getter calls.
+`catalog_names_unique` adds optional constexpr duplicate-name validation,
+without adding checks to lookup/read/write. The enum-default comment now
+matches the existing acceptance of unnamed numeric codes between extrema.
+The numeric oracle also verifies that failed in-place conversion preserves
+the exact original value and tag, including signed zero and NaN handling.
+
+GCC 13.1 and Clang 18 passed 578 C++17 / 580 C++20 checks and all 35 expected
+compile failures. Clang C++17 also passed ASan, UBSan and float-cast-overflow,
+with stack-use-after-scope/return detection enabled. All runs required the
+decimal-comma locale; standalone headers and floating-optimization rejections
+passed. Qt 6.10.1 Release passed offscreen startup with warnings as errors.
+
+The new ARM runner passed on CubeIDE GCC 14.3.1 and Ubuntu ARM GCC 13.2.1 at
+both optimization levels: 17 translation units, seven storage/codegen probes
+and the newlib-nano consumer link. The storage guards also rejected separately
+compiled objects containing a startup constructor, writable data or a changed
+table size. CI now runs that same ARM check. All 14 CubeIDE codegen objects
+are byte-identical to a fresh build of the exact `28cc59c` sources, so
+these fixes add no instructions to the measured numeric/read/write/index paths.
+Field remains 80 bytes on ARM32; external shared schema storage was considered
+but would require a separate API/layout decision. No remaining correctness
+defect was found within the caller contracts below; this is evidence from the
+listed checks, not a proof for arbitrary callbacks or application lifetimes.
+
 ## Contracts the caller supplies
 
 Passing invalid borrowed storage cannot be made safe by an index lookup.
@@ -189,8 +264,8 @@ Owners, arrays and strings must outlive their readers/writers, explicit counts
 must describe actual array extents, and bound objects must keep their address.
 Metadata stays immutable during use. The owner provides synchronization and
 any coherent snapshot across fields. JSON metadata follows the documented
-non-null string/identifier restrictions, output does not overlap inputs, and
-the application does not change the process locale concurrently.
+non-null UTF-8 string and uniqueness restrictions, output does not overlap
+inputs, and the application does not change the process locale concurrently.
 
 These checks establish behavior for those contracts on the tested toolchains.
 They do not prove correctness of arbitrary application callbacks or concurrent

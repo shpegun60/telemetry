@@ -189,29 +189,40 @@ Pop-Location
 The checks use the same `.pri` as the application. A [Qt-independent test
 runner](tests/README.md) also builds the suites, checks expected compilation
 failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
-Clang sanitizers and an offscreen Qt application check.
+Clang sanitizers, Cortex-M7 compile/storage/link checks and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
 Verified after numeric, lifetime-contract, serialization, enum and write-limit review
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  99/99 core, 87/87 write/getter, 87/87 read, 18/18 JSON, 121/121 numeric
-  oracle, 45/45 enum and 107/107 limits checks passed with C++17 (564 total).
-  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 566 total).
-  Thirty expected compilation failures cover invalid bindings/reads,
+  103/103 core, 92/92 write/getter, 87/87 read, 23/23 JSON, 121/121 numeric
+  oracle, 45/45 enum and 107/107 limits checks passed with C++17 (578 total).
+  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 580 total).
+  Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
 - Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all seven suites
-  passed with warnings treated as errors and no warning exemptions.
+  passed with warnings treated as errors and no warning exemptions, including
+  stack-use-after-scope/return detection.
   Clang C++20 Release passed the same suites and compilation checks.
 - CubeIDE GCC 14.3.1: library, demo and checks compiled for Cortex-M7 with
   C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
   as errors. A minimal JSON consumer also linked with newlib-nano and enabled
   floating formatting. This was a link check, not execution on a board.
+- [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass
+  with Ubuntu ARM GCC 13.2.1 and now run in GitHub Actions. Every codegen object
+  is checked for startup initialization and writable data; exported constant
+  tables are checked for read-only placement and expected sizes.
+- Getter/Setter method binding rejects temporary owners even when the object
+  template type is explicitly supplied. Four formerly accepted forms reproduced
+  stack-use-after-return under ASan and now fail at compilation.
+- Schema and value JSON escape all names/units, including quotes, backslashes
+  and control bytes, and retain UTF-8. `catalog_names_unique` supports optional
+  constexpr validation of the value-object keys.
 - Serialization now rejects null output safely, stops reading after an output
   failure, preserves F32 precision and emits a JSON decimal point in a comma
   locale. U64/S64 formatting no longer needs `long long` support in printf;
