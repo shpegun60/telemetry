@@ -72,3 +72,24 @@ copies of the records. These commands do not access the board:
 python tests/field_layout/h7s/verify.py --self-test
 python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
 ```
+
+Each image now records SHA-256 of `Probe.o` and `Benchmark.o`. The two retained
+receipts were supplemented from the original local objects, after checking
+their original ELF and binary hashes; `object_hash_provenance` records this
+later step explicitly. Timing samples and original image hashes were not
+changed. The final receipt also declares B32/Current Probe equivalence for
+O2/Os, which the verifier checks against those object hashes.
+
+Add `--artifacts build/field_layout_experiment/h7s/final-live` to the final
+verification command to check the actual retained object, ELF and binary bytes.
+Without that directory the verifier checks recorded identities and consistency;
+it cannot authenticate a physical board run. Raw binaries and programmer logs
+remain local. To supplement another old receipt into a **new** file:
+
+```sh
+python tests/field_layout/h7s/verify.py --receipt old-receipt.json --samples old-samples.csv --artifacts path/to/original-run --record-objects new-receipt.json --compare-probes B32 Current
+```
+
+Only request `--compare-probes` when both variants really have identical Probe
+objects; unequal or missing objects fail verification. Recording refuses an
+existing output file and refuses mismatches with previously recorded hashes.

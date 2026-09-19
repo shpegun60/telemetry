@@ -37,7 +37,7 @@ def run(command, log, timeout=180):
     return result.stdout
 
 
-def build(args, output):
+def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=(), fixture_inputs=()):
     cube = args.cube.resolve()
     compiler = Path(args.arm_cxx).resolve()
     gcc = compiler.with_name('arm-none-eabi-gcc.exe')
@@ -45,7 +45,9 @@ def build(args, output):
     objdump = compiler.with_name('arm-none-eabi-objdump.exe')
     size = compiler.with_name('arm-none-eabi-size.exe')
     BASE['prepare'](output, args.variants)
-    inputs = [EXP/'Fixture.h', EXP/'Probe.cpp', HERE/'Benchmark.cpp', Path(__file__), EXP/'run.py']
+    sources_for_fixture = fixture_sources or [EXP/'Probe.cpp', HERE/'Benchmark.cpp']
+    inputs = [EXP/'Fixture.h', Path(__file__), EXP/'run.py', *fixture_inputs]
+    inputs += [p for p in sources_for_fixture if p.is_absolute()]
     inputs += [p for p in cube.rglob('*') if p.is_file()]
     manifest = {str(p): sha(p) for p in inputs}
     flags = BASE['ARM'] + ['-ffunction-sections', '-fdata-sections', '-DUSE_HAL_DRIVER', '-DSTM32H7S3xx', '--specs=nano.specs']
@@ -55,6 +57,7 @@ def build(args, output):
         include += ['-isystem', str(cube/path)]
     common = output/'common'
     common.mkdir()
+    run([compiler, '--version'], common/'compiler.log')
     cobjects = []
     sources = list((cube/'Drivers/STM32H7RSxx_HAL_Driver/Src').glob('*.c')) + list((cube/'Boot/Core/Src').glob('*.c'))
     for source in sources:
@@ -66,7 +69,8 @@ def build(args, output):
     original_ld = (cube/'Boot/STM32H7S3L8HX_FLASH.ld').read_text()
     linker = common/'benchmark.ld'
     linker.write_text(BASE['replace_once'](original_ld, '  ._user_heap_stack :',
-        '  .dtcm_ids (NOLOAD) : { . = ALIGN(32); *(.dtcm_ids) . = ALIGN(32); } >DTCM\n\n  ._user_heap_stack :'))
+        '  .dtcm_ids (NOLOAD) : { . = ALIGN(32); *(.dtcm_ids) . = ALIGN(32); } >DTCM\n'
+        + linker_sections + '\n  ._user_heap_stack :'))
     images = []
     for opt in args.optimizations:
         for variant in args.variants:
@@ -77,14 +81,16 @@ def build(args, output):
                         f'-DTELEMETRY_LAYOUT_VARIANT={BASE["VARIANTS"][variant]}',
                         f'-DLAYOUT_OPT={2 if opt == "O2" else 0}', '-DLAYOUT_FIELD_COUNT=128', '-DLAYOUT_TABLE_ALIGN=32']
             objects = []
-            for source in (EXP/'Probe.cpp', HERE/'Benchmark.cpp'):
+            for source in sources_for_fixture:
+                source = source if source.is_absolute() else output/variant/source
                 obj = directory/(source.stem+'.o')
-                run([compiler, *cppflags, '-c', source, '-o', obj], directory/(source.stem+'.log'))
+                source_flags = [*BASE['ARM'], '-x', 'assembler-with-cpp'] if source.suffix == '.S' else cppflags
+                run([compiler, *source_flags, '-c', source, '-o', obj], directory/(source.stem+'.log'))
                 objects.append(obj)
             elf = directory/'benchmark.elf'
             binary = directory/'benchmark.bin'
             run([compiler, *BASE['ARM'], *cobjects, startup, *objects, '-T'+str(linker),
-                 '--specs=nano.specs', '--specs=nosys.specs', '-Wl,--gc-sections', '-Wl,-Map='+str(directory/'benchmark.map'),
+                 '--specs=nano.specs', '--specs=nosys.specs', *link_flags, '-Wl,--gc-sections', '-Wl,-Map='+str(directory/'benchmark.map'),
                  '-Wl,--start-group', '-lc', '-lm', '-Wl,--end-group', '-o', elf], directory/'link.log')
             run([objcopy, '-O', 'binary', elf, binary], directory/'binary.log')
             if not 0 < binary.stat().st_size <= 65536:
@@ -94,7 +100,8 @@ def build(args, output):
             run([size, elf], directory/'size.log')
             lib_hashes = {str(p.relative_to(output/variant)): sha(p) for p in (output/variant/'lib').rglob('*') if p.is_file()}
             image = dict(variant=variant, optimization=opt, elf=str(elf), elf_sha256=sha(elf), binary_sha256=sha(binary),
-                         flash_bytes=binary.stat().st_size, library_sources=lib_hashes)
+                         flash_bytes=binary.stat().st_size, library_sources=lib_hashes,
+                         objects_sha256={p.name: sha(p) for p in objects})
             images.append(image)
             print(f'BUILT {variant} {opt}: {image["flash_bytes"]} / 65536 flash bytes', flush=True)
     if manifest != {str(p): sha(p) for p in inputs}:
@@ -143,6 +150,8 @@ def measure(args, output, images):
     connection = ['-c', 'port=SWD', 'sn='+args.serial, 'mode=UR', 'reset=HWrst', 'freq=4000']
     receipt = dict(started=datetime.now(timezone.utc).isoformat(), serial=args.serial, port=args.port,
                    completed=False, restored_and_verified=False, images=images)
+    receipt['compiler'] = (output/'common/compiler.log').read_text(encoding='utf-8').splitlines()[0]
+    receipt['build_inputs'] = json.loads((output/'build-inputs.json').read_text(encoding='utf-8'))
 
     def save():
         (output/'session.json').write_text(json.dumps(receipt, indent=2)+'\n')

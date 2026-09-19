@@ -90,8 +90,12 @@ CubeIDE GCC 14.3.1 O2/Os (17 translation units, seven read-only codegen probes
 and newlib-nano links per optimization); and Qt 6.10.1 Release with warnings
 as errors and a successful offscreen startup/exit.
 
-Both retained hardware evidence sets pass the offline verifier, including
-seven mutation controls for missing/duplicate windows, wrong checksum/image,
-invalid cycles and incomplete/restoration-hash failures. These checks support
+Both retained hardware evidence sets pass the offline verifier, now including
+nine controls for the original receipt and ten for the final receipt: damaged
+coverage, checksums, images, cycle counts, restoration, object-hash metadata and
+the final Probe equivalence claim are rejected. The object hashes were added
+from retained local artifacts after the original runs, as recorded explicitly
+in each receipt. Actual retained object/ELF/binary bytes also pass verification.
+These checks support
 the measured cases and caller contracts; they do not prove arbitrary callbacks
 or a universal best latency on every target.

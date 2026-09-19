@@ -33,6 +33,7 @@ DISTFILES += \
     $$files($$PWD/tests/*.cpp) \
     $$files($$PWD/tests/field_layout/*) \
     $$files($$PWD/tests/field_layout/h7s/*) \
+    $$files($$PWD/tests/json_stack/*) \
     $$files($$PWD/archive/id_ranges/*)
 
 # Default rules for deployment.

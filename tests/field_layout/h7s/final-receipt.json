@@ -42,7 +42,11 @@
         "flash_base": 134250016,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "96765545d78447bea9887fcd63cde1d9b4d86b677658c758d25e6771f1bef733",
+        "Benchmark.o": "9478603a4ab2b5f00a600259969a48d5c60cf130f1f75cbbbce06aa6435cf928"
+      }
     },
     {
       "variant": "Current",
@@ -81,7 +85,11 @@
         "flash_base": 134250016,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "96765545d78447bea9887fcd63cde1d9b4d86b677658c758d25e6771f1bef733",
+        "Benchmark.o": "9f2a1b1ad525e6dd22db8f0f7166ba7f1bdae3288cabeedf6485d03127d6f4d9"
+      }
     },
     {
       "variant": "B32",
@@ -120,7 +128,11 @@
         "flash_base": 134249792,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "82adbce520615a94fc38db187502188d078ef74182f8d8c1aefe793f72967946",
+        "Benchmark.o": "90a6e78fbc611e803c7208ac6fe227b6b0afca811739888747f76d983f688d3c"
+      }
     },
     {
       "variant": "Current",
@@ -159,7 +171,11 @@
         "flash_base": 134249792,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "82adbce520615a94fc38db187502188d078ef74182f8d8c1aefe793f72967946",
+        "Benchmark.o": "05dfcef8d0c64aece4957ab28ba9e2df7668eb4e833e41f322aa8bc5cb61c8ff"
+      }
     }
   ],
   "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
@@ -278,5 +294,25 @@
     "scaffold/Boot/Core/Src/uart_bench.cpp": "dd52cbe472e53ac3aed0bf088c538ce4489daea65c01a1ae6456dfc7a38d8ed8",
     "scaffold/Boot/Core/Src/usart.c": "0254c61e05015266d20d71c93f826b75b7ae97e9edcaa3f97ce69f76103cb6be",
     "scaffold/Boot/Core/Startup/startup_stm32h7s3l8hx.s": "fd29b9238480ce665eb224f7e4a87580c64a1516f9e28b550b26b303cf36d888"
-  }
+  },
+  "object_hash_provenance": {
+    "recorded_at": "2026-09-19T19:13:19.617886+00:00",
+    "method": "Supplemented from retained local objects after matching original ELF and binary hashes; no hardware rerun."
+  },
+  "probe_equivalence": [
+    {
+      "optimization": "O2",
+      "variants": [
+        "B32",
+        "Current"
+      ]
+    },
+    {
+      "optimization": "Os",
+      "variants": [
+        "B32",
+        "Current"
+      ]
+    }
+  ]
 }

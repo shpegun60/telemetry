@@ -562,6 +562,43 @@ void checkSchemaIdentity()
     expect(!telemetry::names_unique(duplicate, std::size(duplicate)), "duplicate names are detected");
 }
 
+void checkFieldNames()
+{
+    constexpr Field unique[] = {{0, "meter"}, {1, "sensor"}, {2, ""}};
+    constexpr Field nullFirst[] = {{0, nullptr}, {1, "sensor"}};
+    constexpr Field nullLater[] = {{0, "meter"}, {1, nullptr}};
+    constexpr Field emptyNames[] = {{0, ""}, {1, ""}};
+    static_assert(telemetry::names_unique(unique, std::size(unique)));
+    static_assert(telemetry::names_unique(nullptr, 0));
+    static_assert(!telemetry::names_unique(nullptr, 1));
+    static_assert(telemetry::names_unique(nullFirst, 0));
+    static_assert(!telemetry::names_unique(nullFirst, 1));
+    static_assert(!telemetry::names_unique(nullFirst, std::size(nullFirst)));
+    static_assert(!telemetry::names_unique(nullLater, std::size(nullLater)));
+    static_assert(!telemetry::names_unique(emptyNames, std::size(emptyNames)));
+
+    // Runtime-created definitions also exercise the checks under sanitizers.
+    Field rows[] = {unique[0], unique[1], unique[2]};
+    expect(telemetry::names_unique(rows, 0) && telemetry::names_unique(rows, 1)
+        && telemetry::names_unique(rows, std::size(rows)),
+        "empty, single and distinct field names are accepted");
+    expect(telemetry::names_unique(nullptr, 0) && !telemetry::names_unique(nullptr, 1),
+        "null field storage is valid only with an empty count");
+    rows[0].name = nullptr;
+    expect(telemetry::names_unique(rows, 0) && !telemetry::names_unique(rows, 1)
+        && !telemetry::names_unique(rows, std::size(rows)),
+        "a null first field name is rejected even for one field");
+    rows[0] = unique[0];
+    rows[2].name = nullptr;
+    expect(!telemetry::names_unique(rows, std::size(rows)), "a later null field name is rejected");
+    const char separateName[] = {'m', 'e', 't', 'e', 'r', '\0'};
+    rows[2].name = separateName;
+    expect(!telemetry::names_unique(rows, std::size(rows)),
+        "field name uniqueness compares text from different storage");
+    expect(!telemetry::names_unique(emptyNames, std::size(emptyNames)),
+        "duplicate empty field names are rejected");
+}
+
 void checkCatalogNames()
 {
     constexpr Catalog unique[] = {{0, "meter", nullptr, 0}, {1, "sensor", nullptr, 0}};
@@ -598,6 +635,7 @@ int main()
     checkIdCapacity();
     checkJson();
     checkSchemaIdentity();
+    checkFieldNames();
     checkCatalogNames();
     std::printf("%d/%d telemetry checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;

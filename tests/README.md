@@ -5,6 +5,10 @@ The [layout experiment and H7S measurements](field_layout/h7s/RESULTS.md)
 record the production choice. ARM guards check its size and hot member offsets;
 the historical 80-byte measurements later in this file describe earlier layouts.
 
+The [JSON stack fixture](json_stack/README.md) records 588 real H7S measurements,
+including the newlib-nano formatter. Its largest observed stack write was 968
+bytes; this excludes caller-owned output buffers and is not a worst-case bound.
+
 Run from the repository root with Python 3 and a GCC-compatible C++ compiler.
 The checks have no Qt dependency. Generated binaries and logs go only to the
 directory specified by `--build-dir`:
@@ -25,6 +29,21 @@ flags are rejected. Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop
 on the first diagnostic. Compiler warnings are errors. Each command's output
 is retained in a separate log.
+
+The audit follow-up adds six field-name checks (109 core, 584 total C++17
+checks; 586 in C++20). `names_unique` now rejects null storage with nonzero
+count and null names at every position, including singleton tables. Runtime
+and constexpr cases cover empty tables/names, duplicates in separate storage,
+and null names. Lookup/read/write implementations and the B32 layout are
+unchanged; current O2/Os `Probe.o` bytes still match the published `61443b0`
+objects. CI also runs the offline layout and stack evidence verifiers with
+their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
+
+The library migration notes now cover ABI revision 2, clean rebuilding of all
+translation units/static libraries, 32-byte raw-storage alignment, local-table
+stack cost, structured bindings and fixed definitions after Catalog creation.
+H7S measurements do not establish H753 firmware timing: a DWT run and task
+stack measurement on the actual H753 integration remain target-specific work.
 
 JSON locale checks try a German numeric locale on Linux and Windows. Set
 `TELEMETRY_TEST_LOCALE=de_DE.UTF-8` (Linux) or `German_Germany.1252` (Windows)

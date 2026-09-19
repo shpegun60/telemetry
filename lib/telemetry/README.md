@@ -104,10 +104,51 @@ default fields as published catalog entries.
 
 Field is aligned to 32 bytes and occupies 96 bytes on ARM32. Getter, Setter
 and the numeric FieldType header share the first 32-byte line; the stride
-preserves that alignment throughout an array. Rebuild all consumers after
-this layout change. A Flash-resident table costs 16 additional bytes per row
+preserves that alignment throughout an array. A Flash-resident table costs
+16 additional bytes per row
 compared with the old 80-byte layout; a RAM-resident table pays that cost in RAM.
 See the [measurement report](../../tests/field_layout/h7s/RESULTS.md).
+
+### Field ABI migration and storage
+
+`telemetry::telemetryAbiVersion` is 2 for this in-memory layout. It is a
+compile-time revision marker, not a JSON version or a linker mismatch check.
+On ARM32 the old layout was 80 bytes, alignment 8, getter offset 56; the new
+layout is 96 bytes, alignment 32, getter offset 0. **Clean and rebuild every
+translation unit and static library that uses these headers.** Mixing stale
+objects built against different layouts is invalid. Never persist or transmit
+the raw bytes of Field, Scalar or delegate objects.
+
+Positional construction keeps its documented order. Member-order-dependent
+structured bindings are source-incompatible: the declaration order is now
+`get, set, declaredType, id, name, unit`. Prefer named member access. C++20
+designated initialization must be replaced with positional construction.
+
+Ordinary `Field[]`, `std::array<Field, N>` and conforming C++17 allocation
+provide the required alignment. Custom allocators, arenas, placement storage
+and linker sections must honor `alignof(Field)` for the base and
+`sizeof(Field)` for each row's stride. For one placement-constructed object:
+
+```cpp
+#include <cstddef>
+#include <new>
+alignas(Field) std::byte storage[sizeof(Field)];
+Field* field = ::new (static_cast<void*>(storage)) Field{0, "value", "", ScalarType::F32};
+// Publish views only after construction; destroy them before reusing storage.
+field->~Field();
+```
+
+A plain byte buffer or `malloc` is not guaranteed to provide this extended
+alignment. Do not pack these objects. A local `Field[20]` now occupies 1920
+bytes on ARM32 instead of 1600, plus possible stack realignment overhead.
+Prefer static constexpr definitions when owners and bindings permit them;
+budget runtime tables explicitly when they live on a task's stack.
+
+Finish all definition edits before constructing Catalog. Keep field IDs,
+names, units, types and bindings unchanged afterwards: Catalog retains the
+validated prefix and does not revalidate edited rows on access. Changing
+values inside bound owners is allowed under the caller's synchronization
+contract. The public setup-time assignment API remains available.
 
 ## Write limits and defaults
 
@@ -608,8 +649,9 @@ definition-time checks, outside lookup/read/write; for example:
 static_assert(catalog_names_unique(catalogs, std::size(catalogs)));
 ```
 
-The catalog helper also rejects null names and a null pointer with a nonzero
-count. As with every pointer/count API, the count must describe actual storage.
+Both helpers reject null names (including a single row) and a null pointer
+with a nonzero count. As with every pointer/count API, the count must describe
+actual storage.
 
 Null, failed normalization and non-finite floating-point values serialize as
 JSON null. F32 and F64 use 9 and 17 significant digits respectively, preserving
@@ -619,6 +661,12 @@ change the locale. The application must not concurrently call `setlocale`.
 Floating formatting uses a bounded 64-byte temporary and the C library's
 `snprintf`; newlib-nano builds need floating formatting enabled at link time
 (for the verified CubeIDE configuration, `-Wl,-u,_printf_float`).
+That temporary is not the total call-stack cost. A separate H7S measurement
+observed up to 968 bytes for schema and 880 bytes for value serialization,
+including the nested newlib-nano calls, with the output buffer outside the
+stack. Add any local output buffer, caller/getter frames and task/interrupt
+headroom when budgeting integration. These observed cases are not a proven
+worst-case bound; see [JSON stack measurements](../../tests/json_stack/README.md).
 
 Every integer retains all decimal digits, including
 `UINT64_MAX` and `INT64_MIN`; 8-bit integers serialize as numbers, not

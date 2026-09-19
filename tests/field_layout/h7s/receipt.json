@@ -42,7 +42,11 @@
         "flash_base": 134249824,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "e8f88f4504efa3aa02a0cc5a7bb410d2631198ebf44ac9e1a1bf39221b72011c",
+        "Benchmark.o": "17a5e2eeff7625113fc06e267a367b7ca538c7f293fba259f1cb07798f13dc63"
+      }
     },
     {
       "variant": "B",
@@ -81,7 +85,11 @@
         "flash_base": 134250016,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "3689830e9996f746431ea9dc40a32e9b9b66727c5f4e3b3d27239f9c821d6368",
+        "Benchmark.o": "aab2b3549cd04cb975088cc095a1411b8bebfb76f59b3cbbab661efefb60a4ef"
+      }
     },
     {
       "variant": "B32",
@@ -120,7 +128,11 @@
         "flash_base": 134250016,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "96765545d78447bea9887fcd63cde1d9b4d86b677658c758d25e6771f1bef733",
+        "Benchmark.o": "9478603a4ab2b5f00a600259969a48d5c60cf130f1f75cbbbce06aa6435cf928"
+      }
     },
     {
       "variant": "C",
@@ -159,7 +171,11 @@
         "flash_base": 134250144,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "77b365bc217396ca1e9970fc61e2c415c5797a31fd8cd90461c37a873560e59c",
+        "Benchmark.o": "68b8e88fbd47fbc9877084bd0141e16811398f5207b984b13979b6e38a1184d4"
+      }
     },
     {
       "variant": "A",
@@ -198,7 +214,11 @@
         "flash_base": 134249344,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "9ef92376796de6ffae4149212b360b455de99a005799fe9e83c583f098f9a126",
+        "Benchmark.o": "b6cb2be3fbe2e6d9f88b35c5cb02e72a2be68a67f7ab695c26fc550c0664b328"
+      }
     },
     {
       "variant": "B",
@@ -237,7 +257,11 @@
         "flash_base": 134249792,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "de1711bfba8b8bd776b1c77da038fa0573b0140b9be7e67816b4d5f45affa991",
+        "Benchmark.o": "e58117e7735d84e56d7c9c8f6c009bce1b8a36bff74ae6b39cfc56f2f8a66098"
+      }
     },
     {
       "variant": "B32",
@@ -276,7 +300,11 @@
         "flash_base": 134249792,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "82adbce520615a94fc38db187502188d078ef74182f8d8c1aefe793f72967946",
+        "Benchmark.o": "90a6e78fbc611e803c7208ac6fe227b6b0afca811739888747f76d983f688d3c"
+      }
     },
     {
       "variant": "C",
@@ -315,7 +343,11 @@
         "flash_base": 134249728,
         "ram_base": 603980448
       },
-      "windows": 460
+      "windows": 460,
+      "objects_sha256": {
+        "Probe.o": "665d927b391817cf56d154fe4507a96413253887402251fa90f074d1863a687d",
+        "Benchmark.o": "1d50da7ab3f618d0311926fe46bf3f26d63e8ab82e0e36653297a51619ea2701"
+      }
     }
   ],
   "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
@@ -435,5 +467,9 @@
     "scaffold/Boot/Core/Src/uart_bench.cpp": "dd52cbe472e53ac3aed0bf088c538ce4489daea65c01a1ae6456dfc7a38d8ed8",
     "scaffold/Boot/Core/Src/usart.c": "0254c61e05015266d20d71c93f826b75b7ae97e9edcaa3f97ce69f76103cb6be",
     "scaffold/Boot/Core/Startup/startup_stm32h7s3l8hx.s": "fd29b9238480ce665eb224f7e4a87580c64a1516f9e28b550b26b303cf36d888"
+  },
+  "object_hash_provenance": {
+    "recorded_at": "2026-09-19T19:13:19.622017+00:00",
+    "method": "Supplemented from retained local objects after matching original ELF and binary hashes; no hardware rerun."
   }
 }

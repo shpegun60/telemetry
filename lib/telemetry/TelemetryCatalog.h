@@ -18,6 +18,10 @@
 
 namespace telemetry {
 
+// In-memory ABI revision, not a wire-format version or a link-time guard.
+// Revision 2 introduces the 32-byte-aligned Field layout. Rebuild all consumers.
+inline constexpr std::uint32_t telemetryAbiVersion = 2;
+
 // Packed identity: high 16 bits are the zero-based group position; low
 // 16 bits are the zero-based field position within that group.
 using FieldId = std::uint32_t;
@@ -160,9 +164,13 @@ constexpr bool str_equal(const char* a, const char* b) noexcept
     return *a == *b;
 }
 
+// Optional definition-time validation, never part of lookup/read/write.
+// The pointer/count must describe an actual array; nullptr is valid only empty.
 constexpr bool names_unique(const Field* fields, std::size_t count) noexcept
 {
-    for (std::size_t i = 1; i < count; ++i) {
+    if (fields == nullptr) return count == 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (fields[i].name == nullptr) return false;
         for (std::size_t j = 0; j < i; ++j) {
             if (str_equal(fields[i].name, fields[j].name)) {
                 return false;
