@@ -15,8 +15,10 @@ the measured stack.
 
 The B32 columns preserve the `9f95e49` checkpoint; RW32 records the initial
 RW32 publication. Guard repeats the run after the ABI/null-metadata hardening.
-Layered is the final core/field/catalog/ABI/serialization split with selectable
-U64/S64 string output.
+Layered is the core/field/catalog/ABI/serialization split at checkpoint
+`c6012d9`, with selectable U64/S64 string output. These retained measurements
+cover field schema and values; they do not measure the subsequently added
+command serializer or command execution stack.
 
 | Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os | Guard O2 | Guard Os | Layered O2 | Layered Os |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|

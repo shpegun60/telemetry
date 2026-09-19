@@ -29,6 +29,7 @@ DISTFILES += \
     tests/run_checks.py \
     tests/run_arm_checks.py \
     tests/README.md \
+    tests/factory-codegen.json \
     $$files($$PWD/tests/*.pro) \
     $$files($$PWD/tests/*.cpp) \
     $$files($$PWD/tests/field_layout/*) \

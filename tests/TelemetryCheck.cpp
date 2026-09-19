@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-#include "TelemetryJson.h"
-#include "TelemetryIndex.h"
+#include "serialization/TelemetryJson.h"
+#include "catalog/TelemetryIndex.h"
 
 namespace {
 

@@ -1,6 +1,6 @@
 # Telemetry library
 
-Standalone catalog, numeric conversion and JSON library for C++17.
+Standalone field, command, numeric conversion and JSON library for C++17.
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 
 Copy this directory and its sibling `delegate` and `magic_enum` directories
@@ -14,10 +14,11 @@ The library uses C++17 and bundled [tiny_delegate v1.1.0](../delegate/README.md)
 It has no Qt, STM32, RTOS, Mongoose or `basic_types.h` dependency. For a
 non-qmake build, add `lib/telemetry` and `lib/delegate` to the include paths
 and compile `abi/TelemetryAbi.cpp`. Include and compile
-`serialization/TelemetryJson.cpp` only when JSON is required. The qmake include
+`serialization/TelemetryJson.cpp` for field JSON and
+`serialization/TelemetryCommandJson.cpp` for command JSON, only when required. The qmake include
 keeps JSON enabled by default; set `CONFIG += telemetry_no_json` before the
 `include(...)` line for a core-only target.
-Optional `TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/README.md).
+Optional `field/TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/README.md).
 Numeric-only headers and the JSON implementation do not include magic_enum.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
@@ -26,20 +27,157 @@ redistributed library files; delegate and magic_enum retain their upstream MIT l
 ## Public files and layers
 
 `Telemetry.h` is the core umbrella. It includes enum metadata, fields,
-catalog/index access and the independent ABI guard; it deliberately does not
+catalog/index access, signature factories, commands and the independent ABI guard; it deliberately does not
 include JSON.
 
 - `core/`: compiler/cache-line policy, Scalar and checked numeric conversion.
 - `field/`: packed IDs, Getter/Setter, FieldType, enum metadata and immutable Field.
 - `catalog/`: Catalog validation and direct CatalogIndex lookup.
+- `command/`: command definitions, optional metadata, factories and direct lookup.
 - `abi/TelemetryAbi.h`: the exact in-memory layout tag and explicit link guard.
 - `serialization/TelemetryJson.h`: schema fingerprint plus bounded schema/value JSON.
 
-The original root names such as `TelemetryCatalog.h` and `TelemetryJson.h` are
-forwarding headers, so existing includes remain source-compatible. Headers
-under `detail/` are implementation details and are not a stable public API.
+Root forwarding headers were removed. Use `Telemetry.h` or canonical paths
+such as `field/TelemetryField.h` and `catalog/TelemetryIndex.h`; update old
+includes accordingly. Headers under `detail/` are implementation details and
+are not a stable public API.
 They hold typed bounds, numeric conversion primitives and JSON writer/value
 helpers; consumers should not include them directly.
+
+## Signature-inferred fields and commands
+
+Include `Telemetry.h` for factories, fields, catalogs and commands. Include
+`serialization/TelemetryJson.h` for field JSON and
+`serialization/TelemetryCommandJson.h` for command JSON. The latter also
+provides the field serializer declarations.
+
+```cpp
+enum class Mode : std::uint8_t { Off, Auto, Manual };
+struct Device {
+    float voltage() const noexcept;
+    float limit() const noexcept;
+    WriteResult setLimit(float value) noexcept;
+    Mode mode() const noexcept;
+    WriteResult setMode(Mode value) noexcept;
+    CommandResult reset() noexcept;
+    CommandResult calibrate(float voltage, Mode mode) noexcept;
+};
+Device device; // Namespace scope; remains alive at this address.
+
+constexpr Field fields[] = {
+    makeField<&Device::voltage>(makeId(0, 0), "Ua", "V", device),
+    makeField<&Device::limit, &Device::setLimit>(makeId(0, 1), "Limit", "V",
+        device, limits(250.0f, 1.0f, 1000.0f)),
+    makeField<&Device::mode, &Device::setMode>(makeId(0, 2), "Mode", "", device),
+};
+constexpr Catalog catalogs[] = {{0, "device", fields}};
+constexpr CatalogIndex values{catalogs};
+
+// Optional, separate, immutable storage: no repeated parameter types.
+constexpr auto calibration = commandArgs(
+    arg("Voltage", "V", 230.0f, 0.0f, 500.0f),
+    arg("Mode", "", Mode::Auto));
+constexpr Command commands[] = {
+    makeCommand<&Device::reset>(0, "Reset", device),
+    makeCommand<&Device::calibrate>(1, "Calibrate", device, calibration),
+    makeCommand<&Device::calibrate>(2, "Calibrate without labels", device),
+};
+constexpr CommandIndex actions{commands};
+
+auto writeResult = values.write(makeId(0, 1), 275); // int -> checked F32.
+auto resetResult = actions.call(0);
+auto result = actions.call(1, 230, Mode::Auto);
+// A transport supplies a borrowed positional Scalar array synchronously:
+const Scalar arguments[] = {230.0f, std::uint8_t{1}};
+result = actions.execute(1, arguments, 2);
+```
+
+`makeField` returns the same concrete RW32 `Field`; there is no additional
+runtime wrapper. The native getter determines `numericType<T>()` or
+`enumType<E>()`. Its typed setter must accept that exact C++ value type and
+return `WriteResult`; both callbacks must be `noexcept`. A different enum
+with the same underlying integer is rejected. Getters and command parameters
+must return/take values, without reference, pointer, string or long-double
+parameters. Const and lvalue-qualified methods are supported. Owners are
+borrowed lvalues, including runtime objects; temporary owners are rejected.
+
+`limits(default)` changes only the initial metadata. The three-argument form
+is `limits(default, min, max)`. Values must match the signature's exact C++
+type; use `250.0f` for float. Invalid bounds/defaults reject constexpr
+definitions; runtime construction of an invalid definition terminates, as
+with `numericType`. Bounds are inclusive and apply after checked conversion.
+Read operations keep the established rule: normalize to the declared type,
+without checking write limits. Defaults never mutate an owner automatically.
+
+The ordinary Field constructor remains available for explicit type adaptation
+or empty getters. A Scalar-returning getter cannot imply its payload type;
+use `makeField<&Device::readScalar>(id, name, unit, ScalarType::F32, device)`
+(and, optionally, a `WriteResult(const Scalar&) noexcept` setter).
+
+Free/static functions need no owner. Capture-free numeric getter lambdas
+also work directly, with or without unary `+`:
+
+```cpp
+constexpr auto ua = makeField(0, "Ua", "V",
+    []() noexcept { return device.voltage(); });
+
+// A C++17 named lambda pair can be used as template targets.
+constexpr auto readLimit = +[]() noexcept { return device.limit(); };
+constexpr auto writeLimit = +[](float value) noexcept {
+    return device.setLimit(value);
+};
+constexpr auto limitField = makeField<readLimit, writeLimit>(1, "Limit", "V",
+    limits(250.0f, 1.0f, 1000.0f));
+
+CommandResult saveConfig() noexcept;
+constexpr auto save = makeCommand<&saveConfig>(3, "Save");
+```
+
+For an enum-returning capture-free lambda, use a named template target as in
+the lambda pair. Capturing inline lambdas are not owned by the factories.
+No factory stores a pointer to a temporary closure.
+
+Command IDs form a separate dense zero-based space. `CommandIndex` validates
+the contiguous prefix once, then uses one bounds check and array indexing.
+It borrows a stable `Command[]`; temporary arrays are rejected. A Command is
+24 bytes on ARM32 (48 on the tested x64 ABI). Its handler already knows the
+argument count/types, so those are not duplicated in the descriptor. Commands
+without decoration store no parameter array. Decoration lives in the supplied
+`commandArgs` lvalue, which must outlive every copied Command. Its entries are
+immutable. Passing `commandArgs(...)` as a temporary to `makeCommand` is rejected.
+There is no fixed library limit on arity; template depth and stack resources
+remain properties of the compiler/application.
+
+Execution converts each Scalar directly to the signature's native type, using
+the existing checked numeric policy (fractional inputs truncate toward zero).
+It validates every argument before calling the target once. No intermediate
+FieldType is constructed during execution, and owner getters are never read.
+All arguments must be present: defaults are schema/UI values. Enum parameters
+use their inferred numeric interval; unnamed gaps remain allowed. Automatic
+enum discovery has the same magic_enum range contract as `enumType<E>()`.
+The callback must return `CommandResult`; results are passed through unchanged.
+
+| Result | Meaning |
+|---|---|
+| `Executed` | Owner completed the action synchronously |
+| `Accepted` | Owner queued a copied request; not yet completed |
+| `NotFound` | ID is outside the accepted command prefix |
+| `Unavailable` | Command has no handler |
+| `ArgumentCountMismatch` | Positional argument count differs from the signature |
+| `InvalidValue` | Conversion, finite-value or range validation failed |
+| `Busy` / `Failed` | Owner could not execute the action |
+
+The library adds no queue, locking, persistence or asynchronous completion.
+An owner that queues work must copy values. A failure returned by the owner
+does not imply rollback of its own side effects.
+
+`writeSchema(actions, buffer, size)` emits `{"schema":"...","commands":[...]}`.
+Each command contains `id`, `n` and `params`; parameters have `i`, numeric `t`,
+`min`, `max`, `default`, optional names/units and enum dictionaries. Absent
+metadata omits `n`/`u`, allowing a UI to display arg0/arg1. Schema generation
+never invokes command handlers. `JsonInt64Mode::String` also applies to command
+metadata. Logical fingerprints ignore that wire choice and callback addresses.
+Field and command schemas remain separate documents and ID spaces.
 
 ## Scalar types and defaults
 
@@ -136,10 +274,12 @@ remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is 3 for this in-memory layout. It is a
+`telemetry::telemetryAbiVersion` is 4. Field retains its revision-3 RW32 layout;
+the exact ABI tuple now also covers Command and its schema boundary. Rebuild
+all consumers and static libraries. It is a
 compile-time revision marker, not a JSON version. `telemetryAbiSignature`
 additionally hashes that revision, the selected cache line, pointer width,
-relevant type sizes/alignments and every public Field/Catalog member offset.
+relevant type sizes/alignments and every public Field/Catalog/Command member offset.
 The compiled JSON entry points carry the complete, unhashed tuple in their C++
 link symbols; the numeric signature is for diagnostics rather than collision
 handling. Consequently, `serialization/TelemetryJson.cpp` built for one layout cannot satisfy calls
@@ -713,12 +853,13 @@ change the locale. The application must not concurrently call `setlocale`.
 Floating formatting uses a bounded 64-byte temporary and the C library's
 `snprintf`; newlib-nano builds need floating formatting enabled at link time
 (for the verified CubeIDE configuration, `-Wl,-u,_printf_float`).
-That temporary is not the total call-stack cost. The current layered serializer
-was measured on H7S at up to 1032/976 bytes for schema (`-O2`/`-Os`) and
+That temporary is not the total call-stack cost. The layered field serializer
+at checkpoint `c6012d9` was measured on H7S at up to 1032/976 bytes for schema (`-O2`/`-Os`) and
 968/888 bytes for values, including the nested newlib-nano calls, with the
 output buffer outside the stack. Add any local output buffer, caller/getter frames and task/interrupt
 headroom when budgeting integration. These observed cases are not a proven
-worst-case bound; see [JSON stack measurements](../../tests/json_stack/README.md).
+worst-case bound and do not measure the new command serializer; see
+[JSON stack measurements](../../tests/json_stack/README.md).
 
 Every integer retains all decimal digits, including `UINT64_MAX` and
 `INT64_MIN`; 8-bit integers serialize as numbers, not characters. The default
@@ -767,6 +908,12 @@ schema fingerprints, custom names and all output-buffer boundaries.
 [TelemetryLimitsCheck.cpp](../../tests/TelemetryLimitsCheck.cpp) checks native
 and custom intervals, constexpr definitions, automatic enum extrema, defaults,
 inclusive boundaries, write-only validation and mandatory metadata exports.
+[TelemetryFactoryCheck.cpp](../../tests/TelemetryFactoryCheck.cpp) covers inferred
+fields, native/enum setters, runtime owners and capture-free lambdas.
+[TelemetryCommandCheck.cpp](../../tests/TelemetryCommandCheck.cpp) covers command
+conversion, side effects, schema, metadata lifetimes and more than eight arguments.
+[TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
+adds 31 rejected definitions and calls.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
@@ -776,15 +923,20 @@ with reproduction flags in its opening comment; use the same flags for
 [ScalarStorageCodegen.cpp](../../tests/ScalarStorageCodegen.cpp),
 [ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp),
 [EnumCodegen.cpp](../../tests/EnumCodegen.cpp) and
-[LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp).
-The [ARM runner](../../tests/run_arm_checks.py) compiles all seven probes and
+[LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp), plus
+[FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp).
+The [ARM runner](../../tests/run_arm_checks.py) compiles all eight probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
-independently checks core and JSON archives. Each matching layout links; each
+independently checks core, field-JSON and command-JSON archives. Each matching layout links; each
 deliberately mixed 32/64-byte layout must fail.
 GitHub Actions runs it with Ubuntu's ARM GCC; the same runner also passes
 with the local CubeIDE compiler. Disassembly is retained for manual inspection;
 instruction-by-instruction equivalence is not asserted by the CI script.
+It compares manual and inferred read wrappers in the same build and rejects
+growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
+records a separate 14/14 object-byte comparison against `c6012d9` and the free
+getter improvement. Field remains 96 bytes on ARM32; Command is 24 bytes.
 
 For the layered refactor, the local CubeIDE GCC 14.3.1 runner compiled 20
 translation units at both optimization levels. Its seven hot-path probes were

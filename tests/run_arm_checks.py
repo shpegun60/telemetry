@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compile Cortex-M7 checks, verify constant storage and link a newlib-nano consumer."""
 import argparse
+import json
 import os
 from pathlib import Path
 import re
@@ -65,6 +66,7 @@ def main():
         "arm-none-eabi-ar" + (".exe" if os.name == "nt" else "")))
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    factory_report = {}
 
     def run(command, label, rejection=None):
         result = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE,
@@ -86,6 +88,7 @@ def main():
         raise RuntimeError(f"Expected arm-none-eabi, got {target}")
     sources = [ROOT / "lib/telemetry/abi/TelemetryAbi.cpp",
                ROOT / "lib/telemetry/serialization/TelemetryJson.cpp",
+               ROOT / "lib/telemetry/serialization/TelemetryCommandJson.cpp",
                ROOT / "app/demo/DemoCatalog.cpp"]
     sources += sorted(source for source in (ROOT / "tests").glob("*.cpp")
                       if not source.name.endswith("CompileFail.cpp"))
@@ -111,8 +114,10 @@ def main():
                      "-o", str(executable)], "consumer" + optimization + "-link")
         abi_object = output / ("TelemetryAbi" + optimization + ".o")
         json_object = output / ("TelemetryJson" + optimization + ".o")
+        command_object = output / ("TelemetryCommandJson" + optimization + ".o")
         modules = (("core", "TelemetryAbiLinkCheck", abi_object),
-                   ("json", "TelemetryJsonAbiLinkCheck", json_object))
+                   ("json", "TelemetryJsonAbiLinkCheck", json_object),
+                   ("command", "TelemetryCommandAbiLinkCheck", command_object))
         for module, source, library_object in modules:
             mismatch = output / (source + "-mismatch" + optimization + ".o")
             run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", f"tests/{source}.cpp",
@@ -122,7 +127,7 @@ def main():
                 f"abi-{module}-archive" + optimization)
             matching = output / (source + optimization + ".o")
             link_tail = ["--specs=nano.specs", "--specs=nosys.specs"]
-            if module == "json":
+            if module in ("json", "command"):
                 link_tail.append("-Wl,-u,_printf_float")
             run(flags + [str(matching), str(archive), *link_tail,
                          "-o", str(output / (f"abi-{module}-match" + optimization + ".elf"))],
@@ -132,8 +137,31 @@ def main():
                 f"abi-{module}-mismatch" + optimization + "-link",
                 r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
         print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
-              "newlib-nano consumer and independent core/JSON ABI archives linked, mixed ABI rejected",
+              "newlib-nano consumer and independent core/JSON/command ABI archives linked, mixed ABI rejected",
               flush=True)
+        # Same translation unit, target and compiler: compare a hand-bound
+        # descriptor with the inferred native-function path. Counts are bytes,
+        # not measured cycles. A runtime Field wrapper remains the old path.
+        manual = output / ("FactoryCodegen-manual" + optimization + ".o")
+        run(flags + ["-DTELEMETRY_FACTORY_MANUAL", "-c", "tests/FactoryCodegen.cpp", "-o", str(manual)],
+            "factory-manual" + optimization + "-compile")
+        objects = {"manual": manual, "inferred": output / ("FactoryCodegen" + optimization + ".o")}
+        record = {}
+        for variant, obj in objects.items():
+            symbols = run([objdump, "-t", str(obj)], "factory-" + variant + optimization + "-symbols")
+            record[variant] = {line.split()[-1]: int(line.split()[-2], 16)
+                              for line in symbols.splitlines()
+                              if line.split() and line.split()[-1].startswith("factory_")
+                              and " F " in line}
+        for name in ("factory_known_read", "factory_free_read", "factory_runtime_read"):
+            if name not in record["manual"] or name not in record["inferred"]:
+                raise RuntimeError("Missing factory codegen symbol " + name)
+            if record["inferred"][name] > record["manual"][name]:
+                raise RuntimeError("Inferred factory grew the read wrapper: " + name)
+        factory_report[optimization] = record
+        print(f"{optimization}: factory read wrappers no larger than manual; free read "
+              f'{record["manual"]["factory_free_read"]} -> {record["inferred"]["factory_free_read"]} bytes', flush=True)
+    (output / "factory-codegen.json").write_text(json.dumps(factory_report, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 // Compare std::visit with the library's source-tag switch using exactly the
 // same alternatives. Compile separately at -O2/-Os with IndexCodegen.cpp's
 // Cortex-M7 flags. Include visitor helpers and tables when comparing sizes.
-#include "TelemetryConversion.h"
+#include "core/TelemetryConversion.h"
 
 namespace {
 template <class> struct ScalarVariant;

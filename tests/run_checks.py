@@ -10,9 +10,22 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
-          "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck")
+          "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
+          "TelemetryFactoryCheck", "TelemetryCommandCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
-                   "lib/telemetry/serialization/TelemetryJson.cpp")
+                   "lib/telemetry/serialization/TelemetryJson.cpp",
+                   "lib/telemetry/serialization/TelemetryCommandJson.cpp")
+FACTORY_REJECTIONS = {
+    1: "exact same C\\+\\+ type", 2: "exact same C\\+\\+ type", 3: "return WriteResult",
+    4: "noexcept", 5: "no matching", 6: "numeric or enum", 7: "Metadata values must match",
+    8: "invalidFieldLimits", 9: "signature|noexcept|owner", 10: "no matching",
+    11: "no matching", 12: "no matching", 13: "metadata count", 14: "Metadata values must match",
+    15: "invalidFieldLimits", 16: "noexcept", 17: "without references", 18: "numeric or enum",
+    19: "numeric or enum", 20: "return CommandResult", 21: "owner|invocable",
+    22: "target cannot be null", 23: "deleted", 24: "no matching",
+    25: "invalidFieldLimits", 26: "deleted", 27: "deleted", 28: "reserved for Scalar",
+    29: "no matching", 30: "invalidFieldLimits", 31: "noexcept",
+}
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
     4: r"no matching", 5: r"constant\s+expression|constexpr",
@@ -80,6 +93,10 @@ def main():
         run(flags + [f"-DTELEMETRY_FIELD_FAIL_CASE={case}", "-fsyntax-only", "tests/TelemetryFieldCompileFail.cpp"],
             f"immutable-field-{case}", r"deleted|const|read.only")
     print("9 immutable Field rejections verified", flush=True)
+    for case, message in FACTORY_REJECTIONS.items():
+        run(flags + [f"-DTELEMETRY_FACTORY_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryFactoryCompileFail.cpp"], f"factory-reject-{case}", message)
+    print(f"{len(FACTORY_REJECTIONS)} factory/command compilation rejections verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")
@@ -87,12 +104,12 @@ def main():
         label = "-".join(header.relative_to(ROOT / "lib/telemetry").with_suffix("").parts)
         run(flags + ["-include", str(header), "-fsyntax-only", str(empty)], label + "-standalone")
     for option in ("-ffast-math", "-ffinite-math-only"):
-        run(flags + [option, "-include", "TelemetryConversion.h", "-fsyntax-only", str(empty)],
+        run(flags + [option, "-include", "core/TelemetryConversion.h", "-fsyntax-only", str(empty)],
             "reject" + option, r"Compile telemetry conversions without")
     print("Standalone headers and fast-math rejection verified", flush=True)
 
     cache = output / "CachelineCheck.cpp"
-    cache.write_text('#include "TelemetryCacheline.h"\nstatic_assert(telemetry::cacheLineBytes == EXPECTED_SIZE);\n', encoding="utf-8")
+    cache.write_text('#include "core/TelemetryCacheline.h"\nstatic_assert(telemetry::cacheLineBytes == EXPECTED_SIZE);\n', encoding="utf-8")
     cache_cases = [
         (64, ["-DTELEMETRY_FORCE_CACHELINE=64"]),
         (128, ["-DTELEMETRY_FORCE_CACHELINE=128"]),
@@ -113,7 +130,7 @@ def main():
         "cacheline-conflict", r"Conflicting telemetry cache-line overrides")
     print("9 cache-line configurations and 5 invalid overrides verified", flush=True)
     field_layout = output / "CachelineFieldCheck.cpp"
-    field_layout.write_text('#include "TelemetryCatalog.h"\n'
+    field_layout.write_text('#include "catalog/TelemetryCatalog.h"\n'
         'static_assert(alignof(telemetry::Field) == EXPECTED_SIZE);\n'
         'static_assert(offsetof(telemetry::Field, set) == EXPECTED_SIZE);\n'
         'static_assert(sizeof(telemetry::Field) % EXPECTED_SIZE == 0);\n', encoding="utf-8")
@@ -127,13 +144,17 @@ def main():
     # a different Field layout must fail instead of using incompatible offsets.
     abi_object = output / "TelemetryAbi-abi64.o"
     json_object = output / "TelemetryJson-abi64.o"
+    command_object = output / "TelemetryCommandJson-abi64.o"
     abi64 = ["-DTELEMETRY_FORCE_CACHELINE=64"]
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[0], "-o", str(abi_object)],
         "abi64-core-compile")
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[1], "-o", str(json_object)],
         "abi64-json-compile")
+    run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[2], "-o", str(command_object)],
+        "abi64-command-compile")
     modules = (("core", "TelemetryAbiLinkCheck", abi_object),
-               ("json", "TelemetryJsonAbiLinkCheck", json_object))
+               ("json", "TelemetryJsonAbiLinkCheck", json_object),
+               ("command", "TelemetryCommandAbiLinkCheck", command_object))
     for module, source, library_object in modules:
         archive = output / f"libTelemetry-{module}-abi64.a"
         caller_object = output / f"{source}-abi64.o"
@@ -149,7 +170,7 @@ def main():
             f"tests/{source}.cpp", "-o", str(mismatch_object)], f"abi128-{module}-caller-compile")
         run(flags + build_flags + [str(mismatch_object), str(archive), "-o", str(executable)],
             f"abi-{module}-mismatch-link", r"undefined reference|unresolved external|AbiTag")
-    print("Independent core/JSON ABI archives linked; mixed 64/128-byte layouts were rejected", flush=True)
+    print("Independent core/JSON/command ABI archives linked; mixed 64/128-byte layouts were rejected", flush=True)
 
 
 if __name__ == "__main__":

@@ -1,16 +1,16 @@
 #include "DemoCatalog.h"
 #include <iterator>
 #include <cmath>
+#include <limits>
 
 namespace demo {
 namespace {
 
 using telemetry::Field;
-using telemetry::Getter;
-using telemetry::Scalar;
-using telemetry::ScalarType;
 using telemetry::WriteResult;
 using telemetry::makeId;
+using telemetry::makeField;
+using telemetry::CommandResult;
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };
 
@@ -22,71 +22,64 @@ struct Meter {
     Mode mode = Mode::Auto;
 
     float readVoltage() const noexcept { return voltage; }
-    bool setThreshold(float next) noexcept
+    float readCurrent() const noexcept { return current; }
+    float readPower() const noexcept { return voltage * current / 1000.0f; }
+    std::uint32_t readCounter() const noexcept { return counter; }
+    float readThreshold() const noexcept { return threshold; }
+    Mode readMode() const noexcept { return mode; }
+    WriteResult setMode(Mode next) noexcept { mode=next; return WriteResult::Applied; }
+    WriteResult setThreshold(float next) noexcept
     {
-        if (!std::isfinite(next) || next <= 0.0f || next > 1000.0f) return false;
+        if (!std::isfinite(next) || next <= 0.0f || next > 1000.0f) return WriteResult::InvalidValue;
         threshold = next;
-        return true;
+        return WriteResult::Applied;
     }
+    CommandResult reset() noexcept { counter=0; return CommandResult::Executed; }
+    CommandResult configure(float next, Mode nextMode) noexcept
+    { threshold=next; mode=nextMode; return CommandResult::Executed; }
 };
 
 Meter meter;
 
-// The source returns an ordinary float and knows nothing about Scalar.
-// Both readUa and &readUa can be written directly into a table row.
-float readUa() noexcept
-{
-    return meter.voltage;
-}
-
-// All five Ua rows read the same changing value, making the binding forms
-// easy to compare in the window. Every row here is constant-initialized.
+// The function signatures define types. Only labels and optional limits remain.
 constexpr Field meterFields[] = {
-    // 1. Capture-free lambdas: both bare [] and explicit +[] work in rows.
-    {makeId(0, 0), "Ua", "V", ScalarType::F32, []() noexcept { return meter.voltage; }},
-    {makeId(0, 1), "Ia", "A", ScalarType::F32, +[]() noexcept { return meter.current; }},
-    {makeId(0, 2), "P", "kW", ScalarType::F32, +[]() noexcept { return meter.voltage * meter.current / 1000.0f; }},
-    {makeId(0, 3), "WinCnt", "", ScalarType::U32, +[]() noexcept { return meter.counter; }},
-
-    // 2. Ordinary function name (implicitly converted to a function pointer).
-    {makeId(0, 4), "UaFunction", "V", ScalarType::F32, readUa},
-    // 3. Explicit address of that same function.
-    {makeId(0, 5), "UaAddress", "V", ScalarType::F32, &readUa},
-    // 4. The function supplied as a template argument.
-    {makeId(0, 6), "UaBind", "V", ScalarType::F32, Getter::bind<&readUa>()},
-    // 5. A const method on a known global object, also constexpr-bindable.
-    {makeId(0, 7), "UaMethod", "V", ScalarType::F32, Getter::bind<&Meter::readVoltage>(meter)},
-    {makeId(0, 8), "VoltageLimit", "V", telemetry::numericType<float>(250.0f, 1.0f, 1000.0f),
-     []() noexcept { return meter.threshold; },
-     [](const Scalar& value) noexcept {
-         if (value.type() != ScalarType::F32) return WriteResult::InvalidValue;
-         return meter.setThreshold(value.get<float>()) ? WriteResult::Applied : WriteResult::InvalidValue;
-     }},
-    // Enum names belong only to the schema; source callbacks use numbers.
-    {makeId(0, 9), "Mode", "", telemetry::enumType<Mode>(Mode::Auto),
-     []() noexcept { return static_cast<std::underlying_type_t<Mode>>(meter.mode); },
-     [](const Scalar& value) noexcept {
-         meter.mode = static_cast<Mode>(value.get<std::uint16_t>());
-         return WriteResult::Applied;
-     }},
+    makeField<&Meter::readVoltage>(makeId(0, 0), "Ua", "V", meter),
+    makeField<&Meter::readCurrent>(makeId(0, 1), "Ia", "A", meter),
+    makeField<&Meter::readPower>(makeId(0, 2), "P", "kW", meter),
+    makeField<&Meter::readCounter>(makeId(0, 3), "WinCnt", "", meter),
+    makeField<&Meter::readThreshold, &Meter::setThreshold>(makeId(0, 4), "VoltageLimit", "V",
+        meter, telemetry::limits(250.0f, 1.0f, 1000.0f)),
+    makeField<&Meter::readMode, &Meter::setMode>(makeId(0, 5), "Mode", "", meter, telemetry::limits(Mode::Auto)),
 };
 
 static_assert(telemetry::names_unique(meterFields, std::size(meterFields)));
 constexpr telemetry::Catalog meterCatalog{0, "meter", meterFields};
 
-// Fixed-width integer examples also exercise exact 64-bit display/JSON.
+// Free function templates retain exact integer values without Scalar callbacks.
+template <class T> T maximumValue() noexcept { return std::numeric_limits<T>::max(); }
+template <class T> T minimumValue() noexcept { return std::numeric_limits<T>::lowest(); }
 constexpr Field integerFields[] = {
-    {makeId(2, 0), "U8", "", ScalarType::U8, []() noexcept { return Scalar::fromU8(UINT8_MAX); }},
-    {makeId(2, 1), "U16", "", ScalarType::U16, []() noexcept { return Scalar::fromU16(UINT16_MAX); }},
-    {makeId(2, 2), "U32", "", ScalarType::U32, []() noexcept { return Scalar::fromU32(UINT32_MAX); }},
-    {makeId(2, 3), "U64", "", ScalarType::U64, []() noexcept { return Scalar::fromU64(UINT64_MAX); }},
-    {makeId(2, 4), "S8", "", ScalarType::S8, []() noexcept { return Scalar::fromS8(INT8_MIN); }},
-    {makeId(2, 5), "S16", "", ScalarType::S16, []() noexcept { return Scalar::fromS16(INT16_MIN); }},
-    {makeId(2, 6), "S32", "", ScalarType::S32, []() noexcept { return Scalar::fromS32(INT32_MIN); }},
-    {makeId(2, 7), "S64", "", ScalarType::S64, []() noexcept { return Scalar::fromS64(INT64_MIN); }},
+    makeField<&maximumValue<std::uint8_t>>(makeId(2, 0), "U8", ""),
+    makeField<&maximumValue<std::uint16_t>>(makeId(2, 1), "U16", ""),
+    makeField<&maximumValue<std::uint32_t>>(makeId(2, 2), "U32", ""),
+    makeField<&maximumValue<std::uint64_t>>(makeId(2, 3), "U64", ""),
+    makeField<&minimumValue<std::int8_t>>(makeId(2, 4), "S8", ""),
+    makeField<&minimumValue<std::int16_t>>(makeId(2, 5), "S16", ""),
+    makeField<&minimumValue<std::int32_t>>(makeId(2, 6), "S32", ""),
+    makeField<&minimumValue<std::int64_t>>(makeId(2, 7), "S64", ""),
 };
 static_assert(telemetry::names_unique(integerFields, std::size(integerFields)));
 constexpr telemetry::Catalog integerCatalog{2, "integers", integerFields};
+
+// Metadata owns only labels/defaults/bounds. Types come from configure's signature.
+constexpr auto configureArgs = telemetry::commandArgs(
+    telemetry::arg("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
+    telemetry::arg("Mode", "", Mode::Auto));
+constexpr telemetry::Command meterCommands[] = {
+    telemetry::makeCommand<&Meter::reset>(0, "Reset counter", meter),
+    telemetry::makeCommand<&Meter::configure>(1, "Configure meter", meter, configureArgs),
+};
+constexpr telemetry::CommandIndex commandIndex{meterCommands};
 
 } // namespace
 
@@ -109,8 +102,8 @@ void Sensor::advance() noexcept
 DemoCatalog::DemoCatalog() noexcept
     : sensorFields_{
           // Runtime binding: each DemoCatalog owns its own sensor instance.
-          {makeId(1, 0), "Temperature", "degC", ScalarType::F64, Getter::bind<&Sensor::temperature>(sensor_)},
-          {makeId(1, 1), "Enabled", "", ScalarType::Bool, Getter::bind<&Sensor::enabled>(sensor_)},
+          makeField<&Sensor::temperature>(makeId(1, 0), "Temperature", "degC", sensor_),
+          makeField<&Sensor::enabled>(makeId(1, 1), "Enabled", "", sensor_),
       }
     , catalogs_{
           meterCatalog,
@@ -128,5 +121,7 @@ void DemoCatalog::advance() noexcept
     meter.current = 2.0f + static_cast<float>(meter.counter % 3) * 0.1f;
     sensor_.advance();
 }
+
+const telemetry::CommandIndex& DemoCatalog::commands() const noexcept { return commandIndex; }
 
 } // namespace demo

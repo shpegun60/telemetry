@@ -2,8 +2,8 @@
 // Use IndexCodegen.cpp's compiler flags, then add --specs=nano.specs,
 // --specs=nosys.specs and -Wl,-u,_printf_float when linking the JSON module.
 // Linking this program does not execute it or establish board behavior.
-#include "TelemetryJson.h"
-#include "TelemetryEnum.h"
+#include "serialization/TelemetryJson.h"
+#include "field/TelemetryEnum.h"
 #include <cstring>
 
 using namespace telemetry;

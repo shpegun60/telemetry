@@ -1,8 +1,8 @@
 #ifndef TELEMETRY_LAYOUT_FIXTURE_H
 #define TELEMETRY_LAYOUT_FIXTURE_H
 
-#include "TelemetryEnum.h"
-#include "TelemetryIndex.h"
+#include "field/TelemetryEnum.h"
+#include "catalog/TelemetryIndex.h"
 #include <array>
 #include <utility>
 

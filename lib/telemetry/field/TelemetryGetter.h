@@ -110,6 +110,17 @@ public:
     template <auto Method, class T>
     static Getter bind(T&&) = delete;
 
+    template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static constexpr Getter bindContext(T& object) noexcept
+    {
+        static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Adapter), T&>,
+                      "Getter adapter must return a Scalar-compatible value and be noexcept");
+        return Getter(Delegate::bind_context<Adapter>(object));
+    }
+
+    template <auto Adapter, class T>
+    static Getter bindContext(T&&) = delete;
+
 private:
     template <std::size_t Index>
     TELEMETRY_FORCE_INLINE static Scalar invokeAlternative_(const Storage& storage) noexcept

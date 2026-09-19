@@ -1,6 +1,6 @@
 // Limits are metadata and a write contract; reads only normalize their type.
-#include "TelemetryEnum.h"
-#include "TelemetryJson.h"
+#include "field/TelemetryEnum.h"
+#include "serialization/TelemetryJson.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>

@@ -1,5 +1,5 @@
 // JSON boundary, locale and floating-point round-trip regression checks.
-#include "TelemetryJson.h"
+#include "serialization/TelemetryJson.h"
 
 #include <algorithm>
 #include <clocale>

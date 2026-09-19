@@ -1,5 +1,5 @@
 #include "Fixture.h"
-#include "TelemetryJson.h"
+#include "serialization/TelemetryJson.h"
 #include <cstdio>
 #include <type_traits>
 #include <utility>

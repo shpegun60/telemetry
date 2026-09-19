@@ -12,12 +12,14 @@
 #include <type_traits>
 
 #include "../catalog/TelemetryCatalog.h"
+#include "../command/TelemetryCommandIndex.h"
 
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version.
-// Revision 3 separates read/write contracts and makes definitions immutable.
-inline constexpr std::uint32_t telemetryAbiVersion = 3;
+// Revision 4 extends the compiled boundary to command definitions and schemas.
+// Field keeps its revision-3 RW32 layout.
+inline constexpr std::uint32_t telemetryAbiVersion = 4;
 
 static_assert(std::is_standard_layout_v<Field>,
               "The telemetry ABI guard requires standard-layout Field offsets");
@@ -69,7 +71,15 @@ using CurrentAbiTag = AbiTag<
     offsetof(Catalog, id),
     offsetof(Catalog, name),
     offsetof(Catalog, fields),
-    offsetof(Catalog, count)>;
+    offsetof(Catalog, count),
+    sizeof(Command), alignof(Command),
+    offsetof(Command, id), offsetof(Command, name),
+    offsetof(Command, owner), offsetof(Command, metadata),
+    offsetof(Command, invoke), offsetof(Command, describe),
+    sizeof(CommandParam), alignof(CommandParam),
+    offsetof(CommandParam, index), offsetof(CommandParam, name),
+    offsetof(CommandParam, unit), offsetof(CommandParam, type),
+    sizeof(CommandIndex), alignof(CommandIndex)>;
 } // namespace detail
 
 // Separate executables may intentionally have different signatures. Within

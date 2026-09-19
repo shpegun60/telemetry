@@ -1,0 +1,199 @@
+{
+  "baseline_commit": "c6012d9f00d571a58bc933c904fa8cb407937b93",
+  "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+  "flags": [
+    "-std=c++17",
+    "-mcpu=cortex-m7",
+    "-mthumb",
+    "-mfpu=fpv5-d16",
+    "-mfloat-abi=hard",
+    "-fno-exceptions",
+    "-fno-rtti",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-pedantic-errors",
+    "-fdiagnostics-color=never",
+    "-Ilib/telemetry",
+    "-Ilib/delegate"
+  ],
+  "source_sha256_lf": {
+    "lib/delegate/tiny_delegate.hpp": "818dddef26d3f505a0b33036e9c6bf515673b415b6fe4c1da71d7783f2fe041f",
+    "lib/telemetry/abi/TelemetryAbi.cpp": "766815aa430e589665c1667299c75b890555aded944ce4a95b14099a4b9de35f",
+    "lib/telemetry/abi/TelemetryAbi.h": "a3ff98c7afcef0b00f9b8be0d8897eb6022b4c1e59db9b0e7ad5e56999708c03",
+    "lib/telemetry/catalog/TelemetryCatalog.h": "b52048f3f0310a80e128690606dd95722b04c5817820b37e2d6d32476b852ed3",
+    "lib/telemetry/catalog/TelemetryIndex.h": "e9abc3c5527580d69c1b04402aa85a20e90d61cf20af0000097359365b4f5fed",
+    "lib/telemetry/command/TelemetryCommand.h": "17c6a8867f57530976ece42b56ebfb9aefad1a637bfab0c46cc9f6f9c53f354f",
+    "lib/telemetry/command/TelemetryCommandArgs.h": "1fe31ecc70ea524261c0e0d83b76c21ec37d0f13a559a8f093a0ce6f73c2d5bc",
+    "lib/telemetry/command/TelemetryCommandFactory.h": "1957a5c5e5d5311f259292ebd25dd23c6f7e7c465f1660a3f4bfe6e012b5e072",
+    "lib/telemetry/command/TelemetryCommandIndex.h": "c174f8d6395a5129c4536ca6fb518c7f732c7527225973b73f468943463a5154",
+    "lib/telemetry/core/TelemetryCacheline.h": "9a81e97b2bfd75ccafd84a2c2eeb6546aec3669f6f9f3f6967f22593c5ae96ff",
+    "lib/telemetry/core/TelemetryCompiler.h": "33a2f2fbd12df7aabde2aca15f9c92fea7f8853e9a86cf1ad3a003133a15b473",
+    "lib/telemetry/core/TelemetryConversion.h": "dd2e5e516945c179d9736b12d2a783a932d7c7b76d0b77d9f2b51c0321f883db",
+    "lib/telemetry/core/TelemetryScalar.h": "d7b7ccb410dcb5360916738336975a1c08a7f37d50e8af819587eac702387b02",
+    "lib/telemetry/detail/TelemetryBounds.h": "f0f8a09c8fdeed82bce257a6e15ad95b426ce89b5978d04e120cb7355456825a",
+    "lib/telemetry/detail/TelemetryCallable.h": "7e82667bdb6f4d78bae99da84efc3bf9f838aa546f1f993775e2ad551a9300e9",
+    "lib/telemetry/detail/TelemetryJsonValue.h": "bd9f077b5aa8e13b9e0e16d7c24507100f3ee051ed6a6dedfbaa9fe981d9c368",
+    "lib/telemetry/detail/TelemetryJsonWriter.h": "f46970d353fe4f38a7e65fa1b94ec354019ffeb6de9a33e150cea14edd2ccc81",
+    "lib/telemetry/detail/TelemetryNumberConversion.h": "8179638eea5724bdbe2b6433939e825b0076fc9c798a9d71cd5d9367223d5661",
+    "lib/telemetry/field/TelemetryEnum.h": "679af9c2538afd519847d37feae3174489e5a2c5fb76190b063e74f1af6b0cb1",
+    "lib/telemetry/field/TelemetryField.h": "2d00d3d9289adda41e054e3e8d437d4ffa24e536832f7cfb6c19368854e7746f",
+    "lib/telemetry/field/TelemetryFieldFactory.h": "b9ac5cf7ab1412a8f23ab1cde65458b14e062150544fb1c3fa95c89d83c52e77",
+    "lib/telemetry/field/TelemetryFieldType.h": "307346f417b5cf3d602d3efc18455fc32fd8483bc0174945b884a4a7862ca008",
+    "lib/telemetry/field/TelemetryGetter.h": "0a94ed4df556e9d5d482ac80e3aa7e45a254c8e641d32fd34127db5310805040",
+    "lib/telemetry/field/TelemetryId.h": "68e8144653b96462c5f93e58b452d2b9e0bece57527c4dd6a638ba54a4c96682",
+    "lib/telemetry/field/TelemetryLimits.h": "f0b7bfcf80c44c8f0372ca13865271c1a7bef70734441df511c3e5be57160de9",
+    "lib/telemetry/field/TelemetrySetter.h": "3aa11af216e5bb372e44ca6d85ef4e72b9bad52db8d80077a1ab5af02a9fa56c",
+    "lib/telemetry/serialization/TelemetryCommandJson.cpp": "4d4c004d8b5195ae02433580fdecc5db810d0b7fc7b7aee2a4d1fed20c445130",
+    "lib/telemetry/serialization/TelemetryCommandJson.h": "81ba9b784ebcd3c14c423a9f6be73858be646da47e7325c3656e83e060bdf338",
+    "lib/telemetry/serialization/TelemetryJson.cpp": "f5cb36d9c9139526049badaf669a3891ce83ba863d5ef604945424dacec76a22",
+    "lib/telemetry/serialization/TelemetryJson.h": "0efc6a9021deaff075e7bc325927b98f7a6e2976f4ec0fae62c2ce85f4cf8a1d",
+    "lib/telemetry/Telemetry.h": "b4ef6f8c21fcb061e2ff9f0632fde06783963e24d1d9b9f462e961dc57d2452c",
+    "tests/ConversionCodegen.cpp": "a7751b1f96e4a55bca9f8f9a9411a8533e255686b8d034b9dcf63ea58e084282",
+    "tests/DeclaredTypeCodegen.cpp": "71657e4dd1e2723c9ce168f53ebdfb9d1d746671c79d6e3a7594b345217cdde7",
+    "tests/EnumCodegen.cpp": "61676b7694cadf9a4a069001956655300e4808f28e42346e1f3cab8c746a0d99",
+    "tests/FactoryCodegen.cpp": "d8169ee585f5c12e57ed639a1bed05e67e35e2d139ddafab1597c37169f34e81",
+    "tests/IndexCodegen.cpp": "9b7171e5d205d6afdddffcaca661c66365b83addec1f048430f11c099c870cb2",
+    "tests/LimitsCodegen.cpp": "8ebf1f52adc56de0c3aedb87086822e8ebbfc208dee28351855c2b5d5b1ca998",
+    "tests/ScalarStorageCodegen.cpp": "a50026244716a1fd112a990cddcb5e9ae11659af92b3d0ff38619fd134ec54a3",
+    "tests/ScalarVisitCodegen.cpp": "9f0a4c37bd3e95643c60d7a9b9e31adc9d746eec5d0c03d64274bb30300a2a1a"
+  },
+  "objects": [
+    {
+      "object": "ConversionCodegen-O2.o",
+      "bytes": 1972,
+      "baseline_sha256": "a95108e4042f9037b27bfe987d8af879f2d6c52db79cac2bfa40f656ca55c6a3",
+      "current_sha256": "a95108e4042f9037b27bfe987d8af879f2d6c52db79cac2bfa40f656ca55c6a3",
+      "identical": true
+    },
+    {
+      "object": "ConversionCodegen-Os.o",
+      "bytes": 1920,
+      "baseline_sha256": "644fe7aaca7b503d2edfd003265823ce7b3716c877dd323f8c429e91e1f81f50",
+      "current_sha256": "644fe7aaca7b503d2edfd003265823ce7b3716c877dd323f8c429e91e1f81f50",
+      "identical": true
+    },
+    {
+      "object": "DeclaredTypeCodegen-O2.o",
+      "bytes": 4112,
+      "baseline_sha256": "5012ed4394e1e029cdf1c5d5dd9b8ad04ae22b33937da78934e6ca4aaf640c0e",
+      "current_sha256": "5012ed4394e1e029cdf1c5d5dd9b8ad04ae22b33937da78934e6ca4aaf640c0e",
+      "identical": true
+    },
+    {
+      "object": "DeclaredTypeCodegen-Os.o",
+      "bytes": 5572,
+      "baseline_sha256": "f06a76e7a30ea040ec078a4048d048064db8d75b54899b420b88b0b415864197",
+      "current_sha256": "f06a76e7a30ea040ec078a4048d048064db8d75b54899b420b88b0b415864197",
+      "identical": true
+    },
+    {
+      "object": "EnumCodegen-O2.o",
+      "bytes": 22080,
+      "baseline_sha256": "d73bf7f14990a6b90d6057470e0d8f514b2f43b634e88d2e9cce87ffa4742a37",
+      "current_sha256": "d73bf7f14990a6b90d6057470e0d8f514b2f43b634e88d2e9cce87ffa4742a37",
+      "identical": true
+    },
+    {
+      "object": "EnumCodegen-Os.o",
+      "bytes": 22252,
+      "baseline_sha256": "d60da6ac8947d44d39228fd907334d64a7b7caa9e3089284085603d48d2a68b5",
+      "current_sha256": "d60da6ac8947d44d39228fd907334d64a7b7caa9e3089284085603d48d2a68b5",
+      "identical": true
+    },
+    {
+      "object": "IndexCodegen-O2.o",
+      "bytes": 6056,
+      "baseline_sha256": "88a8e54f14fe602bad6733957697bfa761f911cf0ebc2e1ae0bb2198374b5467",
+      "current_sha256": "88a8e54f14fe602bad6733957697bfa761f911cf0ebc2e1ae0bb2198374b5467",
+      "identical": true
+    },
+    {
+      "object": "IndexCodegen-Os.o",
+      "bytes": 6052,
+      "baseline_sha256": "d189bca8150dfa415275b8e737ec716d920ac9c29da06885519c922aaedf44b3",
+      "current_sha256": "d189bca8150dfa415275b8e737ec716d920ac9c29da06885519c922aaedf44b3",
+      "identical": true
+    },
+    {
+      "object": "LimitsCodegen-O2.o",
+      "bytes": 2788,
+      "baseline_sha256": "e60cc07c78c267570071d2a7599a1361de5a4aff6b849141288e167e1953fdf6",
+      "current_sha256": "e60cc07c78c267570071d2a7599a1361de5a4aff6b849141288e167e1953fdf6",
+      "identical": true
+    },
+    {
+      "object": "LimitsCodegen-Os.o",
+      "bytes": 4516,
+      "baseline_sha256": "e3c74ed410c927c9fdf8bb89f00474228d18164aeba252332fd09d4418f4b5a1",
+      "current_sha256": "e3c74ed410c927c9fdf8bb89f00474228d18164aeba252332fd09d4418f4b5a1",
+      "identical": true
+    },
+    {
+      "object": "ScalarStorageCodegen-O2.o",
+      "bytes": 1168,
+      "baseline_sha256": "61864b31dd15b810dbf8b3f37bc428fa8592510be96b615771237a1575d24aec",
+      "current_sha256": "61864b31dd15b810dbf8b3f37bc428fa8592510be96b615771237a1575d24aec",
+      "identical": true
+    },
+    {
+      "object": "ScalarStorageCodegen-Os.o",
+      "bytes": 1164,
+      "baseline_sha256": "e9aaf9df2d523ff3d019d2f744a45bb0be9cb566425c6a9cdf0661f02c83b2ec",
+      "current_sha256": "e9aaf9df2d523ff3d019d2f744a45bb0be9cb566425c6a9cdf0661f02c83b2ec",
+      "identical": true
+    },
+    {
+      "object": "ScalarVisitCodegen-O2.o",
+      "bytes": 5428,
+      "baseline_sha256": "052def29708ba053f5a5c859808e58f5dea687c94aec8f2490afe7dfab3cb253",
+      "current_sha256": "052def29708ba053f5a5c859808e58f5dea687c94aec8f2490afe7dfab3cb253",
+      "identical": true
+    },
+    {
+      "object": "ScalarVisitCodegen-Os.o",
+      "bytes": 9104,
+      "baseline_sha256": "64bcd0779faa7737161221aa5ef15d26823d8a792d712380829d1e5971e10d3d",
+      "current_sha256": "64bcd0779faa7737161221aa5ef15d26823d8a792d712380829d1e5971e10d3d",
+      "identical": true
+    }
+  ],
+  "factory": {
+    "-O2": {
+      "manual": {
+        "factory_known_read": 308,
+        "factory_free_read": 304,
+        "factory_runtime_read": 2388,
+        "factory_known_write": 52,
+        "factory_known_command": 52,
+        "factory_runtime_command": 30
+      },
+      "inferred": {
+        "factory_known_read": 308,
+        "factory_free_read": 4,
+        "factory_runtime_read": 2384,
+        "factory_known_write": 52,
+        "factory_known_command": 52,
+        "factory_runtime_command": 30
+      }
+    },
+    "-Os": {
+      "manual": {
+        "factory_known_read": 284,
+        "factory_free_read": 288,
+        "factory_runtime_read": 2210,
+        "factory_known_write": 50,
+        "factory_known_command": 52,
+        "factory_runtime_command": 30
+      },
+      "inferred": {
+        "factory_known_read": 284,
+        "factory_free_read": 4,
+        "factory_runtime_read": 2206,
+        "factory_known_write": 50,
+        "factory_known_command": 52,
+        "factory_runtime_command": 30
+      }
+    }
+  }
+}

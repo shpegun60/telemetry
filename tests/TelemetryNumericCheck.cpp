@@ -1,6 +1,6 @@
 // Independent numeric oracle: extended precision, explicit truncation and
 // deterministic source bit patterns. Production conversion uses neither.
-#include "TelemetryIndex.h"
+#include "catalog/TelemetryIndex.h"
 
 #include <cfloat>
 #include <cmath>

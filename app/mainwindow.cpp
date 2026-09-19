@@ -11,10 +11,14 @@
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QDoubleSpinBox>
+#include <QComboBox>
 
 #include <cmath>
 
-#include "TelemetryJson.h"
+#include "serialization/TelemetryJson.h"
+#include "serialization/TelemetryCommandJson.h"
 
 namespace {
 
@@ -51,7 +55,7 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle("Telemetry playground");
 
     auto* layout = new QVBoxLayout(ui->centralwidget);
-    layout->addWidget(new QLabel("Simulated values: static lambdas and an object-bound sensor.", this));
+    layout->addWidget(new QLabel("Typed fields and commands: signatures define their parameter types.", this));
 
     fields_ = new QTableWidget(this);
     fields_->setColumnCount(5);
@@ -92,6 +96,42 @@ MainWindow::MainWindow(QWidget *parent)
     values_->setMaximumHeight(80);
     layout->addWidget(new QLabel("Values JSON", this));
     layout->addWidget(values_);
+
+    const auto commandLength = telemetry::writeSchema(demo_.commands(), schema, sizeof(schema));
+    auto* commandSchema = new QPlainTextEdit(this);
+    commandSchema->setReadOnly(true);
+    commandSchema->setMaximumHeight(90);
+    commandSchema->setPlainText(commandLength ? QString::fromUtf8(schema, static_cast<int>(commandLength))
+                                             : "Command schema buffer is too small");
+    layout->addWidget(new QLabel("Commands", this));
+    layout->addWidget(commandSchema);
+    auto* controls = new QHBoxLayout;
+    auto* reset = new QPushButton("Reset counter", this);
+    auto* limit = new QDoubleSpinBox(this);
+    limit->setRange(1.0, 1000.0);
+    limit->setValue(250.0);
+    limit->setSuffix(" V");
+    auto* mode = new QComboBox(this);
+    mode->addItems({"Off", "Auto", "Manual"});
+    mode->setCurrentIndex(1);
+    auto* apply = new QPushButton("Configure meter", this);
+    auto* result = new QLabel(this);
+    controls->addWidget(reset);
+    controls->addWidget(limit);
+    controls->addWidget(mode);
+    controls->addWidget(apply);
+    controls->addWidget(result);
+    layout->addLayout(controls);
+    connect(reset, &QPushButton::clicked, this, [this, result] {
+        const auto status = demo_.commands().call(0);
+        result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Not executed");
+        refreshValues();
+    });
+    connect(apply, &QPushButton::clicked, this, [this, result, limit, mode] {
+        const auto status = demo_.commands().call(1, limit->value(), mode->currentIndex());
+        result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Invalid arguments");
+        refreshValues();
+    });
 
     auto* timer = new QTimer(this);
     timer->setInterval(500);

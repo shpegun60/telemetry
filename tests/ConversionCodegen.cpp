@@ -1,6 +1,6 @@
 // Compile-only conversion probes. Use the Cortex-M7 flags from IndexCodegen.cpp
 // at both -O2 and -Os, then inspect the object with arm-none-eabi-objdump -dr -C.
-#include "TelemetryConversion.h"
+#include "core/TelemetryConversion.h"
 
 extern "C" {
 __attribute__((noinline)) bool convert_f32_f32(float value, float& output) noexcept

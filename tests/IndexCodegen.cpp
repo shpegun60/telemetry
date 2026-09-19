@@ -7,7 +7,7 @@
 // Repeat with -Os. Only the exported probe functions are forced out of line;
 // the real lookup and getter implementations remain available for optimization.
 
-#include "TelemetryIndex.h"
+#include "catalog/TelemetryIndex.h"
 
 // Runtime sources are supplied by a consumer when linking. Leaving them
 // undefined here separates index storage from application RAM in the object.

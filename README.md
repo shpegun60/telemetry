@@ -26,14 +26,15 @@ app/
   main.cpp, mainwindow.*            Qt application and value display
   demo/DemoCatalog.*               simulated sources and field tables
 lib/telemetry/
-  Telemetry.h, Telemetry*.h         core umbrella and compatibility includes
+  Telemetry.h                       public umbrella (no forwarding headers)
   core/, field/, catalog/           public numeric, field and lookup layers
+  command/                          inferred command signatures and direct lookup
   abi/                              independent layout guard and link anchor
   serialization/                    optional JSON public API and implementation
   detail/                           private storage/conversion/JSON helpers
   telemetry.pri                     reusable qmake include
 lib/delegate/
-  delegate.pri, tiny_delegate.hpp  pinned tiny_delegate v1.1.0 dependency
+  delegate.pri, tiny_delegate.hpp  v1.1.0 plus the documented context adapter
   LICENSE, README.md               license and source revision
 lib/magic_enum/
   magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for optional enum schema metadata
@@ -80,33 +81,21 @@ vendored headers and licenses retain their original bytes across checkouts.
 
 ## Playground examples
 
-The table displays twenty fields with stable global IDs and refreshes every 500 ms. The schema and
-value JSON are shown below it; Pause/Resume stops and starts the simulated
-updates. `--smoke-test` closes the application after 1.2 seconds, so it can
-also be launched with Qt's `-platform offscreen` for a short startup check.
+The table displays sixteen fields and refreshes every 500 ms. Schema/value
+JSON and two simulated commands appear below it. Reset clears the simulated
+counter; Configure applies a voltage limit and enum mode together. The command
+schema is generated from their C++ signatures. `--smoke-test` exercises both
+commands and closes after 1.2 seconds; it also works with `-platform offscreen`.
 
-Add static points to `meterFields` in
-[DemoCatalog.cpp](app/demo/DemoCatalog.cpp). Its five Ua rows deliberately
-read the same changing voltage through different bindings:
-
-| Field | Getter expression |
-| --- | --- |
-| `Ua` | `[]() noexcept { return meter.voltage; }` |
-| `UaFunction` | `readUa` |
-| `UaAddress` | `&readUa` |
-| `UaBind` | `Getter::bind<&readUa>()` |
-| `UaMethod` | `Getter::bind<&Meter::readVoltage>(meter)` |
-
-`readUa` is an ordinary free function with signature `float() noexcept`.
-All five entries belong to the same constexpr table. The current, power and
-counter rows keep `+[]` examples; the integer group keeps explicit Scalar
-factories. Getter supports both, retaining noexcept targets and empty-to-Null behavior.
-The `DemoCatalog` constructor shows runtime method bindings in `sensorFields_`. The owner
-stores the sensor, field array and catalogs together and cannot be moved
-or copied.
+[DemoCatalog.cpp](app/demo/DemoCatalog.cpp) now uses `makeField` throughout:
+getter return types define numeric/enum metadata, while typed setters receive
+native values. Inline capture-free lambdas and free/static functions are also
+supported; see [factories and commands](lib/telemetry/README.md#signature-inferred-fields-and-commands).
+The constructor binds fields to its owned sensor. Its arrays and owner stay
+at stable addresses, so DemoCatalog is neither moved nor copied.
 
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
-(IDs `0..9`); sensor is group 1 (IDs `65536..65537`); integer examples are
+(IDs `0..5`); sensor is group 1 (IDs `65536..65537`); integer examples are
 group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and
 signed minima for every 8/16/32/64-bit type. Their display reads the simulated
 sources directly, keeping all U64/S64 digits without conversion to double.
@@ -137,11 +126,11 @@ The default JSON mode preserves numeric U64/S64 output. For JavaScript clients,
 `JsonOptions{JsonInt64Mode::String}` quotes only U64/S64 values and their
 non-null schema bounds/defaults; U32/S32 and all other alternatives retain
 their JSON types. This wire choice does not change `schemaCrc()`.
-VoltageLimit (ID 8) and Mode (ID 9) are writable; other fields are read-only.
+VoltageLimit (ID 4) and Mode (ID 5) are writable; other fields are read-only.
 VoltageLimit declares write limits 1..1000 and default 250:
 
 ```cpp
-const auto result = demo.index().write(telemetry::makeId(0, 8), 275);
+const auto result = demo.index().write(telemetry::makeId(0, 4), 275);
 // Applied; an ordinary int is converted to the field's F32 before its setter.
 ```
 
@@ -202,29 +191,34 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers, Cortex-M7 compile/storage/link checks and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verified after numeric, lifetime-contract, serialization, enum, write-limit and RW32 review
-on 2026-09-19:
+Verification after the signature-factory and command update, 2026-09-20:
 
-- Qt 6.10.1 / MinGW: Release application build and offscreen startup;
+- Qt 6.10.1 / MinGW 13.1: Release application build and offscreen command smoke test.
+  GCC 15.2 on the host:
   109/109 core, 92/92 write/getter, 87/87 read, 33/33 JSON, 121/121 numeric
-  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (595 total).
-  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 597 total).
+  oracle, 45/45 enum and 108/108 limits, 25/25 factory and 42/42 command checks passed with C++17 (662 total).
+  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 664 total).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
-  definitions. Cache-line defaults and explicit overrides have positive and
+  definitions; 31 more reject invalid factory and command definitions.
+  Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
-- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all seven suites
-  passed with warnings treated as errors and no warning exemptions, including
-  stack-use-after-scope/return detection.
-  Clang C++20 Release passed the same suites and compilation checks.
-- CubeIDE GCC 14.3.1: 20 library/demo/check translation units compiled for Cortex-M7 with
+- CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
+  enables ASan/UBSan and float-cast-overflow checks, including
+  stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.
+- CubeIDE GCC 14.3.1: 25 library/demo/check translation units compiled for Cortex-M7 with
   C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
   as errors. A minimal JSON consumer also linked with newlib-nano and enabled
   floating formatting. This was a link check, not execution on a board.
+- The seven pre-existing codegen probes match `c6012d9` byte for byte at both
+  optimization levels (14/14 objects). The new factory probe keeps member
+  reads unchanged and reduces a known free-function read from 304/288 bytes
+  to a 4-byte direct branch (`-O2`/`-Os`). See the
+  [factory codegen evidence](tests/README.md#signature-factory-and-command-codegen).
 - [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass
   with Ubuntu ARM GCC 13.2.1 and now run in GitHub Actions. Every codegen object
   is checked for startup initialization and writable data; exported constant
@@ -254,7 +248,7 @@ on 2026-09-19:
 - [RW32 measurements](tests/field_layout/h7s/RW32_RESULTS.md) cover the separate
   read/write metadata lines. Cache-line alignment is configurable through
   `TELEMETRY_FORCE_CACHELINE`; Field definitions are immutable and ABI revision
-  3 requires a clean rebuild of consumers. The ABI guard adds no code to the
+  4 requires a clean rebuild of consumers. The ABI guard adds no code to the
   hot path; all fourteen O2/Os ARM codegen probe objects remain byte-identical.
 - The layered refactor was compared with exact checkpoint `036d8e8` using the
   same CubeIDE GCC 14.3.1 invocation. All fourteen O2/Os probe object files are

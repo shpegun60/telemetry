@@ -26,13 +26,14 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes seven suites (595 C++17 / 597 C++20 checks), verifies
-thirty-five rejected programs and nine immutable-Field rejection cases, checks
+The runner executes nine suites (662 C++17 / 664 C++20 checks), verifies
+thirty-five existing rejected programs, nine immutable-Field cases and
+31 new factory/command compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
-overrides and Field layout with explicit 64/128-byte alignment. A caller and
-core and JSON static archives independently. Matching 64-byte layouts must link
-and run; a 128-byte caller against either 64-byte archive must fail through its
+overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
+core, field-JSON and command-JSON static archives independently. Matching 64-byte layouts must link
+and run; a 128-byte caller against each 64-byte archive must fail through its
 ABI-tagged symbol. [TelemetryAbiLinkCheck.cpp](TelemetryAbiLinkCheck.cpp) proves
 the core umbrella/anchor needs no JSON; [TelemetryJsonAbiLinkCheck.cpp](TelemetryJsonAbiLinkCheck.cpp)
 checks the compiled serializer entry point.
@@ -52,7 +53,7 @@ copy/move/assignment check, plus constexpr checks across different active types.
 CI also runs the offline layout and stack evidence verifiers with
 their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
 
-The library migration notes now cover ABI revision 3, immutable Field definitions,
+The library migration notes now cover ABI revision 4, immutable Field definitions,
 clean rebuilding of all translation units/static libraries with the same
 cache-line configuration, raw-storage alignment, local-table stack cost and
 structured bindings. Positional initialization and public metadata reads remain.
@@ -83,16 +84,16 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 20 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 25 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All seven codegen objects must have no startup
+and warnings as errors. All eight codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. Source static assertions also
 pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
-nosys stubs and enabled float formatting; it is not executed. The core ABI and
-JSON objects are placed in separate static archives: normal 32-byte callers must
-link, while forced 64-byte callers against either archive must fail.
+nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
+command-JSON objects are placed in separate static archives: normal 32-byte callers must
+link, while forced 64-byte callers against each archive must fail.
 
 Compiler versions, sections, symbols, disassembly and linker diagnostics are
 retained under `--build-dir`; CI uploads those logs. This protects compilation,
@@ -104,6 +105,39 @@ with the same local CubeIDE GCC 14.3.1 commands. All seven codegen probes at
 both optimization levels were byte-identical (**14/14 objects**). JSON is not
 part of that equivalence claim because its new string mode changes behavior;
 the board fixture covers the resulting serializer separately.
+
+## Signature factory and command codegen
+
+The local CubeIDE GCC 14.3.1 build compares the seven existing probes against
+`c6012d9` with identical Cortex-M7 flags at `-O2` and `-Os`: all 14 objects
+are byte-identical, including constants and relocations. The
+[receipt](factory-codegen.json) records compiler flags, source hashes and
+object hashes. RW32 Field remains 96 bytes with 32-byte alignment on ARM32.
+
+[FactoryCodegen.cpp](FactoryCodegen.cpp) additionally builds manual and
+inferred definitions side by side. The comparison uses the same native
+member/free functions, with external implementations to prevent whole-body
+inlining. The runner requires inferred read wrappers to be no larger.
+
+| Wrapper bytes, CubeIDE GCC 14.3.1 | Manual O2 | Inferred O2 | Manual Os | Inferred Os |
+|---|---:|---:|---:|---:|
+| Known member F32 read | 308 | 308 | 284 | 284 |
+| Known free-function F32 read | 304 | 4 | 288 | 4 |
+| Runtime Field Scalar read | 2388 | 2384 | 2210 | 2206 |
+
+The free-function factory stores the native function pointer directly,
+avoiding the manual `Getter::bind<&function>()` Scalar adapter; its read is
+a direct tail branch. A manually supplied native function pointer already
+has this advantage. The tiny size difference in runtime read does not prove
+fewer executed instructions; compiler placement can affect instruction widths.
+Member binding deliberately retains its existing implementation.
+
+Additional inferred wrappers occupy 52/50 bytes for a known typed setter,
+52/52 for a known two-argument command and 30/30 for runtime command dispatch
+(`-O2`/`-Os`). Command stores no duplicated arity or parameter-type array and
+occupies 24 bytes on ARM32. These are compiled wrapper sizes, excluding any
+out-of-line callees; they are not cycle or stack measurements. The retained
+H7S receipts predate commands, so they do not establish command performance.
 
 ## Audit checkpoint, 2026-09-19
 

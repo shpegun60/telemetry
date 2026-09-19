@@ -1,5 +1,5 @@
 // Immutable definitions prevent disagreement between cached read/write types.
-#include "TelemetryCatalog.h"
+#include "catalog/TelemetryCatalog.h"
 #include <utility>
 telemetry::Field field;
 #if TELEMETRY_FIELD_FAIL_CASE == 1

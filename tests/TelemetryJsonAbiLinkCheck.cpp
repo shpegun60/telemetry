@@ -1,5 +1,5 @@
 // Link-only check: compiled JSON entry points encode the caller's exact Field ABI.
-#include "TelemetryJson.h"
+#include "serialization/TelemetryJson.h"
 
 int main()
 {

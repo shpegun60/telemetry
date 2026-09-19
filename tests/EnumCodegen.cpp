@@ -1,8 +1,8 @@
 // Compile with the Cortex-M7 flags documented in IndexCodegen.cpp, at -O2/-Os.
 // Each known enum/plain pair must produce the same numeric instructions.
 // Also inspect dynamic Field accesses: no schema callback may be loaded/called.
-#include "TelemetryEnum.h"
-#include "TelemetryIndex.h"
+#include "field/TelemetryEnum.h"
+#include "catalog/TelemetryIndex.h"
 
 extern volatile std::uint16_t telemetry_enum_source;
 extern volatile std::uint16_t telemetry_enum_sink;

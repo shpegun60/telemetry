@@ -68,7 +68,7 @@ def prepare(output, variants=("A", "B", "C")):
     for source in ("A", "B"):
         candidates[source + "32"] = replace_once(candidates[source], "struct Field {", "struct alignas(32) Field {")
     candidates["B64"] = replace_once(candidates["B"], "struct Field {", "struct alignas(64) Field {")
-    candidates["Current"] = (ROOT / "lib/telemetry/TelemetryCatalog.h").read_text(encoding="utf-8")
+    candidates["Current"] = (ROOT / "lib/telemetry/catalog/TelemetryCatalog.h").read_text(encoding="utf-8")
     for variant in variants:
         header = candidates[variant]
         directory = output / variant
@@ -79,7 +79,18 @@ def prepare(output, variants=("A", "B", "C")):
                 destination = directory / relative
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(data)
-        target = directory / "lib/telemetry/TelemetryCatalog.h"
+            # The shared harness uses current include paths. Historical sources
+            # remain pinned; adapters exist only in generated experiment trees.
+            layers = {"core": ("Compiler", "Cacheline", "Scalar", "Conversion"),
+                      "field": ("Getter", "Setter", "FieldType", "Enum"),
+                      "catalog": ("Catalog", "Index"), "serialization": ("Json",)}
+            for layer, names in layers.items():
+                for name in names:
+                    shim = directory / "lib/telemetry" / layer / ("Telemetry" + name + ".h")
+                    shim.parent.mkdir(parents=True, exist_ok=True)
+                    shim.write_text('#include "../Telemetry' + name + '.h"\n', encoding="utf-8")
+        target = directory / ("lib/telemetry/catalog/TelemetryCatalog.h" if variant == "Current"
+                              else "lib/telemetry/TelemetryCatalog.h")
         target.write_text(header, encoding="utf-8", newline="\n")
         difference = "".join(difflib.unified_diff(original.splitlines(keepends=True), header.splitlines(keepends=True),
                                                  fromfile="stable/TelemetryCatalog.h", tofile=variant + "/TelemetryCatalog.h"))
@@ -90,6 +101,8 @@ def prepare(output, variants=("A", "B", "C")):
                             else pinned("tests/TelemetryReadCompileFail.cpp"))
         (test_dir / "TelemetryReadCompileFail.cpp").write_bytes(rejection_source)
         for suite in HOST_CHECKS["SUITES"]:
+            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck"):
+                continue
             text = ((ROOT / "tests" / (suite + ".cpp")).read_text(encoding="utf-8") if variant == "Current"
                     else pinned("tests/" + suite + ".cpp").decode("utf-8").replace("\r\n", "\n"))
             if variant in ("B", "C", "B32", "B64") and suite in ("TelemetryCheck", "TelemetryEnumCheck"):
@@ -131,6 +144,7 @@ def includes(directory):
 def library_sources(directory, variant):
     if variant == "Current":
         return [directory / "lib/telemetry/abi/TelemetryAbi.cpp",
+                directory / "lib/telemetry/serialization/TelemetryCommandJson.cpp",
                 directory / "lib/telemetry/serialization/TelemetryJson.cpp"]
     return [directory / "lib/telemetry/TelemetryJson.cpp"]
 
@@ -281,6 +295,8 @@ def host_checks(args, output):
                  *includes(directory), f"-DTELEMETRY_LAYOUT_VARIANT={number}"]
         counts = {}
         for suite in (*HOST_CHECKS["SUITES"], "Contracts"):
+            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck"):
+                continue
             source = HERE / "Contracts.cpp" if suite == "Contracts" else directory / "tests" / (suite + ".cpp")
             exe = build / (suite + (".exe" if os.name == "nt" else ""))
             run(flags + build_flags + [source, *library_sources(directory, variant), "-o", exe],

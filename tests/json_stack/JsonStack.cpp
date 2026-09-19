@@ -1,7 +1,7 @@
 // Author: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
 // Observed stack writes, including newlib-nano; not a worst-case bound.
-#include "TelemetryJson.h"
-#include "TelemetryEnum.h"
+#include "serialization/TelemetryJson.h"
+#include "field/TelemetryEnum.h"
 #include "usart.h"
 #include "uart_bench.h"
 #include <cstdio>

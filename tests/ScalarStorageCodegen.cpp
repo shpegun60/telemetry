@@ -1,7 +1,7 @@
 // Storage comparison against the previous tag/union layout. Compile with the
 // Cortex-M7 flags from IndexCodegen.cpp at -O2 and -Os; compare each pair with
 // arm-none-eabi-objdump -dr -C and arm-none-eabi-nm -S --size-sort.
-#include "TelemetryConversion.h"
+#include "core/TelemetryConversion.h"
 
 namespace {
 struct LegacyScalar {

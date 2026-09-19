@@ -18,25 +18,6 @@ namespace telemetry {
 
 namespace {
 
-const char* type_name_(const ScalarType type) noexcept
-{
-    switch (type) {
-        case ScalarType::Null: return "null";
-        case ScalarType::F32: return "f32";
-        case ScalarType::F64: return "f64";
-        case ScalarType::U8: return "u8";
-        case ScalarType::U16: return "u16";
-        case ScalarType::U32: return "u32";
-        case ScalarType::S8: return "s8";
-        case ScalarType::S16: return "s16";
-        case ScalarType::S32: return "s32";
-        case ScalarType::U64: return "u64";
-        case ScalarType::S64: return "s64";
-        case ScalarType::Bool: return "bool";
-        default: return "?";
-    }
-}
-
 std::uint32_t hash_byte_(std::uint32_t hash, std::uint8_t byte) noexcept
 {
     return (hash ^ byte) * 16777619u;
@@ -119,7 +100,7 @@ std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
             }
             hash = fnv1a_(hash, field.name);
             hash = fnv1a_(hash, field.unit);
-            hash = fnv1a_(hash, type_name_(field.declaredType));
+            hash = fnv1a_(hash, scalarTypeName(field.declaredType));
             hash = hash_byte_(hash, field.set ? 1u : 0u);
             // Revise the format marker for native numeric bounds as null.
             // Continue hashing the actual bounds, independent of their text.
@@ -162,7 +143,7 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i), field.id)
                 || !out.appendRequiredString(field.name) || !out.append(",\"u\":")
                 || !out.appendRequiredString(field.unit)
-                || !out.append(",\"t\":\"%s\",\"w\":%s", type_name_(field.declaredType),
+                || !out.append(",\"t\":\"%s\",\"w\":%s", scalarTypeName(field.declaredType),
                                field.set ? "true" : "false")) return 0;
             if (!out.append(",\"min\":")
                 || !appendBound(out, field.declaredType.minimum(), true, hasEnum)

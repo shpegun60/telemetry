@@ -1,7 +1,7 @@
 // Use the CubeIDE Cortex-M7 flags from IndexCodegen.cpp at -O2 and -Os.
 // Known reads must ignore limits; full-range U16 writes need no bounds check.
 // Custom checks must use native precision without an intermediate double.
-#include "TelemetryIndex.h"
+#include "catalog/TelemetryIndex.h"
 extern volatile float telemetry_limits_float;
 extern volatile std::uint16_t telemetry_limits_integer;
 namespace {

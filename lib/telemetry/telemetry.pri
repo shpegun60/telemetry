@@ -10,20 +10,6 @@ CONFIG += c++17
 INCLUDEPATH += $$PWD
 HEADERS += \
     $$PWD/Telemetry.h \
-    $$PWD/TelemetryCacheline.h \
-    $$PWD/TelemetryCompiler.h \
-    $$PWD/TelemetryScalar.h \
-    $$PWD/TelemetryConversion.h \
-    $$PWD/TelemetryId.h \
-    $$PWD/TelemetryGetter.h \
-    $$PWD/TelemetrySetter.h \
-    $$PWD/TelemetryFieldType.h \
-    $$PWD/TelemetryEnum.h \
-    $$PWD/TelemetryField.h \
-    $$PWD/TelemetryCatalog.h \
-    $$PWD/TelemetryIndex.h \
-    $$PWD/TelemetryAbi.h \
-    $$PWD/TelemetryJson.h \
     $$PWD/core/TelemetryCompiler.h \
     $$PWD/core/TelemetryCacheline.h \
     $$PWD/core/TelemetryScalar.h \
@@ -34,10 +20,18 @@ HEADERS += \
     $$PWD/field/TelemetryFieldType.h \
     $$PWD/field/TelemetryEnum.h \
     $$PWD/field/TelemetryField.h \
+    $$PWD/field/TelemetryFieldFactory.h \
+    $$PWD/field/TelemetryLimits.h \
+    $$PWD/command/TelemetryCommand.h \
+    $$PWD/command/TelemetryCommandArgs.h \
+    $$PWD/command/TelemetryCommandFactory.h \
+    $$PWD/command/TelemetryCommandIndex.h \
     $$PWD/catalog/TelemetryCatalog.h \
     $$PWD/catalog/TelemetryIndex.h \
     $$PWD/abi/TelemetryAbi.h \
     $$PWD/serialization/TelemetryJson.h \
+    $$PWD/serialization/TelemetryCommandJson.h \
+    $$PWD/detail/TelemetryCallable.h \
     $$PWD/detail/TelemetryNumberConversion.h \
     $$PWD/detail/TelemetryBounds.h \
     $$PWD/detail/TelemetryJsonWriter.h \
@@ -45,5 +39,6 @@ HEADERS += \
 SOURCES += $$PWD/abi/TelemetryAbi.cpp
 !contains(CONFIG, telemetry_no_json) {
     SOURCES += $$PWD/serialization/TelemetryJson.cpp
+    SOURCES += $$PWD/serialization/TelemetryCommandJson.cpp
 }
 DISTFILES += $$PWD/LICENSE $$PWD/README.md

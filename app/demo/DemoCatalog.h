@@ -30,6 +30,7 @@ public:
     std::size_t count() const noexcept { return index_.size(); }
     const telemetry::CatalogIndex& index() const noexcept { return index_; }
     const telemetry::Field* find(telemetry::FieldId id) const noexcept { return index_.find(id); }
+    const telemetry::CommandIndex& commands() const noexcept;
     void advance() noexcept;
 
 private:

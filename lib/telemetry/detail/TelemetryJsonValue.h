@@ -22,6 +22,26 @@
 namespace telemetry {
 namespace detail {
 
+inline constexpr const char* scalarTypeName(const ScalarType type) noexcept
+{
+    switch (type) {
+        case ScalarType::Null: return "null";
+        case ScalarType::F32: return "f32";
+        case ScalarType::F64: return "f64";
+        case ScalarType::U8: return "u8";
+        case ScalarType::U16: return "u16";
+        case ScalarType::U32: return "u32";
+        case ScalarType::S8: return "s8";
+        case ScalarType::S16: return "s16";
+        case ScalarType::S32: return "s32";
+        case ScalarType::U64: return "u64";
+        case ScalarType::S64: return "s64";
+        case ScalarType::Bool: return "bool";
+        default: return "?";
+    }
+}
+
+
 static inline bool appendScalar(JsonWriter& out, const Scalar& value) noexcept
 {
     if (value.type() == ScalarType::Null) {

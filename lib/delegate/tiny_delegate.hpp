@@ -511,6 +511,25 @@ public:
         invoke_ = nullptr;
     }
 
+    // Local telemetry extension: bind a compile-time free adapter to a borrowed
+    // context. Object and function pointers keep their distinct representations.
+    template <auto Function, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static constexpr delegate_ref bind_context(T& object) noexcept {
+        static_assert(std::is_pointer_v<decltype(Function)>
+                      && std::is_function_v<std::remove_pointer_t<decltype(Function)>>,
+                      "bind_context requires a free function adapter");
+        static_assert(detail::non_null_target_v<Function>, "bind_context target cannot be null");
+        static_assert(detail::safely_invocable_r_v<R, decltype(Function), T&, Args...>,
+                      "bind_context adapter signature mismatch");
+        delegate_ref result;
+        result.payload_.object = detail::erase_ptr(std::addressof(object));
+        result.invoke_ = &invoke_context_<Function, T>;
+        return result;
+    }
+
+    template <auto Function, class T>
+    static delegate_ref bind_context(T&&) = delete;
+
     constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
 
     R operator()(Args... args) const {
@@ -567,6 +586,17 @@ private:
     static R invoke_functor_ref_(payload_t p, Args... a) {
         F& fn = *static_cast<F*>(p.object);
         return detail::invoke_r<R>(fn, std::forward<Args>(a)...);
+    }
+
+    template <auto Function, class T>
+#if defined(_MSC_VER)
+    __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+    __attribute__((always_inline)) inline
+#endif
+    static R invoke_context_(payload_t p, Args... a) {
+        if constexpr (std::is_void_v<R>) { Function(*static_cast<T*>(p.object), std::forward<Args>(a)...); }
+        else return Function(*static_cast<T*>(p.object), std::forward<Args>(a)...);
     }
 
     template <auto Method, class T>

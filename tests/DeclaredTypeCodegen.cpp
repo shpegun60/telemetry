@@ -1,7 +1,7 @@
 // Compile-only probes for getter -> declaredType -> requested type, and writes.
 // Use IndexCodegen.cpp's Cortex-M7 flags at -O2/-Os. Runtime sources keep the
 // values dynamic while their types, catalog metadata and IDs remain constant.
-#include "TelemetryIndex.h"
+#include "catalog/TelemetryIndex.h"
 
 extern volatile float telemetry_declared_f32;
 extern volatile double telemetry_declared_f64;

@@ -28,6 +28,8 @@ inline constexpr bool isScalarNumber = []() constexpr {
 // before forming optional<T>, including for void and incomplete class types.
 template <class T>
 inline constexpr bool isScalarReadType = isScalarNumber<T> && std::is_same_v<T, std::decay_t<T>>;
+template <class T> inline constexpr bool isFactoryValue =
+    std::is_same_v<T, std::decay_t<T>> && (isScalarReadType<T> || std::is_enum_v<T>);
 } // namespace detail
 
 // Adapted from power_analyzer_h753/app_core/telemetry. The standalone copy
@@ -146,6 +148,16 @@ private:
                   "Scalar storage must not become valueless during assignment");
 };
 
+namespace detail {
+// Signature adapters explicitly opt in to enum payloads. The public Scalar
+// constructors remain numeric-only, preserving their existing admission rules.
+template <class T>
+constexpr Scalar factoryScalar(T value) noexcept
+{
+    if constexpr (std::is_enum_v<T>) return Scalar::from(static_cast<std::underlying_type_t<T>>(value));
+    else return Scalar::from(value);
+}
+} // namespace detail
 } // namespace telemetry
 
 #endif

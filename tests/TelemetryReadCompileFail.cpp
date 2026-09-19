@@ -2,8 +2,8 @@
 // From the telemetry repository root:
 // g++ -std=c++17 -Ilib/telemetry -Ilib/delegate
 //     -DTELEMETRY_READ_FAIL_CASE=N -fsyntax-only tests/TelemetryReadCompileFail.cpp
-#include "TelemetryIndex.h"
-#include "TelemetryEnum.h"
+#include "catalog/TelemetryIndex.h"
+#include "field/TelemetryEnum.h"
 using namespace telemetry;
 
 constexpr Field fields[] = {

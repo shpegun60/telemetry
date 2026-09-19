@@ -1,6 +1,6 @@
 // Enum metadata must describe schemas without restricting numeric data paths.
-#include "TelemetryEnum.h"
-#include "TelemetryJson.h"
+#include "field/TelemetryEnum.h"
+#include "serialization/TelemetryJson.h"
 
 #include <algorithm>
 #include <cstdio>

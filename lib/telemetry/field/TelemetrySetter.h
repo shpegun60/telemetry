@@ -81,6 +81,17 @@ public:
     template <auto Method, class T>
     static Setter bind(T&&) = delete;
 
+    template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static constexpr Setter bindContext(T& object) noexcept
+    {
+        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(Adapter), T&, const Scalar&>,
+                      "Setter adapter must accept context and Scalar, return WriteResult and be noexcept");
+        return Setter(Delegate::bind_context<Adapter>(object));
+    }
+
+    template <auto Adapter, class T>
+    static Setter bindContext(T&&) = delete;
+
 private:
     static constexpr Function as_function_(Function function) noexcept { return function; }
 

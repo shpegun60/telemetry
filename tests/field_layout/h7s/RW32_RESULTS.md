@@ -41,7 +41,8 @@ rejected; copy/move construction remains trivial. Bound owners remain mutable.
 Construct a replacement table when definitions change, keeping borrowed
 storage alive. See the [migration contract](../../../lib/telemetry/README.md#field-abi-migration-and-storage).
 
-ABI revision is **3**, even though ARM Field size did not change. Rebuild all
+The RW32 checkpoint used ABI revision **3**, even though ARM Field size did not change.
+Revision 4 adds the command schema boundary; the Field layout remains the same. Rebuild all
 translation units and static libraries. `TelemetryCacheline.h` chooses a
 compile-time alignment policy: Cortex-M uses 32, ordinary desktop targets 64,
 Apple ARM 128. `TELEMETRY_FORCE_CACHELINE` overrides it and must be identical
@@ -56,7 +57,7 @@ now lives in its own core translation unit, independently of the optional JSON
 serializer. The layered refactor did not alter Field, the measurements below
 or generated hot code: all seven Cortex-M7 codegen objects at both `-O2` and
 `-Os` (14 objects total) are byte-identical to commit `036d8e8`. The serializer
-was measured separately in 588 H7S stack windows: the current custom-schema
+was measured separately in 588 H7S stack windows: the layered-checkpoint custom-schema
 maximum is 1032 bytes at `-O2` and 976 at `-Os`, with the original firmware
 restored and read back exactly afterward.
 
@@ -116,7 +117,7 @@ Flash usage. Link placement and the rest of the application also matter.
 ## Verification and retained evidence
 
 - GCC C++17/C++20: the RW32 publication passed 585/587 runtime checks; the
-  current layered implementation passes 595/597. Both retain 35 existing
+  layered checkpoint `c6012d9` passed 595/597. Both retain 35 existing
   compile rejections and nine immutable-Field rejections, standalone headers
   and floating flags.
 - Clang 18 C++17: the same checks with ASan, UBSan, float-cast-overflow and
@@ -127,11 +128,11 @@ Flash usage. Link placement and the rest of the application also matter.
   the schema fingerprint; constructor/copy/read/write contracts pass for both.
 - Nine cache-line configurations, five invalid override cases and explicit
   64/128-byte Field layouts; ARM asserts pin actual STM32 offsets and size.
-- CubeIDE O2/Os: 20 translation units, seven read-only codegen probes, a
+- At checkpoint `c6012d9`, CubeIDE O2/Os: 20 translation units, seven read-only codegen probes, a
   newlib-nano consumer link, independent core/JSON archive links and their
   positive/negative ABI cases. Qt Release build and offscreen startup pass.
 - The repeated [JSON stack run](../../json_stack/README.md) passes 588 windows;
-  current custom-schema maxima are 1032 bytes at O2 and 976 at Os.
+  layered-checkpoint custom-schema maxima are 1032 bytes at O2 and 976 at Os.
 
 [rw32-receipt.json](rw32-receipt.json) records image/object/source hashes,
 compiler inputs, checked coverage and original-image restoration. The retained
