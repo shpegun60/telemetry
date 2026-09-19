@@ -122,7 +122,9 @@ def main():
         parser.error('Use a fresh output directory')
     output.mkdir(parents=True)
     images = COMMON['build'](args, output,
-        fixture_sources=[HERE/'JsonStack.cpp', HERE/'StackCall.S', Path('lib/telemetry/TelemetryJson.cpp')],
+        fixture_sources=[HERE/'JsonStack.cpp', HERE/'StackCall.S',
+                         Path('lib/telemetry/abi/TelemetryAbi.cpp'),
+                         Path('lib/telemetry/serialization/TelemetryJson.cpp')],
         linker_sections='  .json_probe_stack (NOLOAD) : { . = ALIGN(32); *(.json_probe_stack) . = ALIGN(32); } >DTCM\n',
         link_flags=['-Wl,-u,_printf_float'], fixture_inputs=[Path(__file__), HERE/'verify.py'])
     for image in images:

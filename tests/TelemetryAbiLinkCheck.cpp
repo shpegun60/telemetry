@@ -1,8 +1,8 @@
-// Link-only check: the caller and compiled telemetry archive must use one Field ABI.
-#include "TelemetryJson.h"
+// Link-only check: the umbrella and core ABI anchor need no JSON module.
+#include "Telemetry.h"
 
 int main()
 {
     telemetry::requireTelemetryAbi();
-    return telemetry::schemaCrc(nullptr, 0) == 2166136261u ? 0 : 1;
+    return telemetry::telemetryAbiSignature != 0 ? 0 : 1;
 }

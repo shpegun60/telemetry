@@ -84,7 +84,9 @@ def main():
     target = run([compiler, "-dumpmachine"], "compiler-target").strip()
     if target != "arm-none-eabi":
         raise RuntimeError(f"Expected arm-none-eabi, got {target}")
-    sources = [ROOT / "lib/telemetry/TelemetryJson.cpp", ROOT / "app/demo/DemoCatalog.cpp"]
+    sources = [ROOT / "lib/telemetry/abi/TelemetryAbi.cpp",
+               ROOT / "lib/telemetry/serialization/TelemetryJson.cpp",
+               ROOT / "app/demo/DemoCatalog.cpp"]
     sources += sorted(source for source in (ROOT / "tests").glob("*.cpp")
                       if not source.name.endswith("CompileFail.cpp"))
     for optimization in ("-O2", "-Os"):
@@ -103,26 +105,35 @@ def main():
         # nosys supplies link-only stubs. Their expected warnings do not
         # establish board behavior; this executable is deliberately not run.
         executable = output / ("consumer" + optimization + ".elf")
-        run(flags + ["tests/EmbeddedLinkCheck.cpp", "lib/telemetry/TelemetryJson.cpp",
+        run(flags + ["tests/EmbeddedLinkCheck.cpp", "lib/telemetry/abi/TelemetryAbi.cpp",
+                     "lib/telemetry/serialization/TelemetryJson.cpp",
                      "--specs=nano.specs", "--specs=nosys.specs", "-Wl,-u,_printf_float",
                      "-o", str(executable)], "consumer" + optimization + "-link")
-        mismatch = output / ("TelemetryAbiLinkCheck-mismatch" + optimization + ".o")
-        run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", "tests/TelemetryAbiLinkCheck.cpp",
-                     "-o", str(mismatch)], "abi-mismatch" + optimization + "-compile")
+        abi_object = output / ("TelemetryAbi" + optimization + ".o")
         json_object = output / ("TelemetryJson" + optimization + ".o")
-        archive = output / ("libTelemetryAbi" + optimization + ".a")
-        run([archiver, "rcs", str(archive), str(json_object)],
-            "abi-archive" + optimization)
-        matching = output / ("TelemetryAbiLinkCheck" + optimization + ".o")
-        run(flags + [str(matching), str(archive), "--specs=nano.specs", "--specs=nosys.specs",
-                     "-o", str(output / ("abi-match" + optimization + ".elf"))],
-            "abi-match" + optimization + "-link")
-        run(flags + [str(mismatch), str(archive), "--specs=nano.specs", "--specs=nosys.specs",
-                     "-o", str(output / ("abi-mismatch" + optimization + ".elf"))],
-            "abi-mismatch" + optimization + "-link",
-            r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
+        modules = (("core", "TelemetryAbiLinkCheck", abi_object),
+                   ("json", "TelemetryJsonAbiLinkCheck", json_object))
+        for module, source, library_object in modules:
+            mismatch = output / (source + "-mismatch" + optimization + ".o")
+            run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", f"tests/{source}.cpp",
+                         "-o", str(mismatch)], f"abi-{module}-mismatch{optimization}-compile")
+            archive = output / (f"libTelemetry-{module}" + optimization + ".a")
+            run([archiver, "rcs", str(archive), str(library_object)],
+                f"abi-{module}-archive" + optimization)
+            matching = output / (source + optimization + ".o")
+            link_tail = ["--specs=nano.specs", "--specs=nosys.specs"]
+            if module == "json":
+                link_tail.append("-Wl,-u,_printf_float")
+            run(flags + [str(matching), str(archive), *link_tail,
+                         "-o", str(output / (f"abi-{module}-match" + optimization + ".elf"))],
+                f"abi-{module}-match" + optimization + "-link")
+            run(flags + [str(mismatch), str(archive), *link_tail,
+                         "-o", str(output / (f"abi-{module}-mismatch" + optimization + ".elf"))],
+                f"abi-{module}-mismatch" + optimization + "-link",
+                r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
         print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
-              "newlib-nano consumer and matching ABI archive linked, mixed ABI rejected", flush=True)
+              "newlib-nano consumer and independent core/JSON ABI archives linked, mixed ABI rejected",
+              flush=True)
 
 
 if __name__ == "__main__":

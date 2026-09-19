@@ -13,27 +13,33 @@ include(path/to/telemetry/telemetry.pri)
 The library uses C++17 and bundled [tiny_delegate v1.1.0](../delegate/README.md).
 It has no Qt, STM32, RTOS, Mongoose or `basic_types.h` dependency. For a
 non-qmake build, add `lib/telemetry` and `lib/delegate` to the include paths
-and compile `TelemetryJson.cpp`.
+and compile `abi/TelemetryAbi.cpp`. Include and compile
+`serialization/TelemetryJson.cpp` only when JSON is required. The qmake include
+keeps JSON enabled by default; set `CONFIG += telemetry_no_json` before the
+`include(...)` line for a core-only target.
 Optional `TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/README.md).
-Numeric-only headers and `TelemetryJson.cpp` do not include magic_enum.
+Numeric-only headers and the JSON implementation do not include magic_enum.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
 redistributed library files; delegate and magic_enum retain their upstream MIT licenses.
 
-## Public files
+## Public files and layers
 
-- `TelemetryScalar.h`: private variant storage for Null, Bool, F32/F64,
-  U8/U16/U32/U64 and S8/S16/S32/S64, with checked accessors.
-- `TelemetryCompiler.h`: shared `TELEMETRY_FORCE_INLINE` portability macro.
-- `TelemetryGetter.h`: constexpr non-owning getters returning Scalar or native numbers.
-- `TelemetrySetter.h`: optional write callbacks and `WriteResult`.
-- `TelemetryConversion.h`: constexpr checked numeric conversions.
-- `TelemetryFieldType.h`: numeric type, write limits/defaults and an optional schema description callback.
-- `TelemetryCacheline.h`: compile-time alignment policy and explicit target override.
-- `TelemetryEnum.h`: opt-in `enumType<E>()` factory with compile-time enumerator names.
-- `TelemetryCatalog.h`: packed IDs, Field, Catalog and name uniqueness.
-- `TelemetryIndex.h`: direct lookup, typed reads and optional static catalog binding.
-- `TelemetryJson.h`: schema fingerprint, schema JSON and values JSON.
+`Telemetry.h` is the core umbrella. It includes enum metadata, fields,
+catalog/index access and the independent ABI guard; it deliberately does not
+include JSON.
+
+- `core/`: compiler/cache-line policy, Scalar and checked numeric conversion.
+- `field/`: packed IDs, Getter/Setter, FieldType, enum metadata and immutable Field.
+- `catalog/`: Catalog validation and direct CatalogIndex lookup.
+- `abi/TelemetryAbi.h`: the exact in-memory layout tag and explicit link guard.
+- `serialization/TelemetryJson.h`: schema fingerprint plus bounded schema/value JSON.
+
+The original root names such as `TelemetryCatalog.h` and `TelemetryJson.h` are
+forwarding headers, so existing includes remain source-compatible. Headers
+under `detail/` are implementation details and are not a stable public API.
+They hold typed bounds, numeric conversion primitives and JSON writer/value
+helpers; consumers should not include them directly.
 
 ## Scalar types and defaults
 
@@ -136,13 +142,13 @@ additionally hashes that revision, the selected cache line, pointer width,
 relevant type sizes/alignments and every public Field/Catalog member offset.
 The compiled JSON entry points carry the complete, unhashed tuple in their C++
 link symbols; the numeric signature is for diagnostics rather than collision
-handling.
-Consequently, `TelemetryJson.cpp` built for one layout cannot satisfy calls
+handling. Consequently, `serialization/TelemetryJson.cpp` built for one layout cannot satisfy calls
 built for another layout; the mismatch fails while linking. A module boundary
 that exchanges telemetry definitions but never calls the compiled JSON API can
 make the same check explicit once with `telemetry::requireTelemetryAbi()`.
-That function is supplied by `TelemetryJson.cpp`; purely inline code that calls
-neither it nor JSON has no automatic link anchor.
+That function is supplied independently by `abi/TelemetryAbi.cpp`; JSON is not
+needed. Purely inline code that calls neither it nor JSON has no automatic link
+anchor.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
 at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
@@ -653,6 +659,10 @@ Use the accepted view to avoid repeating even group-prefix validation:
 writeSchema(index, schemaBuffer, sizeof(schemaBuffer));
 writeValues(index, valuesBuffer, sizeof(valuesBuffer));
 auto fingerprint = schemaCrc(index);
+
+JsonOptions webSafe{JsonInt64Mode::String};
+writeSchema(index, schemaBuffer, sizeof(schemaBuffer), webSafe);
+writeValues(index, valuesBuffer, sizeof(valuesBuffer), webSafe);
 ```
 
 The retained pointer/count overloads construct a CatalogIndex for that call.
@@ -703,19 +713,27 @@ change the locale. The application must not concurrently call `setlocale`.
 Floating formatting uses a bounded 64-byte temporary and the C library's
 `snprintf`; newlib-nano builds need floating formatting enabled at link time
 (for the verified CubeIDE configuration, `-Wl,-u,_printf_float`).
-That temporary is not the total call-stack cost. The current guarded serializer
-was measured on H7S at up to 960/936 bytes for schema (`-O2`/`-Os`) and
-880/856 bytes for values, including the nested newlib-nano calls, with the
+That temporary is not the total call-stack cost. The current layered serializer
+was measured on H7S at up to 1032/976 bytes for schema (`-O2`/`-Os`) and
+968/888 bytes for values, including the nested newlib-nano calls, with the
 output buffer outside the stack. Add any local output buffer, caller/getter frames and task/interrupt
 headroom when budgeting integration. These observed cases are not a proven
 worst-case bound; see [JSON stack measurements](../../tests/json_stack/README.md).
 
-Every integer retains all decimal digits, including
-`UINT64_MAX` and `INT64_MIN`; 8-bit integers serialize as numbers, not
-characters. U64/S64 use bounded decimal conversion with unsigned magnitude
-arithmetic, so INT64_MIN does not overflow and newlib-nano's optional
-`long long` printf support is not required. JavaScript Number cannot represent every U64/S64 integer outside
-`[-(2^53 - 1), 2^53 - 1]`. Serialization does not provide a write transport,
+Every integer retains all decimal digits, including `UINT64_MAX` and
+`INT64_MIN`; 8-bit integers serialize as numbers, not characters. The default
+`JsonInt64Mode::Number` preserves the original wire format. In
+`JsonInt64Mode::String`, only U64/S64 value elements and non-null U64/S64
+schema bounds/defaults are quoted. U32/S32, floating values, booleans, nulls
+and enum dictionary keys keep their existing representation. Native U64/S64
+bounds compacted to null stay null. The choice is a wire representation only:
+the logical schema fingerprint is identical in both modes.
+
+U64/S64 use bounded decimal conversion with unsigned magnitude arithmetic, so
+INT64_MIN does not overflow and newlib-nano's optional `long long` printf
+support is not required. JavaScript Number cannot represent every U64/S64
+integer outside `[-(2^53 - 1), 2^53 - 1]`; string mode preserves those digits
+for such clients. Serialization does not provide a write transport,
 subscriptions or scheduling.
 
 ## Verification and Cortex-M7 code generation
@@ -733,10 +751,12 @@ rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
 thirty-five expected compilation failures, covering static reads, invalid
 bindings, enum contracts and inconsistent limit definitions.
-[TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
+[TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) has 33 checks and sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
 locale in CI, rejects null catalog/field/unit metadata safely, and checks 4096
-samples plus endpoints for each of F32/F64/U64/S64.
+samples plus endpoints for each of F32/F64/U64/S64. It also checks exact default
+output, selective U64/S64 quoting, schema metadata and fingerprint stability in
+string mode.
 [TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
 121 conversion pairs against an independent extended-precision oracle with
 explicit truncation, checking endpoints and 1024 source samples per pair.
@@ -760,10 +780,21 @@ with reproduction flags in its opening comment; use the same flags for
 The [ARM runner](../../tests/run_arm_checks.py) compiles all seven probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
-requires a deliberately mixed 32/64-byte ABI link to fail.
+independently checks core and JSON archives. Each matching layout links; each
+deliberately mixed 32/64-byte layout must fail.
 GitHub Actions runs it with Ubuntu's ARM GCC; the same runner also passes
 with the local CubeIDE compiler. Disassembly is retained for manual inspection;
 instruction-by-instruction equivalence is not asserted by the CI script.
+
+For the layered refactor, the local CubeIDE GCC 14.3.1 runner compiled 20
+translation units at both optimization levels. Its seven hot-path probes were
+also built from checkpoint `036d8e8` with the same command. Every resulting
+`-O2` and `-Os` object matched byte for byte (**14/14**), including relocations
+and constants. This covers conversion, declared-type reads/writes, enum and
+limit data paths, direct indexing, Scalar storage and Scalar visitation. The
+JSON object is intentionally different because the serializer now supports the
+selectable U64/S64 string representation; its final stack behavior was measured
+separately on the board.
 
 CubeIDE GCC 14.3.1, C++17, Cortex-M7, `-O2` and `-Os` produce direct lookups
 with no loops, helper calls or allocations. Successful lookup through a

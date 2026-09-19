@@ -32,6 +32,16 @@ struct Source {
 
 using Serialize = std::size_t (*)(const CatalogIndex&, char*, std::size_t) noexcept;
 
+std::size_t writeStringSchema(const CatalogIndex& index, char* buffer, std::size_t size) noexcept
+{
+    return writeSchema(index, buffer, size, JsonOptions{JsonInt64Mode::String});
+}
+
+std::size_t writeStringValues(const CatalogIndex& index, char* buffer, std::size_t size) noexcept
+{
+    return writeValues(index, buffer, size, JsonOptions{JsonInt64Mode::String});
+}
+
 bool buffersAgree(Serialize serialize, const CatalogIndex& index)
 {
     char reference[2048];
@@ -149,6 +159,55 @@ void checkNullMetadata()
                && writeValues(badUnitCatalog, std::size(badUnitCatalog), text, sizeof(text)) != 0
                && source.reads == 2 && std::strcmp(text, "{\"v\":[123]}") == 0,
            "value output does not inspect schema-only field names or units");
+}
+
+void checkInt64Modes()
+{
+    const Field fields[] = {
+        {0, "u64", "", numericType<std::uint64_t>(UINT64_C(5), UINT64_C(1), UINT64_MAX - 1),
+            []() noexcept { return UINT64_MAX; }},
+        {1, "s64", "", numericType<std::int64_t>(INT64_C(-5), INT64_MIN + 1, INT64_MAX - 1),
+            []() noexcept { return INT64_MIN; }},
+        {2, "u32", "", ScalarType::U32, []() noexcept { return UINT32_MAX; }},
+        {3, "s32", "", ScalarType::S32, []() noexcept { return INT32_MIN; }},
+        {4, "flag", "", ScalarType::Bool, []() noexcept { return true; }},
+        {5, "nativeU64", "", ScalarType::U64, []() noexcept { return UINT64_C(0); }},
+    };
+    const Catalog catalogs[] = {{0, "v", fields}};
+    const CatalogIndex index{catalogs};
+    char numberValues[256];
+    char stringValues[256];
+    expect(writeValues(index, numberValues, sizeof(numberValues)) != 0
+               && std::strcmp(numberValues,
+                   "{\"v\":[18446744073709551615,-9223372036854775808,4294967295,-2147483648,true,0]}") == 0,
+           "default JSON mode retains numeric U64/S64 output exactly");
+    expect(writeValues(catalogs, std::size(catalogs), stringValues, sizeof(stringValues),
+                       JsonOptions{JsonInt64Mode::String}) != 0
+               && std::strcmp(stringValues,
+                   "{\"v\":[\"18446744073709551615\",\"-9223372036854775808\",4294967295,-2147483648,true,\"0\"]}") == 0,
+           "string JSON mode quotes only U64/S64 and preserves every digit");
+
+    char numberSchema[1024];
+    char stringSchema[1024];
+    const auto numberLength = writeSchema(index, numberSchema, sizeof(numberSchema));
+    const auto stringLength = writeSchema(index, stringSchema, sizeof(stringSchema),
+                                          JsonOptions{JsonInt64Mode::String});
+    expect(numberLength != 0 && stringLength != 0
+               && std::strstr(numberSchema,
+                   "\"t\":\"u64\",\"w\":false,\"min\":1,\"max\":18446744073709551614,\"default\":5") != nullptr
+               && std::strstr(stringSchema,
+                   "\"t\":\"u64\",\"w\":false,\"min\":\"1\",\"max\":\"18446744073709551614\",\"default\":\"5\"") != nullptr
+               && std::strstr(stringSchema,
+                   "\"t\":\"s64\",\"w\":false,\"min\":\"-9223372036854775807\",\"max\":\"9223372036854775806\",\"default\":\"-5\"") != nullptr
+               && std::strstr(stringSchema,
+                   "\"n\":\"nativeU64\",\"u\":\"\",\"t\":\"u64\",\"w\":false,\"min\":null,\"max\":null,\"default\":\"0\"") != nullptr,
+           "schema string mode quotes custom U64/S64 bounds and defaults");
+    expect(std::strstr(numberSchema, "\"schema\":") != nullptr
+               && std::strncmp(numberSchema, stringSchema, 20) == 0
+               && schemaCrc(index) != 0,
+           "wire representation mode does not change the logical schema fingerprint");
+    expect(buffersAgree(&writeStringSchema, index) && buffersAgree(&writeStringValues, index),
+           "string-mode schema and values respect every output boundary");
 }
 
 void checkEarlyStop()
@@ -292,6 +351,7 @@ int main()
     checkEarlyStop();
     checkMetadataStrings();
     checkNullMetadata();
+    checkInt64Modes();
     checkRoundTrip<float>("F32 boundaries and 4096 bit patterns preserve values and signed zero");
     checkRoundTrip<double>("F64 boundaries and 4096 bit patterns preserve values and signed zero");
     checkIntegerText<std::uint64_t>("U64 boundaries and 4096 values preserve every decimal digit");

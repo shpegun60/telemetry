@@ -26,8 +26,12 @@ app/
   main.cpp, mainwindow.*            Qt application and value display
   demo/DemoCatalog.*               simulated sources and field tables
 lib/telemetry/
-  telemetry.pri                    reusable qmake include
-  Telemetry*.h, TelemetryJson.cpp   all library headers and implementation
+  Telemetry.h, Telemetry*.h         core umbrella and compatibility includes
+  core/, field/, catalog/           public numeric, field and lookup layers
+  abi/                              independent layout guard and link anchor
+  serialization/                    optional JSON public API and implementation
+  detail/                           private storage/conversion/JSON helpers
+  telemetry.pri                     reusable qmake include
 lib/delegate/
   delegate.pri, tiny_delegate.hpp  pinned tiny_delegate v1.1.0 dependency
   LICENSE, README.md               license and source revision
@@ -41,6 +45,8 @@ build/                            generated files, ignored by git
 Open `telemetry.pro` in Qt Creator and build with the installed Qt 6 MinGW
 kit. The project includes `lib/telemetry/telemetry.pri`; no separate library
 build step is required; its `.pri` includes the sibling dependency files.
+JSON is enabled by default. Add `CONFIG += telemetry_no_json` before including
+the `.pri` when a consumer needs only catalogs, lookup and the ABI anchor.
 Select `telemetry_playground` as the run target if
 Qt Creator still remembers the original blank application's target.
 
@@ -127,6 +133,10 @@ setter presence `w`, and required `min`, `max`, `default` properties.
 Native endpoints of ordinary numeric fields use `null`: resolve them from `t`.
 Custom bounds and defaults remain explicit. Enum and Bool bounds are always
 explicit, even at the native endpoints of their underlying type.
+The default JSON mode preserves numeric U64/S64 output. For JavaScript clients,
+`JsonOptions{JsonInt64Mode::String}` quotes only U64/S64 values and their
+non-null schema bounds/defaults; U32/S32 and all other alternatives retain
+their JSON types. This wire choice does not change `schemaCrc()`.
 VoltageLimit (ID 8) and Mode (ID 9) are writable; other fields are read-only.
 VoltageLimit declares write limits 1..1000 and default 250:
 
@@ -195,10 +205,10 @@ Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry
 Verified after numeric, lifetime-contract, serialization, enum, write-limit and RW32 review
 on 2026-09-19:
 
-- Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  109/109 core, 92/92 write/getter, 87/87 read, 28/28 JSON, 121/121 numeric
-  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (590 total).
-  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 592 total).
+- Qt 6.10.1 / MinGW: Release application build and offscreen startup;
+  109/109 core, 92/92 write/getter, 87/87 read, 33/33 JSON, 121/121 numeric
+  oracle, 45/45 enum and 108/108 limits checks passed with C++17 (595 total).
+  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 597 total).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
@@ -211,7 +221,7 @@ on 2026-09-19:
   passed with warnings treated as errors and no warning exemptions, including
   stack-use-after-scope/return detection.
   Clang C++20 Release passed the same suites and compilation checks.
-- CubeIDE GCC 14.3.1: library, demo and checks compiled for Cortex-M7 with
+- CubeIDE GCC 14.3.1: 20 library/demo/check translation units compiled for Cortex-M7 with
   C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
   as errors. A minimal JSON consumer also linked with newlib-nano and enabled
   floating formatting. This was a link check, not execution on a board.
@@ -230,11 +240,11 @@ on 2026-09-19:
   locale. U64/S64 formatting no longer needs `long long` support in printf;
   the installed CubeIDE newlib-nano configuration disables that support.
 - Schema serialization/fingerprinting reject null catalog, field and unit
-  metadata safely. Compiled JSON calls encode the exact layout tuple from which
-  `telemetryAbiSignature` is derived; host and Cortex-M7 checks prove matching
-  layouts link and mixed layouts do not.
-  A repeated 588-window H7S stack run measured 960/936 bytes (`-O2`/`-Os`)
-  and restored the original firmware byte for byte.
+  metadata safely. The independent core anchor and compiled JSON calls both
+  encode the exact layout tuple from which `telemetryAbiSignature` is derived;
+  host and Cortex-M7 checks prove matching core/JSON archives link and mixed
+  layouts do not. A 588-window H7S run of the layered serializer measured
+  1032/976 bytes (`-O2`/`-Os`) and restored the original firmware byte for byte.
 - [IndexCodegen.cpp](tests/IndexCodegen.cpp), built for Cortex-M7 at `-O2`
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
@@ -246,6 +256,12 @@ on 2026-09-19:
   `TELEMETRY_FORCE_CACHELINE`; Field definitions are immutable and ABI revision
   3 requires a clean rebuild of consumers. The ABI guard adds no code to the
   hot path; all fourteen O2/Os ARM codegen probe objects remain byte-identical.
+- The layered refactor was compared with exact checkpoint `036d8e8` using the
+  same CubeIDE GCC 14.3.1 invocation. All fourteen O2/Os probe object files are
+  byte-identical, so the directory split and private-helper extraction changed
+  no instruction, relocation or constant byte in the measured read/write/index
+  and numeric paths. JSON object code changed because it gained the selectable
+  64-bit string representation.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The
   storage comparison retains the former union's sizes and instructions in

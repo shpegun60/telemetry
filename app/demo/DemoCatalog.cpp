@@ -1,6 +1,4 @@
 #include "DemoCatalog.h"
-#include "TelemetryEnum.h"
-
 #include <iterator>
 #include <cmath>
 

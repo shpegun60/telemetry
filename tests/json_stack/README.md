@@ -14,20 +14,21 @@ library calls. The output buffer and catalog tables were static, outside
 the measured stack.
 
 The B32 columns preserve the `9f95e49` checkpoint; RW32 records the initial
-RW32 publication. The final columns repeat the complete run after the ABI link
-guard and null-metadata hardening.
+RW32 publication. Guard repeats the run after the ABI/null-metadata hardening.
+Layered is the final core/field/catalog/ABI/serialization split with selectable
+U64/S64 string output.
 
-| Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os | Guard O2 | Guard Os |
-|---|---:|---:|---:|---:|---:|---:|
-| 512-byte instrument control | 512 | 512 | 512 | 512 | 512 | 512 |
-| Native-bound schema | 848 | 824 | 848 | 816 | 840 | 816 |
-| Custom float/double bounds and enum schema | **968** | **944** | **968** | **936** | **960** | **936** |
-| F32 values, 21 input cases | 792 | 768 | 792 | 768 | 792 | 768 |
-| F64 values, 21 input cases | **880** | **856** | **880** | **856** | **880** | **856** |
-| U64/S64/U32/S32 extremes and bool | 576 | 512 | 576 | 512 | 576 | 512 |
-| Truncated schema | 544 | 584 | 544 | 576 | 536 | 576 |
-| Truncated floating values | 752 | 728 | 752 | 728 | 752 | 728 |
-| Null output buffer | 56 | 116 | 56 | 108 | 56 | 108 |
+| Operation | B32 O2 | B32 Os | RW32 O2 | RW32 Os | Guard O2 | Guard Os | Layered O2 | Layered Os |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 512-byte instrument control | 512 | 512 | 512 | 512 | 512 | 512 | 512 | 512 |
+| Native-bound schema | 848 | 824 | 848 | 816 | 840 | 816 | 840 | 824 |
+| Custom float/double bounds and enum schema | **968** | **944** | **968** | **936** | **960** | **936** | **1032** | **976** |
+| F32 values, 21 input cases | 792 | 768 | 792 | 768 | 792 | 768 | 880 | 800 |
+| F64 values, 21 input cases | **880** | **856** | **880** | **856** | **880** | **856** | **968** | **888** |
+| U64/S64/U32/S32 extremes and bool | 576 | 512 | 576 | 512 | 576 | 512 | 592 | 544 |
+| Truncated schema | 544 | 584 | 544 | 576 | 536 | 576 | 536 | 584 |
+| Truncated floating values | 752 | 728 | 752 | 728 | 752 | 728 | 840 | 760 |
+| Null output buffer | 56 | 116 | 56 | 108 | 56 | 108 | 56 | 108 |
 
 Each complete run has two images with 294 windows each, **588 total**.
 Each case used three repeats
@@ -96,9 +97,12 @@ python tests/json_stack/verify.py --self-test
 python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test
 # Current ABI-guard/null-metadata evidence:
 python tests/json_stack/verify.py --receipt tests/json_stack/abi-guard-receipt.json --self-test
+# Current layered serializer evidence:
+python tests/json_stack/verify.py --receipt tests/json_stack/layered-receipt.json --self-test
 # Also compare retained local ELF, binary and object bytes:
 python tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test --artifacts build/rw32-json-live-2
 python tests/json_stack/verify.py --receipt tests/json_stack/abi-guard-receipt.json --self-test --artifacts build/json-stack-abi-release-live
+python tests/json_stack/verify.py --receipt tests/json_stack/layered-receipt.json --self-test --artifacts build/layer-refactor-json-stack-policy-live
 ```
 
 The serial and port must identify the intended board. Both images are built
@@ -109,8 +113,9 @@ loss still requires restoration from the retained `before.bin`.
 [receipt.json](receipt.json) preserves the B32 baseline in
 `build/json-stack-live-1`. [rw32-receipt.json](rw32-receipt.json) records the
 initial RW32 run in `build/rw32-json-live-2`.
-[abi-guard-receipt.json](abi-guard-receipt.json) records the current guarded
-serializer run. Each contains every measurement,
+[layered-receipt.json](layered-receipt.json) records the current layered
+serializer run; [abi-guard-receipt.json](abi-guard-receipt.json) retains its
+immediate baseline. Each contains every measurement,
 JSON result, image/object identity, source hashes, compiler frames and
 restoration hashes. Full ELF/binary/object files,
 programmer/UART logs and original firmware stay there. Shared hashes identify

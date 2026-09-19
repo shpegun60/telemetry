@@ -1,6 +1,6 @@
 // Minimal C-library integration probe, suitable for a Cortex-M link check.
 // Use IndexCodegen.cpp's compiler flags, then add --specs=nano.specs,
-// --specs=nosys.specs and -Wl,-u,_printf_float when linking with TelemetryJson.cpp.
+// --specs=nosys.specs and -Wl,-u,_printf_float when linking the JSON module.
 // Linking this program does not execute it or establish board behavior.
 #include "TelemetryJson.h"
 #include "TelemetryEnum.h"

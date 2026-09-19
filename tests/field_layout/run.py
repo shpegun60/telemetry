@@ -128,6 +128,13 @@ def includes(directory):
     return ["-I" + str(directory / "lib/telemetry"), "-I" + str(directory / "lib/delegate")]
 
 
+def library_sources(directory, variant):
+    if variant == "Current":
+        return [directory / "lib/telemetry/abi/TelemetryAbi.cpp",
+                directory / "lib/telemetry/serialization/TelemetryJson.cpp"]
+    return [directory / "lib/telemetry/TelemetryJson.cpp"]
+
+
 def sections(text):
     return {name: int(size, 16) for name, size in
             re.findall(r"^\s*\d+\s+(\S+)\s+([0-9a-fA-F]+)\s", text, re.MULTILINE)}
@@ -186,7 +193,8 @@ def arm_checks(args, output):
             build.mkdir(exist_ok=True)
             flags = common + ["-" + optimization]
             objects = {}
-            for name, source in (("Probe", HERE / "Probe.cpp"), ("Json", directory / "lib/telemetry/TelemetryJson.cpp")):
+            for name, source in (("Probe", HERE / "Probe.cpp"),
+                                 ("Json", library_sources(directory, variant)[-1])):
                 obj = build / (name + ".o")
                 run(flags + ["-c", source, "-o", obj], build / (name + "-compile.log"))
                 header = run([tools["objdump"], "-h", obj], build / (name + "-sections.log"))
@@ -212,7 +220,7 @@ def arm_checks(args, output):
                         raise RuntimeError(f"{variant}: expected 21 probe functions, found {len(functions)}")
                 objects[name] = {"sections": totals, "functions": functions,
                                  "sha256": hashlib.sha256(obj.read_bytes()).hexdigest()}
-            run(flags + [ROOT / "tests/EmbeddedLinkCheck.cpp", directory / "lib/telemetry/TelemetryJson.cpp",
+            run(flags + [ROOT / "tests/EmbeddedLinkCheck.cpp", *library_sources(directory, variant),
                          "--specs=nano.specs", "--specs=nosys.specs", "-Wl,-u,_printf_float",
                          "-o", build / "consumer.elf"], build / "consumer-link.log")
             result["optimizations"][optimization] = objects
@@ -275,7 +283,8 @@ def host_checks(args, output):
         for suite in (*HOST_CHECKS["SUITES"], "Contracts"):
             source = HERE / "Contracts.cpp" if suite == "Contracts" else directory / "tests" / (suite + ".cpp")
             exe = build / (suite + (".exe" if os.name == "nt" else ""))
-            run(flags + build_flags + [source, directory / "lib/telemetry/TelemetryJson.cpp", "-o", exe], build / (suite + "-compile.log"), environment)
+            run(flags + build_flags + [source, *library_sources(directory, variant), "-o", exe],
+                build / (suite + "-compile.log"), environment)
             result = run([exe], build / (suite + "-run.log"), environment)
             if suite == "Contracts":
                 documents[variant] = [json.loads(line) for line in result.splitlines()]

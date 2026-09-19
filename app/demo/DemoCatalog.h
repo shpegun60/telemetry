@@ -1,7 +1,7 @@
 #ifndef DEMO_CATALOG_H
 #define DEMO_CATALOG_H
 
-#include "TelemetryIndex.h"
+#include "Telemetry.h"
 
 namespace demo {
 

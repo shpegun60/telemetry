@@ -139,7 +139,11 @@ def verify(receipt):
             raise ValueError('Incomplete or oversized image')
         if not valid_hash(image['elf_sha256']) or not valid_hash(image['binary_sha256']):
             raise ValueError('Invalid image identity')
-        if set(image['objects_sha256']) != {'JsonStack.o', 'StackCall.o', 'TelemetryJson.o'} or not all(valid_hash(h) for h in image['objects_sha256'].values()):
+        object_names = set(image['objects_sha256'])
+        historical_objects = {'JsonStack.o', 'StackCall.o', 'TelemetryJson.o'}
+        layered_objects = historical_objects | {'TelemetryAbi.o'}
+        if object_names not in (historical_objects, layered_objects) \
+                or not all(valid_hash(h) for h in image['objects_sha256'].values()):
             raise ValueError('Invalid object identities')
         verify_rows(image, [r for r in receipt['samples'] if r['optimization'] == opt])
 

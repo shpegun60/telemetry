@@ -11,6 +11,8 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck")
+LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
+                   "lib/telemetry/serialization/TelemetryJson.cpp")
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
     4: r"no matching", 5: r"constant\s+expression|constexpr",
@@ -67,7 +69,7 @@ def main():
 
     for suite in SUITES:
         executable = output / (suite + (".exe" if os.name == "nt" else ""))
-        run(flags + build_flags + [f"tests/{suite}.cpp", "lib/telemetry/TelemetryJson.cpp",
+        run(flags + build_flags + [f"tests/{suite}.cpp", *LIBRARY_SOURCES,
                                    "-o", str(executable)], suite + "-build")
         run([str(executable)], suite + "-run")
     for case, message in REJECTIONS.items():
@@ -81,8 +83,9 @@ def main():
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")
-    for header in sorted((ROOT / "lib/telemetry").glob("*.h")):
-        run(flags + ["-include", str(header), "-fsyntax-only", str(empty)], header.stem + "-standalone")
+    for header in sorted((ROOT / "lib/telemetry").rglob("*.h")):
+        label = "-".join(header.relative_to(ROOT / "lib/telemetry").with_suffix("").parts)
+        run(flags + ["-include", str(header), "-fsyntax-only", str(empty)], label + "-standalone")
     for option in ("-ffast-math", "-ffinite-math-only"):
         run(flags + [option, "-include", "TelemetryConversion.h", "-fsyntax-only", str(empty)],
             "reject" + option, r"Compile telemetry conversions without")
@@ -119,28 +122,34 @@ def main():
             f"cacheline-field-{size}")
     print("Field layout obeys explicit 64/128-byte alignment", flush=True)
 
-    # The ABI tag is carried by the compiled JSON entry points. Equal layouts
-    # link normally; a caller built with a different Field layout must fail at
-    # link time instead of using incompatible member offsets or array strides.
+    # The core anchor is independently linkable, and compiled JSON entry points
+    # carry the same exact tag. Equal layouts link normally; a caller built with
+    # a different Field layout must fail instead of using incompatible offsets.
+    abi_object = output / "TelemetryAbi-abi64.o"
     json_object = output / "TelemetryJson-abi64.o"
-    archive = output / "libTelemetryAbi64.a"
-    caller_object = output / "TelemetryAbiLinkCheck-abi64.o"
-    mismatch_object = output / "TelemetryAbiLinkCheck-abi128.o"
-    executable = output / ("TelemetryAbiLinkCheck" + (".exe" if os.name == "nt" else ""))
     abi64 = ["-DTELEMETRY_FORCE_CACHELINE=64"]
-    run(flags + build_flags + abi64 + ["-c", "lib/telemetry/TelemetryJson.cpp", "-o", str(json_object)],
+    run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[0], "-o", str(abi_object)],
+        "abi64-core-compile")
+    run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[1], "-o", str(json_object)],
         "abi64-json-compile")
-    run([args.ar, "rcs", str(archive), str(json_object)], "abi64-archive")
-    run(flags + build_flags + abi64 + ["-c", "tests/TelemetryAbiLinkCheck.cpp", "-o", str(caller_object)],
-        "abi64-caller-compile")
-    run(flags + build_flags + [str(caller_object), str(archive), "-o", str(executable)],
-        "abi64-link")
-    run([str(executable)], "abi64-run")
-    run(flags + build_flags + ["-DTELEMETRY_FORCE_CACHELINE=128", "-c",
-        "tests/TelemetryAbiLinkCheck.cpp", "-o", str(mismatch_object)], "abi128-caller-compile")
-    run(flags + build_flags + [str(mismatch_object), str(archive), "-o", str(executable)],
-        "abi-mismatch-link", r"undefined reference|unresolved external|AbiTag")
-    print("Matching telemetry ABI archive linked; mixed 64/128-byte layouts were rejected", flush=True)
+    modules = (("core", "TelemetryAbiLinkCheck", abi_object),
+               ("json", "TelemetryJsonAbiLinkCheck", json_object))
+    for module, source, library_object in modules:
+        archive = output / f"libTelemetry-{module}-abi64.a"
+        caller_object = output / f"{source}-abi64.o"
+        mismatch_object = output / f"{source}-abi128.o"
+        executable = output / (source + (".exe" if os.name == "nt" else ""))
+        run([args.ar, "rcs", str(archive), str(library_object)], f"abi64-{module}-archive")
+        run(flags + build_flags + abi64 + ["-c", f"tests/{source}.cpp", "-o", str(caller_object)],
+            f"abi64-{module}-caller-compile")
+        run(flags + build_flags + [str(caller_object), str(archive), "-o", str(executable)],
+            f"abi64-{module}-link")
+        run([str(executable)], f"abi64-{module}-run")
+        run(flags + build_flags + ["-DTELEMETRY_FORCE_CACHELINE=128", "-c",
+            f"tests/{source}.cpp", "-o", str(mismatch_object)], f"abi128-{module}-caller-compile")
+        run(flags + build_flags + [str(mismatch_object), str(archive), "-o", str(executable)],
+            f"abi-{module}-mismatch-link", r"undefined reference|unresolved external|AbiTag")
+    print("Independent core/JSON ABI archives linked; mixed 64/128-byte layouts were rejected", flush=True)
 
 
 if __name__ == "__main__":

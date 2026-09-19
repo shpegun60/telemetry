@@ -49,14 +49,16 @@ throughout a program. It is not runtime hardware discovery. On Qt/MinGW's
 64-bit ABI the default produces a 128-byte Field aligned to 64; the STM32
 layout remains 96 bytes aligned to 32.
 
-Later hardening added `telemetryAbiSignature` and ABI-tagged compiled JSON
-entry points. Mixed layouts inside one executable now fail the host and ARM
-negative link checks. Separate executables may retain different layouts. This
-guard did not alter Field, the measurements below or generated hot code: all
-seven Cortex-M7 codegen objects at both `-O2` and `-Os` are byte-identical to
-the published RW32 objects. The changed JSON object was measured separately in
-588 H7S stack windows: the maximum is now 960 bytes at `-O2` and 936 at `-Os`,
-with the original firmware restored and read back exactly afterward.
+Later hardening added `telemetryAbiSignature` and ABI-tagged compiled entry
+points. Mixed layouts inside one executable now fail the host and ARM negative
+link checks. Separate executables may retain different layouts. The ABI anchor
+now lives in its own core translation unit, independently of the optional JSON
+serializer. The layered refactor did not alter Field, the measurements below
+or generated hot code: all seven Cortex-M7 codegen objects at both `-O2` and
+`-Os` (14 objects total) are byte-identical to commit `036d8e8`. The serializer
+was measured separately in 588 H7S stack windows: the current custom-schema
+maximum is 1032 bytes at `-O2` and 976 at `-Os`, with the original firmware
+restored and read back exactly afterward.
 
 ## Measured comparison
 
@@ -113,9 +115,10 @@ Flash usage. Link placement and the rest of the application also matter.
 
 ## Verification and retained evidence
 
-- GCC C++17/C++20: the RW32 publication passed 585/587 runtime checks; current
-  ABI hardening passes 590/592. Both retain 35 existing compile rejections and
-  nine immutable-Field rejections, standalone headers and floating flags.
+- GCC C++17/C++20: the RW32 publication passed 585/587 runtime checks; the
+  current layered implementation passes 595/597. Both retain 35 existing
+  compile rejections and nine immutable-Field rejections, standalone headers
+  and floating flags.
 - Clang 18 C++17: the same checks with ASan, UBSan, float-cast-overflow and
   stack scope/return checking. Constexpr enum construction passes on Clang.
 - Descriptor copy/move/assignment coverage includes 676 cross-type transitions,
@@ -124,11 +127,11 @@ Flash usage. Link placement and the rest of the application also matter.
   the schema fingerprint; constructor/copy/read/write contracts pass for both.
 - Nine cache-line configurations, five invalid override cases and explicit
   64/128-byte Field layouts; ARM asserts pin actual STM32 offsets and size.
-- CubeIDE O2/Os: 18 translation units, seven read-only codegen probes, a
-  newlib-nano consumer link and positive/negative static-archive ABI links.
-  Qt Release build and offscreen startup pass.
+- CubeIDE O2/Os: 20 translation units, seven read-only codegen probes, a
+  newlib-nano consumer link, independent core/JSON archive links and their
+  positive/negative ABI cases. Qt Release build and offscreen startup pass.
 - The repeated [JSON stack run](../../json_stack/README.md) passes 588 windows;
-  current schema maxima are 960 bytes at O2 and 936 at Os.
+  current custom-schema maxima are 1032 bytes at O2 and 976 at Os.
 
 [rw32-receipt.json](rw32-receipt.json) records image/object/source hashes,
 compiler inputs, checked coverage and original-image restoration. The retained
