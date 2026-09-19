@@ -1,0 +1,40 @@
+# Qt Creator settings are specific to each machine and kit.
+.qtcreator/
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+
+# Build in a separate directory; also ignore common in-source qmake output.
+build/
+build-*/
+debug/
+release/
+Makefile
+Makefile.*
+.qmake.stash
+.qmake.cache
+moc_*.cpp
+moc_*.h
+ui_*.h
+qrc_*.cpp
+*.o
+*.obj
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.app/
+
+# Editor and operating-system temporary files.
+*.autosave
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

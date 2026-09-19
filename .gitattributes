@@ -1,0 +1,9 @@
+* text=auto
+
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Preserve the exact upstream bytes documented in lib/delegate/README.md.
+lib/delegate/tiny_delegate.hpp -text
+lib/delegate/LICENSE -text
