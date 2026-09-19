@@ -4,6 +4,8 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
-# Preserve the exact upstream bytes documented in lib/delegate/README.md.
+# Preserve upstream bytes documented in each dependency's README.md.
 lib/delegate/tiny_delegate.hpp -text
 lib/delegate/LICENSE -text
+lib/magic_enum/magic_enum.hpp -text
+lib/magic_enum/LICENSE -text

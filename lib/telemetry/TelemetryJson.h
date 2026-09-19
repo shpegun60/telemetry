@@ -20,11 +20,16 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept;
 //   {"i":0,"id":0,"n":"Ua","u":"V","t":"f32","w":false},...]}]}
 // Catalog id is the group position; field id packs (group << 16) | i.
 // w reports setter presence; it also participates in the schema fingerprint.
+// Enum-described fields retain their ordinary numeric t and add an "enum"
+// object mapping decimal code strings to names, e.g. {"0":"Off","1":"Auto"}.
+// Codes and names participate in the fingerprint. Descriptions are generated
+// on demand, independently of getters; values and writes stay purely numeric.
 // Only accepted contiguous prefixes are serialized. The CatalogIndex
 // overload reuses a validated group view without rescanning group IDs.
 // Pointer/count overloads create such a view for the duration of the call.
-// Names must be ASCII identifiers; units must not contain JSON quotes,
-// backslashes or control characters. All strings must be non-null.
+// Catalog/field names must be ASCII identifiers; units must not contain JSON
+// quotes, backslashes or control characters. These strings must be non-null.
+// Enum labels may be UTF-8; JSON special/control bytes are escaped.
 // Returns the length excluding the terminator, or 0 on insufficient space
 // or a null buffer (regardless of size). A nonempty output buffer always
 // remains NUL-terminated. On failure the partial buffer must not be sent.

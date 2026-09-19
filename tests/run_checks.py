@@ -10,13 +10,16 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
-          "TelemetryJsonCheck", "TelemetryNumericCheck")
+          "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck")
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
     4: r"no matching", 5: r"constant\s+expression|constexpr",
     6: r"lvalue|not assignable", 7: r"deleted", 8: r"noexcept", 9: r"noexcept",
     10: r"no matching|cannot bind|expects an lvalue", 11: r"cannot be null",
     12: r"deleted", 13: r"deleted",
+    14: r"requires an enum type", 15: r"does not have a name|must have names",
+    16: r"codes must be unique", 17: r"dictionary is empty",
+    18: r"no matching", 19: r"no matching",
 }
 
 

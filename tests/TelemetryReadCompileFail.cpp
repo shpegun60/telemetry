@@ -3,6 +3,7 @@
 // g++ -std=c++17 -Ilib/telemetry -Ilib/delegate
 //     -DTELEMETRY_READ_FAIL_CASE=N -fsyntax-only tests/TelemetryReadCompileFail.cpp
 #include "TelemetryIndex.h"
+#include "TelemetryEnum.h"
 using namespace telemetry;
 
 constexpr Field fields[] = {
@@ -46,6 +47,23 @@ auto rejected = Catalog{0, "temporary", Rows{}, 1};
 #elif TELEMETRY_READ_FAIL_CASE == 13
 using Groups = Catalog[1];
 auto rejected = CatalogIndex{Groups{}, 1};
+#elif TELEMETRY_READ_FAIL_CASE == 14
+auto rejected = enumType<int>();
+#elif TELEMETRY_READ_FAIL_CASE == 15
+enum class Mode { Off, Auto };
+auto rejected = enumType<Mode, static_cast<Mode>(99)>();
+#elif TELEMETRY_READ_FAIL_CASE == 16
+enum class Mode { Off, Alias = Off };
+auto rejected = enumType<Mode, Mode::Off, Mode::Alias>();
+#elif TELEMETRY_READ_FAIL_CASE == 17
+enum class Mode { OutsideDefaultScan = 100000 };
+auto rejected = enumType<Mode>();
+#elif TELEMETRY_READ_FAIL_CASE == 18
+enum class Mode : std::uint8_t { Off, Auto };
+auto rejected = index.read<Mode>(0); // Applications cast the numeric result.
+#elif TELEMETRY_READ_FAIL_CASE == 19
+enum class Mode : std::uint8_t { Off, Auto };
+auto rejected = index.write(0, Mode::Auto); // Applications supply a number.
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 13"
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 19"
 #endif

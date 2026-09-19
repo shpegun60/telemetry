@@ -11,13 +11,14 @@ Clone the complete project, then open `telemetry.pro` in Qt Creator:
 git clone https://github.com/shpegun60/telemetry.git
 ```
 
-The library, delegate dependency, demo and checks are all included in this
+The library, delegate and magic_enum dependencies, demo and checks are all included in this
 repository. No analyzer firmware checkout or Git submodule is required.
 
 Licensed under the [MIT License](LICENSE), with the same license text and
 copyright notice as the delegate project. The reusable telemetry library
 carries its own copy of [LICENSE](lib/telemetry/LICENSE); the bundled delegate
-retains its upstream [MIT license](lib/delegate/LICENSE).
+retains its upstream [MIT license](lib/delegate/LICENSE), as does
+[magic_enum](lib/magic_enum/LICENSE).
 
 ```text
 telemetry.pro                       Qt Creator entry point
@@ -30,13 +31,16 @@ lib/telemetry/
 lib/delegate/
   delegate.pri, tiny_delegate.hpp  pinned tiny_delegate v1.1.0 dependency
   LICENSE, README.md               license and source revision
+lib/magic_enum/
+  magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for optional enum schema metadata
+  LICENSE, README.md               upstream license and source revision
 tests/                             standalone checks without Qt
 build/                            generated files, ignored by git
 ```
 
 Open `telemetry.pro` in Qt Creator and build with the installed Qt 6 MinGW
 kit. The project includes `lib/telemetry/telemetry.pri`; no separate library
-build step is required; its `.pri` includes the sibling delegate dependency.
+build step is required; its `.pri` includes the sibling dependency files.
 Select `telemetry_playground` as the run target if
 Qt Creator still remembers the original blank application's target.
 
@@ -66,7 +70,7 @@ git push
 
 Build output and personal Qt Creator kit/run settings are ignored by Git.
 Choose an installed Qt kit after cloning on another computer. The bundled
-delegate header and license retain their original bytes across checkouts.
+vendored headers and licenses retain their original bytes across checkouts.
 
 ## Playground examples
 
@@ -96,11 +100,15 @@ stores the sensor, field array and catalogs together and cannot be moved
 or copied.
 
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
-(IDs `0..8`); sensor is group 1 (IDs `65536..65537`); integer examples are
+(IDs `0..9`); sensor is group 1 (IDs `65536..65537`); integer examples are
 group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and
 signed minima for every 8/16/32/64-bit type. Their display reads the simulated
 sources directly, keeping all U64/S64 digits without conversion to double.
 The sources stay stable while the table and JSON are refreshed.
+The `Mode` row uses `enumType<Mode>()`: its value remains U16 while schema
+JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. No enum check
+runs during lookup, read or write. See the [enum contract and large-code
+examples](lib/telemetry/README.md#enum-dictionaries-for-schemas).
 Each field row starts
 with `makeId(group, position)`. `DemoCatalog::find(id)` uses one direct
 group lookup and one direct field lookup, with a bound check at each level.
@@ -148,8 +156,9 @@ Build the independent checks by opening
 [telemetry_check.pro](tests/telemetry_check.pro),
 [telemetry_write_check.pro](tests/telemetry_write_check.pro),
 [telemetry_read_check.pro](tests/telemetry_read_check.pro),
-[telemetry_json_check.pro](tests/telemetry_json_check.pro) and
-[telemetry_numeric_check.pro](tests/telemetry_numeric_check.pro) with the same
+[telemetry_json_check.pro](tests/telemetry_json_check.pro),
+[telemetry_numeric_check.pro](tests/telemetry_numeric_check.pro) and
+[telemetry_enum_check.pro](tests/telemetry_enum_check.pro) with the same
 kit, or run qmake and mingw32-make from a separate build directory:
 
 ```powershell
@@ -168,20 +177,20 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verified after numeric, lifetime-contract and serialization review
+Verified after numeric, lifetime-contract, serialization and enum metadata review
 on 2026-09-19:
 
 - Qt 6.10.1 / MinGW 13.1.0: Release application build and offscreen startup;
-  99/99 core, 87/87 write/getter, 87/87 read, 17/17 JSON and 121/121 numeric
-  oracle checks passed with C++17 (411 total).
-  C++20 also checks char8_t (88/88 write/getter and 88/88 read checks).
-  Thirteen expected compilation failures cover invalid bindings/reads,
-  temporary arrays and invalid Scalar access in both language modes.
+  99/99 core, 87/87 write/getter, 87/87 read, 17/17 JSON, 121/121 numeric
+  oracle and 45/45 enum checks passed with C++17 (456 total).
+  C++20 also checks char8_t (88/88 write/getter and 88/88 read; 458 total).
+  Nineteen expected compilation failures cover invalid bindings/reads,
+  temporary arrays, invalid Scalar access and enum contracts in both language modes.
   Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
-- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all five suites
+- Clang 18 C++17 with ASan/UBSan and float-cast-overflow checks: all six suites
   passed with warnings treated as errors and no warning exemptions.
   Clang C++20 Release passed the same suites and compilation checks.
 - CubeIDE GCC 14.3.1: library, demo and checks compiled for Cortex-M7 with
@@ -196,7 +205,7 @@ on 2026-09-19:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 12, Setter 8, Field 36, Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 8, Field 40, Catalog 16 and CatalogIndex 8 bytes
   on ARM32.
 - Explicit/inferred known F32 reads fold to a direct getter branch. Float
   conversions retain float precision unless a double is requested. The
@@ -209,6 +218,12 @@ on 2026-09-19:
   a round/trunc function. Matching write probes also avoid initializing an
   empty Scalar and have no memset call. Bounds, truncation and F32 rounding
   remain effective when the requested read type is wider than declaredType.
+- [EnumCodegen.cpp](tests/EnumCodegen.cpp) compares U16 fields with and without
+  schema dictionaries. Matching read/write paths have the same operations at
+  both optimization levels; table addresses/offsets differ. Runtime Field
+  access loads the numeric type and getter/setter, never the schema callback.
+  The added callback costs four bytes per Field on ARM32. Enum names and field
+  tables remain constant data; JSON dictionaries are produced only for schema requests.
 
 These ARM checks inspect compiled objects; they do not link firmware, run on
 a board or measure cycles. Getter invocation is distinct from ID lookup;

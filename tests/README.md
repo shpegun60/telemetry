@@ -14,7 +14,7 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes five suites, verifies thirteen rejected programs, checks
+The runner executes six suites, verifies nineteen rejected programs, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks and stop on the first diagnostic. Compiler warnings
@@ -65,6 +65,38 @@ with `nano.specs`, `nosys.specs` and `-Wl,-u,_printf_float`; the supplied nosys
 system-call stubs generated their expected linker warnings. Neither that
 consumer nor firmware was executed on a board during this audit. Its source is
 [EmbeddedLinkCheck.cpp](EmbeddedLinkCheck.cpp), with linking flags in its header.
+
+## Enum metadata checkpoint, 2026-09-19
+
+The sixth suite adds 45 checks: all numeric underlying widths, numeric-only
+read/write behavior even for unlisted codes, checked conversion, exact U64/S64
+dictionary keys, automatic and explicit names, metadata copying/defaults,
+early description cancellation, fingerprint changes and escaped custom names.
+It sweeps every output-buffer size through complete enum schemas, including
+lengths inside escaped strings. Compile rejection cases also cover non-enums,
+unnamed values, duplicate codes, empty scans and direct enum read/write inputs.
+
+GCC 13.1 and Clang 18 passed all six suites (456 C++17 / 458 C++20 checks) and
+all nineteen expected rejections. Clang C++17 passed ASan, UBSan and
+float-cast-overflow. The enum suite also passed its standalone qmake project.
+Qt 6.10.1 Release passed offscreen startup; separately parsed demo JSON contains
+20 fields and the Mode dictionary while retaining numeric values.
+
+CubeIDE GCC 14.3.1 compiled all six probes, six suites, the minimal consumer,
+library and demo for Cortex-M7 at `-O2`/`-Os`. The minimal consumer now includes
+enum schema generation and links with newlib-nano. `EnumCodegen.cpp` shows
+matching numeric instructions for enum/plain U16 fields, aside from table
+addresses/offsets. Known typed reads branch to the same getter; dynamic reads
+and writes never load the schema callback at Field offset 16. Numeric tags
+remain at offset 12. Field grows from 36 to 40 bytes; direct lookup keeps its
+14-instruction successful path (13 for the fixed view). These are object-code
+observations, not board timing measurements.
+
+The enum tests also capture a reflection prerequisite on Clang: an enum
+nested in a class template needs its enumerator list instantiated before an
+automatic scan. Using a named enumerator first, or listing explicit values
+in `enumType`, does that. Default scan limits and this prerequisite are
+documented in the library and dependency READMEs.
 
 ## Contracts the caller supplies
 

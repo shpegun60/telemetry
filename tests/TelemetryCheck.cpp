@@ -214,7 +214,7 @@ static_assert(!CanBind<Sensor&&>::value);
 static_assert(sizeof(Getter) == 12, "Cortex-M getter size with native return alternatives");
 static_assert(sizeof(Setter) == 8, "Cortex-M setter size");
 static_assert(sizeof(Scalar) == 16, "Cortex-M scalar size");
-static_assert(sizeof(Field) == 36, "Cortex-M field size");
+static_assert(sizeof(Field) == 40, "Cortex-M field size with optional enum description");
 static_assert(sizeof(Catalog) == 16, "Cortex-M catalog size");
 static_assert(sizeof(CatalogIndex) == 8, "Cortex-M index size");
 #endif

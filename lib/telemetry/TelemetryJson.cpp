@@ -113,6 +113,23 @@ public:
         return appendDecimal_(negative ? std::uint64_t{0} - bits : bits, negative);
     }
 
+    bool appendString(std::string_view text) noexcept
+    {
+        if (!append("\"")) return false;
+        std::size_t first = 0;
+        for (std::size_t i = 0; i < text.size(); ++i) {
+            const auto byte = static_cast<unsigned char>(text[i]);
+            if (byte >= 0x20 && byte != '"' && byte != '\\') continue;
+            if (i != first && !appendText_(text.data() + first, i - first)) return false;
+            if (byte == '"' || byte == '\\') {
+                if (!append("\\%c", static_cast<int>(byte))) return false;
+            } else if (!append("\\u%04x", static_cast<unsigned>(byte))) return false;
+            first = i + 1;
+        }
+        if (first != text.size() && !appendText_(text.data() + first, text.size() - first)) return false;
+        return append("\"");
+    }
+
     bool ok() const noexcept { return ok_; }
     std::size_t length() const noexcept { return ok_ ? offset_ : 0u; }
 
@@ -194,6 +211,46 @@ bool append_value_(Writer& out, const Field& field) noexcept
     }
 }
 
+struct EnumJsonContext {
+    Writer& out;
+    bool first = true;
+};
+
+bool append_enum_entry_(void* context, const Scalar& value, std::string_view name) noexcept
+{
+    auto& state = *static_cast<EnumJsonContext*>(context);
+    if (!state.first && !state.out.append(",")) return false;
+    state.first = false;
+    if (!state.out.append("\"")) return false;
+    // Enum descriptions only produce supported integral alternatives. The
+    // only one that may not fit int64_t is the upper half of uint64_t.
+    if (const auto signedCode = convertScalar<std::int64_t>(value)) {
+        if (!state.out.appendInteger(*signedCode)) return false;
+    } else if (!state.out.appendInteger(value.get<std::uint64_t>())) return false;
+    return state.out.append("\":") && state.out.appendString(name);
+}
+
+std::uint32_t hash_u64_(std::uint32_t hash, std::uint64_t value) noexcept
+{
+    for (unsigned shift = 0; shift < 64; shift += 8) {
+        hash = hash_byte_(hash, static_cast<std::uint8_t>(value >> shift));
+    }
+    return hash;
+}
+
+bool hash_enum_entry_(void* context, const Scalar& value, std::string_view name) noexcept
+{
+    auto& hash = *static_cast<std::uint32_t*>(context);
+    const auto signedCode = convertScalar<std::int64_t>(value);
+    const auto bits = signedCode ? static_cast<std::uint64_t>(*signedCode) : value.get<std::uint64_t>();
+    hash = hash_byte_(hash, 'V');
+    hash = hash_u64_(hash, bits);
+    // Length also separates custom names containing embedded NUL characters.
+    hash = hash_u64_(hash, static_cast<std::uint64_t>(name.size()));
+    for (char byte : name) hash = hash_byte_(hash, static_cast<std::uint8_t>(byte));
+    return true;
+}
+
 }  // namespace
 
 std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
@@ -217,6 +274,11 @@ std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
             hash = fnv1a_(hash, field.unit);
             hash = fnv1a_(hash, type_name_(field.declaredType));
             hash = hash_byte_(hash, field.set ? 1u : 0u);
+            if (field.declaredType.hasEnum()) {
+                hash = hash_byte_(hash, 'D');
+                (void) field.declaredType.describeEnum(&hash, &hash_enum_entry_);
+                hash = hash_byte_(hash, 'd');
+            }
         }
         hash = hash_byte_(hash, 'E');
     }
@@ -236,10 +298,17 @@ std::size_t writeSchema(const CatalogIndex& index, char* const buffer, const std
                         (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id), catalogs[c].name)) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
-            if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s}",
+            if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":\"%s\",\"u\":\"%s\",\"t\":\"%s\",\"w\":%s",
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i),
                             field.id, field.name, field.unit, type_name_(field.declaredType),
                             field.set ? "true" : "false")) return 0;
+            if (field.declaredType.hasEnum()) {
+                if (!out.append(",\"enum\":{")) return 0;
+                EnumJsonContext context{out};
+                if (!field.declaredType.describeEnum(&context, &append_enum_entry_)) return 0;
+                if (!out.append("}")) return 0;
+            }
+            if (!out.append("}")) return 0;
         }
         if (!out.append("]}")) return 0;
     }

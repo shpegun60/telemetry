@@ -146,7 +146,7 @@ public:
         static_assert(field != nullptr,
                       "The read ID must belong to the catalog's accepted prefix");
         if constexpr (field != nullptr) {
-            constexpr auto type = field->declaredType;
+            constexpr ScalarType type = field->declaredType;
             constexpr bool numeric = type != ScalarType::Null
                 && static_cast<std::size_t>(type) < Scalar::typeCount;
             static_assert(numeric, "An inferred read requires a numeric or Bool declaredType");

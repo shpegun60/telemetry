@@ -3,8 +3,8 @@
 Standalone catalog, numeric conversion and JSON library for C++17.
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 
-Copy this directory and its sibling `delegate` directory into a consumer,
-keeping both under the same `lib` directory, and include the reusable `.pri`:
+Copy this directory and its sibling `delegate` and `magic_enum` directories
+into a consumer, keeping them under the same `lib` directory, and include the reusable `.pri`:
 
 ```qmake
 include(path/to/telemetry/telemetry.pri)
@@ -14,9 +14,11 @@ The library uses C++17 and bundled [tiny_delegate v1.1.0](../delegate/README.md)
 It has no Qt, STM32, RTOS, Mongoose or `basic_types.h` dependency. For a
 non-qmake build, add `lib/telemetry` and `lib/delegate` to the include paths
 and compile `TelemetryJson.cpp`.
+Optional `TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/README.md).
+Numeric-only headers and `TelemetryJson.cpp` do not include magic_enum.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
-redistributed library files; the sibling delegate carries its own MIT license.
+redistributed library files; delegate and magic_enum retain their upstream MIT licenses.
 
 ## Public files
 
@@ -26,6 +28,8 @@ redistributed library files; the sibling delegate carries its own MIT license.
 - `TelemetryGetter.h`: constexpr non-owning getters returning Scalar or native numbers.
 - `TelemetrySetter.h`: optional write callbacks and `WriteResult`.
 - `TelemetryConversion.h`: constexpr checked numeric conversions.
+- `TelemetryFieldType.h`: numeric type plus an optional schema description callback.
+- `TelemetryEnum.h`: opt-in `enumType<E>()` factory with compile-time enumerator names.
 - `TelemetryCatalog.h`: packed IDs, Field, Catalog and name uniqueness.
 - `TelemetryIndex.h`: direct lookup, typed reads and optional static catalog binding.
 - `TelemetryJson.h`: schema fingerprint, schema JSON and values JSON.
@@ -94,6 +98,85 @@ The same defaults apply in `constexpr` declarations and when trailing
 members are omitted from a Field initializer. Field remains an aggregate.
 An empty getter returns Null. Assign real names/IDs and types before using
 default fields as published catalog entries.
+
+## Enum dictionaries for schemas
+
+An enum describes names for a numeric field. Its underlying type determines
+the existing Scalar type; there is no `ScalarType::Enum` or enum alternative
+in the variant. Include `TelemetryEnum.h` where enum fields are defined:
+
+```cpp
+enum class Mode : std::uint16_t { Off, Auto, Manual };
+Mode mode = Mode::Auto; // Owner's storage, with a stable lifetime.
+using RawMode = std::underlying_type_t<Mode>;
+
+constexpr Field fields[] = {
+    {makeId(0, 0), "Mode", "", enumType<Mode>(),
+     []() noexcept { return static_cast<RawMode>(mode); },
+     [](const Scalar& value) noexcept {
+         mode = static_cast<Mode>(value.get<RawMode>());
+         return WriteResult::Applied;
+     }},
+};
+constexpr Catalog catalogs[] = {{0, "settings", fields}};
+constexpr auto index = CatalogIndex::bind<catalogs>();
+
+auto number = index.read<makeId(0, 0)>(); // optional<uint16_t>, not optional<Mode>.
+auto result = index.write(makeId(0, 0), 100); // U16 code 100 is representable.
+```
+
+The owner explicitly casts to/from its enum. Getters, setters and public
+read/write calls continue to use native numbers or Scalar. The dictionary
+does not restrict values: code 100 succeeds even though it has no label.
+Any semantic validation belongs to the owner. Normal numeric bounds and
+declared-type normalization apply unchanged.
+
+`writeSchema()` emits the numeric type and an extra property:
+
+```json
+{"t":"u16","enum":{"0":"Off","1":"Auto","2":"Manual"}}
+```
+
+`writeValues()` still emits numbers. Lookup and read/write never inspect enum
+presence or invoke the description callback. Only schema serialization and
+its fingerprint consume the dictionary. The factory retains a pointer to a
+function specialized for the enum, which streams constant names and codes
+on request. There is no owned runtime dictionary, dynamic registration or
+name search. Names and description code still occupy program storage; final
+Flash/RAM placement depends on the linker.
+
+Automatic discovery uses magic_enum's configured range (default **-128..127**).
+Values outside it are omitted, even when other enumerators were found. For
+sparse or large codes, list the values as template arguments; no scanning or
+manually written label strings is needed, and the specified order is kept:
+
+```cpp
+enum class Code : std::uint64_t { Ready = 100000, Last = UINT64_MAX };
+constexpr auto type = enumType<Code, Code::Ready, Code::Last>();
+```
+
+Alternatively, define `magic_enum::customize::enum_range<E>` in the shared
+enum header before use. For example, `min = 0` and `max = 255` cover all U8
+codes. All translation units must see identical enum definitions and reflection
+configuration. Duplicate explicit codes, unnamed explicit values and an
+empty automatic dictionary fail compilation. Aliases share one numeric key
+and a compiler-selected name; aliases cannot be separate dictionary entries.
+Only complete enum definitions expose names. For enums nested in class
+templates, Clang may defer the enumerator list until a named enumerator is
+used. Reference a value before automatic discovery (for example in a
+`static_assert`), or use the explicit value pack, which also instantiates it.
+Custom names use magic_enum's
+customization API; provide valid UTF-8. JSON escapes quotes, backslashes and
+control bytes, including embedded NUL. Full 64-bit dictionary keys are exact
+decimal strings, independent of JavaScript Number precision.
+
+`Field::declaredType` is now a `FieldType`, implicitly constructible from and
+convertible to `ScalarType`. Existing aggregate rows containing `ScalarType::F32`
+and comparisons with ScalarType keep working. Use `ScalarType type = field.declaredType`
+when a concrete enum is needed; `auto` now deduces FieldType. Assigning a
+ScalarType before publication clears dictionary metadata. Rebuild consumers:
+the ARM32 Field layout grows from 36 to 40 bytes, including numeric-only rows.
+The added four bytes hold the schema callback and are never read by data paths.
 
 ## Packed IDs and direct lookup
 
@@ -392,7 +475,9 @@ lookup. The schema includes each group's numeric `id` and each field's local
 
 Values retain named arrays such as `{"sensor":[24.5]}`. The order-sensitive
 FNV-1a fingerprint includes group IDs, all four field-ID bytes, declared
-metadata, setter presence (`w`) and record/string boundaries. It is a version hint, not a promise
+metadata, setter presence (`w`), enum codes/names/order when present, and
+record/string boundaries. Numeric-only fingerprints and JSON stay unchanged
+by enum support. It is a version hint, not a promise
 against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
 
@@ -436,22 +521,26 @@ endpoints. It checks all 121 source/declared type pairs through both reads
 and writes, and verifies that an explicit read type cannot bypass declared
 rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
-thirteen expected compilation failures, covering static reads and invalid
-bindings. [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
+nineteen expected compilation failures, covering static reads, invalid
+bindings and enum contracts. [TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
 locale in CI, and checks 4096 samples plus endpoints for each of F32/F64/U64/S64.
 [TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
 121 conversion pairs against an independent extended-precision oracle with
 explicit truncation, checking endpoints and 1024 source samples per pair.
 That oracle runs on hosts with at least 64 long-double mantissa bits.
+[TelemetryEnumCheck.cpp](../../tests/TelemetryEnumCheck.cpp) covers numeric-only
+data paths with enum metadata, underlying types, explicit 64-bit codes,
+schema fingerprints, custom names and all output-buffer boundaries.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
 with reproduction flags in its opening comment; use the same flags for
 [ConversionCodegen.cpp](../../tests/ConversionCodegen.cpp),
 [DeclaredTypeCodegen.cpp](../../tests/DeclaredTypeCodegen.cpp),
-[ScalarStorageCodegen.cpp](../../tests/ScalarStorageCodegen.cpp) and
-[ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp).
+[ScalarStorageCodegen.cpp](../../tests/ScalarStorageCodegen.cpp),
+[ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp) and
+[EnumCodegen.cpp](../../tests/EnumCodegen.cpp).
 
 CubeIDE GCC 14.3.1, C++17, Cortex-M7, `-O2` and `-Os` produce direct lookups
 with no loops, helper calls or allocations. Successful lookup through a
@@ -459,13 +548,23 @@ passed view takes 14 instructions in the measured object; a fixed constexpr
 view takes 13. A known ID becomes a constant address (`ldr; bx`), and a known
 missing ID becomes null. These are instruction counts, not measured cycles.
 
-On ARM32, Scalar occupies 16 bytes, Getter 12, Setter 8, Field 36,
+On ARM32, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 8, Field 40,
 Catalog 16 and CatalogIndex 8 bytes. Native function alternatives account
 for the extra 4 bytes over the previous Getter; an empty setter still occupies
-its 8-byte slot. The probe's constant metadata resides in `.rodata`,
+its 8-byte slot. FieldType adds four bytes for its optional schema callback.
+The probe's constant metadata resides in `.rodata`,
 with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
 Flash/RAM placement is determined by linking.
+
+The enum/plain U16 pairs in `EnumCodegen.cpp` have identical numeric
+operations at both optimization levels, apart from table addresses/offsets.
+Known typed reads branch straight to their shared getter. Dynamic Field
+reads/writes access the numeric tag at offset 12 and the getter/setter slots;
+they never load the schema callback at offset 16. The enum probe's constant
+names and field arrays reside in `.rodata`, with no startup constructors or
+`.data`/`.bss` storage. These observations do not assert identical cache
+behavior after increasing the size of a Field.
 
 Known native getter rows use direct calls at both `-O2` and `-Os`, with no
 runtime alternative selection. Both explicit and inferred F32 read probes

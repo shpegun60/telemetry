@@ -14,6 +14,7 @@
 #include "TelemetryCompiler.h"
 #include "TelemetrySetter.h"
 #include "TelemetryConversion.h"
+#include "TelemetryFieldType.h"
 
 namespace telemetry {
 
@@ -50,7 +51,7 @@ struct Field {
     FieldId id = 0;
     const char* name = "";
     const char* unit = "";
-    ScalarType declaredType = ScalarType::Null;
+    FieldType declaredType = ScalarType::Null;
     Getter get = nullptr;
     Setter set = nullptr;
 

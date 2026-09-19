@@ -1,4 +1,5 @@
 #include "DemoCatalog.h"
+#include "TelemetryEnum.h"
 
 #include <iterator>
 #include <cmath>
@@ -13,11 +14,14 @@ using telemetry::ScalarType;
 using telemetry::WriteResult;
 using telemetry::makeId;
 
+enum class Mode : std::uint16_t { Off, Auto, Manual };
+
 struct Meter {
     float voltage = 230.0f;
     float current = 2.0f;
     std::uint32_t counter = 0;
     float threshold = 250.0f;
+    Mode mode = Mode::Auto;
 
     float readVoltage() const noexcept { return voltage; }
     bool setThreshold(float next) noexcept
@@ -59,6 +63,13 @@ constexpr Field meterFields[] = {
      [](const Scalar& value) noexcept {
          if (value.type() != ScalarType::F32) return WriteResult::InvalidValue;
          return meter.setThreshold(value.get<float>()) ? WriteResult::Applied : WriteResult::InvalidValue;
+     }},
+    // Enum names belong only to the schema; source callbacks use numbers.
+    {makeId(0, 9), "Mode", "", telemetry::enumType<Mode>(),
+     []() noexcept { return static_cast<std::underlying_type_t<Mode>>(meter.mode); },
+     [](const Scalar& value) noexcept {
+         meter.mode = static_cast<Mode>(value.get<std::uint16_t>());
+         return WriteResult::Applied;
      }},
 };
 
