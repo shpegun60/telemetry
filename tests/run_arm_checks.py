@@ -327,6 +327,12 @@ def check_probe(name, headers, symbols, disassembly):
         # No runtime switch chooses a strategy in the generated wrappers.
         for kind in ("context", "ref", "owned"):
             check_function_slots(disassembly, "late_" + kind + "_", ("read", "write", "call"))
+            for route in ("manual", "local", "global"):
+                for operation in ("read", "write", "call"):
+                    label = f"late_{kind}_{route}_{operation}"
+                    body = function_body(disassembly, label)
+                    if re.search(r"\b(?:push|pop|vpush|vpop|sp|bl|blx)\b", body):
+                        raise RuntimeError(f"LateBoundCodegen: {label} created a stack frame or non-tail call")
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():

@@ -97,8 +97,11 @@ Binding/reset does not change a descriptor's declared capability or schema CRC.
 
 Callable slots expose `get()` snapshots/views for adapters and `invoke()` with
 the precondition that the target is engaged. There is no `operator()` accepting
-an unchecked call. A function/context/ref snapshot keeps its selected target;
-an owned snapshot is a view and does not copy/extend the owned target's lifetime.
+an unchecked call. A function/context snapshot keeps its selected target;
+delegate snapshots are views and do not copy/extend target lifetimes. The views
+avoid copying `delegate_ref` to a temporary stack object on GCC at `-Os`.
+Delegate adapters use the companion library's checked `call_or` path; invalid
+direct invocation of an empty delegate slot terminates instead of calling null.
 
 Every slot must outlive all referring tables and active calls. `OwnerSlot`,
 context slots and borrowed delegates do not extend any target's lifetime.

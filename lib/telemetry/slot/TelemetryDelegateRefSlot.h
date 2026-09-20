@@ -7,6 +7,7 @@
 #ifndef TELEMETRY_DELEGATE_REF_SLOT_H
 #define TELEMETRY_DELEGATE_REF_SLOT_H
 #include "TelemetrySlotTraits.h"
+#include "../core/TelemetryCompiler.h"
 #include "../detail/TelemetrySlotCallable.h"
 #include <utility>
 namespace telemetry {
@@ -19,10 +20,18 @@ class DelegateRefSlot<R(Args...) noexcept> {
 public:
     using Signature = R(Args...) noexcept;
     using Function = R (*)(Args...) noexcept;
-    struct Target {
-        Delegate delegate;
-        constexpr explicit operator bool() const noexcept { return bool(delegate); }
-        R invoke(Args... args) const noexcept { return delegate(std::forward<Args>(args)...); }
+    class Target {
+        friend class DelegateRefSlot;
+        const Delegate* delegate;
+        constexpr explicit Target(const Delegate& value) noexcept : delegate(std::addressof(value)) {}
+    public:
+        Target() = delete;
+        constexpr explicit operator bool() const noexcept { return bool(*delegate); }
+        TELEMETRY_FORCE_INLINE R invoke(Args... args) const noexcept
+        {
+            return delegate->call_or([](Args...) noexcept -> R { tiny::detail::trap(); },
+                                     std::forward<Args>(args)...);
+        }
     };
     constexpr DelegateRefSlot() noexcept = default;
     DelegateRefSlot(const DelegateRefSlot&) = delete;
@@ -62,12 +71,15 @@ public:
         delegate_ = Delegate::template bind<FunctionTarget>();
     }
     constexpr void reset() noexcept { delegate_.reset(); }
-    [[nodiscard]] constexpr Target get() const noexcept { return {delegate_}; }
+    [[nodiscard]] constexpr Target get() const noexcept { return Target(delegate_); }
     [[nodiscard]] constexpr bool available() const noexcept { return bool(delegate_); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return available(); }
     // Precondition: engaged. The external callable/owner and everything it
     // borrows must outlive calls. Rebinding never owns or destroys that target.
-    R invoke(Args... args) const noexcept { return delegate_(std::forward<Args>(args)...); }
+    R invoke(Args... args) const noexcept
+    {
+        return get().invoke(std::forward<Args>(args)...);
+    }
 private:
     Delegate delegate_{};
 };

@@ -47,6 +47,8 @@ static_assert(!std::is_copy_constructible_v<decltype(contextRead)> && !std::is_m
 static_assert(!std::is_copy_constructible_v<decltype(borrowedRead)> && !std::is_move_constructible_v<decltype(borrowedRead)>);
 static_assert(!std::is_copy_constructible_v<decltype(ownedRead)> && !std::is_move_constructible_v<decltype(ownedRead)>);
 static_assert(!std::is_invocable_v<decltype(ownedRead)&> && !std::is_invocable_v<decltype(contextRead)&>);
+static_assert(!std::is_default_constructible_v<decltype(borrowedRead.get())>
+              && !std::is_default_constructible_v<decltype(ownedRead.get())>, "slot views always refer to a real slot");
 float readContext(void* context) noexcept { return static_cast<Meter*>(context)->read(); }
 WriteResult writeContext(void* context, float v) noexcept { return static_cast<Meter*>(context)->write(v); }
 CommandResult callContext(void* context, float v, Mode m) noexcept { return static_cast<Meter*>(context)->call(v, m); }

@@ -7,6 +7,7 @@
 #ifndef TELEMETRY_CONTEXT_FUNCTION_SLOT_H
 #define TELEMETRY_CONTEXT_FUNCTION_SLOT_H
 #include "TelemetrySlotTraits.h"
+#include "../core/TelemetryCompiler.h"
 #include <utility>
 namespace telemetry {
 template <class S> class ContextFunctionSlot {
@@ -23,7 +24,7 @@ public:
         Function function = nullptr;
         void* context = nullptr;
         constexpr explicit operator bool() const noexcept { return function != nullptr; }
-        R invoke(Args... args) const noexcept { return function(context, std::forward<Args>(args)...); }
+        TELEMETRY_FORCE_INLINE R invoke(Args... args) const noexcept { return function(context, std::forward<Args>(args)...); }
     };
     constexpr ContextFunctionSlot() noexcept = default;
     ContextFunctionSlot(const ContextFunctionSlot&) = delete;
