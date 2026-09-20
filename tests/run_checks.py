@@ -11,7 +11,8 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
-          "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck", "TelemetryOwnerSlotCheck")
+          "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck", "TelemetryOwnerSlotCheck",
+          "TelemetryFunctionSlotCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryJson.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
@@ -174,6 +175,20 @@ def main():
                      "tests/TelemetryOwnerSlotCompileFail.cpp"],
             f"owner-slot-reject-{case}", diagnostic)
     print("18 owner slot lifetime and type rejections verified", flush=True)
+
+    function_slot_rejections = {
+        1: "FunctionSlot requires", 2: "FunctionSlot requires",
+        3: "convert|conversion", 4: "convert|conversion", 5: "convert|conversion",
+        **{case: "deleted" for case in range(6, 15)},
+        15: "exact same C\\+\\+ type", 16: "return CommandResult",
+        17: "no parameters", 18: "without references", 19: "volatile",
+        20: "return WriteResult", 21: "no match|does not provide a call", 22: "deleted",
+    }
+    for case, diagnostic in function_slot_rejections.items():
+        run(flags + [f"-DTELEMETRY_FUNCTION_SLOT_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryFunctionSlotCompileFail.cpp"],
+            f"function-slot-reject-{case}", diagnostic)
+    print("22 function slot lifetime and signature rejections verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")

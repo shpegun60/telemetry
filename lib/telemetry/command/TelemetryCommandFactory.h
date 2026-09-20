@@ -161,7 +161,7 @@ template <class Callable, class... Entries,
 constexpr auto command(const char* name, Callable& callable,
                        Entries... entries) noexcept
 {
-    static_assert(detail::HasConcreteCallOperator<Callable>::value,
+    static_assert(detail::hasFactoryCallSignature<Callable>,
                   "Borrowed command callable must have one concrete operator(); generic and overloaded callables are unsupported");
     auto metadata = detail::ownedCommandMetadata(entries...);
     using Metadata = decltype(metadata);

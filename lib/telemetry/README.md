@@ -187,6 +187,56 @@ access are not atomic: perform them before starting consumers, or externally
 serialize them and keep the selected object alive until active calls finish.
 Reset alone is not a way to destroy an object concurrently with an active call.
 
+### Runtime functions behind constant tables
+
+Use `FunctionSlot<R(Args...) noexcept>` when the callback itself is selected
+after startup or can be replaced later. Pass the stable slot as a parameter:
+
+```cpp
+inline FunctionSlot<float() noexcept> voltageRead;
+inline FunctionSlot<WriteResult(float) noexcept> voltageWrite;
+inline FunctionSlot<CommandResult(float) noexcept> start;
+inline constexpr FieldTable selectableFields{
+    field("Voltage", "V", voltageRead, voltageWrite),
+};
+inline constexpr CommandTable selectableCommands{
+    command("Start", start, arg<0>("Speed", "rpm", 0.f, 0.f, 3000.f)),
+};
+
+voltageRead.bind(&readVoltageA);
+voltageWrite.bind(&writeVoltageA);
+start.bind(&startMotor);
+auto voltage = selectableFields.read<0>();       // optional<float>, no Scalar.
+auto status = selectableCommands.call<0>(1500); // int -> float, no Scalar.
+voltageRead.bind(&readVoltageB);                  // Existing table sees B.
+voltageRead.reset();                             // Reads now report absence.
+```
+
+`bind()` takes the exact noexcept function-pointer type. Ordinary functions,
+static methods, and capture-free `[]`/`+[]` lambdas are accepted. It does not
+cast between incompatible function pointers. Input values still use the usual
+checked numeric/enum conversions before the selected setter or command runs.
+An enum-valued getter infers its enum dictionary as usual; Scalar-returning
+getters retain the explicit `FieldType` form.
+
+The slot exposes `bind`, `reset`, `get` and `explicit operator bool`, with no
+call operator. Field/command adapters recognize it at compile time and read
+one function-pointer snapshot per invocation. Empty getters return Null for
+Scalar reads and `nullopt` for typed reads; empty setters/commands return
+`Unavailable`. The conversion/limit/error ordering is the same as `OwnerSlot`
+above. A declared setter slot remains a writable capability in the schema even
+while unbound; a field with no setter remains `ReadOnly`. Getter and setter
+slots can be rebound independently, and neither binding changes schema/CRC.
+
+Native calls retain the typed signature, without a Scalar array or descriptor
+dispatch. The unavoidable dynamic step is the checked function-pointer call.
+Normal functions, objects and borrowed functors gain no presence check. Each
+slot stores one function pointer (4 bytes on Cortex-M7); Field/Command layouts
+and read-only constant tables are unchanged. The slot must outlive those tables
+and cannot be copied/moved. Bind/reset and all access require external
+serialization, just as for `OwnerSlot`. A slot does not own captured state;
+use an ordinary borrowed functor or `OwnerSlot` for callbacks needing an object.
+
 ### Native field access
 
 Native `read<I>()` returns `optional<Scalar::NativeType<tag>>`; an enum returns
@@ -1044,7 +1094,7 @@ The callback's argument is borrowed for the duration of the call only. Copy
 it if it must be retained. Calling a populated `field.set(...)` directly is
 a low-level operation: use `field.write(...)` or `index.write(...)` to obtain
 type conversion and numeric interval checks. Descriptor bindings and metadata
-remain fixed; an explicitly used OwnerSlot may rebind under the lifetime and
+remain fixed; an explicitly used OwnerSlot or FunctionSlot may rebind under the lifetime and
 synchronization contract above.
 
 ## Serialization

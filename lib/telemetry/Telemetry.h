@@ -15,6 +15,7 @@
 // Keep the ABI guard in every consumer even when neither JSON source is linked.
 #include "core/TelemetryId.h"
 #include "core/TelemetryOwnerSlot.h"
+#include "core/TelemetryFunctionSlot.h"
 #include "field/TelemetryEnum.h"
 #include "field/TelemetryFieldFactory.h"
 #include "field/TelemetryFieldTable.h"

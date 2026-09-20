@@ -257,6 +257,29 @@ def check_owner_slots(disassembly):
                 raise RuntimeError(f"OwnerSlotCodegen: {name} added a slot or presence check")
 
 
+def check_function_slots(disassembly):
+    def resolved(name, seen=()):
+        if name in seen:
+            raise RuntimeError("FunctionSlotCodegen: cyclic wrapper alias")
+        instructions = normalized_instructions(disassembly, name)
+        real = [entry for entry in instructions if entry[0] != "nop"]
+        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
+            alias = re.search(r"<(function_slot_\w+)>", real[0][1])
+            if alias:
+                return resolved(alias.group(1), (*seen, name))
+        return instructions
+
+    for operation in ("read", "write", "call", "convert"):
+        manual = resolved("function_slot_manual_" + operation)
+        for route in ("local", "global"):
+            name = "function_slot_" + route + "_" + operation
+            if resolved(name) != manual:
+                raise RuntimeError(f"FunctionSlotCodegen: {name} differs from explicit function check")
+            body = function_body(disassembly, name)
+            if any(symbol in body for symbol in ("Scalar", "functionProbeFields", "functionProbeCommands")):
+                raise RuntimeError(f"FunctionSlotCodegen: {name} retained erased dispatch or table lookup")
+
+
 def check_probe(name, headers, symbols, disassembly):
     if "file format elf32-littlearm" not in headers:
         raise RuntimeError(f"{name}: expected a little-endian ARM object")
@@ -295,6 +318,9 @@ def check_probe(name, headers, symbols, disassembly):
         check_native_field_tables(disassembly)
     elif name == "OwnerSlotCodegen":
         check_owner_slots(disassembly)
+    elif name == "FunctionSlotCodegen":
+        expected = {"functionProbeFields": 2 * 96}
+        check_function_slots(disassembly)
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():

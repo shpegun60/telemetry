@@ -141,7 +141,7 @@ struct DirectFieldPairBinding : DirectFieldReadBinding<ReadFunction> {
 // these adapters add neither ownership nor storage to the descriptor.
 template <class ReadCallable>
 struct BorrowedFieldReadBinding {
-    static_assert(HasConcreteCallOperator<ReadCallable>::value,
+    static_assert(hasFactoryCallSignature<ReadCallable>,
                   "Borrowed field getter must have one concrete operator(); generic and overloaded callables are unsupported");
     static_assert(!std::is_volatile_v<ReadCallable>,
                   "Borrowed field getter cannot be volatile");
@@ -153,9 +153,13 @@ struct BorrowedFieldReadBinding {
 
     static TELEMETRY_FORCE_INLINE Scalar read(ReadCallable& callable) noexcept
     {
-        static_assert(std::is_nothrow_invocable_v<ReadCallable&>,
+        auto* target = resolveFactoryCallable(std::addressof(callable));
+        if constexpr (isFunctionSlot<ReadCallable>) {
+            if (target == nullptr) return Scalar::null();
+        }
+        static_assert(std::is_nothrow_invocable_v<decltype(*target)>,
                       "Borrowed field getter must be noexcept");
-        return factoryScalar(callable());
+        return factoryScalar((*target)());
     }
 
     static constexpr Getter getter(ReadCallable& callable) noexcept
@@ -168,7 +172,7 @@ template <class ReadCallable, class WriteCallable, class Constraint = NoLimits>
 struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
     using Base = BorrowedFieldReadBinding<ReadCallable>;
     using Value = typename Base::Value;
-    static_assert(HasConcreteCallOperator<WriteCallable>::value,
+    static_assert(hasFactoryCallSignature<WriteCallable>,
                   "Borrowed field setter must have one concrete operator(); generic and overloaded callables are unsupported");
     static_assert(!std::is_volatile_v<WriteCallable>,
                   "Borrowed field setter cannot be volatile");
@@ -185,13 +189,17 @@ struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
     static TELEMETRY_FORCE_INLINE WriteResult write(WriteCallable& callable,
                                                      const Scalar& value) noexcept
     {
-        static_assert(std::is_nothrow_invocable_r_v<WriteResult, WriteCallable&, Argument>,
+        auto* target = resolveFactoryCallable(std::addressof(callable));
+        if constexpr (isFunctionSlot<WriteCallable>) {
+            if (target == nullptr) return WriteResult::Unavailable;
+        }
+        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(*target), Argument>,
                       "Borrowed field setter must be noexcept");
-        if constexpr (std::is_same_v<Value, Scalar>) return callable(value);
+        if constexpr (std::is_same_v<Value, Scalar>) return (*target)(value);
         else {
             Value native{};
             if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return callable(native);
+            return (*target)(native);
         }
     }
 

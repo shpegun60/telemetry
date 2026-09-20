@@ -302,7 +302,7 @@ template <class Callable, class Metadata = NoCommandArgs>
 struct BorrowedCommandBinding {
     // Restore the exact admitted cv-qualified closure type. The closure is
     // borrowed, never copied; even capturing lambdas retain their native state.
-    static_assert(HasConcreteCallOperator<Callable>::value,
+    static_assert(hasFactoryCallSignature<Callable>,
                   "Borrowed command callable must have one concrete operator(); generic and overloaded callables are unsupported");
     using Traits = CallableObjectTraits<Callable>;
     using Contract = CommandContract<Traits, Metadata>;
@@ -314,11 +314,14 @@ struct BorrowedCommandBinding {
     static CommandResult run(const void* target, const void* metadata, const Scalar* values,
                              std::index_sequence<I...> sequence) noexcept
     {
+        auto* callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
+        if constexpr (isFunctionSlot<Callable>) {
+            if (callable == nullptr) return CommandResult::Unavailable;
+        }
         Arguments converted{};
         const auto* definition = static_cast<const Metadata*>(metadata);
         if (!Contract::convertAll(definition, values, converted, sequence))
             return CommandResult::InvalidValue;
-        auto* callable = static_cast<Callable*>(const_cast<void*>(target));
         return (*callable)(std::get<I>(converted)...);
     }
 
@@ -337,7 +340,10 @@ struct BorrowedCommandBinding {
         const void* target, const Metadata* metadata,
         std::index_sequence<I...> sequence, Input... values) noexcept
     {
-        auto* callable = static_cast<Callable*>(const_cast<void*>(target));
+        auto* callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
+        if constexpr (isFunctionSlot<Callable>) {
+            if (callable == nullptr) return CommandResult::Unavailable;
+        }
         if constexpr (Contract::template exactArguments<Input...>) {
             if (!Contract::validateNativeAll(metadata, sequence, values...))
                 return CommandResult::InvalidValue;

@@ -131,6 +131,11 @@ Only this explicit slot mode checks for an absent target; ordinary objects and
 free functions retain their direct paths. See the
 [slot contract and example](lib/telemetry/README.md#runtime-objects-behind-constant-tables).
 
+For a callback selected or replaced at runtime, use `FunctionSlot<Signature>`
+as a `field(...)`/`command(...)` parameter. Its checked adapters preserve empty
+reads and report unavailable writes/commands while constant schemas remain
+unchanged. See the [function slot example](lib/telemetry/README.md#runtime-functions-behind-constant-tables).
+
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
 (IDs `0..5`); sensor is group 1 (IDs `65536..65537`); integer examples are
 group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and

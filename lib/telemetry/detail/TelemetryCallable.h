@@ -9,6 +9,7 @@
 
 #include "../field/TelemetryEnum.h"
 #include "../core/TelemetryOwnerSlot.h"
+#include "../core/TelemetryFunctionSlot.h"
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -60,7 +61,24 @@ struct HasConcreteCallOperator<T,
     std::void_t<decltype(&std::remove_cv_t<T>::operator())>> : std::true_type {};
 
 template <class T>
-using CallableObjectTraits = CallableTraits<decltype(&std::remove_cv_t<T>::operator())>;
+inline constexpr bool hasFactoryCallSignature = HasConcreteCallOperator<T>::value || isFunctionSlot<T>;
+
+template <class T, bool = isFunctionSlot<T>>
+struct CallableObjectSignature : CallableTraits<decltype(&std::remove_cv_t<T>::operator())> {};
+template <class T>
+struct CallableObjectSignature<T, true> : CallableTraits<typename std::remove_cv_t<T>::Function> {};
+template <class T>
+using CallableObjectTraits = CallableObjectSignature<T>;
+
+// Ordinary closures retain their exact address and direct operator() call.
+// Only explicit FunctionSlot types load a mutable function pointer. Callers
+// check that snapshot once and invoke the same function after validation.
+template <class Callable>
+TELEMETRY_FORCE_INLINE constexpr auto resolveFactoryCallable(Callable* callable) noexcept
+{
+    if constexpr (isFunctionSlot<Callable>) return callable->get();
+    else return callable;
+}
 
 // Capture-free lambdas expose the built-in unary-plus conversion to an exact
 // function pointer. Keep those on the existing direct-function path; class

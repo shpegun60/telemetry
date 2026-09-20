@@ -35,11 +35,11 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes eleven suites (including native/dynamic table parity and owner-slot checks), verifies
+The runner executes twelve suites (including native/dynamic table parity and both slot types), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
-18 integer/enum-position and 18 owner-slot compile-time rejection cases (245 total;
-252 in C++20 with structural adapters and additional invalid position types), checks
+18 integer/enum-position, 18 owner-slot and 22 function-slot compile-time rejection cases (267 total;
+274 in C++20 with structural adapters and additional invalid position types), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -101,9 +101,9 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 32 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 34 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All thirteen codegen objects must have no startup
+and warnings as errors. All fourteen codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
@@ -113,6 +113,9 @@ native dispatch levels and keeps the Scalar/indirect wrapper as a control.
 OwnerSlotCodegen compares local/global reads, writes and commands with explicit
 checked pointer calls, and separately requires direct-object and free-function
 table calls to match ordinary calls without slot loads or presence checks.
+FunctionSlotCodegen compares native local/global read, write, command and
+converting command calls with handwritten function-pointer load/check/invoke
+sequences. Its two-row Field table must remain 192 bytes in read-only storage.
 Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
 nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
 command-JSON objects are placed in separate static archives: normal 32-byte callers must

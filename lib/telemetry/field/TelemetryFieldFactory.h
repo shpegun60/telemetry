@@ -84,13 +84,30 @@ template <class Read, class Write = std::nullptr_t, class Constraint = NoLimits>
 struct BorrowedFieldAccess {
     using Value = typename CallableObjectTraits<Read>::Result;
     using EnumConstraint = Constraint;
-    static constexpr bool nullableRead = false;
+    static constexpr bool nullableRead = isFunctionSlot<Read>;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
-    { return (*FieldTableAccess::object<Read>(entry.get))(); }
+    {
+        static_assert(!nullableRead, "Slot reads must use the optional readSlot adapter");
+        return (*FieldTableAccess::object<Read>(entry.get))();
+    }
+    template <class T>
+    static TELEMETRY_FORCE_INLINE std::optional<T> readSlot(const Field& entry) noexcept
+    {
+        auto* target = resolveFactoryCallable(FieldTableAccess::object<Read>(entry.get));
+        if (target == nullptr) return std::nullopt;
+        using Stored = Scalar::NativeType<Scalar::from(RawNumberT<Value>{}).type()>;
+        return readNumber<T>(static_cast<Stored>((*target)()));
+    }
     static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
     {
-        if constexpr (writable) return (*FieldTableAccess::object<Write>(entry.set))(value);
+        if constexpr (writable) {
+            auto* target = resolveFactoryCallable(FieldTableAccess::object<Write>(entry.set));
+            if constexpr (isFunctionSlot<Write>) {
+                if (target == nullptr) return WriteResult::Unavailable;
+            }
+            return (*target)(value);
+        }
         else return WriteResult::ReadOnly;
     }
 };
