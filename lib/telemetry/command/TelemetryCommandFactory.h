@@ -14,13 +14,9 @@
 namespace telemetry {
 namespace detail {
 
-template <auto Target, class Owner, class Metadata = NoCommandArgs>
-struct CommandBinding {
-    using Traits = CallableTraits<decltype(Target)>;
+template <class Traits, class Metadata>
+struct CommandContract {
     using Arguments = typename Traits::Arguments;
-    static_assert(Target != nullptr, "Command target cannot be null");
-    static_assert(std::is_same_v<typename Traits::Result, CommandResult>,
-                  "Command target must return CommandResult");
 
     template <std::size_t I>
     static constexpr CommandParam parameter(const Metadata* metadata) noexcept
@@ -46,7 +42,12 @@ struct CommandBinding {
             if (!scalarFinite(*number)) return false;
         }
         if constexpr (std::is_enum_v<T>) {
-            constexpr auto type = inferredType<T>();
+            const auto type = [&]() constexpr noexcept {
+                if constexpr (std::is_same_v<Metadata, NoCommandArgs>)
+                    return inferredType<T>();
+                else
+                    return enumConstraintType<T>(std::get<I>(metadata->entries).values);
+            }();
             using Stored = Scalar::NativeType<Scalar::from(Raw{}).type()>;
             if (*number < type.minimum().template get<Stored>()
                 || *number > type.maximum().template get<Stored>()) return false;
@@ -58,6 +59,15 @@ struct CommandBinding {
         return true;
     }
 
+    template <std::size_t... I>
+    static bool convertAll(const Metadata* metadata, const Scalar* values,
+                           Arguments& output, std::index_sequence<I...>) noexcept
+    {
+        (void) metadata;
+        (void) values;
+        return (convert<I>(metadata, values[I], output) && ...);
+    }
+
     template <class T> static bool within(T, NoLimits) noexcept { return true; }
     template <class T, class U, bool Bounded>
     static bool within(T number, const ValueLimits<U, Bounded>& values) noexcept
@@ -66,30 +76,8 @@ struct CommandBinding {
                                    && number <= static_cast<T>(values.maximum);
         else return true;
     }
-
-    template <std::size_t... I>
-    static CommandResult run(const void* object, const void* metadata, const Scalar* values,
-                             std::index_sequence<I...>) noexcept
-    {
-        Arguments converted{};
-        const auto* definition = static_cast<const Metadata*>(metadata);
-        (void) definition;
-        (void) values;
-        if (!(convert<I>(definition, values[I], converted) && ...)) return CommandResult::InvalidValue;
-        // The factory admitted an lvalue with this exact cv-qualified type.
-        auto* owner = static_cast<Owner*>(const_cast<void*>(object));
-        return invokeFactory<Target>(owner, std::get<I>(converted)...);
-    }
-
-    static CommandResult run(const void* object, const void* metadata,
-                             const Scalar* values, std::size_t count) noexcept
-    {
-        if (count != Traits::arity) return CommandResult::ArgumentCountMismatch;
-        if constexpr (Traits::arity != 0) {
-            if (values == nullptr) return CommandResult::InvalidValue;
-        }
-        return run(object, metadata, values, std::make_index_sequence<Traits::arity>{});
-    }
+    template <class T, class E, E... Values>
+    static bool within(T, const EnumSpec<E, Values...>&) noexcept { return true; }
 
     template <std::size_t... I>
     static bool schema(const Metadata* metadata, void* context, CommandParamSink sink,
@@ -115,15 +103,93 @@ struct CommandBinding {
         (static_cast<void>(parameter<I>(metadata)), ...);
     }
 
-    static constexpr Command make(CommandId id, const char* name, Owner* owner,
-                                  const Metadata* metadata = nullptr) noexcept
+    static constexpr void validateMetadata(const Metadata* metadata) noexcept
     {
         if constexpr (!std::is_same_v<Metadata, NoCommandArgs>) {
             static_assert(Metadata::count == Traits::arity,
                           "Command metadata count must match the function's parameter count");
         }
         validate(metadata, std::make_index_sequence<Traits::arity>{});
-        return Command{id, name, owner, metadata, &run, &schema};
+    }
+};
+
+template <auto Target, class Owner, class Metadata = NoCommandArgs>
+struct CommandBinding {
+    using Traits = CallableTraits<decltype(Target)>;
+    using Contract = CommandContract<Traits, Metadata>;
+    using Arguments = typename Contract::Arguments;
+    static_assert(Target != nullptr, "Command target cannot be null");
+    static_assert(std::is_same_v<typename Traits::Result, CommandResult>,
+                  "Command target must return CommandResult");
+
+    template <std::size_t... I>
+    static CommandResult run(const void* target, const void* metadata, const Scalar* values,
+                             std::index_sequence<I...> sequence) noexcept
+    {
+        Arguments converted{};
+        const auto* definition = static_cast<const Metadata*>(metadata);
+        if (!Contract::convertAll(definition, values, converted, sequence))
+            return CommandResult::InvalidValue;
+        // The factory admitted an lvalue with this exact cv-qualified type.
+        auto* owner = static_cast<Owner*>(const_cast<void*>(target));
+        return invokeFactory<Target>(owner, std::get<I>(converted)...);
+    }
+
+    static CommandResult run(const void* target, const void* metadata,
+                             const Scalar* values, std::size_t count) noexcept
+    {
+        if (count != Traits::arity) return CommandResult::ArgumentCountMismatch;
+        if constexpr (Traits::arity != 0) {
+            if (values == nullptr) return CommandResult::InvalidValue;
+        }
+        return run(target, metadata, values, std::make_index_sequence<Traits::arity>{});
+    }
+
+    static constexpr Command make(CommandId id, const char* name, Owner* owner,
+                                  const Metadata* metadata = nullptr) noexcept
+    {
+        Contract::validateMetadata(metadata);
+        return Command{id, name, owner, metadata, &run, &Contract::schema};
+    }
+};
+
+template <class Callable, class Metadata = NoCommandArgs>
+struct BorrowedCommandBinding {
+    static_assert(HasConcreteCallOperator<Callable>::value,
+                  "Borrowed command callable must have one concrete operator(); generic and overloaded callables are unsupported");
+    using Traits = CallableObjectTraits<Callable>;
+    using Contract = CommandContract<Traits, Metadata>;
+    using Arguments = typename Contract::Arguments;
+    static_assert(std::is_same_v<typename Traits::Result, CommandResult>,
+                  "Borrowed command callable must return CommandResult");
+
+    template <std::size_t... I>
+    static CommandResult run(const void* target, const void* metadata, const Scalar* values,
+                             std::index_sequence<I...> sequence) noexcept
+    {
+        Arguments converted{};
+        const auto* definition = static_cast<const Metadata*>(metadata);
+        if (!Contract::convertAll(definition, values, converted, sequence))
+            return CommandResult::InvalidValue;
+        auto* callable = static_cast<Callable*>(const_cast<void*>(target));
+        return (*callable)(std::get<I>(converted)...);
+    }
+
+    static CommandResult run(const void* target, const void* metadata,
+                             const Scalar* values, std::size_t count) noexcept
+    {
+        if (count != Traits::arity) return CommandResult::ArgumentCountMismatch;
+        if constexpr (Traits::arity != 0) {
+            if (values == nullptr) return CommandResult::InvalidValue;
+        }
+        return run(target, metadata, values, std::make_index_sequence<Traits::arity>{});
+    }
+
+    static constexpr Command make(CommandId id, const char* name, Callable* callable,
+                                  const Metadata* metadata = nullptr) noexcept
+    {
+        Contract::validateMetadata(metadata);
+        return Command{id, name, callable, metadata, &run, &Contract::schema};
     }
 };
 } // namespace detail
@@ -156,5 +222,39 @@ constexpr Command makeCommand(CommandId id, const char* name, Metadata&& metadat
     return detail::CommandBinding<Target, detail::NoOwner, std::decay_t<Metadata>>::make(
         id, name, nullptr, std::addressof(metadata));
 }
+
+
+// Stateful functors and named lambdas are borrowed as stable lvalues. Free and
+// static functions deliberately use makeCommand<&function>(), which stores no
+// runtime target. The callable and optional metadata must outlive Command.
+template <class Callable, std::enable_if_t<
+          std::is_class_v<std::remove_cv_t<Callable>>, int> = 0>
+constexpr Command makeCommand(CommandId id, const char* name, Callable& callable) noexcept
+{
+    return detail::BorrowedCommandBinding<Callable>::make(
+        id, name, std::addressof(callable));
+}
+
+template <class Callable, class Metadata, std::enable_if_t<
+          std::is_class_v<std::remove_cv_t<Callable>>
+          && std::is_lvalue_reference_v<Metadata&&>
+          && detail::isCommandArgs<Metadata>, int> = 0>
+constexpr Command makeCommand(CommandId id, const char* name, Callable& callable,
+                              Metadata&& metadata) noexcept
+{
+    return detail::BorrowedCommandBinding<Callable, std::decay_t<Metadata>>::make(
+        id, name, std::addressof(callable), std::addressof(metadata));
+}
+
+template <class Callable, std::enable_if_t<
+          std::is_class_v<std::remove_cv_t<Callable>>
+          && !std::is_lvalue_reference_v<Callable>, int> = 0>
+Command makeCommand(CommandId, const char*, Callable&&) = delete;
+
+template <class Callable, class Metadata, std::enable_if_t<
+          std::is_class_v<std::remove_cv_t<Callable>>
+          && !std::is_lvalue_reference_v<Callable>
+          && detail::isCommandArgs<Metadata>, int> = 0>
+Command makeCommand(CommandId, const char*, Callable&&, Metadata&&) = delete;
 } // namespace telemetry
 #endif

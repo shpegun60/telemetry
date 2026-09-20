@@ -23,6 +23,7 @@
 // Helpers:
 //   tiny::borrow(x)                         // force ref binding for lvalues
 //   tiny::bind<&T::method>(obj)             // bind method with signature deduction
+//   delegate_ref<Sig>::bind_context<&fn>(x) // bind free adapter fn(x, Args...)
 //
 // Compile-time checks:
 //   fits_inline<T>(), required_inline_bytes<T>(), static_assert_fits_inline<T>()
@@ -506,29 +507,33 @@ public:
         return d;
     }
 
-    constexpr void reset() noexcept {
-        payload_ = payload_t{};
-        invoke_ = nullptr;
-    }
-
-    // Local telemetry extension: bind a compile-time free adapter to a borrowed
-    // context. Object and function pointers keep their distinct representations.
+    /**
+     * Compile-time free adapter plus a borrowed runtime context. Function is
+     * called as Function(context, args...). The context must be a stable
+     * lvalue and outlive every copy of the delegate.
+     */
     template <auto Function, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr delegate_ref bind_context(T& object) noexcept {
         static_assert(std::is_pointer_v<decltype(Function)>
                       && std::is_function_v<std::remove_pointer_t<decltype(Function)>>,
-                      "bind_context requires a free function adapter");
-        static_assert(detail::non_null_target_v<Function>, "bind_context target cannot be null");
+                      "tiny::delegate_ref::bind_context: Function must be a free function pointer.");
+        static_assert(detail::non_null_target_v<Function>,
+                      "tiny::delegate_ref::bind_context: function cannot be null.");
         static_assert(detail::safely_invocable_r_v<R, decltype(Function), T&, Args...>,
-                      "bind_context adapter signature mismatch");
-        delegate_ref result;
-        result.payload_.object = detail::erase_ptr(std::addressof(object));
-        result.invoke_ = &invoke_context_<Function, T>;
-        return result;
+                      "tiny::delegate_ref::bind_context: signature mismatch (context/args/return).");
+        delegate_ref d;
+        d.payload_.object = detail::erase_ptr(std::addressof(object));
+        d.invoke_ = &invoke_context_<Function, T>;
+        return d;
     }
 
     template <auto Function, class T>
     static delegate_ref bind_context(T&&) = delete;
+
+    constexpr void reset() noexcept {
+        payload_ = payload_t{};
+        invoke_ = nullptr;
+    }
 
     constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
 
@@ -588,17 +593,6 @@ private:
         return detail::invoke_r<R>(fn, std::forward<Args>(a)...);
     }
 
-    template <auto Function, class T>
-#if defined(_MSC_VER)
-    __forceinline
-#elif defined(__GNUC__) || defined(__clang__)
-    __attribute__((always_inline)) inline
-#endif
-    static R invoke_context_(payload_t p, Args... a) {
-        if constexpr (std::is_void_v<R>) { Function(*static_cast<T*>(p.object), std::forward<Args>(a)...); }
-        else return Function(*static_cast<T*>(p.object), std::forward<Args>(a)...);
-    }
-
     template <auto Method, class T>
     static R invoke_method_ref_(payload_t p, Args... a) {
         T& o = *static_cast<T*>(p.object);
@@ -615,6 +609,12 @@ private:
     static R invoke_function_static_(payload_t, Args... a) {
         if constexpr (std::is_void_v<R>) { Function(std::forward<Args>(a)...); return; }
         else { return Function(std::forward<Args>(a)...); }
+    }
+
+    template <auto Function, class T>
+    static R invoke_context_(payload_t p, Args... a) {
+        T& context = *static_cast<T*>(p.object);
+        return detail::invoke_r<R>(Function, context, std::forward<Args>(a)...);
     }
 
     template <auto Method, auto& Instance>
@@ -1161,6 +1161,26 @@ public:
         return d;
     }
 
+    /** Same borrowed-context contract as delegate_ref::bind_context. */
+    template <auto Function, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static delegate bind_context(T& object) noexcept {
+        static_assert(std::is_pointer_v<decltype(Function)>
+                      && std::is_function_v<std::remove_pointer_t<decltype(Function)>>,
+                      "tiny::delegate::bind_context: Function must be a free function pointer.");
+        static_assert(detail::non_null_target_v<Function>,
+                      "tiny::delegate::bind_context: function cannot be null.");
+        static_assert(detail::safely_invocable_r_v<R, decltype(Function), T&, Args...>,
+                      "tiny::delegate::bind_context: signature mismatch (context/args/return).");
+        delegate d;
+        d.ctx_ = detail::erase_ptr(std::addressof(object));
+        d.invoke_ = &invoke_context_<Function, T>;
+        d.mgr_ = &mgr_ref_();
+        return d;
+    }
+
+    template <auto Function, class T>
+    static delegate bind_context(T&&) = delete;
+
 private:
     struct manager {
         void (*destroy)(void*) noexcept;
@@ -1222,6 +1242,12 @@ private:
     static R invoke_function_static_(void*, Args... a) {
         if constexpr (std::is_void_v<R>) { Function(std::forward<Args>(a)...); return; }
         else { return Function(std::forward<Args>(a)...); }
+    }
+
+    template <auto Function, class T>
+    static R invoke_context_(void* c, Args... a) {
+        T& context = *static_cast<T*>(c);
+        return detail::invoke_r<R>(Function, context, std::forward<Args>(a)...);
     }
 
     template <auto Method, auto& Instance>

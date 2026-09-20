@@ -1,4 +1,5 @@
 #include "Telemetry.h"
+#include "tiny_delegate.hpp"
 using namespace telemetry;
 enum class Mode : unsigned char { Off, On };
 enum class Other : unsigned char { Off, On };
@@ -20,6 +21,22 @@ struct Device {
 Device device;
 const Device constant;
 CommandResult global(float) noexcept {return CommandResult::Executed;}
+float parameterRead() noexcept {return 0;}
+WriteResult parameterWrite(float) noexcept {return WriteResult::Applied;}
+WriteResult parameterMismatch(unsigned short) noexcept {return WriteResult::Applied;}
+WriteResult parameterThrowing(float) {return WriteResult::Applied;}
+CommandResult commandThrowing(float) {return CommandResult::Executed;}
+Mode parameterMode() noexcept {return Mode::Off;}
+WriteResult parameterModeWrite(Mode) noexcept {return WriteResult::Applied;}
+struct ThrowingCallable { CommandResult operator()(float) { return CommandResult::Executed; } };
+struct OverloadedCallable {
+    CommandResult operator()(float) noexcept { return CommandResult::Executed; }
+    CommandResult operator()(int) noexcept { return CommandResult::Executed; }
+};
+ThrowingCallable throwingCallable;
+OverloadedCallable overloadedCallable;
+auto genericCallable=[](auto) noexcept {return CommandResult::Executed;};
+auto stableCallable=[](float) noexcept {return CommandResult::Executed;};
 constexpr auto one = commandArgs(arg("v","",1.0f));
 constexpr auto two = commandArgs(arg("v"),arg("x"));
 constexpr auto wrong = commandArgs(arg("v","",1));
@@ -94,6 +111,53 @@ constexpr auto target=static_cast<float (*)() noexcept>(nullptr);
 constexpr auto bad=makeField(0,"x","",target);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 31
 auto bad=makeField(0,"x","",[](){return 1.0f;});
+#elif TELEMETRY_FACTORY_FAIL_CASE == 32
+auto bad=makeField(0,"x","",parameterRead,parameterMismatch);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 33
+auto bad=makeField(0,"x","",parameterRead,parameterThrowing);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 34
+auto build(){float state=0;return makeField(0,"x","",parameterRead,
+    [state](float) noexcept {return WriteResult::Applied;});}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 35
+auto bad=makeCommand(0,"x",commandThrowing);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 36
+auto build(){float state=0;return makeCommand(0,"x",
+    [state](float) noexcept {return CommandResult::Executed;});}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 37
+auto bad=makeCommand(0,"x",global,commandArgs(arg("v")));
+#elif TELEMETRY_FACTORY_FAIL_CASE == 38
+auto bad=makeField<&parameterRead>(0,"x","",parameterWrite);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 39
+constexpr auto bad=makeField(0,"x","",parameterMode,parameterModeWrite);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 40
+constexpr auto bad=makeCommand(0,"x",global);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 41
+auto bad=makeCommand(0,"x",throwingCallable);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 42
+auto bad=makeCommand(0,"x",genericCallable);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 43
+auto bad=makeCommand(0,"x",overloadedCallable);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 44
+auto bad=makeCommand(0,"x",stableCallable,commandArgs(arg("v")));
+#elif TELEMETRY_FACTORY_FAIL_CASE == 45
+constexpr auto bad=makeField<&Device::mode>(0,"x","",device,enumSpec<Other::Off,Other::On>());
+#elif TELEMETRY_FACTORY_FAIL_CASE == 46
+constexpr auto bad=enumSpec<Mode::Off,Other::On>();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 47
+constexpr auto bad=enumSpec<Mode::Off,Mode::Off>();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 48
+constexpr auto metadata=commandArgs(arg("mode","",enumSpec<Other::Off,Other::On>()));
+constexpr auto bad=makeCommand<&Device::action>(0,"x",device,metadata);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 49
+constexpr auto bad=makeField(0,"x","",parameterMode);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 50
+auto bad=makeCommand(0,"x",[](float) noexcept {return CommandResult::Executed;});
+#elif TELEMETRY_FACTORY_FAIL_CASE == 51
+using CommandRows=Command[1];
+auto bad=CommandCatalog{0,"temporary",CommandRows{},1};
+#elif TELEMETRY_FACTORY_FAIL_CASE == 52
+using CommandGroups=CommandCatalog[1];
+auto bad=CommandCatalogIndex{CommandGroups{},1};
 #else
 #error Unknown factory case
 #endif

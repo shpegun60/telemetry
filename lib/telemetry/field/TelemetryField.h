@@ -21,7 +21,8 @@
 namespace telemetry {
 
 // Catalogs describe values; bound owners acquire and apply their values.
-// Getter/Setter apply telemetry's noexcept/empty-value policy to tiny::delegate_ref.
+// Getter/Setter are compact non-owning payload/invoker pairs with telemetry's
+// noexcept and empty-value policy.
 // This layer adds no synchronization or cross-field snapshot guarantee.
 // A getter must be noexcept and return null when its value is unavailable.
 // All referenced objects, arrays and strings must outlive their consumers.

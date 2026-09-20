@@ -13,17 +13,20 @@ using namespace telemetry;
 int checks = 0, failures = 0;
 void expect(bool ok, const char* label) { ++checks; if (!ok) {++failures; std::printf("FAIL %s\n", label);} }
 enum class Mode : std::uint8_t { Fast, Normal, Precise };
+enum class Error : std::uint16_t { None = 0, Overvoltage = 1000, Overcurrent = 2000 };
 enum Legacy { Low = -2, High = 2 };
 struct Device {
     int calls = 0;
     float voltage = 0;
     Mode mode = Mode::Fast;
     std::uint64_t address = 0;
+    Error error = Error::None;
     CommandResult reset() noexcept { ++calls; voltage=0; return CommandResult::Executed; }
     CommandResult calibrate(float v,Mode m) noexcept { ++calls; voltage=v; mode=m; return CommandResult::Executed; }
     CommandResult setAddress(std::uint64_t value) noexcept { ++calls; address=value; return CommandResult::Accepted; }
     CommandResult diagnostics() const noexcept { return CommandResult::Busy; }
     CommandResult legacy(Legacy) noexcept { ++calls; return CommandResult::Executed; }
+    CommandResult clearError(Error value) noexcept { ++calls; error = value; return CommandResult::Executed; }
 };
 Device device;
 int freeCalls=0;
@@ -46,6 +49,8 @@ constexpr auto lambdaTarget = +[](std::uint16_t value) noexcept {
 constexpr auto lambdaCommand = makeCommand<lambdaTarget>(0,"lambda");
 constexpr auto calibrateArgs = commandArgs(arg("Voltage", "V", 230.0f, 0.0f, 500.0f),arg("Mode", "", Mode::Normal));
 constexpr auto addressArgs = commandArgs(arg("Address", "", UINT64_MAX, UINT64_C(1), UINT64_MAX));
+constexpr auto errorArgs = commandArgs(arg("Error", "",
+    enumSpec<Error::None, Error::Overvoltage, Error::Overcurrent>(Error::Overvoltage)));
 constexpr Command commands[] = {
     makeCommand<&Device::reset>(0,"Reset",device),
     makeCommand<&Device::calibrate>(1,"Calibrate",device,calibrateArgs),
@@ -54,13 +59,27 @@ constexpr Command commands[] = {
     makeCommand<&System::save>(4,"Save"),
     makeCommand<&Device::calibrate>(5,"Automatic",device),
     makeCommand<&Device::legacy>(6,"Legacy",device),
+    makeCommand<&Device::clearError>(7,"ClearError",device,errorArgs),
 };
 constexpr CommandIndex commandsIndex{commands};
-static_assert(commandsIndex.size()==7 && commands[0].metadata==nullptr);
+constexpr Command motorCommands[] = {
+    makeCommand<&System::save>(makeId(1, 0), "Tune"),
+};
+constexpr CommandCatalog commandCatalogs[] = {
+    {0, "System", commands},
+    {1, "Motor/Control", motorCommands},
+};
+constexpr CommandCatalogIndex groupedCommands{commandCatalogs};
+static_assert(commandsIndex.size()==8 && commands[0].metadata==nullptr);
+static_assert(groupedCommands.size()==2
+              && groupedCommands.find(makeId(1, 0)) == &motorCommands[0]);
+static_assert(commandNamesUnique(commands, std::size(commands))
+              && commandCatalogNamesUnique(commandCatalogs, std::size(commandCatalogs)));
 static_assert(!std::is_copy_assignable_v<Command> && std::is_trivially_copyable_v<Command>);
 static_assert(sizeof(Command)==sizeof(void*)*6);
 bool stop(void* state,const CommandParam&) noexcept { ++*static_cast<int*>(state); return false; }
-bool boundaries(const CommandIndex& view,JsonOptions options)
+template <class Index>
+bool boundaries(const Index& view,JsonOptions options)
 {
     std::array<char,4096> reference{};
     const auto len=writeSchema(view,reference.data(),reference.size(),options);
@@ -102,11 +121,90 @@ int main()
                     INT16_MIN,INT32_MIN,INT64_MIN,true)==CommandResult::InvalidValue && manyCalls==1,
            "interior argument overflow prevents wide signature invocation");
     expect(lambdaCommand.call(12.9)==CommandResult::Executed,"named C++17 lambda with truncation");
+    Device borrowedDevice;
+    auto capturing = [&borrowedDevice](float value, Mode next) noexcept {
+        return borrowedDevice.calibrate(value, next);
+    };
+    const auto borrowedLambda = makeCommand(0,"borrowed lambda",capturing,calibrateArgs);
+    expect(borrowedLambda.call(300,Mode::Normal)==CommandResult::Executed
+           && borrowedDevice.voltage==300.0f && borrowedDevice.mode==Mode::Normal,
+           "stable capturing lambda is borrowed");
+    expect(borrowedLambda.call(501,Mode::Fast)==CommandResult::InvalidValue
+           && borrowedDevice.calls==1,"borrowed callable validates before invocation");
+    struct Stateful {
+        Device& owner;
+        CommandResult operator()(std::uint16_t value) noexcept
+        { owner.address=value; return CommandResult::Accepted; }
+    } stateful{borrowedDevice};
+    auto borrowedFunctor = makeCommand(0,"borrowed functor",stateful);
+    expect(borrowedFunctor.call(42.9)==CommandResult::Accepted
+           && borrowedDevice.address==42,"stable stateful functor and conversion");
+    const auto statelessTarget = [](bool value) noexcept {
+        return value ? CommandResult::Executed : CommandResult::Failed;
+    };
+    constexpr auto boolArgs = commandArgs(arg("Enabled"));
+    const auto borrowedConst = makeCommand(0,"borrowed const",statelessTarget,boolArgs);
+    expect(borrowedConst.call(1)==CommandResult::Executed,
+           "const named callable lvalue is borrowed");
     expect(commandsIndex.call(5,-50.0,2)==CommandResult::Executed && device.voltage==-50.0f,"inferred native bounds");
     expect(commandsIndex.call(5,std::numeric_limits<float>::infinity(),1)==CommandResult::InvalidValue,"infinite native input rejected");
     expect(commandsIndex.call(5,std::numeric_limits<float>::quiet_NaN(),1)==CommandResult::InvalidValue,"nan native input rejected");
     expect(commandsIndex.call(6,0)==CommandResult::Executed,"unfixed enum gap allowed");
     expect(commandsIndex.call(6,1000)==CommandResult::InvalidValue,"unfixed enum cast guarded");
+    expect(commandsIndex.call(7,2000)==CommandResult::Executed
+           && device.error==Error::Overcurrent,"explicit sparse command enum accepted");
+    expect(commandsIndex.call(7,2001)==CommandResult::InvalidValue,
+           "explicit sparse command enum bounds enforced");
+    expect(groupedCommands.call(makeId(1,0))==CommandResult::Executed,
+           "grouped command direct lookup");
+    expect(groupedCommands.call(makeId(2,0))==CommandResult::NotFound,
+           "grouped command missing group");
+    const Command brokenRows[]={
+        makeCommand<&System::save>(makeId(0,0),"First"),
+        makeCommand<&System::save>(makeId(0,2),"Gap"),
+        makeCommand<&System::save>(makeId(0,1),"Past gap"),
+    };
+    const CommandCatalog preservedGroups[]={
+        {0,"Broken rows",brokenRows},
+        {1,"Motor",motorCommands},
+    };
+    const CommandCatalogIndex preserved{preservedGroups};
+    expect(preserved.size()==2 && preserved.data()[0].count==1
+           && preserved.find(makeId(0,1))==nullptr
+           && preserved.find(makeId(1,0))==&motorCommands[0],
+           "row gap trims one command group without hiding the next group");
+    const Command groupTwo[]={makeCommand<&System::save>(makeId(2,0),"Late")};
+    const CommandCatalog brokenGroups[]={
+        {0,"System",commands},
+        {2,"Past group gap",groupTwo},
+    };
+    const CommandCatalogIndex clipped{brokenGroups};
+    expect(clipped.size()==1 && clipped.find(makeId(2,0))==nullptr,
+           "group gap truncates the grouped command prefix");
+    expect(CommandCatalog{}.count==0 && CommandCatalog{0,"null",nullptr,100}.count==0
+           && CommandCatalogIndex{}.find(0)==nullptr
+           && CommandCatalogIndex{nullptr,100}.size()==0,
+           "default and null grouped command definitions are empty");
+    const auto preservedCopy=preserved;
+    expect(preservedCopy.catalog(1)==&preservedGroups[1]
+           && preservedCopy.catalog(2)==nullptr
+           && preservedCopy.find(makeId(1,0))==&motorCommands[0],
+           "copied grouped command view retains original definitions");
+    const Command duplicateCommands[]={
+        makeCommand<&System::save>(0,"same"),
+        makeCommand<&System::save>(1,"same"),
+    };
+    const Command nullCommandNames[]={makeCommand<&System::save>(0,nullptr)};
+    const CommandCatalog duplicateCatalogNames[]={
+        {0,"same",commands},
+        {1,"same",motorCommands},
+    };
+    const CommandCatalog nullCatalogNames[]={{0,nullptr,commands}};
+    expect(!commandNamesUnique(duplicateCommands,std::size(duplicateCommands))
+           && !commandNamesUnique(nullCommandNames,std::size(nullCommandNames))
+           && !commandCatalogNamesUnique(duplicateCatalogNames,std::size(duplicateCatalogNames))
+           && !commandCatalogNamesUnique(nullCatalogNames,std::size(nullCatalogNames)),
+           "grouped command name helpers reject duplicate and null names");
     Device local;
     const auto runtime=makeCommand<&Device::calibrate>(0,"local",local,calibrateArgs);
     const auto copy=runtime;
@@ -128,11 +226,21 @@ int main()
     expect(std::strstr(json.data(),"\"id\":0,\"n\":\"Reset\",\"params\":[]")!=nullptr,"zero params schema");
     expect(std::strstr(json.data(),"\"i\":0,\"n\":\"Voltage\",\"u\":\"V\",\"t\":\"f32\",\"min\":0,\"max\":500,\"default\":230")!=nullptr,"numeric decorations");
     expect(std::strstr(json.data(),"\"t\":\"u8\",\"min\":0,\"max\":2,\"default\":1,\"enum\":{\"0\":\"Fast\",\"1\":\"Normal\",\"2\":\"Precise\"}")!=nullptr,"enum inferred dictionary and default");
+    expect(std::strstr(json.data(),"\"t\":\"u16\",\"min\":0,\"max\":2000,\"default\":1000,\"enum\":{\"0\":\"None\",\"1000\":\"Overvoltage\",\"2000\":\"Overcurrent\"}")!=nullptr,
+           "explicit sparse enum dictionary in command schema");
     expect(std::strstr(json.data(),"\"i\":0,\"t\":\"f32\",\"min\":null,\"max\":null,\"default\":0")!=nullptr,"metadata-less schema");
     expect(writeSchema(commandsIndex,strings.data(),strings.size(),{JsonInt64Mode::String})!=0
            && std::strstr(strings.data(),"\"min\":\"1\",\"max\":null,\"default\":\"18446744073709551615\"")!=nullptr,"command schema U64 string mode");
     expect(std::strncmp(json.data(),strings.data(),20)==0,"CRC independent of representation");
     expect(boundaries(commandsIndex,{}) && boundaries(commandsIndex,{JsonInt64Mode::String}),"all schema buffer boundaries");
+    expect(boundaries(groupedCommands,{}) && boundaries(groupedCommands,{JsonInt64Mode::String}),
+           "all grouped command schema buffer boundaries");
+    std::array<char,4096> groupedJson{};
+    expect(writeSchema(groupedCommands,groupedJson.data(),groupedJson.size())!=0
+           && std::strstr(groupedJson.data(),"\"commandCatalogs\":[{\"id\":0,\"name\":\"System\"")!=nullptr
+           && std::strstr(groupedJson.data(),"\"id\":1,\"name\":\"Motor/Control\"")!=nullptr
+           && std::strstr(groupedJson.data(),"\"i\":0,\"id\":65536,\"n\":\"Tune\"")!=nullptr,
+           "grouped command hierarchy schema");
     expect(writeSchema(commandsIndex,nullptr,0)==0 && writeSchema(commandsIndex,nullptr,4096)==0,"null buffers");
     const Command nullNames[]={makeCommand<&System::save>(0,nullptr)};
     expect(writeSchema(CommandIndex{nullNames},json.data(),json.size())==0 && schemaCrc(CommandIndex{nullNames})==0,"null command name");

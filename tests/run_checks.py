@@ -25,6 +25,13 @@ FACTORY_REJECTIONS = {
     22: "target cannot be null", 23: "deleted", 24: "no matching",
     25: "invalidFieldLimits", 26: "deleted", 27: "deleted", 28: "reserved for Scalar",
     29: "no matching", 30: "invalidFieldLimits", 31: "noexcept",
+    32: "exact same C\\+\\+ type", 33: "noexcept", 34: "no matching",
+    35: "no matching", 36: "deleted", 37: "no matching", 38: "no matching",
+    39: "native numeric or bool", 40: "no matching",
+    41: "noexcept", 42: "concrete operator|operator\\(\\)", 43: "concrete operator|operator\\(\\)",
+    44: "no matching", 45: "exact enum type", 46: "exact same enum type",
+    47: "codes must be unique", 48: "exact enum type", 49: "numeric value", 50: "deleted",
+    51: "deleted", 52: "deleted",
 }
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",

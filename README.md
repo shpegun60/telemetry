@@ -11,8 +11,10 @@ Clone the complete project, then open `telemetry.pro` in Qt Creator:
 git clone https://github.com/shpegun60/telemetry.git
 ```
 
-The library, delegate and magic_enum dependencies, demo and checks are all included in this
-repository. No analyzer firmware checkout or Git submodule is required.
+The library, its magic_enum dependency, demo and checks are all included in
+this repository. The delegate tree is an optional synchronized companion for
+applications that use it separately; telemetry itself does not depend on it.
+No analyzer firmware checkout or Git submodule is required.
 
 Licensed under the [MIT License](LICENSE), with the same license text and
 copyright notice as the delegate project. The reusable telemetry library
@@ -34,7 +36,7 @@ lib/telemetry/
   detail/                           private storage/conversion/JSON helpers
   telemetry.pri                     reusable qmake include
 lib/delegate/
-  delegate.pri, tiny_delegate.hpp  v1.1.0 plus the documented context adapter
+  delegate.pri, tiny_delegate.hpp  optional upstream v1.2.0 companion library
   LICENSE, README.md               license and source revision
 lib/magic_enum/
   magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for optional enum schema metadata
@@ -45,7 +47,7 @@ build/                            generated files, ignored by git
 
 Open `telemetry.pro` in Qt Creator and build with the installed Qt 6 MinGW
 kit. The project includes `lib/telemetry/telemetry.pri`; no separate library
-build step is required; its `.pri` includes the sibling dependency files.
+build step is required. Its `.pri` includes the pinned magic_enum header.
 JSON is enabled by default. Add `CONFIG += telemetry_no_json` before including
 the `.pri` when a consumer needs only catalogs, lookup and the ABI anchor.
 Select `telemetry_playground` as the run target if
@@ -84,7 +86,8 @@ vendored headers and licenses retain their original bytes across checkouts.
 The table displays sixteen fields and refreshes every 500 ms. Schema/value
 JSON and two simulated commands appear below it. Reset clears the simulated
 counter; Configure applies a voltage limit and enum mode together. The command
-schema is generated from their C++ signatures. `--smoke-test` exercises both
+schema is grouped under the same `meter` path as its fields and is generated
+from the C++ signatures. `--smoke-test` exercises both
 commands and closes after 1.2 seconds; it also works with `-platform offscreen`.
 
 [DemoCatalog.cpp](app/demo/DemoCatalog.cpp) now uses `makeField` throughout:
@@ -100,7 +103,8 @@ group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and
 signed minima for every 8/16/32/64-bit type. Their display reads the simulated
 sources directly, keeping all U64/S64 digits without conversion to double.
 The sources stay stable while the table and JSON are refreshed.
-The `Mode` row uses `enumType<Mode>()`: its value remains U16 while schema
+The `Mode` row uses an explicit `enumSpec<Mode::Off, Mode::Auto, Mode::Manual>`:
+its value remains U16 while schema
 JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. Its write interval
 is 0..2 and default is Auto (1). No dictionary check runs during lookup, read
 or write. See the [enum contract and large-code
@@ -193,20 +197,25 @@ Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry
 
 Verification after the signature-factory and command update, 2026-09-20:
 
-- Qt 6.10.1 / MinGW 13.1: Release application build and offscreen command smoke test.
-  GCC 15.2 on the host:
-  109/109 core, 92/92 write/getter, 87/87 read, 33/33 JSON, 121/121 numeric
-  oracle, 45/45 enum and 108/108 limits, 25/25 factory and 42/42 command checks passed with C++17 (662 total).
-  C++20 also checks char8_t (93/93 write/getter and 88/88 read; 664 total).
+- Qt 6.10.1 / MinGW 13.1: Release application build and offscreen grouped-command smoke test.
+  The same MinGW compiler passed 109/109 core, 109/109 write/getter/setter,
+  87/87 read, 33/33 JSON, 121/121 numeric oracle, 45/45 enum, 108/108
+  limits, 33/33 factory and 58/58 command checks with C++17 (**703 total**).
+  C++20 also covers char8_t (111/111 write and 88/88 read; **706 total**).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
-  definitions; 31 more reject invalid factory and command definitions.
+  definitions; 52 more reject invalid factory and command definitions.
   Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
+- MSVC 19.50 built the three library translation units and passed all eight
+  applicable suites under `/std:c++17` and `/std:c++20` with `/permissive-`
+  and warnings as errors: 582 and 585 checks respectively. Its independent
+  numeric oracle reports an explicit skip because MSVC `long double` has only
+  53 mantissa bits. All 96 invalid C++17 programs were still rejected.
 - CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
   enables ASan/UBSan and float-cast-overflow checks, including
   stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.
@@ -243,13 +252,19 @@ Verification after the signature-factory and command update, 2026-09-20:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 12, Setter 8, FieldType 48, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 8, Setter 8, FieldType 48, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
   on ARM32.
 - [RW32 measurements](tests/field_layout/h7s/RW32_RESULTS.md) cover the separate
   read/write metadata lines. Cache-line alignment is configurable through
   `TELEMETRY_FORCE_CACHELINE`; Field definitions are immutable and ABI revision
-  4 requires a clean rebuild of consumers. The ABI guard adds no code to the
+  5 requires a clean rebuild of consumers. The ABI guard adds no code to the
   hot path; all fourteen O2/Os ARM codegen probe objects remain byte-identical.
+- The [exact compact-callback A/B](tests/field_layout/h7s/COMPACT_CALLBACK_RESULTS.md)
+  retains the 96-byte Field stride while reducing Getter from 12 to 8 bytes.
+  On the random 1024-row RAM profile at `-O2`, Scalar read improved 5.1%,
+  float read 8.2% and U16 write 13.4%; the linked image shrank by 1696 bytes.
+  The complete 1840 timing windows, image/object hashes and byte-exact firmware
+  restoration are retained and pass the offline evidence verifier.
 - The layered refactor was compared with exact checkpoint `036d8e8` using the
   same CubeIDE GCC 14.3.1 invocation. All fourteen O2/Os probe object files are
   byte-identical, so the directory split and private-helper extraction changed

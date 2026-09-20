@@ -20,6 +20,8 @@ python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/sc
 python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-live --run --serial 002A001F3033510135393935 --port COM6
 # Compare pinned B32 against the current production checkout (RW32):
 python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/new-current --variants B32 Current --run
+# Compare an exact previous production commit against the working tree:
+python tests/field_layout/h7s/run.py --cube build/field_layout_experiment/h7s/scaffold --arm-cxx $armCompiler --output build/field_layout_experiment/h7s/exact-ab --variants Baseline Current --baseline-ref a452283 --run
 ```
 
 Select the actual probe serial and COM port on another machine. `pyserial`
@@ -73,6 +75,7 @@ copies of the records. These commands do not access the board:
 python tests/field_layout/h7s/verify.py --self-test
 python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
 python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/rw32-receipt.json --samples tests/field_layout/h7s/rw32-samples.csv --self-test
+python tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/compact-callback-receipt.json --samples tests/field_layout/h7s/compact-callback-samples.csv --self-test
 ```
 
 Each image now records SHA-256 of `Probe.o` and `Benchmark.o`. The two historical
@@ -83,6 +86,10 @@ changed. The final receipt also declares B32/Current Probe equivalence for
 O2/Os, which the verifier checks against those object hashes. In that historical
 receipt, Current still meant B32. In `rw32-receipt.json`, Current is RW32;
 the implementations differ and no Probe-equivalence claim is made.
+
+The final [compact callback report](COMPACT_CALLBACK_RESULTS.md) compares exact
+checkpoint `a452283` with the two-word Getter/Setter implementation. Its receipt
+and samples retain 1840 checked windows and the exact restoration record.
 
 Add `--artifacts build/rw32-live-inline` to the RW32 command to check its
 retained binaries and objects. RW32 source/object hashes were recorded during

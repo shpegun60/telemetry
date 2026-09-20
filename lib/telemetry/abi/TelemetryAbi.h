@@ -11,20 +11,31 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "../catalog/TelemetryCatalog.h"
+#include "../catalog/TelemetryIndex.h"
+#include "../command/TelemetryCommandCatalogIndex.h"
 #include "../command/TelemetryCommandIndex.h"
 
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version.
-// Revision 4 extends the compiled boundary to command definitions and schemas.
-// Field keeps its revision-3 RW32 layout.
-inline constexpr std::uint32_t telemetryAbiVersion = 4;
+// Revision 5 replaces Getter's variant with a two-word payload/invoker,
+// includes grouped commands, and guards private nested layout as well as every
+// public descriptor/index offset. Command retains its revision-4 owner word,
+// which can also borrow a stable callable object.
+inline constexpr std::uint32_t telemetryAbiVersion = 5;
 
-static_assert(std::is_standard_layout_v<Field>,
-              "The telemetry ABI guard requires standard-layout Field offsets");
-static_assert(std::is_standard_layout_v<Catalog>,
-              "The telemetry ABI guard requires standard-layout Catalog offsets");
+// std::variant is not standard-layout on every supported standard library.
+// Descriptors remain trivially copyable; each supported compiler's
+// conditionally-supported offsetof implementation supplies the guarded offsets.
+static_assert(std::is_trivially_copyable_v<Scalar> && std::is_trivially_copyable_v<Getter>
+              && std::is_trivially_copyable_v<Setter> && std::is_trivially_copyable_v<FieldType>
+              && std::is_trivially_copyable_v<Field> && std::is_trivially_copyable_v<Catalog>
+              && std::is_trivially_copyable_v<CatalogIndex>
+              && std::is_trivially_copyable_v<Command> && std::is_trivially_copyable_v<CommandParam>
+              && std::is_trivially_copyable_v<CommandIndex>
+              && std::is_trivially_copyable_v<CommandCatalog>
+              && std::is_trivially_copyable_v<CommandCatalogIndex>,
+              "The telemetry ABI guard requires trivially copyable descriptors and indexes");
 
 namespace detail {
 constexpr std::uint64_t appendAbiWord_(std::uint64_t hash, std::uint64_t value) noexcept
@@ -51,12 +62,20 @@ using CurrentAbiTag = AbiTag<
     sizeof(void*),
     sizeof(Scalar),
     alignof(Scalar),
+    Scalar::abiStorageOffset(), Scalar::abiStorageSize(), Scalar::abiStorageAlign(),
     sizeof(Getter),
     alignof(Getter),
+    Getter::abiPayloadOffset(), Getter::abiInvokeOffset(),
+    Getter::abiPayloadSize(), Getter::abiPayloadAlign(),
     sizeof(Setter),
     alignof(Setter),
+    Setter::abiPayloadOffset(), Setter::abiInvokeOffset(),
+    Setter::abiPayloadSize(), Setter::abiPayloadAlign(),
     sizeof(FieldType),
     alignof(FieldType),
+    FieldType::abiValueTypeOffset(), FieldType::abiRestrictedOffset(),
+    FieldType::abiBoundsOffset(), FieldType::abiInitialOffset(),
+    FieldType::abiDescribeOffset(), FieldType::abiBoundsSize(), FieldType::abiBoundsAlign(),
     sizeof(Field),
     alignof(Field),
     offsetof(Field, get),
@@ -72,6 +91,8 @@ using CurrentAbiTag = AbiTag<
     offsetof(Catalog, name),
     offsetof(Catalog, fields),
     offsetof(Catalog, count),
+    sizeof(CatalogIndex), alignof(CatalogIndex),
+    CatalogIndex::abiCatalogsOffset(), CatalogIndex::abiCountOffset(),
     sizeof(Command), alignof(Command),
     offsetof(Command, id), offsetof(Command, name),
     offsetof(Command, owner), offsetof(Command, metadata),
@@ -79,7 +100,13 @@ using CurrentAbiTag = AbiTag<
     sizeof(CommandParam), alignof(CommandParam),
     offsetof(CommandParam, index), offsetof(CommandParam, name),
     offsetof(CommandParam, unit), offsetof(CommandParam, type),
-    sizeof(CommandIndex), alignof(CommandIndex)>;
+    sizeof(CommandIndex), alignof(CommandIndex),
+    CommandIndex::abiCommandsOffset(), CommandIndex::abiCountOffset(),
+    sizeof(CommandCatalog), alignof(CommandCatalog),
+    offsetof(CommandCatalog, id), offsetof(CommandCatalog, name),
+    offsetof(CommandCatalog, commands), offsetof(CommandCatalog, count),
+    sizeof(CommandCatalogIndex), alignof(CommandCatalogIndex),
+    CommandCatalogIndex::abiCatalogsOffset(), CommandCatalogIndex::abiCountOffset()>;
 } // namespace detail
 
 // Separate executables may intentionally have different signatures. Within

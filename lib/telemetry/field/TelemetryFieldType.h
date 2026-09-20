@@ -126,6 +126,22 @@ public:
         return describe_ != nullptr && sink != nullptr && describe_(context, sink);
     }
 
+    // Exact private layout for the link-time ABI signature.
+    static constexpr std::size_t abiValueTypeOffset() noexcept
+    { return offsetof(FieldType, valueType_); }
+    static constexpr std::size_t abiRestrictedOffset() noexcept
+    { return offsetof(FieldType, restricted_); }
+    static constexpr std::size_t abiBoundsOffset() noexcept
+    { return offsetof(FieldType, bounds_); }
+    static constexpr std::size_t abiInitialOffset() noexcept
+    { return offsetof(FieldType, initial_); }
+    static constexpr std::size_t abiDescribeOffset() noexcept
+    { return offsetof(FieldType, describe_); }
+    static constexpr std::size_t abiBoundsSize() noexcept
+    { return sizeof(detail::FieldBounds); }
+    static constexpr std::size_t abiBoundsAlign() noexcept
+    { return alignof(detail::FieldBounds); }
+
 private:
     constexpr FieldType(ScalarType type, EnumDescription describe) noexcept
         : FieldType(type) { describe_ = describe; }

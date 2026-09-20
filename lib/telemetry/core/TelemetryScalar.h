@@ -77,6 +77,13 @@ public:
 
     constexpr Scalar() noexcept = default;
 
+    // Link-time ABI guards use accessors because the representation stays
+    // private. These expose layout constants, never mutable storage.
+    static constexpr std::size_t abiStorageOffset() noexcept
+    { return offsetof(Scalar, storage_); }
+    static constexpr std::size_t abiStorageSize() noexcept { return sizeof(Storage); }
+    static constexpr std::size_t abiStorageAlign() noexcept { return alignof(Storage); }
+
     TELEMETRY_FORCE_INLINE constexpr ScalarType type() const noexcept
     {
         return static_cast<ScalarType>(storage_.index());
@@ -159,5 +166,8 @@ constexpr Scalar factoryScalar(T value) noexcept
 }
 } // namespace detail
 } // namespace telemetry
+
+static_assert(std::is_trivially_copyable_v<telemetry::Scalar>,
+              "Scalar must remain a trivial ABI value");
 
 #endif

@@ -8,12 +8,16 @@
 #define TELEMETRY_COMMAND_JSON_H
 
 #include "TelemetryJson.h"
+#include "../command/TelemetryCommandCatalogIndex.h"
 #include "../command/TelemetryCommandIndex.h"
 
 namespace telemetry {
 namespace detail {
 std::uint32_t commandSchemaCrcAbi(const CommandIndex&, CurrentAbiTag) noexcept;
 std::size_t writeCommandSchemaAbi(const CommandIndex&, char*, std::size_t, JsonOptions, CurrentAbiTag) noexcept;
+std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex&, CurrentAbiTag) noexcept;
+std::size_t writeCommandSchemaAbi(const CommandCatalogIndex&, char*, std::size_t,
+                                  JsonOptions, CurrentAbiTag) noexcept;
 } // namespace detail
 
 // Same bounded-buffer and UTF-8 contract as field schemas. Metadata-less
@@ -31,6 +35,21 @@ inline std::uint32_t schemaCrc(const CommandIndex& index) noexcept
 template <class Abi = detail::CurrentAbiTag>
 inline std::size_t writeSchema(const CommandIndex& index, char* buffer, std::size_t size,
                                JsonOptions options = {}) noexcept
+{
+    return detail::writeCommandSchemaAbi(index, buffer, size, options, Abi{});
+}
+
+// Grouped commands use packed group/index IDs and slash-path catalog names.
+// Command itself stays unchanged; the catalog owns hierarchy once per group.
+template <class Abi = detail::CurrentAbiTag>
+inline std::uint32_t schemaCrc(const CommandCatalogIndex& index) noexcept
+{
+    return detail::commandSchemaCrcAbi(index, Abi{});
+}
+
+template <class Abi = detail::CurrentAbiTag>
+inline std::size_t writeSchema(const CommandCatalogIndex& index, char* buffer,
+                               std::size_t size, JsonOptions options = {}) noexcept
 {
     return detail::writeCommandSchemaAbi(index, buffer, size, options, Abi{});
 }

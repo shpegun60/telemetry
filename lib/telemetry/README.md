@@ -3,16 +3,17 @@
 Standalone field, command, numeric conversion and JSON library for C++17.
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 
-Copy this directory and its sibling `delegate` and `magic_enum` directories
-into a consumer, keeping them under the same `lib` directory, and include the reusable `.pri`:
+Copy this directory and its sibling `magic_enum` directory into a consumer,
+keeping them under the same `lib` directory, and include the reusable `.pri`:
 
 ```qmake
 include(path/to/telemetry/telemetry.pri)
 ```
 
-The library uses C++17 and bundled [tiny_delegate v1.1.0](../delegate/README.md).
-It has no Qt, STM32, RTOS, Mongoose or `basic_types.h` dependency. For a
-non-qmake build, add `lib/telemetry` and `lib/delegate` to the include paths
+The library uses C++17. It has no Qt, STM32, RTOS, Mongoose, tiny_delegate or
+`basic_types.h` dependency. The sibling [tiny_delegate v1.2.0](../delegate/README.md)
+is an optional synchronized companion for consumers that use delegates in
+their own code. For a non-qmake build, add `lib/telemetry` to the include path
 and compile `abi/TelemetryAbi.cpp`. Include and compile
 `serialization/TelemetryJson.cpp` for field JSON and
 `serialization/TelemetryCommandJson.cpp` for command JSON, only when required. The qmake include
@@ -22,7 +23,8 @@ Optional `field/TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/
 Numeric-only headers and the JSON implementation do not include magic_enum.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
-redistributed library files; delegate and magic_enum retain their upstream MIT licenses.
+redistributed library files; the optional delegate and magic_enum trees retain
+their upstream MIT licenses.
 
 ## Public files and layers
 
@@ -33,7 +35,8 @@ include JSON.
 - `core/`: compiler/cache-line policy, Scalar and checked numeric conversion.
 - `field/`: packed IDs, Getter/Setter, FieldType, enum metadata and immutable Field.
 - `catalog/`: Catalog validation and direct CatalogIndex lookup.
-- `command/`: command definitions, optional metadata, factories and direct lookup.
+- `command/`: command definitions, optional metadata, factories, flat lookup
+  and packed group/index catalog lookup.
 - `abi/TelemetryAbi.h`: the exact in-memory layout tag and explicit link guard.
 - `serialization/TelemetryJson.h`: schema fingerprint plus bounded schema/value JSON.
 
@@ -68,7 +71,8 @@ constexpr Field fields[] = {
     makeField<&Device::voltage>(makeId(0, 0), "Ua", "V", device),
     makeField<&Device::limit, &Device::setLimit>(makeId(0, 1), "Limit", "V",
         device, limits(250.0f, 1.0f, 1000.0f)),
-    makeField<&Device::mode, &Device::setMode>(makeId(0, 2), "Mode", "", device),
+    makeField<&Device::mode, &Device::setMode>(makeId(0, 2), "Mode", "", device,
+        enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
 };
 constexpr Catalog catalogs[] = {{0, "device", fields}};
 constexpr CatalogIndex values{catalogs};
@@ -76,20 +80,21 @@ constexpr CatalogIndex values{catalogs};
 // Optional, separate, immutable storage: no repeated parameter types.
 constexpr auto calibration = commandArgs(
     arg("Voltage", "V", 230.0f, 0.0f, 500.0f),
-    arg("Mode", "", Mode::Auto));
+    arg("Mode", "", enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)));
 constexpr Command commands[] = {
-    makeCommand<&Device::reset>(0, "Reset", device),
-    makeCommand<&Device::calibrate>(1, "Calibrate", device, calibration),
-    makeCommand<&Device::calibrate>(2, "Calibrate without labels", device),
+    makeCommand<&Device::reset>(makeId(0, 0), "Reset", device),
+    makeCommand<&Device::calibrate>(makeId(0, 1), "Calibrate", device, calibration),
+    makeCommand<&Device::calibrate>(makeId(0, 2), "Calibrate without labels", device),
 };
-constexpr CommandIndex actions{commands};
+constexpr CommandCatalog commandCatalogs[] = {{0, "device", commands}};
+constexpr CommandCatalogIndex actions{commandCatalogs};
 
 auto writeResult = values.write(makeId(0, 1), 275); // int -> checked F32.
-auto resetResult = actions.call(0);
-auto result = actions.call(1, 230, Mode::Auto);
+auto resetResult = actions.call(makeId(0, 0));
+auto result = actions.call(makeId(0, 1), 230, Mode::Auto);
 // A transport supplies a borrowed positional Scalar array synchronously:
 const Scalar arguments[] = {230.0f, std::uint8_t{1}};
-result = actions.execute(1, arguments, 2);
+result = actions.execute(makeId(0, 1), arguments, 2);
 ```
 
 `makeField` returns the same concrete RW32 `Field`; there is no additional
@@ -114,12 +119,17 @@ or empty getters. A Scalar-returning getter cannot imply its payload type;
 use `makeField<&Device::readScalar>(id, name, unit, ScalarType::F32, device)`
 (and, optionally, a `WriteResult(const Scalar&) noexcept` setter).
 
-Free/static functions need no owner. Capture-free numeric getter lambdas
-also work directly, with or without unary `+`:
+Free/static functions need no owner. Capture-free numeric getter and setter
+lambdas also work directly, with or without unary `+`:
 
 ```cpp
 constexpr auto ua = makeField(0, "Ua", "V",
     []() noexcept { return device.voltage(); });
+
+constexpr auto directLimit = makeField(1, "Limit", "V",
+    []() noexcept { return device.limit(); },
+    [](float value) noexcept { return device.setLimit(value); },
+    limits(250.0f, 1.0f, 1000.0f));
 
 // A C++17 named lambda pair can be used as template targets.
 constexpr auto readLimit = +[]() noexcept { return device.limit(); };
@@ -131,16 +141,28 @@ constexpr auto limitField = makeField<readLimit, writeLimit>(1, "Limit", "V",
 
 CommandResult saveConfig() noexcept;
 constexpr auto save = makeCommand<&saveConfig>(3, "Save");
+
+// Stateful callable objects are borrowed as named, stable lvalues.
+constexpr auto resetLambda = []() noexcept { return device.reset(); };
+constexpr auto resetFromLambda = makeCommand(4, "Reset lambda", resetLambda);
 ```
 
 For an enum-returning capture-free lambda, use a named template target as in
-the lambda pair. Capturing inline lambdas are not owned by the factories.
-No factory stores a pointer to a temporary closure.
+the lambda pair. Direct parameter-form field callbacks deliberately remain
+numeric/bool; the template form carries enum identity. A command may borrow a
+named stateful functor or capturing lambda with one concrete `noexcept`
+`operator()`. Generic/overloaded call operators and temporary callable objects
+are rejected. No factory stores a pointer to a temporary closure.
 
-Command IDs form a separate dense zero-based space. `CommandIndex` validates
-the contiguous prefix once, then uses one bounds check and array indexing.
-It borrows a stable `Command[]`; temporary arrays are rejected. A Command is
-24 bytes on ARM32 (48 on the tested x64 ABI). Its handler already knows the
+Command IDs form a separate logical space. For one flat zero-based array,
+`CommandIndex` validates the contiguous prefix once and uses one bounds check.
+`CommandCatalogIndex` uses the same packed 16-bit group/index arithmetic as
+fields: command groups and rows are dense zero-based prefixes, and lookup uses
+two bounds checks and direct indexing. `CommandCatalog::name` may use paths such
+as `Motor/Control`, so field and command schemas can describe the same UI
+section without storing a path in every Command. Both indexes borrow stable
+definition arrays; temporary arrays are rejected. A Command is 24 bytes on
+ARM32 (48 on the tested x64 ABI). Its handler already knows the
 argument count/types, so those are not duplicated in the descriptor. Commands
 without decoration store no parameter array. Decoration lives in the supplied
 `commandArgs` lvalue, which must outlive every copied Command. Its entries are
@@ -171,13 +193,25 @@ The library adds no queue, locking, persistence or asynchronous completion.
 An owner that queues work must copy values. A failure returned by the owner
 does not imply rollback of its own side effects.
 
-`writeSchema(actions, buffer, size)` emits `{"schema":"...","commands":[...]}`.
-Each command contains `id`, `n` and `params`; parameters have `i`, numeric `t`,
+`writeSchema(flatActions, buffer, size)` emits the legacy flat
+`{"schema":"...","commands":[...]}` document. A `CommandCatalogIndex` emits
+`{"schema":"...","commandCatalogs":[{"id":0,"name":"device","commands":[...]}]}`.
+Each command contains `i`, packed `id`, `n` and `params`; parameters have `i`, numeric `t`,
 `min`, `max`, `default`, optional names/units and enum dictionaries. Absent
 metadata omits `n`/`u`, allowing a UI to display arg0/arg1. Schema generation
 never invokes command handlers. `JsonInt64Mode::String` also applies to command
 metadata. Logical fingerprints ignore that wire choice and callback addresses.
-Field and command schemas remain separate documents and ID spaces.
+Field and command schemas remain separate documents and logical ID spaces.
+`commandNamesUnique(commands, count)` and
+`commandCatalogNamesUnique(catalogs, count)` provide optional constexpr checks
+for null or duplicate command/group names, analogous to the field helpers.
+
+For stable wire schemas, prefer fixed-width integers (`std::uint16_t`,
+`std::int32_t`, and so on), `float`, `double`, `bool`, and enums with an explicit
+fixed underlying type. Types such as `long`, `size_t`, `wchar_t` and an enum
+without a fixed underlying type may infer a different Scalar type on ARM32 and
+64-bit hosts. They remain supported for local use, but identical source alone
+does not guarantee an identical cross-platform schema for those types.
 
 ## Scalar types and defaults
 
@@ -274,12 +308,14 @@ remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is 4. Field retains its revision-3 RW32 layout;
-the exact ABI tuple now also covers Command and its schema boundary. Rebuild
-all consumers and static libraries. It is a
+`telemetry::telemetryAbiVersion` is 5. Field retains the 96-byte RW32 stride,
+but Getter's compact payload moves `readType` from ARM offset 12 to 8. The exact
+ABI tuple also covers flat/grouped commands, every descriptor/index member,
+and the private Scalar/Getter/Setter/FieldType storage needed to interpret
+nested values. Rebuild all consumers and static libraries. It is a
 compile-time revision marker, not a JSON version. `telemetryAbiSignature`
 additionally hashes that revision, the selected cache line, pointer width,
-relevant type sizes/alignments and every public Field/Catalog/Command member offset.
+relevant type sizes/alignments and all guarded public and private offsets.
 The compiled JSON entry points carry the complete, unhashed tuple in their C++
 link symbols; the numeric signature is for diagnostics rather than collision
 handling. Consequently, `serialization/TelemetryJson.cpp` built for one layout cannot satisfy calls
@@ -295,12 +331,12 @@ at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
 settings and require the final link to fail. Separate executables still use
 their own signatures normally.
 
-On Cortex-M7 both B32 and RW32 are 96 bytes/aligned to 32, but Setter moves
-from offset 12 to 32 and declaredType from 24 to 40. An equal sizeof does not
-make the layouts binary-compatible. **Clean and rebuild every
+On Cortex-M7 the current Field remains 96 bytes/aligned to 32. Setter stays at
+offset 32 and declaredType at 40; Getter shrinks to 8 bytes and readType moves
+to offset 8. An equal sizeof does not make layouts binary-compatible. **Clean and rebuild every
 translation unit and static library that uses these headers.** Mixing stale
 objects built against different layouts is invalid. Never persist or transmit
-the raw bytes of Field, Scalar or delegate objects.
+the raw bytes of Field, Scalar, Getter, Setter or command objects.
 
 Positional construction keeps its documented order. Member-order-dependent
 structured bindings are source-incompatible: the declaration order is now
@@ -482,6 +518,21 @@ manually written label strings is needed, and the specified order is kept:
 enum class Code : std::uint64_t { Ready = 100000, Last = UINT64_MAX };
 constexpr auto type = enumType<Code, Code::Ready, Code::Last>();
 ```
+
+Signature factories use the same explicit dictionary through `enumSpec` while
+retaining compile-time type matching:
+
+```cpp
+constexpr auto codes = enumSpec<Code::Ready, Code::Last>(Code::Ready);
+constexpr auto codeField = makeField<&Device::code, &Device::setCode>(
+    makeId(0, 3), "Code", "", device, codes);
+constexpr auto commandMetadata = commandArgs(arg("Code", "", codes));
+```
+
+The optional argument selects the default. Without it, the smallest listed
+numeric code is used. Values must all have the getter/parameter's exact enum
+type. The dictionary affects schema metadata and the accepted numeric extrema;
+the hot lookup/read/write path still sees only the underlying Scalar type.
 
 Alternatively, define `magic_enum::customize::enum_range<E>` in the shared
 enum header before use. For example, `min = 0` and `max = 255` cover all U8
@@ -710,27 +761,34 @@ policy and value range. JSON and the Qt display use the same normalized read.
 Calling `field.get()` directly is a low-level callback invocation that retains
 the source type; use `read()` or `read<T>()` to apply the field contract.
 
-Getter stores a trivial variant containing a `tiny::delegate_ref<Scalar()>`
-or a native function pointer of its actual type. This keeps all forms
-constexpr in C++17 without casting between incompatible function pointers.
-Its invocation table is constexpr; dispatch is forced inline so known rows
-can remove alternative selection even at `-Os`. Dynamic rows retain dispatch.
-Conversion objects may throw during construction,
-before an existing getter is replaced; invocation remains noexcept. Copying
-a getter copies its binding, not its source. Use one tiny_delegate revision
-and configuration throughout a program. GCC 13 UBSan has an upstream
-constexpr function-template pointer comparison limitation; Clang can check
-those expressions with sanitizers.
+Getter is a trivial two-word value: one union payload containing the exact
+native function pointer or borrowed object pointer, plus one generated invoker.
+It is 8 bytes on ARM32. The union is read only through the invoker selected by
+the constructor; no incompatible function-pointer conversion or type punning
+is used. Compile-time function/method bindings and native parameter-form
+callbacks stay constexpr in C++17. Dynamic rows retain one indirect dispatch;
+known rows can be folded by the compiler. Conversion objects may throw during
+construction before an existing getter is replaced; invocation remains
+noexcept. Copying a getter copies its binding, not its source.
+
+`Getter::bindContext<&adapter>(owner)` is the low-level adapter form used by
+typed factories when a generated function must receive a stable runtime owner.
+The adapter signature is `Scalar(Owner&) noexcept`. The owner must remain alive
+at the same address, and temporary owners are rejected.
 
 ## Optional writes
 
 Field's last member is `Setter set = nullptr`. Existing five-member rows
-remain read-only. Setter is a noexcept policy wrapper over
-`tiny::delegate_ref<WriteResult(const Scalar&)>`; an empty setter returns
-ReadOnly, including when initialized or assigned a typed null pointer.
+remain read-only. Setter uses the same trivial payload/invoker representation
+and is 8 bytes on ARM32. It can retain the exact native typed callback pointer
+or a borrowed owner; an empty setter returns ReadOnly, including when
+initialized or assigned a typed null pointer.
 It accepts named functions, `&function`, bare/+ captureless lambdas,
 `Setter::bind<&function>()` and `Setter::bind<&Owner::method>(owner)`.
 Method bindings have the same lvalue and lifetime requirements as Getter.
+`Setter::bindContext<&adapter>(owner)` accepts
+`WriteResult(Owner&, const Scalar&) noexcept` and follows the same lifetime
+contract. The public factories generate this adapter when needed.
 
 Both public write methods are templates; ordinary callers use native values:
 
@@ -913,7 +971,7 @@ fields, native/enum setters, runtime owners and capture-free lambdas.
 [TelemetryCommandCheck.cpp](../../tests/TelemetryCommandCheck.cpp) covers command
 conversion, side effects, schema, metadata lifetimes and more than eight arguments.
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
-adds 31 rejected definitions and calls.
+adds 50 rejected definitions and calls.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
@@ -954,10 +1012,10 @@ passed view takes 14 instructions in the measured object; a fixed constexpr
 view takes 13. A known ID becomes a constant address (`ldr; bx`), and a known
 missing ID becomes null. These are instruction counts, not measured cycles.
 
-On Cortex-M7, Scalar occupies 16 bytes, Getter 12, Setter 8, FieldType 48, Field 96,
-Catalog 16 and CatalogIndex 8 bytes. Native function alternatives account
-for the extra 4 bytes over the previous Getter; an empty setter still occupies
-its 8-byte slot. FieldType owns native bounds, a default Scalar and an optional schema callback.
+On Cortex-M7, Scalar occupies 16 bytes, Getter 8, Setter 8, FieldType 48, Field 96,
+Catalog 16 and CatalogIndex 8 bytes. Getter/Setter each remain one target-sized
+payload plus one invoker; an empty setter still occupies its 8-byte slot.
+FieldType owns native bounds, a default Scalar and an optional schema callback.
 The probe's constant metadata resides in `.rodata`,
 with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
@@ -967,11 +1025,23 @@ before strings, callback code or catalogs. This is the current cost of owning
 limits/defaults in every descriptor. Sharing separate schema descriptors is
 a possible future layout change, not an optimization applied by this release.
 
+The final [exact compact-callback A/B](../../tests/field_layout/h7s/COMPACT_CALLBACK_RESULTS.md)
+compares checkpoint `a452283` with the two-word callback core on a 600 MHz H7S3.
+For shuffled access to 1024 RAM fields at `-O2`, Scalar read improved 5.07%,
+float read 8.21% and U16 write 13.35%; the linked image shrank by 1696 bytes.
+At `-Os`, reads improved and float write was unchanged; U16 write moved by
++0.77%. Complete normalized disassembly of the `-Os` F32/U16 write wrappers is
+instruction-identical, so that sub-cycle remainder is recorded as link-placement
+sensitivity rather than an added operation. All 1840 timing windows, result
+checksums, image/object hashes and byte-exact firmware restoration pass the
+offline evidence verifier. These are H7S fixture measurements, not H753
+firmware-wide timing.
+
 The enum/plain U16 pairs in `EnumCodegen.cpp` use the same bounds and numeric
 operations at both optimization levels, apart from table addresses/offsets
 and the corresponding instruction encodings.
 Known typed reads branch straight to their shared getter. Dynamic Field
-reads access the numeric tag at offset 12; writes use the descriptor tag at
+reads access the numeric tag at offset 8; writes use the descriptor tag at
 offset 40. They never load the schema callback at offset 80. Reads never load limits.
 The enum probe's constant
 names and field arrays reside in `.rodata`, with no startup constructors or
@@ -993,7 +1063,7 @@ optional or numeric conversion. This relies on the getter and metadata being
 visible to the optimizer; it is not a promise for arbitrary runtime bindings.
 A known write of integer 250 to F32 embeds
 the float constant; a runtime U16 input needs one numeric conversion. Known
-read-only and missing writes reduce to constant result returns. Bound tiny
+read-only and missing writes reduce to constant result returns. Bound callback
 invokers and Scalar materialization may remain; this is not a claim that
 complete callbacks always inline. Runtime IDs still require bounds checks
 and dispatch.

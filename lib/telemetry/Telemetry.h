@@ -14,6 +14,7 @@
 #include "field/TelemetryFieldFactory.h"
 #include "catalog/TelemetryIndex.h"
 #include "command/TelemetryCommandFactory.h"
+#include "command/TelemetryCommandCatalogIndex.h"
 #include "command/TelemetryCommandIndex.h"
 #include "abi/TelemetryAbi.h"
 

@@ -31,6 +31,12 @@ constexpr auto arg(const char* name, const char* unit, T initial) noexcept
 {
     return detail::ArgumentMetadata<decltype(limits(initial))>{name, unit, limits(initial)};
 }
+template <class E, E... Values>
+constexpr auto arg(const char* name, const char* unit,
+                   detail::EnumSpec<E, Values...> values) noexcept
+{
+    return detail::ArgumentMetadata<detail::EnumSpec<E, Values...>>{name, unit, values};
+}
 template <class T>
 constexpr auto arg(const char* name, const char* unit, T initial, T minimum, T maximum) noexcept
 {

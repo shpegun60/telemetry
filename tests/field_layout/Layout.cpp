@@ -15,7 +15,7 @@ static_assert(offsetof(Field, get) + sizeof(telemetry::Getter) <= 32);
 static_assert(offsetof(Field, set) + sizeof(telemetry::Setter) <= 32);
 #elif TELEMETRY_LAYOUT_VARIANT == 6
 static_assert(sizeof(Field) == 96 && alignof(Field) == 32);
-static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 12);
+static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 8);
 static_assert(offsetof(Field, set) == 32 && offsetof(Field, declaredType) == 40);
 #elif TELEMETRY_LAYOUT_VARIANT == 5
 static_assert(sizeof(Field) == 128 && alignof(Field) == 64);

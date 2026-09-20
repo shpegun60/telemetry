@@ -9,11 +9,17 @@ using namespace telemetry;
 int checks = 0, failures = 0;
 void expect(bool ok, const char* label) { ++checks; if (!ok) { ++failures; std::printf("FAIL %s\n", label); } }
 enum class Mode : std::uint8_t { Off, Automatic, Manual };
+enum class Error : std::uint16_t { None = 0, Overvoltage = 1000, Overcurrent = 2000 };
+enum class CharCode : char {
+    Low = std::numeric_limits<char>::is_signed ? -3 : 3,
+    High = 7
+};
 enum Legacy { Low = -2, High = 2 };
 struct Device {
     float voltage = 230.0f;
     Mode modeValue = Mode::Automatic;
     Legacy legacy = Low;
+    Error errorValue = Error::None;
     int writes = 0;
     float get() const noexcept { return voltage; }
     WriteResult set(float value) noexcept { ++writes; voltage = value; return WriteResult::Applied; }
@@ -23,6 +29,8 @@ struct Device {
     WriteResult setScalar(const Scalar& value) noexcept { voltage = value.get<float>(); return WriteResult::Applied; }
     Legacy readLegacy() const noexcept { return legacy; }
     WriteResult writeLegacy(Legacy value) noexcept { legacy = value; return WriteResult::Applied; }
+    Error error() const noexcept { return errorValue; }
+    WriteResult setError(Error value) noexcept { errorValue = value; return WriteResult::Applied; }
     float refGet() const & noexcept { return voltage; }
 };
 Device device;
@@ -46,10 +54,23 @@ constexpr auto lambdaSet = +[](float value) noexcept { globalValue=value;return 
 constexpr auto lambdaPair = makeField<lambdaGet,lambdaSet>(9,"pair","",limits(1.0f,0.0f,5.0f));
 constexpr auto lambdaEnum = +[]() noexcept { return Mode::Automatic; };
 constexpr auto lambdaEnumField = makeField<lambdaEnum>(10,"enum","",limits(Mode::Manual));
+constexpr auto parameterPair = makeField(11,"parameter pair","",getFree,setFree);
+constexpr auto sparseField = makeField<&Device::error, &Device::setError>(
+    12, "Error", "", device,
+    enumSpec<Error::None, Error::Overvoltage, Error::Overcurrent>(Error::Overvoltage));
+constexpr auto charCodeSpec = enumSpec<CharCode::High, CharCode::Low>();
 static_assert(std::is_same_v<std::remove_cv_t<decltype(field)>, Field>);
 static_assert(field.declaredType == ScalarType::F32 && field.declaredType.defaultValue().get<float>() == 250.0f);
 static_assert(enumField.declaredType == ScalarType::U8 && enumField.declaredType.hasEnum());
 static_assert(clockField.declaredType == ScalarType::U64 && !clockField.set);
+static_assert(static_cast<bool>(parameterPair.get) && static_cast<bool>(parameterPair.set));
+static_assert(sparseField.declaredType == ScalarType::U16
+              && sparseField.declaredType.hasEnum()
+              && sparseField.declaredType.minimum().get<std::uint16_t>() == 0
+              && sparseField.declaredType.maximum().get<std::uint16_t>() == 2000
+              && sparseField.declaredType.defaultValue().get<std::uint16_t>() == 1000);
+static_assert(charCodeSpec.initial == CharCode::Low,
+              "enumSpec default must support an underlying char type");
 static_assert(!std::is_copy_assignable_v<Field> && std::is_trivially_copyable_v<Field>);
 static_assert(sizeof(decltype(limits(1.0f))) == sizeof(float));
 }
@@ -66,13 +87,40 @@ int main()
     expect(enumField.read<std::uint8_t>() == 1, "enum getter produces underlying Scalar");
     expect(enumField.write(2) == WriteResult::Applied && device.modeValue == Mode::Manual, "enum setter receives semantic type");
     expect(enumField.write(3) == WriteResult::InvalidValue, "enum bounds preserved");
+    expect(sparseField.write(2000) == WriteResult::Applied
+           && device.errorValue == Error::Overcurrent,
+           "explicit sparse enum dictionary extends the inferred range");
+    expect(sparseField.write(2001) == WriteResult::InvalidValue,
+           "explicit sparse enum bounds reject values above the listed range");
     expect(enumField.set(Scalar::fromU16(255)) == WriteResult::InvalidValue, "direct enum setter rejects wrong alternative");
     expect(field.set(Scalar::fromU16(12)) == WriteResult::InvalidValue, "direct typed setter rejects wrong alternative");
     expect(global.write(2.0f) == WriteResult::Busy && globalValue == 2.0f, "free setter result preserved");
     expect(global.read<float>() == 2.0f && functionName.read<float>() == 2.0f
            && functionAddress.read<float>() == 2.0f, "free getter: template, name and address forms");
+    auto functionPair = makeField(11,"function pair","",getFree,setFree,limits(1.0f,0.0f,5.0f));
+    expect(functionPair.write(3)==WriteResult::Busy && functionPair.read<float>()==3.0f,
+           "parameter function names: getter and setter");
+    expect(functionPair.set(Scalar::fromU32(3))==WriteResult::InvalidValue,
+           "typed setter rejects a non-normalized direct Scalar call");
+    auto addressPair = makeField(12,"address pair","",&getFree,&setFree);
+    expect(addressPair.write(2.5)==WriteResult::Busy && addressPair.read<float>()==2.5f,
+           "parameter function addresses: getter and setter");
+    auto inlinePair = makeField(13,"inline pair","",
+        []() noexcept {return globalValue;},
+        [](float value) noexcept {globalValue=value;return WriteResult::Applied;},
+        limits(1.0f,0.0f,4.0f));
+    expect(inlinePair.write(4)==WriteResult::Applied && globalValue==4.0f,
+           "parameter bare lambda pair");
+    expect(inlinePair.write(5)==WriteResult::InvalidValue && globalValue==4.0f,
+           "parameter lambda pair limits");
+    auto plusPair = makeField(14,"plus pair","",
+        +[]() noexcept {return globalValue;},
+        +[](float value) noexcept {globalValue=value;return WriteResult::Applied;});
+    expect(plusPair.write(1.5)==WriteResult::Applied && plusPair.read<float>()==1.5f,
+           "parameter plus-lambda pair");
     expect(clockField.read<std::uint64_t>() == UINT64_MAX, "static getter exact U64");
-    expect(lambdaField.read<float>() == 2.0f && plusField.read<float>() == 2.0f, "bare and plus inline lambdas infer type");
+    expect(lambdaField.read<float>() == globalValue && plusField.read<float>() == globalValue,
+           "bare and plus inline lambdas infer type");
     expect(lambdaPair.write(4) == WriteResult::Applied && globalValue == 4.0f, "C++17 named lambda pair");
     expect(lambdaPair.write(6) == WriteResult::InvalidValue, "named lambda pair limits");
     expect(lambdaEnumField.read<std::uint8_t>() == 1 && lambdaEnumField.declaredType.hasEnum(), "named enum lambda");

@@ -49,7 +49,8 @@ constexpr Field meterFields[] = {
     makeField<&Meter::readCounter>(makeId(0, 3), "WinCnt", "", meter),
     makeField<&Meter::readThreshold, &Meter::setThreshold>(makeId(0, 4), "VoltageLimit", "V",
         meter, telemetry::limits(250.0f, 1.0f, 1000.0f)),
-    makeField<&Meter::readMode, &Meter::setMode>(makeId(0, 5), "Mode", "", meter, telemetry::limits(Mode::Auto)),
+    makeField<&Meter::readMode, &Meter::setMode>(makeId(0, 5), "Mode", "", meter,
+        telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
 };
 
 static_assert(telemetry::names_unique(meterFields, std::size(meterFields)));
@@ -74,12 +75,18 @@ constexpr telemetry::Catalog integerCatalog{2, "integers", integerFields};
 // Metadata owns only labels/defaults/bounds. Types come from configure's signature.
 constexpr auto configureArgs = telemetry::commandArgs(
     telemetry::arg("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
-    telemetry::arg("Mode", "", Mode::Auto));
+    telemetry::arg("Mode", "",
+        telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)));
 constexpr telemetry::Command meterCommands[] = {
-    telemetry::makeCommand<&Meter::reset>(0, "Reset counter", meter),
-    telemetry::makeCommand<&Meter::configure>(1, "Configure meter", meter, configureArgs),
+    telemetry::makeCommand<&Meter::reset>(makeId(0, 0), "Reset counter", meter),
+    telemetry::makeCommand<&Meter::configure>(makeId(0, 1), "Configure meter", meter, configureArgs),
 };
-constexpr telemetry::CommandIndex commandIndex{meterCommands};
+static_assert(telemetry::commandNamesUnique(meterCommands, std::size(meterCommands)));
+constexpr telemetry::CommandCatalog commandCatalogs[] = {
+    {0, "meter", meterCommands},
+};
+static_assert(telemetry::commandCatalogNamesUnique(commandCatalogs, std::size(commandCatalogs)));
+constexpr telemetry::CommandCatalogIndex commandIndex{commandCatalogs};
 
 } // namespace
 
@@ -122,6 +129,6 @@ void DemoCatalog::advance() noexcept
     sensor_.advance();
 }
 
-const telemetry::CommandIndex& DemoCatalog::commands() const noexcept { return commandIndex; }
+const telemetry::CommandCatalogIndex& DemoCatalog::commands() const noexcept { return commandIndex; }
 
 } // namespace demo

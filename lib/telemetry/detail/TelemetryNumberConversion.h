@@ -70,9 +70,11 @@ TELEMETRY_FORCE_INLINE constexpr bool convertNumberTo(From number, To& result) n
             converted = static_cast<To>(number);
         }
     } else if constexpr (std::is_floating_point_v<From>) {
-        static_assert(!std::is_signed_v<To>
-                      || std::numeric_limits<To>::lowest() == -std::numeric_limits<To>::max() - 1,
-                      "Floating-to-integer conversion requires a full two's-complement range");
+        if constexpr (std::is_signed_v<To>) {
+            static_assert(std::numeric_limits<To>::lowest()
+                          == -std::numeric_limits<To>::max() - 1,
+                          "Floating-to-integer conversion requires a full two's-complement range");
+        }
         // Powers of two are exact in the source float type, including 2^64.
         // Never round max() into an inclusive upper bound. The lower bound
         // permits fractions truncating to min() only when the source precision

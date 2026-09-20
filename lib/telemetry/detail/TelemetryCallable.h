@@ -38,6 +38,17 @@ struct CallableTraits<R (C::*)(A...) & noexcept> : CallableTraits<R (C::*)(A...)
 template <class R, class C, class... A>
 struct CallableTraits<R (C::*)(A...) const & noexcept> : CallableTraits<R (C::*)(A...) noexcept> {};
 
+// A borrowed callable must expose one concrete, noexcept operator(). Generic
+// and overloaded call operators have no single address and are rejected.
+template <class T, class = void>
+struct HasConcreteCallOperator : std::false_type {};
+template <class T>
+struct HasConcreteCallOperator<T,
+    std::void_t<decltype(&std::remove_cv_t<T>::operator())>> : std::true_type {};
+
+template <class T>
+using CallableObjectTraits = CallableTraits<decltype(&std::remove_cv_t<T>::operator())>;
+
 template <class T, bool = std::is_enum_v<T>> struct RawNumber { using Type = T; };
 template <class T> struct RawNumber<T, true> { using Type = std::underlying_type_t<T>; };
 template <class T> using RawNumberT = typename RawNumber<T>::Type;

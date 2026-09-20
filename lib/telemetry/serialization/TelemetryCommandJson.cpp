@@ -66,6 +66,16 @@ bool hashParameter(void* context, const CommandParam& parameter) noexcept
     return true;
 }
 
+bool hashCommand(std::uint32_t& hash, const Command& command) noexcept
+{
+    if (command.name == nullptr) return false;
+    hash = word(byte(hash, 'C'), command.id);
+    hash = string(hash, command.name);
+    if (!command.describeParameters(&hash, &hashParameter)) return false;
+    hash = byte(hash, 'E');
+    return true;
+}
+
 bool appendParameter(void* context, const CommandParam& parameter) noexcept
 {
     auto& out = *static_cast<detail::JsonWriter*>(context);
@@ -93,11 +103,7 @@ std::uint32_t commandSchemaCrcAbi(const CommandIndex& index, CurrentAbiTag) noex
     std::uint32_t hash = byte(2166136261u, 'M');
     for (std::size_t i = 0; i < index.size(); ++i) {
         const auto& command = index.data()[i];
-        if (command.name == nullptr) return 0;
-        hash = word(byte(hash, 'C'), command.id);
-        hash = string(hash, command.name);
-        if (!command.describeParameters(&hash, &hashParameter)) return 0;
-        hash = byte(hash, 'E');
+        if (!hashCommand(hash, command)) return 0;
     }
     return hash;
 }
@@ -114,6 +120,52 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
         if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", i == 0 ? "" : ",", command.id)
             || !out.appendRequiredString(command.name) || !out.append(",\"params\":[")
             || !command.describeParameters(&out, &appendParameter) || !out.append("]}")) return 0;
+    }
+    (void) out.append("]}");
+    return out.length();
+}
+
+std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex& index,
+                                  CurrentAbiTag) noexcept
+{
+    std::uint32_t hash = byte(2166136261u, 'G');
+    for (std::size_t group = 0; group < index.size(); ++group) {
+        const auto& catalog = index.data()[group];
+        if (catalog.name == nullptr) return 0;
+        hash = word(byte(hash, 'g'), catalog.id);
+        hash = string(hash, catalog.name);
+        for (std::size_t i = 0; i < catalog.count; ++i) {
+            if (!hashCommand(hash, catalog.commands[i])) return 0;
+        }
+        hash = byte(hash, 'e');
+    }
+    return hash;
+}
+
+std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
+                                  char* buffer, std::size_t size,
+                                  JsonOptions options, CurrentAbiTag tag) noexcept
+{
+    JsonWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
+    if (!out.ok()) return 0;
+    if (!out.append("{\"schema\":\"%08lx\",\"commandCatalogs\":[",
+                    static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
+    for (std::size_t group = 0; group < index.size(); ++group) {
+        const auto& catalog = index.data()[group];
+        if (!out.append("%s{\"id\":%u,\"name\":", group == 0 ? "" : ",",
+                        static_cast<unsigned>(catalog.id))
+            || !out.appendRequiredString(catalog.name)
+            || !out.append(",\"commands\":[")) return 0;
+        for (std::size_t i = 0; i < catalog.count; ++i) {
+            const auto& command = catalog.commands[i];
+            if (!out.append("%s{\"i\":%lu,\"id\":%" PRIu32 ",\"n\":",
+                            i == 0 ? "" : ",", static_cast<unsigned long>(i), command.id)
+                || !out.appendRequiredString(command.name)
+                || !out.append(",\"params\":[")
+                || !command.describeParameters(&out, &appendParameter)
+                || !out.append("]}")) return 0;
+        }
+        if (!out.append("]}")) return 0;
     }
     (void) out.append("]}");
     return out.length();

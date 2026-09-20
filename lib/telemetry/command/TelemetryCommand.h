@@ -36,6 +36,7 @@ enum class CommandResult : std::uint8_t {
 
 namespace detail {
 template <auto, class, class> struct CommandBinding;
+template <class, class> struct BorrowedCommandBinding;
 }
 
 // Definitions borrow the owner, metadata and strings at stable addresses.
@@ -77,6 +78,7 @@ struct Command {
 
 private:
     template <auto, class, class> friend struct detail::CommandBinding;
+    template <class, class> friend struct detail::BorrowedCommandBinding;
     constexpr Command(CommandId commandId, const char* label,
                        const void* object, const void* parameters, Invoke run, Describe schema) noexcept
         : id(commandId), name(label), owner(object), metadata(parameters),

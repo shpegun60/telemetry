@@ -1,7 +1,8 @@
 # Telemetry checks
 
 The current RW32 Field uses a 32-byte alignment and 96-byte ARM32 stride,
-with separate read and write cache lines. The
+with separate read and write cache lines. Compact Getter and Setter values are
+8 bytes each on ARM32; `readType` is at offset 8. The
 [RW32 H7S measurements](field_layout/h7s/RW32_RESULTS.md) record the production
 choice; the [B32 report](field_layout/h7s/RESULTS.md) is its historical baseline.
 ARM guards check size, hot member offsets and inlining of the finite-value check;
@@ -26,9 +27,9 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes nine suites (662 C++17 / 664 C++20 checks), verifies
+The runner executes nine suites (703 C++17 / 706 C++20 checks), verifies
 thirty-five existing rejected programs, nine immutable-Field cases and
-31 new factory/command compile-time rejection cases, checks
+52 factory/command compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -53,12 +54,18 @@ copy/move/assignment check, plus constexpr checks across different active types.
 CI also runs the offline layout and stack evidence verifiers with
 their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
 
-The library migration notes now cover ABI revision 4, immutable Field definitions,
+The library migration notes now cover ABI revision 5, immutable Field definitions,
 clean rebuilding of all translation units/static libraries with the same
 cache-line configuration, raw-storage alignment, local-table stack cost and
 structured bindings. Positional initialization and public metadata reads remain.
 H7S measurements do not establish H753 firmware timing: a DWT run and task
 stack measurement on the actual H753 integration remain target-specific work.
+
+The [compact callback report](field_layout/h7s/COMPACT_CALLBACK_RESULTS.md)
+retains an exact `a452283`/current board A/B: 1840 timing windows, independent
+result checksums, image/object/source hashes and exact restoration of the
+original 64 KiB image. Its receipt and CSV pass the offline verifier and nine
+deliberately damaged-record controls.
 
 JSON locale checks try a German numeric locale on Linux and Windows. Set
 `TELEMETRY_TEST_LOCALE=de_DE.UTF-8` (Linux) or `German_Germany.1252` (Windows)
@@ -336,6 +343,45 @@ Field remains 80 bytes on ARM32; external shared schema storage was considered
 but would require a separate API/layout decision. No remaining correctness
 defect was found within the caller contracts below; this is evidence from the
 listed checks, not a proof for arbitrary callbacks or application lifetimes.
+
+## Compact callbacks and complete factory API, 2026-09-20
+
+The publication candidate replaces Getter's previous 12-byte ARM variant with
+an 8-byte exact payload/invoker pair; Setter uses the same representation.
+Direct parameter-form getter/setter pairs retain their native numeric function
+pointer types. Template member/free pairs retain enum identity and generated
+owner adapters. Commands additionally borrow named stable callable lvalues;
+temporary, generic, overloaded and throwing forms are compile-time errors.
+
+Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
+fields and command parameters. `CommandCatalogIndex` adds packed group/index
+lookup and grouped schema paths without growing the 24-byte ARM Command.
+ABI revision 5 covers public descriptor/index offsets and the private nested
+Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
+depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
+
+Local MinGW GCC 13.1 passed 703 C++17 and 706 C++20 runtime checks, all 35
+existing invalid programs, nine immutable-Field cases and 52 factory/command
+invalid programs. Standalone headers, floating-mode rejection, nine positive
+and five invalid cache-line configurations, explicit 64/128-byte layouts and
+matching/mixed core/field-JSON/command-JSON ABI archives all passed. Qt 6.10.1
+Release built and completed the grouped-command offscreen smoke test.
+
+MSVC 19.50 separately built the three library translation units and passed
+582 applicable C++17 checks and 585 applicable C++20 checks with
+`/permissive- /W3 /WX`. Its numeric oracle intentionally skips because this
+implementation gives `long double` only 53 mantissa bits; that is not reported
+as numeric-oracle coverage. All 96 invalid C++17 programs were rejected.
+
+CubeIDE GCC 14.3.1 compiled 25 sources and eight read-only probes at both
+`-O2` and `-Os`, linked the newlib-nano consumer and all three independent ABI
+archives, and rejected every mixed layout. ARM32 sizes are Scalar 16, Getter 8,
+Setter 8, FieldType 48, Field 96/aligned 32 and Command 24 bytes.
+
+The [exact board A/B](field_layout/h7s/COMPACT_CALLBACK_RESULTS.md) covers
+1840 windows and restored the original image byte for byte. A fresh build of
+the publication candidate reproduced measured Current Probe/Benchmark objects,
+ELF and BIN at both optimization levels.
 
 ## Contracts the caller supplies
 

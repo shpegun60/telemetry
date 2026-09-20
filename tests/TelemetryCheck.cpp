@@ -44,7 +44,9 @@ static_assert(defaultCatalog.id == 0 && defaultCatalog.name[0] == '\0'
 static_assert(!std::is_aggregate_v<Field> && std::is_trivially_copyable_v<Field>);
 static_assert(alignof(Field) == telemetry::cacheLineBytes);
 static_assert(!std::is_copy_assignable_v<Field> && !std::is_move_assignable_v<Field>);
-static_assert(std::is_trivially_copyable_v<Scalar> && std::is_standard_layout_v<Scalar>);
+// std::variant's standard-layout status differs across standard libraries;
+// the public ABI contract requires Scalar to remain trivially copyable.
+static_assert(std::is_trivially_copyable_v<Scalar>);
 static_assert(std::is_nothrow_default_constructible_v<Scalar>
               && std::is_nothrow_default_constructible_v<Field>
               && std::is_nothrow_default_constructible_v<Catalog>);
@@ -213,11 +215,11 @@ static_assert(CanBind<Sensor&>::value);
 static_assert(!CanBind<Sensor&&>::value);
 
 #if UINTPTR_MAX == UINT32_MAX
-static_assert(sizeof(Getter) == 12, "Cortex-M getter size with native return alternatives");
+static_assert(sizeof(Getter) == 8, "Cortex-M getter must remain payload plus invoker");
 static_assert(sizeof(Setter) == 8, "Cortex-M setter size");
 static_assert(sizeof(Scalar) == 16, "Cortex-M scalar size");
 static_assert(sizeof(Field) == 96, "Cortex-M field stride must preserve the 32-byte prefix alignment");
-static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 12
+static_assert(offsetof(Field, get) == 0 && offsetof(Field, readType) == 8
               && offsetof(Field, set) == 32 && offsetof(Field, declaredType) == 40,
               "Cortex-M read and write contracts must occupy separate lines");
 static_assert(sizeof(Catalog) == 16, "Cortex-M catalog size");

@@ -1,62 +1,92 @@
 /**
  * @file TelemetryGetter.h
- * @brief Non-owning noexcept getters for Scalar and native numeric sources.
+ * @brief Compact non-owning noexcept getters for Scalar and native numbers.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
 #ifndef TELEMETRY_GETTER_H
 #define TELEMETRY_GETTER_H
 
+#include <functional>
+#include <memory>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
-#include "tiny_delegate.hpp"
 #include "../core/TelemetryCompiler.h"
 #include "../core/TelemetryScalar.h"
 
 namespace telemetry {
 
-// Only noexcept targets are admitted; an empty getter returns Null. Bound
-// methods/functions use tiny::delegate_ref. Native-returning function pointers
-// retain their actual types so both bare/+ lambdas remain constexpr in C++17.
-// No binding owns a source object or allocates storage.
+// A getter is exactly one target-sized payload plus one generated invoker.
+// Native function pointers retain their exact types; object bindings borrow a
+// stable lvalue. No function-pointer type punning, allocation or ownership is
+// involved. An empty getter returns Null.
 class Getter {
-    using Delegate = tiny::delegate_ref<Scalar()>;
-    template <class R> using NativeFunction = R (*)() noexcept;
-    using Storage = std::variant<Delegate,
-        NativeFunction<bool>, NativeFunction<char>,
-        NativeFunction<signed char>, NativeFunction<unsigned char>,
-        NativeFunction<short>, NativeFunction<unsigned short>,
-        NativeFunction<int>, NativeFunction<unsigned int>,
-        NativeFunction<long>, NativeFunction<unsigned long>,
-        NativeFunction<long long>, NativeFunction<unsigned long long>,
-        NativeFunction<float>, NativeFunction<double>,
-        NativeFunction<wchar_t>, NativeFunction<char16_t>, NativeFunction<char32_t>
+    template <class T> using NativeFunction = T (*)() noexcept;
+    template <class T> struct NativeTag {};
+
+#define TELEMETRY_GETTER_NATIVE_TYPES(X) \
+    X(bool, boolean)                     \
+    X(char, character)                   \
+    X(signed char, signedCharacter)      \
+    X(unsigned char, unsignedCharacter)  \
+    X(short, signedShort)                \
+    X(unsigned short, unsignedShort)     \
+    X(int, signedInt)                    \
+    X(unsigned int, unsignedInt)         \
+    X(long, signedLong)                  \
+    X(unsigned long, unsignedLong)       \
+    X(long long, signedLongLong)         \
+    X(unsigned long long, unsignedLongLong) \
+    X(float, float32)                    \
+    X(double, float64)                   \
+    X(wchar_t, wideCharacter)            \
+    X(char16_t, character16)             \
+    X(char32_t, character32)
+
+    union Payload {
+        void* object;
+        Scalar (*scalar)() noexcept;
+#define TELEMETRY_GETTER_MEMBER(Type, Name) NativeFunction<Type> Name;
+        TELEMETRY_GETTER_NATIVE_TYPES(TELEMETRY_GETTER_MEMBER)
+#undef TELEMETRY_GETTER_MEMBER
 #ifdef __cpp_char8_t
-        , NativeFunction<char8_t>
+        NativeFunction<char8_t> character8;
 #endif
-        >;
+
+        constexpr Payload() noexcept : object(nullptr) {}
+        constexpr explicit Payload(void* value) noexcept : object(value) {}
+        constexpr explicit Payload(Scalar (*value)() noexcept) noexcept : scalar(value) {}
+#define TELEMETRY_GETTER_CTOR(Type, Name) \
+        constexpr Payload(NativeFunction<Type> value, NativeTag<Type>) noexcept : Name(value) {}
+        TELEMETRY_GETTER_NATIVE_TYPES(TELEMETRY_GETTER_CTOR)
+#undef TELEMETRY_GETTER_CTOR
+#ifdef __cpp_char8_t
+        constexpr Payload(NativeFunction<char8_t> value, NativeTag<char8_t>) noexcept
+            : character8(value) {}
+#endif
+    };
+
+    using Invoke = Scalar (*)(Payload) noexcept;
 
 public:
     using Function = Scalar (*)() noexcept;
 
     constexpr Getter(Function function = nullptr) noexcept
-        : storage_(function != nullptr ? Delegate(function) : Delegate{}) {}
+        : payload_(function), invoke_(function != nullptr ? &invokeScalar_ : nullptr) {}
 
-    template <class R, std::enable_if_t<std::is_constructible_v<Storage,
-              std::in_place_type_t<NativeFunction<R>>, NativeFunction<R>>, int> = 0>
+    template <class R, std::enable_if_t<detail::isScalarReadType<R>, int> = 0>
     constexpr Getter(NativeFunction<R> function) noexcept
-        : storage_(std::in_place_type<NativeFunction<R>>, function) {}
+        : payload_(function, NativeTag<R>{}),
+          invoke_(function != nullptr ? &invokeNative_<R> : nullptr) {}
 
-    // Accept bare captureless lambdas in table rows. Convert implicitly so an
-    // explicit conversion cannot override the one admitted by the constraint.
+    // A capture-free lambda converts to its exact noexcept function pointer.
     template <class F, std::enable_if_t<std::is_class_v<std::decay_t<F>>
               && !std::is_base_of_v<Getter, std::decay_t<F>>
               && std::is_convertible_v<F&&, Function>, int> = 0>
     constexpr Getter(F&& function)
-        noexcept(noexcept(as_function_(std::forward<F>(function))))
-        : Getter(as_function_(std::forward<F>(function))) {}
+        noexcept(noexcept(asFunction_(std::forward<F>(function))))
+        : Getter(asFunction_(std::forward<F>(function))) {}
 
     template <class F, class Native = decltype(+std::declval<F>()),
               std::enable_if_t<std::is_class_v<std::decay_t<F>>
@@ -64,102 +94,136 @@ public:
               && !std::is_convertible_v<F&&, Function>
               && std::is_pointer_v<Native>
               && std::is_convertible_v<F&&, Native>
-              && std::is_constructible_v<Storage, std::in_place_type_t<Native>, Native>, int> = 0>
+              && std::is_nothrow_invocable_v<Native>
+              && detail::isScalarReadType<std::invoke_result_t<Native>>, int> = 0>
     constexpr Getter(F&& function)
-        noexcept(noexcept(as_native_<Native>(std::forward<F>(function))))
-        : Getter(as_native_<Native>(std::forward<F>(function))) {}
+        noexcept(noexcept(asNative_<Native>(std::forward<F>(function))))
+        : Getter(asNative_<Native>(std::forward<F>(function))) {}
 
-    TELEMETRY_FORCE_INLINE Scalar operator()() const noexcept
+    [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar operator()() const noexcept
     {
-        return invokeStorage_(storage_, std::make_index_sequence<std::variant_size_v<Storage>>{});
+        return invoke_ != nullptr ? invoke_(payload_) : Scalar::null();
     }
 
-    constexpr explicit operator bool() const noexcept
-    {
-        return std::visit([](const auto& target) constexpr noexcept {
-            return static_cast<bool>(target);
-        }, storage_);
-    }
+    constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
 
-    // Compatibility with the named free functions in existing tables.
+    // Exact private layout for the link-time ABI signature.
+    static constexpr std::size_t abiPayloadOffset() noexcept
+    { return offsetof(Getter, payload_); }
+    static constexpr std::size_t abiInvokeOffset() noexcept
+    { return offsetof(Getter, invoke_); }
+    static constexpr std::size_t abiPayloadSize() noexcept { return sizeof(Payload); }
+    static constexpr std::size_t abiPayloadAlign() noexcept { return alignof(Payload); }
+
+    // Compile-time functions need no stored target address.
     template <auto FunctionPointer>
     static constexpr Getter bind() noexcept
     {
         static_assert(std::is_pointer_v<decltype(FunctionPointer)>
                       && std::is_function_v<std::remove_pointer_t<decltype(FunctionPointer)>>,
                       "Getter::bind requires a function pointer");
+        static_assert(FunctionPointer != nullptr, "Getter target cannot be null");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(FunctionPointer)>,
                       "The getter must return a Scalar-compatible value and be noexcept");
-        return Getter(Delegate::bind<FunctionPointer>());
+        return Getter(Payload{}, &invokeStatic_<FunctionPointer>);
     }
 
-    // The object must stay alive at the same address for every invocation.
-    // A const object is supported when Method can be called on const T.
-    // Let T be deduced; explicit reference types must not hide a temporary.
+    // The object must remain alive at the same address for every invocation.
     template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bind(T& object) noexcept
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
                       "Getter::bind requires a member function");
+        static_assert(!std::is_volatile_v<T>, "Getter owners cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Method), T&>,
                       "The getter must return a Scalar-compatible value and be noexcept");
-        return Getter(Delegate::bind<Method>(object));
+        return Getter(Payload(eraseObject_(std::addressof(object))), &invokeMethod_<Method, T>);
     }
 
-    // Also catches an explicit const T, whose T& could otherwise bind an rvalue.
     template <auto Method, class T>
     static Getter bind(T&&) = delete;
 
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bindContext(T& object) noexcept
     {
+        static_assert(!std::is_volatile_v<T>, "Getter contexts cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Adapter), T&>,
                       "Getter adapter must return a Scalar-compatible value and be noexcept");
-        return Getter(Delegate::bind_context<Adapter>(object));
+        return Getter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
 
     template <auto Adapter, class T>
     static Getter bindContext(T&&) = delete;
 
 private:
-    template <std::size_t Index>
-    TELEMETRY_FORCE_INLINE static Scalar invokeAlternative_(const Storage& storage) noexcept
+    constexpr Getter(Payload payload, Invoke invoke) noexcept
+        : payload_(payload), invoke_(invoke) {}
+
+    static TELEMETRY_FORCE_INLINE Scalar invokeScalar_(Payload payload) noexcept
     {
-        const auto& target = std::get<Index>(storage);
-        if constexpr (Index == 0) {
-            return target.call_or([]() noexcept { return Scalar::null(); });
-        } else {
-            return target != nullptr ? Scalar::from(target()) : Scalar::null();
-        }
+        return payload.scalar();
     }
 
-    template <std::size_t... Indices>
-    TELEMETRY_FORCE_INLINE static Scalar invokeStorage_(const Storage& storage, std::index_sequence<Indices...>) noexcept
+#define TELEMETRY_GETTER_ACCESSOR(Type, Name) \
+    static constexpr NativeFunction<Type> native_(Payload payload, NativeTag<Type>) noexcept \
+    { return payload.Name; }
+    TELEMETRY_GETTER_NATIVE_TYPES(TELEMETRY_GETTER_ACCESSOR)
+#undef TELEMETRY_GETTER_ACCESSOR
+#ifdef __cpp_char8_t
+    static constexpr NativeFunction<char8_t> native_(Payload payload, NativeTag<char8_t>) noexcept
+    { return payload.character8; }
+#endif
+
+    template <class R>
+    static TELEMETRY_FORCE_INLINE Scalar invokeNative_(Payload payload) noexcept
     {
-        using Invoke = Scalar (*)(const Storage&) noexcept;
-        static constexpr Invoke invokers[] = {&invokeAlternative_<Indices>...};
-        // Storage cannot become valueless: all alternatives and assignments
-        // are trivial and nothrow. Keep this selection at the call site so a
-        // known alternative folds even in size-optimized builds.
-        return invokers[storage.index()](storage);
+        return Scalar::from(native_(payload, NativeTag<R>{})());
     }
 
-    static constexpr Function as_function_(Function function) noexcept { return function; }
+    template <auto FunctionPointer>
+    static TELEMETRY_FORCE_INLINE Scalar invokeStatic_(Payload) noexcept
+    {
+        return FunctionPointer();
+    }
+
+    template <class T>
+    static TELEMETRY_FORCE_INLINE T& object_(Payload payload) noexcept
+    {
+        return *static_cast<T*>(payload.object);
+    }
+
+    template <class T>
+    static constexpr void* eraseObject_(T* pointer) noexcept
+    {
+        return const_cast<void*>(static_cast<const volatile void*>(pointer));
+    }
+
+    template <auto Method, class T>
+    static TELEMETRY_FORCE_INLINE Scalar invokeMethod_(Payload payload) noexcept
+    {
+        return std::invoke(Method, object_<T>(payload));
+    }
+
+    template <auto Adapter, class T>
+    static TELEMETRY_FORCE_INLINE Scalar invokeContext_(Payload payload) noexcept
+    {
+        return Adapter(object_<T>(payload));
+    }
+
+    static constexpr Function asFunction_(Function function) noexcept { return function; }
     template <class Native>
-    static constexpr Native as_native_(Native function) noexcept { return function; }
+    static constexpr Native asNative_(Native function) noexcept { return function; }
 
-    constexpr explicit Getter(Delegate delegate) noexcept : storage_(delegate) {}
+    Payload payload_{};
+    Invoke invoke_ = nullptr;
 
-    static_assert(std::is_nothrow_copy_constructible_v<Storage>
-                  && std::is_nothrow_move_constructible_v<Storage>
-                  && std::is_nothrow_copy_assignable_v<Storage>
-                  && std::is_nothrow_move_assignable_v<Storage>,
-                  "Getter storage must not become valueless during assignment");
-    Storage storage_;
+#undef TELEMETRY_GETTER_NATIVE_TYPES
 };
 
-static_assert(std::is_trivially_copyable_v<Getter>,
+static_assert(std::is_standard_layout_v<Getter> && std::is_trivially_copyable_v<Getter>,
               "Catalog getters must remain trivial non-owning values");
+static_assert(sizeof(Getter) == sizeof(void*) * 2,
+              "Getter must remain one payload plus one invoker");
 
 } // namespace telemetry
 

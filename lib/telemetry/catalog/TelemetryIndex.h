@@ -46,7 +46,7 @@ public:
 
     template <std::size_t N>
     constexpr explicit CatalogIndex(const Catalog (&catalogs)[N]) noexcept
-        : CatalogIndex(catalogs, N) {}
+        : CatalogIndex(static_cast<const Catalog*>(catalogs), N) {}
 
     template <std::size_t N>
     CatalogIndex(const Catalog (&&)[N]) = delete;
@@ -96,10 +96,18 @@ public:
     constexpr const Catalog* data() const noexcept { return catalogs_; }
     constexpr std::size_t size() const noexcept { return count_; }
 
+    static constexpr std::size_t abiCatalogsOffset() noexcept;
+    static constexpr std::size_t abiCountOffset() noexcept;
+
 private:
     const Catalog* catalogs_ = nullptr;
     std::size_t count_ = 0;
 };
+
+constexpr std::size_t CatalogIndex::abiCatalogsOffset() noexcept
+{ return offsetof(CatalogIndex, catalogs_); }
+constexpr std::size_t CatalogIndex::abiCountOffset() noexcept
+{ return offsetof(CatalogIndex, count_); }
 
 // A compile-time binding to one catalog array. All objects of this type use
 // the same immutable view; there is no mutable base that could be rebound to

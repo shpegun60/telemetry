@@ -22,7 +22,8 @@ public:
                && commands[count_].id == static_cast<CommandId>(count_)) ++count_;
     }
     template <std::size_t N>
-    constexpr explicit CommandIndex(const Command (&commands)[N]) noexcept : CommandIndex(commands, N) {}
+    constexpr explicit CommandIndex(const Command (&commands)[N]) noexcept
+        : CommandIndex(static_cast<const Command*>(commands), N) {}
     template <std::size_t N> CommandIndex(const Command (&&)[N]) = delete;
     template <std::size_t N> CommandIndex(const Command (&&)[N], std::size_t) = delete;
 
@@ -45,9 +46,16 @@ public:
     }
     constexpr const Command* data() const noexcept { return commands_; }
     constexpr std::size_t size() const noexcept { return count_; }
+    static constexpr std::size_t abiCommandsOffset() noexcept;
+    static constexpr std::size_t abiCountOffset() noexcept;
 private:
     const Command* commands_ = nullptr;
     std::size_t count_ = 0;
 };
+
+constexpr std::size_t CommandIndex::abiCommandsOffset() noexcept
+{ return offsetof(CommandIndex, commands_); }
+constexpr std::size_t CommandIndex::abiCountOffset() noexcept
+{ return offsetof(CommandIndex, count_); }
 } // namespace telemetry
 #endif

@@ -19,9 +19,11 @@ import time
 HERE = Path(__file__).resolve().parent
 EXP = HERE.parent
 BASE = runpy.run_path(str(EXP / 'run.py'))
-VARIANTS = ['A', 'B', 'B32', 'C', 'Current']
+VARIANTS = ['A', 'B', 'B32', 'C', 'Baseline', 'Current']
 LAYOUTS = {'A': (80, 8, 56, 68, 16), 'B': (80, 8, 0, 12, 24),
-           'B32': (96, 32, 0, 12, 24), 'C': (96, 32, 0, 12, 40), 'Current': (96, 32, 0, 32, 40)}
+           'B32': (96, 32, 0, 12, 24), 'C': (96, 32, 0, 12, 40),
+           'Baseline': (96, 32, 0, 32, 40), 'Current': (96, 32, 0, 32, 40)}
+BASE['VARIANTS']['Baseline'] = 7
 
 
 def sha(path):
@@ -37,6 +39,32 @@ def run(command, log, timeout=180):
     return result.stdout
 
 
+def copy_git_tree(reference, relative, destination):
+    resolved = subprocess.run(['git', 'rev-parse', '--verify', reference + '^{commit}'],
+        cwd=BASE['ROOT'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        encoding='ascii', timeout=30)
+    if resolved.returncode:
+        raise RuntimeError('Unknown baseline commit: ' + reference)
+    commit = resolved.stdout.strip()
+    listing = subprocess.run(['git', 'ls-tree', '-r', '--name-only', commit, '--', relative],
+        cwd=BASE['ROOT'], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        encoding='utf-8', timeout=30)
+    if listing.returncode:
+        raise RuntimeError('Cannot list baseline tree: ' + listing.stderr)
+    paths = [line for line in listing.stdout.splitlines() if line]
+    if not paths:
+        raise RuntimeError('Baseline tree is empty: ' + relative)
+    for path in paths:
+        blob = subprocess.run(['git', 'show', commit + ':' + path], cwd=BASE['ROOT'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        if blob.returncode:
+            raise RuntimeError('Cannot read baseline path: ' + path)
+        target = destination / Path(path).relative_to(relative)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(blob.stdout)
+    return commit
+
+
 def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=(), fixture_inputs=()):
     cube = args.cube.resolve()
     compiler = Path(args.arm_cxx).resolve()
@@ -44,7 +72,14 @@ def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=
     objcopy = compiler.with_name('arm-none-eabi-objcopy.exe')
     objdump = compiler.with_name('arm-none-eabi-objdump.exe')
     size = compiler.with_name('arm-none-eabi-size.exe')
-    BASE['prepare'](output, args.variants)
+    generated = [variant for variant in args.variants if variant != 'Baseline']
+    if generated:
+        BASE['prepare'](output, generated)
+    baseline_commit = None
+    if 'Baseline' in args.variants:
+        if not args.baseline_ref:
+            raise RuntimeError('--baseline-ref is required for the Baseline variant')
+        baseline_commit = copy_git_tree(args.baseline_ref, 'lib', output/'Baseline'/'lib')
     sources_for_fixture = fixture_sources or [EXP/'Probe.cpp', HERE/'Benchmark.cpp']
     inputs = [EXP/'Fixture.h', Path(__file__), EXP/'run.py', *fixture_inputs]
     inputs += [p for p in sources_for_fixture if p.is_absolute()]
@@ -102,6 +137,8 @@ def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=
             image = dict(variant=variant, optimization=opt, elf=str(elf), elf_sha256=sha(elf), binary_sha256=sha(binary),
                          flash_bytes=binary.stat().st_size, library_sources=lib_hashes,
                          objects_sha256={p.name: sha(p) for p in objects})
+            if variant == 'Baseline':
+                image['baseline_commit'] = baseline_commit
             images.append(image)
             print(f'BUILT {variant} {opt}: {image["flash_bytes"]} / 65536 flash bytes', flush=True)
     if manifest != {str(p): sha(p) for p in inputs}:
@@ -262,6 +299,7 @@ def main():
     parser.add_argument('--arm-cxx', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--variants', nargs='+', choices=VARIANTS, default=VARIANTS[:4])
+    parser.add_argument('--baseline-ref', help='exact Git commit copied for the Baseline variant')
     parser.add_argument('--optimizations', nargs='+', choices=['O2', 'Os'], default=['O2', 'Os'])
     parser.add_argument('--run', action='store_true')
     parser.add_argument('--serial', default='002A001F3033510135393935')

@@ -2,9 +2,8 @@
 # Authors: Ruslan Kovtun (shpegun60), codexAi.
 # License: MIT; see LICENSE in this directory.
 #
-# Copy telemetry and its sibling delegate and magic_enum directories into a consumer.
+# Copy telemetry and its sibling magic_enum directory into a consumer.
 # The library itself uses only C++17; Qt belongs to the application.
-include($$PWD/../delegate/delegate.pri)
 include($$PWD/../magic_enum/magic_enum.pri)
 CONFIG += c++17
 INCLUDEPATH += $$PWD
@@ -25,6 +24,8 @@ HEADERS += \
     $$PWD/command/TelemetryCommand.h \
     $$PWD/command/TelemetryCommandArgs.h \
     $$PWD/command/TelemetryCommandFactory.h \
+    $$PWD/command/TelemetryCommandCatalog.h \
+    $$PWD/command/TelemetryCommandCatalogIndex.h \
     $$PWD/command/TelemetryCommandIndex.h \
     $$PWD/catalog/TelemetryCatalog.h \
     $$PWD/catalog/TelemetryIndex.h \

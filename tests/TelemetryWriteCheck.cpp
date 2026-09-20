@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "serialization/TelemetryJson.h"
+#include "tiny_delegate.hpp"
 
 namespace {
 using namespace telemetry;
@@ -170,6 +171,36 @@ void checkNativeGetter(const char* name)
     getters[0] = &nativeRead<T>;
     const Getter copy = getters[0];
     correct = same(copy(), Scalar::from(nativeValue<T>)) && correct;
+    expect(correct, name);
+}
+
+template <class T>
+WriteResult nativeWrite(T value) noexcept
+{
+    nativeValue<T> = value;
+    return WriteResult::Applied;
+}
+
+template <class T>
+void checkNativeSetter(const char* name)
+{
+    constexpr Setter function = &nativeWrite<T>;
+    constexpr Setter bare = [](T value) noexcept { return nativeWrite<T>(value); };
+    constexpr Setter plus = +[](T value) noexcept { return nativeWrite<T>(value); };
+    static_assert(function && bare && plus);
+    constexpr T expected = std::is_same_v<T, bool> ? static_cast<T>(true) : static_cast<T>(11);
+    const Scalar normalized = Scalar::from(expected);
+    Setter setters[] = {function, bare, plus};
+    bool correct = true;
+    for (const auto& setter : setters) {
+        nativeValue<T> = T{};
+        correct = setter(normalized) == WriteResult::Applied
+            && nativeValue<T> == expected && correct;
+        correct = setter(Scalar::null()) == WriteResult::InvalidValue && correct;
+    }
+    constexpr Setter empty{static_cast<WriteResult (*)(T) noexcept>(nullptr)};
+    static_assert(!empty);
+    correct = empty(normalized) == WriteResult::ReadOnly && correct;
     expect(correct, name);
 }
 
@@ -415,8 +446,28 @@ int main()
 #ifdef __cpp_char8_t
     checkNativeGetter<char8_t>("native char8_t getters");
 #endif
+    checkNativeSetter<bool>("native bool setters");
+    checkNativeSetter<char>("native char setters");
+    checkNativeSetter<signed char>("native signed char setters");
+    checkNativeSetter<unsigned char>("native unsigned char setters");
+    checkNativeSetter<short>("native short setters");
+    checkNativeSetter<unsigned short>("native unsigned short setters");
+    checkNativeSetter<int>("native int setters");
+    checkNativeSetter<unsigned>("native unsigned setters");
+    checkNativeSetter<long>("native long setters");
+    checkNativeSetter<unsigned long>("native unsigned long setters");
+    checkNativeSetter<long long>("native long long setters");
+    checkNativeSetter<unsigned long long>("native unsigned long long setters");
+    checkNativeSetter<float>("native float setters");
+    checkNativeSetter<double>("native double setters");
+    checkNativeSetter<wchar_t>("native wchar_t setters");
+    checkNativeSetter<char16_t>("native char16_t setters");
+    checkNativeSetter<char32_t>("native char32_t setters");
+#ifdef __cpp_char8_t
+    checkNativeSetter<char8_t>("native char8_t setters");
+#endif
     checkBindingsAndWrites();
     checkLifetimeContracts();
-    std::printf("%d/%d write and native getter checks passed\n", checks - failures, checks);
+    std::printf("%d/%d write and native getter/setter checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

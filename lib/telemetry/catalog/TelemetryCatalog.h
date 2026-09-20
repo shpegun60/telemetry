@@ -34,7 +34,7 @@ struct Catalog {
 
     template <std::size_t N>
     constexpr Catalog(GroupId group, const char* label, const Field (&rows)[N]) noexcept
-        : Catalog(group, label, rows, N) {}
+        : Catalog(group, label, static_cast<const Field*>(rows), N) {}
 
     template <std::size_t N>
     Catalog(GroupId, const char*, const Field (&&)[N]) = delete;
