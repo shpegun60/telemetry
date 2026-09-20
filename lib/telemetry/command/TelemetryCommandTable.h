@@ -174,14 +174,30 @@ class CommandTable {
         return Definition::invokeTyped(commands_[I].owner, metadataAddress_<I>(), values...);
     }
 
+    template <std::size_t I, class... Input>
+    TELEMETRY_FORCE_INLINE bool callRuntimeMatch_(
+        std::size_t index, CommandResult& result, Input... values) const noexcept
+    {
+        using Definition = std::tuple_element_t<I, DefinitionTuple>;
+        if constexpr (Definition::template signatureMatches<Input...>) {
+            if (index == I) {
+                result = callPosition_<I>(values...);
+                return true;
+            }
+        }
+        return false;
+    }
+
     template <std::size_t... I, class... Input>
     TELEMETRY_FORCE_INLINE CommandResult callRuntime_(
         std::size_t index, std::index_sequence<I...>, Input... values) const noexcept
     {
-        CommandResult result = CommandResult::NotFound;
-        const bool matched = ((index == I
-            ? (result = callPosition_<I>(values...), true)
-            : false) || ...);
+        if (index >= sizeof...(Definitions)) return CommandResult::NotFound;
+        CommandResult result = CommandResult::ArgumentCountMismatch;
+        // Each helper emits code only when Definition I has this exact native
+        // signature. Valid positions with another signature keep the mismatch
+        // result without adding a comparison or invocation for that row.
+        const bool matched = (callRuntimeMatch_<I>(index, result, values...) || ...);
         (void) matched;
         return result;
     }

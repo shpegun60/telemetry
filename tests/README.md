@@ -27,8 +27,8 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes nine suites (726 C++17 / 729 C++20 checks), verifies
-thirty-five existing rejected programs, nine immutable-Field cases and
+The runner executes nine suites (729 C++17 / 732 C++20 checks), verifies
+thirty-nine existing rejected programs, nine immutable-Field cases and
 82 factory/command compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
@@ -164,6 +164,21 @@ both optimization levels. Exact native types are mandatory for `call<Index>()`;
 the runtime-position overload returns `ArgumentCountMismatch` when the selected
 definition has another signature. The Scalar path retains checked numeric
 conversion for transport input.
+
+`CommandDispatchScalingCodegen.cpp` expands tables of 10, 32 and 100 commands,
+where respectively 1, 2 and 7 definitions match `(float, Mode)`. The ARM gate
+requires one range comparison plus exactly 1, 2 or 7 index comparisons, only
+the matching concrete targets, no Scalar/indirect dispatch and no stack frame.
+CubeIDE GCC 14.3.1 produced 72/72, 112/112 and 324/332-byte wrappers at
+`-O2`/`-Os`; growth follows matching definitions rather than total rows.
+
+`IndexCodegen.cpp` also compares compile-time-ID field access with the same
+known `Field`. Static float/U16/read-only writes have identical normalized
+instructions to direct `Field::write`. The gate requires static reads to match
+the direct `Field::read` stream or improve it by eliminating its getter call
+and stack work; erased dispatch is forbidden and converted reads must retain
+the required numeric conversion. CubeIDE GCC 14.3.1 takes the latter path and
+inlines the getter for both native and converted reads.
 
 The dedicated [H7S DWT run](command_dispatch/h7s/README.md) measured the exact
 source commit over nine 65,536-call windows per path and optimization level:
@@ -418,7 +433,7 @@ ABI revision 5 covers public descriptor/index offsets and the private nested
 Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
 depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
 
-Local MinGW GCC 13.1 passed 726 C++17 and 729 C++20 runtime checks, all 35
+Local MinGW GCC 13.1 passed 729 C++17 and 732 C++20 runtime checks, all 39
 existing invalid programs, nine immutable-Field cases and 82 factory/command
 invalid programs. Standalone headers, floating-mode rejection, nine positive
 and five invalid cache-line configurations, explicit 64/128-byte layouts and
@@ -426,18 +441,17 @@ matching/mixed core/field-JSON/command-JSON ABI archives all passed. Qt 6.10.1
 Release built and completed the grouped-command offscreen smoke test.
 
 MSVC 19.50 separately built the three library translation units and passed
-605 applicable C++17 checks and 608 applicable C++20 checks with
+608 applicable C++17 checks and 611 applicable C++20 checks with
 `/permissive- /W3 /WX`. Its numeric oracle intentionally skips because this
 implementation gives `long double` only 53 mantissa bits; that is not reported
-as numeric-oracle coverage. All 126 invalid C++17 programs were rejected.
+as numeric-oracle coverage. All 130 invalid C++17 programs were rejected.
 
-CubeIDE GCC 14.3.1 compiled 27 sources and ten read-only probes at both
+CubeIDE GCC 14.3.1 compiled 28 sources and eleven read-only probes at both
 `-O2` and `-Os`, linked the newlib-nano consumer and all three independent ABI
 archives, and rejected every mixed layout. ARM32 sizes are Scalar 16, Getter 8,
 Setter 8, FieldType 48, Field 96/aligned 32 and Command 24 bytes.
-The 18 objects from the nine pre-existing probes are byte-identical to the
-`55fbd481` baseline; the two new probes cover borrowed Fields and directly
-constructed owning CommandTable storage.
+The static field and command-scaling probes additionally enforce the new
+compile-time access and signature-filtered dispatch properties described above.
 
 The [exact board A/B](field_layout/h7s/COMPACT_CALLBACK_RESULTS.md) covers
 1840 windows and restored the original image byte for byte. A fresh build of

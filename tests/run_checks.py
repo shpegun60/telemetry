@@ -56,6 +56,8 @@ REJECTIONS = {
     18: r"no matching", 19: r"no matching",
     **{case: r"invalidFieldLimits" for case in range(20, 31)},
     **{case: r"deleted" for case in range(31, 36)},
+    36: r"accepted prefix", 37: r"accepted prefix",
+    38: r"no matching", 39: r"no matching",
 }
 
 

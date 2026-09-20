@@ -160,9 +160,25 @@ public:
             static_assert(numeric, "An inferred read requires a numeric or Bool declaredType");
             if constexpr (numeric) {
                 using T = Scalar::NativeType<type>;
-                return field->template read<T>();
+                return read<Id, T>();
             }
         }
+    }
+
+    template <FieldId Id, class T,
+              std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE static std::optional<T> read() noexcept
+    {
+        constexpr const Field* field = index_.find(Id);
+        static_assert(field != nullptr,
+                      "The read ID must belong to the catalog's accepted prefix");
+        // Keep the constexpr lookup above as the contract check, but invoke
+        // through the catalog expression itself. This exposes the concrete
+        // field directly, allowing the compiler to preserve or further inline
+        // the same known-field operation without any runtime lookup.
+        if constexpr (field != nullptr)
+            return Catalogs[groupOf(Id)].fields[indexOf(Id)].template read<T>();
+        else return std::nullopt;
     }
 
     template <class T>
@@ -170,6 +186,19 @@ public:
     static auto write(FieldId id, T value) noexcept -> decltype(index_.write(id, value))
     {
         return index_.write(id, value);
+    }
+
+    template <FieldId Id, class T>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE
+    static auto write(T value) noexcept
+        -> decltype(std::declval<const Field&>().write(value))
+    {
+        constexpr const Field* field = index_.find(Id);
+        static_assert(field != nullptr,
+                      "The write ID must belong to the catalog's accepted prefix");
+        if constexpr (field != nullptr)
+            return Catalogs[groupOf(Id)].fields[indexOf(Id)].write(value);
+        else return WriteResult::NotFound;
     }
 };
 

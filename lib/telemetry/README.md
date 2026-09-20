@@ -230,10 +230,13 @@ call. This path constructs no Scalar array and performs no indirect invocation.
 `call(runtimeIndex, ...)` uses the same exact native signature and validation,
 but emits typed branches because the local zero-based table position is known
 only at runtime. A selected definition with another signature returns
-`ArgumentCountMismatch`; an out-of-range position returns `NotFound`. Matching
-branches call their concrete targets directly, without Scalar. Generated code
-can grow with the number of definitions that match a particular native
-signature, so this path trades Flash for dispatch speed.
+`ArgumentCountMismatch`; an out-of-range position returns `NotFound`. The
+generated dispatcher has one range check and emits comparisons/invocations
+only for definitions whose signature exactly matches `Input...`. Unrelated
+definitions are removed by `if constexpr`, rather than left for the optimizer
+to discover. Matching branches call their concrete targets directly, without
+Scalar. Generated code can grow with the number of matching definitions, so
+this path trades Flash for dispatch speed.
 
 `CommandIndex::execute()` and `CommandCatalogIndex::execute()` remain the fully
 dynamic transport APIs. They accept IDs plus a borrowed Scalar array, perform
@@ -730,6 +733,8 @@ the index's C++ type to enable an inferred destination:
 constexpr auto fixed = CatalogIndex::bind<catalogs>();
 auto ua = fixed.read<makeId(0, 0)>();          // optional<float>, F32 metadata.
 auto temperature = fixed.read<makeId(1, 0)>(); // optional<double>, F64 metadata.
+auto wide = fixed.read<makeId(0, 0), double>(); // optional<double>, checked F32 first.
+auto result = fixed.write<makeId(0, 4)>(275);   // Input type deduced, normalized to field type.
 auto converted = fixed.read<float>(makeId(1, 0));
 Scalar value = fixed.read(makeId(1, 0));
 ```
@@ -739,9 +744,12 @@ the field and native result type; its value is still read at runtime. The
 same type retains `find`, runtime-ID reads, writes and serialization support.
 It has no mutable binding and implicitly supplies the shared const
 `CatalogIndex` view to existing consumers. `bind` rejects non-constexpr
-metadata immediately. `read<Id>()` rejects IDs outside the accepted prefix,
-Null metadata and unknown declared types at compilation. Empty or unavailable
-getters still need an optional result even for a valid compile-time ID.
+metadata immediately. `read<Id>()`, `read<Id, T>()` and `write<Id>(value)`
+reject IDs outside the accepted prefix at compilation. Inferred `read<Id>()`
+also rejects Null metadata and unknown declared types. Empty or unavailable
+getters still need an optional result even for a valid compile-time ID. A
+known read-only field returns `WriteResult::ReadOnly`, matching runtime-ID
+semantics; the compiler reduces that path to the constant result.
 
 An ordinary `CatalogIndex{catalogs}` stores only a pointer and count; its
 table is not part of its C++ type. Use `read(id)` or `read<T>(id)` on that view.

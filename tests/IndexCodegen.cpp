@@ -64,6 +64,8 @@ extern constexpr telemetry::Catalog telemetry_probe_catalogs[] = {
 
 extern constexpr telemetry::CatalogIndex telemetry_probe_index{
     telemetry_probe_catalogs};
+constexpr auto telemetry_probe_static_index =
+    telemetry::CatalogIndex::bind<telemetry_probe_catalogs>();
 
 static_assert(makeId(65535, 65535) == UINT32_MAX);
 static_assert(telemetry_probe_catalogs[0].count == 4);
@@ -123,8 +125,27 @@ __attribute__((noinline)) float telemetry_probe_read_explicit_known() noexcept
 
 __attribute__((noinline)) float telemetry_probe_read_inferred_known() noexcept
 {
-    constexpr auto index = telemetry::CatalogIndex::bind<telemetry_probe_catalogs>();
-    return index.read<makeId(0, 0)>().value_or(-1.0f);
+    return telemetry_probe_static_index.read<makeId(0, 0)>().value_or(-1.0f);
+}
+
+__attribute__((noinline)) float telemetry_probe_field_read_native() noexcept
+{
+    return telemetry_probe_group0_fields[0].read<float>().value_or(-1.0f);
+}
+
+__attribute__((noinline)) float telemetry_probe_static_read_native() noexcept
+{
+    return telemetry_probe_static_index.read<makeId(0, 0), float>().value_or(-1.0f);
+}
+
+__attribute__((noinline)) std::uint32_t telemetry_probe_field_read_converted() noexcept
+{
+    return telemetry_probe_group0_fields[0].read<std::uint32_t>().value_or(0);
+}
+
+__attribute__((noinline)) std::uint32_t telemetry_probe_static_read_converted() noexcept
+{
+    return telemetry_probe_static_index.read<makeId(0, 0), std::uint32_t>().value_or(0);
 }
 
 __attribute__((noinline)) float telemetry_probe_read_missing_typed() noexcept
@@ -167,6 +188,42 @@ __attribute__((noinline)) telemetry::WriteResult telemetry_probe_write_readonly(
 __attribute__((noinline)) telemetry::WriteResult telemetry_probe_write_missing() noexcept
 {
     return telemetry_probe_index.write(makeId(2, 0), 250);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_field_write_float(
+    float value) noexcept
+{
+    return telemetry_probe_group1_fields[2].write(value);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_static_write_float(
+    float value) noexcept
+{
+    return telemetry_probe_static_index.write<makeId(1, 2)>(value);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_field_write_u16(
+    std::uint16_t value) noexcept
+{
+    return telemetry_probe_group1_fields[2].write(value);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_static_write_u16(
+    std::uint16_t value) noexcept
+{
+    return telemetry_probe_static_index.write<makeId(1, 2)>(value);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_field_write_readonly(
+    float value) noexcept
+{
+    return telemetry_probe_group0_fields[0].write(value);
+}
+
+__attribute__((noinline)) telemetry::WriteResult telemetry_probe_static_write_readonly(
+    float value) noexcept
+{
+    return telemetry_probe_static_index.write<makeId(0, 0)>(value);
 }
 
 } // extern "C"

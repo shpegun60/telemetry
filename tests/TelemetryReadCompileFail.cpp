@@ -102,6 +102,15 @@ auto rejected = Setter::bind<&Owner::write, const Owner&>(Owner{});
 #elif TELEMETRY_READ_FAIL_CASE == 35
 struct Owner { WriteResult write(const Scalar&) const noexcept { return WriteResult::Applied; } };
 auto rejected = Setter::bind<&Owner::write>(Owner{});
+#elif TELEMETRY_READ_FAIL_CASE == 36
+auto rejected = index.read<makeId(1, 0), float>(); // Missing compile-time group.
+#elif TELEMETRY_READ_FAIL_CASE == 37
+auto rejected = index.write<makeId(0, 3)>(1.0f); // Past the accepted field prefix.
+#elif TELEMETRY_READ_FAIL_CASE == 38
+auto rejected = index.read<makeId(0, 0), long double>(); // Unsupported requested type.
+#elif TELEMETRY_READ_FAIL_CASE == 39
+enum class Mode : std::uint8_t { Off, Auto };
+auto rejected = index.write<makeId(0, 0)>(Mode::Auto); // Applications supply a number.
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 35"
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 39"
 #endif

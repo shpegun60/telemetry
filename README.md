@@ -101,7 +101,8 @@ Owning command tables provide `call<Index>(exactNativeArgs...)` for a
 compile-time direct target and `call(runtimeIndex, exactNativeArgs...)` for
 generated typed dispatch. Transport code keeps `execute(id, Scalar*, count)`.
 The two native paths construct no Scalar array and perform no indirect command
-invocation.
+invocation. Runtime-position dispatch emits one range check and cases only for
+definitions with that exact native signature; unrelated commands add no case.
 The constructor binds fields to its owned sensor. Its arrays and owner stay
 at stable addresses, so DemoCatalog is neither moved nor copied.
 
@@ -168,8 +169,11 @@ uses `get<T>()` or the non-throwing `getIf<T>()`.
 
 For a namespace-scope constexpr catalog array, `CatalogIndex::bind<catalogs>()`
 also enables `read<makeId(group, field)>()`, whose optional native result type
-is inferred at compilation. DemoCatalog's instance-bound sensor uses ordinary
-`read<T>(id)`. See [read examples](lib/telemetry/README.md#scalar-typed-and-inferred-reads).
+is inferred at compilation. `read<Id, T>()` requests another checked native
+representation, while `write<Id>(value)` deduces and normalizes the input type.
+A statically known read-only field still returns `WriteResult::ReadOnly`.
+DemoCatalog's instance-bound sensor uses ordinary `read<T>(id)`. See
+[read examples](lib/telemetry/README.md#scalar-typed-and-inferred-reads).
 
 Groups and fields are densely numbered from zero. A wrong field ID clips
 only that group's visible prefix; a wrong group ID clips the whole group
@@ -208,10 +212,10 @@ Verification after closing the field/command core, 2026-09-20:
 
 - Qt 6.10.1 / MinGW 13.1: Release application build and offscreen grouped-command smoke test.
   The same MinGW compiler passed 109/109 core, 109/109 write/getter/setter,
-  87/87 read, 33/33 JSON, 121/121 numeric oracle, 45/45 enum, 108/108
-  limits, 40/40 factory and 74/74 command checks with C++17 (**726 total**).
-  C++20 also covers char8_t (111/111 write and 88/88 read; **729 total**).
-  Thirty-five expected compilation failures cover invalid bindings/reads,
+  90/90 read, 33/33 JSON, 121/121 numeric oracle, 45/45 enum, 108/108
+  limits, 40/40 factory and 74/74 command checks with C++17 (**729 total**).
+  C++20 also covers char8_t (111/111 write and 91/91 read; **732 total**).
+  Thirty-nine expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
   definitions; 82 more reject invalid factory and command definitions,
@@ -225,22 +229,22 @@ Verification after closing the field/command core, 2026-09-20:
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
 - MSVC 19.50 built the three library translation units and passed all nine
   applicable suites under `/std:c++17` and `/std:c++20` with `/permissive-`
-  and warnings as errors: 605 and 608 checks respectively. Its independent
+  and warnings as errors: 608 and 611 checks respectively. Its independent
   numeric oracle reports an explicit skip because MSVC `long double` has only
-  53 mantissa bits. All 126 invalid C++17 programs were still rejected.
+  53 mantissa bits. All 130 invalid C++17 programs were still rejected.
 - CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
   enables ASan/UBSan and float-cast-overflow checks, including
   stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.
-- CubeIDE GCC 14.3.1: 27 library/demo/check translation units compiled for Cortex-M7 with
+- CubeIDE GCC 14.3.1: 28 library/demo/check translation units compiled for Cortex-M7 with
   C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
   as errors. A minimal JSON consumer also linked with newlib-nano and enabled
   floating formatting. This was a link check, not execution on a board.
-- All nine pre-existing codegen probes match pre-change checkpoint `55fbd481`
-  byte for byte at both optimization levels (18/18 objects). The two new probes
-  prove read-only storage and fixed ARM sizes for borrowed fields and owning
-  command tables. The earlier factory comparison reduced a known free-function
-  read from 304/288 bytes to a 4-byte direct branch (`-O2`/`-Os`). See the
-  [factory codegen evidence](tests/README.md#signature-factory-and-command-codegen).
+- Eleven codegen probes enforce read-only storage and fixed ARM layouts. The
+  field gate compares static-ID access with direct known-Field operations; the
+  command scaling gate proves that 10/32/100-row tables emit cases only for
+  exact-signature definitions. The earlier factory comparison reduced a known
+  free-function read from 304/288 bytes to a 4-byte direct branch
+  (`-O2`/`-Os`). See the [codegen evidence](tests/README.md#signature-factory-and-command-codegen).
 - [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass
   with Ubuntu ARM GCC 13.2.1 and now run in GitHub Actions. Every codegen object
   is checked for startup initialization and writable data; exported constant

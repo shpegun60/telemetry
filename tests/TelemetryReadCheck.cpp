@@ -56,7 +56,10 @@ static_assert(std::is_same_v<decltype(fields[0].read()), Scalar>);
 static_assert(std::is_same_v<decltype(runtime.read(0)), Scalar>);
 static_assert(std::is_same_v<decltype(fixed.read(0)), Scalar>);
 static_assert(noexcept(fields[0].read()) && noexcept(fields[0].read<float>()));
-static_assert(noexcept(runtime.read<float>(0)) && noexcept(fixed.read<0>()));
+static_assert(noexcept(runtime.read<float>(0)) && noexcept(fixed.read<0>())
+              && noexcept(fixed.read<0, double>()) && noexcept(fixed.write<0>(1.0f)));
+static_assert(std::is_same_v<decltype(fixed.read<0, double>()), std::optional<double>>);
+static_assert(std::is_same_v<decltype(fixed.write<0>(1.0f)), WriteResult>);
 static_assert(convertScalar<std::uint16_t>(Scalar::fromF64(12.7)).value() == 12);
 static_assert(!convertScalar<std::uint64_t>(Scalar::fromF64(0x1p64)));
 static_assert(std::is_same_v<decltype(Scalar::fromF32(1).get<float>()), float>);
@@ -85,9 +88,14 @@ template <FieldId Id, class T>
 void checkInferred(T expected, const char* message)
 {
     static_assert(std::is_same_v<decltype(fixed.read<Id>()), std::optional<T>>);
+    static_assert(std::is_same_v<decltype(fixed.read<Id, T>()), std::optional<T>>);
     const auto inferred = fixed.read<Id>();
+    const auto compileTimeExplicit = fixed.read<Id, T>();
     const auto explicitType = runtime.read<T>(Id);
-    expect(inferred && explicitType && *inferred == expected && *explicitType == expected, message);
+    expect(inferred && compileTimeExplicit && explicitType
+               && *inferred == expected && *compileTimeExplicit == expected
+               && *explicitType == expected,
+           message);
 }
 
 template <class T>
@@ -283,12 +291,15 @@ void checkAccess()
     const auto wide = fixed.read<double>(makeId(0, 0));
     expect(wide && *wide == 12.75 && source.reads == 3,
            "statically bound index also accepts explicit types and runtime IDs");
+    const auto compileTimeWide = fixed.read<makeId(0, 0), double>();
+    expect(compileTimeWide && *compileTimeWide == 12.75 && source.reads == 4,
+           "compile-time IDs also accept an explicit requested representation");
     const auto rawIndex = fixed.read(0);
-    expect(rawIndex.type() == ScalarType::F32 && rawIndex.get<float>() == 12.75f && source.reads == 4,
+    expect(rawIndex.type() == ScalarType::F32 && rawIndex.get<float>() == 12.75f && source.reads == 5,
            "statically bound index retains normalized Scalar access");
     expect(runtime.read(65536).type() == ScalarType::Null && !runtime.read<float>(65536)
                && fixed.read(65536).type() == ScalarType::Null && !fixed.read<float>(65536)
-               && source.reads == 4,
+               && source.reads == 5,
            "missing IDs produce no value without calling any source");
     const CatalogIndex empty;
     expect(empty.read(0).type() == ScalarType::Null && !empty.read<float>(0)
@@ -339,6 +350,11 @@ void checkAccess()
            "the same bound index supports numeric writes");
     const auto changed = fixed.read<0>();
     expect(changed && *changed == 250.0f, "inferred reads observe live source changes");
+    expect(fixed.write<0>(251.5) == WriteResult::Applied && source.writes == 2
+               && fixed.read<0>() == 251.5f,
+           "compile-time write IDs deduce and normalize the input type");
+    expect(fixed.write<1>(15.0) == WriteResult::ReadOnly && source.writes == 2,
+           "compile-time writes preserve the runtime ReadOnly result");
 
     char schema[2048];
     char values[512];

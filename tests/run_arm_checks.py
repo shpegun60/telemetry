@@ -19,11 +19,77 @@ FLAGS = ["-std=c++17", "-mcpu=cortex-m7", "-mthumb", "-mfpu=fpv5-d16",
 
 def function_body(disassembly, name):
     match = re.search(rf"^[0-9a-fA-F]+ <{re.escape(name)}>:\n(.*?)"
-                      r"(?=^[0-9a-fA-F]+ <|\Z)",
+                      r"(?=^[0-9a-fA-F]+ <|^Disassembly of section |\Z)",
                       disassembly, re.MULTILINE | re.DOTALL)
     if match is None:
-        raise RuntimeError(f"CommandTableCodegen: missing disassembly for {name}")
+        raise RuntimeError(f"ARM codegen: missing disassembly for {name}")
     return match.group(1)
+
+
+def normalized_instructions(disassembly, name):
+    """Instruction stream with addresses and self-relative labels removed."""
+    result = []
+    for line in function_body(disassembly, name).splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3 or not parts[0].strip().endswith(":"):
+            continue
+        opcode = parts[2].strip()
+        if not opcode:
+            continue
+        operands = parts[3].strip() if len(parts) > 3 else ""
+        operands = re.sub(r"\b[0-9a-fA-F]+ <[^>]+\+0x([0-9a-fA-F]+)>",
+                          r"<self+0x\1>", operands)
+        result.append((opcode, operands))
+    return result
+
+
+def check_static_field_dispatch(disassembly):
+    direct_native = "telemetry_probe_field_read_native"
+    native = ("telemetry_probe_read_inferred_known",
+              "telemetry_probe_static_read_native")
+    direct_converted = "telemetry_probe_field_read_converted"
+    converted = "telemetry_probe_static_read_converted"
+    for name in (*native, converted):
+        body = function_body(disassembly, name)
+        if re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body) or "Scalar" in body:
+            raise RuntimeError(f"IndexCodegen: {name} retained lookup/type-erased dispatch")
+        if any(symbol in body for symbol in (
+                "telemetry_probe_index", "telemetry_probe_catalogs",
+                "telemetry_probe_group0_fields", "telemetry_probe_group1_fields")):
+            raise RuntimeError(f"IndexCodegen: {name} retained catalog metadata access")
+    if normalized_instructions(disassembly, native[0]) != normalized_instructions(
+            disassembly, native[1]):
+        raise RuntimeError("IndexCodegen: inferred and explicit static native reads diverged")
+
+    # A compiler may preserve the same direct getter tail call as Field::read,
+    # or inline it further. The static-ID API must never be worse: if its body
+    # differs, it must have removed calls and stack work completely.
+    for direct, static in ((direct_native, native[1]),
+                           (direct_converted, converted)):
+        if normalized_instructions(disassembly, direct) != normalized_instructions(
+                disassembly, static):
+            body = function_body(disassembly, static)
+            if (re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body)
+                    or re.search(r"\bbl\b", body)
+                    or "R_ARM_THM_CALL" in body or "R_ARM_THM_JUMP24" in body):
+                raise RuntimeError(
+                    f"IndexCodegen: {static} differs from direct Field read and adds work")
+    native_body = function_body(disassembly, native[1])
+    if (normalized_instructions(disassembly, direct_native)
+            != normalized_instructions(disassembly, native[1])
+            and "vldr" not in native_body):
+        raise RuntimeError("IndexCodegen: optimized static F32 read lost its native load")
+    if "vcvt.u32.f32" not in function_body(disassembly, converted):
+        raise RuntimeError("IndexCodegen: static converted read lost its required checked cast")
+
+    # Static-ID writes must add no instructions to the same known Field call.
+    for direct, static in (
+            ("telemetry_probe_field_write_float", "telemetry_probe_static_write_float"),
+            ("telemetry_probe_field_write_u16", "telemetry_probe_static_write_u16"),
+            ("telemetry_probe_field_write_readonly", "telemetry_probe_static_write_readonly")):
+        if normalized_instructions(disassembly, direct) != normalized_instructions(
+                disassembly, static):
+            raise RuntimeError(f"IndexCodegen: {static} differs from direct Field write")
 
 
 def check_command_dispatch(disassembly):
@@ -39,6 +105,41 @@ def check_command_dispatch(disassembly):
     erased = function_body(disassembly, "command_table_execute_erased")
     if not re.search(r"\bblx\b|\bbx\s+(?:ip|r(?:1[0-2]|[0-9]))\b", erased):
         raise RuntimeError("CommandTableCodegen: erased path lost its indirect dispatch probe")
+
+
+def check_command_scaling(disassembly):
+    expected = {
+        "command_scale_10": {1},
+        "command_scale_32": {1, 17},
+        "command_scale_100": {1, 17, 33, 49, 65, 81, 97},
+    }
+    for name, targets in expected.items():
+        body = function_body(disassembly, name)
+        table_size = int(name.rsplit("_", 1)[1])
+        actual = {int(value) for value in re.findall(
+            r"CommandScaleOwner::matching<(\d+)u>", body)}
+        if actual != targets:
+            raise RuntimeError(
+                f"CommandDispatchScalingCodegen: {name} emitted targets {sorted(actual)}, "
+                f"expected {sorted(targets)}")
+        if ("CommandScaleOwner::other" in body or "Scalar" in body
+                or re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body)):
+            raise RuntimeError(
+                f"CommandDispatchScalingCodegen: {name} emitted a mismatched or erased target")
+        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
+            raise RuntimeError(
+                f"CommandDispatchScalingCodegen: {name} unexpectedly uses stack storage")
+        # One comparison rejects an out-of-range position; every remaining
+        # index comparison belongs to one exact-signature definition only.
+        index_compares = len(re.findall(r"\bcmp(?:\.w)?\s+r0,", body))
+        if index_compares != len(targets) + 1:
+            raise RuntimeError(
+                f"CommandDispatchScalingCodegen: {name} emitted {index_compares} index "
+                f"comparisons for {len(targets)} matching definitions")
+        if not re.search(
+                rf"\bcmp(?:\.w)?\s+r0,\s*#{table_size - 1}(?:\D|$)", body):
+            raise RuntimeError(
+                f"CommandDispatchScalingCodegen: {name} lost its range comparison")
 
 
 def check_probe(name, headers, symbols, disassembly):
@@ -65,12 +166,15 @@ def check_probe(name, headers, symbols, disassembly):
         expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 32,
                     "telemetry_probe_group0_fields": 4 * 96,
                     "telemetry_probe_group1_fields": 3 * 96}
+        check_static_field_dispatch(disassembly)
     elif name == "BorrowedFieldCodegen":
         expected = {"telemetry_probe_borrowed_field": 96}
     elif name == "CommandTableCodegen":
         expected = {"telemetry_probe_command_table": 4,
                     "telemetry_probe_command_count": 4}
         check_command_dispatch(disassembly)
+    elif name == "CommandDispatchScalingCodegen":
+        check_command_scaling(disassembly)
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():
