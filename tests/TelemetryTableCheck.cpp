@@ -30,6 +30,13 @@ constexpr FieldTable values{
     field<&Owner<Legacy>::read,&Owner<Legacy>::write>("legacy","",legacyOwner)};
 constexpr FieldTable empty{};
 constexpr FieldCatalogTable registry{group("empty",empty),group("values",values)};
+enum class ValuePosition : std::uint64_t {Limit,Mode,Reserved,Wide,Legacy};
+enum class NarrowPosition : std::int8_t {First=0};
+enum PlainPosition {FirstPosition=0};
+enum class BoolPosition : bool {First=false,Second=true};
+static_assert(std::is_same_v<decltype(values.read<ValuePosition::Limit>()),std::optional<float>>);
+static_assert(std::is_same_v<decltype(values.read<ValuePosition::Limit,double>()),std::optional<double>>);
+static_assert(std::is_same_v<decltype(values.write<ValuePosition::Limit>(2)),WriteResult>);
 constexpr Catalog rawGroups[]={{"empty",nullptr,0},{"values",values.data(),values.size()}};
 constexpr auto oldBinding=CatalogIndex::bind<rawGroups>();
 static_assert(sizeof(values)==5*sizeof(Field) && alignof(decltype(values))==alignof(Field));
@@ -164,8 +171,43 @@ void checkExplicitEnums() {
     const FieldTable borrowed{field("negative","",read,write,enumSpec<NegativeLow,NegativeHigh>())};
     checkExplicitEnum(borrowed,negative,-2000,-1000);
 }
+
+void checkNamedPositions() {
+    Owner<float> source;
+    const FieldTable table{
+        field<&Owner<float>::read,&Owner<float>::write>("value","",source,limits(2.f,-5.f,10.f)),
+        reservedField()};
+    enum class Position : std::uint64_t {Value,Reserved};
+    constexpr std::size_t namedZero=0;
+    expect(table.write<Position::Value>(3)==WriteResult::Applied && source.writes==1,
+           "scoped enum position selects exactly one setter");
+    expect(table.read<Position::Value>()==3.f && table.read<Position::Value,double>()==3.0
+           && source.reads==2,"scoped enum reads retain native/requested types and side effects");
+    expect(table.read<namedZero>()==3.f && table.read<0>()==3.f
+           && table.read<NarrowPosition::First>()==3.f && table.read<FirstPosition>()==3.f
+           && table.read<BoolPosition::First>()==3.f,
+           "integer constants and signed/unscoped/bool enum positions remain compatible");
+    expect(table.write<Position::Value>(11)==WriteResult::InvalidValue && source.writes==1,
+           "named positions do not bypass limits");
+    expect(table.read<Position::Reserved>().type()==ScalarType::Null
+           && !table.read<Position::Reserved,double>()
+           && table.write<Position::Reserved>(1)==WriteResult::ReadOnly,
+           "named reserved position retains Scalar fallback");
+
+    int calls=0;
+    auto callback=[&calls](float value) noexcept {++calls;return value==3.f?CommandResult::Executed:CommandResult::Busy;};
+    const CommandTable local{command("run",callback),reservedCommand()};
+    expect(local.call<Position::Value>(3.f)==CommandResult::Executed && calls==1,
+           "named command position retains native argument dispatch");
+    expect(local.call<namedZero>(4.f)==CommandResult::Busy && local.call<FirstPosition>(3.f)==CommandResult::Executed
+           && local.call<NarrowPosition::First>(3.f)==CommandResult::Executed && calls==4,
+           "command integer and enum position spellings agree");
+    expect(local.call<BoolPosition::Second>()==CommandResult::Unavailable && calls==4,
+           "named reserved command cannot invoke a target");
+}
 }
 int main() {
+    checkNamedPositions();
     checkExplicitEnums();
     using ReadConversion=CallbackConversion<decltype(&freeRead),&freeRead>;
     using WriteConversion=CallbackConversion<decltype(&freeWrite),&freeWrite>;

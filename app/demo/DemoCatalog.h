@@ -24,6 +24,10 @@ using telemetry::CommandResult;
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };
 
+// Numeric values follow the row order below; these names do not add a lookup.
+enum class MeterField : std::size_t { Voltage, Current, Power, Counter, VoltageLimit, Mode, Count };
+enum class MeterCommand : std::size_t { Reset, Configure, Count };
+
 struct Meter {
     float voltage = 230.0f;
     float current = 2.0f;
@@ -65,6 +69,7 @@ inline constexpr telemetry::FieldTable meterFields{
 };
 
 static_assert(telemetry::names_unique(meterFields.data(), meterFields.size()));
+static_assert(meterFields.size() == static_cast<std::size_t>(MeterField::Count));
 
 // Free function templates retain exact integer values without Scalar callbacks.
 template <class T> T maximumValue() noexcept { return std::numeric_limits<T>::max(); }
@@ -88,6 +93,7 @@ inline constexpr telemetry::CommandTable meterCommands{
         telemetry::arg<0>("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
         telemetry::arg<1>("Mode", "", Mode::Auto))};
 static_assert(telemetry::commandNamesUnique(meterCommands.data(), meterCommands.size()));
+static_assert(meterCommands.size() == static_cast<std::size_t>(MeterCommand::Count));
 inline constexpr telemetry::CommandCatalogTable commands{telemetry::group("meter",meterCommands)};
 inline constexpr auto commandIndex = commands.index();
 

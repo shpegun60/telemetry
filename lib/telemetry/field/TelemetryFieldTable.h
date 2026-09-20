@@ -40,27 +40,31 @@ public:
     constexpr const Field& operator[](std::size_t i) const & noexcept { return fields_[i]; }
     const Field& operator[](std::size_t) const && = delete;
 
-    // I is a zero-based local position. The definition type selects the native
-    // adapter; runtime-created owners and limits can still remain runtime data.
-    template <std::size_t I>
+    // Position is a zero-based integer or enum value, not a name lookup.
+    // The definition type selects the native adapter; owners and limits
+    // supplied at runtime can still remain runtime data.
+    template <auto Position>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read() const noexcept
     {
+        constexpr auto I = detail::positionValue<Position>();
         static_assert(I < sizeof...(Definitions), "Typed field index is outside FieldTable");
         if constexpr (I < sizeof...(Definitions))
             return std::tuple_element_t<I, Types>::read(fields_[I]);
     }
-    template <std::size_t I, class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
+    template <auto Position, class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE std::optional<T> read() const noexcept
     {
+        constexpr auto I = detail::positionValue<Position>();
         static_assert(I < sizeof...(Definitions), "Typed field index is outside FieldTable");
         if constexpr (I < sizeof...(Definitions))
             return std::tuple_element_t<I, Types>::template read<T>(fields_[I]);
         else return std::nullopt;
     }
-    template <std::size_t I, class T,
+    template <auto Position, class T,
               std::enable_if_t<detail::isScalarNumber<T> || std::is_same_v<T, Scalar>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE WriteResult write(T value) const noexcept
     {
+        constexpr auto I = detail::positionValue<Position>();
         static_assert(I < sizeof...(Definitions), "Typed field index is outside FieldTable");
         if constexpr (I < sizeof...(Definitions))
             return std::tuple_element_t<I, Types>::write(fields_[I], value);

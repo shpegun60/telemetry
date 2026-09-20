@@ -37,8 +37,9 @@ compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 
 The runner executes ten suites (including native/dynamic table parity checks), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
-82 factory/command, 26 positional-table, 10 command-lifetime and 36 borrowed-field
-compile-time rejection cases (209 total; 212 in C++20 with structural adapters), checks
+82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field
+and 18 integer/enum-position compile-time rejection cases (227 total;
+234 in C++20 with structural adapters and additional invalid position types), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -169,13 +170,27 @@ both `-O2` and `-Os`:
 | `index.execute(id, Scalar*, count)` | 52 | 4 | Descriptor-selected indirect tail branch |
 
 The ARM runner parses disassembly and enforces these structural properties at
-both optimization levels. Exact native types are mandatory for `call<Index>()`;
+both optimization levels. Identical native argument types retain these paths.
+Numeric and enum arguments of other types convert directly, without Scalar;
 the runtime-position overload returns `ArgumentCountMismatch` when the selected
-definition has another signature. The Scalar path retains checked numeric
-conversion for transport input.
+definition has another arity. The Scalar path remains for transport input.
+
+Additional builds of FieldTableCodegen and CommandTableCodegen replace numeric
+positions with scoped U64 enums and require identical instruction encodings at
+both optimization levels. Eighteen invalid-position cases also compile on
+ARM32 with required rejection diagnostics, including U64 values that would
+wrap to a valid index if narrowed too early. A command probe compares native
+`double, int` to `float, enum` conversion with a direct checked owner call:
+local/global instruction streams must match and retain no Scalar, erased
+dispatch or stack frame. Compared with the direct call, GCC 14 emits the same
+stream; GCC 13 can invert a branch and reorder the success/error blocks, with
+the same operations and constants. The gate permits this placement difference
+but rejects extra operations. Host checks exercise all numeric pairs, enum inputs, target bounds,
+borrowed/free/member callbacks and failure before owner side effects.
 
 `CommandDispatchScalingCodegen.cpp` expands tables of 10, 32 and 100 commands,
-where respectively 1, 2 and 7 definitions match `(float, Mode)`. The ARM gate
+where respectively 1, 2 and 7 definitions have the supplied two-argument arity
+`(float, Mode)` and all others take one argument. The ARM gate
 requires one range comparison plus exactly 1, 2 or 7 index comparisons, only
 the matching concrete targets, no Scalar/indirect dispatch and no stack frame.
 CubeIDE GCC 14.3.1 produced 72/72, 112/112 and 324/332-byte wrappers at

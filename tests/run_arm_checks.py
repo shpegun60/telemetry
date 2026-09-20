@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Compile Cortex-M7 checks, verify constant storage and link a newlib-nano consumer."""
 import argparse
+from collections import Counter
 import json
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+from audit.compare_arm_probes import encodings
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -139,6 +141,57 @@ def check_native_field_tables(disassembly):
                 raise RuntimeError(f"FieldTableCodegen: {name} contains erased dispatch")
 
 
+def check_native_command_conversions(disassembly):
+    def resolved(name, seen=()):
+        if name in seen:
+            raise RuntimeError("Native command conversion: cyclic alias")
+        instructions = normalized_instructions(disassembly, name)
+        real = [entry for entry in instructions if entry[0] != "nop"]
+        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
+            alias = re.search(r"<(command_conversion_\w+)>", real[0][1])
+            if alias:
+                return resolved(alias.group(1), (*seen, name))
+        return instructions
+
+    direct = resolved("command_conversion_direct")
+    local = resolved("command_conversion_local")
+    if resolved("command_conversion_global") != local:
+        raise RuntimeError("Native command conversion: global routing changes the local instruction stream")
+    if local != direct:
+        # GCC 13 can put the direct success block AFTER the error return and
+        # invert its final bhi/bls. GCC 14 emits identical streams. Check the
+        # operation multiset (and literal values) here, not branch placement:
+        # this gate establishes no extra operations, not equal board cycles.
+        def operations(instructions):
+            complements = {"bls": "bhi", "bcs": "bcc", "beq": "bne",
+                           "bge": "blt", "bgt": "ble", "bpl": "bmi", "bvs": "bvc"}
+            result = []
+            for opcode, operands in instructions:
+                if opcode.startswith("nop"):
+                    continue
+                bare = opcode.split(".")[0]
+                if bare in complements or bare in complements.values():
+                    result.append((complements.get(bare, bare), "conditional branch"))
+                else:
+                    # PC displacements and objdump address comments depend on
+                    # block placement. Other operands and literal values stay.
+                    operands = operands.split("@")[0].strip()
+                    operands = re.sub(r"\[pc, #[0-9]+\]", "[pc, literal]", operands)
+                    result.append((opcode, operands))
+            return Counter(result)
+        if operations(local) != operations(direct):
+            raise RuntimeError("Native command conversion: differs from direct checked-call operations")
+    for route in ("direct", "local", "global", "runtime"):
+        body = function_body(disassembly, "command_conversion_" + route)
+        if "Scalar" in body or re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body):
+            raise RuntimeError(f"Native command conversion: {route} reintroduced erased dispatch")
+        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
+            raise RuntimeError(f"Native command conversion: {route} introduced stack storage")
+    runtime = function_body(disassembly, "command_conversion_runtime")
+    if "CommandProbeDevice::configure(float, CommandProbeMode)" not in runtime:
+        raise RuntimeError("Native command conversion: runtime route lost its direct target")
+
+
 def check_command_scaling(disassembly):
     expected = {
         "command_scale_10": {1},
@@ -162,7 +215,7 @@ def check_command_scaling(disassembly):
             raise RuntimeError(
                 f"CommandDispatchScalingCodegen: {name} unexpectedly uses stack storage")
         # One comparison rejects an out-of-range position; every remaining
-        # index comparison belongs to one exact-signature definition only.
+        # index comparison belongs to one definition with matching arity only.
         index_compares = len(re.findall(r"\bcmp(?:\.w)?\s+r0,", body))
         if index_compares != len(targets) + 1:
             raise RuntimeError(
@@ -277,6 +330,30 @@ def main():
                                   label + "-disassembly")
                 check_probe(source.stem, headers, symbols, disassembly)
                 probes += 1
+        # Enum positions must emit precisely the numeric-position instruction
+        # words, including literal pools. In particular U64 enum positions must
+        # not introduce a runtime 64-bit operation on this 32-bit target.
+        for probe in ("FieldTableCodegen", "CommandTableCodegen"):
+            label = "enum-position-" + probe.removesuffix("Codegen") + optimization
+            obj = output / (label + ".o")
+            run(flags + ["-DTELEMETRY_ENUM_POSITION_PROBE", "-c", f"tests/{probe}.cpp",
+                         "-o", str(obj)], label + "-compile")
+            assembly = run([objdump, "-dr", "-C", str(obj)], label + "-disassembly")
+            original = output / (probe + optimization + "-disassembly.log")
+            if encodings(original) != encodings(output / (label + "-disassembly.log")):
+                raise RuntimeError(f"{probe}: enum positions changed instruction encodings")
+            if probe == "FieldTableCodegen":
+                check_native_field_tables(assembly)
+            else:
+                check_command_dispatch(assembly)
+        label = "command-native-conversion" + optimization
+        obj = output / (label + ".o")
+        run(flags + ["-DTELEMETRY_COMMAND_CONVERSION_PROBE", "-DTELEMETRY_ENUM_POSITION_PROBE",
+                     "-c", "tests/CommandTableCodegen.cpp", "-o", str(obj)], label + "-compile")
+        assembly = run([objdump, "-dr", "-C", str(obj)], label + "-disassembly")
+        check_native_command_conversions(assembly)
+        print(f"{optimization}: enum positions instruction-identical; native double/int command "
+              "conversion has no extra operations versus direct checked call, no Scalar", flush=True)
         # nosys supplies link-only stubs. Their expected warnings do not
         # establish board behavior; this executable is deliberately not run.
         executable = output / ("consumer" + optimization + ".elf")
@@ -334,6 +411,17 @@ def main():
         print(f"{optimization}: factory read wrappers no larger than manual; free read "
               f'{record["manual"]["factory_free_read"]} -> {record["inferred"]["factory_free_read"]} bytes', flush=True)
     (output / "factory-codegen.json").write_text(json.dumps(factory_report, indent=2) + "\n", encoding="utf-8")
+    for case in range(1, 19):
+        if case in (1, 2, 3, 4, 13, 14):
+            diagnostic = "position must be non-negative"
+        elif 5 <= case <= 12:
+            diagnostic = "outside (?:FieldTable|CommandTable)"
+        else:
+            diagnostic = "position must be an integer or enum"
+        run([compiler, *FLAGS, f"-DTELEMETRY_POSITION_FAIL_CASE={case}",
+             "-fsyntax-only", "tests/TelemetryPositionCompileFail.cpp"],
+            f"position-rejection-{case}", diagnostic)
+    print("18 invalid positions rejected on ARM32 before index narrowing", flush=True)
 
 
 if __name__ == "__main__":

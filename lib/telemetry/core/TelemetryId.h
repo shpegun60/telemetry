@@ -8,6 +8,7 @@
 #define TELEMETRY_ID_H
 
 #include <cstdint>
+#include <type_traits>
 
 namespace telemetry {
 
@@ -22,6 +23,28 @@ using EntryOffset = std::uint16_t;
 using FieldOffset = EntryOffset;
 using CommandOffset = EntryOffset;
 inline constexpr std::uint32_t idComponentCapacity = 65536u;
+
+namespace detail {
+// Preserve a template position at full width until the owning table checks
+// its actual size. Casting an enum straight to size_t could wrap a U64 code
+// to a valid row on ARM32. This helper is evaluated only at compile time.
+template <auto Position>
+constexpr std::uintmax_t positionValue() noexcept
+{
+    using T = std::remove_cv_t<decltype(Position)>;
+    static_assert(std::is_integral_v<T> || std::is_enum_v<T>,
+                  "Typed table position must be an integer or enum");
+    if constexpr (std::is_enum_v<T>) {
+        return positionValue<static_cast<std::underlying_type_t<T>>(Position)>();
+    } else if constexpr (std::is_integral_v<T>) {
+        static_assert(sizeof(T) <= sizeof(std::uintmax_t),
+                      "Typed table position is wider than uintmax_t");
+        if constexpr (std::is_signed_v<T>)
+            static_assert(Position >= 0, "Typed table position must be non-negative");
+        return static_cast<std::uintmax_t>(Position);
+    } else return 0; // Keep invalid types out of subsequent casts/instantiations.
+}
+} // namespace detail
 
 // Components are already 16-bit positions. Validate a wider transport value
 // before narrowing it to these parameter types; packing does not validate a

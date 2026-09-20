@@ -32,6 +32,9 @@ struct CommandContract {
     // One contract serves native calls, Scalar conversion and schema output.
     // Thus a typed shortcut cannot silently bypass enum or numeric limits.
     using Arguments = typename Traits::Arguments;
+    template <class... Input>
+    static constexpr bool exactArguments = std::is_same_v<
+        std::tuple<std::decay_t<Input>...>, Arguments>;
 
     template <std::size_t I>
     using MetadataSlot = CommandMetadataSlot<Metadata, I>;
@@ -107,6 +110,37 @@ struct CommandContract {
         // Short-circuit on the first invalid argument. Only local values have
         // changed; no owner call occurs until every conversion succeeds.
         return (convert<I>(metadata, values[I], output) && ...);
+    }
+
+    // Native callers never construct Scalar. Normalize each numeric/enum
+    // source directly to the target's underlying C++ type, then apply the same
+    // descriptor limits as the transport path before any enum cast or callback.
+    template <std::size_t I, class Input>
+    TELEMETRY_FORCE_INLINE static bool convertNative(
+        const Metadata* metadata, Input value, Arguments& output) noexcept
+    {
+        using T = std::tuple_element_t<I, Arguments>;
+        RawNumberT<T> number{};
+        if (!convertNumberTo(static_cast<RawNumberT<Input>>(value), number)
+            || !validateNative<I>(metadata, number)) return false;
+        std::get<I>(output) = static_cast<T>(number);
+        return true;
+    }
+
+    template <std::size_t... I, class... Input>
+    TELEMETRY_FORCE_INLINE static bool convertNativeAll(
+        const Metadata* metadata, Arguments& output,
+        std::index_sequence<I...>, Input... values) noexcept
+    {
+        static_assert(sizeof...(I) == sizeof...(Input),
+                      "Typed command argument count must match the target signature");
+        static_assert((isFactoryValue<Input> && ...),
+                      "Typed commands require native numeric or enum values");
+        (void) metadata;
+        (void) output;
+        // A later failure cannot partially apply a command: only this local
+        // tuple is modified until every argument has passed its checks.
+        return (convertNative<I>(metadata, values, output) && ...);
     }
 
     template <std::size_t... I, class... Input>
@@ -226,10 +260,18 @@ struct CommandBinding {
         const void* target, const Metadata* metadata,
         std::index_sequence<I...> sequence, Input... values) noexcept
     {
-        if (!Contract::validateNativeAll(metadata, sequence, values...))
-            return CommandResult::InvalidValue;
         auto* owner = static_cast<Owner*>(const_cast<void*>(target));
-        return invokeFactory<Target>(owner, values...);
+        if constexpr (Contract::template exactArguments<Input...>) {
+            // Preserve the original direct path, including its stack/codegen.
+            if (!Contract::validateNativeAll(metadata, sequence, values...))
+                return CommandResult::InvalidValue;
+            return invokeFactory<Target>(owner, values...);
+        } else {
+            Arguments converted{};
+            if (!Contract::convertNativeAll(metadata, converted, sequence, values...))
+                return CommandResult::InvalidValue;
+            return invokeFactory<Target>(owner, std::get<I>(converted)...);
+        }
     }
 
     template <class... Input>
@@ -289,10 +331,17 @@ struct BorrowedCommandBinding {
         const void* target, const Metadata* metadata,
         std::index_sequence<I...> sequence, Input... values) noexcept
     {
-        if (!Contract::validateNativeAll(metadata, sequence, values...))
-            return CommandResult::InvalidValue;
         auto* callable = static_cast<Callable*>(const_cast<void*>(target));
-        return (*callable)(values...);
+        if constexpr (Contract::template exactArguments<Input...>) {
+            if (!Contract::validateNativeAll(metadata, sequence, values...))
+                return CommandResult::InvalidValue;
+            return (*callable)(values...);
+        } else {
+            Arguments converted{};
+            if (!Contract::convertNativeAll(metadata, converted, sequence, values...))
+                return CommandResult::InvalidValue;
+            return (*callable)(std::get<I>(converted)...);
+        }
     }
 
     template <class... Input>

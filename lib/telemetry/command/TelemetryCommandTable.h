@@ -54,7 +54,7 @@ class CommandTable {
         std::size_t index, CommandResult& result, Input... values) const noexcept
     {
         using Definition = std::tuple_element_t<I, DefinitionTuple>;
-        if constexpr (Definition::template signatureMatches<Input...>) {
+        if constexpr (Definition::template acceptsArguments<Input...>) {
             if (index == I) {
                 result = callPosition_<I>(values...);
                 return true;
@@ -69,9 +69,8 @@ class CommandTable {
     {
         if (index >= sizeof...(Definitions)) return CommandResult::NotFound;
         CommandResult result = CommandResult::ArgumentCountMismatch;
-        // Each helper emits code only when Definition I has this exact native
-        // signature. Valid positions with another signature keep the mismatch
-        // result without adding a comparison or invocation for that row.
+        // Only matching arities emit branches. The selected definition knows
+        // every target type and performs checked native conversions if needed.
         const bool matched = (callRuntimeMatch_<I>(index, result, values...) || ...);
         (void) matched;
         return result;
@@ -112,13 +111,14 @@ public:
     { return CommandIndex{commands_.data(), commands_.size()}; }
     CommandIndex index() const && = delete;
 
-    // Index is the zero-based position in this owning table. The compile-time
-    // form resolves the concrete target; the runtime form emits typed branches.
+    // Position is a zero-based integer or enum value in this owning table.
+    // The compile-time form resolves the target; runtime emits typed branches.
     // Neither path constructs Scalar values or calls Command::Invoke.
-    template <std::size_t Index, class... Input>
+    template <auto Position, class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult call(Input... values) const noexcept
     {
+        constexpr auto Index = detail::positionValue<Position>();
         constexpr bool native = (detail::isFactoryValue<Input> && ...);
         static_assert(Index < sizeof...(Definitions),
                       "Typed command index is outside CommandTable");
@@ -129,10 +129,7 @@ public:
             static_assert(Definition::reserved || sizeof...(Input) == Definition::arity,
                           "Typed command argument count must match the selected target");
             if constexpr (Definition::reserved || sizeof...(Input) == Definition::arity) {
-                constexpr bool signature = Definition::template signatureMatches<Input...>;
-                static_assert(!native || signature,
-                              "Typed command values must exactly match the selected target signature");
-                if constexpr (native && signature)
+                if constexpr (native)
                     return callPosition_<Index>(values...);
             }
         }

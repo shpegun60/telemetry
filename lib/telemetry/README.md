@@ -107,10 +107,23 @@ result = meterCommands.call(receivePosition(), 230.0f, Mode::Auto);
 
 The template numbers in a local table are zero-based entry positions, with
 no group component. For example, `meterFields.read<0>()` selects `Ua`, and
-`meterFields.write<1>(value)` selects `Limit` in the declaration above. Named
-`constexpr std::size_t` constants can replace these numbers. Scoped enums
-are not implicitly accepted as template indices; cast them to `std::size_t`
-when defining such a constant. Global typed APIs take `makeId(group, entry)`.
+`meterFields.write<1>(value)` selects `Limit` in the declaration above. Integers,
+named integral constants and scoped or unscoped enums are accepted directly:
+
+```cpp
+enum class MeterField : std::size_t { Voltage, Limit, Mode };
+enum class MeterCommand : std::size_t { Reset, Calibrate };
+auto value = meterFields.read<MeterField::Voltage>();
+auto widened = meterFields.read<MeterField::Voltage, double>();
+auto status = meterFields.write<MeterField::Limit>(275);
+auto action = meterCommands.call<MeterCommand::Calibrate>(230.0, 1);
+```
+
+Enum values must match the row order: names do not trigger a string lookup.
+Negative, out-of-range and non-integral/non-enum positions are compile-time
+errors, checked before narrowing to `size_t`, including 64-bit enums on ARM32.
+Position names add no runtime work. Global typed APIs still take the packed
+`makeId(group, entry)`; a local position enum does not identify its group.
 
 `field(...)` supports the same NTTP methods/free functions, parameter function
 pointers, capture-free lambdas and borrowed callable lvalues through this one factory.
@@ -259,25 +272,32 @@ index.execute(id, scalarArgs, count); // Runtime ID and runtime Scalar values.
 
 `call<Index>()` selects the definition and target signature at compilation. The
 owner address and metadata values can still come from runtime construction. Its
-argument count and exact native C++ types must match the selected signature;
-`float` is not interchangeable with `int`, and an enum is not interchangeable
-with its underlying integer. Lvalue cv/ref qualifiers are removed for this
-comparison. An invalid index, arity or type is a compile-time error. Runtime
-values still pass finite, enum and custom-bound checks before one target call.
-This path constructs no Scalar array and bypasses the erased Command invoker.
+argument count must match, and inputs must be supported numeric or enum values.
+Types may differ from the signature: `call<1>(230.0, 1)` converts `double` to
+`float` and `int` to `Mode` directly, without constructing any Scalar. Identical
+types keep the existing direct path. Mixed types use a local tuple of native
+target values and the shared checked number conversion; there is no common
+`double` intermediate. References/cv qualifiers on input lvalues are removed.
+An invalid index, arity or unsupported type is a compile-time error.
+Overflow, non-finite values and values outside target enum/custom bounds return
+`InvalidValue`, with no callback. Fractional inputs truncate toward zero when
+converted to integer or enum codes. Limits apply after conversion to the target
+type, just as they do on the Scalar transport path. All arguments must pass
+before one target call. This path bypasses the erased Command invoker entirely.
 Ordinary nonvirtual template targets can compile to direct calls; virtual
 methods retain normal C++ dispatch unless the compiler can devirtualize them.
 
-`call(runtimeIndex, ...)` uses the same exact native signature and validation,
+`call(runtimeIndex, ...)` uses the same native conversions and validation,
 but emits typed branches because the local zero-based table position is known
-only at runtime. A selected definition with another signature returns
+only at runtime. A selected definition with another argument count returns
 `ArgumentCountMismatch`; an out-of-range position returns `NotFound`. The
 generated dispatcher has one range check and emits comparisons/invocations
-only for definitions whose signature exactly matches `Input...`. Unrelated
-definitions are removed by `if constexpr`, rather than left for the optimizer
-to discover. Matching branches invoke the selected native target without
-Scalar, subject to the same virtual-method rule. Generated code can grow with the number of matching definitions, so
-this path trades Flash for dispatch speed.
+only for definitions with the supplied argument count. Other arities are
+removed by `if constexpr`. Each selected branch knows the destination types
+and converts directly without Scalar, subject to the same virtual-method rule.
+Generated code grows with the number of matching arities. With automatic
+conversion this can include more definitions than exact-type filtering did;
+the runtime native overload trades Flash for dispatch speed.
 
 `CommandIndex::execute()` and `CommandCatalogIndex::execute()` remain the fully
 dynamic transport APIs. They accept IDs plus a borrowed Scalar array, perform
@@ -301,7 +321,7 @@ callback must return `CommandResult`; results are passed through unchanged.
 | `Accepted` | Owner queued a copied request; not yet completed |
 | `NotFound` | ID is outside the positional command bounds |
 | `Unavailable` | Command has no handler |
-| `ArgumentCountMismatch` | Dynamic native argument signature or Scalar count differs from the target |
+| `ArgumentCountMismatch` | Runtime argument count differs from the target |
 | `InvalidValue` | Conversion, finite-value or range validation failed |
 | `Busy` / `Failed` | Owner could not execute the action |
 
@@ -1094,7 +1114,7 @@ conversion, side effects, schema, metadata lifetimes, indexed partial metadata,
 owning tables, the two native dispatch levels and more than eight arguments.
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
 adds rejected definitions and calls, including temporary-table view
-extractions plus compile-time typed index, arity and exact-type failures.
+extractions plus compile-time typed position, arity and unsupported-type failures.
 [TelemetryBorrowedFieldCompileFail.cpp](../../tests/TelemetryBorrowedFieldCompileFail.cpp)
 checks temporary callable/owner rejection even with explicit const or reference
 template arguments, along with accepted stable const bindings and inline lambdas.

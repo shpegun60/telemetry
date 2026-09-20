@@ -39,8 +39,8 @@ struct OwnedCommandDefinition {
     static constexpr bool reserved = false;
     static constexpr std::size_t arity = Binding::Traits::arity;
     template <class... Input>
-    static constexpr bool signatureMatches = std::is_same_v<
-        std::tuple<std::decay_t<Input>...>, typename Binding::Traits::Arguments>;
+    static constexpr bool acceptsArguments = sizeof...(Input) == arity
+        && (isFactoryValue<Input> && ...);
     const char* name;
     Owner* owner;
     Metadata metadata;
@@ -57,7 +57,7 @@ struct OwnedCommandDefinition {
     TELEMETRY_FORCE_INLINE static CommandResult invokeTyped(
         const void* target, const Metadata* stored, Input... values) noexcept
     {
-        if constexpr (!signatureMatches<Input...>)
+        if constexpr (!acceptsArguments<Input...>)
             return CommandResult::ArgumentCountMismatch;
         else
             return Binding::callNative(target, stored, values...);
@@ -71,8 +71,8 @@ struct OwnedBorrowedCommandDefinition {
     static constexpr bool reserved = false;
     static constexpr std::size_t arity = Binding::Traits::arity;
     template <class... Input>
-    static constexpr bool signatureMatches = std::is_same_v<
-        std::tuple<std::decay_t<Input>...>, typename Binding::Traits::Arguments>;
+    static constexpr bool acceptsArguments = sizeof...(Input) == arity
+        && (isFactoryValue<Input> && ...);
     const char* name;
     Callable* callable;
     Metadata metadata;
@@ -90,7 +90,7 @@ struct OwnedBorrowedCommandDefinition {
     TELEMETRY_FORCE_INLINE static CommandResult invokeTyped(
         const void* target, const Metadata* stored, Input... values) noexcept
     {
-        if constexpr (!signatureMatches<Input...>)
+        if constexpr (!acceptsArguments<Input...>)
             return CommandResult::ArgumentCountMismatch;
         else
             return Binding::callNative(target, stored, values...);
@@ -103,7 +103,7 @@ struct ReservedCommandDefinition {
     using MetadataType = NoCommandArgs;
     static constexpr bool reserved = true;
     static constexpr std::size_t arity = 0;
-    template <class...> static constexpr bool signatureMatches = true;
+    template <class...> static constexpr bool acceptsArguments = true;
     NoCommandArgs metadata{};
     constexpr Command materialize(const NoCommandArgs*) const noexcept { return {}; }
     template <class... Input>

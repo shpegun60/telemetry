@@ -48,7 +48,7 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult call(Input... values) const noexcept
     {
         // Both halves of the packed ID are compile-time constants. The local
-        // table validates the entry index and exact native argument signature.
+        // table validates the position/count and converts native arguments.
         static_assert(groupOf(Id) < sizeof...(Groups), "Typed command group is outside CommandCatalogTable");
         if constexpr (groupOf(Id) < sizeof...(Groups))
             return std::get<groupOf(Id)>(tables_)->template call<indexOf(Id)>(values...);

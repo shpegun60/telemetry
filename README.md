@@ -108,6 +108,14 @@ fieldIndex.write(fieldId, value);
 commandIndex.execute(commandId, scalars, count);
 ```
 
+Local positions also accept scoped enum names with the same numeric row order:
+`meterFields.read<MeterField::Voltage>()` and
+`meterCommands.call<MeterCommand::Configure>(250.0, 1)`. Native command calls
+convert supported numbers/enums directly to the signature's types, with checked
+overflow and target limits, without constructing Scalar. The Qt example uses
+`commands.call<1>(limit->value(), mode->currentIndex())` with `double, int` inputs.
+See the [position and conversion contract](lib/telemetry/README.md#signature-inferred-fields-and-commands).
+
 Declarations use `field("name", "unit", ...)`, `command("name", ...)` and
 `group("name", table)`, with no manual IDs. `FieldTable` stores only its Field
 array; `CommandTable` owns its parameter metadata. Global FieldCatalogTable and
@@ -220,7 +228,8 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers, Cortex-M7 compile/storage/link checks and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verification after closing the field/command core, 2026-09-20:
+Earlier verification checkpoints from 2026-09-20 (counts below describe those
+revisions; the current matrix is documented in [tests/README.md](tests/README.md)):
 
 - Qt 6.10.1 / MinGW 13.1: Release application build and offscreen grouped-command smoke test.
   The same MinGW compiler passed 109/109 core, 109/109 write/getter/setter,
@@ -233,7 +242,7 @@ Verification after closing the field/command core, 2026-09-20:
   definitions; 82 more reject invalid factory and command definitions,
   including temporary captured closures, invalid indexed command metadata and
   views extracted from temporary owning command tables, plus typed command
-  index, arity and exact-signature errors.
+  index, arity and unsupported-input errors.
   Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
@@ -254,7 +263,7 @@ Verification after closing the field/command core, 2026-09-20:
 - Eleven codegen probes enforce read-only storage and fixed ARM layouts. The
   field gate compares static-ID access with direct known-Field operations; the
   command scaling gate proves that 10/32/100-row tables emit cases only for
-  exact-signature definitions. The earlier factory comparison reduced a known
+  matching-arity definitions. The earlier factory comparison reduced a known
   free-function read from 304/288 bytes to a 4-byte direct branch
   (`-O2`/`-Os`). See the [codegen evidence](tests/README.md#signature-factory-and-command-codegen).
 - [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass

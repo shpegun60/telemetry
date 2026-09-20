@@ -1,4 +1,4 @@
-// Compile-only Cortex-M7 probe for signature-filtered runtime command dispatch.
+// Compile-only Cortex-M7 probe for arity-filtered runtime command dispatch.
 // Author: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
 #include "command/TelemetryCommandTable.h"
 

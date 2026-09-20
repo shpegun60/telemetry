@@ -128,7 +128,7 @@ MainWindow::MainWindow(QWidget *parent)
         refreshValues();
     });
     connect(apply, &QPushButton::clicked, this, [this, result, limit, mode] {
-        const auto status = demo::commandIndex.call(1, limit->value(), mode->currentIndex());
+        const auto status = demo::commands.call<1>(limit->value(), mode->currentIndex());
         result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Invalid arguments");
         refreshValues();
     });

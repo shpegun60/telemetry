@@ -26,19 +26,28 @@ constexpr auto field_compat_index=CatalogIndex::bind<field_compat_groups>();
 static_assert(sizeof(field_table_probe)==sizeof(Field)*3);
 static_assert(sizeof(Field)==96 && sizeof(Catalog)==12 && sizeof(Command)==20);
 
+enum class ProbeField : std::uint64_t { Voltage, Count, Mode };
+#ifdef TELEMETRY_ENUM_POSITION_PROBE
+constexpr auto voltagePosition = ProbeField::Voltage;
+constexpr auto countPosition = ProbeField::Count;
+constexpr auto modePosition = ProbeField::Mode;
+#else
+constexpr std::size_t voltagePosition = 0, countPosition = 1, modePosition = 2;
+#endif
+
 extern "C" {
 float table_direct_read() noexcept {return tableOwner.read();}
-float table_local_read() noexcept {return field_table_probe.read<0>().value_or(-1);}
+float table_local_read() noexcept {return field_table_probe.read<voltagePosition>().value_or(-1);}
 float table_global_read() noexcept {return field_global_probe.read<0>().value_or(-1);}
 float table_compat_read() noexcept {return field_compat_index.read<0>().value_or(-1);}
 std::uint16_t table_direct_converted() noexcept {return detail::readNumber<std::uint16_t>(tableOwner.read()).value_or(0);}
-std::uint16_t table_local_converted() noexcept {return field_table_probe.read<0,std::uint16_t>().value_or(0);}
+std::uint16_t table_local_converted() noexcept {return field_table_probe.read<voltagePosition,std::uint16_t>().value_or(0);}
 std::uint16_t table_global_converted() noexcept {return field_global_probe.read<0,std::uint16_t>().value_or(0);}
 WriteResult table_direct_write(float x) noexcept {
     if(!(x>=0.f && x<=500.f))return WriteResult::InvalidValue;
     return tableOwner.write(x);
 }
-WriteResult table_local_write(float x) noexcept {return field_table_probe.write<0>(x);}
+WriteResult table_local_write(float x) noexcept {return field_table_probe.write<voltagePosition>(x);}
 WriteResult table_global_write(float x) noexcept {return field_global_probe.write<0>(x);}
 WriteResult table_compat_write(float x) noexcept {return field_compat_index.write<0>(x);}
 WriteResult table_direct_int(int x) noexcept {
@@ -46,18 +55,18 @@ WriteResult table_direct_int(int x) noexcept {
     if(!(value>=0.f && value<=500.f))return WriteResult::InvalidValue;
     return tableOwner.write(value);
 }
-WriteResult table_local_int(int x) noexcept {return field_table_probe.write<0>(x);}
+WriteResult table_local_int(int x) noexcept {return field_table_probe.write<voltagePosition>(x);}
 WriteResult table_global_int(int x) noexcept {return field_global_probe.write<0>(x);}
 WriteResult table_direct_u16(std::uint16_t x) noexcept {return tableOwner.count(x);}
-WriteResult table_local_u16(std::uint16_t x) noexcept {return field_table_probe.write<1>(x);}
+WriteResult table_local_u16(std::uint16_t x) noexcept {return field_table_probe.write<countPosition>(x);}
 WriteResult table_global_u16(std::uint16_t x) noexcept {return field_global_probe.write<1>(x);}
 WriteResult table_direct_enum(std::uint16_t x) noexcept {
     if(x>2)return WriteResult::InvalidValue;
     return tableOwner.mode(static_cast<TableMode>(x));
 }
-WriteResult table_local_enum(std::uint16_t x) noexcept {return field_table_probe.write<2>(x);}
+WriteResult table_local_enum(std::uint16_t x) noexcept {return field_table_probe.write<modePosition>(x);}
 WriteResult table_global_enum(std::uint16_t x) noexcept {return field_global_probe.write<2>(x);}
 Scalar table_runtime_read(FieldId id) noexcept {return field_global_probe.read(id);}
 WriteResult table_runtime_write(FieldId id,float x) noexcept {return field_global_probe.write(id,x);}
-float table_runtime_owner(const decltype(field_table_probe)& table) noexcept {return table.read<0>().value_or(-1);}
+float table_runtime_owner(const decltype(field_table_probe)& table) noexcept {return table.read<voltagePosition>().value_or(-1);}
 }

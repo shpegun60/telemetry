@@ -26,10 +26,18 @@ static_assert(sizeof(telemetry::Command) == sizeof(void*) * 5);
 static_assert(commands.size() == 2 && commands.index().find(1) == &commands[1]);
 static_assert(!std::is_copy_constructible_v<std::remove_cv_t<decltype(commands)>>);
 
+enum class ProbeCommand : std::uint64_t { Reset, Configure };
+#ifdef TELEMETRY_ENUM_POSITION_PROBE
+constexpr auto configurePosition = ProbeCommand::Configure;
+#else
+constexpr std::size_t configurePosition = 1;
+#endif
+
+#ifndef TELEMETRY_COMMAND_CONVERSION_PROBE
 extern "C" telemetry::CommandResult command_table_call_known(
     float voltage, CommandProbeMode mode) noexcept
 {
-    return commands.call<1>(voltage, mode);
+    return commands.call<configurePosition>(voltage, mode);
 }
 
 extern "C" telemetry::CommandResult command_table_call_runtime(
@@ -49,3 +57,31 @@ extern "C" telemetry::CommandResult command_table_execute_erased(
 {
     return commands.index().execute(id, values, 2);
 }
+#else
+// Match the declared float/enum contract, including conversion BEFORE limits.
+// Checking the double input against 500.0 first would change rounding behavior.
+extern "C" telemetry::CommandResult command_conversion_direct(double voltage, int mode) noexcept
+{
+    float nativeVoltage{};
+    std::uint16_t nativeMode{};
+    if (!telemetry::detail::convertNumberTo(voltage, nativeVoltage)
+        || !(nativeVoltage >= 0.0f && nativeVoltage <= 500.0f))
+        return telemetry::CommandResult::InvalidValue;
+    if (!telemetry::detail::convertNumberTo(mode, nativeMode) || nativeMode > 2)
+        return telemetry::CommandResult::InvalidValue;
+    return commandProbeDevice.configure(nativeVoltage, static_cast<CommandProbeMode>(nativeMode));
+}
+extern "C" telemetry::CommandResult command_conversion_local(double voltage, int mode) noexcept
+{
+    return commands.call<configurePosition>(voltage, mode);
+}
+extern "C" telemetry::CommandResult command_conversion_global(double voltage, int mode) noexcept
+{
+    return globalCommands.call<telemetry::makeId(0, 1)>(voltage, mode);
+}
+extern "C" telemetry::CommandResult command_conversion_runtime(
+    std::size_t index, double voltage, int mode) noexcept
+{
+    return commands.call(index, voltage, mode);
+}
+#endif

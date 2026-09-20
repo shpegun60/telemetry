@@ -251,10 +251,10 @@ constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1
 auto bad=sourceTable.call(std::size_t{0},"x");
 #elif TELEMETRY_FACTORY_FAIL_CASE == 81
 constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
-auto bad=sourceTable.call<0>(1);
+auto bad=sourceTable.call<0>(Scalar::fromF32(1.0f));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 82
 constexpr auto sourceTable=CommandTable{command<&Device::pair>("x",device)};
-auto bad=sourceTable.call<0>(1.0f,std::uint8_t{0});
+auto bad=sourceTable.call<0>(1.0L,std::uint8_t{0});
 #else
 #error Unknown factory case
 #endif

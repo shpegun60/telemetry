@@ -11,10 +11,12 @@ int main(int argc, char *argv[])
     if (a.arguments().contains("--smoke-test")) {
         if (demo::integerFields.read<0>() != UINT8_MAX
             || demo::fields.read<telemetry::makeId(2, 3)>() != UINT64_MAX
-            || demo::meterCommands.call<1>(260.0f, demo::Mode::Auto) != telemetry::CommandResult::Executed
-            || demo::commands.call<telemetry::makeId(0, 1)>(270.0f, demo::Mode::Auto) != telemetry::CommandResult::Executed
+            || demo::meterCommands.call<demo::MeterCommand::Configure>(260.0, 1) != telemetry::CommandResult::Executed
+            || demo::commands.call<telemetry::makeId(0, 1)>(270.0, 1) != telemetry::CommandResult::Executed
             || demo::fields.write<telemetry::makeId(0, 4)>(280) != telemetry::WriteResult::Applied
-            || demo::meterFields.read<4>() != 280.0f)
+            || demo::meterFields.read<demo::MeterField::VoltageLimit, double>() != 280.0
+            || demo::meterFields.write<demo::MeterField::VoltageLimit>(280) != telemetry::WriteResult::Applied
+            || demo::meterFields.read<demo::MeterField::VoltageLimit>() != 280.0f)
             return 3;
         if (demo::commandIndex.call(0) != telemetry::CommandResult::Executed
             || demo::commandIndex.call(1, 275.0f, 2) != telemetry::CommandResult::Executed

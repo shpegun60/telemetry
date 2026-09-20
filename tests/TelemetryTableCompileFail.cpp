@@ -42,7 +42,7 @@ auto bad=CommandCatalogTable{group("fields",rows)};
 #elif TELEMETRY_TABLE_FAIL_CASE == 17
 auto bad=actions.call<makeId(1,0)>(1.f);
 #elif TELEMETRY_TABLE_FAIL_CASE == 18
-auto bad=actions.call<0>(1);
+auto bad=actions.call<0>(Scalar::fromF32(1.0f));
 #elif TELEMETRY_TABLE_FAIL_CASE == 19
 auto bad=CommandCatalogTable{group("c",commands)}.index();
 #elif TELEMETRY_TABLE_FAIL_CASE == 20

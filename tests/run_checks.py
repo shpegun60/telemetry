@@ -43,7 +43,7 @@ FACTORY_REJECTIONS = {
     74: "deleted", 75: "outside CommandCatalogTable", 76: "deleted",
     77: "outside CommandTable", 78: "argument count",
     79: "native numeric or enum", 80: "native numeric or enum",
-    81: "exactly match", 82: "exactly match",
+    81: "native numeric or enum", 82: "native numeric or enum",
 }
 REJECTIONS = {
     1: r"accepted prefix|positional bounds", 2: r"accepted prefix|positional bounds", 3: r"numeric or Bool declaredType",
@@ -144,8 +144,22 @@ def main():
     for case in range(1, 27):
         run(flags + [f"-DTELEMETRY_TABLE_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryTableCompileFail.cpp"], f"table-reject-{case}",
-            r"outside|deleted|no matching|requires group|exactly match|accepts only|indexed arg|make(?:Field|Command).*(?:not|member)|no member named")
+            r"outside|deleted|no matching|requires group|native numeric or enum|accepts only|indexed arg|make(?:Field|Command).*(?:not|member)|no member named")
     print("26 positional table compilation rejections verified", flush=True)
+
+    position_cases = range(1, 23 if args.std == "c++20" else 19)
+    for case in position_cases:
+        if case in (1, 2, 3, 4, 13, 14):
+            message = r"position must be non-negative"
+        elif 5 <= case <= 12:
+            message = r"outside (?:FieldTable|CommandTable)"
+        else:
+            # Some compiler versions reject floating-point NTTPs before the
+            # library can issue its explicit integer/enum diagnostic.
+            message = r"position must be an integer or enum|non-type template argument.*not yet supported"
+        run(flags + [f"-DTELEMETRY_POSITION_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryPositionCompileFail.cpp"], f"position-reject-{case}", message)
+    print(f"{len(position_cases)} typed position compilation rejections verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")

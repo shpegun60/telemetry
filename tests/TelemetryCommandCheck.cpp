@@ -155,6 +155,132 @@ static_assert(ownedGroupOne.size() == 1
 static_assert(HasCommandCatalogTableIndex<std::remove_cv_t<decltype(ownedApi)>>::value);
 static_assert(std::is_same_v<decltype(ownedApi.index()), CommandCatalogIndex>);
 bool stop(void* state,const CommandParam&) noexcept { ++*static_cast<int*>(state); return false; }
+
+template <class Target>
+void checkNativeNumericTarget()
+{
+    Target stored{};
+    int calls = 0;
+    auto capture = [&](Target value) noexcept {
+        stored = value;
+        ++calls;
+        return CommandResult::Accepted;
+    };
+    const CommandTable rows{command("Convert", capture)};
+    const CommandCatalogTable groups{group("Numbers", rows)};
+    auto verify = [&](auto source) {
+        const auto before = calls;
+        expect(rows.template call<0>(source) == CommandResult::Accepted
+               && rows.call(std::size_t{0}, source) == CommandResult::Accepted
+               && groups.template call<makeId(0, 0)>(source) == CommandResult::Accepted
+               && calls == before + 3 && stored == static_cast<Target>(source),
+               "all numeric source/target pairs convert on three native command routes");
+    };
+    verify(12.0f); verify(12.0);
+    verify(std::uint8_t{12}); verify(std::uint16_t{12});
+    verify(std::uint32_t{12}); verify(std::uint64_t{12});
+    verify(std::int8_t{12}); verify(std::int16_t{12});
+    verify(std::int32_t{12}); verify(std::int64_t{12}); verify(true);
+    verify(Mode::Precise); // An enum source converts through its underlying number.
+}
+
+void checkNativeConversions()
+{
+    checkNativeNumericTarget<float>(); checkNativeNumericTarget<double>();
+    checkNativeNumericTarget<std::uint8_t>(); checkNativeNumericTarget<std::uint16_t>();
+    checkNativeNumericTarget<std::uint32_t>(); checkNativeNumericTarget<std::uint64_t>();
+    checkNativeNumericTarget<std::int8_t>(); checkNativeNumericTarget<std::int16_t>();
+    checkNativeNumericTarget<std::int32_t>(); checkNativeNumericTarget<std::int64_t>();
+    checkNativeNumericTarget<bool>();
+
+    Device owner;
+    const CommandTable rows{
+        command<&Device::calibrate>("Configure", owner,
+            arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f)),
+        command<&Device::setAddress>("Address", owner),
+        command<&Device::legacy>("Legacy", owner)};
+    const CommandCatalogTable groups{group("Owner", rows)};
+    expect(rows.call<0>(250.5, 1) == CommandResult::Executed
+           && owner.voltage == 250.5f && owner.mode == Mode::Normal
+           && groups.call<makeId(0, 0)>(260.0, 2) == CommandResult::Executed
+           && owner.voltage == 260.0f && owner.mode == Mode::Precise,
+           "Qt double and int arguments convert directly to float and enum");
+    expect(rows.call<0>(500.0000001, 1) == CommandResult::Executed
+           && owner.voltage == 500.0f,
+           "float destination rounding precedes metadata range validation");
+    expect(rows.call<0>(12, 1.9) == CommandResult::Executed
+           && owner.voltage == 12.0f && owner.mode == Mode::Normal
+           && rows.call<0>(Mode::Precise, Error::None) == CommandResult::Executed
+           && owner.voltage == 2.0f && owner.mode == Mode::Fast,
+           "enum inputs and floating enum codes follow checked numeric conversion");
+    const auto before = owner.calls;
+    const double invalid[] = {-1.0, 3.0, 256.0, 1e100,
+        std::numeric_limits<double>::infinity(), std::numeric_limits<double>::quiet_NaN()};
+    for (double mode : invalid) {
+        expect(rows.call<0>(250.0, mode) == CommandResult::InvalidValue
+               && rows.call(std::size_t{0}, 250.0, mode) == CommandResult::InvalidValue
+               && groups.call<makeId(0, 0)>(250.0, mode) == CommandResult::InvalidValue
+               && owner.calls == before && owner.voltage == 2.0f,
+               "invalid final enum argument never calls owner or applies earlier values");
+    }
+    expect(rows.call<0>(501.0, 1) == CommandResult::InvalidValue
+           && rows.call<0>(std::numeric_limits<double>::max(), 1) == CommandResult::InvalidValue
+           && rows.call<0>(std::numeric_limits<double>::infinity(), 1) == CommandResult::InvalidValue
+           && rows.call<0>(std::numeric_limits<double>::quiet_NaN(), 1) == CommandResult::InvalidValue
+           && owner.calls == before,
+           "native float narrowing finite checks and metadata limits precede invocation");
+    expect(rows.call<1>(UINT64_MAX) == CommandResult::Accepted && owner.address == UINT64_MAX
+           && rows.call<1>(42.9) == CommandResult::Accepted && owner.address == 42
+           && rows.call<2>(-1.9) == CommandResult::Executed,
+           "native 64-bit and signed enum conversions preserve exact values and truncate fractions");
+    const auto after = owner.calls;
+    expect(rows.call<1>(-1) == CommandResult::InvalidValue
+           && rows.call<1>(18446744073709551616.0) == CommandResult::InvalidValue
+           && rows.call<2>(INT64_MAX) == CommandResult::InvalidValue
+           && owner.calls == after,
+           "native casts reject integer overflow before unsigned or unfixed enum conversion");
+
+    int calls = 0;
+    std::uint16_t stored = 0;
+    auto limited = [&](std::uint16_t value) noexcept {
+        ++calls; stored = value; return CommandResult::Busy;
+    };
+    const CommandTable bounded{command("Limit", limited,
+        arg<0>("Value", "", std::uint16_t{12}, std::uint16_t{1}, std::uint16_t{12}))};
+    expect(bounded.call<0>(12.9) == CommandResult::Busy && stored == 12
+           && bounded.call(std::size_t{0}, 1.9f) == CommandResult::Busy && stored == 1
+           && calls == 2, "native truncation happens before target limits and status is preserved");
+    expect(bounded.call<0>(13.0) == CommandResult::InvalidValue
+           && bounded.call<0>(-1.0) == CommandResult::InvalidValue
+           && bounded.call<0>(65536) == CommandResult::InvalidValue && calls == 2,
+           "borrowed command rejects custom limits and target representation overflow");
+
+    const CommandTable noLimits{command("No limits", limited)};
+    expect(noLimits.call<0>(-0.75) == CommandResult::Busy && stored == 0,
+           "fraction truncating to representable unsigned zero is allowed");
+    const CommandTable freeRows{command<lambdaTarget>("Free")};
+    expect(freeRows.call<0>(12.9) == CommandResult::Executed
+           && freeRows.call(std::size_t{0}, 12) == CommandResult::Executed,
+           "NTTP free callable accepts checked native conversions");
+    const auto oldMany = manyCalls;
+    expect(manyTyped.call<0>(1.25, -2.5f, 255, 65535, UINT32_MAX, UINT64_MAX,
+                            -128, -32768, INT32_MIN, INT64_MIN, 1) == CommandResult::Executed
+           && manyCalls == oldMany + 1,
+           "mixed wide signature keeps identity integer extrema exact without a floating intermediate");
+    expect(manyTyped.call<0>(1.25, -2.5f, 256, 65535, UINT32_MAX, UINT64_MAX,
+                            -128, -32768, INT32_MIN, INT64_MIN, 1) == CommandResult::InvalidValue
+           && manyCalls == oldMany + 1,
+           "native tuple conversion stops on an interior argument overflow");
+    const auto oldSparse = sparseCalls;
+    expect(sparseCommands.call<0>(1500.9) == CommandResult::Executed && sparseCode == 1500
+           && sparseCommands.call(std::size_t{1}, -1500.9) == CommandResult::Executed
+           && sparseCode == -1500 && sparseCalls == oldSparse + 2,
+           "explicit enumSpec guides native conversion outside automatic enum scan");
+    expect(sparseCommands.call<0>(999) == CommandResult::InvalidValue
+           && sparseCommands.call<1>(-2001) == CommandResult::InvalidValue
+           && sparseCalls == oldSparse + 2,
+           "explicit enumSpec native bounds are checked before unfixed enum casts");
+}
 template <class Index>
 bool boundaries(const Index& view,JsonOptions options)
 {
@@ -206,9 +332,11 @@ int main()
         command<&VirtualOwner::update>("Base view", base)};
     expect(virtualCommands.call<0>(std::uint16_t{42}) == CommandResult::Executed
            && virtualCommands.call<1>(std::uint16_t{42}) == CommandResult::Executed
+           && virtualCommands.call<0>(42.9) == CommandResult::Executed
+           && virtualCommands.call(std::size_t{1}, 42) == CommandResult::Executed
            && virtualCommands.index().call(0, 42) == CommandResult::Executed
            && virtualCommands.index().call(1, 42) == CommandResult::Executed
-           && derived.calls == 4 && derived.marker == UINT64_C(0x12345678),
+           && derived.calls == 6 && derived.marker == UINT64_C(0x12345678),
            "native and erased member bindings preserve virtual dispatch and owner adjustment");
     struct LvalueCallable {
         int calls = 0;
@@ -217,8 +345,9 @@ int main()
     } lvalueCallable;
     const CommandTable lvalueCommands{command("Lvalue callable", lvalueCallable)};
     expect(lvalueCommands.call<0>(true) == CommandResult::Accepted
+           && lvalueCommands.call<0>(1) == CommandResult::Accepted
            && lvalueCommands.index().call(0, 1) == CommandResult::Accepted
-           && lvalueCallable.calls == 2,
+           && lvalueCallable.calls == 3,
            "borrowed ref-qualified callable stays an lvalue on both paths");
     expect(commandsIndex.call(0)==CommandResult::Executed && device.calls==1,"zero-argument method");
     expect(commandsIndex.call(1,250,Mode::Precise)==CommandResult::Executed && device.voltage==250.0f && device.mode==Mode::Precise,"typed member conversion");
@@ -321,14 +450,17 @@ int main()
                   == CommandResult::ArgumentCountMismatch
            && ownedCommands.call(std::size_t{1})
                   == CommandResult::ArgumentCountMismatch
-           && ownedCommands.call(std::size_t{1}, 310, Mode::Normal)
-                  == CommandResult::ArgumentCountMismatch
-           && ownedCommands.call(std::size_t{1}, 310.0f, std::uint8_t{1})
-                  == CommandResult::ArgumentCountMismatch
            && ownedCommands.call(std::size_t{2}, 1.0f, Mode::Fast)
                   == CommandResult::NotFound
            && device.calls == runtimeTypedCalls,
-           "runtime typed dispatch reports signature mismatch and missing position");
+           "runtime typed dispatch reports argument count mismatch and missing position");
+    expect(ownedCommands.call(std::size_t{1}, 310, Mode::Normal)
+                  == CommandResult::Executed
+           && ownedCommands.call(std::size_t{1}, 310.0f, std::uint8_t{1})
+                  == CommandResult::Executed
+           && device.calls == runtimeTypedCalls + 2 && device.voltage == 310.0f
+           && device.mode == Mode::Normal,
+           "runtime typed dispatch converts native numbers and enum arguments");
     expect(ownedApiIndex.call(makeId(0, 1), 320.0f, Mode::Precise)
                == CommandResult::Executed
            && device.voltage == 320.0f && device.mode == Mode::Precise,
@@ -484,6 +616,7 @@ int main()
     const Command escaped[]={detail::materializeCommand<&System::save>("A\"B\n")};
     expect(writeSchema(CommandIndex{escaped},json.data(),json.size())!=0 && std::strstr(json.data(),"A\\\"B\\u000a")!=nullptr,"escaped names");
     expect(schemaCrc(CommandIndex{})!=schemaCrc(commandsIndex),"nonempty fingerprint");
+    checkNativeConversions();
     std::printf("%d/%d command checks passed\n",checks-failures,checks);
     return failures!=0;
 }
