@@ -125,6 +125,12 @@ share these definitions; no factory helpers or class-member type aliases are
 needed. Runtime owners are supported by the same `field(...)` API and covered
 by the table tests.
 
+`OwnerSlot<T>` also lets constant tables refer to an object constructed later:
+pass a stable slot in place of `T&`, then call `slot.bind(object)` before use.
+Only this explicit slot mode checks for an absent target; ordinary objects and
+free functions retain their direct paths. See the
+[slot contract and example](lib/telemetry/README.md#runtime-objects-behind-constant-tables).
+
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
 (IDs `0..5`); sensor is group 1 (IDs `65536..65537`); integer examples are
 group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and

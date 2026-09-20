@@ -26,6 +26,7 @@ namespace telemetry {
 // This layer adds no synchronization or cross-field snapshot guarantee.
 // A getter must be noexcept. To report unavailable values it must return Scalar
 // and use Scalar::null(); a native numeric getter always supplies a value.
+// OwnerSlot adapters can instead report Null without invoking an absent owner.
 // All referenced objects, arrays and strings must outlive their consumers.
 // Field metadata and addresses stay unchanged from Catalog construction;
 // only values inside the bound source objects may change during use.
@@ -91,6 +92,7 @@ struct alignas(cacheLineBytes) Field {
 
     // Presence is checked before conversion, so a read-only field always reports
     // ReadOnly. Conversion/range failure never calls the setter or reads the getter.
+    // A slot-bound setter then reports Unavailable if its target is absent.
     template <class T, std::enable_if_t<detail::isScalarNumber<T> || std::is_same_v<T, Scalar>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     WriteResult write(T value) const noexcept

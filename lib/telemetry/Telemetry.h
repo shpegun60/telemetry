@@ -14,6 +14,7 @@
 // Catalog tables borrow those locals; indexes are transport-facing views.
 // Keep the ABI guard in every consumer even when neither JSON source is linked.
 #include "core/TelemetryId.h"
+#include "core/TelemetryOwnerSlot.h"
 #include "field/TelemetryEnum.h"
 #include "field/TelemetryFieldFactory.h"
 #include "field/TelemetryFieldTable.h"

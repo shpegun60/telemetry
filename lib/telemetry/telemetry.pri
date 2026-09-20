@@ -8,6 +8,7 @@ include($$PWD/../magic_enum/magic_enum.pri)
 CONFIG += c++17
 INCLUDEPATH += $$PWD
 HEADERS += \
+    $$PWD/core/TelemetryOwnerSlot.h \
     $$PWD/Telemetry.h \
     $$PWD/core/TelemetryCompiler.h \
     $$PWD/core/TelemetryCacheline.h \

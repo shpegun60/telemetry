@@ -133,6 +133,62 @@ For nonempty tables its size is exactly `N * sizeof(Field)`, with the same
 alignment as Field. There is no stored definition tuple or second owner pointer.
 The empty table follows `std::array<Field, 0>` storage rules.
 
+### Runtime objects behind constant tables
+
+Use `OwnerSlot<T>` only when an object's address is not available while defining
+the table, or when all of its fields/commands need to be rebound together:
+
+```cpp
+inline OwnerSlot<Device> deviceSlot; // Empty; one pointer in RAM.
+inline constexpr FieldTable lateFields{
+    field<&Device::voltage>("Ua", "V", deviceSlot),
+    field<&Device::limit, &Device::setLimit>("Limit", "V", deviceSlot,
+        limits(250.0f, 1.0f, 1000.0f)),
+};
+inline constexpr CommandTable lateCommands{
+    command<&Device::calibrate>("Calibrate", deviceSlot,
+        arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f)),
+};
+
+// After constructing a stable application object:
+deviceSlot.bind(device);
+auto voltage = lateFields.read<0>();          // optional<float>, no Scalar.
+auto status = lateCommands.call<0>(230.0, 1); // Native checked conversion.
+deviceSlot.reset();                           // Before destroying device.
+```
+
+The same declarations with `device` instead of `deviceSlot` remain direct
+bindings. Template selection adds no slot load, null check, flag or resolver
+call to those ordinary objects or to free/static functions. A slot binding
+loads the target once per invocation and checks it before calling the method.
+The slot is one pointer (4 bytes on ARM32); Field stays 96 bytes and Command
+20 bytes there. Constant tables retain their original descriptor layout and
+can stay in read-only storage. No allocator or virtual resolver is introduced.
+
+An empty slot returns Null through Scalar reads and an empty optional through
+native reads. Writable fields return `WriteResult::Unavailable` for valid
+inputs; field conversion/limits still precede setter invocation on every API,
+so invalid inputs report `InvalidValue` even when the slot is empty. Read-only
+fields still report `ReadOnly`. Command transport argument count/pointer checks
+come first; then an empty slot returns `CommandResult::Unavailable` before any
+numeric conversion. Raw `field.get`/`field.set` capability checks and schema do
+not change with slot state: the declared callback still exists while unbound.
+
+`bind(other)` redirects all existing descriptors to the new object. A const
+target uses `OwnerSlot<const T>` and requires const-compatible methods. Derived
+objects, base adjustment and normal virtual member dispatch remain supported.
+For a field mixing a free function with a member callback, only the member
+callback consults the slot. Slot objects cannot be copied/moved; factories and
+`bind()` reject temporaries, including those passed to const-target slots.
+
+The slot does not own or extend the lifetime of its object. Its address must
+remain stable and outlive all borrowed tables/descriptors. Bind/reset and
+access are not atomic: perform them before starting consumers, or externally
+serialize them and keep the selected object alive until active calls finish.
+Reset alone is not a way to destroy an object concurrently with an active call.
+
+### Native field access
+
 Native `read<I>()` returns `optional<Scalar::NativeType<tag>>`; an enum returns
 its numeric representation. `read<I, T>()` uses the shared checked native
 conversion. Reads ignore write limits. Native `write<I>()` converts directly
@@ -977,7 +1033,8 @@ Constant input/type pairs can be checked with static_assert. The typed
 `convertScalar(input, type, output)` leaves output unchanged, and input and
 output may refer to the same Scalar.
 
-WriteResult contains Applied, NotFound, ReadOnly, InvalidValue and Busy.
+WriteResult contains Applied, NotFound, ReadOnly, InvalidValue, Busy and
+Unavailable (a slot-bound setter currently has no target).
 TypeMismatch is unnecessary because writes convert supported numeric types.
 The owner checks its semantic range and provides synchronization. Applied
 means the value was applied before returning; it does not imply persistence
@@ -986,7 +1043,9 @@ to Flash. Queued writes need a separate completion contract.
 The callback's argument is borrowed for the duration of the call only. Copy
 it if it must be retained. Calling a populated `field.set(...)` directly is
 a low-level operation: use `field.write(...)` or `index.write(...)` to obtain
-type conversion and numeric interval checks. Bindings and metadata remain fixed during use.
+type conversion and numeric interval checks. Descriptor bindings and metadata
+remain fixed; an explicitly used OwnerSlot may rebind under the lifetime and
+synchronization contract above.
 
 ## Serialization
 

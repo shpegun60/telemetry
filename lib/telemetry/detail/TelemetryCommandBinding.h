@@ -236,12 +236,15 @@ struct CommandBinding {
     static CommandResult run(const void* target, const void* metadata, const Scalar* values,
                              std::index_sequence<I...> sequence) noexcept
     {
+        auto* owner = resolveFactoryOwner(static_cast<Owner*>(const_cast<void*>(target)));
+        if constexpr (isOwnerSlot<Owner>) {
+            if (owner == nullptr) return CommandResult::Unavailable;
+        }
         Arguments converted{};
         const auto* definition = static_cast<const Metadata*>(metadata);
         if (!Contract::convertAll(definition, values, converted, sequence))
             return CommandResult::InvalidValue;
-        // The factory admitted an lvalue with this exact cv-qualified type.
-        auto* owner = static_cast<Owner*>(const_cast<void*>(target));
+        // Invoke the same object selected before argument conversion.
         return invokeFactory<Target>(owner, std::get<I>(converted)...);
     }
 
@@ -260,7 +263,10 @@ struct CommandBinding {
         const void* target, const Metadata* metadata,
         std::index_sequence<I...> sequence, Input... values) noexcept
     {
-        auto* owner = static_cast<Owner*>(const_cast<void*>(target));
+        auto* owner = resolveFactoryOwner(static_cast<Owner*>(const_cast<void*>(target)));
+        if constexpr (isOwnerSlot<Owner>) {
+            if (owner == nullptr) return CommandResult::Unavailable;
+        }
         if constexpr (Contract::template exactArguments<Input...>) {
             // Preserve the original direct path, including its stack/codegen.
             if (!Contract::validateNativeAll(metadata, sequence, values...))

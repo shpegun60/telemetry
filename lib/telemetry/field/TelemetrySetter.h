@@ -24,6 +24,7 @@ enum class WriteResult : std::uint8_t {
     ReadOnly,
     InvalidValue,
     Busy,
+    Unavailable, // A late-bound owner slot is empty; existing result codes stay unchanged.
 };
 
 // Field::write normalizes to the declared ScalarType before dispatch. Setter

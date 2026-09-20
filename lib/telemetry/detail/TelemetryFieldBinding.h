@@ -27,18 +27,26 @@ struct FieldBinding {
 
     static TELEMETRY_FORCE_INLINE Scalar nativeRead(Owner& owner) noexcept
     {
-        return factoryScalar(invokeFactory<Read>(std::addressof(owner)));
+        auto* target = resolveFactoryOwner(std::addressof(owner));
+        if constexpr (isOwnerSlot<Owner>) {
+            if (target == nullptr) return Scalar::null();
+        }
+        return factoryScalar(invokeFactory<Read>(target));
     }
     static RawNumberT<Value> enumReadFree() noexcept
     { return static_cast<RawNumberT<Value>>(invokeFactory<Read, NoOwner>(nullptr)); }
 
     static TELEMETRY_FORCE_INLINE WriteResult typedWrite(Owner& owner, const Scalar& value) noexcept
     {
-        if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(std::addressof(owner), value);
+        auto* target = resolveFactoryOwner(std::addressof(owner));
+        if constexpr (isOwnerSlot<Owner>) {
+            if (target == nullptr) return WriteResult::Unavailable;
+        }
+        if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(target, value);
         else {
             Value native{};
             if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return invokeFactory<Write>(std::addressof(owner), native);
+            return invokeFactory<Write>(target, native);
         }
     }
     static TELEMETRY_FORCE_INLINE WriteResult typedWriteFree(const Scalar& value) noexcept
@@ -54,7 +62,7 @@ struct FieldBinding {
     static constexpr Getter getter(Owner* owner) noexcept
     {
         if constexpr (ReadTraits::member) {
-            if constexpr (std::is_enum_v<Value>) return Getter::bindContext<&nativeRead>(*owner);
+            if constexpr (std::is_enum_v<Value> || isOwnerSlot<Owner>) return Getter::bindContext<&nativeRead>(*owner);
             else return Getter::bind<Read>(*owner);
         } else {
             if constexpr (std::is_enum_v<Value>) return Getter(&enumReadFree);

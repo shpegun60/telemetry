@@ -33,17 +33,35 @@ struct StaticFieldAccess {
     using Value = typename FieldBinding<Read, Write, Owner, Constraint>::Value;
     using EnumConstraint = Constraint;
     static constexpr bool writable = !std::is_same_v<decltype(Write), std::nullptr_t>;
+    static constexpr bool nullableRead = isOwnerSlot<Owner>
+        && std::is_member_function_pointer_v<decltype(Read)>;
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     {
+        static_assert(!nullableRead, "Slot reads must use the optional readSlot adapter");
         if constexpr (std::is_member_function_pointer_v<decltype(Read)>)
             return invokeFactory<Read>(FieldTableAccess::object<Owner>(entry.get));
         else return invokeFactory<Read, NoOwner>(nullptr);
     }
+    template <class T>
+    static TELEMETRY_FORCE_INLINE std::optional<T> readSlot(const Field& entry) noexcept
+    {
+        // Normalize directly into the caller's optional, avoiding an intermediate
+        // optional<Value> that prevents a tail call on GCC 13 at -Os.
+        auto* target = resolveFactoryOwner(FieldTableAccess::object<Owner>(entry.get));
+        if (target == nullptr) return std::nullopt;
+        using Stored = Scalar::NativeType<Scalar::from(RawNumberT<Value>{}).type()>;
+        return readNumber<T>(static_cast<Stored>(invokeFactory<Read>(target)));
+    }
     static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
     {
         if constexpr (!writable) return WriteResult::ReadOnly;
-        else if constexpr (std::is_member_function_pointer_v<decltype(Write)>)
-            return invokeFactory<Write>(FieldTableAccess::object<Owner>(entry.set), value);
+        else if constexpr (std::is_member_function_pointer_v<decltype(Write)>) {
+            auto* target = resolveFactoryOwner(FieldTableAccess::object<Owner>(entry.set));
+            if constexpr (isOwnerSlot<Owner>) {
+                if (target == nullptr) return WriteResult::Unavailable;
+            }
+            return invokeFactory<Write>(target, value);
+        }
         else return invokeFactory<Write, NoOwner>(nullptr, value);
     }
 };
@@ -51,6 +69,7 @@ struct StaticFieldAccess {
 template <class Read, class Write = std::nullptr_t>
 struct DirectFieldAccess {
     using Value = typename CallableTraits<Read>::Result;
+    static constexpr bool nullableRead = false;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     { return FieldTableAccess::function<Value>(entry.get)(); }
@@ -65,6 +84,7 @@ template <class Read, class Write = std::nullptr_t, class Constraint = NoLimits>
 struct BorrowedFieldAccess {
     using Value = typename CallableObjectTraits<Read>::Result;
     using EnumConstraint = Constraint;
+    static constexpr bool nullableRead = false;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     { return (*FieldTableAccess::object<Read>(entry.get))(); }
@@ -97,8 +117,11 @@ public:
             // canonical integer aliases change C++ spelling, not the value.
             using Raw = RawNumberT<Value>;
             using Stored = Scalar::NativeType<Scalar::from(Raw{}).type()>;
-            const Stored number = static_cast<Stored>(Access::read(entry));
-            return readNumber<T>(number);
+            if constexpr (Access::nullableRead) return Access::template readSlot<T>(entry);
+            else {
+                const Stored number = static_cast<Stored>(Access::read(entry));
+                return readNumber<T>(number);
+            }
         } else return entry.template read<T>();
     }
 

@@ -11,7 +11,7 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
-          "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck")
+          "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck", "TelemetryOwnerSlotCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryJson.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
@@ -160,6 +160,20 @@ def main():
         run(flags + [f"-DTELEMETRY_POSITION_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryPositionCompileFail.cpp"], f"position-reject-{case}", message)
     print(f"{len(position_cases)} typed position compilation rejections verified", flush=True)
+
+    for case in range(1, 19):
+        if case in (8, 9):
+            diagnostic = "Factory owner or parameter types"
+        elif case in (13, 14):
+            diagnostic = "OwnerSlot requires a non-volatile object type"
+        elif case == 16:
+            diagnostic = "no matching"
+        else:
+            diagnostic = "deleted"
+        run(flags + [f"-DTELEMETRY_OWNER_SLOT_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryOwnerSlotCompileFail.cpp"],
+            f"owner-slot-reject-{case}", diagnostic)
+    print("18 owner slot lifetime and type rejections verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")

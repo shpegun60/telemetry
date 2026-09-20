@@ -8,6 +8,7 @@
 #define TELEMETRY_DETAIL_CALLABLE_H
 
 #include "../field/TelemetryEnum.h"
+#include "../core/TelemetryOwnerSlot.h"
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -17,6 +18,15 @@ namespace telemetry {
 namespace detail {
 
 struct NoOwner {};
+
+// A direct object (including NoOwner for a free function) adds no load or test.
+// Slot adapters resolve once, test the result, and keep that object for the call.
+template <class Owner>
+TELEMETRY_FORCE_INLINE constexpr auto resolveFactoryOwner(Owner* owner) noexcept
+{
+    if constexpr (isOwnerSlot<Owner>) return owner->get();
+    else return owner;
+}
 template <class> inline constexpr bool dependentFalse = false;
 template <class T> struct CallableTraits {
     static_assert(dependentFalse<T>, "Factory requires a noexcept free/static function or member function");
