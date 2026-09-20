@@ -15,6 +15,8 @@ static_assert(emptyCommandTable.size() == 0);
 static_assert(emptyCommandTable.index().find(0) == nullptr);
 static_assert(emptyCommandCatalog.size() == 0);
 static_assert(emptyCommandCatalog.catalog().count == 0);
+static_assert(telemetry::CommandTable{}.size() == 0);
+static_assert(telemetry::CommandCatalogTable{0, "empty"}.size() == 0);
 
 using namespace telemetry;
 int checks = 0, failures = 0;

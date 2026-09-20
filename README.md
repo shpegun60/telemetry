@@ -106,11 +106,12 @@ group 2 (IDs `131072..131079`). The integer rows show unsigned maxima and
 signed minima for every 8/16/32/64-bit type. Their display reads the simulated
 sources directly, keeping all U64/S64 digits without conversion to double.
 The sources stay stable while the table and JSON are refreshed.
-The `Mode` row uses an explicit `enumSpec<Mode::Off, Mode::Auto, Mode::Manual>`:
-its value remains U16 while schema
-JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. Its write interval
+The `Mode` row supplies only `Mode::Auto`; the signature identifies `Mode` and
+its named values are discovered at compile time. Its value remains U16 while
+the schema JSON adds `"enum":{"0":"Off","1":"Auto","2":"Manual"}`. Its write interval
 is 0..2 and default is Auto (1). No dictionary check runs during lookup, read
-or write. See the [enum contract and large-code
+or write. Explicit `enumSpec<...>` remains available for sparse, large or
+intentionally filtered dictionaries. See the [enum contract and large-code
 examples](lib/telemetry/README.md#enum-dictionaries-for-schemas).
 Each field row starts
 with `makeId(group, position)`. `DemoCatalog::find(id)` uses one direct
@@ -208,8 +209,9 @@ Verification after closing the field/command core, 2026-09-20:
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
-  definitions; 70 more reject invalid factory and command definitions,
-  including temporary captured closures and invalid indexed command metadata.
+  definitions; 76 more reject invalid factory and command definitions,
+  including temporary captured closures, invalid indexed command metadata and
+  views extracted from temporary owning command tables.
   Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
@@ -219,7 +221,7 @@ Verification after closing the field/command core, 2026-09-20:
   applicable suites under `/std:c++17` and `/std:c++20` with `/permissive-`
   and warnings as errors: 598 and 601 checks respectively. Its independent
   numeric oracle reports an explicit skip because MSVC `long double` has only
-  53 mantissa bits. All 114 invalid C++17 programs were still rejected.
+  53 mantissa bits. All 120 invalid C++17 programs were still rejected.
 - CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
   enables ASan/UBSan and float-cast-overflow checks, including
   stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.

@@ -156,12 +156,15 @@ public:
     CommandTable& operator=(const CommandTable&) = delete;
     CommandTable& operator=(CommandTable&&) = delete;
 
-    constexpr const Command* data() const noexcept { return commands_.data(); }
+    constexpr const Command* data() const & noexcept { return commands_.data(); }
+    const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }
-    constexpr const Command& operator[](std::size_t index) const noexcept
+    constexpr const Command& operator[](std::size_t index) const & noexcept
     { return commands_[index]; }
-    constexpr CommandIndex index() const noexcept
+    const Command& operator[](std::size_t) const && = delete;
+    constexpr CommandIndex index() const & noexcept
     { return CommandIndex{commands_.data(), commands_.size()}; }
+    CommandIndex index() const && = delete;
 };
 
 template <class... Definitions>
@@ -186,10 +189,13 @@ public:
     CommandCatalogTable& operator=(const CommandCatalogTable&) = delete;
     CommandCatalogTable& operator=(CommandCatalogTable&&) = delete;
 
-    constexpr CommandCatalog catalog() const noexcept
+    constexpr CommandCatalog catalog() const & noexcept
     { return CommandCatalog{id_, name_, commands_.data(), commands_.size()}; }
-    constexpr CommandIndex index() const noexcept { return commands_.index(); }
-    constexpr const Command* data() const noexcept { return commands_.data(); }
+    CommandCatalog catalog() const && = delete;
+    constexpr CommandIndex index() const & noexcept { return commands_.index(); }
+    CommandIndex index() const && = delete;
+    constexpr const Command* data() const & noexcept { return commands_.data(); }
+    const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }
 };
 

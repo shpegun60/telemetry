@@ -220,6 +220,21 @@ auto build(){float state=0;const auto get=[state]() mutable noexcept{return stat
 #elif TELEMETRY_FACTORY_FAIL_CASE == 70
 auto build(){float state=0;auto get=[&state]() noexcept{return state;};
     return makeField(0,"x","",ScalarType::F32,get);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 71
+auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}.index();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 72
+auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}.data();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 73
+auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}[0];
+#elif TELEMETRY_FACTORY_FAIL_CASE == 74
+auto bad=CommandCatalogTable{0,"group",
+    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.catalog();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 75
+auto bad=CommandCatalogTable{0,"group",
+    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.index();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 76
+auto bad=CommandCatalogTable{0,"group",
+    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.data();
 #else
 #error Unknown factory case
 #endif

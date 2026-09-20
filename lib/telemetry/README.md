@@ -72,7 +72,7 @@ constexpr Field fields[] = {
     makeField<&Device::limit, &Device::setLimit>(makeId(0, 1), "Limit", "V",
         device, limits(250.0f, 1.0f, 1000.0f)),
     makeField<&Device::mode, &Device::setMode>(makeId(0, 2), "Mode", "", device,
-        enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
+        limits(Mode::Auto)),
 };
 constexpr Catalog catalogs[] = {{0, "device", fields}};
 constexpr CatalogIndex values{catalogs};
@@ -83,7 +83,7 @@ constexpr CommandCatalogTable commandApi{
     0, "device",
     command<&Device::reset>(makeId(0, 0), "Reset", device),
     command<&Device::calibrate>(makeId(0, 1), "Calibrate", device,
-        arg<1>("Mode", "", enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
+        arg<1>("Mode", "", Mode::Auto),
         arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f)),
     command<&Device::calibrate>(makeId(0, 2), "Calibrate without labels", device),
 };
@@ -193,7 +193,11 @@ compile-time errors.
 Directly constructing `CommandTable{...}` or `CommandCatalogTable{...}` owns the
 metadata and builds stable ordinary `Command` views into it. The owning tables
 are non-copyable and non-movable because their descriptors point into their own
-metadata. In C++17 do not wrap their construction in a return-by-value factory:
+metadata. `data()`, `operator[]`, `index()` and `catalog()` views are available
+only on lvalue tables; attempts to extract them from a temporary are rejected,
+because destruction of that temporary would leave the view dangling. `size()`
+remains available on temporaries because it returns an independent value. In
+C++17 do not wrap their construction in a return-by-value factory:
 GCC does not accept that self-referential result as a constant expression.
 Direct CTAD construction, as above, is supported by GCC, Clang and MSVC.
 There is no fixed library limit on arity; template depth and stack resources
@@ -1007,7 +1011,8 @@ hatch (40 checks).
 conversion, side effects, schema, metadata lifetimes, indexed partial metadata,
 owning tables and more than eight arguments (67 checks).
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
-adds 70 rejected definitions and calls.
+adds 76 rejected definitions and calls, including all six temporary-table view
+extractions.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe

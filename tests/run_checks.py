@@ -39,6 +39,8 @@ FACTORY_REJECTIONS = {
     65: "noexcept", 66: "noexcept", 67: "concrete operator|operator\\(\\)",
     68: "concrete operator|operator\\(\\)", 69: "noexcept|invocable",
     70: "reserved for Scalar",
+    71: "deleted", 72: "deleted", 73: "deleted",
+    74: "deleted", 75: "deleted", 76: "deleted",
 }
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",

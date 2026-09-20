@@ -50,7 +50,7 @@ constexpr Field meterFields[] = {
     makeField<&Meter::readThreshold, &Meter::setThreshold>(makeId(0, 4), "VoltageLimit", "V",
         meter, telemetry::limits(250.0f, 1.0f, 1000.0f)),
     makeField<&Meter::readMode, &Meter::setMode>(makeId(0, 5), "Mode", "", meter,
-        telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
+        telemetry::limits(Mode::Auto)),
 };
 
 static_assert(telemetry::names_unique(meterFields, std::size(meterFields)));
@@ -79,8 +79,7 @@ constexpr telemetry::CommandCatalogTable meterCommandApi{
     telemetry::command<&Meter::configure>(
         makeId(0, 1), "Configure meter", meter,
         telemetry::arg<0>("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
-        telemetry::arg<1>("Mode", "",
-            telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)))};
+        telemetry::arg<1>("Mode", "", Mode::Auto))};
 static_assert(telemetry::commandNamesUnique(meterCommandApi.data(), meterCommandApi.size()));
 constexpr telemetry::CommandCatalog commandCatalogs[] = {
     meterCommandApi.catalog(),
