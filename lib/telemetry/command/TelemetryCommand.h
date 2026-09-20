@@ -12,6 +12,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <type_traits>
 
 namespace telemetry {
 struct CommandParam {
@@ -77,6 +79,24 @@ struct Command {
     bool describeParameters(void* context, CommandParamSink sink) const noexcept
     {
         return describe != nullptr && sink != nullptr && describe(metadata, context, sink);
+    }
+
+    // Synchronous adapter: no parameter array, visitor copy or retained context.
+    // Returning false stops traversal. Parameter references last only until the
+    // visitor returns; copy a description if it is needed after that call.
+    template <class Visitor>
+    bool forEachParameter(Visitor&& visitor) const noexcept
+    {
+        static_assert(std::is_nothrow_invocable_r_v<bool, Visitor&, const CommandParam&>,
+                      "Command parameter visitor must be noexcept and return bool");
+        if constexpr (std::is_pointer_v<std::remove_reference_t<Visitor>>) {
+            if (visitor == nullptr) return false;
+        }
+        struct Context { Visitor& visitor; };
+        Context context{visitor};
+        return describeParameters(&context, +[](void* raw, const CommandParam& parameter) noexcept {
+            return static_cast<bool>(std::invoke(static_cast<Context*>(raw)->visitor, parameter));
+        });
     }
 
 private:

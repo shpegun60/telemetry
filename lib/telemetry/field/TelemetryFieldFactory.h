@@ -126,6 +126,15 @@ public:
     constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry) {}
     constexpr Field materialize() const noexcept { return entry_; }
 
+    // Replace only policy metadata, retaining the exact native Access type.
+    // The Field constructor validates capability once; no dispatch path checks
+    // these flags. Applying another policy replaces the previous mask.
+    constexpr FieldDefinition withFlags(FieldFlags policy) const noexcept
+    {
+        return FieldDefinition{Field{entry_.name, entry_.unit, entry_.declaredType,
+                                     entry_.get, entry_.set, policy}};
+    }
+
     template <class T>
     static TELEMETRY_FORCE_INLINE std::optional<T> read(const Field& entry) noexcept
     {

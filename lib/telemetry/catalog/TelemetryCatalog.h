@@ -42,6 +42,11 @@ struct Catalog {
     template <std::size_t N>
     Catalog(const char*, const Field (&&)[N], std::size_t) = delete;
 
+    constexpr const Field* begin() const noexcept { return fields; }
+    constexpr const Field* end() const noexcept { return fields != nullptr ? fields + count : nullptr; }
+    constexpr std::size_t size() const noexcept { return count; }
+    constexpr bool empty() const noexcept { return count == 0; }
+
 private:
     static constexpr std::size_t clippedCount_(const Field* rows,
                                                std::size_t requestedCount) noexcept

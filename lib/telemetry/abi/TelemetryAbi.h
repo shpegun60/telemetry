@@ -18,8 +18,9 @@
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version.
-// Revision 6 derives identity from position; descriptors no longer store IDs.
-inline constexpr std::uint32_t telemetryAbiVersion = 6;
+// Revision 7 uses former Field padding for policy flags. Revision 6 objects
+// cannot be mixed in even where size/alignment and previous offsets agree.
+inline constexpr std::uint32_t telemetryAbiVersion = 7;
 
 // std::variant is not standard-layout on every supported standard library.
 // Descriptors remain trivially copyable; each supported compiler's
@@ -83,6 +84,7 @@ using CurrentAbiTag = AbiTag<
     offsetof(Field, unit),
     offsetof(Field, set),
     offsetof(Field, declaredType),
+    Field::abiFlagsOffset(), sizeof(FieldFlags), alignof(FieldFlags),
     sizeof(Catalog),
     alignof(Catalog),
     offsetof(Catalog, name),

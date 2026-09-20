@@ -164,7 +164,7 @@ auto value = demo::fieldIndex.read(telemetry::makeId(1, 0)); // Scalar, value.ty
 ```
 
 The schema publishes group IDs, packed field IDs, local positions `i` and
-setter presence `w`, and required `min`, `max`, `default` properties.
+setter presence `w`, policy mask `f`, and required `min`, `max`, `default` properties.
 Native endpoints of ordinary numeric fields use `null`: resolve them from `t`.
 Custom bounds and defaults remain explicit. Enum and Bool bounds are always
 explicit, even at the native endpoints of their underlying type.
@@ -172,7 +172,9 @@ The default JSON mode preserves numeric U64/S64 output. For JavaScript clients,
 `JsonOptions{JsonInt64Mode::String}` quotes only U64/S64 values and their
 non-null schema bounds/defaults; U32/S32 and all other alternatives retain
 their JSON types. This wire choice does not change `schemaCrc()`.
-VoltageLimit (ID 4) and Mode (ID 5) are writable; other fields are read-only.
+VoltageLimit (ID 4) and Mode (ID 5) are writable and marked Persistent (`f:1`);
+other fields are read-only with `f:0`. The flag selects save/restore policy;
+this library does not provide a persistence backend.
 VoltageLimit declares write limits 1..1000 and default 250:
 
 ```cpp
@@ -197,7 +199,15 @@ an F32 field, and its result is checked and converted before publication.
 a U16 field with a getter returning 12.75 as double therefore gives 12.0.
 Scalar stores its value and tag together in a private `std::variant`.
 Factories and native return values remain supported; exact manual access
-uses `get<T>()` or the non-throwing `getIf<T>()`.
+uses `get<T>()` or the non-throwing `getIf<T>()`. A named Scalar also supports
+`visit(visitor)` over its native alternative, including monostate for Null.
+
+Add policy to any field declaration with `.withFlags(FieldFlag::Persistent)`.
+Traverse groups and computed IDs with `fields.catalogs()` or `commands.catalogs()`,
+and inspect each command's parameters with `forEachParameter(visitor)`.
+See [flags](lib/telemetry/README.md#field-policy-flags) and
+[traversal](lib/telemetry/README.md#catalog-and-parameter-traversal) for capabilities,
+visitor contracts and borrowed lifetimes.
 
 For a namespace-scope constexpr catalog array, `CatalogIndex::bind<catalogs>()`
 also enables `read<makeId(group, field)>()`, whose optional native result type
@@ -210,8 +220,9 @@ The demo exposes native local/global reads and the ordinary runtime `read<T>(id)
 Group and entry positions start at zero. Reordering or deleting entries changes
 their public IDs. Keep retired positions with `reservedField()` or
 `reservedCommand()`. Runtime lookup checks the two actual bounds; JSON derives
-IDs from the same traversal. This refactor is **ABI 6** and requires a clean
-consumer rebuild. See [the migration contract](lib/telemetry/README.md#field-abi-migration-and-storage).
+IDs from the same traversal. The current **ABI 7** adds policy bytes in existing
+padding and requires a clean consumer rebuild, despite unchanged descriptor sizes.
+See [the migration contract](lib/telemetry/README.md#field-abi-migration-and-storage).
 
 The previous range/pointer-slot implementation is retained in
 [archive/id_ranges](archive/id_ranges/README.md), outside the active build.

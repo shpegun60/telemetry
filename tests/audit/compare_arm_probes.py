@@ -27,10 +27,12 @@ def main():
     parser.add_argument("--before", type=Path, required=True)
     parser.add_argument("--after", type=Path, required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--allow-new-probes", action="store_true",
+                        help="compare every baseline probe while permitting additional new probes")
     args = parser.parse_args()
     old = {p.name: p for p in args.before.glob("*Codegen-*-disassembly.log")}
     new = {p.name: p for p in args.after.glob("*Codegen-*-disassembly.log")}
-    if not old or old.keys() != new.keys():
+    if not old or not old.keys() <= new.keys() or (not args.allow_new_probes and old.keys() != new.keys()):
         raise SystemExit("Missing or different probe sets; run both complete ARM checks first")
     records = []
     for name in sorted(old):
@@ -46,6 +48,8 @@ def main():
     if not all(record["identical"] for record in records):
         raise SystemExit("ARM probe encodings changed; inspect the disassembly and relocations")
     print(f"{len(records)} probe/optimization pairs have identical instruction encodings")
+    if args.allow_new_probes and new.keys() != old.keys():
+        print(f"{len(new.keys() - old.keys())} additional pairs are covered by the current ARM checks")
 
 
 if __name__ == "__main__":

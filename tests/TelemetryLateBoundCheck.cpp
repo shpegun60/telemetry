@@ -42,7 +42,7 @@ constexpr CommandCatalogTable actions{group("slots", commands)};
 static_assert(sizeof(contextRead) == 2 * sizeof(void*));
 static_assert(sizeof(borrowedRead) == 2 * sizeof(void*));
 static_assert(sizeof(ownedRead) == sizeof(tiny::delegate<float(), 32>));
-static_assert(sizeof(rows) == 3 * sizeof(Field) && telemetryAbiVersion == 6);
+static_assert(sizeof(rows) == 3 * sizeof(Field) && telemetryAbiVersion == 7);
 static_assert(!std::is_copy_constructible_v<decltype(contextRead)> && !std::is_move_constructible_v<decltype(contextRead)>);
 static_assert(!std::is_copy_constructible_v<decltype(borrowedRead)> && !std::is_move_constructible_v<decltype(borrowedRead)>);
 static_assert(!std::is_copy_constructible_v<decltype(ownedRead)> && !std::is_move_constructible_v<decltype(ownedRead)>);

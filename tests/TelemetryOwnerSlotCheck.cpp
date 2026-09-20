@@ -45,7 +45,7 @@ constexpr CommandCatalogTable actions{group("meter", commands)};
 static_assert(sizeof(OwnerSlot<Meter>) == sizeof(Meter*) && alignof(OwnerSlot<Meter>) == alignof(Meter*));
 static_assert(!std::is_copy_constructible_v<OwnerSlot<Meter>> && !std::is_move_constructible_v<OwnerSlot<Meter>>);
 static_assert(sizeof(rows) == 4 * sizeof(Field) && sizeof(Command) == 5 * sizeof(void*));
-static_assert(telemetryAbiVersion == 6 && static_cast<int>(WriteResult::Busy) == 4);
+static_assert(telemetryAbiVersion == 7 && static_cast<int>(WriteResult::Busy) == 4);
 static_assert(std::is_same_v<decltype(rows.read<0>()), std::optional<float>>);
 static_assert(std::is_same_v<decltype(rows.read<2>()), std::optional<std::uint16_t>>);
 static_assert(std::is_same_v<decltype(rows.read<3>()), Scalar>);

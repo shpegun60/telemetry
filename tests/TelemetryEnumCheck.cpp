@@ -172,7 +172,7 @@ void checkSchemas()
 {
     reads = writes = 0;
     const auto automatic = schema(enumType<Mode>());
-    expect(automatic.find("\"t\":\"u16\",\"w\":true,\"min\":0,\"max\":2,\"default\":0,\"enum\":{\"0\":\"Off\",\"1\":\"Auto\",\"2\":\"Manual\"}") != std::string::npos,
+    expect(automatic.find("\"t\":\"u16\",\"w\":true,\"f\":0,\"min\":0,\"max\":2,\"default\":0,\"enum\":{\"0\":\"Off\",\"1\":\"Auto\",\"2\":\"Manual\"}") != std::string::npos,
            "schema keeps the numeric type and adds the generated dictionary");
     expect(automatic == schema(enumType<Mode, Mode::Off, Mode::Auto, Mode::Manual>()),
            "automatic and explicit identical entries produce identical schema and fingerprint");
@@ -190,7 +190,7 @@ void checkSchemas()
            "explicit sparse U64 entries keep every decimal digit including maximum");
     expect(schema(enumType<Signed, Signed::First, Signed::Last>()).find("\"enum\":{\"-9223372036854775808\":\"First\",\"9223372036854775807\":\"Last\"}") != std::string::npos,
            "explicit S64 endpoints use exact signed keys without signed overflow");
-    expect(schema(enumType<Flag>()).find("\"t\":\"bool\",\"w\":true,\"min\":false,\"max\":true,\"default\":false,\"enum\":{\"0\":\"No\",\"1\":\"Yes\"}") != std::string::npos,
+    expect(schema(enumType<Flag>()).find("\"t\":\"bool\",\"w\":true,\"f\":0,\"min\":false,\"max\":true,\"default\":false,\"enum\":{\"0\":\"No\",\"1\":\"Yes\"}") != std::string::npos,
            "bool enum uses bool values and zero/one dictionary keys");
     expect(schema(enumType<OddName>()).find("\"-1\":\"quote\\\"slash\\\\\\u000a\\u0009\\u0000end\"") != std::string::npos,
            "custom names escape quotes, slashes, controls and embedded NUL");

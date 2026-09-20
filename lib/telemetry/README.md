@@ -34,10 +34,11 @@ catalog/index access, signature factories, commands and the independent ABI guar
 include JSON.
 
 - `core/`: compiler/cache-line policy, shared packed IDs, Scalar and checked numeric conversion.
-- `field/`: Getter/Setter, FieldType, enum/limits metadata and immutable Field.
-- `catalog/`: Catalog validation and direct CatalogIndex lookup.
+- `field/`: Getter/Setter, FieldType, FieldFlags, enum/limits metadata and immutable Field.
+- `catalog/`: Catalog validation, direct CatalogIndex lookup and indexed field views.
 - `command/`: command definitions, optional metadata, factories, flat lookup
-  and packed group/index catalog lookup.
+  and packed group/index catalog lookup and views.
+- `slot/`: mutable owner/function/context/delegate bindings for immutable tables.
 - `abi/TelemetryAbi.h`: the exact in-memory layout tag and explicit link guard.
 - `serialization/TelemetryJson.h`: schema fingerprint plus bounded schema/value JSON.
 
@@ -464,6 +465,96 @@ without a fixed underlying type may infer a different Scalar type on ARM32 and
 64-bit hosts. They remain supported for local use, but identical source alone
 does not guarantee an identical cross-platform schema for those types.
 
+## Field policy flags
+
+Flags describe field policy independently of callback availability. Add them
+after any `field(...)` factory; no additional factory overload is needed:
+
+```cpp
+constexpr FieldTable settingsFields{
+    field<&Device::limit, &Device::setLimit>("Limit", "V", device,
+        limits(230.0f, 0.0f, 500.0f))
+        .withFlags(FieldFlag::Persistent),
+};
+const Field& setting = settingsFields.data()[0];
+bool saveAndRestore = setting.persistent();
+bool hasSetter = setting.writable();
+FieldFlags policy = setting.flags();
+```
+
+`withFlags()` returns the same definition type and replaces its policy mask;
+native typed dispatch is preserved. The old declaration defaults to no flags.
+`FieldFlags{FieldFlag::Persistent}` is the explicit wrapper form. `operator|`
+combines flags/masks, and `contains()` or `field.has()` checks that **all**
+requested bits are present. The empty mask is always contained; use `empty()`
+to test for no flags. `FieldFlags::fromRaw(uint32_t)` explicitly preserves
+unknown wire bits; ordinary integers cannot implicitly become a policy.
+
+The wire contract currently defines `None = 0` and `Persistent = 1u << 0`.
+Existing bits will not be renumbered; consumers ignore unknown bits.
+Persistent means save **and** restore, so both getter and setter capabilities
+must exist. Invalid constexpr definitions fail compilation; invalid runtime
+construction terminates with `std::abort()` before publishing the descriptor.
+A declared late-bound slot may be empty: its adapter still supplies that
+capability and reports unavailability when called. Flags do not affect
+read/write instructions, apply defaults, or provide a storage backend.
+
+Schema always exports a numeric `"f"` mask, including zero. `"w"` remains
+setter capability, independently of flags. All four flag bytes enter the
+schema fingerprint in little-endian order. Values JSON remains unchanged.
+
+## Catalog and parameter traversal
+
+Global owning tables and their borrowed indexes expose symmetric indexed views:
+
+```cpp
+for (auto catalog : fields.catalogs()) {
+    for (auto entry : catalog.fields()) {
+        const FieldId id = entry.id();
+        const EntryOffset localPosition = entry.index();
+        const Field& descriptor = entry.field();
+        // catalog.index(), catalog.name(), descriptor.flags(), ...
+    }
+}
+for (auto catalog : commands.catalogs()) {
+    for (auto entry : catalog.commands()) {
+        const CommandId id = entry.id();
+        const Command& descriptor = entry.command();
+        descriptor.forEachParameter([](const CommandParam& parameter) noexcept {
+            // Consume parameter.index/name/unit/type here.
+            return true; // false stops this command's parameter traversal.
+        });
+    }
+}
+```
+
+IDs are computed from group and entry positions; descriptors still contain no
+stored ID. Reserved positions are included, and empty groups remain visible.
+The iterator counter is `size_t`: position 65535 is valid and end position
+65536 does not wrap. Raw descriptor views cap extents at 65536, just like
+runtime lookup, and normalize null storage to an empty range. A non-null
+pointer must refer to an array of at least the supplied extent.
+
+Local FieldTable/CommandTable, Catalog/CommandCatalog and indexes also provide
+const `begin()/end()/size()/empty()` for ordinary descriptor traversal. Global
+table/index raw iteration yields catalog descriptors; use `catalogs()` when
+IDs are needed. The indexed iterators return small views by value, support
+`operator->`, and have input-iterator semantics.
+
+All ranges borrow their tables, descriptors and strings. Copying a view does
+not extend the owners' lifetimes. A nested range copies its group context, so
+it does not borrow the temporary catalog view. Borrowed indexes may themselves
+be temporary if their backing storage survives. Extracting `begin()/end()` or
+`catalogs()` from a temporary owning table is rejected; keep that table alive.
+
+`Command::forEachParameter()` adapts `describeParameters()` synchronously with
+no parameter array or visitor copy. The visitor must accept `const CommandParam&`
+and return a non-throwing bool-convertible result. It returns true after a
+complete traversal (including a defined zero-argument command), false on early
+stop, an undescribed/reserved command, or a null function-pointer visitor.
+Parameter references last only for the callback; copy a parameter if needed
+later, and keep its borrowed labels/enum metadata alive as well.
+
 ## Scalar types and defaults
 
 `Scalar::fromU8/fromU16/fromU32/fromU64` accept the corresponding
@@ -508,6 +599,30 @@ if (const float* number = value.getIf<float>()) {
 value = Scalar::fromU64(UINT64_MAX); // Tag and value change together.
 auto count = value.get<std::uint64_t>();
 ```
+
+`visit()` exposes all twelve native alternatives through the usual `std::visit`
+contract. Name a value before visiting it:
+
+```cpp
+Scalar value = fieldIndex.read(receiveFieldId());
+value.visit([](const auto& native) {
+    using T = std::decay_t<decltype(native)>;
+    if constexpr (std::is_same_v<T, std::monostate>) {
+        // No value.
+    } else {
+        // native has the exact bool/integer/floating type, with no conversion.
+    }
+});
+```
+
+A mutable lvalue Scalar passes mutable alternatives; a const lvalue passes
+const alternatives. The visitor must handle Null (`std::monostate`) as well
+as every numeric alternative, and return the same type/category from every
+branch, as required by `std::visit`. Enum-valued fields expose their underlying
+number. Callback exceptions propagate when exceptions are enabled. References
+returned or retained by the visitor borrow the Scalar's active alternative;
+reassignment or destruction can invalidate them. Both mutable and const
+temporary Scalar visitation are rejected at compilation.
 
 The old public `type` member becomes `type()`; old union members become the
 accessors above. The in-memory layout changes, even though the measured ARM
@@ -562,14 +677,19 @@ remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is **6**. This is an intentional API/ABI break:
-Field, Command, Catalog and CommandCatalog no longer store `id`. Their
+`telemetry::telemetryAbiVersion` is **7**. The four policy bytes now occupy
+former Field padding, even though descriptor sizes have not grown. ABI 6
+objects must be rebuilt: the exact signature now includes flag offset, size
+and alignment, and compiled entry points reject the old ABI tuple.
+
+The earlier ABI 6 migration removed stored `id` from Field, Command, Catalog
+and CommandCatalog. Their
 constructors and factories no longer accept it. A global CommandCatalogTable
 is constructed from groups; an individual group's owner is CommandTable.
 Remove declaration IDs, preserve table order, and clean-rebuild all consumers.
 
 On ARM32 Field remains 96 bytes/aligned to 32. Getter/readType remain at 0/8;
-name/unit are now at 12/16, Setter/FieldType remain at 32/40. Catalog and
+name/unit are at 12/16, flags at 20, Setter/FieldType remain at 32/40. Catalog and
 CommandCatalog are 12 bytes. Natural Command is 20 bytes. The exact ABI tuple
 covers all remaining members, nested storage, sizes and alignment, including
 the cache-line policy. Its unhashed tuple is part of compiled JSON and explicit
@@ -580,7 +700,8 @@ version or a collision-based substitute for the link tuple.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
 at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
-settings and require the final link to fail. Separate executables still use
+settings and require the final link to fail. They also reject frozen ABI 6
+callers against each ABI 7 core/field-JSON/command-JSON archive. Separate executables still use
 their own signatures normally.
 
 On Cortex-M7 the current Field remains 96 bytes/aligned to 32. Setter stays at
@@ -592,7 +713,8 @@ the raw bytes of Field, Scalar, Getter, Setter or command objects.
 
 Positional construction keeps its documented order. Member-order-dependent
 structured bindings are source-incompatible: the declaration order is now
-`get, readType, name, unit, set, declaredType`. Prefer named member access. C++20
+`get, readType, name, unit, flags_, set, declaredType`. Prefer named member access,
+including `flags()` for policy metadata. C++20
 designated initialization must be replaced with positional construction.
 
 Ordinary `Field[]`, `std::array<Field, N>` and conforming C++17 allocation
@@ -1125,16 +1247,18 @@ lookup. The schema includes each group's numeric `id` and each field's local
 `i` plus packed `id`:
 
 ```json
-{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"min":null,"max":null,"default":0}]}
+{"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"f":0,"min":null,"max":null,"default":0}]}
 ```
 
 Values retain named arrays such as `{"sensor":[24.5]}`. The order-sensitive
 FNV-1a fingerprint includes group IDs, all four field-ID bytes, declared
-metadata, setter presence (`w`), min/max/default, enum codes/names/order when
+metadata, setter presence (`w`), all four policy-mask bytes (`f`, little-endian),
+min/max/default, enum codes/names/order when
 present, and record/string boundaries. Limits are hashed by numeric value
 bits with explicit byte order, never by object padding. A format marker
 changes with compact native-bound encoding so previous cached schemas refresh.
-It is a version hint, not a promise
+The ABI 7 schema adds `f` even for zero masks, so old cached field fingerprints
+change. The fingerprint is a schema hint, not a Flash-format version or a promise
 against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
 
@@ -1261,7 +1385,7 @@ keeps the erased wrapper as an explicit indirect-dispatch control.
 It compares manual and inferred read wrappers in the same build and rejects
 growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
 records a separate 14/14 object-byte comparison against `c6012d9` and the free
-getter improvement. The current ABI-6 layout is Field 96, Command 20 and Catalog 12 bytes on ARM32.
+getter improvement. The current ABI-7 layout is Field 96, Command 20 and Catalog 12 bytes on ARM32.
 See [positional table checks](../../tests/position_tables/README.md) for current evidence.
 
 ### Historical code-generation and board checkpoints

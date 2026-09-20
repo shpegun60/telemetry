@@ -34,7 +34,7 @@ static_assert(sizeof(reader) == sizeof(decltype(reader)::Function));
 static_assert(!std::is_copy_constructible_v<decltype(reader)> && !std::is_move_constructible_v<decltype(reader)>);
 static_assert(!std::is_invocable_v<decltype(reader)&>, "no unchecked call operator");
 static_assert(sizeof(rows) == 4 * sizeof(Field) && sizeof(Command) == 5 * sizeof(void*));
-static_assert(telemetryAbiVersion == 6);
+static_assert(telemetryAbiVersion == 7);
 static_assert(std::is_same_v<decltype(rows.read<0>()), std::optional<float>>);
 static_assert(std::is_same_v<decltype(rows.read<2>()), std::optional<std::uint16_t>>);
 static_assert(std::is_same_v<decltype(rows.read<3>()), Scalar>);

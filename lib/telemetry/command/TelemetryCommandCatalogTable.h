@@ -35,6 +35,13 @@ public:
     constexpr const CommandCatalog* data() const & noexcept { return catalogs_.data(); }
     const CommandCatalog* data() const && = delete;
     constexpr std::size_t size() const noexcept { return catalogs_.size(); }
+    constexpr bool empty() const noexcept { return catalogs_.empty(); }
+    constexpr auto begin() const & noexcept { return catalogs_.begin(); }
+    constexpr auto end() const & noexcept { return catalogs_.end(); }
+    auto begin() const && = delete;
+    auto end() const && = delete;
+    constexpr CommandCatalogRange catalogs() const & noexcept { return {catalogs_.data(), catalogs_.size()}; }
+    CommandCatalogRange catalogs() const && = delete;
     constexpr const CommandCatalog& operator[](std::size_t i) const & noexcept { return catalogs_[i]; }
     const CommandCatalog& operator[](std::size_t) const && = delete;
     constexpr CommandCatalogIndex index() const & noexcept { return {catalogs_.data(), catalogs_.size()}; }

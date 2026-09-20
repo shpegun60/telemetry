@@ -32,6 +32,8 @@ DISTFILES += \
     tests/factory-codegen.json \
     $$files($$PWD/tests/*.pro) \
     $$files($$PWD/tests/*.cpp) \
+    $$files($$PWD/tests/abi/*) \
+    $$files($$PWD/tests/audit/*) \
     $$files($$PWD/tests/position_tables/*) \
     $$files($$PWD/tests/position_tables/h7s/*) \
     $$files($$PWD/tests/command_dispatch/h7s/*) \

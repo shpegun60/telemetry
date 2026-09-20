@@ -39,6 +39,11 @@ struct CommandCatalog {
     CommandCatalog(const char*, const Command (&&)[N]) = delete;
     template <std::size_t N>
     CommandCatalog(const char*, const Command (&&)[N], std::size_t) = delete;
+
+    constexpr const Command* begin() const noexcept { return commands; }
+    constexpr const Command* end() const noexcept { return commands != nullptr ? commands + count : nullptr; }
+    constexpr std::size_t size() const noexcept { return count; }
+    constexpr bool empty() const noexcept { return count == 0; }
 };
 
 constexpr bool commandStringEqual(const char* a, const char* b) noexcept

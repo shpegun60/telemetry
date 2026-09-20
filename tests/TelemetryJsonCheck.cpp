@@ -194,13 +194,13 @@ void checkInt64Modes()
                                           JsonOptions{JsonInt64Mode::String});
     expect(numberLength != 0 && stringLength != 0
                && std::strstr(numberSchema,
-                   "\"t\":\"u64\",\"w\":false,\"min\":1,\"max\":18446744073709551614,\"default\":5") != nullptr
+                   "\"t\":\"u64\",\"w\":false,\"f\":0,\"min\":1,\"max\":18446744073709551614,\"default\":5") != nullptr
                && std::strstr(stringSchema,
-                   "\"t\":\"u64\",\"w\":false,\"min\":\"1\",\"max\":\"18446744073709551614\",\"default\":\"5\"") != nullptr
+                   "\"t\":\"u64\",\"w\":false,\"f\":0,\"min\":\"1\",\"max\":\"18446744073709551614\",\"default\":\"5\"") != nullptr
                && std::strstr(stringSchema,
-                   "\"t\":\"s64\",\"w\":false,\"min\":\"-9223372036854775807\",\"max\":\"9223372036854775806\",\"default\":\"-5\"") != nullptr
+                   "\"t\":\"s64\",\"w\":false,\"f\":0,\"min\":\"-9223372036854775807\",\"max\":\"9223372036854775806\",\"default\":\"-5\"") != nullptr
                && std::strstr(stringSchema,
-                   "\"n\":\"nativeU64\",\"u\":\"\",\"t\":\"u64\",\"w\":false,\"min\":null,\"max\":null,\"default\":\"0\"") != nullptr,
+                   "\"n\":\"nativeU64\",\"u\":\"\",\"t\":\"u64\",\"w\":false,\"f\":0,\"min\":null,\"max\":null,\"default\":\"0\"") != nullptr,
            "schema string mode quotes custom U64/S64 bounds and defaults");
     expect(std::strstr(numberSchema, "\"schema\":") != nullptr
                && std::strncmp(numberSchema, stringSchema, 20) == 0

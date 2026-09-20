@@ -47,6 +47,9 @@ public:
     }
     constexpr const Command* data() const noexcept { return commands_; }
     constexpr std::size_t size() const noexcept { return count_; }
+    constexpr bool empty() const noexcept { return count_ == 0; }
+    constexpr const Command* begin() const noexcept { return commands_; }
+    constexpr const Command* end() const noexcept { return commands_ != nullptr ? commands_ + count_ : nullptr; }
     static constexpr std::size_t abiCommandsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;
 private:

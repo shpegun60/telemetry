@@ -9,16 +9,24 @@
 
 #include <optional>
 #include <type_traits>
+#include <cstdlib>
 
 #include "../core/TelemetryCacheline.h"
 #include "../core/TelemetryCompiler.h"
 #include "../core/TelemetryConversion.h"
 #include "TelemetryFieldType.h"
+#include "TelemetryFieldFlags.h"
 #include "TelemetryGetter.h"
 #include "../core/TelemetryId.h"
 #include "TelemetrySetter.h"
 
 namespace telemetry {
+
+namespace detail {
+// Invalid policy is a definition error. Constant evaluation rejects it;
+// runtime construction terminates before publishing an inconsistent descriptor.
+[[noreturn]] inline void invalidFieldFlags() noexcept { std::abort(); }
+}
 
 // Catalogs describe values; bound owners acquire and apply their values.
 // Getter/Setter are compact non-owning payload/invoker pairs with telemetry's
@@ -40,6 +48,11 @@ struct alignas(cacheLineBytes) Field {
     const char* const name;
     const char* const unit;
 
+    // Uses the existing gap before the aligned setter (ARM32 offset 20).
+    // Public const storage preserves the descriptor's uniform member access;
+    // consumers use flags()/has()/persistent(), and hot reads/writes ignore it.
+    const FieldFlags flags_;
+
     alignas(cacheLineBytes) const Setter set;
     const FieldType declaredType;
 
@@ -53,9 +66,21 @@ struct alignas(cacheLineBytes) Field {
 
     constexpr Field(const char* fieldName = "", const char* fieldUnit = "",
                     FieldType fieldType = ScalarType::Null,
-                    Getter getter = nullptr, Setter setter = nullptr) noexcept
+                    Getter getter = nullptr, Setter setter = nullptr,
+                    FieldFlags policy = {}) noexcept
         : get(getter), readType(static_cast<ScalarType>(fieldType)),
-          name(fieldName), unit(fieldUnit), set(setter), declaredType(fieldType) {}
+          name(fieldName), unit(fieldUnit), flags_(policy), set(setter), declaredType(fieldType)
+    {
+        if (persistent() && (!get || !set)) detail::invalidFieldFlags();
+    }
+
+    constexpr FieldFlags flags() const noexcept { return flags_; }
+    constexpr bool has(FieldFlags requested) const noexcept { return flags_.contains(requested); }
+    constexpr bool persistent() const noexcept { return has(FieldFlag::Persistent); }
+    // Capability is descriptor presence. An empty slot still has a setter
+    // adapter, and may report Unavailable when the application tries to write.
+    constexpr bool writable() const noexcept { return bool(set); }
+    static constexpr std::size_t abiFlagsOffset() noexcept { return offsetof(Field, flags_); }
 
     constexpr Field(const Field&) noexcept = default;
     constexpr Field(Field&&) noexcept = default;

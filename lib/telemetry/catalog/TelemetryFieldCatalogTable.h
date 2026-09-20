@@ -39,6 +39,13 @@ public:
     constexpr const Catalog* data() const & noexcept { return catalogs_.data(); }
     const Catalog* data() const && = delete;
     constexpr std::size_t size() const noexcept { return catalogs_.size(); }
+    constexpr bool empty() const noexcept { return catalogs_.empty(); }
+    constexpr auto begin() const & noexcept { return catalogs_.begin(); }
+    constexpr auto end() const & noexcept { return catalogs_.end(); }
+    auto begin() const && = delete;
+    auto end() const && = delete;
+    constexpr FieldCatalogRange catalogs() const & noexcept { return {catalogs_.data(), catalogs_.size()}; }
+    FieldCatalogRange catalogs() const && = delete;
     constexpr const Catalog& operator[](std::size_t i) const & noexcept { return catalogs_[i]; }
     const Catalog& operator[](std::size_t) const && = delete;
     constexpr CatalogIndex index() const & noexcept { return {catalogs_.data(), catalogs_.size()}; }

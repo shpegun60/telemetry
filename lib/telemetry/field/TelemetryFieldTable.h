@@ -35,6 +35,11 @@ public:
     constexpr const Field* data() const & noexcept { return fields_.data(); }
     const Field* data() const && = delete;
     constexpr std::size_t size() const noexcept { return fields_.size(); }
+    constexpr bool empty() const noexcept { return fields_.empty(); }
+    constexpr auto begin() const & noexcept { return fields_.begin(); }
+    constexpr auto end() const & noexcept { return fields_.end(); }
+    auto begin() const && = delete;
+    auto end() const && = delete;
     // Like std::array::operator[], this low-level accessor requires i < size().
     // Runtime IDs should normally go through CatalogIndex's checked lookup.
     constexpr const Field& operator[](std::size_t i) const & noexcept { return fields_[i]; }

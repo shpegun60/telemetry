@@ -26,11 +26,14 @@ HEADERS += \
     $$PWD/field/TelemetryFieldType.h \
     $$PWD/field/TelemetryEnum.h \
     $$PWD/field/TelemetryField.h \
+    $$PWD/field/TelemetryFieldFlags.h \
     $$PWD/detail/TelemetryFieldBinding.h \
     $$PWD/field/TelemetryFieldFactory.h \
     $$PWD/field/TelemetryFieldTable.h \
     $$PWD/catalog/TelemetryGroup.h \
     $$PWD/catalog/TelemetryFieldCatalogTable.h \
+    $$PWD/catalog/TelemetryCatalogView.h \
+    $$PWD/detail/TelemetryIndexedRange.h \
     $$PWD/command/TelemetryCommandCatalogTable.h \
     $$PWD/field/TelemetryLimits.h \
     $$PWD/command/TelemetryCommand.h \
@@ -38,6 +41,7 @@ HEADERS += \
     $$PWD/detail/TelemetryCommandBinding.h \
     $$PWD/command/TelemetryCommandFactory.h \
     $$PWD/command/TelemetryCommandCatalog.h \
+    $$PWD/command/TelemetryCommandCatalogView.h \
     $$PWD/command/TelemetryCommandCatalogIndex.h \
     $$PWD/command/TelemetryCommandIndex.h \
     $$PWD/command/TelemetryCommandTable.h \

@@ -8,6 +8,7 @@
 #define TELEMETRY_INDEX_H
 
 #include "TelemetryCatalog.h"
+#include "TelemetryCatalogView.h"
 #include "../core/TelemetryCompiler.h"
 
 namespace telemetry {
@@ -93,6 +94,12 @@ public:
 
     constexpr const Catalog* data() const noexcept { return catalogs_; }
     constexpr std::size_t size() const noexcept { return count_; }
+    constexpr bool empty() const noexcept { return count_ == 0; }
+    constexpr const Catalog* begin() const noexcept { return catalogs_; }
+    constexpr const Catalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
+    // This index owns no descriptors, so the returned range is independent of
+    // the index object's own lifetime (including a temporary index()).
+    constexpr FieldCatalogRange catalogs() const noexcept { return {catalogs_, count_}; }
 
     static constexpr std::size_t abiCatalogsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;
@@ -134,6 +141,10 @@ public:
     static constexpr const Catalog* catalog(GroupId group) noexcept { return index_.catalog(group); }
     static constexpr const Catalog* data() noexcept { return index_.data(); }
     static constexpr std::size_t size() noexcept { return index_.size(); }
+    static constexpr bool empty() noexcept { return index_.empty(); }
+    static constexpr const Catalog* begin() noexcept { return index_.begin(); }
+    static constexpr const Catalog* end() noexcept { return index_.end(); }
+    static constexpr FieldCatalogRange catalogs() noexcept { return index_.catalogs(); }
 
     [[nodiscard]] TELEMETRY_FORCE_INLINE static Scalar read(FieldId id) noexcept
     {

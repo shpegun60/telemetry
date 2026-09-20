@@ -257,7 +257,8 @@ def check_owner_slots(disassembly):
                 raise RuntimeError(f"OwnerSlotCodegen: {name} added a slot or presence check")
 
 
-def check_function_slots(disassembly, prefix="function_slot_", operations=("read", "write", "call", "convert")):
+def check_function_slots(disassembly, prefix="function_slot_", operations=("read", "write", "call", "convert"),
+                         allow_tail_padding=False):
     def resolved(name, seen=()):
         if name in seen:
             raise RuntimeError("FunctionSlotCodegen: cyclic wrapper alias")
@@ -267,6 +268,18 @@ def check_function_slots(disassembly, prefix="function_slot_", operations=("read
             alias = re.search(r"<(" + re.escape(prefix) + r"\w+)>", real[0][1])
             if alias:
                 return resolved(alias.group(1), (*seen, name))
+        if allow_tail_padding:
+            # GCC 13 -Os may align a literal pool after a terminal tail branch.
+            # That nop is unreachable; keep every executable nop and instruction.
+            filtered = []
+            for entry in instructions:
+                if (entry[0] == "nop" and filtered
+                        and filtered[-1][0] in ("b", "b.w", "b.n", "bx")
+                        and (filtered[-1][1] == "lr"
+                             or ("<" in filtered[-1][1] and name not in filtered[-1][1]))):
+                    continue
+                filtered.append(entry)
+            return filtered
         return instructions
 
     for operation in operations:
@@ -333,6 +346,9 @@ def check_probe(name, headers, symbols, disassembly):
                     body = function_body(disassembly, label)
                     if re.search(r"\b(?:push|pop|vpush|vpop|sp|bl|blx)\b", body):
                         raise RuntimeError(f"LateBoundCodegen: {label} created a stack frame or non-tail call")
+    elif name == "TraversalCodegen":
+        expected = {"traversalFlagFields": 96}
+        check_function_slots(disassembly, "flags_", ("read", "write"), allow_tail_padding=True)
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():
@@ -437,7 +453,7 @@ def main():
         modules = (("core", "TelemetryAbiLinkCheck", abi_object),
                    ("json", "TelemetryJsonAbiLinkCheck", json_object),
                    ("command", "TelemetryCommandAbiLinkCheck", command_object))
-        for module, source, library_object in modules:
+        for module_id, (module, source, library_object) in enumerate(modules):
             mismatch = output / (source + "-mismatch" + optimization + ".o")
             run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", f"tests/{source}.cpp",
                          "-o", str(mismatch)], f"abi-{module}-mismatch{optimization}-compile")
@@ -455,6 +471,13 @@ def main():
                          "-o", str(output / (f"abi-{module}-mismatch" + optimization + ".elf"))],
                 f"abi-{module}-mismatch" + optimization + "-link",
                 r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
+            legacy = output / (f"LegacyAbi6-{module}" + optimization + ".o")
+            run(flags + [f"-DTELEMETRY_LEGACY_ABI_MODULE={module_id}", "-c",
+                         "tests/abi/LegacyAbi6Link.cpp", "-o", str(legacy)],
+                f"abi6-{module}{optimization}-compile")
+            run(flags + [str(legacy), str(archive), *link_tail,
+                         "-o", str(output / (f"abi6-{module}-mismatch" + optimization + ".elf"))],
+                f"abi6-{module}{optimization}-link", r"undefined reference|AbiTag")
         print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
               "newlib-nano consumer and independent core/JSON/command ABI archives linked, mixed ABI rejected",
               flush=True)

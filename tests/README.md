@@ -1,5 +1,9 @@
 # Current positional table checks
 
+[Flags and traversal](audit/FLAGS_TRAVERSAL.md) records the ABI 7 addition,
+schema delta, lifetime/visitor checks and unchanged ARM instruction encodings
+against `7751891`. Field remains 96 bytes on ARM32 and Command remains 20.
+
 [position_tables](position_tables/README.md) covers ABI 6, direct/local/global
 ARM instruction comparisons, conversion parity and command-stride measurements.
 The reports for ABI 5 and earlier below are retained historical measurements.
@@ -35,11 +39,13 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes thirteen suites (including native/dynamic table parity and all five slot types), verifies
+The runner executes fourteen suites (including native/dynamic table parity, all five slot types,
+flags, Scalar visitation and indexed traversal), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
 18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
-rejection cases plus two no-heap controls (311 total; 318 in C++20 with structural
+rejection cases, 24 policy/traversal/visitor cases, plus two no-heap controls
+(335 total; 342 in C++20 with structural
 adapters and additional invalid position types), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
@@ -48,7 +54,9 @@ core, field-JSON and command-JSON static archives independently. Matching 64-byt
 and run; a 128-byte caller against each 64-byte archive must fail through its
 ABI-tagged symbol. [TelemetryAbiLinkCheck.cpp](TelemetryAbiLinkCheck.cpp) proves
 the core umbrella/anchor needs no JSON; [TelemetryJsonAbiLinkCheck.cpp](TelemetryJsonAbiLinkCheck.cpp)
-checks the compiled serializer entry point.
+checks the compiled serializer entry point. Frozen ABI 6 callers must also fail
+against each ABI 7 archive. Two subprocess controls require invalid runtime
+Persistent definitions (missing getter/setter) to terminate during construction.
 Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop
 on the first diagnostic. Compiler warnings are errors. Each command's output
@@ -65,7 +73,7 @@ copy/move/assignment check, plus constexpr checks across different active types.
 CI also runs the offline layout and stack evidence verifiers with
 their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
 
-The library migration notes now cover ABI revision 6, immutable Field definitions,
+The library migration notes now cover ABI revision 7, immutable Field definitions,
 clean rebuilding of all translation units/static libraries with the same
 cache-line configuration, raw-storage alignment, local-table stack cost and
 structured bindings. Positional initialization and public metadata reads remain.
@@ -102,9 +110,9 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 36 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 38 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All fifteen codegen objects must have no startup
+and warnings as errors. All sixteen codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
@@ -121,10 +129,14 @@ LateBoundCodegen compares context/ref/owned slot operations with manual native
 calls; its six-row table must remain 576 bytes in read-only storage. Runtime
 checks cover capture ownership, move-only closures, replacement/destruction,
 const views, mixed slot kinds, null contexts and schema/CRC stability.
+TraversalCodegen pins flags at offset 20 without moving existing hot members,
+and requires persistent native read/write paths to match unflagged controls.
 Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
 nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
 command-JSON objects are placed in separate static archives: normal 32-byte callers must
-link, while forced 64-byte callers against each archive must fail.
+link, while forced 64-byte callers and frozen ABI 6 callers against each archive
+must fail. The full traversal suite is compiled here; its 65536-element runtime
+checks run on the host, not on a board.
 
 Compiler versions, sections, symbols, disassembly and linker diagnostics are
 retained under `--build-dir`; CI uploads those logs. This protects compilation,

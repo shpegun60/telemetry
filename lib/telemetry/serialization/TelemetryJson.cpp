@@ -105,6 +105,10 @@ std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
             hash = fnv1a_(hash, field.unit);
             hash = fnv1a_(hash, scalarTypeName(field.declaredType));
             hash = hash_byte_(hash, field.set ? 1u : 0u);
+            // All policy bits, including unknown ones, use fixed little-endian
+            // byte order. This fingerprints metadata, not a persistence format.
+            for (unsigned shift = 0; shift < 32; shift += 8)
+                hash = hash_byte_(hash, static_cast<std::uint8_t>(field.flags().value() >> shift));
             // Revise the format marker for native numeric bounds as null.
             // Continue hashing the actual bounds, independent of their text.
             hash = hash_byte_(hash, 'B');
@@ -149,8 +153,8 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
                             (i == 0u) ? "" : ",", static_cast<unsigned>(i), makeId(static_cast<GroupId>(c), static_cast<FieldOffset>(i)))
                 || !out.appendRequiredString(field.name) || !out.append(",\"u\":")
                 || !out.appendRequiredString(field.unit)
-                || !out.append(",\"t\":\"%s\",\"w\":%s", scalarTypeName(field.declaredType),
-                               field.set ? "true" : "false")) return 0;
+                || !out.append(",\"t\":\"%s\",\"w\":%s,\"f\":%" PRIu32, scalarTypeName(field.declaredType),
+                               field.writable() ? "true" : "false", field.flags().value())) return 0;
             if (!out.append(",\"min\":")
                 || !appendBound(out, field.declaredType.minimum(), true, hasEnum)
                 || !out.append(",\"max\":")

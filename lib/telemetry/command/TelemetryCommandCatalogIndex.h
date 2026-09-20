@@ -8,6 +8,7 @@
 #define TELEMETRY_COMMAND_CATALOG_INDEX_H
 
 #include "TelemetryCommandCatalog.h"
+#include "TelemetryCommandCatalogView.h"
 
 namespace telemetry {
 
@@ -68,6 +69,10 @@ public:
 
     constexpr const CommandCatalog* data() const noexcept { return catalogs_; }
     constexpr std::size_t size() const noexcept { return count_; }
+    constexpr bool empty() const noexcept { return count_ == 0; }
+    constexpr const CommandCatalog* begin() const noexcept { return catalogs_; }
+    constexpr const CommandCatalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
+    constexpr CommandCatalogRange catalogs() const noexcept { return {catalogs_, count_}; }
 
     static constexpr std::size_t abiCatalogsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;

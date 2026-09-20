@@ -63,9 +63,11 @@ inline constexpr telemetry::FieldTable meterFields{
     field<&Meter::readPower>("P", "kW", meter),
     field<&Meter::readCounter>("WinCnt", "", meter),
     field<&Meter::readThreshold, &Meter::setThreshold>("VoltageLimit", "V",
-        meter, telemetry::limits(250.0f, 1.0f, 1000.0f)),
+        meter, telemetry::limits(250.0f, 1.0f, 1000.0f))
+        .withFlags(telemetry::FieldFlag::Persistent),
     field<&Meter::readMode, &Meter::setMode>("Mode", "", meter,
-        telemetry::limits(Mode::Auto)),
+        telemetry::limits(Mode::Auto))
+        .withFlags(telemetry::FieldFlag::Persistent),
 };
 
 static_assert(telemetry::names_unique(meterFields.data(), meterFields.size()));

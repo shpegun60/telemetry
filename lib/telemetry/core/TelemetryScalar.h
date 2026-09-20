@@ -109,6 +109,20 @@ public:
               std::in_place_type_t<T>, T>, int> = 0>
     const T* getIf() const && = delete;
 
+    // Visit the actual native alternative, including monostate for Null.
+    // This opt-in operation does not replace numeric read/write conversion.
+    // Visitors may throw; references they retain/return borrow this Scalar.
+    // Temporaries are rejected just as for getIf(), avoiding an escaping
+    // reference to the result of field.read(). Name that value before visiting.
+    template <class Visitor>
+    constexpr decltype(auto) visit(Visitor&& visitor) &
+    { return std::visit(std::forward<Visitor>(visitor), storage_); }
+    template <class Visitor>
+    constexpr decltype(auto) visit(Visitor&& visitor) const &
+    { return std::visit(std::forward<Visitor>(visitor), storage_); }
+    template <class Visitor> void visit(Visitor&&) && = delete;
+    template <class Visitor> void visit(Visitor&&) const && = delete;
+
     // A typed Scalar return can directly return any supported C++ number.
     // Constrain the conversion so pointers/strings cannot enter through bool.
     template <class T, std::enable_if_t<detail::isScalarNumber<T>, int> = 0>

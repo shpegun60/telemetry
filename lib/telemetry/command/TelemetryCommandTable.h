@@ -102,6 +102,11 @@ public:
     constexpr const Command* data() const & noexcept { return commands_.data(); }
     const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }
+    constexpr bool empty() const noexcept { return commands_.empty(); }
+    constexpr auto begin() const & noexcept { return commands_.begin(); }
+    constexpr auto end() const & noexcept { return commands_.end(); }
+    auto begin() const && = delete;
+    auto end() const && = delete;
     // Raw descriptor access follows std::array's unchecked indexing contract.
     // Use index().find(...) for a checked runtime position.
     constexpr const Command& operator[](std::size_t index) const & noexcept
