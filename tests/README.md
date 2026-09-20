@@ -1,3 +1,9 @@
+# Current positional table checks
+
+[position_tables](position_tables/README.md) covers ABI 6, direct/local/global
+ARM instruction comparisons, conversion parity and command-stride measurements.
+The reports for ABI 5 and earlier below are retained historical measurements.
+
 # Telemetry checks
 
 The current RW32 Field uses a 32-byte alignment and 96-byte ARM32 stride,
@@ -27,9 +33,9 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes nine suites (729 C++17 / 732 C++20 checks), verifies
+The runner executes ten suites (including native/dynamic table parity checks), verifies
 thirty-nine existing rejected programs, nine immutable-Field cases and
-82 factory/command compile-time rejection cases, checks
+82 factory/command and 26 positional-table compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -54,7 +60,7 @@ copy/move/assignment check, plus constexpr checks across different active types.
 CI also runs the offline layout and stack evidence verifiers with
 their mutation controls. Header/source, sanitizer, ARM and Qt checks remain.
 
-The library migration notes now cover ABI revision 5, immutable Field definitions,
+The library migration notes now cover ABI revision 6, immutable Field definitions,
 clean rebuilding of all translation units/static libraries with the same
 cache-line configuration, raw-storage alignment, local-table stack cost and
 structured bindings. Positional initialization and public metadata reads remain.
@@ -91,9 +97,9 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 27 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 30 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All ten codegen objects must have no startup
+and warnings as errors. All twelve codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
@@ -417,7 +423,7 @@ lvalues while capture-free lambdas stay on the native function-pointer path.
 
 Indexed `arg<N>` command metadata can be partial and arbitrarily ordered;
 signature positions without metadata are inferred. `CommandTable{...}` and
-`CommandCatalogTable{...}` own that metadata and expose ordinary Command views.
+the global `CommandCatalogTable{group(...)}` borrows local tables; CommandTable owns metadata and expose ordinary Command views.
 They require direct C++17 construction and are non-copyable/non-movable because
 their descriptors point into their own storage. Pointer, reference and index
 views can only be extracted from lvalue tables, so a temporary table cannot
@@ -429,7 +435,7 @@ remains source-compatible.
 Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
 fields and command parameters. `CommandCatalogIndex` adds packed group/index
 lookup and grouped schema paths without growing the 24-byte ARM Command.
-ABI revision 5 covers public descriptor/index offsets and the private nested
+ABI revision 6 covers public descriptor/index offsets and the private nested
 Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
 depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
 

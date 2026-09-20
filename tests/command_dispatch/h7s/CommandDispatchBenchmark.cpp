@@ -40,7 +40,7 @@ CommandResult DispatchOwner::configure(float, DispatchMode) noexcept
 
 namespace {
 constexpr CommandTable commands{
-    command<&DispatchOwner::reset>(0, "Reset", dispatchOwner),
+    command<&DispatchOwner::reset>("Reset", dispatchOwner),
     command<&DispatchOwner::configure>(
         1, "Configure", dispatchOwner,
         arg<1>("Mode", "", DispatchMode::Automatic),

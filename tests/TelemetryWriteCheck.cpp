@@ -320,10 +320,10 @@ void checkBindingsAndWrites()
 
     Owner owner;
     const Field rows[] = {
-        {makeId(0, 0), "threshold", "V", ScalarType::F32, Getter::bind<&Owner::read>(owner), Setter::bind<&Owner::write>(owner)},
-        {makeId(0, 1), "readonly", "V", ScalarType::F32, Getter::bind<&Owner::read>(owner)},
+        {"threshold", "V", ScalarType::F32, Getter::bind<&Owner::read>(owner), Setter::bind<&Owner::write>(owner)},
+        {"readonly", "V", ScalarType::F32, Getter::bind<&Owner::read>(owner)},
     };
-    const Catalog groups[] = {{0, "config", rows}};
+    const Catalog groups[] = {{"config", rows}};
     const CatalogIndex registry{groups};
     expect(registry.write(0, 250) == WriteResult::Applied && owner.value == 250 && owner.calls == 1 && owner.reads == 0,
            "template write converts an ordinary int to F32 without calling the getter");
@@ -349,8 +349,8 @@ void checkBindingsAndWrites()
     owner.busy = false;
     expect(rows[0].write(42u) == WriteResult::Applied && rows[0].get().get<float>() == 42,
            "direct Field writes and native member getters share the same source");
-    const Field clippedRows[] = {rows[0], {makeId(0, 3), "clipped", "V", ScalarType::F32, nullptr, rows[0].set}};
-    const Catalog clipped[] = {{0, "clipped", clippedRows}, {2, "later", nullptr, 0}};
+    const Field clippedRows[] = {rows[0], {"clipped", "V", ScalarType::F32, nullptr, rows[0].set}};
+    const Catalog clipped[] = {{"clipped", clippedRows}, {"later", nullptr, 0}};
     const CatalogIndex clippedIndex{clipped};
     const int beforeClipped = owner.calls;
     // Exercise incoming runtime IDs. Constant missing IDs are checked separately
@@ -358,25 +358,25 @@ void checkBindingsAndWrites()
     // the constructor's prefix bounds while inlining these local fixtures.
     volatile FieldId missingLocal = makeId(0, 3);
     volatile FieldId missingGroup = makeId(2, 0);
-    expect(clippedIndex.write(makeId(0, 1), 1) == WriteResult::NotFound
+    expect(clippedIndex.write(makeId(0, 2), 1) == WriteResult::NotFound
                && clippedIndex.write(missingLocal, 1) == WriteResult::NotFound
                && clippedIndex.write(missingGroup, 1) == WriteResult::NotFound && owner.calls == beforeClipped,
-           "writes respect the same clipped prefixes as reads");
+           "writes respect positional bounds");
 
     char schema[512];
     expect(writeSchema(registry, schema, sizeof(schema)) != 0
                && std::strstr(schema, "\"t\":\"f32\",\"w\":true")
                && std::strstr(schema, "\"t\":\"f32\",\"w\":false"),
            "schema distinguishes writable and read-only fields");
-    const Field readonly[] = {{rows[0].id, rows[0].name, rows[0].unit, rows[0].declaredType, rows[0].get, nullptr}};
-    const Catalog readonlyGroup{0, "config", readonly};
-    const Catalog writableGroup{0, "config", rows, 1};
+    const Field readonly[] = {{rows[0].name, rows[0].unit, rows[0].declaredType, rows[0].get, nullptr}};
+    const Catalog readonlyGroup{"config", readonly};
+    const Catalog writableGroup{"config", rows, 1};
     expect(schemaCrc(&readonlyGroup, 1) != schemaCrc(&writableGroup, 1), "setter presence changes the schema fingerprint");
 
     Scalar captured;
     struct Sink { Scalar& value; WriteResult write(const Scalar& next) const noexcept { value = next; return WriteResult::Applied; } };
     const Sink sink{captured};
-    const Field byte{0, "byte", "", ScalarType::U8, nullptr, Setter::bind<&Sink::write>(sink)};
+    const Field byte{"byte", "", ScalarType::U8, nullptr, Setter::bind<&Sink::write>(sink)};
     expect(byte.write(12.7) == WriteResult::Applied && same(captured, Scalar::fromU8(12)),
            "fractional template write reaches a const-bound owner as the declared U8 type");
     expect(byte.write(1000) == WriteResult::InvalidValue && same(captured, Scalar::fromU8(12)), "out-of-range byte writes do not truncate bits");

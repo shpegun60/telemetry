@@ -14,10 +14,8 @@
 namespace telemetry {
 
 // Command IDs use the same packed group/index arithmetic as Field IDs, but
-// remain a separate logical ID space. Groups and rows accept only their dense,
-// zero-based prefix, so lookup needs two bounds checks and no search.
+// remain a separate logical ID space. Positions are identities.
 struct CommandCatalog {
-    const GroupId id = 0;
     const char* const name = "";
     const Command* const commands = nullptr;
     const std::size_t count = 0;
@@ -25,35 +23,20 @@ struct CommandCatalog {
     constexpr CommandCatalog() noexcept = default;
 
     template <class = void>
-    constexpr CommandCatalog(GroupId group, const char* label,
-                             const Command* rows, std::size_t requestedCount) noexcept
-        : id(group), name(label), commands(rows),
-          count(prefixCount_(group, rows, requestedCount)) {}
+    constexpr CommandCatalog(const char* label, const Command* rows,
+                             std::size_t requestedCount) noexcept
+        : name(label), commands(rows),
+          count(rows == nullptr ? 0 : (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity)) {}
 
     template <std::size_t N>
-    constexpr CommandCatalog(GroupId group, const char* label,
-                             const Command (&rows)[N]) noexcept
-        : CommandCatalog(group, label, static_cast<const Command*>(rows), N) {}
+    constexpr CommandCatalog(const char* label, const Command (&rows)[N]) noexcept
+        : CommandCatalog(label, static_cast<const Command*>(rows), N) {}
 
     template <std::size_t N>
-    CommandCatalog(GroupId, const char*, const Command (&&)[N]) = delete;
+    CommandCatalog(const char*, const Command (&&)[N]) = delete;
     template <std::size_t N>
-    CommandCatalog(GroupId, const char*, const Command (&&)[N], std::size_t) = delete;
-
-private:
-    static constexpr std::size_t prefixCount_(GroupId group, const Command* rows,
-                                              std::size_t requestedCount) noexcept
-    {
-        if (rows == nullptr) return 0;
-        const std::size_t limit = requestedCount < idComponentCapacity
-            ? requestedCount : idComponentCapacity;
-        std::size_t accepted = 0;
-        while (accepted < limit
-               && rows[accepted].id == makeId(group, static_cast<CommandOffset>(accepted))) {
-            ++accepted;
-        }
-        return accepted;
-    }
+    CommandCatalog(const char*, const Command (&&)[N], std::size_t) = delete;
 };
 
 constexpr bool commandStringEqual(const char* a, const char* b) noexcept

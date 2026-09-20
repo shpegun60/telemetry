@@ -38,29 +38,28 @@ float globalValue = 1.0f;
 float getFree() noexcept { return globalValue; }
 WriteResult setFree(float value) noexcept { globalValue = value; return WriteResult::Busy; }
 struct System { static std::uint64_t uptime() noexcept { return UINT64_MAX; } };
-constexpr auto field = makeField<&Device::get, &Device::set>(0, "Voltage", "V", device, limits(250.0f, 1.0f, 1000.0f));
-constexpr auto enumField = makeField<&Device::mode, &Device::setMode>(1, "Mode", "", device);
-constexpr auto readOnly = makeField<&Device::get>(2, "RO", "V", device);
-constexpr auto global = makeField<&getFree, &setFree>(3, "Free", "");
-constexpr auto functionName = makeField(3, "Free", "", getFree);
-constexpr auto functionAddress = makeField(3, "Free", "", &getFree);
-constexpr auto clockField = makeField<&System::uptime>(4, "Clock", "s");
-constexpr auto explicitType = makeField<&Device::scalar, &Device::setScalar>(5, "Scalar", "", ScalarType::F32, device);
-constexpr auto legacyField = makeField<&Device::readLegacy, &Device::writeLegacy>(6, "Legacy", "", device);
-constexpr auto lambdaField = makeField(7, "lambda", "", []() noexcept { return globalValue; });
-constexpr auto plusField = makeField(8, "plus", "", +[]() noexcept { return globalValue; });
+constexpr auto testedField = telemetry::field<&Device::get, &Device::set>("Voltage", "V", device, limits(250.0f, 1.0f, 1000.0f)).materialize();
+constexpr auto enumField = telemetry::field<&Device::mode, &Device::setMode>("Mode", "", device).materialize();
+constexpr auto readOnly = telemetry::field<&Device::get>("RO", "V", device).materialize();
+constexpr auto global = telemetry::field<&getFree, &setFree>("Free", "").materialize();
+constexpr auto functionName = telemetry::field("Free", "", getFree).materialize();
+constexpr auto functionAddress = telemetry::field("Free", "", &getFree).materialize();
+constexpr auto clockField = telemetry::field<&System::uptime>("Clock", "s").materialize();
+constexpr auto explicitType = telemetry::field<&Device::scalar, &Device::setScalar>("Scalar", "", ScalarType::F32, device).materialize();
+constexpr auto legacyField = telemetry::field<&Device::readLegacy, &Device::writeLegacy>("Legacy", "", device).materialize();
+constexpr auto lambdaField = telemetry::field("lambda", "", []() noexcept { return globalValue; }).materialize();
+constexpr auto plusField = telemetry::field("plus", "", +[]() noexcept { return globalValue; }).materialize();
 constexpr auto lambdaGet = +[]() noexcept { return globalValue; };
 constexpr auto lambdaSet = +[](float value) noexcept { globalValue=value;return WriteResult::Applied; };
-constexpr auto lambdaPair = makeField<lambdaGet,lambdaSet>(9,"pair","",limits(1.0f,0.0f,5.0f));
+constexpr auto lambdaPair = telemetry::field<lambdaGet,lambdaSet>("pair","",limits(1.0f,0.0f,5.0f)).materialize();
 constexpr auto lambdaEnum = +[]() noexcept { return Mode::Automatic; };
-constexpr auto lambdaEnumField = makeField<lambdaEnum>(10,"enum","",limits(Mode::Manual));
-constexpr auto parameterPair = makeField(11,"parameter pair","",getFree,setFree);
-constexpr auto sparseField = makeField<&Device::error, &Device::setError>(
-    12, "Error", "", device,
-    enumSpec<Error::None, Error::Overvoltage, Error::Overcurrent>(Error::Overvoltage));
+constexpr auto lambdaEnumField = telemetry::field<lambdaEnum>("enum","",limits(Mode::Manual)).materialize();
+constexpr auto parameterPair = telemetry::field("parameter pair","",getFree,setFree).materialize();
+constexpr auto sparseField = telemetry::field<&Device::error, &Device::setError>("Error", "", device,
+    enumSpec<Error::None, Error::Overvoltage, Error::Overcurrent>(Error::Overvoltage)).materialize();
 constexpr auto charCodeSpec = enumSpec<CharCode::High, CharCode::Low>();
-static_assert(std::is_same_v<std::remove_cv_t<decltype(field)>, Field>);
-static_assert(field.declaredType == ScalarType::F32 && field.declaredType.defaultValue().get<float>() == 250.0f);
+static_assert(std::is_same_v<std::remove_cv_t<decltype(testedField)>, Field>);
+static_assert(testedField.declaredType == ScalarType::F32 && testedField.declaredType.defaultValue().get<float>() == 250.0f);
 static_assert(enumField.declaredType == ScalarType::U8 && enumField.declaredType.hasEnum());
 static_assert(clockField.declaredType == ScalarType::U64 && !clockField.set);
 static_assert(static_cast<bool>(parameterPair.get) && static_cast<bool>(parameterPair.set));
@@ -76,13 +75,13 @@ static_assert(sizeof(decltype(limits(1.0f))) == sizeof(float));
 }
 int main()
 {
-    expect(field.read<float>() == 230.0f, "inferred member read");
-    expect(field.write(300) == WriteResult::Applied && device.voltage == 300.0f, "native setter receives converted value");
+    expect(testedField.read<float>() == 230.0f, "inferred member read");
+    expect(testedField.write(300) == WriteResult::Applied && device.voltage == 300.0f, "native setter receives converted value");
     const auto writes = device.writes;
-    expect(field.write(0) == WriteResult::InvalidValue && device.writes == writes, "limits block owner call");
-    expect(field.write(std::numeric_limits<float>::infinity()) == WriteResult::InvalidValue, "nonfinite writes rejected");
+    expect(testedField.write(0) == WriteResult::InvalidValue && device.writes == writes, "limits block owner call");
+    expect(testedField.write(std::numeric_limits<float>::infinity()) == WriteResult::InvalidValue, "nonfinite writes rejected");
     device.voltage = 2000.0f;
-    expect(field.read<float>() == 2000.0f, "read ignores write limits");
+    expect(testedField.read<float>() == 2000.0f, "read ignores write limits");
     expect(readOnly.write(1) == WriteResult::ReadOnly, "read only factory");
     expect(enumField.read<std::uint8_t>() == 1, "enum getter produces underlying Scalar");
     expect(enumField.write(2) == WriteResult::Applied && device.modeValue == Mode::Manual, "enum setter receives semantic type");
@@ -93,29 +92,29 @@ int main()
     expect(sparseField.write(2001) == WriteResult::InvalidValue,
            "explicit sparse enum bounds reject values above the listed range");
     expect(enumField.set(Scalar::fromU16(255)) == WriteResult::InvalidValue, "direct enum setter rejects wrong alternative");
-    expect(field.set(Scalar::fromU16(12)) == WriteResult::InvalidValue, "direct typed setter rejects wrong alternative");
+    expect(testedField.set(Scalar::fromU16(12)) == WriteResult::InvalidValue, "direct typed setter rejects wrong alternative");
     expect(global.write(2.0f) == WriteResult::Busy && globalValue == 2.0f, "free setter result preserved");
     expect(global.read<float>() == 2.0f && functionName.read<float>() == 2.0f
            && functionAddress.read<float>() == 2.0f, "free getter: template, name and address forms");
-    auto functionPair = makeField(11,"function pair","",getFree,setFree,limits(1.0f,0.0f,5.0f));
+    auto functionPair = telemetry::field("function pair","",getFree,setFree,limits(1.0f,0.0f,5.0f)).materialize();
     expect(functionPair.write(3)==WriteResult::Busy && functionPair.read<float>()==3.0f,
            "parameter function names: getter and setter");
     expect(functionPair.set(Scalar::fromU32(3))==WriteResult::InvalidValue,
            "typed setter rejects a non-normalized direct Scalar call");
-    auto addressPair = makeField(12,"address pair","",&getFree,&setFree);
+    auto addressPair = telemetry::field("address pair","",&getFree,&setFree).materialize();
     expect(addressPair.write(2.5)==WriteResult::Busy && addressPair.read<float>()==2.5f,
            "parameter function addresses: getter and setter");
-    auto inlinePair = makeField(13,"inline pair","",
+    auto inlinePair = telemetry::field("inline pair","",
         []() noexcept {return globalValue;},
         [](float value) noexcept {globalValue=value;return WriteResult::Applied;},
-        limits(1.0f,0.0f,4.0f));
+        limits(1.0f,0.0f,4.0f)).materialize();
     expect(inlinePair.write(4)==WriteResult::Applied && globalValue==4.0f,
            "parameter bare lambda pair");
     expect(inlinePair.write(5)==WriteResult::InvalidValue && globalValue==4.0f,
            "parameter lambda pair limits");
-    auto plusPair = makeField(14,"plus pair","",
+    auto plusPair = telemetry::field("plus pair","",
         +[]() noexcept {return globalValue;},
-        +[](float value) noexcept {globalValue=value;return WriteResult::Applied;});
+        +[](float value) noexcept {globalValue=value;return WriteResult::Applied;}).materialize();
     expect(plusPair.write(1.5)==WriteResult::Applied && plusPair.read<float>()==1.5f,
            "parameter plus-lambda pair");
     float capturedValue = 2.0f;
@@ -126,8 +125,8 @@ int main()
         capturedValue = value;
         return WriteResult::Applied;
     };
-    const auto capturedField = makeField(15, "captured pair", "V", capturedGet, capturedSet,
-                                         limits(2.0f, 1.0f, 4.0f));
+    const auto capturedField = telemetry::field("captured pair", "V", capturedGet, capturedSet,
+                                         limits(2.0f, 1.0f, 4.0f)).materialize();
     const auto capturedCopy = capturedField;
     expect(capturedCopy.read<float>() == 2.0f
            && capturedCopy.write(3.5f) == WriteResult::Applied
@@ -135,7 +134,7 @@ int main()
            "borrowed capturing getter and setter");
     expect(capturedCopy.write(5.0f) == WriteResult::InvalidValue && capturedWrites == 1,
            "borrowed capturing field keeps descriptor limits");
-    const auto capturedReadOnly = makeField(16, "captured read", "V", capturedGet);
+    const auto capturedReadOnly = telemetry::field("captured read", "V", capturedGet).materialize();
     expect(capturedReadOnly.read<float>() == 3.5f
            && capturedReadOnly.write(2.0f) == WriteResult::ReadOnly,
            "borrowed capturing read-only getter");
@@ -143,11 +142,11 @@ int main()
         value += 1.0f;
         return value;
     };
-    const auto mutableField = makeField(17, "mutable getter", "", mutableGet);
+    const auto mutableField = telemetry::field("mutable getter", "", mutableGet).materialize();
     expect(mutableField.read<float>() == 11.0f && mutableField.read<float>() == 12.0f,
            "borrowed mutable getter keeps closure state");
     const auto constCapturedGet = [&capturedValue]() noexcept { return capturedValue; };
-    const auto constCapturedField = makeField(18, "const captured getter", "", constCapturedGet);
+    const auto constCapturedField = telemetry::field("const captured getter", "", constCapturedGet).materialize();
     expect(constCapturedField.read<float>() == 3.5f,
            "borrowed const capturing getter");
     Mode capturedMode = Mode::Off;
@@ -156,9 +155,8 @@ int main()
         capturedMode = value;
         return WriteResult::Applied;
     };
-    const auto capturedEnum = makeField(
-        19, "captured enum", "", capturedEnumGet, capturedEnumSet,
-        enumSpec<Mode::Off, Mode::Automatic, Mode::Manual>(Mode::Automatic));
+    const auto capturedEnum = telemetry::field("captured enum", "", capturedEnumGet, capturedEnumSet,
+        enumSpec<Mode::Off, Mode::Automatic, Mode::Manual>(Mode::Automatic)).materialize();
     expect(capturedEnum.declaredType.hasEnum()
            && capturedEnum.write(2) == WriteResult::Applied
            && capturedMode == Mode::Manual,
@@ -171,8 +169,8 @@ int main()
         capturedScalarValue = value;
         return WriteResult::Applied;
     };
-    const auto capturedScalar = makeField(20, "captured Scalar", "",
-        ScalarType::U16, capturedScalarGet, capturedScalarSet);
+    const auto capturedScalar = telemetry::field("captured Scalar", "",
+        ScalarType::U16, capturedScalarGet, capturedScalarSet).materialize();
     expect(capturedScalar.read<std::uint16_t>() == 12
            && capturedScalar.write(42) == WriteResult::Applied
            && capturedScalarValue.type() == ScalarType::U16
@@ -188,16 +186,16 @@ int main()
     expect(legacyField.write(0) == WriteResult::Applied && device.legacy == 0, "unnamed enum gap remains numeric");
     expect(legacyField.set(Scalar::fromS32(1000)) == WriteResult::InvalidValue, "unfixed enum out of range not cast");
     const Device constant{};
-    const auto constantField = makeField<&Device::get>(0,"const","",constant);
+    const auto constantField = telemetry::field<&Device::get>("const","",constant).materialize();
     expect(constantField.read<float>() == 230.0f, "const lvalue owner");
     Device local;
-    auto localField = makeField<&Device::get,&Device::set>(0,"local","",local);
+    auto localField = telemetry::field<&Device::get,&Device::set>("local","",local).materialize();
     const auto copy = localField;
     expect(copy.write(50) == WriteResult::Applied && local.voltage == 50.0f, "copy retains borrowed owner");
-    const auto refField = makeField<&Device::refGet>(0,"ref","",local);
+    const auto refField = telemetry::field<&Device::refGet>("ref","",local).materialize();
     expect(refField.read<float>() == 50.0f, "const lvalue-qualified method");
-    const Field rows[] = {makeField<&Device::get>(0,"v","",local),makeField<&Device::mode>(1,"m","",local)};
-    const Catalog catalogs[] = {{0,"factory",rows}};
+    const Field rows[] = {telemetry::field<&Device::get>("v","",local).materialize(),telemetry::field<&Device::mode>("m","",local).materialize()};
+    const Catalog catalogs[] = {{"factory",rows}};
     const CatalogIndex index{catalogs};
     expect(index.read<float>(0) == 50.0f && index.read<std::uint8_t>(1) == 1, "same CatalogIndex consumes factory fields");
     std::printf("%d/%d factory checks passed\n", checks-failures,checks);

@@ -13,11 +13,14 @@
 #include "core/TelemetryId.h"
 #include "field/TelemetryEnum.h"
 #include "field/TelemetryFieldFactory.h"
+#include "field/TelemetryFieldTable.h"
+#include "catalog/TelemetryFieldCatalogTable.h"
 #include "catalog/TelemetryIndex.h"
 #include "command/TelemetryCommandFactory.h"
 #include "command/TelemetryCommandCatalogIndex.h"
 #include "command/TelemetryCommandIndex.h"
 #include "command/TelemetryCommandTable.h"
+#include "command/TelemetryCommandCatalogTable.h"
 #include "abi/TelemetryAbi.h"
 
 #endif

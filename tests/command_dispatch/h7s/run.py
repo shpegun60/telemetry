@@ -162,7 +162,7 @@ def main():
                             if (version, optimization, clock, iterations, reps,
                                 scalar_size, command_size) != (
                                     1, 2 if tag == 'O2' else 0, 600000000,
-                                    ITERATIONS, REPETITIONS, 16, 24):
+                                    ITERATIONS, REPETITIONS, 16, 20):
                                 raise RuntimeError('Device identity mismatch: ' + line)
                         elif words[:2] == ['DISPATCH', 'T']:
                             if ready is None or len(words) != 6:

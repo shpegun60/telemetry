@@ -18,11 +18,8 @@
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version.
-// Revision 5 replaces Getter's variant with a two-word payload/invoker,
-// includes grouped commands, and guards private nested layout as well as every
-// public descriptor/index offset. Command retains its revision-4 owner word,
-// which can also borrow a stable callable object.
-inline constexpr std::uint32_t telemetryAbiVersion = 5;
+// Revision 6 derives identity from position; descriptors no longer store IDs.
+inline constexpr std::uint32_t telemetryAbiVersion = 6;
 
 // std::variant is not standard-layout on every supported standard library.
 // Descriptors remain trivially copyable; each supported compiler's
@@ -80,21 +77,19 @@ using CurrentAbiTag = AbiTag<
     alignof(Field),
     offsetof(Field, get),
     offsetof(Field, readType),
-    offsetof(Field, id),
     offsetof(Field, name),
     offsetof(Field, unit),
     offsetof(Field, set),
     offsetof(Field, declaredType),
     sizeof(Catalog),
     alignof(Catalog),
-    offsetof(Catalog, id),
     offsetof(Catalog, name),
     offsetof(Catalog, fields),
     offsetof(Catalog, count),
     sizeof(CatalogIndex), alignof(CatalogIndex),
     CatalogIndex::abiCatalogsOffset(), CatalogIndex::abiCountOffset(),
     sizeof(Command), alignof(Command),
-    offsetof(Command, id), offsetof(Command, name),
+    offsetof(Command, name),
     offsetof(Command, owner), offsetof(Command, metadata),
     offsetof(Command, invoke), offsetof(Command, describe),
     sizeof(CommandParam), alignof(CommandParam),
@@ -103,7 +98,7 @@ using CurrentAbiTag = AbiTag<
     sizeof(CommandIndex), alignof(CommandIndex),
     CommandIndex::abiCommandsOffset(), CommandIndex::abiCountOffset(),
     sizeof(CommandCatalog), alignof(CommandCatalog),
-    offsetof(CommandCatalog, id), offsetof(CommandCatalog, name),
+    offsetof(CommandCatalog, name),
     offsetof(CommandCatalog, commands), offsetof(CommandCatalog, count),
     sizeof(CommandCatalogIndex), alignof(CommandCatalogIndex),
     CommandCatalogIndex::abiCatalogsOffset(), CommandCatalogIndex::abiCountOffset()>;

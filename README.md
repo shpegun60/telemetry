@@ -90,21 +90,32 @@ schema is grouped under the same `meter` path as its fields and is generated
 from the C++ signatures. `--smoke-test` exercises both
 commands and closes after 1.2 seconds; it also works with `-platform offscreen`.
 
-[DemoCatalog.cpp](app/demo/DemoCatalog.cpp) now uses `makeField` throughout:
-getter return types define numeric/enum metadata, while typed setters receive
-native values. Inline capture-free lambdas and free/static functions are also
-supported; see [factories and commands](lib/telemetry/README.md#signature-inferred-fields-and-commands).
-Its commands use a directly constructed owning `CommandCatalogTable`; sparse
-`arg<N>` metadata is reordered by signature index at compile time and omitted
-arguments receive inferred metadata.
-Owning command tables provide `call<Index>(exactNativeArgs...)` for a
-compile-time direct target and `call(runtimeIndex, exactNativeArgs...)` for
-generated typed dispatch. Transport code keeps `execute(id, Scalar*, count)`.
-The two native paths construct no Scalar array and perform no indirect command
-invocation. Runtime-position dispatch emits one range check and cases only for
-definitions with that exact native signature; unrelated commands add no case.
-The constructor binds fields to its owned sensor. Its arrays and owner stay
-at stable addresses, so DemoCatalog is neither moved nor copied.
+The current API has three levels, all sharing positional identity:
+
+```cpp
+meterFields.read<2>();                    // Local typed table.
+meterFields.write<4>(value);
+meterCommands.call<1>(voltage, mode);
+
+fields.read<makeId(0, 2)>();               // Global compile-time routing.
+fields.write<makeId(0, 4)>(value);
+commands.call<makeId(0, 1)>(voltage, mode);
+
+constexpr auto fieldIndex = fields.index();
+constexpr auto commandIndex = commands.index();
+fieldIndex.read(fieldId);                 // Global runtime views.
+fieldIndex.write(fieldId, value);
+commandIndex.execute(commandId, scalars, count);
+```
+
+Declarations use `field("name", "unit", ...)`, `command("name", ...)` and
+`group("name", table)`, with no manual IDs. `FieldTable` stores only its Field
+array; `CommandTable` owns its parameter metadata. Global FieldCatalogTable and
+CommandCatalogTable borrow those local tables and produce the runtime views.
+The demo sources and tables have namespace storage. All three access levels
+share these definitions; no factory helpers or class-member type aliases are
+needed. Runtime owners are supported by the same `field(...)` API and covered
+by the table tests.
 
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
 (IDs `0..5`); sensor is group 1 (IDs `65536..65537`); integer examples are
@@ -119,16 +130,15 @@ is 0..2 and default is Auto (1). No dictionary check runs during lookup, read
 or write. Explicit `enumSpec<...>` remains available for sparse, large or
 intentionally filtered dictionaries. See the [enum contract and large-code
 examples](lib/telemetry/README.md#enum-dictionaries-for-schemas).
-Each field row starts
-with `makeId(group, position)`. `DemoCatalog::find(id)` uses one direct
+Field and group positions determine identity; no descriptor stores an ID. `fieldIndex.find(id)` uses one direct
 group lookup and one direct field lookup, with a bound check at each level.
 For example:
 
 ```cpp
-if (auto temperature = demo.index().read<double>(telemetry::makeId(1, 0))) {
+if (auto temperature = demo::fieldIndex.read<double>(telemetry::makeId(1, 0))) {
     // *temperature is a plain double.
 }
-auto value = demo.index().read(telemetry::makeId(1, 0)); // Scalar, value.type() == F64.
+auto value = demo::fieldIndex.read(telemetry::makeId(1, 0)); // Scalar, value.type() == F64.
 ```
 
 The schema publishes group IDs, packed field IDs, local positions `i` and
@@ -144,7 +154,7 @@ VoltageLimit (ID 4) and Mode (ID 5) are writable; other fields are read-only.
 VoltageLimit declares write limits 1..1000 and default 250:
 
 ```cpp
-const auto result = demo.index().write(telemetry::makeId(0, 4), 275);
+const auto result = demo::fieldIndex.write(telemetry::makeId(0, 4), 275);
 // Applied; an ordinary int is converted to the field's F32 before its setter.
 ```
 
@@ -172,13 +182,15 @@ also enables `read<makeId(group, field)>()`, whose optional native result type
 is inferred at compilation. `read<Id, T>()` requests another checked native
 representation, while `write<Id>(value)` deduces and normalizes the input type.
 A statically known read-only field still returns `WriteResult::ReadOnly`.
-DemoCatalog's instance-bound sensor uses ordinary `read<T>(id)`. See
+The demo exposes native local/global reads and the ordinary runtime `read<T>(id)` view. See
 [read examples](lib/telemetry/README.md#scalar-typed-and-inferred-reads).
 
-Groups and fields are densely numbered from zero. A wrong field ID clips
-only that group's visible prefix; a wrong group ID clips the whole group
-list. Requests outside those prefixes return null. JSON uses the same
-accepted view. See [lookup contracts](lib/telemetry/README.md#packed-ids-and-direct-lookup).
+Group and entry positions start at zero. Reordering or deleting entries changes
+their public IDs. Keep retired positions with `reservedField()` or
+`reservedCommand()`. Runtime lookup checks the two actual bounds; JSON derives
+IDs from the same traversal. This refactor is **ABI 6** and requires a clean
+consumer rebuild. See [the migration contract](lib/telemetry/README.md#field-abi-migration-and-storage).
+
 The previous range/pointer-slot implementation is retained in
 [archive/id_ranges](archive/id_ranges/README.md), outside the active build.
 
@@ -276,7 +288,7 @@ Verification after closing the field/command core, 2026-09-20:
   and `-Os`, confirmed direct lookup without loops/helper calls and constant
   folding of known IDs. Both levels have actual bounds checks. The probe's
   constant tables/index are in `.rodata` with no startup initialization;
-  Scalar is 16 bytes, Getter 8, Setter 8, FieldType 48, Field 96 (aligned to 32), Catalog 16 and CatalogIndex 8 bytes
+  Scalar is 16 bytes, Getter 8, Setter 8, FieldType 48, Field 96 (aligned to 32), Catalog 12 and CatalogIndex 8 bytes
   on ARM32.
 - [RW32 measurements](tests/field_layout/h7s/RW32_RESULTS.md) cover the separate
   read/write metadata lines. Cache-line alignment is configurable through

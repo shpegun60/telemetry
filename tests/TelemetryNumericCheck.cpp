@@ -84,7 +84,7 @@ bool checkValue(Scalar input, const std::optional<To>& expected)
     if (!converted && (aliased.type() != input.type() || !equal(aliased.get<From>(), input.get<From>()))) return false;
 
     Source source{input};
-    const Field field{0, "value", "", type,
+    const Field field{"value", "", type,
         Getter::bind<&Source::read>(source), Setter::bind<&Source::write>(source)};
     const auto read = field.read();
     const auto typed = field.read<To>();

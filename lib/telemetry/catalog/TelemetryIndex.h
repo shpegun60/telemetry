@@ -14,9 +14,8 @@ namespace telemetry {
 
 template <const auto& Catalogs> class StaticCatalogIndex;
 
-// Non-owning view of zero-based, densely numbered groups. Each Catalog has
-// already validated its field prefix. Construction clips the group prefix
-// at its first wrong ID; lookup never repeats validation or scans any rows.
+// Non-owning view of zero-based groups. Group and field positions are their
+// identities; lookup performs two bounds checks and never scans rows.
 // Catalogs, fields and their metadata must remain unchanged at stable
 // addresses for the view's lifetime. Bound source values may change.
 class CatalogIndex {
@@ -34,14 +33,10 @@ public:
     // See Catalog: prefer the deleted array-rvalue overload over decay.
     template <class = void>
     constexpr CatalogIndex(const Catalog* catalogs, std::size_t requestedCount) noexcept
-        : catalogs_(catalogs)
+        : catalogs_(catalogs), count_(catalogs == nullptr ? 0
+              : (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity))
     {
-        if (catalogs_ == nullptr) return;
-        const std::size_t limit = requestedCount < idComponentCapacity
-            ? requestedCount : idComponentCapacity;
-        while (count_ < limit && catalogs_[count_].id == static_cast<GroupId>(count_)) {
-            ++count_;
-        }
     }
 
     template <std::size_t N>
@@ -117,7 +112,7 @@ class StaticCatalogIndex {
     inline static constexpr CatalogIndex index_{Catalogs};
     // Instantiate the view when this type is formed, not only on its first
     // read. A runtime table must be rejected by bind itself.
-    static_assert(index_.size() <= idComponentCapacity,
+    static_assert(index_.size() == 0 || Catalogs[0].count <= idComponentCapacity,
                   "StaticCatalogIndex requires a constexpr catalog array");
 
 public:
@@ -152,7 +147,7 @@ public:
     {
         constexpr const Field* field = index_.find(Id);
         static_assert(field != nullptr,
-                      "The read ID must belong to the catalog's accepted prefix");
+                      "The read ID must belong to the catalog's positional bounds");
         if constexpr (field != nullptr) {
             constexpr ScalarType type = field->declaredType;
             constexpr bool numeric = type != ScalarType::Null
@@ -171,7 +166,7 @@ public:
     {
         constexpr const Field* field = index_.find(Id);
         static_assert(field != nullptr,
-                      "The read ID must belong to the catalog's accepted prefix");
+                      "The read ID must belong to the catalog's positional bounds");
         // Keep the constexpr lookup above as the contract check, but invoke
         // through the catalog expression itself. This exposes the concrete
         // field directly, allowing the compiler to preserve or further inline
@@ -195,7 +190,7 @@ public:
     {
         constexpr const Field* field = index_.find(Id);
         static_assert(field != nullptr,
-                      "The write ID must belong to the catalog's accepted prefix");
+                      "The write ID must belong to the catalog's positional bounds");
         if constexpr (field != nullptr)
             return Catalogs[groupOf(Id)].fields[indexOf(Id)].write(value);
         else return WriteResult::NotFound;

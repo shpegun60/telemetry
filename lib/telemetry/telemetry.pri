@@ -19,10 +19,16 @@ HEADERS += \
     $$PWD/field/TelemetryFieldType.h \
     $$PWD/field/TelemetryEnum.h \
     $$PWD/field/TelemetryField.h \
+    $$PWD/detail/TelemetryFieldBinding.h \
     $$PWD/field/TelemetryFieldFactory.h \
+    $$PWD/field/TelemetryFieldTable.h \
+    $$PWD/catalog/TelemetryGroup.h \
+    $$PWD/catalog/TelemetryFieldCatalogTable.h \
+    $$PWD/command/TelemetryCommandCatalogTable.h \
     $$PWD/field/TelemetryLimits.h \
     $$PWD/command/TelemetryCommand.h \
     $$PWD/command/TelemetryCommandArgs.h \
+    $$PWD/detail/TelemetryCommandBinding.h \
     $$PWD/command/TelemetryCommandFactory.h \
     $$PWD/command/TelemetryCommandCatalog.h \
     $$PWD/command/TelemetryCommandCatalogIndex.h \

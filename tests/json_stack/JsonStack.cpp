@@ -24,28 +24,28 @@ __attribute__((noinline)) Scalar readSource() noexcept { return source; }
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };
 constexpr Field nativeFields[] = {
-    {0, "f32", "V", ScalarType::F32}, {1, "f64", "", ScalarType::F64},
-    {2, "u64", "", ScalarType::U64}, {3, "bool", "", ScalarType::Bool},
+    {"f32", "V", ScalarType::F32}, {"f64", "", ScalarType::F64},
+    {"u64", "", ScalarType::U64}, {"bool", "", ScalarType::Bool},
 };
 constexpr Field customFields[] = {
-    {0, "f32\"\\\n", "V", numericType<float>(230.125f, -999.5f, 1234.75f)},
-    {1, "f64", "", numericType<double>(1.2345678901234567, -1.7e308, 1.7e308)},
-    {2, "mode", "", enumType<Mode>()},
+    {"f32\"\\\n", "V", numericType<float>(230.125f, -999.5f, 1234.75f)},
+    {"f64", "", numericType<double>(1.2345678901234567, -1.7e308, 1.7e308)},
+    {"mode", "", enumType<Mode>()},
 };
-constexpr Field f32Fields[] = {{0, "number", "", ScalarType::F32, &readSource}};
-constexpr Field f64Fields[] = {{0, "number", "", ScalarType::F64, &readSource}};
+constexpr Field f32Fields[] = {{"number", "", ScalarType::F32, &readSource}};
+constexpr Field f64Fields[] = {{"number", "", ScalarType::F64, &readSource}};
 constexpr Field integerFields[] = {
-    {0, "u64", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
-    {1, "s64", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
-    {2, "u32", "", ScalarType::U32, []() noexcept { return UINT32_MAX; }},
-    {3, "s32", "", ScalarType::S32, []() noexcept { return INT32_MIN; }},
-    {4, "bool", "", ScalarType::Bool, []() noexcept { return true; }},
+    {"u64", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
+    {"s64", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
+    {"u32", "", ScalarType::U32, []() noexcept { return UINT32_MAX; }},
+    {"s32", "", ScalarType::S32, []() noexcept { return INT32_MIN; }},
+    {"bool", "", ScalarType::Bool, []() noexcept { return true; }},
 };
-constexpr Catalog nativeCatalog[] = {{0, "v", nativeFields}};
-constexpr Catalog customCatalog[] = {{0, "v", customFields}};
-constexpr Catalog f32Catalog[] = {{0, "v", f32Fields}};
-constexpr Catalog f64Catalog[] = {{0, "v", f64Fields}};
-constexpr Catalog integerCatalog[] = {{0, "v", integerFields}};
+constexpr Catalog nativeCatalog[] = {{"v", nativeFields}};
+constexpr Catalog customCatalog[] = {{"v", customFields}};
+constexpr Catalog f32Catalog[] = {{"v", f32Fields}};
+constexpr Catalog f64Catalog[] = {{"v", f64Fields}};
+constexpr Catalog integerCatalog[] = {{"v", integerFields}};
 constexpr CatalogIndex nativeIndex{nativeCatalog}, customIndex{customCatalog},
     f32Index{f32Catalog}, f64Index{f64Catalog}, integerIndex{integerCatalog};
 

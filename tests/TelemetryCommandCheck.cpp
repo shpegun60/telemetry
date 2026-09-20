@@ -1,3 +1,4 @@
+#include "command/TelemetryCommandCatalogTable.h"
 // Commands validate arguments before owner side effects and export typed schema.
 #include "Telemetry.h"
 #include "serialization/TelemetryCommandJson.h"
@@ -10,13 +11,13 @@
 
 namespace {
 constexpr telemetry::CommandTable emptyCommandTable{};
-constexpr telemetry::CommandCatalogTable emptyCommandCatalog{0, "empty"};
+constexpr telemetry::CommandCatalogTable emptyCommandCatalog{};
 static_assert(emptyCommandTable.size() == 0);
 static_assert(emptyCommandTable.index().find(0) == nullptr);
 static_assert(emptyCommandCatalog.size() == 0);
-static_assert(emptyCommandCatalog.catalog().count == 0);
+static_assert(emptyCommandCatalog.size() == 0);
 static_assert(telemetry::CommandTable{}.size() == 0);
-static_assert(telemetry::CommandCatalogTable{0, "empty"}.size() == 0);
+static_assert(telemetry::CommandCatalogTable{}.size() == 0);
 
 using namespace telemetry;
 int checks = 0, failures = 0;
@@ -49,13 +50,13 @@ CommandResult numbers(float f,double d,std::uint8_t u8,std::uint16_t u16,std::ui
         && u64==UINT64_MAX && s8==INT8_MIN && s16==INT16_MIN && s32==INT32_MIN
         && s64==INT64_MIN && flag ? CommandResult::Executed : CommandResult::Failed;
 }
-constexpr auto many=makeCommand<&numbers>(0,"numbers");
+constexpr auto many=detail::materializeCommand<&numbers>("numbers");
 CommandResult freeCommand(std::int64_t, bool) noexcept { ++freeCalls; return CommandResult::Failed; }
 struct System { static CommandResult save() noexcept { return CommandResult::Executed; } };
 constexpr auto lambdaTarget = +[](std::uint16_t value) noexcept {
     return value==12 ? CommandResult::Executed : CommandResult::Failed;
 };
-constexpr auto lambdaCommand = makeCommand<lambdaTarget>(0,"lambda");
+constexpr auto lambdaCommand = detail::materializeCommand<lambdaTarget>("lambda");
 constexpr auto calibrateArgs = commandArgs(arg("Voltage", "V", 230.0f, 0.0f, 500.0f),arg("Mode", "", Mode::Normal));
 constexpr auto addressArgs = commandArgs(arg("Address", "", UINT64_MAX, UINT64_C(1), UINT64_MAX));
 constexpr auto errorArgs = commandArgs(arg("Error", "",
@@ -65,34 +66,28 @@ constexpr auto partialCalibrateArgs = commandArgs(
 constexpr auto reorderedCalibrateArgs = commandArgs(
     arg<1>("Mode reordered", "", Mode::Precise),
     arg<0>("Voltage reordered", "V", 230.0f, 0.0f, 500.0f));
-constexpr auto partialCalibrate = makeCommand<&Device::calibrate>(
-    0, "Partial", device, partialCalibrateArgs);
-constexpr auto reorderedCalibrate = makeCommand<&Device::calibrate>(
-    1, "Reordered", device, reorderedCalibrateArgs);
+constexpr auto partialCalibrate = detail::materializeCommand<&Device::calibrate>("Partial", device, partialCalibrateArgs);
+constexpr auto reorderedCalibrate = detail::materializeCommand<&Device::calibrate>("Reordered", device, reorderedCalibrateArgs);
 constexpr CommandTable ownedCommands{
-    command<&Device::reset>(0, "Owned reset", device),
-    command<&Device::calibrate>(
-        1, "Owned calibrate", device,
+    command<&Device::reset>("Owned reset", device),
+    command<&Device::calibrate>("Owned calibrate", device,
         arg<1>("Owned mode", "",
                enumSpec<Mode::Fast, Mode::Normal, Mode::Precise>(Mode::Normal)),
         arg<0>("Owned voltage", "V", 230.0f, 0.0f, 500.0f))};
 constexpr CommandTable inferredOwnedCommands{
-    command<&Device::calibrate>(0, "Inferred calibrate", device)};
-constexpr CommandCatalogTable ownedApi{
-    0, "Owned/Motor",
-    command<&Device::reset>(makeId(0, 0), "Catalog reset", device),
-    command<&Device::calibrate>(
-        makeId(0, 1), "Catalog calibrate", device,
+    command<&Device::calibrate>("Inferred calibrate", device)};
+constexpr CommandTable ownedApiRows{
+    command<&Device::reset>("Catalog reset", device),
+    command<&Device::calibrate>("Catalog calibrate", device,
         arg<0>("Catalog voltage", "V", 230.0f, 0.0f, 500.0f),
         arg<1>("Catalog mode", "", Mode::Normal))};
-constexpr CommandCatalog ownedCatalogViews[] = {ownedApi.catalog()};
-constexpr CommandCatalogIndex ownedApiIndex{ownedCatalogViews};
-constexpr CommandCatalogTable ownedGroupOne{
-    1, "Owned/GroupOne",
-    command<&System::save>(makeId(1, 0), "Grouped save")};
+constexpr CommandCatalogTable ownedApi{group("Owned/Motor", ownedApiRows)};
+constexpr CommandCatalogIndex ownedApiIndex{ownedApi.index()};
+constexpr CommandTable ownedGroupOne{
+    command<&System::save>("Grouped save")};
 constexpr CommandCatalog ownedGroupViews[] = {
-    {0, "Empty", nullptr, 0},
-    ownedGroupOne.catalog(),
+    {"Empty", nullptr, 0},
+    {"Owned/GroupOne", ownedGroupOne.data(), ownedGroupOne.size()},
 };
 constexpr CommandCatalogIndex ownedGroupIndex{ownedGroupViews};
 template <class T, class = void>
@@ -101,22 +96,22 @@ template <class T>
 struct HasCommandCatalogTableIndex<T,
     std::void_t<decltype(std::declval<const T&>().index())>> : std::true_type {};
 constexpr Command commands[] = {
-    makeCommand<&Device::reset>(0,"Reset",device),
-    makeCommand<&Device::calibrate>(1,"Calibrate",device,calibrateArgs),
-    makeCommand<&Device::setAddress>(2,"Address",device,addressArgs),
-    makeCommand<&freeCommand>(3,"Free"),
-    makeCommand<&System::save>(4,"Save"),
-    makeCommand<&Device::calibrate>(5,"Automatic",device),
-    makeCommand<&Device::legacy>(6,"Legacy",device),
-    makeCommand<&Device::clearError>(7,"ClearError",device,errorArgs),
+    detail::materializeCommand<&Device::reset>("Reset",device),
+    detail::materializeCommand<&Device::calibrate>("Calibrate",device,calibrateArgs),
+    detail::materializeCommand<&Device::setAddress>("Address",device,addressArgs),
+    detail::materializeCommand<&freeCommand>("Free"),
+    detail::materializeCommand<&System::save>("Save"),
+    detail::materializeCommand<&Device::calibrate>("Automatic",device),
+    detail::materializeCommand<&Device::legacy>("Legacy",device),
+    detail::materializeCommand<&Device::clearError>("ClearError",device,errorArgs),
 };
 constexpr CommandIndex commandsIndex{commands};
 constexpr Command motorCommands[] = {
-    makeCommand<&System::save>(makeId(1, 0), "Tune"),
+    detail::materializeCommand<&System::save>("Tune"),
 };
 constexpr CommandCatalog commandCatalogs[] = {
-    {0, "System", commands},
-    {1, "Motor/Control", motorCommands},
+    {"System", commands},
+    {"Motor/Control", motorCommands},
 };
 constexpr CommandCatalogIndex groupedCommands{commandCatalogs};
 static_assert(commandsIndex.size()==8 && commands[0].metadata==nullptr);
@@ -125,7 +120,7 @@ static_assert(groupedCommands.size()==2
 static_assert(commandNamesUnique(commands, std::size(commands))
               && commandCatalogNamesUnique(commandCatalogs, std::size(commandCatalogs)));
 static_assert(!std::is_copy_assignable_v<Command> && std::is_trivially_copyable_v<Command>);
-static_assert(sizeof(Command)==sizeof(void*)*6);
+static_assert(sizeof(Command)==sizeof(void*)*5);
 static_assert(ownedCommands.size() == 2
               && ownedCommands.index().find(1) == &ownedCommands[1]
               && ownedCommands[0].metadata == nullptr);
@@ -135,16 +130,15 @@ static_assert(std::is_same_v<decltype(ownedCommands.call<0>()), CommandResult>
 static_assert(!std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
               && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
               && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedCommands)>>);
-static_assert(ownedApi.size() == 2
-              && ownedApiIndex.find(makeId(0, 1)) == &ownedApi.data()[1]
+static_assert(ownedApi.size() == 1
+              && ownedApiIndex.find(makeId(0, 1)) == &ownedApiRows[1]
               && !std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
               && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
               && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedApi)>>);
-static_assert(ownedGroupOne.catalog().count == 1
+static_assert(ownedGroupOne.size() == 1
               && ownedGroupIndex.find(makeId(1, 0)) == ownedGroupOne.data());
-static_assert(!HasCommandCatalogTableIndex<
-              std::remove_cv_t<decltype(ownedGroupOne)>>::value,
-              "Grouped owning tables must be indexed through CommandCatalogIndex");
+static_assert(HasCommandCatalogTableIndex<std::remove_cv_t<decltype(ownedApi)>>::value);
+static_assert(std::is_same_v<decltype(ownedApi.index()), CommandCatalogIndex>);
 bool stop(void* state,const CommandParam&) noexcept { ++*static_cast<int*>(state); return false; }
 template <class Index>
 bool boundaries(const Index& view,JsonOptions options)
@@ -193,7 +187,7 @@ int main()
     auto capturing = [&borrowedDevice](float value, Mode next) noexcept {
         return borrowedDevice.calibrate(value, next);
     };
-    const auto borrowedLambda = makeCommand(0,"borrowed lambda",capturing,calibrateArgs);
+    const auto borrowedLambda = detail::materializeCommand("borrowed lambda",capturing,calibrateArgs);
     expect(borrowedLambda.call(300,Mode::Normal)==CommandResult::Executed
            && borrowedDevice.voltage==300.0f && borrowedDevice.mode==Mode::Normal,
            "stable capturing lambda is borrowed");
@@ -204,14 +198,14 @@ int main()
         CommandResult operator()(std::uint16_t value) noexcept
         { owner.address=value; return CommandResult::Accepted; }
     } stateful{borrowedDevice};
-    auto borrowedFunctor = makeCommand(0,"borrowed functor",stateful);
+    auto borrowedFunctor = detail::materializeCommand("borrowed functor",stateful);
     expect(borrowedFunctor.call(42.9)==CommandResult::Accepted
            && borrowedDevice.address==42,"stable stateful functor and conversion");
     const auto statelessTarget = [](bool value) noexcept {
         return value ? CommandResult::Executed : CommandResult::Failed;
     };
     constexpr auto boolArgs = commandArgs(arg("Enabled"));
-    const auto borrowedConst = makeCommand(0,"borrowed const",statelessTarget,boolArgs);
+    const auto borrowedConst = detail::materializeCommand("borrowed const",statelessTarget,boolArgs);
     expect(borrowedConst.call(1)==CommandResult::Executed,
            "const named callable lvalue is borrowed");
     expect(partialCalibrate.call(700.0f, Mode::Precise) == CommandResult::Executed
@@ -281,7 +275,7 @@ int main()
         return CommandResult::Accepted;
     };
     const auto borrowedTable = CommandTable{
-        command(0, "Owned callable", ownedCallable,
+        command("Owned callable", ownedCallable,
                 arg<0>("Address", "", std::uint16_t{7}, std::uint16_t{1}, std::uint16_t{100}))};
     expect(borrowedTable.index().call(0, 42) == CommandResult::Accepted
            && borrowedDevice.address == 42,
@@ -304,28 +298,28 @@ int main()
     expect(groupedCommands.call(makeId(2,0))==CommandResult::NotFound,
            "grouped command missing group");
     const Command brokenRows[]={
-        makeCommand<&System::save>(makeId(0,0),"First"),
-        makeCommand<&System::save>(makeId(0,2),"Gap"),
-        makeCommand<&System::save>(makeId(0,1),"Past gap"),
+        detail::materializeCommand<&System::save>("First"),
+        detail::materializeCommand<&System::save>("Gap"),
+        detail::materializeCommand<&System::save>("Past gap"),
     };
     const CommandCatalog preservedGroups[]={
-        {0,"Broken rows",brokenRows},
-        {1,"Motor",motorCommands},
+        {"Broken rows",brokenRows},
+        {"Motor",motorCommands},
     };
     const CommandCatalogIndex preserved{preservedGroups};
-    expect(preserved.size()==2 && preserved.data()[0].count==1
-           && preserved.find(makeId(0,1))==nullptr
+    expect(preserved.size()==2 && preserved.data()[0].count==3
+           && preserved.find(makeId(0,1))==&brokenRows[1]
            && preserved.find(makeId(1,0))==&motorCommands[0],
-           "row gap trims one command group without hiding the next group");
-    const Command groupTwo[]={makeCommand<&System::save>(makeId(2,0),"Late")};
+           "command identity follows position within each group");
+    const Command groupTwo[]={detail::materializeCommand<&System::save>("Late")};
     const CommandCatalog brokenGroups[]={
-        {0,"System",commands},
-        {2,"Past group gap",groupTwo},
+        {"System",commands},
+        {"Past group gap",groupTwo},
     };
     const CommandCatalogIndex clipped{brokenGroups};
-    expect(clipped.size()==1 && clipped.find(makeId(2,0))==nullptr,
-           "group gap truncates the grouped command prefix");
-    expect(CommandCatalog{}.count==0 && CommandCatalog{0,"null",nullptr,100}.count==0
+    expect(clipped.size()==2 && clipped.find(makeId(2,0))==nullptr,
+           "group positions define their identities");
+    expect(CommandCatalog{}.count==0 && CommandCatalog{"null",nullptr,100}.count==0
            && CommandCatalogIndex{}.find(0)==nullptr
            && CommandCatalogIndex{nullptr,100}.size()==0,
            "default and null grouped command definitions are empty");
@@ -335,33 +329,33 @@ int main()
            && preservedCopy.find(makeId(1,0))==&motorCommands[0],
            "copied grouped command view retains original definitions");
     const Command duplicateCommands[]={
-        makeCommand<&System::save>(0,"same"),
-        makeCommand<&System::save>(1,"same"),
+        detail::materializeCommand<&System::save>("same"),
+        detail::materializeCommand<&System::save>("same"),
     };
-    const Command nullCommandNames[]={makeCommand<&System::save>(0,nullptr)};
+    const Command nullCommandNames[]={detail::materializeCommand<&System::save>(nullptr)};
     const CommandCatalog duplicateCatalogNames[]={
-        {0,"same",commands},
-        {1,"same",motorCommands},
+        {"same",commands},
+        {"same",motorCommands},
     };
-    const CommandCatalog nullCatalogNames[]={{0,nullptr,commands}};
+    const CommandCatalog nullCatalogNames[]={{nullptr,commands}};
     expect(!commandNamesUnique(duplicateCommands,std::size(duplicateCommands))
            && !commandNamesUnique(nullCommandNames,std::size(nullCommandNames))
            && !commandCatalogNamesUnique(duplicateCatalogNames,std::size(duplicateCatalogNames))
            && !commandCatalogNamesUnique(nullCatalogNames,std::size(nullCatalogNames)),
            "grouped command name helpers reject duplicate and null names");
     Device local;
-    const auto runtime=makeCommand<&Device::calibrate>(0,"local",local,calibrateArgs);
+    const auto runtime=detail::materializeCommand<&Device::calibrate>("local",local,calibrateArgs);
     const auto copy=runtime;
     expect(copy.call(10.0f,1)==CommandResult::Executed && local.calls==1,"copy borrows runtime owner");
     const Device constant;
-    const auto diagnostics=makeCommand<&Device::diagnostics>(0,"diag",constant);
+    const auto diagnostics=detail::materializeCommand<&Device::diagnostics>("diag",constant);
     expect(diagnostics.call()==CommandResult::Busy,"const owner method");
     int described=0;
     expect(!commands[1].describeParameters(&described,&stop) && described==1,"schema sink can stop");
     expect(!commands[1].describeParameters(nullptr,nullptr),"null sink safe");
     const Command gaps[]={commands[0],commands[2],commands[1]};
     const CommandIndex prefix{gaps};
-    expect(prefix.size()==1 && !prefix.find(1),"dense command prefix");
+    expect(prefix.size()==3 && prefix.find(1)==&gaps[1],"command positions define identity");
     expect(CommandIndex{nullptr,100}.size()==0,"null table empty");
     std::array<char,4096> json{},strings{};
     const auto calls=device.calls;
@@ -405,9 +399,9 @@ int main()
            && std::strstr(groupedJson.data(),"\"i\":0,\"id\":65536,\"n\":\"Tune\"")!=nullptr,
            "grouped command hierarchy schema");
     expect(writeSchema(commandsIndex,nullptr,0)==0 && writeSchema(commandsIndex,nullptr,4096)==0,"null buffers");
-    const Command nullNames[]={makeCommand<&System::save>(0,nullptr)};
+    const Command nullNames[]={detail::materializeCommand<&System::save>(nullptr)};
     expect(writeSchema(CommandIndex{nullNames},json.data(),json.size())==0 && schemaCrc(CommandIndex{nullNames})==0,"null command name");
-    const Command escaped[]={makeCommand<&System::save>(0,"A\"B\n")};
+    const Command escaped[]={detail::materializeCommand<&System::save>("A\"B\n")};
     expect(writeSchema(CommandIndex{escaped},json.data(),json.size())!=0 && std::strstr(json.data(),"A\\\"B\\u000a")!=nullptr,"escaped names");
     expect(schemaCrc(CommandIndex{})!=schemaCrc(commandsIndex),"nonempty fingerprint");
     std::printf("%d/%d command checks passed\n",checks-failures,checks);

@@ -30,21 +30,21 @@ struct Source {
 Source source;
 
 constexpr Field fields[] = {
-    {makeId(0, 0), "Float", "", ScalarType::F32, Getter::bind<&Source::read>(source), Setter::bind<&Source::write>(source)},
-    {makeId(0, 1), "Double", "", ScalarType::F64, []() noexcept { return 14.5; }},
-    {makeId(0, 2), "U8", "", ScalarType::U8, []() noexcept { return std::uint8_t{UINT8_MAX}; }},
-    {makeId(0, 3), "U16", "", ScalarType::U16, []() noexcept { return std::uint16_t{UINT16_MAX}; }},
-    {makeId(0, 4), "U32", "", ScalarType::U32, []() noexcept { return std::uint32_t{UINT32_MAX}; }},
-    {makeId(0, 5), "U64", "", ScalarType::U64, []() noexcept { return std::uint64_t{UINT64_MAX}; }},
-    {makeId(0, 6), "S8", "", ScalarType::S8, []() noexcept { return std::int8_t{INT8_MIN}; }},
-    {makeId(0, 7), "S16", "", ScalarType::S16, []() noexcept { return std::int16_t{INT16_MIN}; }},
-    {makeId(0, 8), "S32", "", ScalarType::S32, []() noexcept { return std::int32_t{INT32_MIN}; }},
-    {makeId(0, 9), "S64", "", ScalarType::S64, []() noexcept { return std::int64_t{INT64_MIN}; }},
-    {makeId(0, 10), "Bool", "", ScalarType::Bool, []() noexcept { return false; }},
-    {makeId(0, 11), "Empty", "", ScalarType::F32},
-    {makeId(0, 12), "Unavailable", "", ScalarType::F32, []() noexcept { return Scalar::null(); }},
+    {"Float", "", ScalarType::F32, Getter::bind<&Source::read>(source), Setter::bind<&Source::write>(source)},
+    {"Double", "", ScalarType::F64, []() noexcept { return 14.5; }},
+    {"U8", "", ScalarType::U8, []() noexcept { return std::uint8_t{UINT8_MAX}; }},
+    {"U16", "", ScalarType::U16, []() noexcept { return std::uint16_t{UINT16_MAX}; }},
+    {"U32", "", ScalarType::U32, []() noexcept { return std::uint32_t{UINT32_MAX}; }},
+    {"U64", "", ScalarType::U64, []() noexcept { return std::uint64_t{UINT64_MAX}; }},
+    {"S8", "", ScalarType::S8, []() noexcept { return std::int8_t{INT8_MIN}; }},
+    {"S16", "", ScalarType::S16, []() noexcept { return std::int16_t{INT16_MIN}; }},
+    {"S32", "", ScalarType::S32, []() noexcept { return std::int32_t{INT32_MIN}; }},
+    {"S64", "", ScalarType::S64, []() noexcept { return std::int64_t{INT64_MIN}; }},
+    {"Bool", "", ScalarType::Bool, []() noexcept { return false; }},
+    {"Empty", "", ScalarType::F32},
+    {"Unavailable", "", ScalarType::F32, []() noexcept { return Scalar::null(); }},
 };
-constexpr Catalog catalogs[] = {{0, "values", fields}};
+constexpr Catalog catalogs[] = {{"values", fields}};
 constexpr CatalogIndex runtime{catalogs};
 constexpr auto fixed = CatalogIndex::bind<catalogs>();
 
@@ -101,7 +101,7 @@ void checkInferred(T expected, const char* message)
 template <class T>
 void checkNativeType(const char* message)
 {
-    constexpr Field field{0, "value", "", ScalarType::U8, []() noexcept { return std::uint8_t{7}; }};
+    constexpr Field field{"value", "", ScalarType::U8, []() noexcept { return std::uint8_t{7}; }};
     static_assert(CanReadField<T>::value && CanReadIndex<T>::value);
     const auto result = field.read<T>();
     expect(result && *result == static_cast<T>(7), message);
@@ -111,7 +111,7 @@ template <class To, class From>
 void checkFloatingBounds(const char* message)
 {
     Source owner;
-    const Field field{0, "boundaries", "", Scalar::from(To{}).type(),
+    const Field field{"boundaries", "", Scalar::from(To{}).type(),
         Getter::bind<&Source::read>(owner), Setter::bind<&Source::write>(owner)};
     const From lower = static_cast<From>(std::numeric_limits<To>::lowest());
     const From upper = static_cast<From>(std::numeric_limits<To>::max() / 2 + 1) * From{2};
@@ -171,7 +171,7 @@ void checkIdentityPayload()
 
     Source owner;
     owner.value = input;
-    const Field field{0, "identity", "", ScalarType::F32,
+    const Field field{"identity", "", ScalarType::F32,
         Getter::bind<&Source::read>(owner), Setter::bind<&Source::write>(owner)};
     const auto read = field.read();
     std::uint32_t readBits = 0, writeBits = 0;
@@ -190,13 +190,13 @@ void checkIdentityPayload()
 void checkDeclaredTypes()
 {
     Source owner;
-    const Field byte{0, "byte", "", ScalarType::U8,
+    const Field byte{"byte", "", ScalarType::U8,
         Getter::bind<&Source::read>(owner), Setter::bind<&Source::write>(owner)};
-    const Field floating{0, "float", "", ScalarType::F32,
+    const Field floating{"float", "", ScalarType::F32,
         Getter::bind<&Source::read>(owner), Setter::bind<&Source::write>(owner)};
-    const Field boolean{0, "bool", "", ScalarType::Bool, Getter::bind<&Source::read>(owner)};
-    const Field nullType{0, "null", "", ScalarType::Null, Getter::bind<&Source::read>(owner)};
-    const Field unknownType{0, "unknown", "", static_cast<ScalarType>(255), Getter::bind<&Source::read>(owner)};
+    const Field boolean{"bool", "", ScalarType::Bool, Getter::bind<&Source::read>(owner)};
+    const Field nullType{"null", "", ScalarType::Null, Getter::bind<&Source::read>(owner)};
+    const Field unknownType{"unknown", "", static_cast<ScalarType>(255), Getter::bind<&Source::read>(owner)};
 
     owner.value = 12.75;
     expect(byte.read<double>() == 12.0 && byte.read<float>() == 12.0f,
@@ -233,7 +233,7 @@ void checkDeclaredTypes()
         for (const auto& expected : ones) {
             owner.value = input;
             owner.reads = owner.writes = 0;
-            const Field field{0, "pair", "", expected.type(),
+            const Field field{"pair", "", expected.type(),
                 Getter::bind<&Source::read>(owner), Setter::bind<&Source::write>(owner)};
             const auto normalized = field.read();
             const auto written = field.write(input);
@@ -245,11 +245,11 @@ void checkDeclaredTypes()
     expect(allPairs, "all 121 source/declared pairs have the same read and write normalization");
 
     constexpr Field native[] = {
-        {makeId(0, 0), "bare", "", ScalarType::F32, []() noexcept { return 12.75; }},
-        {makeId(0, 1), "plus", "", ScalarType::U16, +[]() noexcept { return 12.75f; }},
-        {makeId(0, 2), "wide", "", ScalarType::F64, []() noexcept { return std::uint16_t{7}; }},
+        {"bare", "", ScalarType::F32, []() noexcept { return 12.75; }},
+        {"plus", "", ScalarType::U16, +[]() noexcept { return 12.75f; }},
+        {"wide", "", ScalarType::F64, []() noexcept { return std::uint16_t{7}; }},
     };
-    const Catalog group{0, "normalized", native};
+    const Catalog group{"normalized", native};
     char json[128];
     expect(native[0].read<float>() == 12.75f && native[1].read<double>() == 12.0
                && native[2].read<double>() == 7.0,
@@ -344,7 +344,7 @@ void checkAccess()
     expect(!fixed.read<0>() && runtime.read(0).type() == ScalarType::Null,
            "a previously available source may become unavailable");
     expect(source.value.getIf<float>() == nullptr, "Null has no floating alternative to read");
-    const Field invalid{0, "invalid", "", static_cast<ScalarType>(255), Getter::bind<&Source::read>(source)};
+    const Field invalid{"invalid", "", static_cast<ScalarType>(255), Getter::bind<&Source::read>(source)};
     expect(!invalid.read<float>(), "unknown field metadata cannot expose a mismatched value");
     expect(fixed.write(0, 250) == WriteResult::Applied && source.writes == 1,
            "the same bound index supports numeric writes");
@@ -363,7 +363,7 @@ void checkAccess()
                && std::strstr(values, "18446744073709551615") != nullptr,
            "a bound index works with existing serializers and exact U64 output");
 
-    constexpr Catalog clipped[] = {{0, "first", fields}, {2, "unreachable", fields}};
+    constexpr Catalog clipped[] = {{"first", fields}, {"unreachable", fields}};
     const CatalogIndex prefix{clipped};
     volatile FieldId later = makeId(2, 0);
     const int before = source.reads;

@@ -85,7 +85,7 @@ inline std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
 // object mapping decimal code strings to names, e.g. {"0":"Off","1":"Auto"}.
 // Codes and names participate in the fingerprint. Descriptions are generated
 // on demand, independently of getters; values and writes stay purely numeric.
-// Only accepted contiguous prefixes are serialized. The CatalogIndex
+// Only entries within the capped positional bounds are serialized. The CatalogIndex
 // overload reuses a validated group view without rescanning group IDs.
 // Pointer/count overloads create such a view for the duration of the call.
 // Names, units and enum labels use UTF-8; JSON special/control bytes are escaped.

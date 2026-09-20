@@ -25,7 +25,6 @@ private:
     void refreshValues();
 
     Ui::MainWindow *ui;
-    demo::DemoCatalog demo_;
     QTableWidget* fields_ = nullptr;
     QPlainTextEdit* values_ = nullptr;
 };

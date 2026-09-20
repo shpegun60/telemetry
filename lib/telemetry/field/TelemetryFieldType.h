@@ -19,6 +19,7 @@ using EnumEntrySink = bool (*)(void*, const Scalar&, std::string_view) noexcept;
 using EnumDescription = bool (*)(void*, EnumEntrySink) noexcept;
 
 namespace detail {
+struct FieldTableAccess;
 [[noreturn]] inline void invalidFieldLimits() noexcept { std::abort(); }
 } // namespace detail
 
@@ -183,11 +184,22 @@ private:
     }
 
     template <class T>
-    TELEMETRY_FORCE_INLINE constexpr bool contains_(const Scalar& value) const noexcept
+    TELEMETRY_FORCE_INLINE constexpr bool containsNative_(T number) const noexcept
     {
-        const T number = value.get<T>();
         const auto& bounds = boundsFor_<T>();
         return number >= bounds.minimum && number <= bounds.maximum;
+    }
+
+    // T is the already-normalized Scalar alternative. Only the generated
+    // table access and Field may call this; the bounds union uses that type.
+    template <class T>
+    TELEMETRY_FORCE_INLINE constexpr bool acceptsNative_(T number) const noexcept
+    {
+        if (!restricted_) {
+            if constexpr (std::is_floating_point_v<T>) return detail::scalarFinite(number);
+            else return true;
+        }
+        return containsNative_(number);
     }
 
     TELEMETRY_FORCE_INLINE constexpr bool acceptsConverted_(const Scalar& value) const noexcept
@@ -198,17 +210,17 @@ private:
             return true;
         }
         switch (valueType_) {
-            case ScalarType::F32: return contains_<float>(value);
-            case ScalarType::F64: return contains_<double>(value);
-            case ScalarType::U32: return contains_<std::uint32_t>(value);
-            case ScalarType::S32: return contains_<std::int32_t>(value);
-            case ScalarType::U64: return contains_<std::uint64_t>(value);
-            case ScalarType::Bool: return contains_<bool>(value);
-            case ScalarType::U8: return contains_<std::uint8_t>(value);
-            case ScalarType::U16: return contains_<std::uint16_t>(value);
-            case ScalarType::S8: return contains_<std::int8_t>(value);
-            case ScalarType::S16: return contains_<std::int16_t>(value);
-            case ScalarType::S64: return contains_<std::int64_t>(value);
+            case ScalarType::F32: return acceptsNative_(value.get<float>());
+            case ScalarType::F64: return acceptsNative_(value.get<double>());
+            case ScalarType::U32: return acceptsNative_(value.get<std::uint32_t>());
+            case ScalarType::S32: return acceptsNative_(value.get<std::int32_t>());
+            case ScalarType::U64: return acceptsNative_(value.get<std::uint64_t>());
+            case ScalarType::Bool: return acceptsNative_(value.get<bool>());
+            case ScalarType::U8: return acceptsNative_(value.get<std::uint8_t>());
+            case ScalarType::U16: return acceptsNative_(value.get<std::uint16_t>());
+            case ScalarType::S8: return acceptsNative_(value.get<std::int8_t>());
+            case ScalarType::S16: return acceptsNative_(value.get<std::int16_t>());
+            case ScalarType::S64: return acceptsNative_(value.get<std::int64_t>());
             default: return false;
         }
     }
@@ -216,6 +228,7 @@ private:
     template <class E, E... Values>
     friend constexpr FieldType enumType() noexcept;
     friend struct Field;
+    friend struct detail::FieldTableAccess;
 
     ScalarType valueType_ = ScalarType::Null;
     bool restricted_ = false;

@@ -11,7 +11,7 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
-          "TelemetryFactoryCheck", "TelemetryCommandCheck")
+          "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryJson.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
@@ -40,13 +40,13 @@ FACTORY_REJECTIONS = {
     68: "concrete operator|operator\\(\\)", 69: "noexcept|invocable",
     70: "reserved for Scalar",
     71: "deleted", 72: "deleted", 73: "deleted",
-    74: "deleted", 75: "no member|has no member|not a member", 76: "deleted",
+    74: "deleted", 75: "outside CommandCatalogTable", 76: "deleted",
     77: "outside CommandTable", 78: "argument count",
     79: "native numeric or enum", 80: "native numeric or enum",
     81: "exactly match", 82: "exactly match",
 }
 REJECTIONS = {
-    1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
+    1: r"accepted prefix|positional bounds", 2: r"accepted prefix|positional bounds", 3: r"numeric or Bool declaredType",
     4: r"no matching", 5: r"constant\s+expression|constexpr",
     6: r"lvalue|not assignable", 7: r"deleted", 8: r"noexcept", 9: r"noexcept",
     10: r"no matching|cannot bind|expects an lvalue|deleted", 11: r"cannot be null",
@@ -56,7 +56,7 @@ REJECTIONS = {
     18: r"no matching", 19: r"no matching",
     **{case: r"invalidFieldLimits" for case in range(20, 31)},
     **{case: r"deleted" for case in range(31, 36)},
-    36: r"accepted prefix", 37: r"accepted prefix",
+    36: r"accepted prefix|positional bounds", 37: r"accepted prefix|positional bounds",
     38: r"no matching", 39: r"no matching",
 }
 
@@ -119,6 +119,12 @@ def main():
                      "tests/TelemetryFactoryCompileFail.cpp"], f"factory-reject-{case}", message)
     print(f"{len(FACTORY_REJECTIONS)} factory/command compilation rejections verified", flush=True)
 
+    for case in range(1, 27):
+        run(flags + [f"-DTELEMETRY_TABLE_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryTableCompileFail.cpp"], f"table-reject-{case}",
+            r"outside|deleted|no matching|requires group|exactly match|accepts only|indexed arg|make(?:Field|Command).*(?:not|member)|no member named")
+    print("26 positional table compilation rejections verified", flush=True)
+
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")
     for header in sorted((ROOT / "lib/telemetry").rglob("*.h")):
@@ -156,7 +162,7 @@ def main():
         'static_assert(alignof(telemetry::Field) == EXPECTED_SIZE);\n'
         'static_assert(offsetof(telemetry::Field, set) == EXPECTED_SIZE);\n'
         'static_assert(sizeof(telemetry::Field) % EXPECTED_SIZE == 0);\n'
-        'static_assert(sizeof(telemetry::Command) == sizeof(void*) * 6);\n', encoding="utf-8")
+        'static_assert(sizeof(telemetry::Command) == sizeof(void*) * 5);\n', encoding="utf-8")
     for size in (64, 128):
         run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={size}", f"-DEXPECTED_SIZE={size}", "-fsyntax-only", str(field_layout)],
             f"cacheline-field-{size}")

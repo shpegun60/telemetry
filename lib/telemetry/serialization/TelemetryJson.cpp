@@ -87,8 +87,8 @@ std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
     for (std::size_t c = 0u; c < count; ++c) {
         if (catalogs[c].name == nullptr) return 0;
         hash = hash_byte_(hash, 'C');
-        hash = hash_byte_(hash, static_cast<std::uint8_t>(catalogs[c].id));
-        hash = hash_byte_(hash, static_cast<std::uint8_t>(catalogs[c].id >> 8));
+        hash = hash_byte_(hash, static_cast<std::uint8_t>(c));
+        hash = hash_byte_(hash, static_cast<std::uint8_t>(c >> 8));
         hash = fnv1a_(hash, catalogs[c].name);
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
@@ -96,7 +96,7 @@ std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
             hash = hash_byte_(hash, 'F');
             // Explicit byte order, independent of host endianness/padding.
             for (unsigned shift = 0; shift < 32; shift += 8) {
-                hash = hash_byte_(hash, static_cast<std::uint8_t>(field.id >> shift));
+                hash = hash_byte_(hash, static_cast<std::uint8_t>(makeId(static_cast<GroupId>(c), static_cast<FieldOffset>(i)) >> shift));
             }
             hash = fnv1a_(hash, field.name);
             hash = fnv1a_(hash, field.unit);
@@ -133,14 +133,14 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
                     static_cast<unsigned long>(schemaCrcAbi(index, tag)))) return 0;
     for (std::size_t c = 0u; c < count; ++c) {
         if (!out.append("%s{\"id\":%u,\"name\":",
-                        (c == 0u) ? "" : ",", static_cast<unsigned>(catalogs[c].id))
+                        (c == 0u) ? "" : ",", static_cast<unsigned>(c))
             || !out.appendRequiredString(catalogs[c].name)
             || !out.append(",\"fields\":[")) return 0;
         for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
             const Field& field = catalogs[c].fields[i];
             const bool hasEnum = field.declaredType.hasEnum();
             if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":",
-                            (i == 0u) ? "" : ",", static_cast<unsigned>(i), field.id)
+                            (i == 0u) ? "" : ",", static_cast<unsigned>(i), makeId(static_cast<GroupId>(c), static_cast<FieldOffset>(i)))
                 || !out.appendRequiredString(field.name) || !out.append(",\"u\":")
                 || !out.appendRequiredString(field.unit)
                 || !out.append(",\"t\":\"%s\",\"w\":%s", scalarTypeName(field.declaredType),

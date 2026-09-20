@@ -16,12 +16,14 @@
 #include "../core/TelemetryScalar.h"
 
 namespace telemetry {
+namespace detail { struct FieldTableAccess; }
 
 // A getter is exactly one target-sized payload plus one generated invoker.
 // Native function pointers retain their exact types; object bindings borrow a
 // stable lvalue. No function-pointer type punning, allocation or ownership is
 // involved. An empty getter returns Null.
 class Getter {
+    friend struct detail::FieldTableAccess;
     template <class T> using NativeFunction = T (*)() noexcept;
     template <class T> struct NativeTag {};
 

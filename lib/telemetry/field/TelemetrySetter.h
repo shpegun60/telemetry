@@ -16,6 +16,7 @@
 #include "../core/TelemetryScalar.h"
 
 namespace telemetry {
+namespace detail { struct FieldTableAccess; }
 
 enum class WriteResult : std::uint8_t {
     Applied = 0,
@@ -30,6 +31,7 @@ enum class WriteResult : std::uint8_t {
 // The two-word payload/invoker representation keeps the RW32 write prefix
 // unchanged and never calls through a mismatched function-pointer type.
 class Setter {
+    friend struct detail::FieldTableAccess;
     template <class T> using NativeFunction = WriteResult (*)(T) noexcept;
     template <class T> struct NativeTag {};
     template <class T> struct IsNativeFunction : std::false_type {};

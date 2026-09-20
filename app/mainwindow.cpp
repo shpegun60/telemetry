@@ -65,7 +65,7 @@ MainWindow::MainWindow(QWidget *parent)
     layout->addWidget(fields_);
 
     char schema[4096];
-    const auto length = telemetry::writeSchema(demo_.index(), schema, sizeof(schema));
+    const auto length = telemetry::writeSchema(demo::fieldIndex, schema, sizeof(schema));
     const auto document = QJsonDocument::fromJson(QByteArray(schema, static_cast<int>(length)));
     for (const auto& entry : document.object().value("catalogs").toArray()) {
         const auto catalog = entry.toObject();
@@ -97,7 +97,7 @@ MainWindow::MainWindow(QWidget *parent)
     layout->addWidget(new QLabel("Values JSON", this));
     layout->addWidget(values_);
 
-    const auto commandLength = telemetry::writeSchema(demo_.commands(), schema, sizeof(schema));
+    const auto commandLength = telemetry::writeSchema(demo::commandIndex, schema, sizeof(schema));
     auto* commandSchema = new QPlainTextEdit(this);
     commandSchema->setReadOnly(true);
     commandSchema->setMaximumHeight(90);
@@ -123,12 +123,12 @@ MainWindow::MainWindow(QWidget *parent)
     controls->addWidget(result);
     layout->addLayout(controls);
     connect(reset, &QPushButton::clicked, this, [this, result] {
-        const auto status = demo_.commands().call(0);
+        const auto status = demo::commandIndex.call(0);
         result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Not executed");
         refreshValues();
     });
     connect(apply, &QPushButton::clicked, this, [this, result, limit, mode] {
-        const auto status = demo_.commands().call(1, limit->value(), mode->currentIndex());
+        const auto status = demo::commandIndex.call(1, limit->value(), mode->currentIndex());
         result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Invalid arguments");
         refreshValues();
     });
@@ -136,7 +136,7 @@ MainWindow::MainWindow(QWidget *parent)
     auto* timer = new QTimer(this);
     timer->setInterval(500);
     connect(timer, &QTimer::timeout, this, [this] {
-        demo_.advance();
+        demo::advance();
         refreshValues();
     });
     auto* pause = new QPushButton("Pause", this);
@@ -157,7 +157,7 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::refreshValues()
 {
     char values[1024];
-    const auto length = telemetry::writeValues(demo_.index(), values, sizeof(values));
+    const auto length = telemetry::writeValues(demo::fieldIndex, values, sizeof(values));
     if (length == 0) {
         values_->setPlainText("Values buffer is too small");
         return;
@@ -165,8 +165,8 @@ void MainWindow::refreshValues()
     const QByteArray json(values, static_cast<int>(length));
     values_->setPlainText(QString::fromUtf8(json));
     int row = 0;
-    for (std::size_t c = 0; c < demo_.count(); ++c) {
-        const auto& catalog = demo_.catalogs()[c];
+    for (std::size_t c = 0; c < demo::fields.size(); ++c) {
+        const auto& catalog = demo::fields.data()[c];
         for (std::size_t i = 0; i < catalog.count; ++i) {
             if (auto* item = fields_->item(row++, 4)) {
                 // The simulated sources are stable during this refresh. Reading

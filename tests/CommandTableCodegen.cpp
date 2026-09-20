@@ -12,17 +12,17 @@ extern CommandProbeDevice commandProbeDevice;
 namespace {
 
 constexpr telemetry::CommandTable commands{
-    telemetry::command<&CommandProbeDevice::reset>(0, "Reset", commandProbeDevice),
-    telemetry::command<&CommandProbeDevice::configure>(
-        1, "Configure", commandProbeDevice,
+    telemetry::command<&CommandProbeDevice::reset>("Reset", commandProbeDevice),
+    telemetry::command<&CommandProbeDevice::configure>("Configure", commandProbeDevice,
         telemetry::arg<1>("Mode", "", CommandProbeMode::Automatic),
         telemetry::arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f))};
+constexpr telemetry::CommandCatalogTable globalCommands{telemetry::group("commands",commands)};
 } // namespace
 
 extern "C" const telemetry::Command* const telemetry_probe_command_table = commands.data();
 extern "C" const std::size_t telemetry_probe_command_count = commands.size();
 
-static_assert(sizeof(telemetry::Command) == sizeof(void*) * 6);
+static_assert(sizeof(telemetry::Command) == sizeof(void*) * 5);
 static_assert(commands.size() == 2 && commands.index().find(1) == &commands[1]);
 static_assert(!std::is_copy_constructible_v<std::remove_cv_t<decltype(commands)>>);
 
@@ -36,6 +36,12 @@ extern "C" telemetry::CommandResult command_table_call_runtime(
     std::size_t index, float voltage, CommandProbeMode mode) noexcept
 {
     return commands.call(index, voltage, mode);
+}
+
+extern "C" telemetry::CommandResult command_table_call_global(
+    float voltage, CommandProbeMode mode) noexcept
+{
+    return globalCommands.call<telemetry::makeId(0,1)>(voltage,mode);
 }
 
 extern "C" telemetry::CommandResult command_table_execute_erased(

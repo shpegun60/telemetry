@@ -9,12 +9,12 @@
 using namespace telemetry;
 enum class Mode : std::uint16_t { Off, Auto, Manual };
 constexpr Field fields[] = {
-    {0, "u64", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
-    {1, "s64", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
-    {2, "f32", "", ScalarType::F32, []() noexcept { return 1.5f; }},
-    {3, "mode", "", enumType<Mode>(), []() noexcept { return std::uint16_t{1}; }},
+    {"u64", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
+    {"s64", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
+    {"f32", "", ScalarType::F32, []() noexcept { return 1.5f; }},
+    {"mode", "", enumType<Mode>(), []() noexcept { return std::uint16_t{1}; }},
 };
-constexpr Catalog catalogs[] = {{0, "v", fields}};
+constexpr Catalog catalogs[] = {{"v", fields}};
 
 int main()
 {

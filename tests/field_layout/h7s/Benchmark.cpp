@@ -85,7 +85,7 @@ bool validate(const CatalogIndex& index, unsigned count)
     for (unsigned i = 0; i < count; ++i) {
         const auto value = index.read<float>(i);
         const float expected = i % 8 == 6 ? 12.0f : ((i % 8 == 0 || i % 8 == 1 || i % 8 == 7) ? 230.0f : 17.0f);
-        if (!value || *value != expected || index.find(i)->id != i) return false;
+        if (!value || *value != expected || index.find(i) != index.data()[0].fields + i) return false;
     }
     return index.find(count) == nullptr && index.find(makeId(1, 0)) == nullptr;
 }
@@ -160,8 +160,8 @@ extern "C" void bench_loop()
         ::new (static_cast<void*>(&(*table)[i])) Field(layout_fixture::row(i));
     }
     const auto* fields = std::launder(table->data());
-    const Catalog shortCatalog[] = {{0, "values", fields, LAYOUT_FIELD_COUNT}};
-    const Catalog largeCatalog[] = {{0, "values", fields, ramCount}};
+    const Catalog shortCatalog[] = {{LAYOUT_ID(0) "values", fields, LAYOUT_FIELD_COUNT}};
+    const Catalog largeCatalog[] = {{LAYOUT_ID(0) "values", fields, ramCount}};
     const CatalogIndex shortIndex{shortCatalog}, largeIndex{largeCatalog};
     if (!validate(layout_index, LAYOUT_FIELD_COUNT) || !validate(shortIndex, LAYOUT_FIELD_COUNT) || !validate(largeIndex, ramCount)) {
         line("LAYOUT FAIL values\r\n"); return;

@@ -67,45 +67,78 @@ struct Device {
 };
 Device device; // Namespace scope; remains alive at this address.
 
-constexpr Field fields[] = {
-    makeField<&Device::voltage>(makeId(0, 0), "Ua", "V", device),
-    makeField<&Device::limit, &Device::setLimit>(makeId(0, 1), "Limit", "V",
+constexpr FieldTable meterFields{
+    field<&Device::voltage>("Ua", "V", device),
+    field<&Device::limit, &Device::setLimit>("Limit", "V",
         device, limits(250.0f, 1.0f, 1000.0f)),
-    makeField<&Device::mode, &Device::setMode>(makeId(0, 2), "Mode", "", device,
-        limits(Mode::Auto)),
+    field<&Device::mode, &Device::setMode>("Mode", "", device, limits(Mode::Auto)),
 };
-constexpr Catalog catalogs[] = {{0, "device", fields}};
-constexpr CatalogIndex values{catalogs};
-
-// The owning table stores optional metadata and exposes ordinary Command views.
-// Indexed metadata may be partial and may appear in any order.
-constexpr CommandCatalogTable commandApi{
-    0, "device",
-    command<&Device::reset>(makeId(0, 0), "Reset", device),
-    command<&Device::calibrate>(makeId(0, 1), "Calibrate", device,
+constexpr CommandTable meterCommands{
+    command<&Device::reset>("Reset", device),
+    command<&Device::calibrate>("Calibrate", device,
         arg<1>("Mode", "", Mode::Auto),
         arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f)),
-    command<&Device::calibrate>(makeId(0, 2), "Calibrate without labels", device),
 };
-constexpr CommandCatalog commandCatalogs[] = {commandApi.catalog()};
-constexpr CommandCatalogIndex actions{commandCatalogs};
+constexpr FieldCatalogTable fields{group("device", meterFields)};
+constexpr CommandCatalogTable commands{group("device", meterCommands)};
+constexpr auto fieldIndex = fields.index();
+constexpr auto commandIndex = commands.index();
 
-auto writeResult = values.write(makeId(0, 1), 275); // int -> checked F32.
+// 1. Local compile-time position: native callback and value types.
+auto voltage = meterFields.read<0>();         // optional<float>
+auto wide = meterFields.read<0, double>();    // optional<double>
+auto written = meterFields.write<1>(275);     // checked int -> float
+auto result = meterCommands.call<1>(230.0f, Mode::Auto);
 
-// Local table position and exact native signature are known at compilation.
-auto result = commandApi.call<1>(230.0f, Mode::Auto);
+// 2. Global compile-time packed ID: routes to the same local operation.
+voltage = fields.read<makeId(0, 0)>();
+written = fields.write<makeId(0, 1)>(275);
+result = commands.call<makeId(0, 1)>(230.0f, Mode::Auto);
 
-// The position is dynamic, while the native C++ signature stays known.
-std::size_t runtimePosition = receivePosition();
-result = commandApi.call(runtimePosition, 230.0f, Mode::Auto);
-
-// A transport supplies a packed ID and borrowed Scalar array synchronously.
+// 3. Global runtime IDs supplied by a transport.
+Scalar value = fieldIndex.read(receiveFieldId());
+written = fieldIndex.write(receiveFieldId(), 275);
 const Scalar arguments[] = {230.0f, std::uint8_t{1}};
-result = actions.execute(makeId(0, 1), arguments, 2);
+result = commandIndex.execute(receiveCommandId(), arguments, 2);
+
+// A local runtime position with native arguments is also supported.
+result = meterCommands.call(receivePosition(), 230.0f, Mode::Auto);
 ```
 
-`makeField` returns the same concrete RW32 `Field`; there is no additional
-runtime wrapper. The native getter determines `numericType<T>()` or
+`field(...)` supports the same NTTP methods/free functions, parameter function
+pointers, capture-free lambdas and borrowed callable lvalues through this one factory.
+`makeField` was removed; use `field(...)` entries in a `FieldTable`.
+`FieldTable` retains their types, but stores only `std::array<Field, N>`.
+For nonempty tables its size is exactly `N * sizeof(Field)`, with the same
+alignment as Field. There is no stored definition tuple or second owner pointer.
+The empty table follows `std::array<Field, 0>` storage rules.
+
+Native `read<I>()` returns `optional<Scalar::NativeType<tag>>`; an enum returns
+its numeric representation. `read<I, T>()` uses the shared checked native
+conversion. Reads ignore write limits. Native `write<I>()` converts directly
+to the destination number, applies the same finite/bounds validator as dynamic
+Field writes, then calls the concrete setter. The existing descriptor payload
+supplies the owner or exact function pointer. Runtime function-pointer forms
+still need their native indirect call when the target is not known to the
+compiler; they do not construct Scalar for numeric inputs.
+
+Scalar-returning callbacks require explicit FieldType. They, and manually
+adapted `field(Field{...})` entries, use the ordinary Field path: `read<I>()`
+returns Scalar and `read<I, T>()` returns optional<T>. This preserves declared
+type normalization before requested widening or truncation. Scalar write
+inputs remain supported; only those inputs need Scalar extraction.
+
+`group(name, table)` borrows a stable lvalue FieldTable or CommandTable. The
+global catalog tables own their ordinary descriptor arrays and one typed
+table pointer per group. They route compile-time IDs to the selected table
+without constructing a dynamic index. `.index()` returns the ordinary borrowed
+runtime view; global runtime convenience methods use that same view. The
+tables are non-copyable/non-movable; borrowed owners, closures, strings and
+local tables must outlive their consumers. Extracting views from temporaries
+is rejected. None of these layers stores an ID or allocates memory.
+
+`field` produces a temporary typed definition. `FieldTable` materializes the
+same concrete RW32 `Field`; there is no additional runtime wrapper. The native getter determines `numericType<T>()` or
 `enumType<E>()`. Its typed setter must accept that exact C++ value type and
 return `WriteResult`; both callbacks must be `noexcept`. A different enum
 with the same underlying integer is rejected. Getters and command parameters
@@ -123,9 +156,9 @@ without checking write limits. Defaults never mutate an owner automatically.
 
 The ordinary Field constructor remains available for explicit type adaptation
 or empty getters. A Scalar-returning getter cannot imply its payload type;
-use `makeField<&Device::readScalar>(id, name, unit, ScalarType::F32, device)`
+use `field<&Device::readScalar>(name, unit, ScalarType::F32, device)`
 (and, optionally, a `WriteResult(const Scalar&) noexcept` setter). For named
-borrowed callables, use `makeField(id, name, unit, ScalarType::F32, getter)` or
+borrowed callables, use `field(name, unit, ScalarType::F32, getter)` or
 the corresponding `getter, setter` overload. The callable lifetime rules below
 still apply.
 
@@ -133,21 +166,23 @@ Free/static functions need no owner. Capture-free numeric getter and setter
 lambdas also work directly, with or without unary `+`:
 
 ```cpp
-constexpr auto ua = makeField(0, "Ua", "V",
-    []() noexcept { return device.voltage(); });
+constexpr FieldTable callbackFields{
+field("Ua", "V",
+    []() noexcept { return device.voltage(); }),
 
-constexpr auto directLimit = makeField(1, "Limit", "V",
+field("Limit", "V",
     []() noexcept { return device.limit(); },
     [](float value) noexcept { return device.setLimit(value); },
-    limits(250.0f, 1.0f, 1000.0f));
+    limits(250.0f, 1.0f, 1000.0f)),
+};
 
 // A C++17 named lambda pair can be used as template targets.
 constexpr auto readLimit = +[]() noexcept { return device.limit(); };
 constexpr auto writeLimit = +[](float value) noexcept {
     return device.setLimit(value);
 };
-constexpr auto limitField = makeField<readLimit, writeLimit>(1, "Limit", "V",
-    limits(250.0f, 1.0f, 1000.0f));
+constexpr FieldTable limitFields{field<readLimit, writeLimit>("Limit", "V",
+    limits(250.0f, 1.0f, 1000.0f))};
 
 // Capturing/stateful callbacks are borrowed from named, stable lvalues.
 void useRuntimeDevice(Device& runtimeDevice)
@@ -156,17 +191,17 @@ void useRuntimeDevice(Device& runtimeDevice)
     auto capturedWrite = [&runtimeDevice](float value) noexcept {
         return runtimeDevice.setLimit(value);
     };
-    const auto capturedLimit = makeField(2, "Captured limit", "V",
-        capturedRead, capturedWrite, limits(250.0f, 1.0f, 1000.0f));
+    const FieldTable capturedLimit{field("Captured limit", "V",
+        capturedRead, capturedWrite, limits(250.0f, 1.0f, 1000.0f))};
     // capturedLimit must not outlive capturedRead, capturedWrite or runtimeDevice.
 }
 
 CommandResult saveConfig() noexcept;
-constexpr auto save = makeCommand<&saveConfig>(3, "Save");
+constexpr CommandTable systemCommands{command<&saveConfig>("Save")};
 
 // Stateful callable objects are borrowed as named, stable lvalues.
 constexpr auto resetLambda = []() noexcept { return device.reset(); };
-constexpr auto resetFromLambda = makeCommand(4, "Reset lambda", resetLambda);
+constexpr CommandTable lambdaCommands{command("Reset lambda", resetLambda)};
 ```
 
 Capture-free callbacks take the native function-pointer path, including inline
@@ -179,37 +214,28 @@ throwing call operators and temporary capturing closures are rejected. No
 factory stores a pointer to a temporary closure.
 
 Command IDs form a separate logical space. For one flat zero-based array,
-`CommandIndex` validates the contiguous prefix once and uses one bounds check.
+`CommandIndex` clips its count to the entry capacity and uses one bounds check.
 `CommandCatalogIndex` uses the same packed 16-bit group/index arithmetic as
-fields: command groups and rows are dense zero-based prefixes, and lookup uses
+fields: group and entry positions are their identities, and lookup uses
 two bounds checks and direct indexing. `CommandCatalog::name` may use paths such
 as `Motor/Control`, so field and command schemas can describe the same UI
 section without storing a path in every Command. Both indexes borrow stable
-definition arrays; temporary arrays are rejected. A Command is 24 bytes on
-ARM32 (48 on the tested x64 ABI). Its handler already knows the
+definition arrays; temporary arrays are rejected. A Command is naturally 20 bytes on
+ARM32 (40 on the tested x64 ABI). Its handler already knows the
 argument count/types, so those are not duplicated in the descriptor. Commands
-without decoration store no parameter array. The low-level `makeCommand` API
-keeps positional metadata in a caller-owned `commandArgs` lvalue, which must
-outlive every copied Command; passing a temporary is rejected. Indexed
-`arg<N>(...)` metadata may be partial and arbitrarily ordered. Duplicate,
-out-of-range, mixed positional/indexed, wrong numeric and wrong enum entries are
-compile-time errors.
+without decoration store no parameter array. Prebuilt `commandArgs(...)` can also be passed to
+`command(...)`; the table copies that metadata into its own stable storage.
+The old public `makeCommand` factory is removed; use `CommandTable` entries.
 
 `command(...)` creates a value specification without internal pointers.
-Directly constructing `CommandTable{...}` or `CommandCatalogTable{...}` owns the
-metadata and builds stable ordinary `Command` views into it. The owning tables
-are non-copyable and non-movable because their descriptors point into their own
-metadata. `CommandTable` exposes lvalue-only `data()`, `operator[]` and
-`index()`; `CommandCatalogTable` exposes lvalue-only `data()` and `catalog()`.
-A catalog table deliberately has no flat `index()`: packed IDs for groups above
-zero must be resolved by `CommandCatalogIndex`. Attempts to extract any view
-from a temporary are rejected, because destruction would leave it dangling. `size()`
-remains available on temporaries because it returns an independent value. In
-C++17 do not wrap their construction in a return-by-value factory:
-GCC does not accept that self-referential result as a constant expression.
-Direct CTAD construction, as above, is supported by GCC, Clang and MSVC.
-There is no fixed library limit on arity; template depth and stack resources
-remain properties of the compiler/application.
+Direct `CommandTable{...}` construction owns its metadata tuple and ordinary
+Command descriptors. Those descriptors point into the owned metadata, so the
+table is non-copyable and non-movable. `data()`, `operator[]` and `index()` are
+lvalue-only. `size()` may be used on a temporary because it returns a value.
+In C++17 construct CommandTable directly: returning a self-referential table
+from a factory is not a portable constant expression. `CommandCatalogTable`
+is now the multi-group registry shown above, not an owning single-group wrapper.
+There is no fixed arity limit beyond compiler and application resources.
 
 An owning command table provides three execution levels:
 
@@ -246,8 +272,9 @@ Scalar array. Fractional numeric inputs truncate toward zero under the shared
 conversion policy. Both dynamic and native paths then use the same native
 finite/range/enum validator, so their accepted value sets cannot drift.
 
-The two `CommandCatalogTable::call()` overloads forward to their owned table;
-their index is also a local position, not a packed `CommandId`. All arguments
+`CommandCatalogTable::call<Id>()` routes a packed ID to a direct local call.
+Its `call(id, values...)` overload uses the dynamic Scalar convenience path;
+`execute(id, args, count)` accepts transport values directly. All arguments
 must be present in every path: defaults are schema/UI values. Enum parameters
 use their inferred numeric interval; unnamed gaps remain allowed. Automatic
 enum discovery has the same magic_enum range contract as `enumType<E>()`. The
@@ -343,22 +370,22 @@ Plain default declarations work without braces:
 
 ```cpp
 Scalar value;    // Null.
-Field field;     // id 0, name/unit "", declaredType Null, get/set nullptr.
+Field field;     // name/unit "", declaredType Null, get/set nullptr.
 Catalog group;   // id 0, name "", fields nullptr, count 0.
 ```
 
 The same defaults apply in `constexpr` declarations and when trailing
 arguments are omitted from a Field initializer. Its constexpr constructor
-retains the order `{id, name, unit, declaredType, getter, setter}`.
+retains the order `{name, unit, declaredType, getter, setter}`.
 Field is no longer an aggregate: designated initializers are not supported.
 Copy/move construction and public metadata reads remain available. Field
 members are const; assignment and individual definition edits are rejected.
-Pass names, IDs, types and bindings to the constructor. An empty getter returns Null.
+Pass names, types and bindings to the constructor. An empty getter returns Null.
 
 The RW32 Field occupies 96 bytes on Cortex-M7, as did B32. Getter and its
 cached numeric type use the first 32-byte line; Setter, write type/flags and
 all bounds use the second. Defaults and the enum description occupy the third;
-names and IDs fill unused space in the first. Read/write touch only their
+names fill unused space in the first. Read/write touch only their
 respective Field metadata line, in addition to index, owner and callback data.
 See the [RW32 measurement report](../../tests/field_layout/h7s/RW32_RESULTS.md).
 
@@ -371,11 +398,9 @@ an explicit setting if the default does not match their cache geometry.
 No Qt or SPSC headers are required. Invalid powers/sizes and conflicting
 overrides fail compilation. Field also rejects a line too small to contain
 its complete write contract on the target ABI. Command deliberately remains a
-compact 24-byte ARM descriptor: live H7S A/B tests found no `-O2` execution
-gain from 32-byte alignment and up to a 0.38% loss on a 1024-row table. A
-reordered compact candidate was 4.35% slower. The aligned candidate helped
-`-Os` execution, but slowed standalone lookup and increased every row by eight
-bytes; the speed-oriented firmware configuration uses `-O2`.
+natural 20-byte ARM descriptor after ID removal. The historical 24/32-byte
+measurements describe ABI 5; the ABI-6 natural/padded comparison is recorded in
+[the positional table checks](../../tests/position_tables/README.md).
 
 The setting must be identical in every translation unit and static library
 inside one executable. Changing it changes Field alignment, member offsets and
@@ -387,23 +412,21 @@ remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is 5. Field retains the 96-byte RW32 stride,
-but Getter's compact payload moves `readType` from ARM offset 12 to 8. The exact
-ABI tuple also covers flat/grouped commands, every descriptor/index member,
-and the private Scalar/Getter/Setter/FieldType storage needed to interpret
-nested values. Rebuild all consumers and static libraries. It is a
-compile-time revision marker, not a JSON version. `telemetryAbiSignature`
-additionally hashes that revision, the selected cache line, pointer width,
-relevant type sizes/alignments and all guarded public and private offsets.
-The compiled JSON entry points carry the complete, unhashed tuple in their C++
-link symbols; the numeric signature is for diagnostics rather than collision
-handling. Consequently, `serialization/TelemetryJson.cpp` built for one layout cannot satisfy calls
-built for another layout; the mismatch fails while linking. A module boundary
-that exchanges telemetry definitions but never calls the compiled JSON API can
-make the same check explicit once with `telemetry::requireTelemetryAbi()`.
-That function is supplied independently by `abi/TelemetryAbi.cpp`; JSON is not
-needed. Purely inline code that calls neither it nor JSON has no automatic link
-anchor.
+`telemetry::telemetryAbiVersion` is **6**. This is an intentional API/ABI break:
+Field, Command, Catalog and CommandCatalog no longer store `id`. Their
+constructors and factories no longer accept it. A global CommandCatalogTable
+is constructed from groups; an individual group's owner is CommandTable.
+Remove declaration IDs, preserve table order, and clean-rebuild all consumers.
+
+On ARM32 Field remains 96 bytes/aligned to 32. Getter/readType remain at 0/8;
+name/unit are now at 12/16, Setter/FieldType remain at 32/40. Catalog and
+CommandCatalog are 12 bytes. Natural Command is 20 bytes. The exact ABI tuple
+covers all remaining members, nested storage, sizes and alignment, including
+the cache-line policy. Its unhashed tuple is part of compiled JSON and explicit
+`requireTelemetryAbi()` link symbols. Mixed builds fail when they use those
+entry points. Inline-only consumers must call the explicit anchor at a module
+boundary if they need that link-time check. The diagnostic hash is not a wire
+version or a collision-based substitute for the link tuple.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
 at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
@@ -419,7 +442,7 @@ the raw bytes of Field, Scalar, Getter, Setter or command objects.
 
 Positional construction keeps its documented order. Member-order-dependent
 structured bindings are source-incompatible: the declaration order is now
-`get, readType, id, name, unit, set, declaredType`. Prefer named member access. C++20
+`get, readType, name, unit, set, declaredType`. Prefer named member access. C++20
 designated initialization must be replaced with positional construction.
 
 Ordinary `Field[]`, `std::array<Field, N>` and conforming C++17 allocation
@@ -431,7 +454,7 @@ and linker sections must honor `alignof(Field)` for the base and
 #include <cstddef>
 #include <new>
 alignas(Field) std::byte storage[sizeof(Field)];
-Field* field = ::new (static_cast<void*>(storage)) Field{0, "value", "", ScalarType::F32};
+Field* field = ::new (static_cast<void*>(storage)) Field{"value", "", ScalarType::F32};
 // Publish views only after construction; destroy them before reusing storage.
 field->~Field();
 ```
@@ -540,30 +563,27 @@ in Flash; runtime definitions occupy their owner's storage.
 
 An enum describes names for a numeric field. Its underlying type determines
 the existing Scalar type; there is no `ScalarType::Enum` or enum alternative
-in the variant. Include `TelemetryEnum.h` where enum fields are defined:
+in the variant. Include `Telemetry.h` where enum fields are defined:
 
 ```cpp
 enum class Mode : std::uint16_t { Off, Auto, Manual };
 Mode mode = Mode::Auto; // Owner's storage, with a stable lifetime.
-using RawMode = std::underlying_type_t<Mode>;
-
-constexpr Field fields[] = {
-    {makeId(0, 0), "Mode", "", enumType<Mode>(),
-     []() noexcept { return static_cast<RawMode>(mode); },
-     [](const Scalar& value) noexcept {
-         mode = static_cast<Mode>(value.get<RawMode>());
-         return WriteResult::Applied;
-     }},
+constexpr auto readMode = +[]() noexcept { return mode; };
+constexpr auto writeMode = +[](Mode value) noexcept {
+    mode = value;
+    return WriteResult::Applied;
 };
-constexpr Catalog catalogs[] = {{0, "settings", fields}};
-constexpr auto index = CatalogIndex::bind<catalogs>();
-
-auto number = index.read<makeId(0, 0)>(); // optional<uint16_t>, not optional<Mode>.
+constexpr FieldTable settingsFields{
+    field<readMode, writeMode>("Mode", "", limits(Mode::Auto)),
+};
+constexpr FieldCatalogTable fields{group("settings", settingsFields)};
+constexpr auto index = fields.index();
+auto number = fields.read<makeId(0, 0)>(); // optional<uint16_t>.
 auto result = index.write(makeId(0, 0), 100); // InvalidValue: outside 0..2.
 ```
 
-The owner explicitly casts to/from its enum. Getters, setters and public
-read/write calls continue to use native numbers or Scalar. During compilation,
+Callbacks use their actual enum type; public field reads expose native numbers.
+During compilation,
 `enumType` derives min/max from its listed codes and chooses the smallest
 code as default. `enumType<Mode>(Mode::Auto)` overrides that default while
 retaining automatic bounds. `.withDefault(number)` and `.withLimits(min, max,
@@ -576,7 +596,7 @@ to the owner. Reads ignore the write interval and may publish code 100.
 `writeSchema()` emits the numeric type and an extra property:
 
 ```json
-{"t":"u16","min":0,"max":2,"default":0,"enum":{"0":"Off","1":"Auto","2":"Manual"}}
+{"t":"u16","min":0,"max":2,"default":1,"enum":{"0":"Off","1":"Auto","2":"Manual"}}
 ```
 
 `writeValues()` still emits numbers. Lookup and read/write never inspect enum
@@ -603,8 +623,8 @@ retaining compile-time type matching:
 
 ```cpp
 constexpr auto codes = enumSpec<Code::Ready, Code::Last>(Code::Ready);
-constexpr auto codeField = makeField<&Device::code, &Device::setCode>(
-    makeId(0, 3), "Code", "", device, codes);
+constexpr FieldTable codeFields{field<&Device::code, &Device::setCode>(
+    "Code", "", device, codes)};
 constexpr auto commandMetadata = commandArgs(arg("Code", "", codes));
 ```
 
@@ -649,24 +669,20 @@ Counts use `std::size_t`, so a full component capacity does not wrap to zero.
 using namespace telemetry;
 
 // meter and sensor are existing sources with appropriate lifetimes.
-constexpr Field meterFields[] = {
-    {makeId(0, 0), "Ua", "V", ScalarType::F32,
-     []() noexcept { return Scalar::fromF32(meter.voltage); }},
-    {makeId(0, 1), "Ia", "A", ScalarType::F32,
-     +[]() noexcept { return Scalar::fromF32(meter.current); }},
+constexpr FieldTable meterFields{
+    field("Ua", "V", []() noexcept { return meter.voltage; }),
+    field("Ia", "A", +[]() noexcept { return meter.current; }),
 };
-constexpr Field sensorFields[] = {
-    {makeId(1, 0), "Temperature", "degC", ScalarType::F64,
-     Getter::bind<&Sensor::temperature>(sensor)},
+constexpr FieldTable sensorFields{
+    field<&Sensor::temperature>("Temperature", "degC", sensor),
 };
-constexpr Catalog catalogs[] = {
-    {0, "meter", meterFields},
-    {1, "sensor", sensorFields},
+constexpr FieldCatalogTable fields{
+    group("meter", meterFields),
+    group("sensor", sensorFields),
 };
-constexpr CatalogIndex index{catalogs};
-
+constexpr auto index = fields.index();
 const FieldId id = makeId(1, 0); // 65536: sensor temperature.
-const Field* field = index.find(id);
+const Field* descriptor = index.find(id);
 Scalar value = index.read(id);
 ```
 
@@ -676,8 +692,8 @@ uses the same constructors without `constexpr`; the owning object must keep
 its address. The demo shows both forms.
 
 The lookup splits the ID with `id >> 16` and `id & 0xffff`, checks the group
-against the accepted group count, then checks the position against that
-catalog's accepted field count. It computes the address directly. There is
+against the group count, then checks the position against that
+catalog's field count. It computes the address directly. There is
 no scan, binary search, hash, allocation, or per-field pointer table. Only
 actually present groups and fields occupy storage; the full 16-bit capacity
 is never reserved automatically. The lookup body is forced inline on
@@ -686,7 +702,7 @@ GCC/Clang/MSVC, including size-optimized builds on the verified ARM compiler.
 `groupOf(id)` and `indexOf(id)` expose the two components. `CatalogIndex`
 provides `find(id)`, `read(id)`, `read<T>(id)`, `write(id, value)`,
 `catalog(group)`, `data()` and `size()`. `catalog()`
-returns null for a group outside the accepted prefix. The view stores only
+returns null for a group outside the catalog bounds. The view stores only
 a catalog pointer and a group count and can be copied without copying rows.
 For repeated reads, retain a found field pointer while its owner stays alive;
 `field->read()` then has no ID lookup cost.
@@ -711,7 +727,7 @@ destination types are unqualified native numeric values, without references.
 Use `if (voltage)` before dereferencing, or `voltage.value_or(fallback)`.
 
 ```cpp
-constexpr Field count{makeId(0, 0), "Count", "", ScalarType::U16,
+constexpr Field count{"Count", "", ScalarType::U16,
                      []() noexcept { return 12.75; }};
 auto scalar = count.read();        // U16 containing 12.
 auto number = count.read<double>(); // optional<double> containing 12.0.
@@ -725,11 +741,12 @@ requested C++ type is already the exact declared alternative, the typed path
 performs the checked conversion directly, without an intermediate normalized
 Scalar. Matching types do not undergo a numeric conversion.
 
-When the metadata has static storage and is constexpr, bind the array into
+For compatibility with manually declared Field arrays, when the metadata has
+static storage and is constexpr, bind the array into
 the index's C++ type to enable an inferred destination:
 
 ```cpp
-// catalogs is the namespace-scope constexpr array defined above.
+// Compatibility only: catalogs is a namespace-scope constexpr Catalog array.
 constexpr auto fixed = CatalogIndex::bind<catalogs>();
 auto ua = fixed.read<makeId(0, 0)>();          // optional<float>, F32 metadata.
 auto temperature = fixed.read<makeId(1, 0)>(); // optional<double>, F64 metadata.
@@ -745,7 +762,7 @@ same type retains `find`, runtime-ID reads, writes and serialization support.
 It has no mutable binding and implicitly supplies the shared const
 `CatalogIndex` view to existing consumers. `bind` rejects non-constexpr
 metadata immediately. `read<Id>()`, `read<Id, T>()` and `write<Id>(value)`
-reject IDs outside the accepted prefix at compilation. Inferred `read<Id>()`
+reject IDs outside the catalog bounds at compilation. Inferred `read<Id>()`
 also rejects Null metadata and unknown declared types. Empty or unavailable
 getters still need an optional result even for a valid compile-time ID. A
 known read-only field returns `WriteResult::ReadOnly`, matching runtime-ID
@@ -753,46 +770,40 @@ semantics; the compiler reduces that path to the constant result.
 
 An ordinary `CatalogIndex{catalogs}` stores only a pointer and count; its
 table is not part of its C++ type. Use `read(id)` or `read<T>(id)` on that view.
-Instance-bound catalogs such as DemoCatalog use this form.
+The demo derives this runtime view from its typed FieldCatalogTable.
 
-## Contiguous-prefix contract
+## Position identity and lifetime
 
-Both group numbers and local field positions must be dense and zero-based.
-Validation occurs once when the corresponding object is constructed; a
-`constexpr` construction performs it during compilation.
+**Reordering or deleting table entries changes their public IDs.** The first
+group is 0, the first entry is 0. Insertion shifts every later ID. An entry
+has no stored group identity: the same local table can be exposed in two
+groups, with IDs computed separately in each traversal.
 
-- `Catalog` accepts rows only while `row.id == makeId(group, rowPosition)`.
-  Its public `count` is the accepted prefix length, not the requested length.
-- `CatalogIndex` accepts catalogs only while `catalog.id == groupPosition`.
-  Its `size()` is the accepted group prefix length.
-- A gap, duplicate, reordered ID or wrong group component stops that prefix
-  at the first mismatch. Later rows/groups are never skipped or renumbered.
-- A field mismatch trims only that group. Correctly numbered later groups
-  remain accessible. A group mismatch trims the entire group list.
-- Counts above 65536 are capped before reading or narrowing an ordinal.
-  Null input pointers produce an empty prefix, including with nonzero count.
-- An empty group is a valid group position. A missing ID returns null; lookup
-  never substitutes the last accepted field for an invalid request.
-
-For example, field indices `0, 1, 4, 3` expose only `0, 1`; group IDs
-`0, 1, 3, 2` expose only groups `0, 1`. Completeness can be checked explicitly:
+Use placeholders when retiring a published entry:
 
 ```cpp
-static_assert(catalogs[0].count == std::size(meterFields));
-static_assert(index.size() == std::size(catalogs));
+constexpr FieldTable values{
+    field<&readVoltage>("Ua", "V"),
+    reservedField(),                  // Keeps position 1 unavailable.
+    field<&readCurrent>("Ia", "A"),
+};
+constexpr CommandTable actions{
+    command<&reset>("Reset"),
+    reservedCommand(),               // Keeps position 1 unavailable.
+};
 ```
 
-Those checks are optional: the library keeps the usable prefix instead of
-asserting or rejecting all earlier valid entries. Do not renumber an existing
-published field to conceal a gap; preserve its position with an unavailable
-getter or deliberately change the schema/ID assignment.
+Reserved fields return Null/empty optional and ReadOnly on write; reserved
+commands return Unavailable. They remain visible as empty schema rows, keeping
+the wire positions stable. An empty group likewise keeps its position. Name
+uniqueness checks are optional; multiple empty placeholder names are expected
+to fail a strict uniqueness check.
 
-Catalog metadata (`id`, `name`, `fields`, `count`) is immutable after
-construction, so its validated limits cannot be overwritten. Catalogs can
-be copy/move constructed but cannot be assigned. Construct a replacement
-catalog when changing definitions. Default construction gives an empty
-catalog with group ID zero and an empty name; normal published catalogs
-still need unique names.
+Local/global typed tables reject more than 65536 entries/groups at compilation.
+Raw descriptor views cap counts at 65536 and treat null arrays as empty. There
+are no ID-prefix scans. Missing positions return NotFound or an unavailable
+read; no request clamps to another entry. Metadata is immutable and borrowed
+views refer to stable arrays. Catalogs themselves remain copy-constructible.
 
 Array-reference constructors without a count deduce the actual extent.
 Temporary arrays are rejected, including in explicit-count calls. Every
@@ -810,7 +821,7 @@ An ordinary noexcept function returning Scalar, bool, float, double or a
 supported integer can appear by name or address. Both bare `[]` and `+[]`
 captureless noexcept lambdas work in field rows;
 `Getter::bind<&read>()` and `Getter::bind<&Sensor::method>(sensor)` are also
-supported. `makeField` can borrow a named capturing lambda or stateful functor;
+supported. `field` can borrow a named capturing lambda or stateful functor;
 that callable and everything it captures must remain alive at the same address.
 Temporary closures are rejected.
 Const objects work with const methods. Empty getters, including a typed null
@@ -821,14 +832,13 @@ double Sensor::temperature() const noexcept { return temperature_; }
 bool Sensor::enabled() const noexcept { return enabled_; }
 float readUa() noexcept { return meter.voltage; }
 
-constexpr Field fields[] = {
-    {makeId(0, 0), "Ua", "V", ScalarType::F32,
-     []() noexcept { return meter.voltage; }},
-    {makeId(0, 1), "Ia", "A", ScalarType::F32,
-     +[]() noexcept { return meter.current; }},
-    {makeId(0, 2), "UaFunction", "V", ScalarType::F32, readUa},
-    {makeId(0, 3), "Temperature", "degC", ScalarType::F64,
-     Getter::bind<&Sensor::temperature>(sensor)},
+constexpr FieldTable fields{
+    field("Ua", "V", []() noexcept { return meter.voltage; }),
+    field("Ia", "A", +[]() noexcept { return meter.current; }),
+    field("UaFunction", "V", readUa),
+    field("UaAddress", "V", &readUa),
+    field<&readUa>("UaTemplate", "V"),
+    field<&Sensor::temperature>("Temperature", "degC", sensor),
 };
 ```
 
@@ -1078,7 +1088,7 @@ with reproduction flags in its opening comment; use the same flags for
 [FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp),
 [BorrowedFieldCodegen.cpp](../../tests/BorrowedFieldCodegen.cpp) and
 [CommandTableCodegen.cpp](../../tests/CommandTableCodegen.cpp).
-The [ARM runner](../../tests/run_arm_checks.py) compiles all ten probes and
+The [ARM runner](../../tests/run_arm_checks.py) compiles all twelve probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
 independently checks core, field-JSON and command-JSON archives. Each matching layout links; each
@@ -1091,7 +1101,13 @@ keeps the erased wrapper as an explicit indirect-dispatch control.
 It compares manual and inferred read wrappers in the same build and rejects
 growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
 records a separate 14/14 object-byte comparison against `c6012d9` and the free
-getter improvement. Field remains 96 bytes on ARM32; Command is 24 bytes.
+getter improvement. The current ABI-6 layout is Field 96, Command 20 and Catalog 12 bytes on ARM32.
+See [positional table checks](../../tests/position_tables/README.md) for current evidence.
+
+### Historical code-generation and board checkpoints
+
+The following counts and comparisons refer to the stated earlier revisions;
+they are not a substitute for running the current source checks.
 
 For this final core update, local CubeIDE GCC 14.3.1 compiled 27 translation
 units and ten probes at both optimization levels. All 18 `-O2`/`-Os` objects
@@ -1141,7 +1157,7 @@ with no startup constructor sections and zero `.data`/`.bss`. Mutable source
 values are external to the probe and still need application storage. Final
 Flash/RAM placement is determined by linking.
 For 1000 fields the Field array alone occupies 96,000 bytes (93.75 KiB),
-before strings, callback code or catalogs. This is the current cost of owning
+before strings, callback code or catalogs. This is the descriptor cost of owning
 limits/defaults in every descriptor. Sharing separate schema descriptors is
 a possible future layout change, not an optimization applied by this release.
 

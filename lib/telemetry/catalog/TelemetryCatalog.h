@@ -15,44 +15,37 @@
 namespace telemetry {
 
 struct Catalog {
-    const GroupId id = 0;
     const char* const name = "";
     const Field* const fields = nullptr;
     const std::size_t count = 0;
 
     constexpr Catalog() noexcept = default;
 
-    // Validate once, retaining only the correct contiguous prefix. Counts
-    // above 65536 are clipped before indexing or narrowing the row ordinal.
+    // Position is identity. Counts above 65536 are clipped before indexing.
     // The pointer/count must describe a live array; null produces no fields.
     // A template keeps the deleted rvalue-array overload preferred to
     // array-to-pointer conversion in the explicit pointer/count form.
     template <class = void>
-    constexpr Catalog(GroupId group, const char* label, const Field* rows,
+    constexpr Catalog(const char* label, const Field* rows,
                       std::size_t requestedCount) noexcept
-        : id(group), name(label), fields(rows), count(prefixCount_(group, rows, requestedCount)) {}
+        : name(label), fields(rows), count(clippedCount_(rows, requestedCount)) {}
 
     template <std::size_t N>
-    constexpr Catalog(GroupId group, const char* label, const Field (&rows)[N]) noexcept
-        : Catalog(group, label, static_cast<const Field*>(rows), N) {}
+    constexpr Catalog(const char* label, const Field (&rows)[N]) noexcept
+        : Catalog(label, static_cast<const Field*>(rows), N) {}
 
     template <std::size_t N>
-    Catalog(GroupId, const char*, const Field (&&)[N]) = delete;
+    Catalog(const char*, const Field (&&)[N]) = delete;
     template <std::size_t N>
-    Catalog(GroupId, const char*, const Field (&&)[N], std::size_t) = delete;
+    Catalog(const char*, const Field (&&)[N], std::size_t) = delete;
 
 private:
-    static constexpr std::size_t prefixCount_(GroupId group, const Field* rows,
-                                             std::size_t requestedCount) noexcept
+    static constexpr std::size_t clippedCount_(const Field* rows,
+                                               std::size_t requestedCount) noexcept
     {
         if (rows == nullptr) return 0;
-        const std::size_t limit = requestedCount < idComponentCapacity
+        return requestedCount < idComponentCapacity
             ? requestedCount : idComponentCapacity;
-        std::size_t accepted = 0;
-        while (accepted < limit && rows[accepted].id == makeId(group, static_cast<FieldOffset>(accepted))) {
-            ++accepted;
-        }
-        return accepted;
     }
 };
 

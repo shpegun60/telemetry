@@ -35,7 +35,6 @@ namespace telemetry {
 struct alignas(cacheLineBytes) Field {
     const Getter get;
     const ScalarType readType;
-    const FieldId id;
     const char* const name;
     const char* const unit;
 
@@ -48,10 +47,10 @@ struct alignas(cacheLineBytes) Field {
                   && sizeof(Setter) + FieldType::writeBytes_() <= cacheLineBytes,
                   "Cache line must contain the complete setter/type/bounds contract");
 
-    constexpr Field(FieldId fieldId = 0, const char* fieldName = "",
-                    const char* fieldUnit = "", FieldType fieldType = ScalarType::Null,
+    constexpr Field(const char* fieldName = "", const char* fieldUnit = "",
+                    FieldType fieldType = ScalarType::Null,
                     Getter getter = nullptr, Setter setter = nullptr) noexcept
-        : get(getter), readType(static_cast<ScalarType>(fieldType)), id(fieldId),
+        : get(getter), readType(static_cast<ScalarType>(fieldType)),
           name(fieldName), unit(fieldUnit), set(setter), declaredType(fieldType) {}
 
     constexpr Field(const Field&) noexcept = default;

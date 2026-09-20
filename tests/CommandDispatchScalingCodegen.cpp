@@ -24,11 +24,9 @@ template <std::size_t I>
 constexpr auto scaleDefinition() noexcept
 {
     if constexpr (I % 16 == 1) {
-        return telemetry::command<&CommandScaleOwner::template matching<I>>(
-            static_cast<telemetry::CommandId>(I), "Matching", commandScaleOwner);
+        return telemetry::command<&CommandScaleOwner::template matching<I>>("Matching", commandScaleOwner);
     } else {
-        return telemetry::command<&CommandScaleOwner::template other<I>>(
-            static_cast<telemetry::CommandId>(I), "Other", commandScaleOwner);
+        return telemetry::command<&CommandScaleOwner::template other<I>>("Other", commandScaleOwner);
     }
 }
 

@@ -10,7 +10,7 @@ alignas(LAYOUT_TABLE_ALIGN)
 #endif
 extern constexpr auto layout_fields = layout_fixture::rows(std::make_index_sequence<LAYOUT_FIELD_COUNT>{});
 extern constexpr telemetry::Catalog layout_catalogs[] = {
-    {0, "values", layout_fields.data(), layout_fields.size()},
+    {LAYOUT_ID(0) "values", layout_fields.data(), layout_fields.size()},
 };
 extern constexpr telemetry::CatalogIndex layout_index{layout_catalogs};
 static_assert(layout_index.size() == 1 && layout_catalogs[0].count == LAYOUT_FIELD_COUNT);

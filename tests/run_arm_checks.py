@@ -102,9 +102,41 @@ def check_command_dispatch(disassembly):
             raise RuntimeError(f"CommandTableCodegen: {name} reintroduced type erasure")
         if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
             raise RuntimeError(f"CommandTableCodegen: {name} unexpectedly uses stack storage")
+    local = normalized_instructions(disassembly, "command_table_call_known")
+    global_ = normalized_instructions(disassembly, "command_table_call_global")
+    if global_ != local:
+        # -Os may coalesce identical bodies with a tail branch to the local wrapper.
+        real = [i for i in global_ if i[0] != "nop"]
+        if not (len(real) == 1 and real[0][0] in ("b", "b.w", "b.n")
+                and "<command_table_call_known>" in real[0][1]):
+            raise RuntimeError("CommandTableCodegen: global routing adds work to the local call")
     erased = function_body(disassembly, "command_table_execute_erased")
     if not re.search(r"\bblx\b|\bbx\s+(?:ip|r(?:1[0-2]|[0-9]))\b", erased):
         raise RuntimeError("CommandTableCodegen: erased path lost its indirect dispatch probe")
+
+
+def check_native_field_tables(disassembly):
+    def resolved(name, seen=()):
+        if name in seen:
+            raise RuntimeError("FieldTableCodegen: cyclic alias")
+        instructions = normalized_instructions(disassembly, name)
+        real = [entry for entry in instructions if entry[0] != "nop"]
+        # GCC -Os merges identical exported wrappers using one tail branch.
+        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
+            alias = re.search(r"<((?:table_direct|table_local|table_global)_\w+)>", real[0][1])
+            if alias:
+                return resolved(alias.group(1), (*seen, name))
+        return instructions
+
+    for operation in ("read", "converted", "write", "int", "u16", "enum"):
+        direct, local, global_ = ("table_" + route + "_" + operation
+                                  for route in ("direct", "local", "global"))
+        if resolved(direct) != resolved(local) or resolved(local) != resolved(global_):
+            raise RuntimeError(f"FieldTableCodegen: {operation} direct/local/global instructions differ")
+        for name in (local, global_):
+            body = function_body(disassembly, name)
+            if "Scalar" in body or re.search(r"\bblx\b", body):
+                raise RuntimeError(f"FieldTableCodegen: {name} contains erased dispatch")
 
 
 def check_command_scaling(disassembly):
@@ -163,7 +195,7 @@ def check_probe(name, headers, symbols, disassembly):
         raise RuntimeError(f"{name}: finite-value check was outlined instead of inlined")
     expected = {}
     if name == "IndexCodegen":
-        expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 32,
+        expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 24,
                     "telemetry_probe_group0_fields": 4 * 96,
                     "telemetry_probe_group1_fields": 3 * 96}
         check_static_field_dispatch(disassembly)
@@ -175,6 +207,9 @@ def check_probe(name, headers, symbols, disassembly):
         check_command_dispatch(disassembly)
     elif name == "CommandDispatchScalingCodegen":
         check_command_scaling(disassembly)
+    elif name == "FieldTableCodegen":
+        expected = {"field_table_probe": 3 * 96}
+        check_native_field_tables(disassembly)
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():

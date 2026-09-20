@@ -9,3 +9,6 @@ lib/delegate/tiny_delegate.hpp -text
 lib/delegate/LICENSE -text
 lib/magic_enum/magic_enum.hpp -text
 lib/magic_enum/LICENSE -text
+
+# Measurement CSV hashes refer to exact retained bytes.
+tests/position_tables/h7s/samples.csv -text whitespace=cr-at-eol

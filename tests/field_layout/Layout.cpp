@@ -40,7 +40,13 @@ extern const std::uint32_t layout_metrics[] __attribute__((used, section(".rodat
 #else
     UINT32_MAX, UINT32_MAX, // No duplicate members in A/B.
 #endif
-    offsetof(Field, declaredType), offsetof(Field, id), offsetof(Field, name), offsetof(Field, unit),
+    offsetof(Field, declaredType),
+#if TELEMETRY_LAYOUT_VARIANT == 6
+    UINT32_MAX, // Position is the identity; no stored ID.
+#else
+    offsetof(Field, id),
+#endif
+    offsetof(Field, name), offsetof(Field, unit),
     sizeof(telemetry::Getter), sizeof(telemetry::Setter), sizeof(telemetry::FieldType), 1024,
 };
 }

@@ -66,12 +66,12 @@ bool hashParameter(void* context, const CommandParam& parameter) noexcept
     return true;
 }
 
-bool hashCommand(std::uint32_t& hash, const Command& command) noexcept
+bool hashCommand(std::uint32_t& hash, const Command& command, CommandId id) noexcept
 {
     if (command.name == nullptr) return false;
-    hash = word(byte(hash, 'C'), command.id);
+    hash = word(byte(hash, 'C'), id);
     hash = string(hash, command.name);
-    if (!command.describeParameters(&hash, &hashParameter)) return false;
+    if (command.describe != nullptr && !command.describeParameters(&hash, &hashParameter)) return false;
     hash = byte(hash, 'E');
     return true;
 }
@@ -103,7 +103,7 @@ std::uint32_t commandSchemaCrcAbi(const CommandIndex& index, CurrentAbiTag) noex
     std::uint32_t hash = byte(2166136261u, 'M');
     for (std::size_t i = 0; i < index.size(); ++i) {
         const auto& command = index.data()[i];
-        if (!hashCommand(hash, command)) return 0;
+        if (!hashCommand(hash, command, static_cast<CommandId>(i))) return 0;
     }
     return hash;
 }
@@ -117,9 +117,9 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
                     static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
     for (std::size_t i = 0; i < index.size(); ++i) {
         const auto& command = index.data()[i];
-        if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", i == 0 ? "" : ",", command.id)
+        if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", i == 0 ? "" : ",", static_cast<CommandId>(i))
             || !out.appendRequiredString(command.name) || !out.append(",\"params\":[")
-            || !command.describeParameters(&out, &appendParameter) || !out.append("]}")) return 0;
+            || (command.describe != nullptr && !command.describeParameters(&out, &appendParameter)) || !out.append("]}")) return 0;
     }
     (void) out.append("]}");
     return out.length();
@@ -132,10 +132,10 @@ std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex& index,
     for (std::size_t group = 0; group < index.size(); ++group) {
         const auto& catalog = index.data()[group];
         if (catalog.name == nullptr) return 0;
-        hash = word(byte(hash, 'g'), catalog.id);
+        hash = word(byte(hash, 'g'), group);
         hash = string(hash, catalog.name);
         for (std::size_t i = 0; i < catalog.count; ++i) {
-            if (!hashCommand(hash, catalog.commands[i])) return 0;
+            if (!hashCommand(hash, catalog.commands[i], makeId(static_cast<GroupId>(group), static_cast<CommandOffset>(i)))) return 0;
         }
         hash = byte(hash, 'e');
     }
@@ -153,16 +153,16 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
     for (std::size_t group = 0; group < index.size(); ++group) {
         const auto& catalog = index.data()[group];
         if (!out.append("%s{\"id\":%u,\"name\":", group == 0 ? "" : ",",
-                        static_cast<unsigned>(catalog.id))
+                        static_cast<unsigned>(group))
             || !out.appendRequiredString(catalog.name)
             || !out.append(",\"commands\":[")) return 0;
         for (std::size_t i = 0; i < catalog.count; ++i) {
             const auto& command = catalog.commands[i];
             if (!out.append("%s{\"i\":%lu,\"id\":%" PRIu32 ",\"n\":",
-                            i == 0 ? "" : ",", static_cast<unsigned long>(i), command.id)
+                            i == 0 ? "" : ",", static_cast<unsigned long>(i), makeId(static_cast<GroupId>(group), static_cast<CommandOffset>(i)))
                 || !out.appendRequiredString(command.name)
                 || !out.append(",\"params\":[")
-                || !command.describeParameters(&out, &appendParameter)
+                || (command.describe != nullptr && !command.describeParameters(&out, &appendParameter))
                 || !out.append("]}")) return 0;
         }
         if (!out.append("]}")) return 0;

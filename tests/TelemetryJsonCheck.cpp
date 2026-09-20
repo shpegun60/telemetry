@@ -68,13 +68,13 @@ void checkBuffers(Serialize serialize, const char* message)
 {
     Source source;
     const Field fields[] = {
-        {0, "first", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
-        {1, "second", "A", ScalarType::F64, []() noexcept { return -0.25; }},
-        {2, "maximum", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
-        {3, "minimum", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
-        {4, "limited", "", numericType<float>(1.2f, -1.25f, 2.5f)},
+        {"first", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"second", "A", ScalarType::F64, []() noexcept { return -0.25; }},
+        {"maximum", "", ScalarType::U64, []() noexcept { return UINT64_MAX; }},
+        {"minimum", "", ScalarType::S64, []() noexcept { return INT64_MIN; }},
+        {"limited", "", numericType<float>(1.2f, -1.25f, 2.5f)},
     };
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Catalog catalogs[] = {{"v", fields}};
     const CatalogIndex index{catalogs};
     expect(buffersAgree(serialize, index), message);
     source.reads = 0;
@@ -96,10 +96,10 @@ void checkMetadataStrings()
         "\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f\"";
     Source source;
     const Field fields[] = {
-        {0, label, controls, ScalarType::F32, Getter::bind<&Source::read>(source)},
-        {1, "", "", ScalarType::Null},
+        {label, controls, ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"", "", ScalarType::Null},
     };
-    const Catalog catalogs[] = {{0, label, fields}, {1, controls, nullptr, 0}};
+    const Catalog catalogs[] = {{label, fields}, {controls, nullptr, 0}};
     const CatalogIndex index{catalogs};
     char schema[2048];
     const auto schemaSize = writeSchema(index, schema, sizeof(schema));
@@ -126,9 +126,9 @@ void checkNullMetadata()
 {
     Source source;
     const Field validFields[] = {
-        {0, "value", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"value", "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
     };
-    const Catalog nullCatalogName[] = {{0, nullptr, validFields}};
+    const Catalog nullCatalogName[] = {{nullptr, validFields}};
     char text[512];
     expect(schemaCrc(nullCatalogName, std::size(nullCatalogName)) == 0
                && writeSchema(nullCatalogName, std::size(nullCatalogName), text, sizeof(text)) == 0,
@@ -139,17 +139,17 @@ void checkNullMetadata()
            "value output rejects a null catalog name before invoking getters");
 
     const Field nullFieldName[] = {
-        {0, nullptr, "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {nullptr, "V", ScalarType::F32, Getter::bind<&Source::read>(source)},
     };
-    const Catalog badNameCatalog[] = {{0, "v", nullFieldName}};
+    const Catalog badNameCatalog[] = {{"v", nullFieldName}};
     expect(schemaCrc(badNameCatalog, std::size(badNameCatalog)) == 0
                && writeSchema(badNameCatalog, std::size(badNameCatalog), text, sizeof(text)) == 0,
            "schema fingerprint and output reject a null field name safely");
 
     const Field nullFieldUnit[] = {
-        {0, "value", nullptr, ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"value", nullptr, ScalarType::F32, Getter::bind<&Source::read>(source)},
     };
-    const Catalog badUnitCatalog[] = {{0, "v", nullFieldUnit}};
+    const Catalog badUnitCatalog[] = {{"v", nullFieldUnit}};
     expect(schemaCrc(badUnitCatalog, std::size(badUnitCatalog)) == 0
                && writeSchema(badUnitCatalog, std::size(badUnitCatalog), text, sizeof(text)) == 0,
            "schema fingerprint and output reject a null field unit safely");
@@ -164,16 +164,16 @@ void checkNullMetadata()
 void checkInt64Modes()
 {
     const Field fields[] = {
-        {0, "u64", "", numericType<std::uint64_t>(UINT64_C(5), UINT64_C(1), UINT64_MAX - 1),
+        {"u64", "", numericType<std::uint64_t>(UINT64_C(5), UINT64_C(1), UINT64_MAX - 1),
             []() noexcept { return UINT64_MAX; }},
-        {1, "s64", "", numericType<std::int64_t>(INT64_C(-5), INT64_MIN + 1, INT64_MAX - 1),
+        {"s64", "", numericType<std::int64_t>(INT64_C(-5), INT64_MIN + 1, INT64_MAX - 1),
             []() noexcept { return INT64_MIN; }},
-        {2, "u32", "", ScalarType::U32, []() noexcept { return UINT32_MAX; }},
-        {3, "s32", "", ScalarType::S32, []() noexcept { return INT32_MIN; }},
-        {4, "flag", "", ScalarType::Bool, []() noexcept { return true; }},
-        {5, "nativeU64", "", ScalarType::U64, []() noexcept { return UINT64_C(0); }},
+        {"u32", "", ScalarType::U32, []() noexcept { return UINT32_MAX; }},
+        {"s32", "", ScalarType::S32, []() noexcept { return INT32_MIN; }},
+        {"flag", "", ScalarType::Bool, []() noexcept { return true; }},
+        {"nativeU64", "", ScalarType::U64, []() noexcept { return UINT64_C(0); }},
     };
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Catalog catalogs[] = {{"v", fields}};
     const CatalogIndex index{catalogs};
     char numberValues[256];
     char stringValues[256];
@@ -214,10 +214,10 @@ void checkEarlyStop()
 {
     Source source;
     const Field fields[] = {
-        {0, "first", "", ScalarType::F32, Getter::bind<&Source::read>(source)},
-        {1, "second", "", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"first", "", ScalarType::F32, Getter::bind<&Source::read>(source)},
+        {"second", "", ScalarType::F32, Getter::bind<&Source::read>(source)},
     };
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Catalog catalogs[] = {{"v", fields}};
     const CatalogIndex index{catalogs};
     char text[64];
     expect(writeValues(index, text, 2) == 0 && source.reads == 0,
@@ -243,8 +243,8 @@ template <class T>
 void checkRoundTrip(const char* message)
 {
     Source source;
-    const Field fields[] = {{0, "value", "", Scalar::from(T{}).type(), Getter::bind<&Source::read>(source)}};
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Field fields[] = {{"value", "", Scalar::from(T{}).type(), Getter::bind<&Source::read>(source)}};
+    const Catalog catalogs[] = {{"v", fields}};
     const CatalogIndex index{catalogs};
     const auto check = [&](T value) {
         source.value = value;
@@ -294,10 +294,10 @@ void checkLocale()
     }
     const std::string selectedName = std::setlocale(LC_NUMERIC, nullptr);
     const Field fields[] = {
-        {0, "float", "", numericType<float>(1.25f, 0.5f, 2.5f), []() noexcept { return 1.5f; }},
-        {1, "double", "", numericType<double>(-2.25, -3.5, 0), []() noexcept { return -2.25; }},
+        {"float", "", numericType<float>(1.25f, 0.5f, 2.5f), []() noexcept { return 1.5f; }},
+        {"double", "", numericType<double>(-2.25, -3.5, 0), []() noexcept { return -2.25; }},
     };
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Catalog catalogs[] = {{"v", fields}};
     char text[128];
     const auto size = writeValues(catalogs, std::size(catalogs), text, sizeof(text));
     expect(std::strcmp(std::localeconv()->decimal_point, ",") == 0,
@@ -319,8 +319,8 @@ template <class T>
 void checkIntegerText(const char* message)
 {
     Source source;
-    const Field fields[] = {{0, "value", "", Scalar::from(T{}).type(), Getter::bind<&Source::read>(source)}};
-    const Catalog catalogs[] = {{0, "v", fields}};
+    const Field fields[] = {{"value", "", Scalar::from(T{}).type(), Getter::bind<&Source::read>(source)}};
+    const Catalog catalogs[] = {{"v", fields}};
     const auto check = [&](T value) {
         source.value = value;
         char text[64];

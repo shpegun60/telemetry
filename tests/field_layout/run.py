@@ -101,7 +101,7 @@ def prepare(output, variants=("A", "B", "C")):
                             else pinned("tests/TelemetryReadCompileFail.cpp"))
         (test_dir / "TelemetryReadCompileFail.cpp").write_bytes(rejection_source)
         for suite in HOST_CHECKS["SUITES"]:
-            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck"):
+            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck"):
                 continue
             text = ((ROOT / "tests" / (suite + ".cpp")).read_text(encoding="utf-8") if variant == "Current"
                     else pinned("tests/" + suite + ".cpp").decode("utf-8").replace("\r\n", "\n"))
@@ -295,7 +295,7 @@ def host_checks(args, output):
                  *includes(directory), f"-DTELEMETRY_LAYOUT_VARIANT={number}"]
         counts = {}
         for suite in (*HOST_CHECKS["SUITES"], "Contracts"):
-            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck"):
+            if variant != "Current" and suite in ("TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck"):
                 continue
             source = HERE / "Contracts.cpp" if suite == "Contracts" else directory / "tests" / (suite + ".cpp")
             exe = build / (suite + (".exe" if os.name == "nt" else ""))

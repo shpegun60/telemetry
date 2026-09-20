@@ -1,343 +1,229 @@
 /**
  * @file TelemetryFieldFactory.h
- * @brief Signature-inferred factories producing the concrete RW32 Field.
+ * @brief Position-identified fields with native compile-time read/write access.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
 #ifndef TELEMETRY_FIELD_FACTORY_H
 #define TELEMETRY_FIELD_FACTORY_H
 
-#include "TelemetryField.h"
-#include "TelemetryLimits.h"
-#include <memory>
+#include "../detail/TelemetryFieldBinding.h"
+#include <tuple>
 
 namespace telemetry {
 namespace detail {
 
+// Access is valid only for payloads materialized by the corresponding factory.
+// Each union member is read with its original exact type; no pointer punning.
+struct FieldTableAccess {
+    template <class T> static TELEMETRY_FORCE_INLINE T* object(const Getter& get) noexcept
+    { return static_cast<T*>(get.payload_.object); }
+    template <class T> static TELEMETRY_FORCE_INLINE T* object(const Setter& set) noexcept
+    { return static_cast<T*>(set.payload_.object); }
+    template <class T> static TELEMETRY_FORCE_INLINE auto function(const Getter& get) noexcept
+    { return Getter::native_(get.payload_, typename Getter::NativeTag<T>{}); }
+    template <class T> static TELEMETRY_FORCE_INLINE auto function(const Setter& set) noexcept
+    { return Setter::native_(set.payload_, typename Setter::NativeTag<T>{}); }
+    template <class T> static TELEMETRY_FORCE_INLINE bool accepts(const FieldType& type, T value) noexcept
+    { return type.acceptsNative_(value); }
+};
+
 template <auto Read, auto Write, class Owner>
-struct FieldBinding {
-    using ReadTraits = CallableTraits<decltype(Read)>;
-    using Value = typename ReadTraits::Result;
-    static_assert(Read != nullptr, "Field getter cannot be null");
-    static_assert(ReadTraits::arity == 0, "Field getter must have no parameters");
-    static_assert(isFactoryValue<Value> || std::is_same_v<Value, Scalar>,
-                  "Field getter must return a numeric, enum or Scalar value");
-
-    static TELEMETRY_FORCE_INLINE Scalar nativeRead(Owner& owner) noexcept
+struct StaticFieldAccess {
+    using Value = typename FieldBinding<Read, Write, Owner>::Value;
+    static constexpr bool writable = !std::is_same_v<decltype(Write), std::nullptr_t>;
+    static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     {
-        return factoryScalar(invokeFactory<Read>(std::addressof(owner)));
+        if constexpr (std::is_member_function_pointer_v<decltype(Read)>)
+            return invokeFactory<Read>(FieldTableAccess::object<Owner>(entry.get));
+        else return invokeFactory<Read, NoOwner>(nullptr);
     }
-    static RawNumberT<Value> enumReadFree() noexcept
-    { return static_cast<RawNumberT<Value>>(invokeFactory<Read, NoOwner>(nullptr)); }
-
-    static TELEMETRY_FORCE_INLINE WriteResult typedWrite(Owner& owner, const Scalar& value) noexcept
+    static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
     {
-        if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(std::addressof(owner), value);
+        if constexpr (!writable) return WriteResult::ReadOnly;
+        else if constexpr (std::is_member_function_pointer_v<decltype(Write)>)
+            return invokeFactory<Write>(FieldTableAccess::object<Owner>(entry.set), value);
+        else return invokeFactory<Write, NoOwner>(nullptr, value);
+    }
+};
+
+template <class Read, class Write = std::nullptr_t>
+struct DirectFieldAccess {
+    using Value = typename CallableTraits<Read>::Result;
+    static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
+    static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
+    { return FieldTableAccess::function<Value>(entry.get)(); }
+    static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
+    {
+        if constexpr (writable) return FieldTableAccess::function<Value>(entry.set)(value);
+        else return WriteResult::ReadOnly;
+    }
+};
+
+template <class Read, class Write = std::nullptr_t>
+struct BorrowedFieldAccess {
+    using Value = typename CallableObjectTraits<Read>::Result;
+    static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
+    static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
+    { return (*FieldTableAccess::object<Read>(entry.get))(); }
+    static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
+    {
+        if constexpr (writable) return (*FieldTableAccess::object<Write>(entry.set))(value);
+        else return WriteResult::ReadOnly;
+    }
+};
+
+struct ManualFieldAccess { using Value = Scalar; };
+
+template <class Access>
+class FieldDefinition {
+    const Field entry_;
+public:
+    using Value = typename Access::Value;
+    static constexpr bool hasNativeFastPath = isFactoryValue<Value>;
+    constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry) {}
+    constexpr Field materialize() const noexcept { return entry_; }
+
+    template <class T>
+    static TELEMETRY_FORCE_INLINE std::optional<T> read(const Field& entry) noexcept
+    {
+        if constexpr (hasNativeFastPath) {
+            using Raw = RawNumberT<Value>;
+            using Stored = Scalar::NativeType<Scalar::from(Raw{}).type()>;
+            const Stored number = static_cast<Stored>(Access::read(entry));
+            return readNumber<T>(number);
+        } else return entry.template read<T>();
+    }
+
+    static TELEMETRY_FORCE_INLINE auto read(const Field& entry) noexcept
+    {
+        if constexpr (hasNativeFastPath) {
+            using Stored = Scalar::NativeType<Scalar::from(RawNumberT<Value>{}).type()>;
+            return read<Stored>(entry);
+        } else return entry.read();
+    }
+
+    template <class T>
+    static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, T value) noexcept
+    {
+        if constexpr (!hasNativeFastPath) return entry.write(value);
+        else if constexpr (!Access::writable) return WriteResult::ReadOnly;
         else {
-            Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
-            return invokeFactory<Write>(std::addressof(owner), native);
+            using Stored = Scalar::NativeType<Scalar::from(RawNumberT<Value>{}).type()>;
+            Stored number{};
+            if constexpr (std::is_same_v<T, Scalar>) {
+                const auto converted = convertScalar<Stored>(value);
+                if (!converted) return WriteResult::InvalidValue;
+                number = *converted;
+            } else if (!convertNumberTo(value, number)) return WriteResult::InvalidValue;
+            if (!FieldTableAccess::accepts(entry.declaredType, number)) return WriteResult::InvalidValue;
+            // Keep the direct Setter contract for potentially unfixed enums.
+            if constexpr (std::is_enum_v<Value> && std::is_convertible_v<Value, int>) {
+                constexpr auto type = inferredType<Value>();
+                if (number < type.minimum().template get<Stored>()
+                    || number > type.maximum().template get<Stored>()) return WriteResult::InvalidValue;
+            }
+            return Access::write(entry, static_cast<Value>(number));
         }
-    }
-    static TELEMETRY_FORCE_INLINE WriteResult typedWriteFree(const Scalar& value) noexcept
-    {
-        if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write, NoOwner>(nullptr, value);
-        else {
-            Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
-            return invokeFactory<Write, NoOwner>(nullptr, native);
-        }
-    }
-
-    static constexpr Getter getter(Owner* owner) noexcept
-    {
-        if constexpr (ReadTraits::member) {
-            if constexpr (std::is_enum_v<Value>) return Getter::bindContext<&nativeRead>(*owner);
-            else return Getter::bind<Read>(*owner);
-        } else {
-            if constexpr (std::is_enum_v<Value>) return Getter(&enumReadFree);
-            else return Getter(Read);
-        }
-    }
-
-    static constexpr Setter setter(Owner* owner) noexcept
-    {
-        if constexpr (std::is_same_v<decltype(Write), std::nullptr_t>) return nullptr;
-        else {
-            using Traits = CallableTraits<decltype(Write)>;
-            static_assert(Write != nullptr, "Field setter cannot be a null function pointer");
-            static_assert(std::is_same_v<typename Traits::Result, WriteResult>, "Field setter must return WriteResult");
-            static_assert(Traits::arity == 1, "Field setter must have exactly one parameter");
-            using Arg = std::tuple_element_t<0, typename Traits::Arguments>;
-            static_assert(std::is_same_v<Arg, Value>
-                          || (std::is_same_v<Value, Scalar> && std::is_same_v<Arg, const Scalar&>),
-                          "Field getter and setter must use the exact same C++ type");
-            if constexpr (Traits::member) return Setter::bindContext<&typedWrite>(*owner);
-            else return Setter::bind<&typedWriteFree>();
-        }
-    }
-
-    static constexpr Field make(FieldId id, const char* name, const char* unit,
-                                Owner* owner, FieldType type) noexcept
-    {
-        return Field{id, name, unit, type, getter(owner), setter(owner)};
     }
 };
 
-template <auto Read, auto Write>
-inline constexpr bool fieldNeedsOwner = std::is_member_function_pointer_v<decltype(Read)>
-    || std::is_member_function_pointer_v<decltype(Write)>;
-
-template <class Function> constexpr Function fieldFunction(Function value) noexcept { return value; }
-
-// Parameter-form callbacks retain their exact native function-pointer types in
-// Getter/Setter. The finite numeric/bool type set makes this constexpr in C++17
-// without erasing or casting a function pointer.
-template <class ReadFunction>
-struct DirectFieldReadBinding {
-    using Traits = CallableTraits<ReadFunction>;
-    using Value = typename Traits::Result;
-    static_assert(Traits::arity == 0, "Field getter must have no parameters");
-    static_assert(isScalarReadType<Value>,
-                  "Direct Field callbacks must use a native numeric or bool type; use NTTP callbacks for enums");
-
-    static constexpr Getter getter(ReadFunction function) noexcept
-    {
-        return Getter(function);
-    }
-};
-
-template <class ReadFunction, class WriteFunction>
-struct DirectFieldPairBinding : DirectFieldReadBinding<ReadFunction> {
-    using Base = DirectFieldReadBinding<ReadFunction>;
-    using Value = typename Base::Value;
-    using WriteTraits = CallableTraits<WriteFunction>;
-    static_assert(std::is_same_v<typename WriteTraits::Result, WriteResult>,
-                  "Field setter must return WriteResult");
-    static_assert(WriteTraits::arity == 1,
-                  "Field setter must have exactly one parameter");
-    using Argument = std::tuple_element_t<0, typename WriteTraits::Arguments>;
-    static_assert(std::is_same_v<Argument, Value>,
-                  "Field getter and setter must use the exact same C++ type");
-
-    static constexpr Setter setter(WriteFunction function) noexcept
-    {
-        return Setter(function);
-    }
-};
-
-// Stateful functors and capturing lambdas are kept outside Field and borrowed
-// by address. Getter/Setter still contain exactly one payload and one invoker;
-// these adapters add neither ownership nor storage to the descriptor.
-template <class ReadCallable>
-struct BorrowedFieldReadBinding {
-    static_assert(HasConcreteCallOperator<ReadCallable>::value,
-                  "Borrowed field getter must have one concrete operator(); generic and overloaded callables are unsupported");
-    static_assert(!std::is_volatile_v<ReadCallable>,
-                  "Borrowed field getter cannot be volatile");
-    using Traits = CallableObjectTraits<ReadCallable>;
-    using Value = typename Traits::Result;
-    static_assert(Traits::arity == 0, "Field getter must have no parameters");
-    static_assert(isFactoryValue<Value> || std::is_same_v<Value, Scalar>,
-                  "Field getter must return a numeric, enum or Scalar value");
-
-    static TELEMETRY_FORCE_INLINE Scalar read(ReadCallable& callable) noexcept
-    {
-        static_assert(std::is_nothrow_invocable_v<ReadCallable&>,
-                      "Borrowed field getter must be noexcept");
-        return factoryScalar(callable());
-    }
-
-    static constexpr Getter getter(ReadCallable& callable) noexcept
-    {
-        return Getter::bindContext<&read>(callable);
-    }
-};
-
-template <class ReadCallable, class WriteCallable>
-struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
-    using Base = BorrowedFieldReadBinding<ReadCallable>;
-    using Value = typename Base::Value;
-    static_assert(HasConcreteCallOperator<WriteCallable>::value,
-                  "Borrowed field setter must have one concrete operator(); generic and overloaded callables are unsupported");
-    static_assert(!std::is_volatile_v<WriteCallable>,
-                  "Borrowed field setter cannot be volatile");
-    using WriteTraits = CallableObjectTraits<WriteCallable>;
-    static_assert(std::is_same_v<typename WriteTraits::Result, WriteResult>,
-                  "Field setter must return WriteResult");
-    static_assert(WriteTraits::arity == 1,
-                  "Field setter must have exactly one parameter");
-    using Argument = std::tuple_element_t<0, typename WriteTraits::Arguments>;
-    static_assert(std::is_same_v<Argument, Value>
-                  || (std::is_same_v<Value, Scalar> && std::is_same_v<Argument, const Scalar&>),
-                  "Field getter and setter must use the exact same C++ type");
-
-    static TELEMETRY_FORCE_INLINE WriteResult write(WriteCallable& callable,
-                                                     const Scalar& value) noexcept
-    {
-        static_assert(std::is_nothrow_invocable_r_v<WriteResult, WriteCallable&, Argument>,
-                      "Borrowed field setter must be noexcept");
-        if constexpr (std::is_same_v<Value, Scalar>) return callable(value);
-        else {
-            Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
-            return callable(native);
-        }
-    }
-
-    static constexpr Setter setter(WriteCallable& callable) noexcept
-    {
-        return Setter::bindContext<&write>(callable);
-    }
-};
+template <class> struct IsFieldDefinition : std::false_type {};
+template <class A> struct IsFieldDefinition<FieldDefinition<A>> : std::true_type {};
 } // namespace detail
 
-// An inline capture-free lambda or ordinary function pointer is stored as its
-// native function pointer. No closure object survives this factory call.
-template <class F, class Limits = detail::NoLimits,
-          class Function = decltype(+std::declval<F>()),
-          std::enable_if_t<std::is_pointer_v<Function>
-              && std::is_function_v<std::remove_pointer_t<Function>>
-              && std::is_convertible_v<F, Function> && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          F function, Limits metadata = {}) noexcept
+// field retains target types in its result type. FieldTable materializes each
+// descriptor once; temporary definition values are not retained.
+template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && std::is_lvalue_reference_v<Owner&&> && detail::IsLimits<Limits>::value, int> = 0>
+constexpr auto field(const char* name, const char* unit, Owner&& owner, Limits metadata = {}) noexcept
 {
-    using Traits = detail::CallableTraits<Function>;
-    using Value = typename Traits::Result;
-    static_assert(Traits::arity == 0 && detail::isScalarReadType<Value>,
-                  "Inline factory getter must return a numeric value; use a named template target for enums");
-    static_assert(noexcept(detail::fieldFunction<Function>(function)),
-                  "Factory function-pointer conversion must be noexcept");
-    const Function target = function;
-    if (target == nullptr) detail::invalidFieldLimits();
-    return Field{id, name, unit, detail::refineType<Value>(metadata),
-                 detail::DirectFieldReadBinding<Function>::getter(target)};
+    using Access = detail::StaticFieldAccess<Read, Write, std::remove_reference_t<Owner>>;
+    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, owner, metadata)};
+}
+template <auto Read, auto Write = nullptr, class Limits = detail::NoLimits,
+          std::enable_if_t<!detail::fieldNeedsOwner<Read, Write> && detail::IsLimits<Limits>::value, int> = 0>
+constexpr auto field(const char* name, const char* unit, Limits metadata = {}) noexcept
+{
+    using Access = detail::StaticFieldAccess<Read, Write, detail::NoOwner>;
+    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, metadata)};
+}
+template <auto Read, auto Write = nullptr, class Owner,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && std::is_lvalue_reference_v<Owner&&>, int> = 0>
+constexpr auto field(const char* name, const char* unit, FieldType type, Owner&& owner) noexcept
+{
+    using Access = detail::StaticFieldAccess<Read, Write, std::remove_reference_t<Owner>>;
+    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, type, owner)};
+}
+template <auto Read, auto Write = nullptr,
+          std::enable_if_t<!detail::fieldNeedsOwner<Read, Write>, int> = 0>
+constexpr auto field(const char* name, const char* unit, FieldType type) noexcept
+{
+    using Access = detail::StaticFieldAccess<Read, Write, detail::NoOwner>;
+    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, type)};
 }
 
-// The parameter form keeps both callbacks as parameters: no callback is
-// silently promoted to an NTTP. Both exact pointers remain constexpr-capable.
-template <class Read, class Write, class Limits = detail::NoLimits,
-          class ReadFunction = decltype(+std::declval<Read>()),
-          class WriteFunction = decltype(+std::declval<Write>()),
-          std::enable_if_t<std::is_pointer_v<ReadFunction>
-              && std::is_function_v<std::remove_pointer_t<ReadFunction>>
-              && std::is_convertible_v<Read, ReadFunction>
-              && std::is_pointer_v<WriteFunction>
-              && std::is_function_v<std::remove_pointer_t<WriteFunction>>
-              && std::is_convertible_v<Write, WriteFunction>
+template <class Read, class Limits = detail::NoLimits,
+          class Function = decltype(+std::declval<Read>()),
+          std::enable_if_t<detail::HasNativeFunctionPointer<Read>::value
               && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          Read read, Write write, Limits metadata = {}) noexcept
+constexpr auto field(const char* name, const char* unit, Read read, Limits metadata = {}) noexcept
 {
-    using Binding = detail::DirectFieldPairBinding<ReadFunction, WriteFunction>;
-    const ReadFunction getter = read;
-    const WriteFunction setter = write;
-    if (getter == nullptr || setter == nullptr) detail::invalidFieldLimits();
-    return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
-                 Binding::getter(getter), Binding::setter(setter)};
+    return detail::FieldDefinition<detail::DirectFieldAccess<Function>>{
+        detail::materializeField(name, unit, read, metadata)};
 }
-
-// Capturing lambdas and stateful functors are non-owning bindings. Both the
-// callable object and every object it captures must outlive all Field copies.
-// Capture-free lambdas remain on the direct function-pointer overloads above.
+template <class Read, class Write, class Limits = detail::NoLimits,
+          class R = decltype(+std::declval<Read>()), class W = decltype(+std::declval<Write>()),
+          std::enable_if_t<detail::HasNativeFunctionPointer<Read>::value
+              && detail::HasNativeFunctionPointer<Write>::value
+              && detail::IsLimits<Limits>::value, int> = 0>
+constexpr auto field(const char* name, const char* unit, Read read, Write write, Limits metadata = {}) noexcept
+{
+    return detail::FieldDefinition<detail::DirectFieldAccess<R, W>>{
+        detail::materializeField(name, unit, read, write, metadata)};
+}
 template <class Read, class Limits = detail::NoLimits,
           std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && !detail::HasNativeFunctionPointer<Read>::value
               && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          Read& read, Limits metadata = {}) noexcept
+constexpr auto field(const char* name, const char* unit, Read& read, Limits metadata = {}) noexcept
 {
-    using Binding = detail::BorrowedFieldReadBinding<Read>;
-    return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
-                 Binding::getter(read)};
+    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read>>{detail::materializeField(name, unit, read, metadata)};
 }
-
 template <class Read, class Write, class Limits = detail::NoLimits,
           std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && std::is_class_v<std::remove_cv_t<Write>>
               && !detail::HasNativeFunctionPointer<Read>::value
               && !detail::HasNativeFunctionPointer<Write>::value
+              && !detail::IsLimits<std::remove_cv_t<Write>>::value
               && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          Read& read, Write& write, Limits metadata = {}) noexcept
+constexpr auto field(const char* name, const char* unit, Read& read, Write& write, Limits metadata = {}) noexcept
 {
-    using Binding = detail::BorrowedFieldPairBinding<Read, Write>;
-    return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
-                 Binding::getter(read), Binding::setter(write)};
+    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read, Write>>{
+        detail::materializeField(name, unit, read, write, metadata)};
 }
-
-// A Scalar-returning borrowed callback cannot imply its runtime alternative.
-// Keep the same explicit-type escape hatch as the NTTP factory forms.
-template <class Read,
-          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+template <class Read, std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && !detail::HasNativeFunctionPointer<Read>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          FieldType type, Read& read) noexcept
+constexpr auto field(const char* name, const char* unit, FieldType type, Read& read) noexcept
 {
-    using Binding = detail::BorrowedFieldReadBinding<Read>;
-    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
-                  "Explicit FieldType is reserved for Scalar-returning getters");
-    return Field{id, name, unit, type, Binding::getter(read)};
+    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read>>{detail::materializeField(name, unit, type, read)};
 }
-
-template <class Read, class Write,
-          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+template <class Read, class Write, std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && std::is_class_v<std::remove_cv_t<Write>>
               && !detail::HasNativeFunctionPointer<Read>::value
-              && !detail::HasNativeFunctionPointer<Write>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          FieldType type, Read& read, Write& write) noexcept
+              && !detail::HasNativeFunctionPointer<Write>::value
+              && !detail::IsLimits<std::remove_cv_t<Write>>::value, int> = 0>
+constexpr auto field(const char* name, const char* unit, FieldType type, Read& read, Write& write) noexcept
 {
-    using Binding = detail::BorrowedFieldPairBinding<Read, Write>;
-    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
-                  "Explicit FieldType is reserved for Scalar-returning getters");
-    return Field{id, name, unit, type, Binding::getter(read), Binding::setter(write)};
+    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read, Write>>{
+        detail::materializeField(name, unit, type, read, write)};
 }
 
-// Owners are borrowed lvalues. Metadata is consumed by value, so inline
-// limits(...) is safe. The result is the original immutable Field type.
-template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::NoLimits,
-          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
-                           && std::is_lvalue_reference_v<Owner&&>
-                           && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          Owner&& owner, Limits metadata = {}) noexcept
-{
-    using Binding = detail::FieldBinding<Read, Write, std::remove_reference_t<Owner>>;
-    return Binding::make(id, name, unit, std::addressof(owner),
-                         detail::refineType<typename Binding::Value>(metadata));
-}
+constexpr auto field(Field entry) noexcept
+{ return detail::FieldDefinition<detail::ManualFieldAccess>{entry}; }
+constexpr auto reservedField() noexcept { return field(Field{}); }
 
-template <auto Read, auto Write = nullptr, class Limits = detail::NoLimits,
-          std::enable_if_t<!detail::fieldNeedsOwner<Read, Write>
-                           && detail::IsLimits<Limits>::value, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit, Limits metadata = {}) noexcept
-{
-    using Binding = detail::FieldBinding<Read, Write, detail::NoOwner>;
-    return Binding::make(id, name, unit, nullptr, detail::refineType<typename Binding::Value>(metadata));
-}
-
-// Scalar-returning escape hatch: runtime alternatives cannot imply a type.
-template <auto Read, auto Write = nullptr, class Owner,
-          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
-                           && std::is_lvalue_reference_v<Owner&&>, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit,
-                          FieldType type, Owner&& owner) noexcept
-{
-    using Binding = detail::FieldBinding<Read, Write, std::remove_reference_t<Owner>>;
-    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
-                  "Explicit FieldType is reserved for Scalar-returning getters");
-    return Binding::make(id, name, unit, std::addressof(owner), type);
-}
-
-template <auto Read, auto Write = nullptr,
-          std::enable_if_t<!detail::fieldNeedsOwner<Read, Write>, int> = 0>
-constexpr Field makeField(FieldId id, const char* name, const char* unit, FieldType type) noexcept
-{
-    using Binding = detail::FieldBinding<Read, Write, detail::NoOwner>;
-    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
-                  "Explicit FieldType is reserved for Scalar-returning getters");
-    return Binding::make(id, name, unit, nullptr, type);
-}
 } // namespace telemetry
 #endif

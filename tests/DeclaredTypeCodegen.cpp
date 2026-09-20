@@ -13,23 +13,23 @@ extern volatile std::uint16_t telemetry_declared_sink_u16;
 namespace {
 using namespace telemetry;
 constexpr Field fields[] = {
-    {makeId(0, 0), "same", "", ScalarType::F32, []() noexcept { return telemetry_declared_f32; },
+    {"same", "", ScalarType::F32, []() noexcept { return telemetry_declared_f32; },
      [](const Scalar& value) noexcept {
          telemetry_declared_sink_f32 = value.get<float>();
          return WriteResult::Applied;
      }},
-    {makeId(0, 1), "widen", "", ScalarType::F64, []() noexcept { return telemetry_declared_f32; }},
-    {makeId(0, 2), "narrow", "", ScalarType::F32, []() noexcept { return telemetry_declared_f64; }},
-    {makeId(0, 3), "truncate", "", ScalarType::U16, []() noexcept { return telemetry_declared_f32; },
+    {"widen", "", ScalarType::F64, []() noexcept { return telemetry_declared_f32; }},
+    {"narrow", "", ScalarType::F32, []() noexcept { return telemetry_declared_f64; }},
+    {"truncate", "", ScalarType::U16, []() noexcept { return telemetry_declared_f32; },
      [](const Scalar& value) noexcept {
          telemetry_declared_sink_u16 = value.get<std::uint16_t>();
          return WriteResult::Applied;
      }},
-    {makeId(0, 4), "bool", "", ScalarType::Bool, []() noexcept { return telemetry_declared_f32; }},
-    {makeId(0, 5), "integer", "", ScalarType::U32, []() noexcept { return telemetry_declared_u16; }},
-    {makeId(0, 6), "exact", "", ScalarType::U64, []() noexcept { return telemetry_declared_u64; }},
+    {"bool", "", ScalarType::Bool, []() noexcept { return telemetry_declared_f32; }},
+    {"integer", "", ScalarType::U32, []() noexcept { return telemetry_declared_u16; }},
+    {"exact", "", ScalarType::U64, []() noexcept { return telemetry_declared_u64; }},
 };
-constexpr Catalog catalogs[] = {{0, "conversion", fields}};
+constexpr Catalog catalogs[] = {{"conversion", fields}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 }
 

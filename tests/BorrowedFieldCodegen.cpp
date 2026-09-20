@@ -19,8 +19,8 @@ extern Writer writer;
 } // namespace
 
 extern "C" const telemetry::Field telemetry_probe_borrowed_field =
-    telemetry::makeField(0, "Borrowed", "V", reader, writer,
-                         telemetry::limits(1.0f, 0.0f, 10.0f));
+    telemetry::field("Borrowed", "V", reader, writer,
+                         telemetry::limits(1.0f, 0.0f, 10.0f)).materialize();
 
 static_assert(sizeof(telemetry::Getter) == sizeof(void*) * 2);
 static_assert(sizeof(telemetry::Setter) == sizeof(void*) * 2);

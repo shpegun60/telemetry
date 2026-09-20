@@ -8,19 +8,15 @@
 #define TELEMETRY_COMMAND_INDEX_H
 
 #include "TelemetryCommand.h"
-#include <limits>
 
 namespace telemetry {
 class CommandIndex {
 public:
     constexpr CommandIndex() noexcept = default;
     template <class = void>
-    constexpr CommandIndex(const Command* commands, std::size_t count) noexcept : commands_(commands)
-    {
-        if (commands == nullptr) return;
-        while (count_ < count && count_ <= std::numeric_limits<CommandId>::max()
-               && commands[count_].id == static_cast<CommandId>(count_)) ++count_;
-    }
+    constexpr CommandIndex(const Command* commands, std::size_t count) noexcept
+        : commands_(commands), count_(commands == nullptr ? 0
+              : (count < idComponentCapacity ? count : idComponentCapacity)) {}
     template <std::size_t N>
     constexpr explicit CommandIndex(const Command (&commands)[N]) noexcept
         : CommandIndex(static_cast<const Command*>(commands), N) {}

@@ -1,3 +1,4 @@
+#include "command/TelemetryCommandCatalogTable.h"
 #include "Telemetry.h"
 #include "tiny_delegate.hpp"
 using namespace telemetry;
@@ -49,60 +50,60 @@ constexpr auto two = commandArgs(arg("v"),arg("x"));
 constexpr auto wrong = commandArgs(arg("v","",1));
 
 #if TELEMETRY_FACTORY_FAIL_CASE == 1
-constexpr auto bad=makeField<&Device::get,&Device::mismatch>(0,"x","",device);
+constexpr auto bad=telemetry::field<&Device::get,&Device::mismatch>("x","",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 2
-constexpr auto bad=makeField<&Device::mode,&Device::other>(0,"x","",device);
+constexpr auto bad=telemetry::field<&Device::mode,&Device::other>("x","",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 3
-constexpr auto bad=makeField<&Device::get,&Device::badReturn>(0,"x","",device);
+constexpr auto bad=telemetry::field<&Device::get,&Device::badReturn>("x","",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 4
-constexpr auto bad=makeField<&Device::throwing>(0,"x","",device);
+constexpr auto bad=telemetry::field<&Device::throwing>("x","",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 5
-auto bad=makeField<&Device::get>(0,"x","",Device{});
+auto bad=telemetry::field<&Device::get>("x","",Device{});
 #elif TELEMETRY_FACTORY_FAIL_CASE == 6
-constexpr auto bad=makeField<&Device::scalar>(0,"x","",device);
+constexpr auto bad=telemetry::field<&Device::scalar>("x","",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 7
-constexpr auto bad=makeField<&Device::get>(0,"x","",device,limits(1,0,5));
+constexpr auto bad=telemetry::field<&Device::get>("x","",device,limits(1,0,5));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 8
-constexpr auto bad=makeField<&Device::get>(0,"x","",device,limits(6.0f,0.0f,5.0f));
+constexpr auto bad=telemetry::field<&Device::get>("x","",device,limits(6.0f,0.0f,5.0f));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 9
-constexpr auto bad=makeField<&Device::get,&Device::set>(0,"x","",constant);
+constexpr auto bad=telemetry::field<&Device::get,&Device::set>("x","",constant);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 10
-auto bad=makeCommand<&Device::action>(0,"x",Device{});
+auto bad=detail::materializeCommand<&Device::action>("x",Device{});
 #elif TELEMETRY_FACTORY_FAIL_CASE == 11
-auto bad=makeCommand<&Device::action>(0,"x",device,commandArgs(arg("v")));
+auto bad=detail::materializeCommand<&Device::action>("x",device,commandArgs(arg("v")));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 12
-auto bad=makeCommand<&global>(0,"x",commandArgs(arg("v")));
+auto bad=detail::materializeCommand<&global>("x",commandArgs(arg("v")));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 13
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,two);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,two);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 14
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,wrong);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,wrong);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 15
 constexpr auto invalid=commandArgs(arg("v","",6.0f,0.0f,5.0f));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,invalid);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,invalid);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 16
-constexpr auto bad=makeCommand<&Device::throwingCommand>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::throwingCommand>("x",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 17
-constexpr auto bad=makeCommand<&Device::reference>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::reference>("x",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 18
-constexpr auto bad=makeCommand<&Device::pointer>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::pointer>("x",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 19
-constexpr auto bad=makeCommand<&Device::scalarCommand>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::scalarCommand>("x",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 20
-constexpr auto bad=makeCommand<&Device::get>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::get>("x",device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 21
-constexpr auto bad=makeCommand<&Device::action>(0,"x",constant);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",constant);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 22
 constexpr auto target=static_cast<CommandResult (*)(float) noexcept>(nullptr);
-constexpr auto bad=makeCommand<target>(0,"x");
+constexpr auto bad=detail::materializeCommand<target>("x");
 #elif TELEMETRY_FACTORY_FAIL_CASE == 23
 using Commands=Command[1];
 auto bad=CommandIndex{Commands{}};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 24
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device);
 auto result=bad.call("12");
 #elif TELEMETRY_FACTORY_FAIL_CASE == 25
 constexpr auto invalid=commandArgs(arg(nullptr));
-constexpr auto bad=makeCommand<&global>(0,"x",invalid);
+constexpr auto bad=detail::materializeCommand<&global>("x",invalid);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 26
 constexpr auto adapter=+[](const Device& owner) noexcept {return owner.get();};
 auto bad=Getter::bindContext<adapter>(Device{});
@@ -110,149 +111,149 @@ auto bad=Getter::bindContext<adapter>(Device{});
 constexpr auto adapter=+[](const Device& owner) noexcept {return owner.get();};
 auto bad=tiny::delegate_ref<float()>::bind_context<adapter>(Device{});
 #elif TELEMETRY_FACTORY_FAIL_CASE == 28
-constexpr auto bad=makeField<&Device::get>(0,"x","",ScalarType::F64,device);
+constexpr auto bad=telemetry::field<&Device::get>("x","",ScalarType::F64,device);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 29
-auto build(){float value=1;return makeField(0,"x","",[value]() noexcept {return value;});}
+auto build(){float value=1;return telemetry::field("x","",[value]() noexcept {return value;});}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 30
 constexpr auto target=static_cast<float (*)() noexcept>(nullptr);
-constexpr auto bad=makeField(0,"x","",target);
+constexpr auto bad=telemetry::field("x","",target);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 31
-auto bad=makeField(0,"x","",[](){return 1.0f;});
+auto bad=telemetry::field("x","",[](){return 1.0f;});
 #elif TELEMETRY_FACTORY_FAIL_CASE == 32
-auto bad=makeField(0,"x","",parameterRead,parameterMismatch);
+auto bad=telemetry::field("x","",parameterRead,parameterMismatch);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 33
-auto bad=makeField(0,"x","",parameterRead,parameterThrowing);
+auto bad=telemetry::field("x","",parameterRead,parameterThrowing);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 34
-auto build(){float state=0;return makeField(0,"x","",parameterRead,
+auto build(){float state=0;return telemetry::field("x","",parameterRead,
     [state](float) noexcept {return WriteResult::Applied;});}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 35
-auto bad=makeCommand(0,"x",commandThrowing);
+auto bad=detail::materializeCommand("x",commandThrowing);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 36
-auto build(){float state=0;return makeCommand(0,"x",
+auto build(){float state=0;return detail::materializeCommand("x",
     [state](float) noexcept {return CommandResult::Executed;});}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 37
-auto bad=makeCommand(0,"x",global,commandArgs(arg("v")));
+auto bad=detail::materializeCommand("x",global,commandArgs(arg("v")));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 38
-auto bad=makeField<&parameterRead>(0,"x","",parameterWrite);
+auto bad=telemetry::field<&parameterRead>("x","",parameterWrite);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 39
-constexpr auto bad=makeField(0,"x","",parameterMode,parameterModeWrite);
+constexpr auto bad=telemetry::field("x","",parameterMode,parameterModeWrite);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 40
-constexpr auto bad=makeCommand(0,"x",global);
+constexpr auto bad=detail::materializeCommand("x",global);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 41
-auto bad=makeCommand(0,"x",throwingCallable);
+auto bad=detail::materializeCommand("x",throwingCallable);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 42
-auto bad=makeCommand(0,"x",genericCallable);
+auto bad=detail::materializeCommand("x",genericCallable);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 43
-auto bad=makeCommand(0,"x",overloadedCallable);
+auto bad=detail::materializeCommand("x",overloadedCallable);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 44
-auto bad=makeCommand(0,"x",stableCallable,commandArgs(arg("v")));
+auto bad=detail::materializeCommand("x",stableCallable,commandArgs(arg("v")));
 #elif TELEMETRY_FACTORY_FAIL_CASE == 45
-constexpr auto bad=makeField<&Device::mode>(0,"x","",device,enumSpec<Other::Off,Other::On>());
+constexpr auto bad=telemetry::field<&Device::mode>("x","",device,enumSpec<Other::Off,Other::On>());
 #elif TELEMETRY_FACTORY_FAIL_CASE == 46
 constexpr auto bad=enumSpec<Mode::Off,Other::On>();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 47
 constexpr auto bad=enumSpec<Mode::Off,Mode::Off>();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 48
 constexpr auto metadata=commandArgs(arg("mode","",enumSpec<Other::Off,Other::On>()));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,metadata);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,metadata);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 49
-constexpr auto bad=makeField(0,"x","",parameterMode);
+constexpr auto bad=telemetry::field("x","",parameterMode);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 50
-auto bad=makeCommand(0,"x",[](float) noexcept {return CommandResult::Executed;});
+auto bad=detail::materializeCommand("x",[](float) noexcept {return CommandResult::Executed;});
 #elif TELEMETRY_FACTORY_FAIL_CASE == 51
 using CommandRows=Command[1];
-auto bad=CommandCatalog{0,"temporary",CommandRows{},1};
+auto bad=CommandCatalog{"temporary",CommandRows{},1};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 52
 using CommandGroups=CommandCatalog[1];
 auto bad=CommandCatalogIndex{CommandGroups{},1};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 53
 constexpr auto duplicate=commandArgs(arg<0>("a"),arg<0>("b"));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,duplicate);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,duplicate);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 54
 constexpr auto outside=commandArgs(arg<1>("outside"));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,outside);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,outside);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 55
 constexpr auto wrongIndexed=commandArgs(arg<0>("v","",1));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,wrongIndexed);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,wrongIndexed);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 56
 constexpr auto mixed=commandArgs(arg("positional"),arg<0>("indexed"));
-constexpr auto bad=makeCommand<&Device::action>(0,"x",device,mixed);
+constexpr auto bad=detail::materializeCommand<&Device::action>("x",device,mixed);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 57
 auto build(){float state=0;auto get=[&state]() noexcept{return state;};
-    return makeField(0,"x","",get,[&state](float value) noexcept {
+    return telemetry::field("x","",get,[&state](float value) noexcept {
         state=value;return WriteResult::Applied;});}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 58
 auto build(){float state=0;auto get=[&state]() noexcept{return state;};
     auto set=[&state](unsigned short value) noexcept {state=value;return WriteResult::Applied;};
-    return makeField(0,"x","",get,set);}
+    return telemetry::field("x","",get,set);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 59
 constexpr auto wrongEnum=commandArgs(arg<0>("mode","",Other::On));
-constexpr auto bad=makeCommand<&Device::enumAction>(0,"x",device,wrongEnum);
+constexpr auto bad=detail::materializeCommand<&Device::enumAction>("x",device,wrongEnum);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 60
 constexpr auto duplicateOrder=commandArgs(arg<1>("m"),arg<0>("v"),arg<1>("again"));
-constexpr auto bad=makeCommand<&Device::pair>(0,"x",device,duplicateOrder);
+constexpr auto bad=detail::materializeCommand<&Device::pair>("x",device,duplicateOrder);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 61
-constexpr auto bad=CommandTable{command<&global>(0,"x",arg("value","",1.0f))};
+constexpr auto bad=CommandTable{command<&global>("x",arg("value","",1.0f))};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 62
-auto bad=CommandTable{command(0,"x",[](float) noexcept {return CommandResult::Executed;},
+auto bad=CommandTable{command("x",[](float) noexcept {return CommandResult::Executed;},
     arg<0>("value","",1.0f))};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 63
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable;
 #elif TELEMETRY_FACTORY_FAIL_CASE == 64
-constexpr auto sourceCatalog=CommandCatalogTable{0,"group",
-    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))};
+constexpr CommandTable sourceRows{command<&global>("x",arg<0>("value","",1.0f))};
+constexpr CommandCatalogTable sourceCatalog{group("group",sourceRows)};
 auto bad=sourceCatalog;
 #elif TELEMETRY_FACTORY_FAIL_CASE == 65
-auto build(){float state=0;auto get=[&state](){return state;};return makeField(0,"x","",get);}
+auto build(){float state=0;auto get=[&state](){return state;};return telemetry::field("x","",get);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 66
 auto build(){float state=0;auto get=[&state]() noexcept{return state;};
     auto set=[&state](float value){state=value;return WriteResult::Applied;};
-    return makeField(0,"x","",get,set);}
+    return telemetry::field("x","",get,set);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 67
 auto build(){float state=0;auto get=[&state](auto...) noexcept{return state;};
-    return makeField(0,"x","",get);}
+    return telemetry::field("x","",get);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 68
-auto bad=makeField(0,"x","",overloadedFieldGetter);
+auto bad=telemetry::field("x","",overloadedFieldGetter);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 69
 auto build(){float state=0;const auto get=[state]() mutable noexcept{return state;};
-    return makeField(0,"x","",get);}
+    return telemetry::field("x","",get);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 70
 auto build(){float state=0;auto get=[&state]() noexcept{return state;};
-    return makeField(0,"x","",ScalarType::F32,get);}
+    return telemetry::field("x","",ScalarType::F32,get);}
 #elif TELEMETRY_FACTORY_FAIL_CASE == 71
-auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}.index();
+auto bad=CommandTable{command<&global>("x",arg<0>("value","",1.0f))}.index();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 72
-auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}.data();
+auto bad=CommandTable{command<&global>("x",arg<0>("value","",1.0f))}.data();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 73
-auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}[0];
+auto bad=CommandTable{command<&global>("x",arg<0>("value","",1.0f))}[0];
 #elif TELEMETRY_FACTORY_FAIL_CASE == 74
-auto bad=CommandCatalogTable{0,"group",
-    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.catalog();
+constexpr CommandTable sourceRows{command<&global>("x",arg<0>("value","",1.0f))};
+auto bad=CommandCatalogTable{group("group",sourceRows)}.index();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 75
-constexpr auto sourceCatalog=CommandCatalogTable{1,"group",
-    command<&global>(makeId(1,0),"x",arg<0>("value","",1.0f))};
-auto bad=sourceCatalog.index();
+constexpr CommandTable sourceRows{command<&global>("x",arg<0>("value","",1.0f))};
+constexpr CommandCatalogTable sourceCatalog{group("group",sourceRows)};
+auto bad=sourceCatalog.call<makeId(1,0)>(1.0f);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 76
-auto bad=CommandCatalogTable{0,"group",
-    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.data();
+constexpr CommandTable sourceRows{command<&global>("x",arg<0>("value","",1.0f))};
+auto bad=CommandCatalogTable{group("group",sourceRows)}.data();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 77
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable.call<1>(1.0f);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 78
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable.call<0>();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 79
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable.call<0>("x");
 #elif TELEMETRY_FACTORY_FAIL_CASE == 80
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable.call(std::size_t{0},"x");
 #elif TELEMETRY_FACTORY_FAIL_CASE == 81
-constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+constexpr auto sourceTable=CommandTable{command<&global>("x",arg<0>("value","",1.0f))};
 auto bad=sourceTable.call<0>(1);
 #elif TELEMETRY_FACTORY_FAIL_CASE == 82
-constexpr auto sourceTable=CommandTable{command<&Device::pair>(0,"x",device)};
+constexpr auto sourceTable=CommandTable{command<&Device::pair>("x",device)};
 auto bad=sourceTable.call<0>(1.0f,std::uint8_t{0});
 #else
 #error Unknown factory case

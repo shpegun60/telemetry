@@ -12,11 +12,11 @@ volatile std::uint16_t layout_sink_u16 = 0;
 
 using namespace telemetry;
 constexpr Field empty;
-constexpr Field partial{12};
+constexpr Field partial{LAYOUT_ID(12) "partial"};
 constexpr Field copy = partial;
 constexpr Field moved = std::move(copy);
-static_assert(empty.id == 0 && empty.declaredType == ScalarType::Null && !empty.get && !empty.set);
-static_assert(partial.id == 12 && moved.id == 12 && partial.name[0] == '\0');
+static_assert(empty.declaredType == ScalarType::Null && !empty.get && !empty.set);
+static_assert(partial.name[0] == 'p' && moved.name == partial.name);
 static_assert(std::is_trivially_copyable_v<Field>);
 static_assert(std::is_trivially_copy_constructible_v<Field> && std::is_trivially_move_constructible_v<Field>);
 static_assert(std::is_copy_constructible_v<Field> && std::is_move_constructible_v<Field>);
@@ -39,7 +39,7 @@ static_assert(std::is_aggregate_v<Field> && std::is_copy_assignable_v<Field>);
 #endif
 
 constexpr auto rows = layout_fixture::rows(std::make_index_sequence<8>{});
-constexpr Catalog catalogs[] = {{0, "values", rows.data(), rows.size()}};
+constexpr Catalog catalogs[] = {{LAYOUT_ID(0) "values", rows.data(), rows.size()}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 static_assert(names_unique(rows.data(), rows.size()));
 static_assert(rows[4].declaredType.hasEnum());
@@ -52,7 +52,7 @@ int main()
     const Field localCopy = rows[1];
     Field moveSource = localCopy;
     const Field localMove = std::move(moveSource);
-    if (localMove.id != localCopy.id || localMove.declaredType != localCopy.declaredType) return 5;
+    if (localMove.name != localCopy.name || localMove.declaredType != localCopy.declaredType) return 5;
     if (localCopy.write(300) != WriteResult::Applied || layout_sink_f32 != 300) return 1;
     if (localCopy.write(1001) != WriteResult::InvalidValue || layout_sink_f32 != 300) return 2;
     if (localMove.write(350) != WriteResult::Applied || layout_sink_f32 != 350) return 6;

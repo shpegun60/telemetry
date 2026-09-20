@@ -46,7 +46,6 @@ struct Command {
     using Invoke = CommandResult (*)(const void*, const void*, const Scalar*, std::size_t) noexcept;
     using Describe = bool (*)(const void*, void*, CommandParamSink) noexcept;
 
-    const CommandId id = 0;
     const char* const name = "";
     // Public const storage keeps the descriptor standard-layout for ABI checks.
     const void* const owner = nullptr;
@@ -79,9 +78,9 @@ struct Command {
 private:
     template <auto, class, class> friend struct detail::CommandBinding;
     template <class, class> friend struct detail::BorrowedCommandBinding;
-    constexpr Command(CommandId commandId, const char* label,
-                       const void* object, const void* parameters, Invoke run, Describe schema) noexcept
-        : id(commandId), name(label), owner(object), metadata(parameters),
+    constexpr Command(const char* label, const void* object,
+                       const void* parameters, Invoke run, Describe schema) noexcept
+        : name(label), owner(object), metadata(parameters),
           invoke(run), describe(schema) {}
 };
 static_assert(std::is_standard_layout_v<Command> && std::is_trivially_copyable_v<Command>);

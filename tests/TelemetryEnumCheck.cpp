@@ -70,8 +70,8 @@ WriteResult writeMode(const Scalar& value) noexcept
     return WriteResult::Applied;
 }
 
-constexpr Field fields[] = {{0, "Mode", "", enumType<Mode>(), readMode, writeMode}};
-constexpr Catalog catalogs[] = {{0, "v", fields}};
+constexpr Field fields[] = {{"Mode", "", enumType<Mode>(), readMode, writeMode}};
+constexpr Catalog catalogs[] = {{"v", fields}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 static_assert(fields[0].declaredType == ScalarType::U16);
 static_assert(fields[0].declaredType.hasEnum());
@@ -105,15 +105,15 @@ void checkBase()
 
 std::uint32_t fingerprint(FieldType type)
 {
-    const Field rows[] = {{0, "Mode", "", type, readMode, writeMode}};
-    const Catalog groups[] = {{0, "v", rows}};
+    const Field rows[] = {{"Mode", "", type, readMode, writeMode}};
+    const Catalog groups[] = {{"v", rows}};
     return schemaCrc(groups, std::size(groups));
 }
 
 std::string schema(FieldType type)
 {
-    const Field rows[] = {{0, "Mode", "", type, readMode, writeMode}};
-    const Catalog groups[] = {{0, "v", rows}};
+    const Field rows[] = {{"Mode", "", type, readMode, writeMode}};
+    const Catalog groups[] = {{"v", rows}};
     char text[1024];
     const auto length = writeSchema(groups, std::size(groups), text, sizeof(text));
     return {text, length};
@@ -159,9 +159,9 @@ void checkNumericPaths()
     expect(index.write(0, 65536) == WriteResult::InvalidValue && current == 2 && writes == 1,
            "out-of-range write is rejected before invoking the owner");
     expect(index.write(0, -1) == WriteResult::InvalidValue && writes == 1, "negative U16 write is rejected");
-    const Field converted{0, "converted", "", enumType<Mode>(), []() noexcept { return 12.75; }};
+    const Field converted{"converted", "", enumType<Mode>(), []() noexcept { return 12.75; }};
     expect(converted.read<double>() == 12.0, "read normalization still follows the declared underlying type");
-    const Field invalid{0, "invalid", "", enumType<Mode>(), []() noexcept { return 65536u; }};
+    const Field invalid{"invalid", "", enumType<Mode>(), []() noexcept { return 65536u; }};
     expect(invalid.read().type() == ScalarType::Null, "out-of-range getter is unavailable");
     char text[64];
     expect(writeValues(index, text, sizeof(text)) != 0 && std::strcmp(text, "{\"v\":[2]}") == 0,
@@ -201,11 +201,11 @@ void checkSchemas()
 void checkBuffers()
 {
     const Field rows[] = {
-        {0, "Mode", "", enumType<Mode>(), readMode},
-        {1, "Signed", "", enumType<Signed, Signed::First, Signed::Last>()},
-        {2, "Escaped", "", enumType<OddName>()},
+        {"Mode", "", enumType<Mode>(), readMode},
+        {"Signed", "", enumType<Signed, Signed::First, Signed::Last>()},
+        {"Escaped", "", enumType<OddName>()},
     };
-    const Catalog groups[] = {{0, "v", rows}};
+    const Catalog groups[] = {{"v", rows}};
     const CatalogIndex view{groups};
     char reference[1024];
     const auto length = writeSchema(view, reference, sizeof(reference));

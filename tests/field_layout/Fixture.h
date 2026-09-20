@@ -13,6 +13,12 @@ extern volatile std::uint16_t layout_source_u16;
 extern volatile float layout_sink_f32;
 extern volatile std::uint16_t layout_sink_u16;
 
+#if TELEMETRY_LAYOUT_VARIANT == 6
+#define LAYOUT_ID(value)
+#else
+#define LAYOUT_ID(value) value,
+#endif
+
 namespace layout_fixture {
 using namespace telemetry;
 enum class Mode : std::uint16_t { Off, Auto, Manual };
@@ -39,16 +45,15 @@ inline constexpr auto plainEnumRange = numericType<std::uint16_t>(0, 0, 2);
 
 constexpr Field row(std::size_t offset) noexcept
 {
-    const auto id = makeId(0, static_cast<FieldOffset>(offset));
     switch (offset % 8) {
-        case 0: return {id, "native_float", "V", ScalarType::F32, getF32, setF32};
-        case 1: return {id, "bounded_float", "V", boundedFloat, getF32, setF32};
-        case 2: return {id, "native_integer", "", ScalarType::U16, getU16, setU16};
-        case 3: return {id, "bounded_integer", "", boundedInteger, getU16, setU16};
-        case 4: return {id, "enum_integer", "", enumInteger, getU16, setU16};
-        case 5: return {id, "plain_enum_range", "", plainEnumRange, getU16, setU16};
-        case 6: return {id, "normalized_integer", "", ScalarType::U16, getF64, setU16};
-        default: return {id, "readonly", "V", ScalarType::F32, getF32};
+        case 0: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "native_float", "V", ScalarType::F32, getF32, setF32};
+        case 1: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "bounded_float", "V", boundedFloat, getF32, setF32};
+        case 2: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "native_integer", "", ScalarType::U16, getU16, setU16};
+        case 3: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "bounded_integer", "", boundedInteger, getU16, setU16};
+        case 4: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "enum_integer", "", enumInteger, getU16, setU16};
+        case 5: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "plain_enum_range", "", plainEnumRange, getU16, setU16};
+        case 6: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "normalized_integer", "", ScalarType::U16, getF64, setU16};
+        default: return {LAYOUT_ID(makeId(0, static_cast<FieldOffset>(offset))) "readonly", "V", ScalarType::F32, getF32};
     }
 }
 

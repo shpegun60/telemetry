@@ -15,16 +15,16 @@ constexpr auto setInteger = +[](const Scalar& value) noexcept {
     telemetry_limits_integer = value.get<std::uint16_t>(); return WriteResult::Applied;
 };
 constexpr Field rows[] = {
-    {0, "f32", "", numericType<float>(0, -10, 300), getFloat, setFloat},
-    {1, "u16", "", numericType<std::uint16_t>(15, 10, 20), getInteger, setInteger},
-    {2, "full", "", ScalarType::U16, getInteger, setInteger},
-    {3, "native", "", numericType<std::uint16_t>(), getInteger, setInteger},
-    {4, "default", "", numericType<std::uint16_t>(230), getInteger, setInteger},
-    {5, "native_f32", "", numericType<float>(), getFloat, setFloat},
-    {6, "plain_f32", "", ScalarType::F32, getFloat, setFloat},
-    {7, "default_f32", "", numericType<float>(230), getFloat, setFloat},
+    {"f32", "", numericType<float>(0, -10, 300), getFloat, setFloat},
+    {"u16", "", numericType<std::uint16_t>(15, 10, 20), getInteger, setInteger},
+    {"full", "", ScalarType::U16, getInteger, setInteger},
+    {"native", "", numericType<std::uint16_t>(), getInteger, setInteger},
+    {"default", "", numericType<std::uint16_t>(230), getInteger, setInteger},
+    {"native_f32", "", numericType<float>(), getFloat, setFloat},
+    {"plain_f32", "", ScalarType::F32, getFloat, setFloat},
+    {"default_f32", "", numericType<float>(230), getFloat, setFloat},
 };
-constexpr Catalog catalogs[] = {{0, "v", rows}};
+constexpr Catalog catalogs[] = {{"v", rows}};
 constexpr auto index = CatalogIndex::bind<catalogs>();
 #if UINTPTR_MAX == UINT32_MAX
 static_assert(sizeof(FieldType) == 48 && sizeof(Field) == 96);

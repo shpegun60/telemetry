@@ -11,7 +11,7 @@ void rejected() { field.get = nullptr; }
 #elif TELEMETRY_FIELD_FAIL_CASE == 4
 void rejected() { field.set = nullptr; }
 #elif TELEMETRY_FIELD_FAIL_CASE == 5
-void rejected() { field.id = 1; }
+void rejected() { field.readType = telemetry::ScalarType::Null; }
 #elif TELEMETRY_FIELD_FAIL_CASE == 6
 void rejected() { field.name = "changed"; }
 #elif TELEMETRY_FIELD_FAIL_CASE == 7

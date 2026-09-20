@@ -18,14 +18,10 @@ public:
     template <class = void>
     constexpr CommandCatalogIndex(const CommandCatalog* catalogs,
                                   std::size_t requestedCount) noexcept
-        : catalogs_(catalogs)
+        : catalogs_(catalogs), count_(catalogs == nullptr ? 0
+              : (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity))
     {
-        if (catalogs_ == nullptr) return;
-        const std::size_t limit = requestedCount < idComponentCapacity
-            ? requestedCount : idComponentCapacity;
-        while (count_ < limit && catalogs_[count_].id == static_cast<GroupId>(count_)) {
-            ++count_;
-        }
     }
 
     template <std::size_t N>

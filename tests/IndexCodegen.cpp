@@ -37,29 +37,29 @@ telemetry::WriteResult write_threshold(const Scalar& value) noexcept
 // High 16 ID bits select the group; low 16 bits select its field. Both
 // positions start at zero and have no gaps. No per-field pointer map exists.
 extern constexpr telemetry::Field telemetry_probe_group0_fields[] = {
-    {makeId(0, 0), "Ua", "V", telemetry::ScalarType::F32, read_voltage},
-    {makeId(0, 1), "Ia", "A", telemetry::ScalarType::F32,
+    {"Ua", "V", telemetry::ScalarType::F32, read_voltage},
+    {"Ia", "A", telemetry::ScalarType::F32,
      +[]() noexcept { return telemetry_probe_current; }},
-    {makeId(0, 2), "P", "kW", telemetry::ScalarType::F32,
+    {"P", "kW", telemetry::ScalarType::F32,
      []() noexcept {
          return Scalar::fromF32(telemetry_probe_voltage * telemetry_probe_current / 1000.0f);
      }},
-    {makeId(0, 3), "UaBind", "V", telemetry::ScalarType::F32,
+    {"UaBind", "V", telemetry::ScalarType::F32,
      telemetry::Getter::bind<&read_voltage>()},
 };
 
 extern constexpr telemetry::Field telemetry_probe_group1_fields[] = {
-    {makeId(1, 0), "UaAgain", "V", telemetry::ScalarType::F32, read_voltage},
-    {makeId(1, 1), "IaAgain", "A", telemetry::ScalarType::F32,
+    {"UaAgain", "V", telemetry::ScalarType::F32, read_voltage},
+    {"IaAgain", "A", telemetry::ScalarType::F32,
      []() noexcept { return Scalar::fromF32(telemetry_probe_current); }},
-    {makeId(1, 2), "Limit", "V", telemetry::ScalarType::F32,
+    {"Limit", "V", telemetry::ScalarType::F32,
      []() noexcept { return telemetry_probe_threshold; },
      telemetry::Setter::bind<&write_threshold>()},
 };
 
 extern constexpr telemetry::Catalog telemetry_probe_catalogs[] = {
-    {0, "electrical", telemetry_probe_group0_fields},
-    {1, "aux", telemetry_probe_group1_fields},
+    {"electrical", telemetry_probe_group0_fields},
+    {"aux", telemetry_probe_group1_fields},
 };
 
 extern constexpr telemetry::CatalogIndex telemetry_probe_index{

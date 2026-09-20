@@ -8,6 +8,7 @@
 #define TELEMETRY_DETAIL_CALLABLE_H
 
 #include "../field/TelemetryEnum.h"
+#include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -30,6 +31,7 @@ struct CallableTraits<R (*)(A...) noexcept> {
 };
 template <class R, class C, class... A>
 struct CallableTraits<R (C::*)(A...) noexcept> : CallableTraits<R (*)(A...) noexcept> {
+    using Class = C;
     static constexpr bool member = true;
 };
 template <class R, class C, class... A>
@@ -101,7 +103,14 @@ TELEMETRY_FORCE_INLINE auto invokeFactory(Owner* owner, A... args) noexcept
     if constexpr (CallableTraits<decltype(Function)>::member) {
         static_assert(std::is_nothrow_invocable_v<decltype(Function), Owner&, A...>,
                       "Factory owner or parameter types do not match the noexcept target");
-        return ((*owner).*Function)(args...);
+        if constexpr (std::is_same_v<std::remove_cv_t<Owner>,
+                                     typename CallableTraits<decltype(Function)>::Class>) {
+            return ((*owner).*Function)(args...);
+        } else {
+            // Standard INVOKE handles base adjustment without GCC's warning
+            // for a member pointer applied directly to a derived object.
+            return std::invoke(Function, *owner, args...);
+        }
     } else {
         static_assert(std::is_nothrow_invocable_v<decltype(Function), A...>,
                       "Factory parameter types do not match the noexcept target");
