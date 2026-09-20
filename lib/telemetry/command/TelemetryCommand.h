@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <type_traits>
 
 namespace telemetry {
@@ -92,11 +93,20 @@ struct Command {
         if constexpr (std::is_pointer_v<std::remove_reference_t<Visitor>>) {
             if (visitor == nullptr) return false;
         }
-        struct Context { Visitor& visitor; };
-        Context context{visitor};
-        return describeParameters(&context, +[](void* raw, const CommandParam& parameter) noexcept {
-            return static_cast<bool>(std::invoke(static_cast<Context*>(raw)->visitor, parameter));
-        });
+        using Callable = std::remove_reference_t<Visitor>;
+        if constexpr (std::is_function_v<Callable>) {
+            // A function is not an object and cannot be sent through void*.
+            // Its pointer is an object; borrow that local pointer synchronously.
+            return forEachParameter(std::addressof(visitor));
+        } else {
+            // Pass the callable itself, without a second pointer-holding context.
+            // Restore its exact cv-qualified type in the thunk before invocation;
+            // the erased mutable pointer does not permit mutating a const visitor.
+            void* context = const_cast<void*>(static_cast<const volatile void*>(std::addressof(visitor)));
+            return describeParameters(context, +[](void* raw, const CommandParam& parameter) noexcept {
+                return static_cast<bool>(std::invoke(*static_cast<Callable*>(raw), parameter));
+            });
+        }
     }
 
 private:

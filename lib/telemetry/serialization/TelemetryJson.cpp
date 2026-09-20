@@ -84,27 +84,25 @@ namespace detail {
 
 std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
 {
-    const Catalog* const catalogs = index.data();
-    const std::size_t count = index.size();
     std::uint32_t hash = 2166136261u;
-    for (std::size_t c = 0u; c < count; ++c) {
-        if (catalogs[c].name == nullptr) return 0;
+    for (const auto catalog : index.catalogs()) {
+        if (catalog.name() == nullptr) return 0;
         hash = hash_byte_(hash, 'C');
-        hash = hash_byte_(hash, static_cast<std::uint8_t>(c));
-        hash = hash_byte_(hash, static_cast<std::uint8_t>(c >> 8));
-        hash = fnv1a_(hash, catalogs[c].name);
-        for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
-            const Field& field = catalogs[c].fields[i];
+        hash = hash_byte_(hash, static_cast<std::uint8_t>(catalog.index()));
+        hash = hash_byte_(hash, static_cast<std::uint8_t>(catalog.index() >> 8));
+        hash = fnv1a_(hash, catalog.name());
+        for (const auto entry : catalog.fields()) {
+            const Field& field = entry.field();
             if (field.name == nullptr || field.unit == nullptr) return 0;
             hash = hash_byte_(hash, 'F');
             // Explicit byte order, independent of host endianness/padding.
             for (unsigned shift = 0; shift < 32; shift += 8) {
-                hash = hash_byte_(hash, static_cast<std::uint8_t>(makeId(static_cast<GroupId>(c), static_cast<FieldOffset>(i)) >> shift));
+                hash = hash_byte_(hash, static_cast<std::uint8_t>(entry.id() >> shift));
             }
             hash = fnv1a_(hash, field.name);
             hash = fnv1a_(hash, field.unit);
             hash = fnv1a_(hash, scalarTypeName(field.declaredType));
-            hash = hash_byte_(hash, field.set ? 1u : 0u);
+            hash = hash_byte_(hash, field.writable() ? 1u : 0u);
             // All policy bits, including unknown ones, use fixed little-endian
             // byte order. This fingerprints metadata, not a persistence format.
             for (unsigned shift = 0; shift < 32; shift += 8)
@@ -135,22 +133,20 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
     // Schema traversal only touches immutable definitions. An enum description
     // emits directly into this bounded writer; no temporary dictionary array
     // and no source getter are needed.
-    const Catalog* const catalogs = index.data();
-    const std::size_t count = index.size();
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
                     static_cast<unsigned long>(schemaCrcAbi(index, tag)))) return 0;
-    for (std::size_t c = 0u; c < count; ++c) {
+    for (const auto catalog : index.catalogs()) {
         if (!out.append("%s{\"id\":%u,\"name\":",
-                        (c == 0u) ? "" : ",", static_cast<unsigned>(c))
-            || !out.appendRequiredString(catalogs[c].name)
+                        catalog.index() == 0u ? "" : ",", static_cast<unsigned>(catalog.index()))
+            || !out.appendRequiredString(catalog.name())
             || !out.append(",\"fields\":[")) return 0;
-        for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
-            const Field& field = catalogs[c].fields[i];
+        for (const auto entry : catalog.fields()) {
+            const Field& field = entry.field();
             const bool hasEnum = field.declaredType.hasEnum();
             if (!out.append("%s{\"i\":%u,\"id\":%" PRIu32 ",\"n\":",
-                            (i == 0u) ? "" : ",", static_cast<unsigned>(i), makeId(static_cast<GroupId>(c), static_cast<FieldOffset>(i)))
+                            entry.index() == 0u ? "" : ",", static_cast<unsigned>(entry.index()), entry.id())
                 || !out.appendRequiredString(field.name) || !out.append(",\"u\":")
                 || !out.appendRequiredString(field.unit)
                 || !out.append(",\"t\":\"%s\",\"w\":%s,\"f\":%" PRIu32, scalarTypeName(field.declaredType),
@@ -181,18 +177,21 @@ std::size_t writeValuesWithOptions_(const CatalogIndex& index, char* const buffe
     // Read each reached field once, after its catalog prefix has fitted.
     // This is a sequence of reads, not an atomic snapshot across owners; the
     // application supplies synchronization when values must be coherent.
-    const Catalog* const catalogs = index.data();
-    const std::size_t count = index.size();
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.append("{")) return 0;
-    for (std::size_t c = 0u; c < count; ++c) {
-        if (catalogs[c].name == nullptr) return 0;
-        if ((c != 0u && !out.append(","))
-            || !out.appendString(std::string_view{catalogs[c].name})
+    // Values carry no IDs, so raw range iteration needs no indexed views.
+    bool firstCatalog = true;
+    for (const Catalog& catalog : index) {
+        if (catalog.name == nullptr) return 0;
+        if ((!firstCatalog && !out.append(","))
+            || !out.appendString(std::string_view{catalog.name})
             || !out.append(":[")) return 0;
-        for (std::size_t i = 0u; i < catalogs[c].count; ++i) {
-            if (i != 0u && !out.append(",")) return 0;
-            if (!appendScalar(out, catalogs[c].fields[i].read())) return 0;
+        firstCatalog = false;
+        bool firstField = true;
+        for (const Field& field : catalog) {
+            if (!firstField && !out.append(",")) return 0;
+            firstField = false;
+            if (!appendScalar(out, field.read())) return 0;
         }
         if (!out.append("]")) return 0;
     }

@@ -39,7 +39,8 @@ public:
     constexpr const CommandCatalog& catalog() const noexcept { return *catalog_; }
     // A range owns only the traversal state; the source descriptors remain
     // borrowed even if this small catalog view is copied or destroyed.
-    constexpr CommandRange commands() const noexcept { return {catalog_->commands, catalog_->count, index_}; }
+    constexpr CommandRange commands() const noexcept
+    { return CommandRange::fromCapped(catalog_->commands, catalog_->count, index_); }
 };
 using CommandCatalogRange = detail::IndexedViewRange<CommandCatalogView>;
 } // namespace telemetry

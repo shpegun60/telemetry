@@ -72,7 +72,8 @@ public:
     constexpr bool empty() const noexcept { return count_ == 0; }
     constexpr const CommandCatalog* begin() const noexcept { return catalogs_; }
     constexpr const CommandCatalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
-    constexpr CommandCatalogRange catalogs() const noexcept { return {catalogs_, count_}; }
+    constexpr CommandCatalogRange catalogs() const noexcept
+    { return CommandCatalogRange::fromCapped(catalogs_, count_, 0); }
 
     static constexpr std::size_t abiCatalogsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;

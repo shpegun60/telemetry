@@ -99,7 +99,8 @@ public:
     constexpr const Catalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
     // This index owns no descriptors, so the returned range is independent of
     // the index object's own lifetime (including a temporary index()).
-    constexpr FieldCatalogRange catalogs() const noexcept { return {catalogs_, count_}; }
+    constexpr FieldCatalogRange catalogs() const noexcept
+    { return FieldCatalogRange::fromCapped(catalogs_, count_, 0); }
 
     static constexpr std::size_t abiCatalogsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;

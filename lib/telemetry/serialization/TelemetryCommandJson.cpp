@@ -54,9 +54,16 @@ bool hashEnum(void* context, const Scalar& code, std::string_view name) noexcept
     for (const auto ch : name) hash = byte(hash, static_cast<std::uint8_t>(ch));
     return true;
 }
-bool hashParameter(void* context, const CommandParam& parameter) noexcept
+// The visitor owns the hash word, so its callback context is the hash state
+// itself rather than a closure holding another pointer to that state.
+struct ParameterHash {
+    std::uint32_t value;
+    bool operator()(const CommandParam& parameter) noexcept;
+};
+static_assert(sizeof(ParameterHash) == sizeof(std::uint32_t));
+bool ParameterHash::operator()(const CommandParam& parameter) noexcept
 {
-    auto& hash = *static_cast<std::uint32_t*>(context);
+    auto& hash = value;
     hash = word(byte(hash, 'P'), parameter.index);
     hash = string(string(hash, parameter.name), parameter.unit);
     hash = byte(hash, static_cast<std::uint8_t>(static_cast<ScalarType>(parameter.type)));
@@ -69,22 +76,30 @@ bool hashParameter(void* context, const CommandParam& parameter) noexcept
     return true;
 }
 
-bool hashCommand(std::uint32_t& hash, const Command& command, CommandId id) noexcept
+bool hashCommand(ParameterHash& state, const Command& command, CommandId id) noexcept
 {
+    auto& hash = state.value;
     if (command.name == nullptr) return false;
     hash = word(byte(hash, 'C'), id);
     hash = string(hash, command.name);
-    if (command.describe != nullptr && !command.describeParameters(&hash, &hashParameter)) return false;
+    if (command.describe != nullptr && !command.forEachParameter(state)) return false;
     hash = byte(hash, 'E');
     return true;
 }
 
-bool appendParameter(void* context, const CommandParam& parameter) noexcept
+// The same bounded writer is also the parameter visitor. It gains no data
+// members, allocation or extra context pointer from that callable interface.
+struct ParameterWriter : detail::JsonWriter {
+    using JsonWriter::JsonWriter;
+    bool operator()(const CommandParam& parameter) noexcept;
+};
+static_assert(sizeof(ParameterWriter) == sizeof(detail::JsonWriter));
+bool ParameterWriter::operator()(const CommandParam& parameter) noexcept
 {
     // Generated descriptions visit dense signature positions in order. Their
     // CommandParam objects are temporary: consume each synchronously and keep
     // no pointer to it after this sink returns.
-    auto& out = *static_cast<detail::JsonWriter*>(context);
+    auto& out = *this;
     if (!out.append("%s{\"i\":%lu", parameter.index == 0 ? "" : ",",
                     static_cast<unsigned long>(parameter.index))) return false;
     if (parameter.name != nullptr && (!out.append(",\"n\":") || !out.appendRequiredString(parameter.name))) return false;
@@ -107,26 +122,27 @@ namespace detail {
 std::uint32_t commandSchemaCrcAbi(const CommandIndex& index, CurrentAbiTag) noexcept
 {
     // Separate root markers keep local and grouped command namespaces apart.
-    std::uint32_t hash = byte(2166136261u, 'M');
-    for (std::size_t i = 0; i < index.size(); ++i) {
-        const auto& command = index.data()[i];
-        if (!hashCommand(hash, command, static_cast<CommandId>(i))) return 0;
+    ParameterHash state{byte(2166136261u, 'M')};
+    CommandId position = 0;
+    for (const Command& command : index) {
+        if (!hashCommand(state, command, position++)) return 0;
     }
-    return hash;
+    return state.value;
 }
 
 std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::size_t size,
                                  JsonOptions options, CurrentAbiTag tag) noexcept
 {
-    JsonWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
+    ParameterWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"commands\":[",
                     static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
-    for (std::size_t i = 0; i < index.size(); ++i) {
-        const auto& command = index.data()[i];
-        if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", i == 0 ? "" : ",", static_cast<CommandId>(i))
+    CommandId position = 0;
+    for (const Command& command : index) {
+        if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", position == 0 ? "" : ",", position)
             || !out.appendRequiredString(command.name) || !out.append(",\"params\":[")
-            || (command.describe != nullptr && !command.describeParameters(&out, &appendParameter)) || !out.append("]}")) return 0;
+            || (command.describe != nullptr && !command.forEachParameter(out)) || !out.append("]}")) return 0;
+        ++position;
     }
     (void) out.append("]}");
     return out.length();
@@ -135,14 +151,14 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
 std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex& index,
                                   CurrentAbiTag) noexcept
 {
-    std::uint32_t hash = byte(2166136261u, 'G');
-    for (std::size_t group = 0; group < index.size(); ++group) {
-        const auto& catalog = index.data()[group];
-        if (catalog.name == nullptr) return 0;
-        hash = word(byte(hash, 'g'), group);
-        hash = string(hash, catalog.name);
-        for (std::size_t i = 0; i < catalog.count; ++i) {
-            if (!hashCommand(hash, catalog.commands[i], makeId(static_cast<GroupId>(group), static_cast<CommandOffset>(i)))) return 0;
+    ParameterHash state{byte(2166136261u, 'G')};
+    auto& hash = state.value;
+    for (const auto catalog : index.catalogs()) {
+        if (catalog.name() == nullptr) return 0;
+        hash = word(byte(hash, 'g'), catalog.index());
+        hash = string(hash, catalog.name());
+        for (const auto entry : catalog.commands()) {
+            if (!hashCommand(state, entry.command(), entry.id())) return 0;
         }
         hash = byte(hash, 'e');
     }
@@ -153,25 +169,24 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
                                   char* buffer, std::size_t size,
                                   JsonOptions options, CurrentAbiTag tag) noexcept
 {
-    // Both loops use constructor-capped bounds; packing the positions cannot
-    // narrow a valid group/entry. No command handler is invoked during export.
-    JsonWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
+    // Indexed views own the positional bounds and ID packing. Reserved entries
+    // stay visible. No command handler is invoked during schema export.
+    ParameterWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"commandCatalogs\":[",
                     static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
-    for (std::size_t group = 0; group < index.size(); ++group) {
-        const auto& catalog = index.data()[group];
-        if (!out.append("%s{\"id\":%u,\"name\":", group == 0 ? "" : ",",
-                        static_cast<unsigned>(group))
-            || !out.appendRequiredString(catalog.name)
+    for (const auto catalog : index.catalogs()) {
+        if (!out.append("%s{\"id\":%u,\"name\":", catalog.index() == 0 ? "" : ",",
+                        static_cast<unsigned>(catalog.index()))
+            || !out.appendRequiredString(catalog.name())
             || !out.append(",\"commands\":[")) return 0;
-        for (std::size_t i = 0; i < catalog.count; ++i) {
-            const auto& command = catalog.commands[i];
+        for (const auto entry : catalog.commands()) {
+            const Command& command = entry.command();
             if (!out.append("%s{\"i\":%lu,\"id\":%" PRIu32 ",\"n\":",
-                            i == 0 ? "" : ",", static_cast<unsigned long>(i), makeId(static_cast<GroupId>(group), static_cast<CommandOffset>(i)))
+                            entry.index() == 0 ? "" : ",", static_cast<unsigned long>(entry.index()), entry.id())
                 || !out.appendRequiredString(command.name)
                 || !out.append(",\"params\":[")
-                || (command.describe != nullptr && !command.describeParameters(&out, &appendParameter))
+                || (command.describe != nullptr && !command.forEachParameter(out))
                 || !out.append("]}")) return 0;
         }
         if (!out.append("]}")) return 0;

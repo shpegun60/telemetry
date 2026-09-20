@@ -242,6 +242,8 @@ void traversal()
            && nullCommands.empty() && nullCommands.catalogs().empty() && CommandIndex{}.empty(), "null views normalize before iteration");
 }
 
+std::size_t freeParameterVisits = 0;
+bool countParameter(const CommandParam&) noexcept { ++freeParameterVisits; return true; }
 void parameterVisitors()
 {
     std::size_t count = 0;
@@ -268,6 +270,20 @@ void parameterVisitors()
     expect(localCommands[0].forEachParameter(std::as_const(visitor)) && count == 2, "visitor is borrowed without copying or removing const");
     bool (*nullVisitor)(const CommandParam&) noexcept = nullptr;
     expect(!localCommands[0].forEachParameter(nullVisitor), "null function visitor is rejected before invocation");
+    freeParameterVisits = 0;
+    expect(localCommands[0].forEachParameter(countParameter) && freeParameterVisits == 2,
+           "function references use an object pointer context without casting the function address");
+    const auto function = &countParameter;
+    expect(localCommands[0].forEachParameter(function) && freeParameterVisits == 4,
+           "const function pointer visitors retain their exact object type");
+    struct CvVisitor {
+        std::size_t& visits;
+        bool operator()(const CommandParam&) const volatile noexcept { ++visits; return true; }
+    };
+    const volatile CvVisitor cvVisitor{count};
+    count = 0;
+    expect(localCommands[0].forEachParameter(cvVisitor) && count == 2,
+           "erased visitor context restores const and volatile before invocation");
     count = 0;
     expect(localCommands[0].forEachParameter([&](const CommandParam&) noexcept {
         return localCommands[0].forEachParameter([&](const CommandParam&) noexcept { ++count; return true; });
@@ -283,6 +299,9 @@ void maximumTraversal()
     for (std::size_t i = 0; i <= idComponentCapacity; ++i)
         groups.emplace_back("group", i == idComponentCapacity - 1 ? rows.data() : nullptr, rows.size());
     const Index index{groups.data(), groups.size()};
+    using Range = std::conditional_t<std::is_same_v<Row, Field>, FieldRange, CommandRange>;
+    expect(Range{rows.data(), rows.size()}.size() == idComponentCapacity
+           && Range{nullptr, SIZE_MAX}.empty(), "public range construction still clips and normalizes external extents");
     std::size_t groupCount = 0, rowCount = 0;
     std::uint32_t last = 0;
     bool ordered = true;

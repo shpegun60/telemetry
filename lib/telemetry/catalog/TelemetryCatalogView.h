@@ -39,7 +39,8 @@ public:
     constexpr const Catalog& catalog() const noexcept { return *catalog_; }
     // The range copies its group/index context; it never borrows this view.
     // Catalog, rows and their strings must outlive every returned view/range.
-    constexpr FieldRange fields() const noexcept { return {catalog_->fields, catalog_->count, index_}; }
+    constexpr FieldRange fields() const noexcept
+    { return FieldRange::fromCapped(catalog_->fields, catalog_->count, index_); }
 };
 using FieldCatalogRange = detail::IndexedViewRange<FieldCatalogView>;
 } // namespace telemetry

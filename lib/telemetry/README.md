@@ -546,6 +546,8 @@ not extend the owners' lifetimes. A nested range copies its group context, so
 it does not borrow the temporary catalog view. Borrowed indexes may themselves
 be temporary if their backing storage survives. Extracting `begin()/end()` or
 `catalogs()` from a temporary owning table is rejected; keep that table alive.
+Internal ranges reuse bounds already normalized by their catalog/index; the
+private construction path cannot be used to bypass public pointer/count checks.
 
 `Command::forEachParameter()` adapts `describeParameters()` synchronously with
 no parameter array or visitor copy. The visitor must accept `const CommandParam&`
@@ -554,6 +556,9 @@ complete traversal (including a defined zero-argument command), false on early
 stop, an undescribed/reserved command, or a null function-pointer visitor.
 Parameter references last only for the callback; copy a parameter if needed
 later, and keep its borrowed labels/enum metadata alive as well.
+The callback context points directly at the visitor and restores its exact
+const/volatile qualifiers. Function references are adapted through a local
+function-pointer object, never by converting a function address to `void*`.
 
 ## Scalar types and defaults
 
@@ -1261,6 +1266,12 @@ The ABI 7 schema adds `f` even for zero masks, so old cached field fingerprints
 change. The fingerprint is a schema hint, not a Flash-format version or a promise
 against collisions. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
+
+Serializers use the same public traversal: indexed catalog/entry views where
+IDs are exported or hashed, raw range iteration for values, and
+`forEachParameter()` for command metadata. The [serializer comparison](../../tests/audit/SERIALIZATION_TRAVERSAL.md)
+records unchanged JSON/fingerprints, buffer-boundary checks and ARM object/stack
+differences from that implementation cleanup.
 
 Buffers belong to the caller; a zero returned length means failure and
 partial JSON must not be sent. A null buffer fails regardless of its size;

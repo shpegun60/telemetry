@@ -12,6 +12,15 @@
 #include <iterator>
 #include <memory>
 
+namespace telemetry {
+class CatalogIndex;
+class CommandCatalogIndex;
+class FieldCatalogView;
+class CommandCatalogView;
+template <class...> class FieldCatalogTable;
+template <class...> class CommandCatalogTable;
+}
+
 namespace telemetry::detail {
 // Dereference produces a small view by value, not a reference to iterator
 // storage. Its descriptor still belongs to the original immutable table.
@@ -55,10 +64,29 @@ public:
 
 template <class View>
 class IndexedViewRange {
+    friend class ::telemetry::CatalogIndex;
+    friend class ::telemetry::CommandCatalogIndex;
+    friend class ::telemetry::FieldCatalogView;
+    friend class ::telemetry::CommandCatalogView;
+    template <class...> friend class ::telemetry::FieldCatalogTable;
+    template <class...> friend class ::telemetry::CommandCatalogTable;
     using Descriptor = typename View::Descriptor;
     const Descriptor* rows_ = nullptr;
     std::size_t count_ = 0;
     GroupId group_ = 0;
+    // Only descriptors/indexes which already normalized their extent may use
+    // this path. Public pointer/count construction below still checks bounds.
+    // Keep group explicit: the tested MSVC accepted an outside private call
+    // when this template member supplied that argument through a default.
+    static constexpr IndexedViewRange fromCapped(const Descriptor* rows, std::size_t count,
+                                                  GroupId group) noexcept
+    {
+        IndexedViewRange result;
+        result.rows_ = rows;
+        result.count_ = count;
+        result.group_ = group;
+        return result;
+    }
 public:
     using iterator = IndexedViewIterator<View>;
     constexpr IndexedViewRange() noexcept = default;

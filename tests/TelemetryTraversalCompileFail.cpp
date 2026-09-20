@@ -55,6 +55,8 @@ void fail(const Scalar& value) { value.visit([](auto& native) { native = {}; });
 void fail(Field& value) { value.flags_ = FieldFlag::Persistent; }
 #elif TELEMETRY_TRAVERSAL_FAIL_CASE == 24
 void fail(const Command& command) { command.forEachParameter([](const CommandParam&) noexcept { return ThrowingBool{}; }); }
+#elif TELEMETRY_TRAVERSAL_FAIL_CASE == 25
+auto invalid = FieldRange::fromCapped(nullptr, SIZE_MAX, 0);
 #else
 #error Select a TELEMETRY_TRAVERSAL_FAIL_CASE
 #endif

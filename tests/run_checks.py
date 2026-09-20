@@ -114,7 +114,7 @@ def main():
                      "tests/TelemetryReadCompileFail.cpp"], f"reject-{case}", message)
     print(f"{len(REJECTIONS)} expected compilation failures verified", flush=True)
 
-    for case in range(1, 25):
+    for case in range(1, 26):
         if case <= 3:
             diagnostic = r"invalidFieldFlags|constant expression|constexpr"
         elif case in (4, 5):
@@ -123,13 +123,15 @@ def main():
             diagnostic = r"deleted"
         elif case in (18, 19, 20, 24):
             diagnostic = r"parameter visitor must be noexcept and return bool"
+        elif case == 25:
+            diagnostic = r"private"
         elif case == 21:
             diagnostic = r"invoke_result|no matching|visit"
         else:
             diagnostic = r"const|read.only|discard.*qualifier"
         run(flags + [f"-DTELEMETRY_TRAVERSAL_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryTraversalCompileFail.cpp"], f"traversal-reject-{case}", diagnostic)
-    print("24 metadata/visitor/traversal compilation rejections verified", flush=True)
+    print("25 metadata/visitor/traversal compilation rejections verified", flush=True)
 
     # A runtime policy gets the same validation as a constexpr definition. The
     # separate process must abort, not return normally or fail with an unrelated

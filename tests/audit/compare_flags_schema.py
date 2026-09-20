@@ -14,6 +14,8 @@ def main():
     parser.add_argument("--current", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--cxx", default="g++")
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--unchanged", action="store_true",
+                        help="require identical schemas/fingerprints/values after a serializer refactor")
     args = parser.parse_args()
     compiler = shutil.which(args.cxx)
     if not compiler:
@@ -45,6 +47,14 @@ def main():
         records[label] = lines
 
     before, after = records["before"], records["after"]
+    if args.unchanged:
+        if before != after:
+            raise SystemExit("Schema, fingerprint or value JSON changed")
+        receipt = {"field_schema_identical": True, "values_identical": True,
+                   "command_schema_identical": True}
+        (output / "comparison.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(receipt))
+        return
     if before[1:] != after[1:]:
         raise SystemExit("Value JSON or command schema changed")
     old_schema, new_schema = json.loads(before[0]), json.loads(after[0])

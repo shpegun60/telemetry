@@ -40,7 +40,8 @@ public:
     constexpr auto end() const & noexcept { return catalogs_.end(); }
     auto begin() const && = delete;
     auto end() const && = delete;
-    constexpr CommandCatalogRange catalogs() const & noexcept { return {catalogs_.data(), catalogs_.size()}; }
+    constexpr CommandCatalogRange catalogs() const & noexcept
+    { return CommandCatalogRange::fromCapped(catalogs_.data(), catalogs_.size(), 0); }
     CommandCatalogRange catalogs() const && = delete;
     constexpr const CommandCatalog& operator[](std::size_t i) const & noexcept { return catalogs_[i]; }
     const CommandCatalog& operator[](std::size_t) const && = delete;

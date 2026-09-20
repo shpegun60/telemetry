@@ -3,6 +3,8 @@
 [Flags and traversal](audit/FLAGS_TRAVERSAL.md) records the ABI 7 addition,
 schema delta, lifetime/visitor checks and unchanged ARM instruction encodings
 against `7751891`. Field remains 96 bytes on ARM32 and Command remains 20.
+The [serializer follow-up](audit/SERIALIZATION_TRAVERSAL.md) adopts that traversal
+inside JSON export and records its separate code-generation comparison.
 
 [position_tables](position_tables/README.md) covers ABI 6, direct/local/global
 ARM instruction comparisons, conversion parity and command-stride measurements.
@@ -44,8 +46,8 @@ flags, Scalar visitation and indexed traversal), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
 18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
-rejection cases, 24 policy/traversal/visitor cases, plus two no-heap controls
-(335 total; 342 in C++20 with structural
+rejection cases, 25 policy/traversal/visitor cases, plus two no-heap controls
+(336 total; 343 in C++20 with structural
 adapters and additional invalid position types), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
