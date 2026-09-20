@@ -118,6 +118,66 @@ int main()
         +[](float value) noexcept {globalValue=value;return WriteResult::Applied;});
     expect(plusPair.write(1.5)==WriteResult::Applied && plusPair.read<float>()==1.5f,
            "parameter plus-lambda pair");
+    float capturedValue = 2.0f;
+    int capturedWrites = 0;
+    auto capturedGet = [&capturedValue]() noexcept { return capturedValue; };
+    auto capturedSet = [&capturedValue, &capturedWrites](float value) noexcept {
+        ++capturedWrites;
+        capturedValue = value;
+        return WriteResult::Applied;
+    };
+    const auto capturedField = makeField(15, "captured pair", "V", capturedGet, capturedSet,
+                                         limits(2.0f, 1.0f, 4.0f));
+    const auto capturedCopy = capturedField;
+    expect(capturedCopy.read<float>() == 2.0f
+           && capturedCopy.write(3.5f) == WriteResult::Applied
+           && capturedValue == 3.5f && capturedWrites == 1,
+           "borrowed capturing getter and setter");
+    expect(capturedCopy.write(5.0f) == WriteResult::InvalidValue && capturedWrites == 1,
+           "borrowed capturing field keeps descriptor limits");
+    const auto capturedReadOnly = makeField(16, "captured read", "V", capturedGet);
+    expect(capturedReadOnly.read<float>() == 3.5f
+           && capturedReadOnly.write(2.0f) == WriteResult::ReadOnly,
+           "borrowed capturing read-only getter");
+    auto mutableGet = [value = 10.0f]() mutable noexcept {
+        value += 1.0f;
+        return value;
+    };
+    const auto mutableField = makeField(17, "mutable getter", "", mutableGet);
+    expect(mutableField.read<float>() == 11.0f && mutableField.read<float>() == 12.0f,
+           "borrowed mutable getter keeps closure state");
+    const auto constCapturedGet = [&capturedValue]() noexcept { return capturedValue; };
+    const auto constCapturedField = makeField(18, "const captured getter", "", constCapturedGet);
+    expect(constCapturedField.read<float>() == 3.5f,
+           "borrowed const capturing getter");
+    Mode capturedMode = Mode::Off;
+    auto capturedEnumGet = [&capturedMode]() noexcept { return capturedMode; };
+    auto capturedEnumSet = [&capturedMode](Mode value) noexcept {
+        capturedMode = value;
+        return WriteResult::Applied;
+    };
+    const auto capturedEnum = makeField(
+        19, "captured enum", "", capturedEnumGet, capturedEnumSet,
+        enumSpec<Mode::Off, Mode::Automatic, Mode::Manual>(Mode::Automatic));
+    expect(capturedEnum.declaredType.hasEnum()
+           && capturedEnum.write(2) == WriteResult::Applied
+           && capturedMode == Mode::Manual,
+           "borrowed capturing enum preserves semantic type");
+    Scalar capturedScalarValue = Scalar::fromU16(12);
+    auto capturedScalarGet = [&capturedScalarValue]() noexcept -> Scalar {
+        return capturedScalarValue;
+    };
+    auto capturedScalarSet = [&capturedScalarValue](const Scalar& value) noexcept {
+        capturedScalarValue = value;
+        return WriteResult::Applied;
+    };
+    const auto capturedScalar = makeField(20, "captured Scalar", "",
+        ScalarType::U16, capturedScalarGet, capturedScalarSet);
+    expect(capturedScalar.read<std::uint16_t>() == 12
+           && capturedScalar.write(42) == WriteResult::Applied
+           && capturedScalarValue.type() == ScalarType::U16
+           && capturedScalarValue.get<std::uint16_t>() == 42,
+           "borrowed Scalar callbacks use an explicit declared type");
     expect(clockField.read<std::uint64_t>() == UINT64_MAX, "static getter exact U64");
     expect(lambdaField.read<float>() == globalValue && plusField.read<float>() == globalValue,
            "bare and plus inline lambdas infer type");

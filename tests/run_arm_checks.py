@@ -36,10 +36,17 @@ def check_probe(name, headers, symbols):
         raise RuntimeError(f"{name}: dynamic initialization function found")
     if "scalarFinite" in symbols:
         raise RuntimeError(f"{name}: finite-value check was outlined instead of inlined")
+    expected = {}
     if name == "IndexCodegen":
         expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 32,
                     "telemetry_probe_group0_fields": 4 * 96,
                     "telemetry_probe_group1_fields": 3 * 96}
+    elif name == "BorrowedFieldCodegen":
+        expected = {"telemetry_probe_borrowed_field": 96}
+    elif name == "CommandTableCodegen":
+        expected = {"telemetry_probe_command_table": 4,
+                    "telemetry_probe_command_count": 4}
+    if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():
             matches = [entry for entry in entries if entry and entry[-1] == symbol]

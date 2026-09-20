@@ -72,18 +72,18 @@ constexpr Field integerFields[] = {
 static_assert(telemetry::names_unique(integerFields, std::size(integerFields)));
 constexpr telemetry::Catalog integerCatalog{2, "integers", integerFields};
 
-// Metadata owns only labels/defaults/bounds. Types come from configure's signature.
-constexpr auto configureArgs = telemetry::commandArgs(
-    telemetry::arg("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
-    telemetry::arg("Mode", "",
-        telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)));
-constexpr telemetry::Command meterCommands[] = {
-    telemetry::makeCommand<&Meter::reset>(makeId(0, 0), "Reset counter", meter),
-    telemetry::makeCommand<&Meter::configure>(makeId(0, 1), "Configure meter", meter, configureArgs),
-};
-static_assert(telemetry::commandNamesUnique(meterCommands, std::size(meterCommands)));
+// The table owns inline metadata. Runtime lookup still sees ordinary Commands.
+constexpr telemetry::CommandCatalogTable meterCommandApi{
+    0, "meter",
+    telemetry::command<&Meter::reset>(makeId(0, 0), "Reset counter", meter),
+    telemetry::command<&Meter::configure>(
+        makeId(0, 1), "Configure meter", meter,
+        telemetry::arg<0>("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
+        telemetry::arg<1>("Mode", "",
+            telemetry::enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)))};
+static_assert(telemetry::commandNamesUnique(meterCommandApi.data(), meterCommandApi.size()));
 constexpr telemetry::CommandCatalog commandCatalogs[] = {
-    {0, "meter", meterCommands},
+    meterCommandApi.catalog(),
 };
 static_assert(telemetry::commandCatalogNamesUnique(commandCatalogs, std::size(commandCatalogs)));
 constexpr telemetry::CommandCatalogIndex commandIndex{commandCatalogs};

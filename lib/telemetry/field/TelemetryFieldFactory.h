@@ -125,6 +125,71 @@ struct DirectFieldPairBinding : DirectFieldReadBinding<ReadFunction> {
         return Setter(function);
     }
 };
+
+// Stateful functors and capturing lambdas are kept outside Field and borrowed
+// by address. Getter/Setter still contain exactly one payload and one invoker;
+// these adapters add neither ownership nor storage to the descriptor.
+template <class ReadCallable>
+struct BorrowedFieldReadBinding {
+    static_assert(HasConcreteCallOperator<ReadCallable>::value,
+                  "Borrowed field getter must have one concrete operator(); generic and overloaded callables are unsupported");
+    static_assert(!std::is_volatile_v<ReadCallable>,
+                  "Borrowed field getter cannot be volatile");
+    using Traits = CallableObjectTraits<ReadCallable>;
+    using Value = typename Traits::Result;
+    static_assert(Traits::arity == 0, "Field getter must have no parameters");
+    static_assert(isFactoryValue<Value> || std::is_same_v<Value, Scalar>,
+                  "Field getter must return a numeric, enum or Scalar value");
+
+    static TELEMETRY_FORCE_INLINE Scalar read(ReadCallable& callable) noexcept
+    {
+        static_assert(std::is_nothrow_invocable_v<ReadCallable&>,
+                      "Borrowed field getter must be noexcept");
+        return factoryScalar(callable());
+    }
+
+    static constexpr Getter getter(ReadCallable& callable) noexcept
+    {
+        return Getter::bindContext<&read>(callable);
+    }
+};
+
+template <class ReadCallable, class WriteCallable>
+struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
+    using Base = BorrowedFieldReadBinding<ReadCallable>;
+    using Value = typename Base::Value;
+    static_assert(HasConcreteCallOperator<WriteCallable>::value,
+                  "Borrowed field setter must have one concrete operator(); generic and overloaded callables are unsupported");
+    static_assert(!std::is_volatile_v<WriteCallable>,
+                  "Borrowed field setter cannot be volatile");
+    using WriteTraits = CallableObjectTraits<WriteCallable>;
+    static_assert(std::is_same_v<typename WriteTraits::Result, WriteResult>,
+                  "Field setter must return WriteResult");
+    static_assert(WriteTraits::arity == 1,
+                  "Field setter must have exactly one parameter");
+    using Argument = std::tuple_element_t<0, typename WriteTraits::Arguments>;
+    static_assert(std::is_same_v<Argument, Value>
+                  || (std::is_same_v<Value, Scalar> && std::is_same_v<Argument, const Scalar&>),
+                  "Field getter and setter must use the exact same C++ type");
+
+    static TELEMETRY_FORCE_INLINE WriteResult write(WriteCallable& callable,
+                                                     const Scalar& value) noexcept
+    {
+        static_assert(std::is_nothrow_invocable_r_v<WriteResult, WriteCallable&, Argument>,
+                      "Borrowed field setter must be noexcept");
+        if constexpr (std::is_same_v<Value, Scalar>) return callable(value);
+        else {
+            Value native{};
+            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
+            return callable(native);
+        }
+    }
+
+    static constexpr Setter setter(WriteCallable& callable) noexcept
+    {
+        return Setter::bindContext<&write>(callable);
+    }
+};
 } // namespace detail
 
 // An inline capture-free lambda or ordinary function pointer is stored as its
@@ -170,6 +235,63 @@ constexpr Field makeField(FieldId id, const char* name, const char* unit,
     if (getter == nullptr || setter == nullptr) detail::invalidFieldLimits();
     return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
                  Binding::getter(getter), Binding::setter(setter)};
+}
+
+// Capturing lambdas and stateful functors are non-owning bindings. Both the
+// callable object and every object it captures must outlive all Field copies.
+// Capture-free lambdas remain on the direct function-pointer overloads above.
+template <class Read, class Limits = detail::NoLimits,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+              && !detail::HasNativeFunctionPointer<Read>::value
+              && detail::IsLimits<Limits>::value, int> = 0>
+constexpr Field makeField(FieldId id, const char* name, const char* unit,
+                          Read& read, Limits metadata = {}) noexcept
+{
+    using Binding = detail::BorrowedFieldReadBinding<Read>;
+    return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
+                 Binding::getter(read)};
+}
+
+template <class Read, class Write, class Limits = detail::NoLimits,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+              && std::is_class_v<std::remove_cv_t<Write>>
+              && !detail::HasNativeFunctionPointer<Read>::value
+              && !detail::HasNativeFunctionPointer<Write>::value
+              && detail::IsLimits<Limits>::value, int> = 0>
+constexpr Field makeField(FieldId id, const char* name, const char* unit,
+                          Read& read, Write& write, Limits metadata = {}) noexcept
+{
+    using Binding = detail::BorrowedFieldPairBinding<Read, Write>;
+    return Field{id, name, unit, detail::refineType<typename Binding::Value>(metadata),
+                 Binding::getter(read), Binding::setter(write)};
+}
+
+// A Scalar-returning borrowed callback cannot imply its runtime alternative.
+// Keep the same explicit-type escape hatch as the NTTP factory forms.
+template <class Read,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+              && !detail::HasNativeFunctionPointer<Read>::value, int> = 0>
+constexpr Field makeField(FieldId id, const char* name, const char* unit,
+                          FieldType type, Read& read) noexcept
+{
+    using Binding = detail::BorrowedFieldReadBinding<Read>;
+    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
+                  "Explicit FieldType is reserved for Scalar-returning getters");
+    return Field{id, name, unit, type, Binding::getter(read)};
+}
+
+template <class Read, class Write,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
+              && std::is_class_v<std::remove_cv_t<Write>>
+              && !detail::HasNativeFunctionPointer<Read>::value
+              && !detail::HasNativeFunctionPointer<Write>::value, int> = 0>
+constexpr Field makeField(FieldId id, const char* name, const char* unit,
+                          FieldType type, Read& read, Write& write) noexcept
+{
+    using Binding = detail::BorrowedFieldPairBinding<Read, Write>;
+    static_assert(std::is_same_v<typename Binding::Value, Scalar>,
+                  "Explicit FieldType is reserved for Scalar-returning getters");
+    return Field{id, name, unit, type, Binding::getter(read), Binding::setter(write)};
 }
 
 // Owners are borrowed lvalues. Metadata is consumed by value, so inline

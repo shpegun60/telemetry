@@ -30,7 +30,7 @@ app/
 lib/telemetry/
   Telemetry.h                       public umbrella (no forwarding headers)
   core/, field/, catalog/           public numeric, field and lookup layers
-  command/                          inferred command signatures and direct lookup
+  command/                          inferred signatures, owning tables and direct lookup
   abi/                              independent layout guard and link anchor
   serialization/                    optional JSON public API and implementation
   detail/                           private storage/conversion/JSON helpers
@@ -94,6 +94,9 @@ commands and closes after 1.2 seconds; it also works with `-platform offscreen`.
 getter return types define numeric/enum metadata, while typed setters receive
 native values. Inline capture-free lambdas and free/static functions are also
 supported; see [factories and commands](lib/telemetry/README.md#signature-inferred-fields-and-commands).
+Its commands use a directly constructed owning `CommandCatalogTable`; sparse
+`arg<N>` metadata is reordered by signature index at compile time and omitted
+arguments receive inferred metadata.
 The constructor binds fields to its owned sensor. Its arrays and owner stay
 at stable addresses, so DemoCatalog is neither moved nor copied.
 
@@ -195,17 +198,18 @@ failures and can enable sanitizers. GitHub Actions runs GCC/Clang C++17/C++20,
 Clang sanitizers, Cortex-M7 compile/storage/link checks and an offscreen Qt application check.
 Library integration and contracts are in [lib/telemetry/README.md](lib/telemetry/README.md).
 
-Verification after the signature-factory and command update, 2026-09-20:
+Verification after closing the field/command core, 2026-09-20:
 
 - Qt 6.10.1 / MinGW 13.1: Release application build and offscreen grouped-command smoke test.
   The same MinGW compiler passed 109/109 core, 109/109 write/getter/setter,
   87/87 read, 33/33 JSON, 121/121 numeric oracle, 45/45 enum, 108/108
-  limits, 33/33 factory and 58/58 command checks with C++17 (**703 total**).
-  C++20 also covers char8_t (111/111 write and 88/88 read; **706 total**).
+  limits, 40/40 factory and 67/67 command checks with C++17 (**719 total**).
+  C++20 also covers char8_t (111/111 write and 88/88 read; **722 total**).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
-  definitions; 52 more reject invalid factory and command definitions.
+  definitions; 70 more reject invalid factory and command definitions,
+  including temporary captured closures and invalid indexed command metadata.
   Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
@@ -213,20 +217,21 @@ Verification after the signature-factory and command update, 2026-09-20:
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
 - MSVC 19.50 built the three library translation units and passed all eight
   applicable suites under `/std:c++17` and `/std:c++20` with `/permissive-`
-  and warnings as errors: 582 and 585 checks respectively. Its independent
+  and warnings as errors: 598 and 601 checks respectively. Its independent
   numeric oracle reports an explicit skip because MSVC `long double` has only
-  53 mantissa bits. All 96 invalid C++17 programs were still rejected.
+  53 mantissa bits. All 114 invalid C++17 programs were still rejected.
 - CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
   enables ASan/UBSan and float-cast-overflow checks, including
   stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.
-- CubeIDE GCC 14.3.1: 25 library/demo/check translation units compiled for Cortex-M7 with
+- CubeIDE GCC 14.3.1: 27 library/demo/check translation units compiled for Cortex-M7 with
   C++17 at `-O2` and `-Os`, without exceptions/RTTI and with warnings treated
   as errors. A minimal JSON consumer also linked with newlib-nano and enabled
   floating formatting. This was a link check, not execution on a board.
-- The seven pre-existing codegen probes match `c6012d9` byte for byte at both
-  optimization levels (14/14 objects). The new factory probe keeps member
-  reads unchanged and reduces a known free-function read from 304/288 bytes
-  to a 4-byte direct branch (`-O2`/`-Os`). See the
+- All nine pre-existing codegen probes match pre-change checkpoint `55fbd481`
+  byte for byte at both optimization levels (18/18 objects). The two new probes
+  prove read-only storage and fixed ARM sizes for borrowed fields and owning
+  command tables. The earlier factory comparison reduced a known free-function
+  read from 304/288 bytes to a 4-byte direct branch (`-O2`/`-Os`). See the
   [factory codegen evidence](tests/README.md#signature-factory-and-command-codegen).
 - [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass
   with Ubuntu ARM GCC 13.2.1 and now run in GitHub Actions. Every codegen object

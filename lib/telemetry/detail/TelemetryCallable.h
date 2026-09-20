@@ -10,6 +10,7 @@
 #include "../field/TelemetryEnum.h"
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace telemetry {
 namespace detail {
@@ -48,6 +49,17 @@ struct HasConcreteCallOperator<T,
 
 template <class T>
 using CallableObjectTraits = CallableTraits<decltype(&std::remove_cv_t<T>::operator())>;
+
+// Capture-free lambdas expose the built-in unary-plus conversion to an exact
+// function pointer. Keep those on the existing direct-function path; class
+// callables without that conversion must be borrowed from a stable lvalue.
+template <class T, class = void>
+struct HasNativeFunctionPointer : std::false_type {};
+template <class T>
+struct HasNativeFunctionPointer<T, std::void_t<decltype(+std::declval<T&>())>>
+    : std::bool_constant<std::is_pointer_v<decltype(+std::declval<T&>())>
+        && std::is_function_v<std::remove_pointer_t<decltype(+std::declval<T&>())>>
+        && std::is_convertible_v<T&, decltype(+std::declval<T&>())>> {};
 
 template <class T, bool = std::is_enum_v<T>> struct RawNumber { using Type = T; };
 template <class T> struct RawNumber<T, true> { using Type = std::underlying_type_t<T>; };

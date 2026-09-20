@@ -17,6 +17,8 @@ struct Device {
     CommandResult reference(float&) noexcept { return CommandResult::Executed; }
     CommandResult pointer(const char*) noexcept { return CommandResult::Executed; }
     CommandResult scalarCommand(Scalar) noexcept { return CommandResult::Executed; }
+    CommandResult pair(float, Mode) noexcept { return CommandResult::Executed; }
+    CommandResult enumAction(Mode) noexcept { return CommandResult::Executed; }
 };
 Device device;
 const Device constant;
@@ -37,6 +39,11 @@ ThrowingCallable throwingCallable;
 OverloadedCallable overloadedCallable;
 auto genericCallable=[](auto) noexcept {return CommandResult::Executed;};
 auto stableCallable=[](float) noexcept {return CommandResult::Executed;};
+struct OverloadedFieldGetter {
+    float operator()() noexcept { return 0; }
+    float operator()(int) noexcept { return 0; }
+};
+OverloadedFieldGetter overloadedFieldGetter;
 constexpr auto one = commandArgs(arg("v","",1.0f));
 constexpr auto two = commandArgs(arg("v"),arg("x"));
 constexpr auto wrong = commandArgs(arg("v","",1));
@@ -158,6 +165,61 @@ auto bad=CommandCatalog{0,"temporary",CommandRows{},1};
 #elif TELEMETRY_FACTORY_FAIL_CASE == 52
 using CommandGroups=CommandCatalog[1];
 auto bad=CommandCatalogIndex{CommandGroups{},1};
+#elif TELEMETRY_FACTORY_FAIL_CASE == 53
+constexpr auto duplicate=commandArgs(arg<0>("a"),arg<0>("b"));
+constexpr auto bad=makeCommand<&Device::action>(0,"x",device,duplicate);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 54
+constexpr auto outside=commandArgs(arg<1>("outside"));
+constexpr auto bad=makeCommand<&Device::action>(0,"x",device,outside);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 55
+constexpr auto wrongIndexed=commandArgs(arg<0>("v","",1));
+constexpr auto bad=makeCommand<&Device::action>(0,"x",device,wrongIndexed);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 56
+constexpr auto mixed=commandArgs(arg("positional"),arg<0>("indexed"));
+constexpr auto bad=makeCommand<&Device::action>(0,"x",device,mixed);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 57
+auto build(){float state=0;auto get=[&state]() noexcept{return state;};
+    return makeField(0,"x","",get,[&state](float value) noexcept {
+        state=value;return WriteResult::Applied;});}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 58
+auto build(){float state=0;auto get=[&state]() noexcept{return state;};
+    auto set=[&state](unsigned short value) noexcept {state=value;return WriteResult::Applied;};
+    return makeField(0,"x","",get,set);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 59
+constexpr auto wrongEnum=commandArgs(arg<0>("mode","",Other::On));
+constexpr auto bad=makeCommand<&Device::enumAction>(0,"x",device,wrongEnum);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 60
+constexpr auto duplicateOrder=commandArgs(arg<1>("m"),arg<0>("v"),arg<1>("again"));
+constexpr auto bad=makeCommand<&Device::pair>(0,"x",device,duplicateOrder);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 61
+constexpr auto bad=CommandTable{command<&global>(0,"x",arg("value","",1.0f))};
+#elif TELEMETRY_FACTORY_FAIL_CASE == 62
+auto bad=CommandTable{command(0,"x",[](float) noexcept {return CommandResult::Executed;},
+    arg<0>("value","",1.0f))};
+#elif TELEMETRY_FACTORY_FAIL_CASE == 63
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable;
+#elif TELEMETRY_FACTORY_FAIL_CASE == 64
+constexpr auto sourceCatalog=CommandCatalogTable{0,"group",
+    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))};
+auto bad=sourceCatalog;
+#elif TELEMETRY_FACTORY_FAIL_CASE == 65
+auto build(){float state=0;auto get=[&state](){return state;};return makeField(0,"x","",get);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 66
+auto build(){float state=0;auto get=[&state]() noexcept{return state;};
+    auto set=[&state](float value){state=value;return WriteResult::Applied;};
+    return makeField(0,"x","",get,set);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 67
+auto build(){float state=0;auto get=[&state](auto...) noexcept{return state;};
+    return makeField(0,"x","",get);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 68
+auto bad=makeField(0,"x","",overloadedFieldGetter);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 69
+auto build(){float state=0;const auto get=[state]() mutable noexcept{return state;};
+    return makeField(0,"x","",get);}
+#elif TELEMETRY_FACTORY_FAIL_CASE == 70
+auto build(){float state=0;auto get=[&state]() noexcept{return state;};
+    return makeField(0,"x","",ScalarType::F32,get);}
 #else
 #error Unknown factory case
 #endif

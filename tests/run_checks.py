@@ -32,6 +32,13 @@ FACTORY_REJECTIONS = {
     44: "no matching", 45: "exact enum type", 46: "exact same enum type",
     47: "codes must be unique", 48: "exact enum type", 49: "numeric value", 50: "deleted",
     51: "deleted", 52: "deleted",
+    53: "positions must be unique", 54: "outside the function", 55: "Metadata values must match",
+    56: "cannot mix positional", 57: "no matching", 58: "exact same C\\+\\+ type",
+    59: "exact enum type|Metadata values must match", 60: "positions must be unique",
+    61: "indexed arg", 62: "deleted", 63: "deleted", 64: "deleted",
+    65: "noexcept", 66: "noexcept", 67: "concrete operator|operator\\(\\)",
+    68: "concrete operator|operator\\(\\)", 69: "noexcept|invocable",
+    70: "reserved for Scalar",
 }
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",

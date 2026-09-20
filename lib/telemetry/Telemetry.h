@@ -1,6 +1,6 @@
 /**
  * @file Telemetry.h
- * @brief Core telemetry fields, catalogs, direct index and ABI guard.
+ * @brief Core telemetry fields, catalogs, commands, direct indexes and ABI guard.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see LICENSE in this directory.
  *
@@ -16,6 +16,7 @@
 #include "command/TelemetryCommandFactory.h"
 #include "command/TelemetryCommandCatalogIndex.h"
 #include "command/TelemetryCommandIndex.h"
+#include "command/TelemetryCommandTable.h"
 #include "abi/TelemetryAbi.h"
 
 #endif

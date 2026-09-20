@@ -9,6 +9,13 @@
 #include <string>
 
 namespace {
+constexpr telemetry::CommandTable emptyCommandTable{};
+constexpr telemetry::CommandCatalogTable emptyCommandCatalog{0, "empty"};
+static_assert(emptyCommandTable.size() == 0);
+static_assert(emptyCommandTable.index().find(0) == nullptr);
+static_assert(emptyCommandCatalog.size() == 0);
+static_assert(emptyCommandCatalog.catalog().count == 0);
+
 using namespace telemetry;
 int checks = 0, failures = 0;
 void expect(bool ok, const char* label) { ++checks; if (!ok) {++failures; std::printf("FAIL %s\n", label);} }
@@ -51,6 +58,31 @@ constexpr auto calibrateArgs = commandArgs(arg("Voltage", "V", 230.0f, 0.0f, 500
 constexpr auto addressArgs = commandArgs(arg("Address", "", UINT64_MAX, UINT64_C(1), UINT64_MAX));
 constexpr auto errorArgs = commandArgs(arg("Error", "",
     enumSpec<Error::None, Error::Overvoltage, Error::Overcurrent>(Error::Overvoltage)));
+constexpr auto partialCalibrateArgs = commandArgs(
+    arg<1>("Mode only", "", enumSpec<Mode::Fast, Mode::Normal, Mode::Precise>(Mode::Normal)));
+constexpr auto reorderedCalibrateArgs = commandArgs(
+    arg<1>("Mode reordered", "", Mode::Precise),
+    arg<0>("Voltage reordered", "V", 230.0f, 0.0f, 500.0f));
+constexpr auto partialCalibrate = makeCommand<&Device::calibrate>(
+    0, "Partial", device, partialCalibrateArgs);
+constexpr auto reorderedCalibrate = makeCommand<&Device::calibrate>(
+    1, "Reordered", device, reorderedCalibrateArgs);
+constexpr CommandTable ownedCommands{
+    command<&Device::reset>(0, "Owned reset", device),
+    command<&Device::calibrate>(
+        1, "Owned calibrate", device,
+        arg<1>("Owned mode", "",
+               enumSpec<Mode::Fast, Mode::Normal, Mode::Precise>(Mode::Normal)),
+        arg<0>("Owned voltage", "V", 230.0f, 0.0f, 500.0f))};
+constexpr CommandCatalogTable ownedApi{
+    0, "Owned/Motor",
+    command<&Device::reset>(makeId(0, 0), "Catalog reset", device),
+    command<&Device::calibrate>(
+        makeId(0, 1), "Catalog calibrate", device,
+        arg<0>("Catalog voltage", "V", 230.0f, 0.0f, 500.0f),
+        arg<1>("Catalog mode", "", Mode::Normal))};
+constexpr CommandCatalog ownedCatalogViews[] = {ownedApi.catalog()};
+constexpr CommandCatalogIndex ownedApiIndex{ownedCatalogViews};
 constexpr Command commands[] = {
     makeCommand<&Device::reset>(0,"Reset",device),
     makeCommand<&Device::calibrate>(1,"Calibrate",device,calibrateArgs),
@@ -77,6 +109,17 @@ static_assert(commandNamesUnique(commands, std::size(commands))
               && commandCatalogNamesUnique(commandCatalogs, std::size(commandCatalogs)));
 static_assert(!std::is_copy_assignable_v<Command> && std::is_trivially_copyable_v<Command>);
 static_assert(sizeof(Command)==sizeof(void*)*6);
+static_assert(ownedCommands.size() == 2
+              && ownedCommands.index().find(1) == &ownedCommands[1]
+              && ownedCommands[0].metadata == nullptr);
+static_assert(!std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
+              && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
+              && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedCommands)>>);
+static_assert(ownedApi.size() == 2
+              && ownedApiIndex.find(makeId(0, 1)) == &ownedApi.data()[1]
+              && !std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
+              && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
+              && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedApi)>>);
 bool stop(void* state,const CommandParam&) noexcept { ++*static_cast<int*>(state); return false; }
 template <class Index>
 bool boundaries(const Index& view,JsonOptions options)
@@ -146,6 +189,34 @@ int main()
     const auto borrowedConst = makeCommand(0,"borrowed const",statelessTarget,boolArgs);
     expect(borrowedConst.call(1)==CommandResult::Executed,
            "const named callable lvalue is borrowed");
+    expect(partialCalibrate.call(700.0f, Mode::Precise) == CommandResult::Executed
+           && device.voltage == 700.0f && device.mode == Mode::Precise,
+           "indexed partial metadata infers omitted argument");
+    const auto partialCalls = device.calls;
+    expect(partialCalibrate.call(700.0f, 3) == CommandResult::InvalidValue
+           && device.calls == partialCalls,
+           "indexed enum metadata validates its selected argument");
+    expect(reorderedCalibrate.call(500.0f, Mode::Fast) == CommandResult::Executed
+           && reorderedCalibrate.call(501.0f, Mode::Fast) == CommandResult::InvalidValue,
+           "indexed metadata order is independent of signature order");
+    expect(ownedCommands.index().call(0) == CommandResult::Executed
+           && ownedCommands.index().call(1, 300.0f, Mode::Normal) == CommandResult::Executed
+           && device.voltage == 300.0f && device.mode == Mode::Normal,
+           "owning command table executes ordinary Command views");
+    expect(ownedApiIndex.call(makeId(0, 1), 320.0f, Mode::Precise)
+               == CommandResult::Executed
+           && device.voltage == 320.0f && device.mode == Mode::Precise,
+           "owning command catalog exposes the ordinary grouped index");
+    auto ownedCallable = [&borrowedDevice](std::uint16_t value) noexcept {
+        borrowedDevice.address = value;
+        return CommandResult::Accepted;
+    };
+    const auto borrowedTable = CommandTable{
+        command(0, "Owned callable", ownedCallable,
+                arg<0>("Address", "", std::uint16_t{7}, std::uint16_t{1}, std::uint16_t{100}))};
+    expect(borrowedTable.index().call(0, 42) == CommandResult::Accepted
+           && borrowedDevice.address == 42,
+           "owning table borrows a stable capturing command callable");
     expect(commandsIndex.call(5,-50.0,2)==CommandResult::Executed && device.voltage==-50.0f,"inferred native bounds");
     expect(commandsIndex.call(5,std::numeric_limits<float>::infinity(),1)==CommandResult::InvalidValue,"infinite native input rejected");
     expect(commandsIndex.call(5,std::numeric_limits<float>::quiet_NaN(),1)==CommandResult::InvalidValue,"nan native input rejected");
@@ -229,6 +300,25 @@ int main()
     expect(std::strstr(json.data(),"\"t\":\"u16\",\"min\":0,\"max\":2000,\"default\":1000,\"enum\":{\"0\":\"None\",\"1000\":\"Overvoltage\",\"2000\":\"Overcurrent\"}")!=nullptr,
            "explicit sparse enum dictionary in command schema");
     expect(std::strstr(json.data(),"\"i\":0,\"t\":\"f32\",\"min\":null,\"max\":null,\"default\":0")!=nullptr,"metadata-less schema");
+    const Command indexedRows[] = {partialCalibrate, reorderedCalibrate};
+    std::array<char,2048> indexedJson{};
+    expect(writeSchema(CommandIndex{indexedRows}, indexedJson.data(), indexedJson.size()) != 0
+           && std::strstr(indexedJson.data(),
+               "\"i\":0,\"t\":\"f32\",\"min\":null,\"max\":null,\"default\":0") != nullptr
+           && std::strstr(indexedJson.data(),
+               "\"i\":1,\"n\":\"Mode only\",\"u\":\"\",\"t\":\"u8\"") != nullptr
+           && std::strstr(indexedJson.data(),
+               "\"i\":0,\"n\":\"Voltage reordered\",\"u\":\"V\"") != nullptr,
+           "partial and reordered metadata serialize in signature order");
+    std::array<char,2048> ownedJson{};
+    expect(writeSchema(ownedCommands.index(), ownedJson.data(), ownedJson.size()) != 0
+           && std::strstr(ownedJson.data(), "\"n\":\"Owned voltage\"") != nullptr
+           && std::strstr(ownedJson.data(), "\"n\":\"Owned mode\"") != nullptr,
+           "owning command table serializes owned inline metadata");
+    expect(writeSchema(ownedApiIndex, ownedJson.data(), ownedJson.size()) != 0
+           && std::strstr(ownedJson.data(), "\"name\":\"Owned/Motor\"") != nullptr
+           && std::strstr(ownedJson.data(), "\"n\":\"Catalog voltage\"") != nullptr,
+           "owning command catalog serializes through CommandCatalogIndex");
     expect(writeSchema(commandsIndex,strings.data(),strings.size(),{JsonInt64Mode::String})!=0
            && std::strstr(strings.data(),"\"min\":\"1\",\"max\":null,\"default\":\"18446744073709551615\"")!=nullptr,"command schema U64 string mode");
     expect(std::strncmp(json.data(),strings.data(),20)==0,"CRC independent of representation");

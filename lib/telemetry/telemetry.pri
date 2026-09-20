@@ -27,6 +27,7 @@ HEADERS += \
     $$PWD/command/TelemetryCommandCatalog.h \
     $$PWD/command/TelemetryCommandCatalogIndex.h \
     $$PWD/command/TelemetryCommandIndex.h \
+    $$PWD/command/TelemetryCommandTable.h \
     $$PWD/catalog/TelemetryCatalog.h \
     $$PWD/catalog/TelemetryIndex.h \
     $$PWD/abi/TelemetryAbi.h \

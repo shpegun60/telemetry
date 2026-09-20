@@ -77,16 +77,17 @@ constexpr Field fields[] = {
 constexpr Catalog catalogs[] = {{0, "device", fields}};
 constexpr CatalogIndex values{catalogs};
 
-// Optional, separate, immutable storage: no repeated parameter types.
-constexpr auto calibration = commandArgs(
-    arg("Voltage", "V", 230.0f, 0.0f, 500.0f),
-    arg("Mode", "", enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)));
-constexpr Command commands[] = {
-    makeCommand<&Device::reset>(makeId(0, 0), "Reset", device),
-    makeCommand<&Device::calibrate>(makeId(0, 1), "Calibrate", device, calibration),
-    makeCommand<&Device::calibrate>(makeId(0, 2), "Calibrate without labels", device),
+// The owning table stores optional metadata and exposes ordinary Command views.
+// Indexed metadata may be partial and may appear in any order.
+constexpr CommandCatalogTable commandApi{
+    0, "device",
+    command<&Device::reset>(makeId(0, 0), "Reset", device),
+    command<&Device::calibrate>(makeId(0, 1), "Calibrate", device,
+        arg<1>("Mode", "", enumSpec<Mode::Off, Mode::Auto, Mode::Manual>(Mode::Auto)),
+        arg<0>("Voltage", "V", 230.0f, 0.0f, 500.0f)),
+    command<&Device::calibrate>(makeId(0, 2), "Calibrate without labels", device),
 };
-constexpr CommandCatalog commandCatalogs[] = {{0, "device", commands}};
+constexpr CommandCatalog commandCatalogs[] = {commandApi.catalog()};
 constexpr CommandCatalogIndex actions{commandCatalogs};
 
 auto writeResult = values.write(makeId(0, 1), 275); // int -> checked F32.
@@ -117,7 +118,10 @@ without checking write limits. Defaults never mutate an owner automatically.
 The ordinary Field constructor remains available for explicit type adaptation
 or empty getters. A Scalar-returning getter cannot imply its payload type;
 use `makeField<&Device::readScalar>(id, name, unit, ScalarType::F32, device)`
-(and, optionally, a `WriteResult(const Scalar&) noexcept` setter).
+(and, optionally, a `WriteResult(const Scalar&) noexcept` setter). For named
+borrowed callables, use `makeField(id, name, unit, ScalarType::F32, getter)` or
+the corresponding `getter, setter` overload. The callable lifetime rules below
+still apply.
 
 Free/static functions need no owner. Capture-free numeric getter and setter
 lambdas also work directly, with or without unary `+`:
@@ -139,6 +143,18 @@ constexpr auto writeLimit = +[](float value) noexcept {
 constexpr auto limitField = makeField<readLimit, writeLimit>(1, "Limit", "V",
     limits(250.0f, 1.0f, 1000.0f));
 
+// Capturing/stateful callbacks are borrowed from named, stable lvalues.
+void useRuntimeDevice(Device& runtimeDevice)
+{
+    auto capturedRead = [&runtimeDevice]() noexcept { return runtimeDevice.limit(); };
+    auto capturedWrite = [&runtimeDevice](float value) noexcept {
+        return runtimeDevice.setLimit(value);
+    };
+    const auto capturedLimit = makeField(2, "Captured limit", "V",
+        capturedRead, capturedWrite, limits(250.0f, 1.0f, 1000.0f));
+    // capturedLimit must not outlive capturedRead, capturedWrite or runtimeDevice.
+}
+
 CommandResult saveConfig() noexcept;
 constexpr auto save = makeCommand<&saveConfig>(3, "Save");
 
@@ -147,12 +163,14 @@ constexpr auto resetLambda = []() noexcept { return device.reset(); };
 constexpr auto resetFromLambda = makeCommand(4, "Reset lambda", resetLambda);
 ```
 
-For an enum-returning capture-free lambda, use a named template target as in
-the lambda pair. Direct parameter-form field callbacks deliberately remain
-numeric/bool; the template form carries enum identity. A command may borrow a
-named stateful functor or capturing lambda with one concrete `noexcept`
-`operator()`. Generic/overloaded call operators and temporary callable objects
-are rejected. No factory stores a pointer to a temporary closure.
+Capture-free callbacks take the native function-pointer path, including inline
+`[]` and `+[]`. Capturing lambdas and stateful functors take the borrowed-object
+path and therefore must be named lvalues that outlive every copied `Field`.
+For an enum-returning capture-free lambda, use a named template target as in the
+lambda pair; the template form preserves enum identity. Commands have the same
+stable-lvalue rule for borrowed callable objects. Generic, overloaded or
+throwing call operators and temporary capturing closures are rejected. No
+factory stores a pointer to a temporary closure.
 
 Command IDs form a separate logical space. For one flat zero-based array,
 `CommandIndex` validates the contiguous prefix once and uses one bounds check.
@@ -164,9 +182,20 @@ section without storing a path in every Command. Both indexes borrow stable
 definition arrays; temporary arrays are rejected. A Command is 24 bytes on
 ARM32 (48 on the tested x64 ABI). Its handler already knows the
 argument count/types, so those are not duplicated in the descriptor. Commands
-without decoration store no parameter array. Decoration lives in the supplied
-`commandArgs` lvalue, which must outlive every copied Command. Its entries are
-immutable. Passing `commandArgs(...)` as a temporary to `makeCommand` is rejected.
+without decoration store no parameter array. The low-level `makeCommand` API
+keeps positional metadata in a caller-owned `commandArgs` lvalue, which must
+outlive every copied Command; passing a temporary is rejected. Indexed
+`arg<N>(...)` metadata may be partial and arbitrarily ordered. Duplicate,
+out-of-range, mixed positional/indexed, wrong numeric and wrong enum entries are
+compile-time errors.
+
+`command(...)` creates a value specification without internal pointers.
+Directly constructing `CommandTable{...}` or `CommandCatalogTable{...}` owns the
+metadata and builds stable ordinary `Command` views into it. The owning tables
+are non-copyable and non-movable because their descriptors point into their own
+metadata. In C++17 do not wrap their construction in a return-by-value factory:
+GCC does not accept that self-referential result as a constant expression.
+Direct CTAD construction, as above, is supported by GCC, Clang and MSVC.
 There is no fixed library limit on arity; template depth and stack resources
 remain properties of the compiler/application.
 
@@ -206,7 +235,7 @@ Field and command schemas remain separate documents and logical ID spaces.
 `commandCatalogNamesUnique(catalogs, count)` provide optional constexpr checks
 for null or duplicate command/group names, analogous to the field helpers.
 
-For stable wire schemas, prefer fixed-width integers (`std::uint16_t`,
+**For stable wire schemas, use fixed-width integers** (`std::uint16_t`,
 `std::int32_t`, and so on), `float`, `double`, `bool`, and enums with an explicit
 fixed underlying type. Types such as `long`, `size_t`, `wchar_t` and an enum
 without a fixed underlying type may infer a different Scalar type on ARM32 and
@@ -726,7 +755,9 @@ An ordinary noexcept function returning Scalar, bool, float, double or a
 supported integer can appear by name or address. Both bare `[]` and `+[]`
 captureless noexcept lambdas work in field rows;
 `Getter::bind<&read>()` and `Getter::bind<&Sensor::method>(sensor)` are also
-supported. Capturing lambdas need an explicit state owner and method binding.
+supported. `makeField` can borrow a named capturing lambda or stateful functor;
+that callable and everything it captures must remain alive at the same address.
+Temporary closures are rejected.
 Const objects work with const methods. Empty getters, including a typed null
 function pointer, return Null. Sources need no telemetry return type:
 
@@ -786,6 +817,8 @@ initialized or assigned a typed null pointer.
 It accepts named functions, `&function`, bare/+ captureless lambdas,
 `Setter::bind<&function>()` and `Setter::bind<&Owner::method>(owner)`.
 Method bindings have the same lvalue and lifetime requirements as Getter.
+The getter/setter factory pair can also borrow two named capturing/stateful
+callables with exact matching native value types.
 `Setter::bindContext<&adapter>(owner)` accepts
 `WriteResult(Owner&, const Scalar&) noexcept` and follows the same lifetime
 contract. The public factories generate this adapter when needed.
@@ -967,11 +1000,14 @@ schema fingerprints, custom names and all output-buffer boundaries.
 and custom intervals, constexpr definitions, automatic enum extrema, defaults,
 inclusive boundaries, write-only validation and mandatory metadata exports.
 [TelemetryFactoryCheck.cpp](../../tests/TelemetryFactoryCheck.cpp) covers inferred
-fields, native/enum setters, runtime owners and capture-free lambdas.
+fields, native/enum setters, runtime owners, capture-free lambdas and stable
+borrowed capturing/stateful callables, including the explicit Scalar escape
+hatch (40 checks).
 [TelemetryCommandCheck.cpp](../../tests/TelemetryCommandCheck.cpp) covers command
-conversion, side effects, schema, metadata lifetimes and more than eight arguments.
+conversion, side effects, schema, metadata lifetimes, indexed partial metadata,
+owning tables and more than eight arguments (67 checks).
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
-adds 50 rejected definitions and calls.
+adds 70 rejected definitions and calls.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
@@ -981,9 +1017,11 @@ with reproduction flags in its opening comment; use the same flags for
 [ScalarStorageCodegen.cpp](../../tests/ScalarStorageCodegen.cpp),
 [ScalarVisitCodegen.cpp](../../tests/ScalarVisitCodegen.cpp),
 [EnumCodegen.cpp](../../tests/EnumCodegen.cpp) and
-[LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp), plus
-[FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp).
-The [ARM runner](../../tests/run_arm_checks.py) compiles all eight probes and
+[LimitsCodegen.cpp](../../tests/LimitsCodegen.cpp),
+[FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp),
+[BorrowedFieldCodegen.cpp](../../tests/BorrowedFieldCodegen.cpp) and
+[CommandTableCodegen.cpp](../../tests/CommandTableCodegen.cpp).
+The [ARM runner](../../tests/run_arm_checks.py) compiles all ten probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
 independently checks core, field-JSON and command-JSON archives. Each matching layout links; each
@@ -995,6 +1033,13 @@ It compares manual and inferred read wrappers in the same build and rejects
 growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
 records a separate 14/14 object-byte comparison against `c6012d9` and the free
 getter improvement. Field remains 96 bytes on ARM32; Command is 24 bytes.
+
+For this final core update, local CubeIDE GCC 14.3.1 compiled 27 translation
+units and ten probes at both optimization levels. All 18 `-O2`/`-Os` objects
+from the nine pre-existing probes match checkpoint `55fbd481` byte for byte.
+The borrowed-field probe exports a 96-byte, 32-aligned Field in `.rodata`; the
+owning-table probe keeps its internal table and exported view/count read-only,
+with no nonzero `.data` or `.bss`.
 
 For the layered refactor, the local CubeIDE GCC 14.3.1 runner compiled 20
 translation units at both optimization levels. Its seven hot-path probes were

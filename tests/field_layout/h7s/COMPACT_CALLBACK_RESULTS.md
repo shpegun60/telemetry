@@ -54,10 +54,13 @@ bx  lr
 ```
 
 Even the unchanged 16-instruction lookup varied by one cycle after link
-placement changed. The sub-cycle median U16 movement is therefore retained as
-measured noise/placement sensitivity, rather than attributed to an algorithmic
-regression. At `-O2`, where this project optimizes production hot code, all five
-random-RAM operations improve.
+placement changed. The +0.77% U16 result is a real, repeatable timing shift for
+these concrete linked images. Because the complete write wrappers are
+instruction-identical and the per-profile shift ranges from -1 to +1 cycle, the
+evidence attributes it to function placement/alignment and instruction-cache
+sensitivity, without evidence of additional algorithmic work. At `-O2`, where
+this project optimizes production hot code, all five random-RAM operations
+improve.
 
 ## Evidence and limits
 

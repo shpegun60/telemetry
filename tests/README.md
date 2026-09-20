@@ -27,9 +27,9 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes nine suites (703 C++17 / 706 C++20 checks), verifies
+The runner executes nine suites (719 C++17 / 722 C++20 checks), verifies
 thirty-five existing rejected programs, nine immutable-Field cases and
-52 factory/command compile-time rejection cases, checks
+70 factory/command compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -91,13 +91,14 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 25 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 27 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All eight codegen objects must have no startup
+and warnings as errors. All ten codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
-exist in `.rodata` with their expected sizes. Source static assertions also
-pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
+exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
+exported 96-byte Field, while CommandTableCodegen pins the exported table view
+and count. Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
 nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
 command-JSON objects are placed in separate static archives: normal 32-byte callers must
 link, while forced 64-byte callers against each archive must fail.
@@ -352,6 +353,15 @@ Direct parameter-form getter/setter pairs retain their native numeric function
 pointer types. Template member/free pairs retain enum identity and generated
 owner adapters. Commands additionally borrow named stable callable lvalues;
 temporary, generic, overloaded and throwing forms are compile-time errors.
+Fields now also borrow capturing lambdas and stateful functors from named stable
+lvalues while capture-free lambdas stay on the native function-pointer path.
+
+Indexed `arg<N>` command metadata can be partial and arbitrarily ordered;
+signature positions without metadata are inferred. `CommandTable{...}` and
+`CommandCatalogTable{...}` own that metadata and expose ordinary Command views.
+They require direct C++17 construction and are non-copyable/non-movable because
+their descriptors point into their own storage. The older positional
+`commandArgs` API remains source-compatible.
 
 Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
 fields and command parameters. `CommandCatalogIndex` adds packed group/index
@@ -360,23 +370,26 @@ ABI revision 5 covers public descriptor/index offsets and the private nested
 Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
 depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
 
-Local MinGW GCC 13.1 passed 703 C++17 and 706 C++20 runtime checks, all 35
-existing invalid programs, nine immutable-Field cases and 52 factory/command
+Local MinGW GCC 13.1 passed 719 C++17 and 722 C++20 runtime checks, all 35
+existing invalid programs, nine immutable-Field cases and 70 factory/command
 invalid programs. Standalone headers, floating-mode rejection, nine positive
 and five invalid cache-line configurations, explicit 64/128-byte layouts and
 matching/mixed core/field-JSON/command-JSON ABI archives all passed. Qt 6.10.1
 Release built and completed the grouped-command offscreen smoke test.
 
 MSVC 19.50 separately built the three library translation units and passed
-582 applicable C++17 checks and 585 applicable C++20 checks with
+598 applicable C++17 checks and 601 applicable C++20 checks with
 `/permissive- /W3 /WX`. Its numeric oracle intentionally skips because this
 implementation gives `long double` only 53 mantissa bits; that is not reported
-as numeric-oracle coverage. All 96 invalid C++17 programs were rejected.
+as numeric-oracle coverage. All 114 invalid C++17 programs were rejected.
 
-CubeIDE GCC 14.3.1 compiled 25 sources and eight read-only probes at both
+CubeIDE GCC 14.3.1 compiled 27 sources and ten read-only probes at both
 `-O2` and `-Os`, linked the newlib-nano consumer and all three independent ABI
 archives, and rejected every mixed layout. ARM32 sizes are Scalar 16, Getter 8,
 Setter 8, FieldType 48, Field 96/aligned 32 and Command 24 bytes.
+The 18 objects from the nine pre-existing probes are byte-identical to the
+`55fbd481` baseline; the two new probes cover borrowed Fields and directly
+constructed owning CommandTable storage.
 
 The [exact board A/B](field_layout/h7s/COMPACT_CALLBACK_RESULTS.md) covers
 1840 windows and restored the original image byte for byte. A fresh build of

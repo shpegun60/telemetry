@@ -19,13 +19,22 @@ struct CommandContract {
     using Arguments = typename Traits::Arguments;
 
     template <std::size_t I>
+    using MetadataSlot = CommandMetadataSlot<Metadata, I>;
+
+    template <std::size_t I>
+    static constexpr bool hasMetadata = MetadataSlot<I>::present;
+
+    template <std::size_t I>
+    static constexpr std::size_t metadataPosition = MetadataSlot<I>::position;
+
+    template <std::size_t I>
     static constexpr CommandParam parameter(const Metadata* metadata) noexcept
     {
         using T = std::tuple_element_t<I, Arguments>;
-        if constexpr (std::is_same_v<Metadata, NoCommandArgs>) {
+        if constexpr (!hasMetadata<I>) {
             return {I, nullptr, nullptr, inferredType<T>()};
         } else {
-            const auto& entry = std::get<I>(metadata->entries);
+            const auto& entry = std::get<metadataPosition<I>>(metadata->entries);
             if (entry.name == nullptr || entry.unit == nullptr) invalidFieldLimits();
             return {I, entry.name, entry.unit, refineType<T>(entry.values)};
         }
@@ -43,17 +52,19 @@ struct CommandContract {
         }
         if constexpr (std::is_enum_v<T>) {
             const auto type = [&]() constexpr noexcept {
-                if constexpr (std::is_same_v<Metadata, NoCommandArgs>)
+                if constexpr (!hasMetadata<I>)
                     return inferredType<T>();
                 else
-                    return enumConstraintType<T>(std::get<I>(metadata->entries).values);
+                    return enumConstraintType<T>(
+                        std::get<metadataPosition<I>>(metadata->entries).values);
             }();
             using Stored = Scalar::NativeType<Scalar::from(Raw{}).type()>;
             if (*number < type.minimum().template get<Stored>()
                 || *number > type.maximum().template get<Stored>()) return false;
         }
-        if constexpr (!std::is_same_v<Metadata, NoCommandArgs>) {
-            if (!within(*number, std::get<I>(metadata->entries).values)) return false;
+        if constexpr (hasMetadata<I>) {
+            if (!within(*number,
+                        std::get<metadataPosition<I>>(metadata->entries).values)) return false;
         }
         std::get<I>(output) = static_cast<T>(*number);
         return true;
@@ -105,11 +116,25 @@ struct CommandContract {
 
     static constexpr void validateMetadata(const Metadata* metadata) noexcept
     {
-        if constexpr (!std::is_same_v<Metadata, NoCommandArgs>) {
+        if constexpr (std::is_same_v<Metadata, NoCommandArgs>) {
+            validate(metadata, std::make_index_sequence<Traits::arity>{});
+        } else if constexpr (Metadata::positional) {
             static_assert(Metadata::count == Traits::arity,
-                          "Command metadata count must match the function's parameter count");
+                          "Positional command metadata count must match the function's parameter count");
+            if constexpr (Metadata::count == Traits::arity)
+                validate(metadata, std::make_index_sequence<Traits::arity>{});
+        } else if constexpr (Metadata::indexed) {
+            static_assert(Metadata::indicesUnique,
+                          "Indexed command metadata positions must be unique");
+            static_assert(Metadata::template indicesInRange<Traits::arity>,
+                          "Indexed command metadata position is outside the function's parameter list");
+            if constexpr (Metadata::indicesUnique
+                          && Metadata::template indicesInRange<Traits::arity>)
+                validate(metadata, std::make_index_sequence<Traits::arity>{});
+        } else {
+            static_assert(Metadata::positional || Metadata::indexed,
+                          "Command metadata cannot mix positional arg(...) and indexed arg<N>(...)");
         }
-        validate(metadata, std::make_index_sequence<Traits::arity>{});
     }
 };
 
