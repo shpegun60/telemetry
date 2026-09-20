@@ -2,7 +2,9 @@
 
 Baseline: `a2339b233d7e95dbe01cbf3e70c2068d3d07b689`, already ABI 7 and
 [7/7 CI checks passed](https://github.com/shpegun60/telemetry/actions/runs/35527729254).
-This refactor changes neither ABI, schema format nor fingerprint semantics.
+The refactor at `492805c` changes neither ABI, schema format nor fingerprint
+semantics. The measurements below record that checkpoint, before the subsequent
+[versioned metadata addition](SCHEMA_META.md).
 
 `TelemetryJson.cpp` and `TelemetryCommandJson.cpp` use `catalogs()` and indexed
 field/command entries for schema output and hashing. Values and local command
@@ -29,7 +31,7 @@ the archived baseline and the updated source. Complete field schema (including
 fingerprint), values and grouped command schema are byte-identical:
 
 ```sh
-python tests/audit/compare_flags_schema.py --baseline /path/to/a2339b2 --cxx g++ --output /path/to/serializer-parity --unchanged
+python tests/audit/compare_flags_schema.py --baseline /path/to/a2339b2 --current /path/to/492805c --cxx g++ --output /path/to/serializer-parity --unchanged
 ```
 
 Existing JSON and command suites additionally sweep every buffer size, both

@@ -14,12 +14,14 @@ namespace {
 // Fingerprints describe parameter contracts, labels and positional identity.
 // Callback/owner addresses and the selected 64-bit JSON representation are
 // deliberately absent, so relocation does not change a logical schema.
-std::uint32_t byte(std::uint32_t hash, std::uint8_t value) noexcept { return (hash ^ value) * 16777619u; }
-std::uint32_t word(std::uint32_t hash, std::uint64_t value) noexcept
+constexpr std::uint32_t byte(std::uint32_t hash, std::uint8_t value) noexcept { return (hash ^ value) * 16777619u; }
+constexpr std::uint32_t word(std::uint32_t hash, std::uint64_t value) noexcept
 {
     for (unsigned shift = 0; shift < 64; shift += 8) hash = byte(hash, static_cast<std::uint8_t>(value >> shift));
     return hash;
 }
+constexpr auto localHeaderHash = word(byte(byte(2166136261u, 'M'), 'S'), jsonSchemaFormatVersion);
+constexpr auto groupedHeaderHash = word(byte(byte(2166136261u, 'G'), 'S'), jsonSchemaFormatVersion);
 std::uint32_t string(std::uint32_t hash, const char* value) noexcept
 {
     // Presence marker distinguishes a missing label from an explicit empty one.
@@ -122,7 +124,7 @@ namespace detail {
 std::uint32_t commandSchemaCrcAbi(const CommandIndex& index, CurrentAbiTag) noexcept
 {
     // Separate root markers keep local and grouped command namespaces apart.
-    ParameterHash state{byte(2166136261u, 'M')};
+    ParameterHash state{localHeaderHash};
     CommandId position = 0;
     for (const Command& command : index) {
         if (!hashCommand(state, command, position++)) return 0;
@@ -135,8 +137,8 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
 {
     ParameterWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
-    if (!out.append("{\"schema\":\"%08lx\",\"commands\":[",
-                    static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
+    if (!out.append("{\"schema\":\"%08lx\",\"meta\":{\"formatVersion\":%" PRIu32 "},\"commands\":[",
+                    static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)), jsonSchemaFormatVersion)) return 0;
     CommandId position = 0;
     for (const Command& command : index) {
         if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", position == 0 ? "" : ",", position)
@@ -151,7 +153,7 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
 std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex& index,
                                   CurrentAbiTag) noexcept
 {
-    ParameterHash state{byte(2166136261u, 'G')};
+    ParameterHash state{groupedHeaderHash};
     auto& hash = state.value;
     for (const auto catalog : index.catalogs()) {
         if (catalog.name() == nullptr) return 0;
@@ -173,8 +175,8 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
     // stay visible. No command handler is invoked during schema export.
     ParameterWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
-    if (!out.append("{\"schema\":\"%08lx\",\"commandCatalogs\":[",
-                    static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)))) return 0;
+    if (!out.append("{\"schema\":\"%08lx\",\"meta\":{\"formatVersion\":%" PRIu32 "},\"commandCatalogs\":[",
+                    static_cast<unsigned long>(commandSchemaCrcAbi(index, tag)), jsonSchemaFormatVersion)) return 0;
     for (const auto catalog : index.catalogs()) {
         if (!out.append("%s{\"id\":%u,\"name\":", catalog.index() == 0 ? "" : ",",
                         static_cast<unsigned>(catalog.index()))

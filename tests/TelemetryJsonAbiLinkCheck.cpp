@@ -3,5 +3,7 @@
 
 int main()
 {
-    return telemetry::schemaCrc(nullptr, 0) == 2166136261u ? 0 : 1;
+    // Exercise both ABI-tagged entry points without pinning this link fixture
+    // to a particular JSON format. TelemetryJsonCheck pins the wire hash.
+    return telemetry::schemaCrc(nullptr, 0) == telemetry::schemaCrc(telemetry::CatalogIndex{}) ? 0 : 1;
 }

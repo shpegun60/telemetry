@@ -15,6 +15,11 @@
 
 namespace telemetry {
 
+// JSON schema contract, independent of in-memory ABI and any storage format.
+// A schema without meta predates this versioned envelope. Bump this value when
+// changing the interpretation of schema metadata; fingerprints include it.
+inline constexpr std::uint32_t jsonSchemaFormatVersion = 1;
+
 // Select only the wire representation; Scalar storage and hashes do not
 // change. String is useful for clients whose JSON numbers use binary64.
 enum class JsonInt64Mode : std::uint8_t {
@@ -68,7 +73,8 @@ inline std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
     return detail::schemaCrcAbi(index, Abi{});
 }
 
-// {"schema":"<hash>","catalogs":[{"id":0,"name":"meter","fields":[
+// {"schema":"<hash>","meta":{"formatVersion":1,"fieldFlags":{
+//   "type":"u32","values":{"1":"Persistent"}}},"catalogs":[{"id":0,"name":"meter","fields":[
 //   {"i":0,"id":0,"n":"Ua","u":"V","t":"f32","w":false,"f":0,
 //    "min":null,"max":null,"default":0},...]}]}
 // Catalog id is the group position; field id packs (group << 16) | i.
@@ -76,6 +82,10 @@ inline std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
 // f is always present: the unsigned 32-bit FieldFlags mask, including unknown
 // bits. Consumers ignore bits they do not recognize. All four little-endian
 // mask bytes participate in the fingerprint; writeValues never emits flags.
+// Header flag names/codes are reflected at compile time from FieldFlag in
+// magic_enum's flags mode. Zero/composite values are not individual flag bits.
+// Version and dictionary also participate in the fingerprint; no runtime enum
+// detection is added to reading/writing a field.
 // Every field exports min, max and default, including read-only fields. Null
 // types export null for all three. They participate in the fingerprint and
 // describe numeric write limits; reading never validates against those limits.

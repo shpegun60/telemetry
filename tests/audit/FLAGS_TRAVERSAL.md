@@ -2,8 +2,10 @@
 
 Baseline: `77518915933a2997871b2916637efe4b4ce5d0b5`, ABI 6.
 Its [exact-SHA CI run](https://github.com/shpegun60/telemetry/actions/runs/35522976971)
-passed before this change. This addition uses ABI 7. Persistence storage is
+passed before this change. The addition at `a2339b2` uses ABI 7. Persistence storage is
 outside its scope.
+The [later metadata extension](SCHEMA_META.md) revises schema envelopes and
+fingerprints again; the schema hashes below record `a2339b2`.
 
 ## Contract
 
@@ -105,7 +107,7 @@ python tests/run_arm_checks.py --cxx /path/to/arm-none-eabi-g++ --build-dir /pat
 # Run the same compiler from the current repository:
 python tests/run_arm_checks.py --cxx /path/to/arm-none-eabi-g++ --build-dir /path/to/after-arm
 python tests/audit/compare_arm_probes.py --before /path/to/before-arm --after /path/to/after-arm --allow-new-probes --output /path/to/encodings.json
-python tests/audit/compare_flags_schema.py --baseline /path/to/baseline --cxx g++ --output /path/to/schema-comparison
+python tests/audit/compare_flags_schema.py --baseline /path/to/baseline --current /path/to/a2339b2 --cxx g++ --output /path/to/schema-comparison
 python tests/run_checks.py --cxx g++ --std c++17 --build-dir /path/to/host-checks
 ```
 

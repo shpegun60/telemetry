@@ -1,5 +1,7 @@
 // JSON boundary, locale and floating-point round-trip regression checks.
 #include "serialization/TelemetryJson.h"
+#include "serialization/TelemetryCommandJson.h"
+#include "../lib/magic_enum/magic_enum.hpp"
 
 #include <algorithm>
 #include <clocale>
@@ -22,6 +24,46 @@ void expect(bool condition, const char* message)
     ++checks;
     if (!condition) ++failures;
     std::printf("%s  %s\n", condition ? "PASS" : "FAIL", message);
+}
+
+// Flags reflection must cover individual high bits, not just the ordinary
+// small-integer scan. Zero and composite aliases are not flag dictionary rows.
+enum class WideFlags : std::uint32_t {
+    None = 0, First = 1, High = 1u << 20, Top = 1u << 31, Both = First | High
+};
+constexpr auto wideFlagEntries = magic_enum::enum_entries<WideFlags, magic_enum::as_flags<>>();
+static_assert(wideFlagEntries.size() == 3 && wideFlagEntries[1].first == WideFlags::High
+              && wideFlagEntries[2].first == WideFlags::Top && wideFlagEntries[2].second == "Top");
+static_assert(jsonSchemaFormatVersion == 1);
+
+void checkSchemaMeta()
+{
+    char text[1024];
+    constexpr const char* fieldMeta = "\"meta\":{\"formatVersion\":1,\"fieldFlags\":{\"type\":\"u32\",\"values\":{\"1\":\"Persistent\"}}}";
+    const auto length = writeSchema(CatalogIndex{}, text, sizeof text);
+    const char* metadata = std::strstr(text, fieldMeta);
+    expect(length != 0 && metadata != nullptr
+           && std::strstr(metadata + 1, "\"meta\":") == nullptr,
+           "empty field schemas still publish one version and reflected flags dictionary");
+    expect(writeSchema(CatalogIndex{}, text, sizeof text, {JsonInt64Mode::String}) != 0
+           && std::strstr(text, fieldMeta) != nullptr,
+           "integer JSON mode does not alter the minimal schema metadata");
+    const Field raw[]{Field{"future", "", ScalarType::U16, nullptr, nullptr,
+                            FieldFlags::fromRaw(1u << 31)}};
+    const Catalog catalogs[]{Catalog{"values", raw}};
+    expect(writeSchema(catalogs, 1, text, sizeof text) != 0
+           && std::strstr(text, "\"f\":2147483648") != nullptr && std::strstr(text, fieldMeta) != nullptr,
+           "unknown policy bits remain numeric without inventing dictionary names");
+    expect(writeValues(catalogs, 1, text, sizeof text) != 0
+           && std::strcmp(text, "{\"values\":[null]}") == 0,
+           "values remain free of schema metadata");
+    constexpr const char* commandMeta = "\"meta\":{\"formatVersion\":1},";
+    expect(writeSchema(CommandIndex{}, text, sizeof text) != 0
+           && std::strstr(text, commandMeta) != nullptr && std::strstr(text, "fieldFlags") == nullptr,
+           "local command schemas publish only their applicable format metadata");
+    expect(writeSchema(CommandCatalogIndex{}, text, sizeof text) != 0
+           && std::strstr(text, commandMeta) != nullptr && std::strstr(text, "fieldFlags") == nullptr,
+           "grouped command schemas publish only their applicable format metadata");
 }
 
 struct Source {
@@ -265,7 +307,7 @@ void checkSchemaIndependence()
     expect(schemaCrc(empty) == schemaCrc(CatalogIndex{})
                && writeValues(empty, copy, sizeof(copy)) == 2 && std::strcmp(copy, "{}") == 0
                && writeSchema(empty, copy, sizeof(copy)) != 0
-               && std::strcmp(copy, "{\"schema\":\"811c9dc5\",\"catalogs\":[]}") == 0,
+               && std::strcmp(copy, "{\"schema\":\"110cc495\",\"meta\":{\"formatVersion\":1,\"fieldFlags\":{\"type\":\"u32\",\"values\":{\"1\":\"Persistent\"}}},\"catalogs\":[]}") == 0,
            "null catalog storage with the largest count remains an empty safe schema");
 }
 
@@ -384,6 +426,7 @@ void checkIntegerText(const char* message)
 
 int main()
 {
+    checkSchemaMeta();
     checkBuffers(static_cast<Serialize>(&writeSchema), "schema respects every output boundary");
     checkBuffers(static_cast<Serialize>(&writeValues), "values respect every output boundary");
     checkEarlyStop();

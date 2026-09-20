@@ -40,7 +40,7 @@ lib/delegate/
   delegate.pri, tiny_delegate.hpp  upstream v1.2.0 used by delegate slots
   LICENSE, README.md               license and source revision
 lib/magic_enum/
-  magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for optional enum schema metadata
+  magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for enum and flag schema metadata
   LICENSE, README.md               upstream license and source revision
 tests/                             standalone checks without Qt
 build/                            generated files, ignored by git
@@ -165,6 +165,9 @@ auto value = demo::fieldIndex.read(telemetry::makeId(1, 0)); // Scalar, value.ty
 
 The schema publishes group IDs, packed field IDs, local positions `i` and
 setter presence `w`, policy mask `f`, and required `min`, `max`, `default` properties.
+Its root `meta` gives `formatVersion:1` and one `fieldFlags` dictionary reflected
+from the enum at compilation. Command schemas need only `meta.formatVersion`;
+values remain free of schema metadata. See the [wire contract](tests/audit/SCHEMA_META.md).
 Native endpoints of ordinary numeric fields use `null`: resolve them from `t`.
 Custom bounds and defaults remain explicit. Enum and Bool bounds are always
 explicit, even at the native endpoints of their underlying type.

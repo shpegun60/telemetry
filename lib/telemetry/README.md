@@ -21,7 +21,8 @@ and compile `abi/TelemetryAbi.cpp`. Include and compile
 keeps JSON enabled by default; set `CONFIG += telemetry_no_json` before the
 `include(...)` line for a core-only target.
 Optional `field/TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/README.md).
-Numeric-only headers and the JSON implementation do not include magic_enum.
+Numeric-only core headers do not include magic_enum. Field JSON uses it at
+compilation to derive the policy-flag dictionary; there is no runtime reflection.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
 redistributed library files; the delegate and magic_enum trees retain
@@ -502,6 +503,10 @@ read/write instructions, apply defaults, or provide a storage backend.
 Schema always exports a numeric `"f"` mask, including zero. `"w"` remains
 setter capability, independently of flags. All four flag bytes enter the
 schema fingerprint in little-endian order. Values JSON remains unchanged.
+The schema header describes known bits once, using `magic_enum` flags reflection
+over `FieldFlag`; there is no second maintained list of numeric codes/names.
+Zero and composite aliases are omitted. Named powers of two across all 32 bits
+are reflected, independently of the usual small-integer enum scan range.
 
 ## Catalog and parameter traversal
 
@@ -1255,6 +1260,20 @@ lookup. The schema includes each group's numeric `id` and each field's local
 {"id":1,"name":"sensor","fields":[{"i":0,"id":65536,"n":"Temperature","u":"degC","t":"f64","w":false,"f":0,"min":null,"max":null,"default":0}]}
 ```
 
+Field schemas also publish this minimal root metadata, once per document:
+
+```json
+"meta":{"formatVersion":1,"fieldFlags":{"type":"u32","values":{"1":"Persistent"}}}
+```
+
+The dictionary keys are decimal **bit masks**, not bit positions; `f:0` means
+none of the flags. Command schemas publish only `"meta":{"formatVersion":1}`.
+There is no build date, slot state, ID layout or value-encoding profile in this
+minimal header. `jsonSchemaFormatVersion` describes the JSON contract, separately
+from ABI 7, any future storage format and the schema fingerprint. Old schemas
+without `meta` predate this envelope. Adding known flag names need not change
+the format version, but it changes the field fingerprint automatically.
+
 Values retain named arrays such as `{"sensor":[24.5]}`. The order-sensitive
 FNV-1a fingerprint includes group IDs, all four field-ID bytes, declared
 metadata, setter presence (`w`), all four policy-mask bytes (`f`, little-endian),
@@ -1262,6 +1281,8 @@ min/max/default, enum codes/names/order when
 present, and record/string boundaries. Limits are hashed by numeric value
 bits with explicit byte order, never by object padding. A format marker
 changes with compact native-bound encoding so previous cached schemas refresh.
+The root format version and reflected field-flag codes/names are included too.
+Command fingerprints include their format version without the field dictionary.
 The ABI 7 schema adds `f` even for zero masks, so old cached field fingerprints
 change. The fingerprint is a schema hint, not a Flash-format version or a promise
 against collisions. The packed numbering and group schema IDs change the
@@ -1272,6 +1293,9 @@ IDs are exported or hashed, raw range iteration for values, and
 `forEachParameter()` for command metadata. The [serializer comparison](../../tests/audit/SERIALIZATION_TRAVERSAL.md)
 records unchanged JSON/fingerprints, buffer-boundary checks and ARM object/stack
 differences from that implementation cleanup.
+The later [versioned metadata addition](../../tests/audit/SCHEMA_META.md) changes
+only the schema envelopes and fingerprints; values and field/command rows stay
+the same.
 
 Buffers belong to the caller; a zero returned length means failure and
 partial JSON must not be sent. A null buffer fails regardless of its size;

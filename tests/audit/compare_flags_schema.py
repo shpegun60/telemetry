@@ -14,8 +14,11 @@ def main():
     parser.add_argument("--current", type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument("--cxx", default="g++")
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--unchanged", action="store_true",
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--unchanged", action="store_true",
                         help="require identical schemas/fingerprints/values after a serializer refactor")
+    mode.add_argument("--schema-meta", action="store_true",
+                      help="permit only the versioned meta envelope and changed schema fingerprints")
     args = parser.parse_args()
     compiler = shutil.which(args.cxx)
     if not compiler:
@@ -47,6 +50,26 @@ def main():
         records[label] = lines
 
     before, after = records["before"], records["after"]
+    if args.schema_meta:
+        if before[1] != after[1]:
+            raise SystemExit("Values changed while adding schema metadata")
+        for position in (0, 2):
+            old, new = json.loads(before[position]), json.loads(after[position])
+            if "meta" in old:
+                raise SystemExit("Use a baseline from before the versioned schema envelope")
+            expected_meta = {"formatVersion": 1}
+            if position == 0:
+                expected_meta["fieldFlags"] = {"type": "u32", "values": {"1": "Persistent"}}
+            if new.pop("meta", None) != expected_meta:
+                raise SystemExit("Schema metadata differs from the minimal format contract")
+            if old.pop("schema") == new.pop("schema"):
+                raise SystemExit("New schema format did not change the fingerprint")
+            if old != new:
+                raise SystemExit("Descriptors changed while adding schema metadata")
+        receipt = {"only_schema_meta_added": True, "fingerprints_changed": True, "values_identical": True}
+        (output / "comparison.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(receipt))
+        return
     if args.unchanged:
         if before != after:
             raise SystemExit("Schema, fingerprint or value JSON changed")

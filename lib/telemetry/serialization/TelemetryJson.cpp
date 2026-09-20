@@ -8,6 +8,7 @@
 
 #include "../detail/TelemetryJsonValue.h"
 #include "../detail/TelemetryJsonWriter.h"
+#include "../../magic_enum/magic_enum.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -18,10 +19,15 @@ namespace telemetry {
 
 namespace {
 
+// Flags mode scans named powers of two across all 32 underlying bits, rather
+// than magic_enum's ordinary small-integer range. No parallel name list or
+// runtime reflection is needed; names retain their explicit string_view length.
+constexpr auto fieldFlagEntries = magic_enum::enum_entries<FieldFlag, magic_enum::as_flags<>>();
+
 // Hash the logical schema, never pointer addresses, object padding or current
 // measurements. Integer words have a specified byte order; float object bits
 // are copied without aliasing before that same byte-order projection.
-std::uint32_t hash_byte_(std::uint32_t hash, std::uint8_t byte) noexcept
+constexpr std::uint32_t hash_byte_(std::uint32_t hash, std::uint8_t byte) noexcept
 {
     return (hash ^ byte) * 16777619u;
 }
@@ -35,13 +41,26 @@ std::uint32_t fnv1a_(std::uint32_t hash, const char* text) noexcept
     return hash_byte_(hash, 0u);
 }
 
-std::uint32_t hash_u64_(std::uint32_t hash, std::uint64_t value) noexcept
+constexpr std::uint32_t hash_u64_(std::uint32_t hash, std::uint64_t value) noexcept
 {
     for (unsigned shift = 0; shift < 64; shift += 8) {
         hash = hash_byte_(hash, static_cast<std::uint8_t>(value >> shift));
     }
     return hash;
 }
+
+// The header is immutable. Its fingerprint prefix is fully evaluated by the
+// compiler, so exporting a schema never rehashes version or flag-name strings.
+constexpr std::uint32_t schemaHeaderHash = []() constexpr noexcept {
+    std::uint32_t hash = hash_u64_(hash_byte_(2166136261u, 'S'), jsonSchemaFormatVersion);
+    hash = hash_byte_(hash, 'P');
+    for (const auto& [flag, name] : fieldFlagEntries) {
+        hash = hash_u64_(hash, static_cast<std::uint32_t>(flag));
+        hash = hash_u64_(hash, name.size());
+        for (const char ch : name) hash = hash_byte_(hash, static_cast<std::uint8_t>(ch));
+    }
+    return hash_byte_(hash, 'p');
+}();
 
 std::uint32_t hash_scalar_(std::uint32_t hash, const Scalar& value) noexcept
 {
@@ -84,7 +103,7 @@ namespace detail {
 
 std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
 {
-    std::uint32_t hash = 2166136261u;
+    std::uint32_t hash = schemaHeaderHash;
     for (const auto catalog : index.catalogs()) {
         if (catalog.name() == nullptr) return 0;
         hash = hash_byte_(hash, 'C');
@@ -135,8 +154,16 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
     // and no source getter are needed.
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
-    if (!out.append("{\"schema\":\"%08lx\",\"catalogs\":[",
-                    static_cast<unsigned long>(schemaCrcAbi(index, tag)))) return 0;
+    if (!out.append("{\"schema\":\"%08lx\",\"meta\":{\"formatVersion\":%" PRIu32
+                    ",\"fieldFlags\":{\"type\":\"u32\",\"values\":{",
+                    static_cast<unsigned long>(schemaCrcAbi(index, tag)), jsonSchemaFormatVersion)) return 0;
+    bool firstFlag = true;
+    for (const auto& [flag, name] : fieldFlagEntries) {
+        if (!out.append("%s\"%" PRIu32 "\":", firstFlag ? "" : ",", static_cast<std::uint32_t>(flag))
+            || !out.appendString(name)) return 0;
+        firstFlag = false;
+    }
+    if (!out.append("}}},\"catalogs\":[")) return 0;
     for (const auto catalog : index.catalogs()) {
         if (!out.append("%s{\"id\":%u,\"name\":",
                         catalog.index() == 0u ? "" : ",", static_cast<unsigned>(catalog.index()))

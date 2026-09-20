@@ -28,6 +28,8 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex&, char*, std::size_t
 // Defaults are UI hints, never implicit execution arguments. Commands have a
 // separate dense ID space, starting at zero. CRC covers logical metadata,
 // independently of U64/S64 number/string mode and callback addresses.
+// Every command schema emits meta.formatVersion and hashes that version.
+// The fieldFlags dictionary belongs only to field schemas: commands have no f.
 template <class Abi = detail::CurrentAbiTag>
 inline std::uint32_t schemaCrc(const CommandIndex& index) noexcept
 {

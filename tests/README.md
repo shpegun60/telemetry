@@ -5,6 +5,8 @@ schema delta, lifetime/visitor checks and unchanged ARM instruction encodings
 against `7751891`. Field remains 96 bytes on ARM32 and Command remains 20.
 The [serializer follow-up](audit/SERIALIZATION_TRAVERSAL.md) adopts that traversal
 inside JSON export and records its separate code-generation comparison.
+[Minimal schema metadata](audit/SCHEMA_META.md) adds a format version and the
+compile-time flag dictionary without changing values or descriptor rows.
 
 [position_tables](position_tables/README.md) covers ABI 6, direct/local/global
 ARM instruction comparisons, conversion parity and command-stride measurements.
