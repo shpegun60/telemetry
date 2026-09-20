@@ -29,7 +29,7 @@ struct FieldBinding {
     {
         auto* target = resolveFactoryOwner(std::addressof(owner));
         if constexpr (isOwnerSlot<Owner>) {
-            if (target == nullptr) return Scalar::null();
+            if (!target) return Scalar::null();
         }
         return factoryScalar(invokeFactory<Read>(target));
     }
@@ -40,7 +40,7 @@ struct FieldBinding {
     {
         auto* target = resolveFactoryOwner(std::addressof(owner));
         if constexpr (isOwnerSlot<Owner>) {
-            if (target == nullptr) return WriteResult::Unavailable;
+            if (!target) return WriteResult::Unavailable;
         }
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(target, value);
         else {
@@ -153,13 +153,11 @@ struct BorrowedFieldReadBinding {
 
     static TELEMETRY_FORCE_INLINE Scalar read(ReadCallable& callable) noexcept
     {
-        auto* target = resolveFactoryCallable(std::addressof(callable));
-        if constexpr (isFunctionSlot<ReadCallable>) {
-            if (target == nullptr) return Scalar::null();
+        auto target = resolveFactoryCallable(std::addressof(callable));
+        if constexpr (isCallableSlot<ReadCallable>) {
+            if (!target) return Scalar::null();
         }
-        static_assert(std::is_nothrow_invocable_v<decltype(*target)>,
-                      "Borrowed field getter must be noexcept");
-        return factoryScalar((*target)());
+        return factoryScalar(invokeResolvedCallable(target));
     }
 
     static constexpr Getter getter(ReadCallable& callable) noexcept
@@ -189,17 +187,15 @@ struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
     static TELEMETRY_FORCE_INLINE WriteResult write(WriteCallable& callable,
                                                      const Scalar& value) noexcept
     {
-        auto* target = resolveFactoryCallable(std::addressof(callable));
-        if constexpr (isFunctionSlot<WriteCallable>) {
-            if (target == nullptr) return WriteResult::Unavailable;
+        auto target = resolveFactoryCallable(std::addressof(callable));
+        if constexpr (isCallableSlot<WriteCallable>) {
+            if (!target) return WriteResult::Unavailable;
         }
-        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(*target), Argument>,
-                      "Borrowed field setter must be noexcept");
-        if constexpr (std::is_same_v<Value, Scalar>) return (*target)(value);
+        if constexpr (std::is_same_v<Value, Scalar>) return invokeResolvedCallable(target, value);
         else {
             Value native{};
             if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return (*target)(native);
+            return invokeResolvedCallable(target, native);
         }
     }
 
@@ -226,7 +222,7 @@ constexpr Field materializeField(const char* name, const char* unit,
     static_assert(noexcept(detail::fieldFunction<Function>(function)),
                   "Factory function-pointer conversion must be noexcept");
     const Function target = function;
-    if (target == nullptr) detail::invalidFieldLimits();
+    if (!target) detail::invalidFieldLimits();
     return Field{name, unit, detail::refineType<Value>(metadata),
                  detail::DirectFieldReadBinding<Function>::getter(target)};
 }

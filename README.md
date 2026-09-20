@@ -12,8 +12,8 @@ git clone https://github.com/shpegun60/telemetry.git
 ```
 
 The library, its magic_enum dependency, demo and checks are all included in
-this repository. The delegate tree is an optional synchronized companion for
-applications that use it separately; telemetry itself does not depend on it.
+this repository. The bundled delegate implements telemetry's borrowed and owned
+callback slots; ordinary Getter/Setter and the other slots do not depend on it.
 No analyzer firmware checkout or Git submodule is required.
 
 Licensed under the [MIT License](LICENSE), with the same license text and
@@ -30,13 +30,14 @@ app/
 lib/telemetry/
   Telemetry.h                       public umbrella (no forwarding headers)
   core/, field/, catalog/           public numeric, field and lookup layers
+  slot/                            runtime object/function/context/delegate binding
   command/                          inferred signatures, owning tables and direct lookup
   abi/                              independent layout guard and link anchor
   serialization/                    optional JSON public API and implementation
   detail/                           private storage/conversion/JSON helpers
   telemetry.pri                     reusable qmake include
 lib/delegate/
-  delegate.pri, tiny_delegate.hpp  optional upstream v1.2.0 companion library
+  delegate.pri, tiny_delegate.hpp  upstream v1.2.0 used by delegate slots
   LICENSE, README.md               license and source revision
 lib/magic_enum/
   magic_enum.hpp, magic_enum.pri   pinned v0.9.8 for optional enum schema metadata
@@ -135,6 +136,8 @@ For a callback selected or replaced at runtime, use `FunctionSlot<Signature>`
 as a `field(...)`/`command(...)` parameter. Its checked adapters preserve empty
 reads and report unavailable writes/commands while constant schemas remain
 unchanged. See the [function slot example](lib/telemetry/README.md#runtime-functions-behind-constant-tables).
+The [complete slot family](lib/telemetry/slot/README.md) includes context callbacks,
+borrowed functors and inline-owned captured lambdas, for both fields and commands.
 
 IDs pack a 16-bit group and a 16-bit field position. Meter is group 0
 (IDs `0..5`); sensor is group 1 (IDs `65536..65537`); integer examples are

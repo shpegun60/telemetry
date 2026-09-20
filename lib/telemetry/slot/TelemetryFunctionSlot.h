@@ -8,6 +8,8 @@
 #define TELEMETRY_FUNCTION_SLOT_H
 
 #include <type_traits>
+#include <utility>
+#include "TelemetrySlotTraits.h"
 
 namespace telemetry {
 
@@ -24,6 +26,7 @@ class FunctionSlot {
 template <class R, class... Args>
 class FunctionSlot<R(Args...) noexcept> {
 public:
+    using Signature = R(Args...) noexcept;
     using Function = R (*)(Args...) noexcept;
     constexpr FunctionSlot() noexcept = default;
     FunctionSlot(const FunctionSlot&) = delete;
@@ -34,15 +37,13 @@ public:
     constexpr void bind(Function function) noexcept { function_ = function; }
     constexpr void reset() noexcept { function_ = nullptr; }
     [[nodiscard]] constexpr Function get() const noexcept { return function_; }
+    [[nodiscard]] constexpr bool available() const noexcept { return function_ != nullptr; }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return function_ != nullptr; }
+    // Precondition: engaged, with bind/reset externally serialized with calls.
+    R invoke(Args... args) const noexcept { return function_(std::forward<Args>(args)...); }
 private:
     Function function_ = nullptr;
 };
 
-namespace detail {
-template <class T> struct IsFunctionSlot : std::false_type {};
-template <class S> struct IsFunctionSlot<FunctionSlot<S>> : std::true_type {};
-template <class T> inline constexpr bool isFunctionSlot = IsFunctionSlot<std::remove_cv_t<T>>::value;
-} // namespace detail
 } // namespace telemetry
 #endif

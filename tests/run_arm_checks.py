@@ -257,26 +257,26 @@ def check_owner_slots(disassembly):
                 raise RuntimeError(f"OwnerSlotCodegen: {name} added a slot or presence check")
 
 
-def check_function_slots(disassembly):
+def check_function_slots(disassembly, prefix="function_slot_", operations=("read", "write", "call", "convert")):
     def resolved(name, seen=()):
         if name in seen:
             raise RuntimeError("FunctionSlotCodegen: cyclic wrapper alias")
         instructions = normalized_instructions(disassembly, name)
         real = [entry for entry in instructions if entry[0] != "nop"]
         if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
-            alias = re.search(r"<(function_slot_\w+)>", real[0][1])
+            alias = re.search(r"<(" + re.escape(prefix) + r"\w+)>", real[0][1])
             if alias:
                 return resolved(alias.group(1), (*seen, name))
         return instructions
 
-    for operation in ("read", "write", "call", "convert"):
-        manual = resolved("function_slot_manual_" + operation)
+    for operation in operations:
+        manual = resolved(prefix + "manual_" + operation)
         for route in ("local", "global"):
-            name = "function_slot_" + route + "_" + operation
+            name = prefix + route + "_" + operation
             if resolved(name) != manual:
                 raise RuntimeError(f"FunctionSlotCodegen: {name} differs from explicit function check")
             body = function_body(disassembly, name)
-            if any(symbol in body for symbol in ("Scalar", "functionProbeFields", "functionProbeCommands")):
+            if any(symbol in body for symbol in ("Scalar", "functionProbeFields", "functionProbeCommands", "lateProbeFields", "lateProbeCommands")):
                 raise RuntimeError(f"FunctionSlotCodegen: {name} retained erased dispatch or table lookup")
 
 
@@ -321,6 +321,12 @@ def check_probe(name, headers, symbols, disassembly):
     elif name == "FunctionSlotCodegen":
         expected = {"functionProbeFields": 2 * 96}
         check_function_slots(disassembly)
+    elif name == "LateBoundCodegen":
+        expected = {"lateProbeFields": 6 * 96}
+        # Reuse the native callback comparison for each fixed slot strategy.
+        # No runtime switch chooses a strategy in the generated wrappers.
+        for kind in ("context", "ref", "owned"):
+            check_function_slots(disassembly, "late_" + kind + "_", ("read", "write", "call"))
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():

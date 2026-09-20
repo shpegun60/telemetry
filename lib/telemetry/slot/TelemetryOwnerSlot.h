@@ -35,6 +35,7 @@ public:
     void bind(U&&) = delete;
     constexpr void reset() noexcept { owner_ = nullptr; }
     [[nodiscard]] constexpr T* get() const noexcept { return owner_; }
+    [[nodiscard]] constexpr bool available() const noexcept { return owner_ != nullptr; }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return owner_ != nullptr; }
 };
 

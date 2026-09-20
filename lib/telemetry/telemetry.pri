@@ -2,14 +2,19 @@
 # Authors: Ruslan Kovtun (shpegun60), codexAi.
 # License: MIT; see LICENSE in this directory.
 #
-# Copy telemetry and its sibling magic_enum directory into a consumer.
+# Copy telemetry and its sibling magic_enum/delegate directories into a consumer.
 # The library itself uses only C++17; Qt belongs to the application.
 include($$PWD/../magic_enum/magic_enum.pri)
+include($$PWD/../delegate/delegate.pri)
 CONFIG += c++17
 INCLUDEPATH += $$PWD
 HEADERS += \
-    $$PWD/core/TelemetryOwnerSlot.h \
-    $$PWD/core/TelemetryFunctionSlot.h \
+    $$PWD/slot/TelemetryOwnerSlot.h \
+    $$PWD/slot/TelemetryFunctionSlot.h \
+    $$PWD/slot/TelemetryContextFunctionSlot.h \
+    $$PWD/slot/TelemetryDelegateRefSlot.h \
+    $$PWD/slot/TelemetryDelegateSlot.h \
+    $$PWD/slot/TelemetrySlotTraits.h \
     $$PWD/Telemetry.h \
     $$PWD/core/TelemetryCompiler.h \
     $$PWD/core/TelemetryCacheline.h \
@@ -42,6 +47,7 @@ HEADERS += \
     $$PWD/serialization/TelemetryJson.h \
     $$PWD/serialization/TelemetryCommandJson.h \
     $$PWD/detail/TelemetryCallable.h \
+    $$PWD/detail/TelemetrySlotCallable.h \
     $$PWD/detail/TelemetryNumberConversion.h \
     $$PWD/detail/TelemetryBounds.h \
     $$PWD/detail/TelemetryJsonWriter.h \
@@ -53,4 +59,4 @@ SOURCES += $$PWD/abi/TelemetryAbi.cpp
     SOURCES += $$PWD/serialization/TelemetryJson.cpp
     SOURCES += $$PWD/serialization/TelemetryCommandJson.cpp
 }
-DISTFILES += $$PWD/LICENSE $$PWD/README.md
+DISTFILES += $$PWD/LICENSE $$PWD/README.md $$PWD/slot/README.md

@@ -3,17 +3,18 @@
 Standalone field, command, numeric conversion and JSON library for C++17.
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 
-Copy this directory and its sibling `magic_enum` directory into a consumer,
+Copy this directory and its sibling `magic_enum` and `delegate` directories into a consumer,
 keeping them under the same `lib` directory, and include the reusable `.pri`:
 
 ```qmake
 include(path/to/telemetry/telemetry.pri)
 ```
 
-The library uses C++17. It has no Qt, STM32, RTOS, Mongoose, tiny_delegate or
+The library uses C++17. It has no Qt, STM32, RTOS, Mongoose or
 `basic_types.h` dependency. The sibling [tiny_delegate v1.2.0](../delegate/README.md)
-is an optional synchronized companion for consumers that use delegates in
-their own code. For a non-qmake build, add `lib/telemetry` to the include path
+implements the borrowed/owned delegate slots exposed by `Telemetry.h`.
+Getter/Setter and the other slot types remain independent of tiny_delegate.
+For a non-qmake build, add `lib/telemetry` to the include path
 and compile `abi/TelemetryAbi.cpp`. Include and compile
 `serialization/TelemetryJson.cpp` for field JSON and
 `serialization/TelemetryCommandJson.cpp` for command JSON, only when required. The qmake include
@@ -23,7 +24,7 @@ Optional `field/TelemetryEnum.h` uses bundled [magic_enum v0.9.8](../magic_enum/
 Numeric-only headers and the JSON implementation do not include magic_enum.
 
 Licensed under the [MIT License](LICENSE). Keep this license with copied or
-redistributed library files; the optional delegate and magic_enum trees retain
+redistributed library files; the delegate and magic_enum trees retain
 their upstream MIT licenses.
 
 ## Public files and layers
@@ -236,6 +237,13 @@ and read-only constant tables are unchanged. The slot must outlive those tables
 and cannot be copied/moved. Bind/reset and all access require external
 serialization, just as for `OwnerSlot`. A slot does not own captured state;
 use an ordinary borrowed functor or `OwnerSlot` for callbacks needing an object.
+
+The complete [slot family](slot/README.md) also provides
+`ContextFunctionSlot`, `DelegateRefSlot` and `DelegateSlot` for context callbacks,
+borrowed callables and owned captured lambdas. All five public slot headers now
+live under `slot/`; direct includes of the former `core/TelemetryOwnerSlot.h`
+or `core/TelemetryFunctionSlot.h` must use that directory. `Telemetry.h` includes
+the entire family. `available()` complements `operator bool()` on every slot.
 
 ### Native field access
 
@@ -1240,7 +1248,7 @@ with reproduction flags in its opening comment; use the same flags for
 [FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp),
 [BorrowedFieldCodegen.cpp](../../tests/BorrowedFieldCodegen.cpp) and
 [CommandTableCodegen.cpp](../../tests/CommandTableCodegen.cpp).
-The [ARM runner](../../tests/run_arm_checks.py) compiles all twelve probes and
+The [ARM runner](../../tests/run_arm_checks.py) compiles all fifteen probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
 independently checks core, field-JSON and command-JSON archives. Each matching layout links; each

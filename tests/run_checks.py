@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
           "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck", "TelemetryOwnerSlotCheck",
-          "TelemetryFunctionSlotCheck")
+          "TelemetryFunctionSlotCheck", "TelemetryLateBoundCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryJson.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
@@ -189,6 +189,28 @@ def main():
                      "tests/TelemetryFunctionSlotCompileFail.cpp"],
             f"function-slot-reject-{case}", diagnostic)
     print("22 function slot lifetime and signature rejections verified", flush=True)
+
+    slot_rejections = {
+        **{case: "requires an R" for case in (1, 2, 3)},
+        **{case: "deleted" for case in (4, 5, 6, 7, 17, 18, 19, 20, 21, 23, 24, 25, 26, 33, 34)},
+        **{case: "noexcept" for case in (8, 9, 10, 14, 15, 16)},
+        **{case: "convert|conversion" for case in (11, 30)},
+        31: "convert|conversion|cannot initialize a parameter",
+        12: "exceeds its inline", 13: "exceeds its inline", 22: "exact same C\\+\\+ type",
+        27: "compatible reference", 28: "compatible reference", 29: "direct owner object", 32: "InlineBytes too small",
+        **{case: "target signature must match exactly" for case in range(35, 43)},
+    }
+    for case, diagnostic in slot_rejections.items():
+        run(flags + [f"-DTELEMETRY_LATE_BOUND_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryLateBoundCompileFail.cpp"],
+            f"late-bound-reject-{case}", diagnostic)
+    # A consumer enabling the companion delegate's heap mode must not change
+    # telemetry's fixed-capacity slot contract.
+    for case in (12, 13):
+        run(flags + ["-DTINY_DELEGATE_ENABLE_HEAP_FALLBACK=1", f"-DTELEMETRY_LATE_BOUND_FAIL_CASE={case}",
+                     "-fsyntax-only", "tests/TelemetryLateBoundCompileFail.cpp"],
+            f"late-bound-no-heap-{case}", "exceeds its inline")
+    print("42 late-bound lifetime/signature rejections and 2 no-heap controls verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")

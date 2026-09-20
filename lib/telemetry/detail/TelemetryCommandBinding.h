@@ -314,15 +314,15 @@ struct BorrowedCommandBinding {
     static CommandResult run(const void* target, const void* metadata, const Scalar* values,
                              std::index_sequence<I...> sequence) noexcept
     {
-        auto* callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
-        if constexpr (isFunctionSlot<Callable>) {
-            if (callable == nullptr) return CommandResult::Unavailable;
+        auto callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
+        if constexpr (isCallableSlot<Callable>) {
+            if (!callable) return CommandResult::Unavailable;
         }
         Arguments converted{};
         const auto* definition = static_cast<const Metadata*>(metadata);
         if (!Contract::convertAll(definition, values, converted, sequence))
             return CommandResult::InvalidValue;
-        return (*callable)(std::get<I>(converted)...);
+        return invokeResolvedCallable(callable, std::get<I>(converted)...);
     }
 
     static CommandResult run(const void* target, const void* metadata,
@@ -340,19 +340,19 @@ struct BorrowedCommandBinding {
         const void* target, const Metadata* metadata,
         std::index_sequence<I...> sequence, Input... values) noexcept
     {
-        auto* callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
-        if constexpr (isFunctionSlot<Callable>) {
-            if (callable == nullptr) return CommandResult::Unavailable;
+        auto callable = resolveFactoryCallable(static_cast<Callable*>(const_cast<void*>(target)));
+        if constexpr (isCallableSlot<Callable>) {
+            if (!callable) return CommandResult::Unavailable;
         }
         if constexpr (Contract::template exactArguments<Input...>) {
             if (!Contract::validateNativeAll(metadata, sequence, values...))
                 return CommandResult::InvalidValue;
-            return (*callable)(values...);
+            return invokeResolvedCallable(callable, values...);
         } else {
             Arguments converted{};
             if (!Contract::convertNativeAll(metadata, converted, sequence, values...))
                 return CommandResult::InvalidValue;
-            return (*callable)(std::get<I>(converted)...);
+            return invokeResolvedCallable(callable, std::get<I>(converted)...);
         }
     }
 

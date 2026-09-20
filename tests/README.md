@@ -35,11 +35,12 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes twelve suites (including native/dynamic table parity and both slot types), verifies
+The runner executes thirteen suites (including native/dynamic table parity and all five slot types), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
-18 integer/enum-position, 18 owner-slot and 22 function-slot compile-time rejection cases (267 total;
-274 in C++20 with structural adapters and additional invalid position types), checks
+18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
+rejection cases plus two no-heap controls (311 total; 318 in C++20 with structural
+adapters and additional invalid position types), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -101,9 +102,9 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 34 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 36 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
-and warnings as errors. All fourteen codegen objects must have no startup
+and warnings as errors. All fifteen codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
@@ -116,6 +117,10 @@ table calls to match ordinary calls without slot loads or presence checks.
 FunctionSlotCodegen compares native local/global read, write, command and
 converting command calls with handwritten function-pointer load/check/invoke
 sequences. Its two-row Field table must remain 192 bytes in read-only storage.
+LateBoundCodegen compares context/ref/owned slot operations with manual native
+calls; its six-row table must remain 576 bytes in read-only storage. Runtime
+checks cover capture ownership, move-only closures, replacement/destruction,
+const views, mixed slot kinds, null contexts and schema/CRC stability.
 Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
 nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
 command-JSON objects are placed in separate static archives: normal 32-byte callers must
@@ -460,8 +465,9 @@ Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
 fields and command parameters. `CommandCatalogIndex` adds packed group/index
 lookup and grouped schema paths without growing the 24-byte ARM Command.
 ABI revision 6 covers public descriptor/index offsets and the private nested
-Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
-depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
+Scalar, Getter, Setter and FieldType layout. At that checkpoint the compact
+core stopped depending on tiny_delegate. The later delegate slot family uses
+the bundled v1.2.0 header without changing the compact Getter/Setter core.
 
 Local MinGW GCC 13.1 passed 729 C++17 and 732 C++20 runtime checks, all 39
 existing invalid programs, nine immutable-Field cases and 82 factory/command

@@ -8,8 +8,8 @@
 #define TELEMETRY_DETAIL_CALLABLE_H
 
 #include "../field/TelemetryEnum.h"
-#include "../core/TelemetryOwnerSlot.h"
-#include "../core/TelemetryFunctionSlot.h"
+#include "../slot/TelemetryOwnerSlot.h"
+#include "../slot/TelemetryFunctionSlot.h"
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -61,23 +61,33 @@ struct HasConcreteCallOperator<T,
     std::void_t<decltype(&std::remove_cv_t<T>::operator())>> : std::true_type {};
 
 template <class T>
-inline constexpr bool hasFactoryCallSignature = HasConcreteCallOperator<T>::value || isFunctionSlot<T>;
+inline constexpr bool hasFactoryCallSignature = HasConcreteCallOperator<T>::value || isCallableSlot<T>;
 
-template <class T, bool = isFunctionSlot<T>>
+template <class T, bool = isCallableSlot<T>>
 struct CallableObjectSignature : CallableTraits<decltype(&std::remove_cv_t<T>::operator())> {};
 template <class T>
-struct CallableObjectSignature<T, true> : CallableTraits<typename std::remove_cv_t<T>::Function> {};
+struct CallableObjectSignature<T, true> : CallableTraits<typename std::remove_cv_t<T>::Signature*> {};
 template <class T>
 using CallableObjectTraits = CallableObjectSignature<T>;
 
 // Ordinary closures retain their exact address and direct operator() call.
-// Only explicit FunctionSlot types load a mutable function pointer. Callers
-// check that snapshot once and invoke the same function after validation.
+// Explicit slots return their signature-specific snapshot/view. Callers check
+// it once, then invoke that target after validation. No runtime kind tag exists.
 template <class Callable>
 TELEMETRY_FORCE_INLINE constexpr auto resolveFactoryCallable(Callable* callable) noexcept
 {
-    if constexpr (isFunctionSlot<Callable>) return callable->get();
+    if constexpr (isCallableSlot<Callable>) return callable->get();
     else return callable;
+}
+
+template <class Target, class... Args>
+TELEMETRY_FORCE_INLINE decltype(auto) invokeResolvedCallable(Target& target, Args&&... args) noexcept
+{
+    if constexpr (std::is_pointer_v<Target>) {
+        static_assert(std::is_nothrow_invocable_v<decltype(*target), Args...>,
+                      "Borrowed callable must be noexcept and match its signature");
+        return (*target)(std::forward<Args>(args)...);
+    } else return target.invoke(std::forward<Args>(args)...);
 }
 
 // Capture-free lambdas expose the built-in unary-plus conversion to an exact
