@@ -27,9 +27,9 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes nine suites (719 C++17 / 722 C++20 checks), verifies
+The runner executes nine suites (726 C++17 / 729 C++20 checks), verifies
 thirty-five existing rejected programs, nine immutable-Field cases and
-76 factory/command compile-time rejection cases, checks
+82 factory/command compile-time rejection cases, checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -98,7 +98,9 @@ initialization and no writable data sections: their mutable owners are
 deliberately external. The four exported IndexCodegen metadata symbols must
 exist in `.rodata` with their expected sizes. BorrowedFieldCodegen pins its
 exported 96-byte Field, while CommandTableCodegen pins the exported table view
-and count. Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
+and count. That probe also requires stack-free direct target branches from both
+native dispatch levels and keeps the Scalar/indirect wrapper as a control.
+Source static assertions also pin the ARM32 type layout. A minimal JSON consumer links with newlib-nano,
 nosys stubs and enabled float formatting; it is not executed. The core ABI, field-JSON and
 command-JSON objects are placed in separate static archives: normal 32-byte callers must
 link, while forced 64-byte callers against each archive must fail.
@@ -146,6 +148,22 @@ Additional inferred wrappers occupy 52/50 bytes for a known typed setter,
 occupies 24 bytes on ARM32. These are compiled wrapper sizes, excluding any
 out-of-line callees; they are not cycle or stack measurements. The retained
 H7S receipts predate commands, so they do not establish command performance.
+
+The owning `CommandTable` now has a separate three-level probe with runtime
+`float` and enum inputs. CubeIDE GCC 14.3.1 emits the following wrapper sizes at
+both `-O2` and `-Os`:
+
+| CommandTable path | Bytes | Wrapper stack | Target dispatch |
+|---|---:|---:|---|
+| `call<1>(float, Mode)` | 48 | 0 | Direct tail branch |
+| `call(runtimeIndex, float, Mode)` | 60 | 0 | Typed branch, then direct tail branch |
+| `index.execute(id, Scalar*, count)` | 52 | 4 | Descriptor-selected indirect tail branch |
+
+The ARM runner parses disassembly and enforces these structural properties at
+both optimization levels. Exact native types are mandatory for `call<Index>()`;
+the runtime-position overload returns `ArgumentCountMismatch` when the selected
+definition has another signature. The Scalar path retains checked numeric
+conversion for transport input.
 
 Three live NUCLEO-H7S3L8 sessions then compared the exact compact baseline with
 three Command candidates at both `-O2` and `-Os` (95 checked windows per image,
@@ -388,18 +406,18 @@ ABI revision 5 covers public descriptor/index offsets and the private nested
 Scalar, Getter, Setter and FieldType layout. Telemetry no longer includes or
 depends on tiny_delegate; the bundled v1.2.0 copy is an optional companion.
 
-Local MinGW GCC 13.1 passed 719 C++17 and 722 C++20 runtime checks, all 35
-existing invalid programs, nine immutable-Field cases and 76 factory/command
+Local MinGW GCC 13.1 passed 726 C++17 and 729 C++20 runtime checks, all 35
+existing invalid programs, nine immutable-Field cases and 82 factory/command
 invalid programs. Standalone headers, floating-mode rejection, nine positive
 and five invalid cache-line configurations, explicit 64/128-byte layouts and
 matching/mixed core/field-JSON/command-JSON ABI archives all passed. Qt 6.10.1
 Release built and completed the grouped-command offscreen smoke test.
 
 MSVC 19.50 separately built the three library translation units and passed
-598 applicable C++17 checks and 601 applicable C++20 checks with
+605 applicable C++17 checks and 608 applicable C++20 checks with
 `/permissive- /W3 /WX`. Its numeric oracle intentionally skips because this
 implementation gives `long double` only 53 mantissa bits; that is not reported
-as numeric-oracle coverage. All 120 invalid C++17 programs were rejected.
+as numeric-oracle coverage. All 126 invalid C++17 programs were rejected.
 
 CubeIDE GCC 14.3.1 compiled 27 sources and ten read-only probes at both
 `-O2` and `-Os`, linked the newlib-nano consumer and all three independent ABI

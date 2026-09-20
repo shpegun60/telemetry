@@ -71,6 +71,35 @@ constexpr auto enumLimits(const std::array<E, N>& values) noexcept
     return NumericBounds<Raw>{low, high};
 }
 
+// Command hot paths need only the raw numeric interval. Keep that interval
+// independent of FieldType/Scalar so typed dispatch compiles to comparisons.
+template <class E, class Constraint>
+struct EnumConstraintBounds {
+    static constexpr auto get() noexcept
+    {
+        constexpr auto values = magic_enum::enum_values<E>();
+        static_assert(values.size() != 0,
+                      "Enum dictionary is empty; configure the range or list values");
+        return enumLimits(values);
+    }
+};
+
+template <class E, class Listed, Listed... Values>
+struct EnumConstraintBounds<E, EnumSpec<Listed, Values...>> {
+    static_assert(std::is_same_v<E, Listed>,
+                  "enumSpec values must match the signature's exact enum type");
+    static constexpr auto get() noexcept
+    {
+        return enumLimits(std::array<Listed, sizeof...(Values)>{Values...});
+    }
+};
+
+template <class E, class Constraint>
+constexpr auto enumConstraintBounds() noexcept
+{
+    return EnumConstraintBounds<E, Constraint>::get();
+}
+
 } // namespace detail
 
 // With no explicit values, magic_enum discovers the enumerators in its

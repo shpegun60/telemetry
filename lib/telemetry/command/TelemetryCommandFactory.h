@@ -14,6 +14,18 @@
 namespace telemetry {
 namespace detail {
 
+template <class Metadata, std::size_t Position, bool Present>
+struct CommandMetadataConstraint {
+    using Type = NoLimits;
+};
+
+template <class Metadata, std::size_t Position>
+struct CommandMetadataConstraint<Metadata, Position, true> {
+    using Entry = std::tuple_element_t<Position,
+        std::decay_t<decltype(std::declval<Metadata>().entries)>>;
+    using Type = std::decay_t<decltype(std::declval<Entry>().values)>;
+};
+
 template <class Traits, class Metadata>
 struct CommandContract {
     using Arguments = typename Traits::Arguments;
@@ -26,6 +38,13 @@ struct CommandContract {
 
     template <std::size_t I>
     static constexpr std::size_t metadataPosition = MetadataSlot<I>::position;
+
+    template <std::size_t I>
+    using Constraint = typename CommandMetadataConstraint<
+        Metadata, metadataPosition<I>, hasMetadata<I>>::Type;
+
+    template <std::size_t I>
+    static constexpr bool hasBoundedMetadata = IsBoundedLimits<Constraint<I>>::value;
 
     template <std::size_t I>
     static constexpr CommandParam parameter(const Metadata* metadata) noexcept
@@ -41,31 +60,34 @@ struct CommandContract {
     }
 
     template <std::size_t I>
-    static bool convert(const Metadata* metadata, const Scalar& input, Arguments& output) noexcept
+    TELEMETRY_FORCE_INLINE static bool validateNative(
+        const Metadata* metadata,
+        RawNumberT<std::tuple_element_t<I, Arguments>> number) noexcept
+    {
+        using T = std::tuple_element_t<I, Arguments>;
+        using Raw = RawNumberT<T>;
+        if constexpr (std::is_floating_point_v<Raw> && !hasBoundedMetadata<I>) {
+            if (!scalarFinite(number)) return false;
+        }
+        if constexpr (std::is_enum_v<T>) {
+            constexpr auto bounds = enumConstraintBounds<T, Constraint<I>>();
+            if (number < bounds.minimum || number > bounds.maximum) return false;
+        }
+        if constexpr (hasMetadata<I>) {
+            if (!within(number,
+                        std::get<metadataPosition<I>>(metadata->entries).values)) return false;
+        }
+        return true;
+    }
+
+    template <std::size_t I>
+    static bool convert(const Metadata* metadata, const Scalar& input,
+                        Arguments& output) noexcept
     {
         using T = std::tuple_element_t<I, Arguments>;
         using Raw = RawNumberT<T>;
         const auto number = convertScalar<Raw>(input);
-        if (!number) return false;
-        if constexpr (std::is_floating_point_v<Raw>) {
-            if (!scalarFinite(*number)) return false;
-        }
-        if constexpr (std::is_enum_v<T>) {
-            const auto type = [&]() constexpr noexcept {
-                if constexpr (!hasMetadata<I>)
-                    return inferredType<T>();
-                else
-                    return enumConstraintType<T>(
-                        std::get<metadataPosition<I>>(metadata->entries).values);
-            }();
-            using Stored = Scalar::NativeType<Scalar::from(Raw{}).type()>;
-            if (*number < type.minimum().template get<Stored>()
-                || *number > type.maximum().template get<Stored>()) return false;
-        }
-        if constexpr (hasMetadata<I>) {
-            if (!within(*number,
-                        std::get<metadataPosition<I>>(metadata->entries).values)) return false;
-        }
+        if (!number || !validateNative<I>(metadata, *number)) return false;
         std::get<I>(output) = static_cast<T>(*number);
         return true;
     }
@@ -79,16 +101,35 @@ struct CommandContract {
         return (convert<I>(metadata, values[I], output) && ...);
     }
 
-    template <class T> static bool within(T, NoLimits) noexcept { return true; }
+    template <std::size_t... I, class... Input>
+    TELEMETRY_FORCE_INLINE static bool validateNativeAll(
+        const Metadata* metadata, std::index_sequence<I...>, Input... values) noexcept
+    {
+        static_assert(sizeof...(I) == sizeof...(Input),
+                      "Typed command argument count must match the target signature");
+        static_assert(std::is_same_v<std::tuple<std::decay_t<Input>...>, Arguments>,
+                      "Typed command values must exactly match the target signature");
+        auto supplied = std::forward_as_tuple(values...);
+        (void) metadata;
+        (void) supplied;
+        return (validateNative<I>(metadata,
+                    static_cast<RawNumberT<std::tuple_element_t<I, Arguments>>>(
+                        std::get<I>(supplied))) && ...);
+    }
+
+    template <class T>
+    TELEMETRY_FORCE_INLINE static bool within(T, NoLimits) noexcept { return true; }
     template <class T, class U, bool Bounded>
-    static bool within(T number, const ValueLimits<U, Bounded>& values) noexcept
+    TELEMETRY_FORCE_INLINE static bool within(
+        T number, const ValueLimits<U, Bounded>& values) noexcept
     {
         if constexpr (Bounded) return number >= static_cast<T>(values.minimum)
                                    && number <= static_cast<T>(values.maximum);
         else return true;
     }
     template <class T, class E, E... Values>
-    static bool within(T, const EnumSpec<E, Values...>&) noexcept { return true; }
+    TELEMETRY_FORCE_INLINE static bool within(
+        T, const EnumSpec<E, Values...>&) noexcept { return true; }
 
     template <std::size_t... I>
     static bool schema(const Metadata* metadata, void* context, CommandParamSink sink,
@@ -170,6 +211,27 @@ struct CommandBinding {
         return run(target, metadata, values, std::make_index_sequence<Traits::arity>{});
     }
 
+    template <std::size_t... I, class... Input>
+    TELEMETRY_FORCE_INLINE static CommandResult callNative(
+        const void* target, const Metadata* metadata,
+        std::index_sequence<I...> sequence, Input... values) noexcept
+    {
+        if (!Contract::validateNativeAll(metadata, sequence, values...))
+            return CommandResult::InvalidValue;
+        auto* owner = static_cast<Owner*>(const_cast<void*>(target));
+        return invokeFactory<Target>(owner, values...);
+    }
+
+    template <class... Input>
+    TELEMETRY_FORCE_INLINE static CommandResult callNative(
+        const void* target, const Metadata* metadata, Input... values) noexcept
+    {
+        static_assert(sizeof...(Input) == Traits::arity,
+                      "Typed command argument count must match the target signature");
+        return callNative(target, metadata,
+                          std::make_index_sequence<Traits::arity>{}, values...);
+    }
+
     static constexpr Command make(CommandId id, const char* name, Owner* owner,
                                   const Metadata* metadata = nullptr) noexcept
     {
@@ -208,6 +270,27 @@ struct BorrowedCommandBinding {
             if (values == nullptr) return CommandResult::InvalidValue;
         }
         return run(target, metadata, values, std::make_index_sequence<Traits::arity>{});
+    }
+
+    template <std::size_t... I, class... Input>
+    TELEMETRY_FORCE_INLINE static CommandResult callNative(
+        const void* target, const Metadata* metadata,
+        std::index_sequence<I...> sequence, Input... values) noexcept
+    {
+        if (!Contract::validateNativeAll(metadata, sequence, values...))
+            return CommandResult::InvalidValue;
+        auto* callable = static_cast<Callable*>(const_cast<void*>(target));
+        return (*callable)(values...);
+    }
+
+    template <class... Input>
+    TELEMETRY_FORCE_INLINE static CommandResult callNative(
+        const void* target, const Metadata* metadata, Input... values) noexcept
+    {
+        static_assert(sizeof...(Input) == Traits::arity,
+                      "Typed command argument count must match the target signature");
+        return callNative(target, metadata,
+                          std::make_index_sequence<Traits::arity>{}, values...);
     }
 
     static constexpr Command make(CommandId id, const char* name, Callable* callable,

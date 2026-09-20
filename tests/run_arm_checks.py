@@ -17,7 +17,31 @@ FLAGS = ["-std=c++17", "-mcpu=cortex-m7", "-mthumb", "-mfpu=fpv5-d16",
          "-Ilib/telemetry", "-Ilib/delegate"]
 
 
-def check_probe(name, headers, symbols):
+def function_body(disassembly, name):
+    match = re.search(rf"^[0-9a-fA-F]+ <{re.escape(name)}>:\n(.*?)"
+                      r"(?=^[0-9a-fA-F]+ <|\Z)",
+                      disassembly, re.MULTILINE | re.DOTALL)
+    if match is None:
+        raise RuntimeError(f"CommandTableCodegen: missing disassembly for {name}")
+    return match.group(1)
+
+
+def check_command_dispatch(disassembly):
+    target = "CommandProbeDevice::configure(float, CommandProbeMode)"
+    for name in ("command_table_call_known", "command_table_call_runtime"):
+        body = function_body(disassembly, name)
+        if target not in body:
+            raise RuntimeError(f"CommandTableCodegen: {name} lost its direct target")
+        if re.search(r"\bblx\b", body) or "Scalar" in body:
+            raise RuntimeError(f"CommandTableCodegen: {name} reintroduced type erasure")
+        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
+            raise RuntimeError(f"CommandTableCodegen: {name} unexpectedly uses stack storage")
+    erased = function_body(disassembly, "command_table_execute_erased")
+    if not re.search(r"\bblx\b|\bbx\s+(?:ip|r(?:1[0-2]|[0-9]))\b", erased):
+        raise RuntimeError("CommandTableCodegen: erased path lost its indirect dispatch probe")
+
+
+def check_probe(name, headers, symbols, disassembly):
     if "file format elf32-littlearm" not in headers:
         raise RuntimeError(f"{name}: expected a little-endian ARM object")
     sections = re.findall(r"^\s*\d+\s+(\S+)\s+([0-9a-fA-F]+)\s", headers, re.MULTILINE)
@@ -46,6 +70,7 @@ def check_probe(name, headers, symbols):
     elif name == "CommandTableCodegen":
         expected = {"telemetry_probe_command_table": 4,
                     "telemetry_probe_command_count": 4}
+        check_command_dispatch(disassembly)
     if expected:
         entries = [line.split() for line in symbols.splitlines()]
         for symbol, size in expected.items():
@@ -109,8 +134,9 @@ def main():
             if source.stem.endswith("Codegen"):
                 headers = run([objdump, "-h", str(obj)], label + "-sections")
                 symbols = run([objdump, "-t", str(obj)], label + "-symbols")
-                check_probe(source.stem, headers, symbols)
-                run([objdump, "-dr", "-C", str(obj)], label + "-disassembly")
+                disassembly = run([objdump, "-dr", "-C", str(obj)],
+                                  label + "-disassembly")
+                check_probe(source.stem, headers, symbols, disassembly)
                 probes += 1
         # nosys supplies link-only stubs. Their expected warnings do not
         # establish board behavior; this executable is deliberately not run.

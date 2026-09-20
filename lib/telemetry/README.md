@@ -91,9 +91,15 @@ constexpr CommandCatalog commandCatalogs[] = {commandApi.catalog()};
 constexpr CommandCatalogIndex actions{commandCatalogs};
 
 auto writeResult = values.write(makeId(0, 1), 275); // int -> checked F32.
-auto resetResult = actions.call(makeId(0, 0));
-auto result = actions.call(makeId(0, 1), 230, Mode::Auto);
-// A transport supplies a borrowed positional Scalar array synchronously:
+
+// Local table position and exact native signature are known at compilation.
+auto result = commandApi.call<1>(230.0f, Mode::Auto);
+
+// The position is dynamic, while the native C++ signature stays known.
+std::size_t runtimePosition = receivePosition();
+result = commandApi.call(runtimePosition, 230.0f, Mode::Auto);
+
+// A transport supplies a packed ID and borrowed Scalar array synchronously.
 const Scalar arguments[] = {230.0f, std::uint8_t{1}};
 result = actions.execute(makeId(0, 1), arguments, 2);
 ```
@@ -205,14 +211,44 @@ Direct CTAD construction, as above, is supported by GCC, Clang and MSVC.
 There is no fixed library limit on arity; template depth and stack resources
 remain properties of the compiler/application.
 
-Execution converts each Scalar directly to the signature's native type, using
-the existing checked numeric policy (fractional inputs truncate toward zero).
-It validates every argument before calling the target once. No intermediate
-FieldType is constructed during execution, and owner getters are never read.
-All arguments must be present: defaults are schema/UI values. Enum parameters
+An owning command table provides three execution levels:
+
+```cpp
+table.call<1>(voltage, mode);         // Compile-time position, native arguments.
+table.call(runtimeIndex, voltage, mode); // Runtime position, native arguments.
+index.execute(id, scalarArgs, count); // Runtime ID and runtime Scalar values.
+```
+
+`call<Index>()` resolves the definition, owner and target at compilation. Its
+argument count and exact native C++ types must match the selected signature;
+`float` is not interchangeable with `int`, and an enum is not interchangeable
+with its underlying integer. Lvalue cv/ref qualifiers are removed for this
+comparison. An invalid index, arity or type is a compile-time error. Runtime
+values still pass finite, enum and custom-bound checks before one direct target
+call. This path constructs no Scalar array and performs no indirect invocation.
+
+`call(runtimeIndex, ...)` uses the same exact native signature and validation,
+but emits typed branches because the local zero-based table position is known
+only at runtime. A selected definition with another signature returns
+`ArgumentCountMismatch`; an out-of-range position returns `NotFound`. Matching
+branches call their concrete targets directly, without Scalar. Generated code
+can grow with the number of definitions that match a particular native
+signature, so this path trades Flash for dispatch speed.
+
+`CommandIndex::execute()` and `CommandCatalogIndex::execute()` remain the fully
+dynamic transport APIs. They accept IDs plus a borrowed Scalar array, perform
+checked Scalar-to-native conversion and use the descriptor's erased invoker.
+The corresponding `call(id, values...)` convenience APIs first construct that
+Scalar array. Fractional numeric inputs truncate toward zero under the shared
+conversion policy. Both dynamic and native paths then use the same native
+finite/range/enum validator, so their accepted value sets cannot drift.
+
+The two `CommandCatalogTable::call()` overloads forward to their owned table;
+their index is also a local position, not a packed `CommandId`. All arguments
+must be present in every path: defaults are schema/UI values. Enum parameters
 use their inferred numeric interval; unnamed gaps remain allowed. Automatic
-enum discovery has the same magic_enum range contract as `enumType<E>()`.
-The callback must return `CommandResult`; results are passed through unchanged.
+enum discovery has the same magic_enum range contract as `enumType<E>()`. The
+callback must return `CommandResult`; results are passed through unchanged.
 
 | Result | Meaning |
 |---|---|
@@ -220,7 +256,7 @@ The callback must return `CommandResult`; results are passed through unchanged.
 | `Accepted` | Owner queued a copied request; not yet completed |
 | `NotFound` | ID is outside the accepted command prefix |
 | `Unavailable` | Command has no handler |
-| `ArgumentCountMismatch` | Positional argument count differs from the signature |
+| `ArgumentCountMismatch` | Dynamic native argument signature or Scalar count differs from the target |
 | `InvalidValue` | Conversion, finite-value or range validation failed |
 | `Busy` / `Failed` | Owner could not execute the action |
 
@@ -1016,10 +1052,11 @@ borrowed capturing/stateful callables, including the explicit Scalar escape
 hatch (40 checks).
 [TelemetryCommandCheck.cpp](../../tests/TelemetryCommandCheck.cpp) covers command
 conversion, side effects, schema, metadata lifetimes, indexed partial metadata,
-owning tables and more than eight arguments (67 checks).
+owning tables, the two native dispatch levels and more than eight arguments
+(74 checks).
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
-adds 76 rejected definitions and calls, including all six temporary-table view
-extractions.
+adds 82 rejected definitions and calls, including all six temporary-table view
+extractions plus compile-time typed index, arity and exact-type failures.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe
@@ -1039,8 +1076,10 @@ probe storage, pins exported table sizes, links the newlib-nano consumer and
 independently checks core, field-JSON and command-JSON archives. Each matching layout links; each
 deliberately mixed 32/64-byte layout must fail.
 GitHub Actions runs it with Ubuntu's ARM GCC; the same runner also passes
-with the local CubeIDE compiler. Disassembly is retained for manual inspection;
-instruction-by-instruction equivalence is not asserted by the CI script.
+with the local CubeIDE compiler. Disassembly is retained, and the runner rejects
+typed wrappers that regain stack storage, Scalar references or an indirect
+branch. It also requires a direct relocation to the concrete command target and
+keeps the erased wrapper as an explicit indirect-dispatch control.
 It compares manual and inferred read wrappers in the same build and rejects
 growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
 records a separate 14/14 object-byte comparison against `c6012d9` and the free
@@ -1052,6 +1091,15 @@ from the nine pre-existing probes match checkpoint `55fbd481` byte for byte.
 The borrowed-field probe exports a 96-byte, 32-aligned Field in `.rodata`; the
 owning-table probe keeps its internal table and exported view/count read-only,
 with no nonzero `.data` or `.bss`.
+
+The owning-table probe also compiles all three execution levels with runtime
+values. At both `-O2` and `-Os`, CubeIDE GCC 14.3.1 emits 48 bytes for
+`call<1>()`, 60 bytes for runtime-position native dispatch and 52 bytes for
+`execute()` with a prebuilt Scalar array. Both native wrappers use no stack and
+tail-branch directly to `CommandProbeDevice::configure`. The descriptor path
+uses a four-byte register spill and an indirect tail branch. Wrapper byte count
+alone is not a timing comparison; the live DWT fixture measures execution
+separately.
 
 For the layered refactor, the local CubeIDE GCC 14.3.1 runner compiled 20
 translation units at both optimization levels. Its seven hot-path probes were

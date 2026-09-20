@@ -76,6 +76,8 @@ constexpr CommandTable ownedCommands{
         arg<1>("Owned mode", "",
                enumSpec<Mode::Fast, Mode::Normal, Mode::Precise>(Mode::Normal)),
         arg<0>("Owned voltage", "V", 230.0f, 0.0f, 500.0f))};
+constexpr CommandTable inferredOwnedCommands{
+    command<&Device::calibrate>(0, "Inferred calibrate", device)};
 constexpr CommandCatalogTable ownedApi{
     0, "Owned/Motor",
     command<&Device::reset>(makeId(0, 0), "Catalog reset", device),
@@ -127,6 +129,9 @@ static_assert(sizeof(Command)==sizeof(void*)*6);
 static_assert(ownedCommands.size() == 2
               && ownedCommands.index().find(1) == &ownedCommands[1]
               && ownedCommands[0].metadata == nullptr);
+static_assert(std::is_same_v<decltype(ownedCommands.call<0>()), CommandResult>
+              && std::is_same_v<decltype(ownedCommands.call(
+                     std::size_t{1}, 1.0f, Mode::Fast)), CommandResult>);
 static_assert(!std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
               && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedCommands)>>
               && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedCommands)>>);
@@ -223,10 +228,54 @@ int main()
            && ownedCommands.index().call(1, 300.0f, Mode::Normal) == CommandResult::Executed
            && device.voltage == 300.0f && device.mode == Mode::Normal,
            "owning command table executes ordinary Command views");
+    const auto typedCalls = device.calls;
+    expect(ownedCommands.call<0>() == CommandResult::Executed
+           && device.calls == typedCalls + 1,
+           "known table index calls its native target directly");
+    expect(ownedCommands.call<1>(275.0f, Mode::Precise) == CommandResult::Executed
+           && device.calls == typedCalls + 2
+           && device.voltage == 275.0f && device.mode == Mode::Precise,
+           "known table index passes exact native arguments without Scalar");
+    expect(ownedCommands.call<1>(501.0f, Mode::Fast) == CommandResult::InvalidValue
+           && ownedCommands.call<1>(250.0f, static_cast<Mode>(99))
+                  == CommandResult::InvalidValue
+           && ownedCommands.call<1>(std::numeric_limits<float>::infinity(), Mode::Fast)
+                  == CommandResult::InvalidValue
+           && ownedCommands.call<1>(std::numeric_limits<float>::quiet_NaN(), Mode::Fast)
+                  == CommandResult::InvalidValue
+           && inferredOwnedCommands.call<0>(
+                  std::numeric_limits<float>::infinity(), Mode::Fast)
+                  == CommandResult::InvalidValue
+           && device.calls == typedCalls + 2,
+           "known table index preserves limits enum bounds and finite checks");
+    expect(ownedCommands.call(std::size_t{0}) == CommandResult::Executed
+           && ownedCommands.call(std::size_t{1}, 310.0f, Mode::Normal)
+                  == CommandResult::Executed
+           && device.voltage == 310.0f && device.mode == Mode::Normal,
+           "runtime table index dispatches native arguments to typed branches");
+    const auto runtimeTypedCalls = device.calls;
+    expect(ownedCommands.call(std::size_t{0}, 1.0f, Mode::Fast)
+                  == CommandResult::ArgumentCountMismatch
+           && ownedCommands.call(std::size_t{1})
+                  == CommandResult::ArgumentCountMismatch
+           && ownedCommands.call(std::size_t{1}, 310, Mode::Normal)
+                  == CommandResult::ArgumentCountMismatch
+           && ownedCommands.call(std::size_t{1}, 310.0f, std::uint8_t{1})
+                  == CommandResult::ArgumentCountMismatch
+           && ownedCommands.call(std::size_t{2}, 1.0f, Mode::Fast)
+                  == CommandResult::NotFound
+           && device.calls == runtimeTypedCalls,
+           "runtime typed dispatch reports signature mismatch and missing position");
     expect(ownedApiIndex.call(makeId(0, 1), 320.0f, Mode::Precise)
                == CommandResult::Executed
            && device.voltage == 320.0f && device.mode == Mode::Precise,
            "owning command catalog exposes the ordinary grouped index");
+    expect(ownedApi.call<1>(330.0f, Mode::Fast) == CommandResult::Executed
+           && ownedApi.call(std::size_t{1}, 340.0f, Mode::Normal)
+                  == CommandResult::Executed
+           && device.voltage == 340.0f && device.mode == Mode::Normal
+           && ownedGroupOne.call<0>() == CommandResult::Executed,
+           "owning command catalogs forward local typed positions");
     auto ownedCallable = [&borrowedDevice](std::uint16_t value) noexcept {
         borrowedDevice.address = value;
         return CommandResult::Accepted;
@@ -237,6 +286,10 @@ int main()
     expect(borrowedTable.index().call(0, 42) == CommandResult::Accepted
            && borrowedDevice.address == 42,
            "owning table borrows a stable capturing command callable");
+    expect(borrowedTable.call<0>(std::uint16_t{43}) == CommandResult::Accepted
+           && borrowedTable.call(std::size_t{0}, std::uint16_t{44}) == CommandResult::Accepted
+           && borrowedDevice.address == 44,
+           "typed table calls preserve borrowed callable context");
     expect(commandsIndex.call(5,-50.0,2)==CommandResult::Executed && device.voltage==-50.0f,"inferred native bounds");
     expect(commandsIndex.call(5,std::numeric_limits<float>::infinity(),1)==CommandResult::InvalidValue,"infinite native input rejected");
     expect(commandsIndex.call(5,std::numeric_limits<float>::quiet_NaN(),1)==CommandResult::InvalidValue,"nan native input rejected");

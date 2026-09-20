@@ -30,6 +30,8 @@ qrc_*.cpp
 *.so.*
 *.dylib
 *.app/
+__pycache__/
+*.py[cod]
 
 # Editor and operating-system temporary files.
 *.autosave

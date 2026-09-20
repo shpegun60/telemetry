@@ -22,6 +22,8 @@ template <class T> struct IsLimits : std::false_type {};
 template <> struct IsLimits<NoLimits> : std::true_type {};
 template <class T, bool B> struct IsLimits<ValueLimits<T, B>> : std::true_type {};
 template <class E, E... Values> struct IsLimits<EnumSpec<E, Values...>> : std::true_type {};
+template <class T> struct IsBoundedLimits : std::false_type {};
+template <class T> struct IsBoundedLimits<ValueLimits<T, true>> : std::true_type {};
 
 template <class T>
 constexpr FieldType refineType(NoLimits) noexcept { return inferredType<T>(); }
@@ -52,18 +54,6 @@ constexpr FieldType refineType(EnumSpec<E, Values...> values) noexcept
                   "enumSpec values must match the signature's exact enum type");
     static_assert(sizeof...(Values) != 0, "enumSpec requires at least one enumerator");
     return enumType<E, Values...>(values.initial);
-}
-
-template <class T>
-constexpr FieldType enumConstraintType(NoLimits) noexcept { return inferredType<T>(); }
-template <class T, class U, bool Bounded>
-constexpr FieldType enumConstraintType(ValueLimits<U, Bounded>) noexcept { return inferredType<T>(); }
-template <class T, class E, E... Values>
-constexpr FieldType enumConstraintType(EnumSpec<E, Values...>) noexcept
-{
-    static_assert(std::is_same_v<T, E>,
-                  "enumSpec values must match the signature's exact enum type");
-    return enumType<E, Values...>();
 }
 } // namespace detail
 

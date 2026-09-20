@@ -41,6 +41,9 @@ FACTORY_REJECTIONS = {
     70: "reserved for Scalar",
     71: "deleted", 72: "deleted", 73: "deleted",
     74: "deleted", 75: "no member|has no member|not a member", 76: "deleted",
+    77: "outside CommandTable", 78: "argument count",
+    79: "native numeric or enum", 80: "native numeric or enum",
+    81: "exactly match", 82: "exactly match",
 }
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",

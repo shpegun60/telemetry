@@ -236,6 +236,24 @@ auto bad=sourceCatalog.index();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 76
 auto bad=CommandCatalogTable{0,"group",
     command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.data();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 77
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable.call<1>(1.0f);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 78
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable.call<0>();
+#elif TELEMETRY_FACTORY_FAIL_CASE == 79
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable.call<0>("x");
+#elif TELEMETRY_FACTORY_FAIL_CASE == 80
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable.call(std::size_t{0},"x");
+#elif TELEMETRY_FACTORY_FAIL_CASE == 81
+constexpr auto sourceTable=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))};
+auto bad=sourceTable.call<0>(1);
+#elif TELEMETRY_FACTORY_FAIL_CASE == 82
+constexpr auto sourceTable=CommandTable{command<&Device::pair>(0,"x",device)};
+auto bad=sourceTable.call<0>(1.0f,std::uint8_t{0});
 #else
 #error Unknown factory case
 #endif

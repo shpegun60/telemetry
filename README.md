@@ -97,6 +97,11 @@ supported; see [factories and commands](lib/telemetry/README.md#signature-inferr
 Its commands use a directly constructed owning `CommandCatalogTable`; sparse
 `arg<N>` metadata is reordered by signature index at compile time and omitted
 arguments receive inferred metadata.
+Owning command tables provide `call<Index>(exactNativeArgs...)` for a
+compile-time direct target and `call(runtimeIndex, exactNativeArgs...)` for
+generated typed dispatch. Transport code keeps `execute(id, Scalar*, count)`.
+The two native paths construct no Scalar array and perform no indirect command
+invocation.
 The constructor binds fields to its owned sensor. Its arrays and owner stay
 at stable addresses, so DemoCatalog is neither moved nor copied.
 
@@ -204,24 +209,25 @@ Verification after closing the field/command core, 2026-09-20:
 - Qt 6.10.1 / MinGW 13.1: Release application build and offscreen grouped-command smoke test.
   The same MinGW compiler passed 109/109 core, 109/109 write/getter/setter,
   87/87 read, 33/33 JSON, 121/121 numeric oracle, 45/45 enum, 108/108
-  limits, 40/40 factory and 67/67 command checks with C++17 (**719 total**).
-  C++20 also covers char8_t (111/111 write and 88/88 read; **722 total**).
+  limits, 40/40 factory and 74/74 command checks with C++17 (**726 total**).
+  C++20 also covers char8_t (111/111 write and 88/88 read; **729 total**).
   Thirty-five expected compilation failures cover invalid bindings/reads,
   temporary arrays, invalid Scalar access, enum contracts and invalid limit definitions.
   Nine additional programs reject mutation/assignment of immutable Field
-  definitions; 76 more reject invalid factory and command definitions,
+  definitions; 82 more reject invalid factory and command definitions,
   including temporary captured closures, invalid indexed command metadata and
-  views extracted from temporary owning command tables.
+  views extracted from temporary owning command tables, plus typed command
+  index, arity and exact-signature errors.
   Cache-line defaults and explicit overrides have positive and
   negative compilation checks. Standalone public headers compile; fast-math and finite-math-only builds
   are rejected. The Qt table also
   showed the exact boundary values for all eight integer types, matching
   the raw value JSON, including `UINT64_MAX` and `INT64_MIN`.
-- MSVC 19.50 built the three library translation units and passed all eight
+- MSVC 19.50 built the three library translation units and passed all nine
   applicable suites under `/std:c++17` and `/std:c++20` with `/permissive-`
-  and warnings as errors: 598 and 601 checks respectively. Its independent
+  and warnings as errors: 605 and 608 checks respectively. Its independent
   numeric oracle reports an explicit skip because MSVC `long double` has only
-  53 mantissa bits. All 120 invalid C++17 programs were still rejected.
+  53 mantissa bits. All 126 invalid C++17 programs were still rejected.
 - CI runs all nine suites on GCC/Clang C++17/C++20. Clang 18 C++17 additionally
   enables ASan/UBSan and float-cast-overflow checks, including
   stack-use-after-scope/return detection. Warnings are errors with no warning exemptions.
@@ -238,7 +244,9 @@ Verification after closing the field/command core, 2026-09-20:
 - [ARM CI runner](tests/run_arm_checks.py): the same compile/link checks pass
   with Ubuntu ARM GCC 13.2.1 and now run in GitHub Actions. Every codegen object
   is checked for startup initialization and writable data; exported constant
-  tables are checked for read-only placement and expected sizes.
+  tables are checked for read-only placement and expected sizes. The command
+  probe also rejects stack/Scalar/indirect dispatch in both native paths and
+  requires their direct target relocation at `-O2` and `-Os`.
 - Getter/Setter method binding rejects temporary owners even when the object
   template type is explicitly supplied. Four formerly accepted forms reproduced
   stack-use-after-return under ASan and now fail at compilation.
