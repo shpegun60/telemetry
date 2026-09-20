@@ -85,6 +85,19 @@ constexpr CommandCatalogTable ownedApi{
         arg<1>("Catalog mode", "", Mode::Normal))};
 constexpr CommandCatalog ownedCatalogViews[] = {ownedApi.catalog()};
 constexpr CommandCatalogIndex ownedApiIndex{ownedCatalogViews};
+constexpr CommandCatalogTable ownedGroupOne{
+    1, "Owned/GroupOne",
+    command<&System::save>(makeId(1, 0), "Grouped save")};
+constexpr CommandCatalog ownedGroupViews[] = {
+    {0, "Empty", nullptr, 0},
+    ownedGroupOne.catalog(),
+};
+constexpr CommandCatalogIndex ownedGroupIndex{ownedGroupViews};
+template <class T, class = void>
+struct HasCommandCatalogTableIndex : std::false_type {};
+template <class T>
+struct HasCommandCatalogTableIndex<T,
+    std::void_t<decltype(std::declval<const T&>().index())>> : std::true_type {};
 constexpr Command commands[] = {
     makeCommand<&Device::reset>(0,"Reset",device),
     makeCommand<&Device::calibrate>(1,"Calibrate",device,calibrateArgs),
@@ -122,6 +135,11 @@ static_assert(ownedApi.size() == 2
               && !std::is_copy_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
               && !std::is_move_constructible_v<std::remove_cv_t<decltype(ownedApi)>>
               && !std::is_trivially_copyable_v<std::remove_cv_t<decltype(ownedApi)>>);
+static_assert(ownedGroupOne.catalog().count == 1
+              && ownedGroupIndex.find(makeId(1, 0)) == ownedGroupOne.data());
+static_assert(!HasCommandCatalogTableIndex<
+              std::remove_cv_t<decltype(ownedGroupOne)>>::value,
+              "Grouped owning tables must be indexed through CommandCatalogIndex");
 bool stop(void* state,const CommandParam&) noexcept { ++*static_cast<int*>(state); return false; }
 template <class Index>
 bool boundaries(const Index& view,JsonOptions options)

@@ -147,6 +147,20 @@ occupies 24 bytes on ARM32. These are compiled wrapper sizes, excluding any
 out-of-line callees; they are not cycle or stack measurements. The retained
 H7S receipts predate commands, so they do not establish command performance.
 
+Three live NUCLEO-H7S3L8 sessions then compared the exact compact baseline with
+three Command candidates at both `-O2` and `-Os` (95 checked windows per image,
+380 per session). Full-line and half-line layouts grew ARM rows from 24 to 32
+bytes. At the production `-O2`, repeated execution was unchanged and the
+1024-row sequential/random cases were up to 0.38% slower; a reordered compact
+row was 4.35% slower. Half-line alignment improved `-Os` execution by
+7.7-8.0%, but made standalone lookup 9.1% slower. Since the speed-oriented
+firmware build uses `-O2`, production retains the original 24-byte layout.
+Every session validated all checksums and restored the original 64 KiB image;
+the before/after SHA-256 was
+`a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
+A fourth final control used the retained compact layout and matched the baseline
+cycle for cycle in every reported profile at both optimization levels.
+
 ## Audit checkpoint, 2026-09-19
 
 Reviewed all active library files, the bundled delegate interfaces used by
@@ -362,8 +376,10 @@ signature positions without metadata are inferred. `CommandTable{...}` and
 They require direct C++17 construction and are non-copyable/non-movable because
 their descriptors point into their own storage. Pointer, reference and index
 views can only be extracted from lvalue tables, so a temporary table cannot
-produce a dangling view. The older positional
-`commandArgs` API remains source-compatible.
+produce a dangling view. `CommandCatalogTable` intentionally exposes no flat
+`CommandIndex`; packed IDs are resolved through `CommandCatalogIndex`, including
+a constexpr owning group-1 regression. The older positional `commandArgs` API
+remains source-compatible.
 
 Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
 fields and command parameters. `CommandCatalogIndex` adds packed group/index

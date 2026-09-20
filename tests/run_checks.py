@@ -40,7 +40,7 @@ FACTORY_REJECTIONS = {
     68: "concrete operator|operator\\(\\)", 69: "noexcept|invocable",
     70: "reserved for Scalar",
     71: "deleted", 72: "deleted", 73: "deleted",
-    74: "deleted", 75: "deleted", 76: "deleted",
+    74: "deleted", 75: "no member|has no member|not a member", 76: "deleted",
 }
 REJECTIONS = {
     1: r"accepted prefix", 2: r"accepted prefix", 3: r"numeric or Bool declaredType",
@@ -145,15 +145,17 @@ def main():
     run(flags + ["-DTELEMETRY_FORCE_CACHELINE=32", "-DTELEMETRY_CACHELINE_BYTES=64", "-DEXPECTED_SIZE=64", "-fsyntax-only", str(cache)],
         "cacheline-conflict", r"Conflicting telemetry cache-line overrides")
     print("9 cache-line configurations and 5 invalid overrides verified", flush=True)
-    field_layout = output / "CachelineFieldCheck.cpp"
+    field_layout = output / "CachelineLayoutCheck.cpp"
     field_layout.write_text('#include "catalog/TelemetryCatalog.h"\n'
+        '#include "command/TelemetryCommand.h"\n'
         'static_assert(alignof(telemetry::Field) == EXPECTED_SIZE);\n'
         'static_assert(offsetof(telemetry::Field, set) == EXPECTED_SIZE);\n'
-        'static_assert(sizeof(telemetry::Field) % EXPECTED_SIZE == 0);\n', encoding="utf-8")
+        'static_assert(sizeof(telemetry::Field) % EXPECTED_SIZE == 0);\n'
+        'static_assert(sizeof(telemetry::Command) == sizeof(void*) * 6);\n', encoding="utf-8")
     for size in (64, 128):
         run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={size}", f"-DEXPECTED_SIZE={size}", "-fsyntax-only", str(field_layout)],
             f"cacheline-field-{size}")
-    print("Field layout obeys explicit 64/128-byte alignment", flush=True)
+    print("Field layout obeys explicit 64/128-byte alignment; Command stays compact", flush=True)
 
     # The core anchor is independently linkable, and compiled JSON entry points
     # carry the same exact tag. Equal layouts link normally; a caller built with

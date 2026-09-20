@@ -7,13 +7,13 @@
 #ifndef TELEMETRY_COMMAND_H
 #define TELEMETRY_COMMAND_H
 
+#include "../core/TelemetryId.h"
 #include "../field/TelemetryFieldType.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
 namespace telemetry {
-using CommandId = std::uint32_t;
 struct CommandParam {
     std::size_t index = 0;
     const char* name = nullptr;

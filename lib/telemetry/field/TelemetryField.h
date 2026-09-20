@@ -15,7 +15,7 @@
 #include "../core/TelemetryConversion.h"
 #include "TelemetryFieldType.h"
 #include "TelemetryGetter.h"
-#include "TelemetryId.h"
+#include "../core/TelemetryId.h"
 #include "TelemetrySetter.h"
 
 namespace telemetry {

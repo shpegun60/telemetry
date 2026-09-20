@@ -230,8 +230,9 @@ auto bad=CommandTable{command<&global>(0,"x",arg<0>("value","",1.0f))}[0];
 auto bad=CommandCatalogTable{0,"group",
     command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.catalog();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 75
-auto bad=CommandCatalogTable{0,"group",
-    command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.index();
+constexpr auto sourceCatalog=CommandCatalogTable{1,"group",
+    command<&global>(makeId(1,0),"x",arg<0>("value","",1.0f))};
+auto bad=sourceCatalog.index();
 #elif TELEMETRY_FACTORY_FAIL_CASE == 76
 auto bad=CommandCatalogTable{0,"group",
     command<&global>(makeId(0,0),"x",arg<0>("value","",1.0f))}.data();

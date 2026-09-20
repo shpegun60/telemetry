@@ -10,6 +10,7 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 
+#include "core/TelemetryId.h"
 #include "field/TelemetryEnum.h"
 #include "field/TelemetryFieldFactory.h"
 #include "catalog/TelemetryIndex.h"

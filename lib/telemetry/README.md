@@ -32,8 +32,8 @@ their upstream MIT licenses.
 catalog/index access, signature factories, commands and the independent ABI guard; it deliberately does not
 include JSON.
 
-- `core/`: compiler/cache-line policy, Scalar and checked numeric conversion.
-- `field/`: packed IDs, Getter/Setter, FieldType, enum metadata and immutable Field.
+- `core/`: compiler/cache-line policy, shared packed IDs, Scalar and checked numeric conversion.
+- `field/`: Getter/Setter, FieldType, enum/limits metadata and immutable Field.
 - `catalog/`: Catalog validation and direct CatalogIndex lookup.
 - `command/`: command definitions, optional metadata, factories, flat lookup
   and packed group/index catalog lookup.
@@ -193,9 +193,11 @@ compile-time errors.
 Directly constructing `CommandTable{...}` or `CommandCatalogTable{...}` owns the
 metadata and builds stable ordinary `Command` views into it. The owning tables
 are non-copyable and non-movable because their descriptors point into their own
-metadata. `data()`, `operator[]`, `index()` and `catalog()` views are available
-only on lvalue tables; attempts to extract them from a temporary are rejected,
-because destruction of that temporary would leave the view dangling. `size()`
+metadata. `CommandTable` exposes lvalue-only `data()`, `operator[]` and
+`index()`; `CommandCatalogTable` exposes lvalue-only `data()` and `catalog()`.
+A catalog table deliberately has no flat `index()`: packed IDs for groups above
+zero must be resolved by `CommandCatalogIndex`. Attempts to extract any view
+from a temporary are rejected, because destruction would leave it dangling. `size()`
 remains available on temporaries because it returns an independent value. In
 C++17 do not wrap their construction in a return-by-value factory:
 GCC does not accept that self-referential result as a constant expression.
@@ -321,7 +323,7 @@ names and IDs fill unused space in the first. Read/write touch only their
 respective Field metadata line, in addition to index, owner and callback data.
 See the [RW32 measurement report](../../tests/field_layout/h7s/RW32_RESULTS.md).
 
-Alignment comes from `TELEMETRY_CACHELINE_BYTES` and the constexpr wrapper
+Field alignment comes from `TELEMETRY_CACHELINE_BYTES` and the constexpr wrapper
 `telemetry::cacheLineBytes`. Override globally with, for example,
 `-DTELEMETRY_FORCE_CACHELINE=64`. Cortex-M defaults to 32; ordinary desktop
 targets default to 64; Apple ARM defaults to 128. These are compile-time
@@ -329,10 +331,15 @@ policies based on target macros, not a hardware query. Unknown targets need
 an explicit setting if the default does not match their cache geometry.
 No Qt or SPSC headers are required. Invalid powers/sizes and conflicting
 overrides fail compilation. Field also rejects a line too small to contain
-its complete write contract on the target ABI.
+its complete write contract on the target ABI. Command deliberately remains a
+compact 24-byte ARM descriptor: live H7S A/B tests found no `-O2` execution
+gain from 32-byte alignment and up to a 0.38% loss on a 1024-row table. A
+reordered compact candidate was 4.35% slower. The aligned candidate helped
+`-Os` execution, but slowed standalone lookup and increased every row by eight
+bytes; the speed-oriented firmware configuration uses `-O2`.
 
 The setting must be identical in every translation unit and static library
-inside one executable. Changing it changes alignment, member offsets and
+inside one executable. Changing it changes Field alignment, member offsets and
 possibly sizeof(Field). Separate executables may choose independently: a
 32-byte STM32 build and a 64-byte Qt host exchange JSON/IDs, not raw Field
 objects, so their in-memory layouts need not match. With the 64-bit Qt/MinGW

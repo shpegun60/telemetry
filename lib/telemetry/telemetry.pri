@@ -11,9 +11,9 @@ HEADERS += \
     $$PWD/Telemetry.h \
     $$PWD/core/TelemetryCompiler.h \
     $$PWD/core/TelemetryCacheline.h \
+    $$PWD/core/TelemetryId.h \
     $$PWD/core/TelemetryScalar.h \
     $$PWD/core/TelemetryConversion.h \
-    $$PWD/field/TelemetryId.h \
     $$PWD/field/TelemetryGetter.h \
     $$PWD/field/TelemetrySetter.h \
     $$PWD/field/TelemetryFieldType.h \

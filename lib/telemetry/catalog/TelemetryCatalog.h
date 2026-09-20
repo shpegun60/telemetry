@@ -9,8 +9,8 @@
 
 #include <cstddef>
 
+#include "../core/TelemetryId.h"
 #include "../field/TelemetryField.h"
-#include "../field/TelemetryId.h"
 
 namespace telemetry {
 

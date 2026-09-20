@@ -272,6 +272,12 @@ Verification after closing the field/command core, 2026-09-20:
   float read 8.2% and U16 write 13.4%; the linked image shrank by 1696 bytes.
   The complete 1840 timing windows, image/object hashes and byte-exact firmware
   restoration are retained and pass the offline evidence verifier.
+- Three live H7S command-layout A/B sessions compared the compact 24-byte row,
+  full/half-line 32-byte rows and a reordered compact row. The production `-O2`
+  path was fastest with the original compact layout; alignment was neutral on
+  repeated execution and up to 0.38% slower on a 1024-row table, while compact
+  reordering was 4.35% slower. The original firmware was restored and verified
+  after every session.
 - The layered refactor was compared with exact checkpoint `036d8e8` using the
   same CubeIDE GCC 14.3.1 invocation. All fourteen O2/Os probe object files are
   byte-identical, so the directory split and private-helper extraction changed

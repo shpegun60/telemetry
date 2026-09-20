@@ -43,6 +43,11 @@ template <> constexpr customize_t enum_name(examples::NulB value) noexcept
 }
 }
 
+constexpr auto directEnumHeaderSpec = telemetry::enumSpec<
+    examples::Mode::Off, examples::Mode::Auto, examples::Mode::Manual>();
+static_assert(directEnumHeaderSpec.initial == examples::Mode::Off,
+              "TelemetryEnum.h must expose enumSpec directly");
+
 namespace {
 using namespace telemetry;
 using namespace examples;

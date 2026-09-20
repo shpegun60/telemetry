@@ -192,8 +192,6 @@ public:
     constexpr CommandCatalog catalog() const & noexcept
     { return CommandCatalog{id_, name_, commands_.data(), commands_.size()}; }
     CommandCatalog catalog() const && = delete;
-    constexpr CommandIndex index() const & noexcept { return commands_.index(); }
-    CommandIndex index() const && = delete;
     constexpr const Command* data() const & noexcept { return commands_.data(); }
     const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }

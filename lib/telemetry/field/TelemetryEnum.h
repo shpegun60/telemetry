@@ -16,6 +16,10 @@
 namespace telemetry {
 namespace detail {
 
+template <class E, E... Values> struct EnumSpec {
+    E initial;
+};
+
 template <class E, E... Values>
 constexpr bool uniqueEnumCodes() noexcept
 {
@@ -112,6 +116,34 @@ constexpr FieldType enumType(E initial) noexcept
     if constexpr (std::is_enum_v<E>) {
         return enumType<E, Values...>().withDefault(static_cast<std::underlying_type_t<E>>(initial));
     } else return {};
+}
+
+// Explicit enum dictionaries cover sparse, large or intentionally filtered
+// code sets outside magic_enum's automatic scan. With no explicit initial
+// value, the smallest listed numeric code is the default.
+template <auto First, auto... Rest>
+constexpr auto enumSpec() noexcept
+{
+    using E = decltype(First);
+    static_assert(std::is_enum_v<E>, "enumSpec requires enum values");
+    static_assert((std::is_same_v<E, decltype(Rest)> && ...),
+                  "All enumSpec values must have the exact same enum type");
+    constexpr auto type = enumType<E, First, Rest...>();
+    using Raw = std::underlying_type_t<E>;
+    constexpr auto tag = Scalar::from(Raw{}).type();
+    using Stored = Scalar::NativeType<tag>;
+    return detail::EnumSpec<E, First, Rest...>{
+        static_cast<E>(static_cast<Raw>(type.defaultValue().template get<Stored>()))};
+}
+
+template <auto First, auto... Rest>
+constexpr auto enumSpec(decltype(First) initial) noexcept
+{
+    using E = decltype(First);
+    static_assert(std::is_enum_v<E>, "enumSpec requires enum values");
+    static_assert((std::is_same_v<E, decltype(Rest)> && ...),
+                  "All enumSpec values must have the exact same enum type");
+    return detail::EnumSpec<E, First, Rest...>{initial};
 }
 
 } // namespace telemetry

@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/TelemetryId.h"
 #include "serialization/TelemetryJson.h"
 #include "catalog/TelemetryIndex.h"
 
@@ -227,6 +228,10 @@ static_assert(sizeof(CatalogIndex) == 8, "Cortex-M index size");
 #endif
 
 static_assert(telemetry::idComponentCapacity == 65536u);
+static_assert(std::is_same_v<telemetry::FieldId, telemetry::PackedId>
+              && std::is_same_v<telemetry::CommandId, telemetry::PackedId>);
+static_assert(std::is_same_v<telemetry::FieldOffset, telemetry::EntryOffset>
+              && std::is_same_v<telemetry::CommandOffset, telemetry::EntryOffset>);
 static_assert(makeId(0, 0) == 0);
 static_assert(makeId(UINT16_MAX, UINT16_MAX) == UINT32_MAX);
 static_assert(telemetry::groupOf(makeId(0x1234, 0xabcd)) == 0x1234);

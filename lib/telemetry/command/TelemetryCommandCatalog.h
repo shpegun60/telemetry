@@ -7,8 +7,8 @@
 #ifndef TELEMETRY_COMMAND_CATALOG_H
 #define TELEMETRY_COMMAND_CATALOG_H
 
+#include "../core/TelemetryId.h"
 #include "TelemetryCommand.h"
-#include "../field/TelemetryId.h"
 #include <cstddef>
 
 namespace telemetry {
@@ -49,7 +49,7 @@ private:
             ? requestedCount : idComponentCapacity;
         std::size_t accepted = 0;
         while (accepted < limit
-               && rows[accepted].id == makeId(group, static_cast<FieldOffset>(accepted))) {
+               && rows[accepted].id == makeId(group, static_cast<CommandOffset>(accepted))) {
             ++accepted;
         }
         return accepted;
