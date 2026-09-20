@@ -247,6 +247,11 @@ Verification after closing the field/command core, 2026-09-20:
   tables are checked for read-only placement and expected sizes. The command
   probe also rejects stack/Scalar/indirect dispatch in both native paths and
   requires their direct target relocation at `-O2` and `-Os`.
+- The [three-level command DWT run](tests/command_dispatch/h7s/README.md) on a
+  600 MHz NUCLEO-H7S3L8 measured 28.001 / 29.001 / 88.001 cycles at `-O2` for
+  compile-time index, runtime native index and runtime ID with prebuilt Scalars.
+  Its 54 retained windows passed checksums, and the original firmware was
+  restored and verified byte for byte.
 - Getter/Setter method binding rejects temporary owners even when the object
   template type is explicitly supplied. Four formerly accepted forms reproduced
   stack-use-after-return under ASan and now fail at compilation.

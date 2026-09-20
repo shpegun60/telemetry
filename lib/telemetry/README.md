@@ -1101,6 +1101,13 @@ uses a four-byte register spill and an indirect tail branch. Wrapper byte count
 alone is not a timing comparison; the live DWT fixture measures execution
 separately.
 
+That [retained H7S measurement](../../tests/command_dispatch/h7s/README.md)
+records 28.001 / 29.001 / 88.001 cycles per call at `-O2` for compile-time
+index, runtime native index and runtime ID with prebuilt Scalars respectively.
+At `-Os` the same paths take 24.001 / 27.001 / 92.001 cycles. Each result is the
+median of nine 65,536-call windows; all checksums passed and the original image
+was restored byte for byte.
+
 For the layered refactor, the local CubeIDE GCC 14.3.1 runner compiled 20
 translation units at both optimization levels. Its seven hot-path probes were
 also built from checkpoint `036d8e8` with the same command. Every resulting

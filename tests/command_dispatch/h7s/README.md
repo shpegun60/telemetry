@@ -36,3 +36,23 @@ python tests/command_dispatch/h7s/verify.py --self-test
 The offline verifier checks all 54 timing windows, image/object/library hashes,
 checksums, the recomputed summary and exact before/after firmware hashes. Its
 mutation controls prove that missing, duplicated or altered evidence is rejected.
+
+## Retained result
+
+Commit `a3a76d12a722f53e08816770d77dd73647d8cc7b` was built with CubeIDE GCC
+14.3.1 and measured on the named 600 MHz board. Values are median cycles per
+call across nine windows of 65,536 calls. All nine total-cycle readings for a
+given path were identical.
+
+| Path | `-O2` cycles | `-Os` cycles |
+|---|---:|---:|
+| `call<1>(float, Mode)` | 28.001 | 24.001 |
+| `call(runtimeIndex, float, Mode)` | 29.001 | 27.001 |
+| `index.execute(id, Scalar*, count)` | 88.001 | 92.001 |
+
+The runtime native selector costs about one cycle over the known index at
+`-O2` and three cycles at `-Os`. The fully dynamic path includes ID lookup,
+descriptor dispatch, two checked Scalar conversions and the same owner call.
+The retained [receipt](receipt.json) and [samples](samples.csv) cover all 54
+windows. The pre-run and restored 64 KiB images both hash to
+`a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.

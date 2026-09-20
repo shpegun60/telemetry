@@ -1,0 +1,169 @@
+{
+  "started": "2026-09-20T09:59:19.649400+00:00",
+  "source_commit": "a3a76d12a722f53e08816770d77dd73647d8cc7b",
+  "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+  "board": "NUCLEO-H7S3L8",
+  "serial": "002A001F3033510135393935",
+  "port": "COM6",
+  "fixture_sha256": "a1c666bd3ccb08afb41766e18aab74eac33115040880193725075dbb8bf73fb9",
+  "runner_sha256": "972bb5a0d00246f11e5a825178f825ad9decaeb62a217c398056d24210ffb8d5",
+  "completed": true,
+  "restored_and_verified": true,
+  "images": [
+    {
+      "variant": "Current",
+      "optimization": "O2",
+      "elf": "Current/O2/benchmark.elf",
+      "elf_sha256": "fa7da50d0e4076288adf0c1457ae1125f9cf29983c54473128c480454bed657a",
+      "binary_sha256": "88e50ffa61603a49de9bd9b2c53cd728ae80fe6899ba13524157822544227943",
+      "flash_bytes": 28652,
+      "library_sources": {
+        "lib\\delegate\\delegate.pri": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+        "lib\\delegate\\LICENSE": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+        "lib\\delegate\\README.md": "b27f45f77fd47a4a95362a43623884f30728811c89ca7b71d85813ae3441cc1b",
+        "lib\\delegate\\tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+        "lib\\magic_enum\\LICENSE": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
+        "lib\\magic_enum\\magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+        "lib\\magic_enum\\magic_enum.pri": "2223ceb1ae85ef1533be06fb0f360445314af620e992e7be63c6366f90822374",
+        "lib\\magic_enum\\README.md": "0a9526d29a7a7e78a96dc223b8d6388b5dbd211991f1357ce202ea0583cdec26",
+        "lib\\telemetry\\LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+        "lib\\telemetry\\README.md": "d52cad4c733b347bf110246f636531c7554962e18235d35432f94fc1ddc5ae2e",
+        "lib\\telemetry\\Telemetry.h": "80af0d782c6a6944222d35dfa918c059356cc15eba814cf9de3d653db5ddbde9",
+        "lib\\telemetry\\telemetry.pri": "fc60cf278c17de93fa38216b2e86b902d410c4a956e4ba9a209159133d924b50",
+        "lib\\telemetry\\abi\\TelemetryAbi.cpp": "766815aa430e589665c1667299c75b890555aded944ce4a95b14099a4b9de35f",
+        "lib\\telemetry\\abi\\TelemetryAbi.h": "f537f0afd8e8f5e12fbb3d83c89ef5b40855ea13bdfc502eb681995d536e8ca5",
+        "lib\\telemetry\\catalog\\TelemetryCatalog.h": "d3725e93e0e711c1c2fe20b453058fc9ad37fe327dedaad3bdd070d7911cddc3",
+        "lib\\telemetry\\catalog\\TelemetryIndex.h": "349f9819f3699e5b98d5c7b6431c94a9605965f146a83ec5fa798a5f154a6b55",
+        "lib\\telemetry\\command\\TelemetryCommand.h": "bdf6bcc9de902083b501659ee720204882ec1eea2e026a76dc2693babfbee610",
+        "lib\\telemetry\\command\\TelemetryCommandArgs.h": "108c070f5a55c900ea5f2df5c92c19baf61d2876d41a4754fe281f86d98f89e4",
+        "lib\\telemetry\\command\\TelemetryCommandCatalog.h": "63e83d4f56ad40268e10a9b3c470bf966285ea249e16637572891e18096eb8ca",
+        "lib\\telemetry\\command\\TelemetryCommandCatalogIndex.h": "2227c6dd374775d6a781c7b6ec8e5d80d7d8dccbd799782f0f4060aca5ddb255",
+        "lib\\telemetry\\command\\TelemetryCommandFactory.h": "4d872bb56f256c8a988393489d18209b44df3fc4d5c788272cdbe028eaaaa340",
+        "lib\\telemetry\\command\\TelemetryCommandIndex.h": "316bdb63071d15ba651a2ef1a58fe7c8b5ea5c74f2ad70a1738e37bc5cbdcfd5",
+        "lib\\telemetry\\command\\TelemetryCommandTable.h": "e67210b426503e24cd95cf7110c005b4f0fd7a9afa68c5df870c66eca49ef656",
+        "lib\\telemetry\\core\\TelemetryCacheline.h": "096189b16da40f11876b90278b8cd75206b3cf55f92df2bc58b82cbc0fc5c46e",
+        "lib\\telemetry\\core\\TelemetryCompiler.h": "5e08579b46e1a2f28a62e78e8eaa6ea7f9b5b9871058aed1a0f4334705eb0345",
+        "lib\\telemetry\\core\\TelemetryConversion.h": "dd2e5e516945c179d9736b12d2a783a932d7c7b76d0b77d9f2b51c0321f883db",
+        "lib\\telemetry\\core\\TelemetryId.h": "45f2b6d1cdbad1168898069574f8cbc5f7ac767af26da57cf4473e4e141889f4",
+        "lib\\telemetry\\core\\TelemetryScalar.h": "de5b96608f0f3984c6d716ab2fa1d039c3a0f14c2fae49f5d62108103ad1a659",
+        "lib\\telemetry\\detail\\TelemetryBounds.h": "f0f8a09c8fdeed82bce257a6e15ad95b426ce89b5978d04e120cb7355456825a",
+        "lib\\telemetry\\detail\\TelemetryCallable.h": "f7cf5694f25e4043d87135a5354b73778c63f320c97b8df244fa5ae2092d89c1",
+        "lib\\telemetry\\detail\\TelemetryJsonValue.h": "bd9f077b5aa8e13b9e0e16d7c24507100f3ee051ed6a6dedfbaa9fe981d9c368",
+        "lib\\telemetry\\detail\\TelemetryJsonWriter.h": "f46970d353fe4f38a7e65fa1b94ec354019ffeb6de9a33e150cea14edd2ccc81",
+        "lib\\telemetry\\detail\\TelemetryNumberConversion.h": "c2e2ee732248797cafcd3ed5d2acfdba9b630873b0eb44ced650b41006f40188",
+        "lib\\telemetry\\field\\TelemetryEnum.h": "f897994c16ea125ff979d8bc53fd9e1d8f95ad0ec642c1d06580f5cfda884936",
+        "lib\\telemetry\\field\\TelemetryField.h": "70ad662a322f4bc2fe5fdad2a4df669ba22ca7bdc6fdc891f768eaad564b097f",
+        "lib\\telemetry\\field\\TelemetryFieldFactory.h": "bcd270aa05ec7b2689a2ddea32594edc1d31c5531c76cdacb3a25cf28e44ccb4",
+        "lib\\telemetry\\field\\TelemetryFieldType.h": "adbd5db6b93886934a173c039aee25fa54976811112f579d9c56b24ac5422417",
+        "lib\\telemetry\\field\\TelemetryGetter.h": "eae4b79c09d40195f24c89156b5e41bfe978f8554f94b51282303db7a9e3c485",
+        "lib\\telemetry\\field\\TelemetryLimits.h": "ec085ae6f2002a729899639455227cb0974fd1a97514bbc5a448f2b4ed330ff0",
+        "lib\\telemetry\\field\\TelemetrySetter.h": "71a1a9dc60e0b07611767489152b325ecf67b4938ae899ccc05de0abcb6acf1f",
+        "lib\\telemetry\\serialization\\TelemetryCommandJson.cpp": "c51c6c8a1bda39f4d9d994215f92a99d493bf66f85e392fd1aed3905b6e46d56",
+        "lib\\telemetry\\serialization\\TelemetryCommandJson.h": "dfda08adc0e57943d96dc6185d842f92586270514a8a3c425c56cbc269c7413c",
+        "lib\\telemetry\\serialization\\TelemetryJson.cpp": "f5cb36d9c9139526049badaf669a3891ce83ba863d5ef604945424dacec76a22",
+        "lib\\telemetry\\serialization\\TelemetryJson.h": "bc9be01e3acf91d99d10fab343c7a95fdaca69a85ff2cdec3e8c0e3cd50b1aaa"
+      },
+      "objects_sha256": {
+        "CommandDispatchBenchmark.o": "07007668adcc939ebfbe079dbbb9b5a5367c20fc9806e65a6945d6eaa78a4561"
+      },
+      "windows": 27
+    },
+    {
+      "variant": "Current",
+      "optimization": "Os",
+      "elf": "Current/Os/benchmark.elf",
+      "elf_sha256": "af04381c4f006cbfc76e7eea75c5ea992673edd79fb8ccd9223b441957107698",
+      "binary_sha256": "18f20dd9dadafc4e5ac0fd09ddbee5154e2ff3248b7238d4292db25790682f0e",
+      "flash_bytes": 28340,
+      "library_sources": {
+        "lib\\delegate\\delegate.pri": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+        "lib\\delegate\\LICENSE": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+        "lib\\delegate\\README.md": "b27f45f77fd47a4a95362a43623884f30728811c89ca7b71d85813ae3441cc1b",
+        "lib\\delegate\\tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+        "lib\\magic_enum\\LICENSE": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
+        "lib\\magic_enum\\magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+        "lib\\magic_enum\\magic_enum.pri": "2223ceb1ae85ef1533be06fb0f360445314af620e992e7be63c6366f90822374",
+        "lib\\magic_enum\\README.md": "0a9526d29a7a7e78a96dc223b8d6388b5dbd211991f1357ce202ea0583cdec26",
+        "lib\\telemetry\\LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+        "lib\\telemetry\\README.md": "d52cad4c733b347bf110246f636531c7554962e18235d35432f94fc1ddc5ae2e",
+        "lib\\telemetry\\Telemetry.h": "80af0d782c6a6944222d35dfa918c059356cc15eba814cf9de3d653db5ddbde9",
+        "lib\\telemetry\\telemetry.pri": "fc60cf278c17de93fa38216b2e86b902d410c4a956e4ba9a209159133d924b50",
+        "lib\\telemetry\\abi\\TelemetryAbi.cpp": "766815aa430e589665c1667299c75b890555aded944ce4a95b14099a4b9de35f",
+        "lib\\telemetry\\abi\\TelemetryAbi.h": "f537f0afd8e8f5e12fbb3d83c89ef5b40855ea13bdfc502eb681995d536e8ca5",
+        "lib\\telemetry\\catalog\\TelemetryCatalog.h": "d3725e93e0e711c1c2fe20b453058fc9ad37fe327dedaad3bdd070d7911cddc3",
+        "lib\\telemetry\\catalog\\TelemetryIndex.h": "349f9819f3699e5b98d5c7b6431c94a9605965f146a83ec5fa798a5f154a6b55",
+        "lib\\telemetry\\command\\TelemetryCommand.h": "bdf6bcc9de902083b501659ee720204882ec1eea2e026a76dc2693babfbee610",
+        "lib\\telemetry\\command\\TelemetryCommandArgs.h": "108c070f5a55c900ea5f2df5c92c19baf61d2876d41a4754fe281f86d98f89e4",
+        "lib\\telemetry\\command\\TelemetryCommandCatalog.h": "63e83d4f56ad40268e10a9b3c470bf966285ea249e16637572891e18096eb8ca",
+        "lib\\telemetry\\command\\TelemetryCommandCatalogIndex.h": "2227c6dd374775d6a781c7b6ec8e5d80d7d8dccbd799782f0f4060aca5ddb255",
+        "lib\\telemetry\\command\\TelemetryCommandFactory.h": "4d872bb56f256c8a988393489d18209b44df3fc4d5c788272cdbe028eaaaa340",
+        "lib\\telemetry\\command\\TelemetryCommandIndex.h": "316bdb63071d15ba651a2ef1a58fe7c8b5ea5c74f2ad70a1738e37bc5cbdcfd5",
+        "lib\\telemetry\\command\\TelemetryCommandTable.h": "e67210b426503e24cd95cf7110c005b4f0fd7a9afa68c5df870c66eca49ef656",
+        "lib\\telemetry\\core\\TelemetryCacheline.h": "096189b16da40f11876b90278b8cd75206b3cf55f92df2bc58b82cbc0fc5c46e",
+        "lib\\telemetry\\core\\TelemetryCompiler.h": "5e08579b46e1a2f28a62e78e8eaa6ea7f9b5b9871058aed1a0f4334705eb0345",
+        "lib\\telemetry\\core\\TelemetryConversion.h": "dd2e5e516945c179d9736b12d2a783a932d7c7b76d0b77d9f2b51c0321f883db",
+        "lib\\telemetry\\core\\TelemetryId.h": "45f2b6d1cdbad1168898069574f8cbc5f7ac767af26da57cf4473e4e141889f4",
+        "lib\\telemetry\\core\\TelemetryScalar.h": "de5b96608f0f3984c6d716ab2fa1d039c3a0f14c2fae49f5d62108103ad1a659",
+        "lib\\telemetry\\detail\\TelemetryBounds.h": "f0f8a09c8fdeed82bce257a6e15ad95b426ce89b5978d04e120cb7355456825a",
+        "lib\\telemetry\\detail\\TelemetryCallable.h": "f7cf5694f25e4043d87135a5354b73778c63f320c97b8df244fa5ae2092d89c1",
+        "lib\\telemetry\\detail\\TelemetryJsonValue.h": "bd9f077b5aa8e13b9e0e16d7c24507100f3ee051ed6a6dedfbaa9fe981d9c368",
+        "lib\\telemetry\\detail\\TelemetryJsonWriter.h": "f46970d353fe4f38a7e65fa1b94ec354019ffeb6de9a33e150cea14edd2ccc81",
+        "lib\\telemetry\\detail\\TelemetryNumberConversion.h": "c2e2ee732248797cafcd3ed5d2acfdba9b630873b0eb44ced650b41006f40188",
+        "lib\\telemetry\\field\\TelemetryEnum.h": "f897994c16ea125ff979d8bc53fd9e1d8f95ad0ec642c1d06580f5cfda884936",
+        "lib\\telemetry\\field\\TelemetryField.h": "70ad662a322f4bc2fe5fdad2a4df669ba22ca7bdc6fdc891f768eaad564b097f",
+        "lib\\telemetry\\field\\TelemetryFieldFactory.h": "bcd270aa05ec7b2689a2ddea32594edc1d31c5531c76cdacb3a25cf28e44ccb4",
+        "lib\\telemetry\\field\\TelemetryFieldType.h": "adbd5db6b93886934a173c039aee25fa54976811112f579d9c56b24ac5422417",
+        "lib\\telemetry\\field\\TelemetryGetter.h": "eae4b79c09d40195f24c89156b5e41bfe978f8554f94b51282303db7a9e3c485",
+        "lib\\telemetry\\field\\TelemetryLimits.h": "ec085ae6f2002a729899639455227cb0974fd1a97514bbc5a448f2b4ed330ff0",
+        "lib\\telemetry\\field\\TelemetrySetter.h": "71a1a9dc60e0b07611767489152b325ecf67b4938ae899ccc05de0abcb6acf1f",
+        "lib\\telemetry\\serialization\\TelemetryCommandJson.cpp": "c51c6c8a1bda39f4d9d994215f92a99d493bf66f85e392fd1aed3905b6e46d56",
+        "lib\\telemetry\\serialization\\TelemetryCommandJson.h": "dfda08adc0e57943d96dc6185d842f92586270514a8a3c425c56cbc269c7413c",
+        "lib\\telemetry\\serialization\\TelemetryJson.cpp": "f5cb36d9c9139526049badaf669a3891ce83ba863d5ef604945424dacec76a22",
+        "lib\\telemetry\\serialization\\TelemetryJson.h": "bc9be01e3acf91d99d10fab343c7a95fdaca69a85ff2cdec3e8c0e3cd50b1aaa"
+      },
+      "objects_sha256": {
+        "CommandDispatchBenchmark.o": "6c175880aa4b18dc34c0f0c6a0010a3ef49107cf0dc5e358727aa6287cf80206"
+      },
+      "windows": 27
+    }
+  ],
+  "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+  "summary": {
+    "O2": {
+      "known": {
+        "median_cycles": 28.000640869140625,
+        "min_cycles": 28.000640869140625,
+        "max_cycles": 28.000640869140625
+      },
+      "runtime_native": {
+        "median_cycles": 29.000686645507812,
+        "min_cycles": 29.000686645507812,
+        "max_cycles": 29.000686645507812
+      },
+      "erased_scalar": {
+        "median_cycles": 88.00067138671875,
+        "min_cycles": 88.00067138671875,
+        "max_cycles": 88.00067138671875
+      }
+    },
+    "Os": {
+      "known": {
+        "median_cycles": 24.000961303710938,
+        "min_cycles": 24.000961303710938,
+        "max_cycles": 24.000961303710938
+      },
+      "runtime_native": {
+        "median_cycles": 27.001449584960938,
+        "min_cycles": 27.001449584960938,
+        "max_cycles": 27.001449584960938
+      },
+      "erased_scalar": {
+        "median_cycles": 92.00144958496094,
+        "min_cycles": 92.00144958496094,
+        "max_cycles": 92.00144958496094
+      }
+    }
+  },
+  "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+  "finished": "2026-09-20T09:59:22.865035+00:00"
+}

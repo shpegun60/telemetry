@@ -146,8 +146,8 @@ Additional inferred wrappers occupy 52/50 bytes for a known typed setter,
 52/52 for a known two-argument command and 30/30 for runtime command dispatch
 (`-O2`/`-Os`). Command stores no duplicated arity or parameter-type array and
 occupies 24 bytes on ARM32. These are compiled wrapper sizes, excluding any
-out-of-line callees; they are not cycle or stack measurements. The retained
-H7S receipts predate commands, so they do not establish command performance.
+out-of-line callees; they are not cycle measurements. Command execution is
+measured separately below.
 
 The owning `CommandTable` now has a separate three-level probe with runtime
 `float` and enum inputs. CubeIDE GCC 14.3.1 emits the following wrapper sizes at
@@ -164,6 +164,18 @@ both optimization levels. Exact native types are mandatory for `call<Index>()`;
 the runtime-position overload returns `ArgumentCountMismatch` when the selected
 definition has another signature. The Scalar path retains checked numeric
 conversion for transport input.
+
+The dedicated [H7S DWT run](command_dispatch/h7s/README.md) measured the exact
+source commit over nine 65,536-call windows per path and optimization level:
+
+| Path | `-O2` cycles/call | `-Os` cycles/call |
+|---|---:|---:|
+| Compile-time index | 28.001 | 24.001 |
+| Runtime index, native arguments | 29.001 | 27.001 |
+| Runtime ID, prebuilt Scalars | 88.001 | 92.001 |
+
+All checksums passed, all 54 timing windows are retained, and the original
+64 KiB firmware image was restored and verified byte for byte.
 
 Three live NUCLEO-H7S3L8 sessions then compared the exact compact baseline with
 three Command candidates at both `-O2` and `-Os` (95 checked windows per image,
