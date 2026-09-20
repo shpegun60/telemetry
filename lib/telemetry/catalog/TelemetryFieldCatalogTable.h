@@ -12,6 +12,10 @@
 #include <array>
 #include <tuple>
 namespace telemetry {
+// Own the runtime catalog descriptors, borrow the typed local tables. Both
+// routes share the same rows: tables_ preserves compile-time target types,
+// while catalogs_ supplies bounded runtime lookup without template dispatch.
+// Local tables, their bound owners and labels must outlive this object.
 template <class... Groups>
 class FieldCatalogTable {
     static_assert((detail::IsTableGroup<Groups, Field>::value && ...),
@@ -24,10 +28,14 @@ public:
     constexpr explicit FieldCatalogTable(Groups... groups) noexcept
         : tables_(groups.table...),
           catalogs_{Catalog{groups.name, groups.table->data(), groups.table->size()}...} {}
+    // A previously returned index points into catalogs_. Prohibit relocation
+    // so ordinary copying cannot silently leave those borrowed views behind.
     FieldCatalogTable(const FieldCatalogTable&) = delete;
     FieldCatalogTable(FieldCatalogTable&&) = delete;
     FieldCatalogTable& operator=(const FieldCatalogTable&) = delete;
     FieldCatalogTable& operator=(FieldCatalogTable&&) = delete;
+    // Views may escape only an lvalue table. operator[] is intentionally
+    // unchecked; use find(id) when the position originates outside the program.
     constexpr const Catalog* data() const & noexcept { return catalogs_.data(); }
     const Catalog* data() const && = delete;
     constexpr std::size_t size() const noexcept { return catalogs_.size(); }
@@ -40,6 +48,9 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Field* find(FieldId id) const & noexcept
     { return index().find(id); }
     const Field* find(FieldId) const && = delete;
+    // A known packed ID selects a tuple element and then the local definition.
+    // Native definitions retain their direct callback path; the local table
+    // decides whether a Scalar/manual definition requires its fallback.
     template <FieldId Id>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read() const noexcept
     {
@@ -64,6 +75,8 @@ public:
             return std::get<groupOf(Id)>(tables_)->template write<indexOf(Id)>(value);
         else return WriteResult::NotFound;
     }
+    // Unknown IDs use the same bounded CatalogIndex as standalone consumers.
+    // A requested T changes the result conversion, not the lookup contract.
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(FieldId id) const noexcept
     { return index().read(id); }
     template <class T>

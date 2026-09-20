@@ -11,6 +11,8 @@
 
 namespace telemetry {
 
+// A non-owning runtime view. The two bounds checks precede pointer arithmetic;
+// catalog construction guarantees that a null rows pointer has zero count.
 class CommandCatalogIndex {
 public:
     constexpr CommandCatalogIndex() noexcept = default;
@@ -58,6 +60,8 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, A... values) const noexcept
         -> decltype(std::declval<const Command&>().call(values...))
     {
+        // Native-looking arguments are normalized by Command::call here.
+        // Compile-time target routing is provided by CommandCatalogTable.
         const Command* command = find(id);
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }

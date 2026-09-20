@@ -75,9 +75,22 @@ constexpr FieldType inferredType() noexcept
     else return numericType<T>();
 }
 
+// C++17 cannot distinguish fixed from unfixed unscoped enums. A named-code
+// interval is safe for both. Retain the selected dictionary in the template
+// type: scanning again would lose explicit enumSpec codes outside magic_enum's
+// automatic range. Gaps inside the interval remain valid numeric values.
+template <class T, class Constraint, class Number>
+TELEMETRY_FORCE_INLINE bool acceptsFactoryEnum(Number value) noexcept
+{
+    if constexpr (std::is_enum_v<T> && std::is_convertible_v<T, int>) {
+        constexpr auto bounds = enumConstraintBounds<T, Constraint>();
+        return value >= bounds.minimum && value <= bounds.maximum;
+    } else return true;
+}
+
 // Extraction follows normalization. Check direct Setter use as well, without
-// std::get on a wrong alternative. Enum extrema also protect unscoped enums.
-template <class T>
+// std::get on a wrong alternative. The constraint is type-only, with no storage.
+template <class T, class Constraint = void>
 TELEMETRY_FORCE_INLINE bool extractFactoryValue(const Scalar& value, T& result) noexcept
 {
     constexpr auto tag = Scalar::from(RawNumberT<T>{}).type();
@@ -87,11 +100,7 @@ TELEMETRY_FORCE_INLINE bool extractFactoryValue(const Scalar& value, T& result) 
     // Scoped enums have a fixed underlying type, so every representable raw
     // value can be cast safely. Unscoped enums may be unfixed: protect direct
     // Setter calls too. Field::write already applies the descriptor interval.
-    if constexpr (std::is_enum_v<T> && std::is_convertible_v<T, int>) {
-        constexpr auto type = inferredType<T>();
-        if (*number < type.minimum().template get<Stored>()
-            || *number > type.maximum().template get<Stored>()) return false;
-    }
+    if (!acceptsFactoryEnum<T, Constraint>(*number)) return false;
     result = static_cast<T>(*number);
     return true;
 }

@@ -26,6 +26,9 @@ class CommandTable {
     using Metadata = std::tuple<typename Definitions::MetadataType...>;
     using DefinitionTuple = std::tuple<Definitions...>;
 
+    // Initialization order matters: descriptors below point into metadata_.
+    // Definitions survive only as types, retaining targets/signatures for the
+    // native path without another runtime array of construction recipes.
     Metadata metadata_;
     std::array<Command, sizeof...(Definitions)> commands_;
 
@@ -90,6 +93,8 @@ public:
                        std::index_sequence_for<Definitions...>{})
     {}
 
+    // Moving or copying would leave descriptor metadata pointers referring to
+    // the old object. Construct the table directly at its final address.
     CommandTable(const CommandTable&) = delete;
     CommandTable(CommandTable&&) = delete;
     CommandTable& operator=(const CommandTable&) = delete;
@@ -98,6 +103,8 @@ public:
     constexpr const Command* data() const & noexcept { return commands_.data(); }
     const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }
+    // Raw descriptor access follows std::array's unchecked indexing contract.
+    // Use index().find(...) for a checked runtime position.
     constexpr const Command& operator[](std::size_t index) const & noexcept
     { return commands_[index]; }
     const Command& operator[](std::size_t) const && = delete;

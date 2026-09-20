@@ -12,12 +12,16 @@
 #include <array>
 #include <tuple>
 namespace telemetry {
+// Owns group descriptors, borrows the local CommandTables. Keep every local
+// table (and its owners) alive longer than this catalog and all exported views.
 template <class... Groups>
 class CommandCatalogTable {
     static_assert((detail::IsTableGroup<Groups, Command>::value && ...),
                   "CommandCatalogTable requires group(name, CommandTable) entries");
     static_assert(sizeof...(Groups) <= idComponentCapacity,
                   "Catalog table exceeds the 16-bit group capacity");
+    // Typed routing retains local table types; runtime routing needs only the
+    // compact descriptor array. Neither route duplicates command metadata.
     std::tuple<const typename Groups::TableType*...> tables_;
     std::array<CommandCatalog, sizeof...(Groups)> catalogs_;
 public:
@@ -43,6 +47,8 @@ public:
     template <CommandId Id, class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult call(Input... values) const noexcept
     {
+        // Both halves of the packed ID are compile-time constants. The local
+        // table validates the entry index and exact native argument signature.
         static_assert(groupOf(Id) < sizeof...(Groups), "Typed command group is outside CommandCatalogTable");
         if constexpr (groupOf(Id) < sizeof...(Groups))
             return std::get<groupOf(Id)>(tables_)->template call<indexOf(Id)>(values...);
@@ -51,6 +57,8 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult execute(
         CommandId id, const Scalar* values, std::size_t count) const noexcept
     { return index().execute(id, values, count); }
+    // A global runtime ID selects erased descriptors and checked conversions.
+    // Local CommandTable::call(runtimeIndex, ...) has a different native path.
     template <class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, Input... values) const noexcept
         -> decltype(std::declval<CommandCatalogIndex>().call(id, values...))

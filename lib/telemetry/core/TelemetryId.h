@@ -23,6 +23,9 @@ using FieldOffset = EntryOffset;
 using CommandOffset = EntryOffset;
 inline constexpr std::uint32_t idComponentCapacity = 65536u;
 
+// Components are already 16-bit positions. Validate a wider transport value
+// before narrowing it to these parameter types; packing does not validate a
+// catalog's actual size (the index performs those bounds checks).
 constexpr PackedId makeId(GroupId group, EntryOffset index) noexcept
 {
     return (PackedId{group} << 16) | PackedId{index};

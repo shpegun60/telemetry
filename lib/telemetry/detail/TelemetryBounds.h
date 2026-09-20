@@ -24,6 +24,8 @@ struct NumericBounds {
 
 // FieldType selects the active member and retains the corresponding ScalarType.
 // Every alternative is trivial, so whole-object copying preserves the payload.
+// Never inspect a different alternative to reinterpret the same bytes. Even
+// equal-sized alternatives require selecting the member named by the type tag.
 union FieldBounds {
     NumericBounds<float> f32;
     NumericBounds<double> f64;

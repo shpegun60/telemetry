@@ -285,6 +285,45 @@ struct DelegateConversion {
 };
 static_assert(!std::is_constructible_v<Getter, DelegateConversion>);
 
+#if __cplusplus >= 202002L
+// Class NTTPs denote const objects. The invoked const-lvalue overload must
+// supply both the behavior and the noexcept contract, even when another
+// ref-qualified overload or a function-pointer conversion is available.
+struct StructuralOwner { float value = 7.0f; int reads = 0; int writes = 0; };
+struct StructuralRead {
+    float operator()(StructuralOwner& owner) const & noexcept
+    { ++owner.reads; return owner.value; }
+    float operator()(StructuralOwner&) const && { return -1.0f; }
+};
+struct StructuralWrite {
+    WriteResult operator()(StructuralOwner& owner, const Scalar& value) const & noexcept
+    { ++owner.writes; owner.value = value.get<float>(); return WriteResult::Applied; }
+    WriteResult operator()(StructuralOwner&, const Scalar&) const && { return WriteResult::Busy; }
+};
+WriteResult structuralPointerTarget(const Scalar&) noexcept { return WriteResult::Busy; }
+struct StructuralSetter {
+    constexpr operator Setter::Function() const noexcept { return &structuralPointerTarget; }
+    WriteResult operator()(const Scalar&) const & noexcept { return WriteResult::Applied; }
+    WriteResult operator()(const Scalar&) const && { return WriteResult::Busy; }
+};
+constexpr Setter structuralSetter = Setter::bind<StructuralSetter{}>();
+static_assert(structuralSetter);
+
+void checkStructuralAdapters()
+{
+    StructuralOwner owner;
+    const auto getter = Getter::bindContext<StructuralRead{}>(owner);
+    const auto setter = Setter::bindContext<StructuralWrite{}>(owner);
+    expect(getter().get<float>() == 7.0f && owner.reads == 1,
+           "structural getter context uses the noexcept const-lvalue overload");
+    expect(setter(Scalar::fromF32(23.0f)) == WriteResult::Applied
+           && owner.value == 23.0f && owner.writes == 1,
+           "structural setter context uses the noexcept const-lvalue overload");
+    expect(structuralSetter(Scalar::fromF32(23.0f)) == WriteResult::Applied,
+           "structural setter invokes its validated call operator rather than converted pointer");
+}
+#endif
+
 template <class T, class = void> struct CanBindSetter : std::false_type {};
 template <class T> struct CanBindSetter<T, std::void_t<decltype(Setter::bind<&Owner::write>(std::declval<T>()))>> : std::true_type {};
 static_assert(CanBindSetter<Owner&>::value && !CanBindSetter<Owner&&>::value);
@@ -468,6 +507,9 @@ int main()
 #endif
     checkBindingsAndWrites();
     checkLifetimeContracts();
+#if __cplusplus >= 202002L
+    checkStructuralAdapters();
+#endif
     std::printf("%d/%d write and native getter/setter checks passed\n", checks - failures, checks);
     return failures == 0 ? 0 : 1;
 }

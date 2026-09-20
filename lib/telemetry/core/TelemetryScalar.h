@@ -18,6 +18,8 @@
 namespace telemetry {
 
 namespace detail {
+// This is an admission rule, not a C++ arithmetic-type alias: it deliberately
+// excludes long double and enums, even if they happen to fit in eight bytes.
 template <class T>
 inline constexpr bool isScalarNumber = []() constexpr {
     if constexpr (std::is_integral_v<T>) return sizeof(T) <= sizeof(std::uint64_t);
@@ -86,6 +88,8 @@ public:
 
     TELEMETRY_FORCE_INLINE constexpr ScalarType type() const noexcept
     {
+        // Only the closed set of trivial alternatives can be installed, so
+        // no public operation can leave storage_ valueless_by_exception.
         return static_cast<ScalarType>(storage_.index());
     }
 

@@ -51,6 +51,8 @@ TELEMETRY_FORCE_INLINE constexpr bool convertScalar(const Scalar& value, ScalarT
 
 // Select the destination at compile time. This shares the checked conversion
 // policy used by writes; an empty result means the value cannot be represented.
+// This primitive applies numeric representability only. Field write limits
+// and command constraints are separate policies enforced by their owners.
 template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
 [[nodiscard]] TELEMETRY_FORCE_INLINE constexpr std::optional<T> convertScalar(const Scalar& value) noexcept
 {

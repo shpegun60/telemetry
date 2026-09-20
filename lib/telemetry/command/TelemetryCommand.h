@@ -20,6 +20,8 @@ struct CommandParam {
     const char* unit = nullptr;
     FieldType type{};
 };
+// Descriptions are produced on demand; neither the command nor the sink owns
+// a persistent CommandParam array. Copy a parameter if it must survive the call.
 // The parameter reference is valid only for this synchronous sink invocation.
 using CommandParamSink = bool (*)(void*, const CommandParam&) noexcept;
 
@@ -66,6 +68,8 @@ struct Command {
               || std::is_same_v<A, Scalar>) && ...), int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult call(A... values) const noexcept
     {
+        // This descriptor is type-erased. Native direct calls live on
+        // CommandTable; this convenience path deliberately normalizes Scalars.
         const std::array<Scalar, sizeof...(A)> args{detail::factoryScalar(values)...};
         return execute(args.data(), args.size());
     }

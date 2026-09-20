@@ -11,6 +11,9 @@
 namespace telemetry {
 namespace {
 
+// Fingerprints describe parameter contracts, labels and positional identity.
+// Callback/owner addresses and the selected 64-bit JSON representation are
+// deliberately absent, so relocation does not change a logical schema.
 std::uint32_t byte(std::uint32_t hash, std::uint8_t value) noexcept { return (hash ^ value) * 16777619u; }
 std::uint32_t word(std::uint32_t hash, std::uint64_t value) noexcept
 {
@@ -78,6 +81,9 @@ bool hashCommand(std::uint32_t& hash, const Command& command, CommandId id) noex
 
 bool appendParameter(void* context, const CommandParam& parameter) noexcept
 {
+    // Generated descriptions visit dense signature positions in order. Their
+    // CommandParam objects are temporary: consume each synchronously and keep
+    // no pointer to it after this sink returns.
     auto& out = *static_cast<detail::JsonWriter*>(context);
     if (!out.append("%s{\"i\":%lu", parameter.index == 0 ? "" : ",",
                     static_cast<unsigned long>(parameter.index))) return false;
@@ -100,6 +106,7 @@ bool appendParameter(void* context, const CommandParam& parameter) noexcept
 namespace detail {
 std::uint32_t commandSchemaCrcAbi(const CommandIndex& index, CurrentAbiTag) noexcept
 {
+    // Separate root markers keep local and grouped command namespaces apart.
     std::uint32_t hash = byte(2166136261u, 'M');
     for (std::size_t i = 0; i < index.size(); ++i) {
         const auto& command = index.data()[i];
@@ -146,6 +153,8 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
                                   char* buffer, std::size_t size,
                                   JsonOptions options, CurrentAbiTag tag) noexcept
 {
+    // Both loops use constructor-capped bounds; packing the positions cannot
+    // narrow a valid group/entry. No command handler is invoked during export.
     JsonWriter out{buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"commandCatalogs\":[",

@@ -30,6 +30,8 @@ template <class... Entries>
 constexpr auto ownedCommandMetadata(CommandArgs<Entries...> metadata) noexcept
 { return metadata; }
 
+// Definitions are construction recipes. Their metadata is copied into the
+// final table before descriptor pointers are formed; no recipe is borrowed.
 template <auto Target, class Owner, class Metadata>
 struct OwnedCommandDefinition {
     using MetadataType = Metadata;
@@ -96,6 +98,8 @@ struct OwnedBorrowedCommandDefinition {
 };
 
 struct ReservedCommandDefinition {
+    // A reserved row consumes a position but can never invoke an owner. Match
+    // every native signature so runtime dispatch reports Unavailable consistently.
     using MetadataType = NoCommandArgs;
     static constexpr bool reserved = true;
     static constexpr std::size_t arity = 0;
@@ -124,8 +128,8 @@ constexpr auto reservedCommand() noexcept { return detail::ReservedCommandDefini
 // a stable address and emits ordinary Command descriptors without changing ABI.
 template <auto Target, class Owner, class... Entries,
           std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>
-              && std::is_lvalue_reference_v<Owner&&>, int> = 0>
-constexpr auto command(const char* name, Owner&& owner,
+              && !std::is_reference_v<Owner>, int> = 0>
+constexpr auto command(const char* name, Owner& owner,
                        Entries... entries) noexcept
 {
     auto metadata = detail::ownedCommandMetadata(entries...);
@@ -134,6 +138,13 @@ constexpr auto command(const char* name, Owner&& owner,
     return detail::OwnedCommandDefinition<Target, StoredOwner, Metadata>{
         name, std::addressof(owner), metadata};
 }
+
+// Deduction and explicitly supplied const Owner template arguments must both
+// reject temporaries. A forwarding-reference constraint alone is bypassable
+// by spelling Owner as const T& and would retain a dangling owner pointer.
+template <auto Target, class Owner, class... Entries,
+          std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>, int> = 0>
+auto command(const char*, Owner&&, Entries...) = delete;
 
 template <auto Target, class... Entries,
           std::enable_if_t<!std::is_member_function_pointer_v<decltype(Target)>, int> = 0>

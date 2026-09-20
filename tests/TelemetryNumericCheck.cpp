@@ -150,11 +150,21 @@ void checkPair()
     }
     std::uint64_t state = 0x7e968ac20315bd4fULL;
     for (int i = 0; i < 1024; ++i) check(sample<From>(nextBits(state)));
+    if constexpr (std::is_integral_v<From> && sizeof(From) <= 2) {
+        // Cover every input for small integers, including transitions where
+        // signedness or target width changes. The wider loop counter cannot
+        // wrap at U16/S16 max, and the independent oracle stays exact.
+        for (std::int64_t value = std::numeric_limits<From>::lowest();
+             value <= std::numeric_limits<From>::max(); ++value) {
+            check(static_cast<From>(value));
+        }
+    }
     ++checks;
     if (!correct) ++failures;
-    std::printf("%s  source tag %u -> target tag %u: endpoints and 1024 samples\n",
+    std::printf("%s  source tag %u -> target tag %u: endpoints, 1024 samples%s\n",
                 correct ? "PASS" : "FAIL", static_cast<unsigned>(Scalar::from(From{}).type()),
-                static_cast<unsigned>(Scalar::from(To{}).type()));
+                static_cast<unsigned>(Scalar::from(To{}).type()),
+                std::is_integral_v<From> && sizeof(From) <= 2 ? ", exhaustive small integer domain" : "");
 }
 
 template <class From, std::size_t... I>

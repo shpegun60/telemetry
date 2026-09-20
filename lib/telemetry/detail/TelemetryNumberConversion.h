@@ -16,8 +16,11 @@
 #include <optional>
 
 // Range/finite checks must remain effective before floating-to-integer casts.
-#if defined(__FAST_MATH__) || (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0)
-#error "Compile telemetry conversions without fast-math or finite-math-only"
+// MSVC spells this assumption /fp:fast rather than GCC/Clang's -ffast-math;
+// either mode may optimize away the NaN branch when narrowing to float.
+#if defined(__FAST_MATH__) || (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0) \
+    || (defined(_M_FP_FAST) && _M_FP_FAST)
+#error "Compile telemetry conversions without fast-math, finite-math-only or /fp:fast"
 #endif
 
 namespace telemetry {
@@ -42,6 +45,8 @@ TELEMETRY_FORCE_INLINE constexpr bool scalarFinite(Number number) noexcept
 template <class To, class From>
 TELEMETRY_FORCE_INLINE constexpr bool convertNumberTo(From number, To& result) noexcept
 {
+    // Work in a local value until every check succeeds: callers may alias
+    // their input/output, and a failed conversion must preserve the output.
     To converted{};
     if constexpr (std::is_same_v<To, From>) {
         result = number;
@@ -89,6 +94,8 @@ TELEMETRY_FORCE_INLINE constexpr bool convertNumberTo(From number, To& result) n
         }
         converted = static_cast<To>(number);
     } else if constexpr (std::is_signed_v<From>) {
+        // Compare integral bounds in integral types. A double intermediate
+        // would lose the distinction between adjacent U64/S64 endpoints.
         if constexpr (std::is_signed_v<To>) {
             if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
                 if (number < std::numeric_limits<To>::lowest()

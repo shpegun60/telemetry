@@ -12,6 +12,9 @@
 #include <tuple>
 
 namespace telemetry {
+// Definitions survive only as template types. The single array owns immutable
+// runtime descriptors, so local typed and global dynamic access share owners,
+// limits and callbacks rather than maintaining two copies of the catalog.
 template <class... Definitions>
 class FieldTable {
     static_assert((detail::IsFieldDefinition<Definitions>::value && ...),
@@ -32,9 +35,13 @@ public:
     constexpr const Field* data() const & noexcept { return fields_.data(); }
     const Field* data() const && = delete;
     constexpr std::size_t size() const noexcept { return fields_.size(); }
+    // Like std::array::operator[], this low-level accessor requires i < size().
+    // Runtime IDs should normally go through CatalogIndex's checked lookup.
     constexpr const Field& operator[](std::size_t i) const & noexcept { return fields_[i]; }
     const Field& operator[](std::size_t) const && = delete;
 
+    // I is a zero-based local position. The definition type selects the native
+    // adapter; runtime-created owners and limits can still remain runtime data.
     template <std::size_t I>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read() const noexcept
     {

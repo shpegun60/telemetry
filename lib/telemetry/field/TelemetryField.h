@@ -24,7 +24,8 @@ namespace telemetry {
 // Getter/Setter are compact non-owning payload/invoker pairs with telemetry's
 // noexcept and empty-value policy.
 // This layer adds no synchronization or cross-field snapshot guarantee.
-// A getter must be noexcept and return null when its value is unavailable.
+// A getter must be noexcept. To report unavailable values it must return Scalar
+// and use Scalar::null(); a native numeric getter always supplies a value.
 // All referenced objects, arrays and strings must outlive their consumers.
 // Field metadata and addresses stay unchanged from Catalog construction;
 // only values inside the bound source objects may change during use.
@@ -41,6 +42,8 @@ struct alignas(cacheLineBytes) Field {
     alignas(cacheLineBytes) const Setter set;
     const FieldType declaredType;
 
+    // These are layout requirements, not assumptions about live cache state.
+    // Read/write metadata must fit independently even with a custom alignment.
     static_assert(sizeof(Getter) + sizeof(ScalarType) <= cacheLineBytes,
                   "Cache line must contain the getter and read type");
     static_assert(sizeof(Setter) % alignof(FieldType) == 0

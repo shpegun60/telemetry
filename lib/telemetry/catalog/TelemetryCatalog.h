@@ -14,6 +14,9 @@
 
 namespace telemetry {
 
+// A catalog borrows both the array and its text; construction never copies
+// descriptors or extends any lifetime. Keep those objects alive and unchanged
+// while an index or serializer can observe this view.
 struct Catalog {
     const char* const name = "";
     const Field* const fields = nullptr;
@@ -49,6 +52,8 @@ private:
     }
 };
 
+// The validation loops check nulls first; both inputs here must be valid
+// NUL-terminated strings. Compare contents, not string-literal addresses.
 constexpr bool str_equal(const char* a, const char* b) noexcept
 {
     while (*a != '\0' && *a == *b) {
@@ -58,7 +63,7 @@ constexpr bool str_equal(const char* a, const char* b) noexcept
     return *a == *b;
 }
 
-// Optional definition-time validation, never part of lookup/read/write.
+// Optional quadratic definition-time validation, never part of lookup/read/write.
 // The pointer/count must describe an actual array; nullptr is valid only empty.
 constexpr bool names_unique(const Field* fields, std::size_t count) noexcept
 {

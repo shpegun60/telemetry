@@ -23,6 +23,10 @@ namespace telemetry {
 namespace detail {
 
 // Bounded append; returns false permanently once anything does not fit.
+// offset_ counts committed characters and always leaves one byte for NUL.
+// Failure preserves a terminated partial prefix, but length() returns zero:
+// callers must discard that prefix rather than transmit an incomplete JSON.
+// Source text must not overlap the destination buffer.
 class JsonWriter {
 public:
     JsonWriter(char* const buffer, const std::size_t size,
@@ -99,6 +103,8 @@ public:
 
     bool appendString(std::string_view text) noexcept
     {
+        // Escape JSON's ASCII syntax/control bytes, including embedded NUL.
+        // Non-ASCII bytes are preserved; valid UTF-8 is the caller's contract.
         if (!append("\"")) return false;
         std::size_t first = 0;
         for (std::size_t i = 0; i < text.size(); ++i) {
@@ -145,6 +151,8 @@ private:
 
     bool appendText_(const char* text, std::size_t length) noexcept
     {
+        // Subtract before comparing, so a huge requested append cannot wrap
+        // an offset + length expression. ok_ implies offset_ < size_.
         if (!ok_ || length >= size_ - offset_) {
             ok_ = false;
             return false;

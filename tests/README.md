@@ -3,6 +3,8 @@
 [position_tables](position_tables/README.md) covers ABI 6, direct/local/global
 ARM instruction comparisons, conversion parity and command-stride measurements.
 The reports for ABI 5 and earlier below are retained historical measurements.
+The [library audit](audit/README.md) records enum, binding-lifetime, noexcept
+and compiler-mode repairs, regression coverage and the ARM comparison tool.
 
 # Telemetry checks
 
@@ -34,8 +36,9 @@ compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
 The runner executes ten suites (including native/dynamic table parity checks), verifies
-thirty-nine existing rejected programs, nine immutable-Field cases and
-82 factory/command and 26 positional-table compile-time rejection cases, checks
+46 read/binding rejected programs, nine immutable-Field cases,
+82 factory/command, 26 positional-table, 10 command-lifetime and 36 borrowed-field
+compile-time rejection cases (209 total; 212 in C++20 with structural adapters), checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and

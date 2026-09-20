@@ -48,7 +48,10 @@ public:
     template <std::size_t N>
     CatalogIndex(const Catalog (&&)[N], std::size_t) = delete;
 
-    // Keep the two bounds checks at the call site even with -Os.
+    // Keep the two bounds checks at the call site even with -Os. Constructors
+    // normalize null storage to count zero, so no null pointer arithmetic is
+    // needed after these bounds succeed. The original array extent is still
+    // the caller's responsibility; clipping an ID range cannot discover it.
     TELEMETRY_FORCE_INLINE constexpr const Field* find(FieldId id) const noexcept
     {
         const std::size_t group = groupOf(id);
@@ -77,7 +80,7 @@ public:
         return field != nullptr ? field->template read<T>() : std::nullopt;
     }
 
-    // The same direct lookup and accepted prefixes serve reads and writes.
+    // The same direct lookup and capped positional bounds serve reads and writes.
     // The view and its metadata stay const; only the bound owner is modified.
     template <class T>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
@@ -104,6 +107,8 @@ constexpr std::size_t CatalogIndex::abiCatalogsOffset() noexcept
 constexpr std::size_t CatalogIndex::abiCountOffset() noexcept
 { return offsetof(CatalogIndex, count_); }
 
+// Compatibility path for raw constexpr Catalog arrays: the declared Scalar
+// type determines read<Id>()'s optional result, not a native callback signature.
 // A compile-time binding to one catalog array. All objects of this type use
 // the same immutable view; there is no mutable base that could be rebound to
 // a different schema. Referenced source values may still change at runtime.

@@ -41,6 +41,8 @@
 #endif
 
 namespace telemetry {
+// Alignment is part of the layout, not serialization: JSON and packed IDs do
+// not change when a separate host program uses a different cache-line policy.
 inline constexpr std::size_t cacheLineBytes = TELEMETRY_CACHELINE_BYTES;
 }
 

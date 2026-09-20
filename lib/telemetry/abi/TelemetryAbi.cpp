@@ -9,6 +9,8 @@
 namespace telemetry {
 namespace detail {
 
+// Exactly one configured layout is exported by this translation unit. There
+// is no runtime comparison: the linker resolves the full AbiTag specialization.
 void requireTelemetryAbi(CurrentAbiTag) noexcept {}
 
 } // namespace detail

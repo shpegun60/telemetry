@@ -18,6 +18,9 @@ namespace telemetry {
 
 namespace {
 
+// Hash the logical schema, never pointer addresses, object padding or current
+// measurements. Integer words have a specified byte order; float object bits
+// are copied without aliasing before that same byte-order projection.
 std::uint32_t hash_byte_(std::uint32_t hash, std::uint8_t byte) noexcept
 {
     return (hash ^ byte) * 16777619u;
@@ -125,6 +128,9 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
                                     const std::size_t size, JsonOptions options,
                                     CurrentAbiTag tag) noexcept
 {
+    // Schema traversal only touches immutable definitions. An enum description
+    // emits directly into this bounded writer; no temporary dictionary array
+    // and no source getter are needed.
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};
@@ -168,6 +174,9 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
 std::size_t writeValuesWithOptions_(const CatalogIndex& index, char* const buffer,
                                     const std::size_t size, JsonOptions options) noexcept
 {
+    // Read each reached field once, after its catalog prefix has fitted.
+    // This is a sequence of reads, not an atomic snapshot across owners; the
+    // application supplies synchronization when values must be coherent.
     const Catalog* const catalogs = index.data();
     const std::size_t count = index.size();
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};

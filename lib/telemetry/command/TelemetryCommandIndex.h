@@ -10,6 +10,9 @@
 #include "TelemetryCommand.h"
 
 namespace telemetry {
+// This view borrows contiguous descriptors. The caller supplies their actual
+// extent and keeps descriptors, owners and metadata alive for every invocation.
+// IDs here are local positions; packed group IDs belong to CommandCatalogIndex.
 class CommandIndex {
 public:
     constexpr CommandIndex() noexcept = default;
@@ -37,6 +40,8 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, A... values) const noexcept
         -> decltype(std::declval<const Command&>().call(values...))
     {
+        // The descriptor no longer carries its C++ definition type, so this
+        // convenience overload uses checked Scalar conversion, not typed dispatch.
         const Command* command = find(id);
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }

@@ -16,6 +16,7 @@ namespace detail {
 
 template <class Metadata, std::size_t Position, bool Present>
 struct CommandMetadataConstraint {
+    // Missing metadata must not form tuple_element<sentinel, ...>.
     using Type = NoLimits;
 };
 
@@ -28,6 +29,8 @@ struct CommandMetadataConstraint<Metadata, Position, true> {
 
 template <class Traits, class Metadata>
 struct CommandContract {
+    // One contract serves native calls, Scalar conversion and schema output.
+    // Thus a typed shortcut cannot silently bypass enum or numeric limits.
     using Arguments = typename Traits::Arguments;
 
     template <std::size_t I>
@@ -70,6 +73,9 @@ struct CommandContract {
             if (!scalarFinite(number)) return false;
         }
         if constexpr (std::is_enum_v<T>) {
+            // Explicit enumSpec supplies its own extrema, even outside the
+            // automatic scan. Intervals allow unnamed interior codes; this is
+            // not a dictionary-membership test. Check before the enum cast.
             constexpr auto bounds = enumConstraintBounds<T, Constraint<I>>();
             if (number < bounds.minimum || number > bounds.maximum) return false;
         }
@@ -98,6 +104,8 @@ struct CommandContract {
     {
         (void) metadata;
         (void) values;
+        // Short-circuit on the first invalid argument. Only local values have
+        // changed; no owner call occurs until every conversion succeeds.
         return (convert<I>(metadata, values[I], output) && ...);
     }
 
@@ -181,6 +189,8 @@ struct CommandContract {
 
 template <auto Target, class Owner, class Metadata = NoCommandArgs>
 struct CommandBinding {
+    // Target and signature exist only in the type. The erased descriptor stores
+    // the exact owner address and a thunk; no function-pointer reinterpret cast.
     using Traits = CallableTraits<decltype(Target)>;
     using Contract = CommandContract<Traits, Metadata>;
     using Arguments = typename Contract::Arguments;
@@ -242,6 +252,8 @@ struct CommandBinding {
 
 template <class Callable, class Metadata = NoCommandArgs>
 struct BorrowedCommandBinding {
+    // Restore the exact admitted cv-qualified closure type. The closure is
+    // borrowed, never copied; even capturing lambdas retain their native state.
     static_assert(HasConcreteCallOperator<Callable>::value,
                   "Borrowed command callable must have one concrete operator(); generic and overloaded callables are unsupported");
     using Traits = CallableObjectTraits<Callable>;
@@ -303,8 +315,8 @@ struct BorrowedCommandBinding {
 
 // Member functions borrow only lvalues; free/static functions need no owner.
 template <auto Target, class Owner, std::enable_if_t<
-          std::is_member_function_pointer_v<decltype(Target)> && std::is_lvalue_reference_v<Owner&&>, int> = 0>
-constexpr Command materializeCommand(const char* name, Owner&& owner) noexcept
+          std::is_member_function_pointer_v<decltype(Target)> && !std::is_reference_v<Owner>, int> = 0>
+constexpr Command materializeCommand(const char* name, Owner& owner) noexcept
 {
     return detail::CommandBinding<Target, std::remove_reference_t<Owner>>::make(name, std::addressof(owner));
 }
@@ -314,21 +326,38 @@ constexpr Command materializeCommand(const char* name) noexcept
     return detail::CommandBinding<Target, detail::NoOwner>::make(name, nullptr);
 }
 template <auto Target, class Owner, class Metadata, std::enable_if_t<
-          std::is_member_function_pointer_v<decltype(Target)> && std::is_lvalue_reference_v<Owner&&>
-          && std::is_lvalue_reference_v<Metadata&&> && detail::isCommandArgs<Metadata>, int> = 0>
-constexpr Command materializeCommand(const char* name, Owner&& owner, Metadata&& metadata) noexcept
+          std::is_member_function_pointer_v<decltype(Target)> && !std::is_reference_v<Owner>
+          && !std::is_reference_v<Metadata> && detail::isCommandArgs<Metadata>, int> = 0>
+constexpr Command materializeCommand(const char* name, Owner& owner, Metadata& metadata) noexcept
 {
     return detail::CommandBinding<Target, std::remove_reference_t<Owner>, std::decay_t<Metadata>>::make(
         name, std::addressof(owner), std::addressof(metadata));
 }
 template <auto Target, class Metadata, std::enable_if_t<
-          !std::is_member_function_pointer_v<decltype(Target)> && std::is_lvalue_reference_v<Metadata&&>
+          !std::is_member_function_pointer_v<decltype(Target)> && !std::is_reference_v<Metadata>
           && detail::isCommandArgs<Metadata>, int> = 0>
-constexpr Command materializeCommand(const char* name, Metadata&& metadata) noexcept
+constexpr Command materializeCommand(const char* name, Metadata& metadata) noexcept
 {
     return detail::CommandBinding<Target, detail::NoOwner, std::decay_t<Metadata>>::make(
         name, nullptr, std::addressof(metadata));
 }
+
+// These low-level factories borrow metadata as well as the owner. Reject
+// rvalues even when explicit const/reference template arguments would otherwise
+// make a temporary bind to a const lvalue reference.
+template <auto Target, class Owner, std::enable_if_t<
+          std::is_member_function_pointer_v<decltype(Target)>, int> = 0>
+Command materializeCommand(const char*, Owner&&) = delete;
+
+template <auto Target, class Owner, class Metadata, std::enable_if_t<
+          std::is_member_function_pointer_v<decltype(Target)>
+          && detail::isCommandArgs<Metadata>, int> = 0>
+Command materializeCommand(const char*, Owner&&, Metadata&&) = delete;
+
+template <auto Target, class Metadata, std::enable_if_t<
+          !std::is_member_function_pointer_v<decltype(Target)>
+          && detail::isCommandArgs<Metadata>, int> = 0>
+Command materializeCommand(const char*, Metadata&&) = delete;
 
 
 // Stateful functors and named lambdas are borrowed as stable lvalues. Free and
@@ -344,14 +373,20 @@ constexpr Command materializeCommand(const char* name, Callable& callable) noexc
 
 template <class Callable, class Metadata, std::enable_if_t<
           std::is_class_v<std::remove_cv_t<Callable>>
-          && std::is_lvalue_reference_v<Metadata&&>
+          && !std::is_reference_v<Metadata>
           && detail::isCommandArgs<Metadata>, int> = 0>
 constexpr Command materializeCommand(const char* name, Callable& callable,
-                              Metadata&& metadata) noexcept
+                              Metadata& metadata) noexcept
 {
     return detail::BorrowedCommandBinding<Callable, std::decay_t<Metadata>>::make(
         name, std::addressof(callable), std::addressof(metadata));
 }
+
+template <class Callable, class Metadata, std::enable_if_t<
+          std::is_class_v<std::remove_cv_t<Callable>>
+          && !std::is_lvalue_reference_v<Metadata>
+          && detail::isCommandArgs<Metadata>, int> = 0>
+Command materializeCommand(const char*, Callable&, Metadata&&) = delete;
 
 template <class Callable, std::enable_if_t<
           std::is_class_v<std::remove_cv_t<Callable>>

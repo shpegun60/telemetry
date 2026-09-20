@@ -13,6 +13,8 @@
 
 namespace telemetry {
 namespace detail {
+// Local and grouped indexes have distinct wire envelopes and fingerprints.
+// Their compiled boundaries share the exact ABI tag used by field schemas.
 std::uint32_t commandSchemaCrcAbi(const CommandIndex&, CurrentAbiTag) noexcept;
 std::size_t writeCommandSchemaAbi(const CommandIndex&, char*, std::size_t, JsonOptions, CurrentAbiTag) noexcept;
 std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex&, CurrentAbiTag) noexcept;
@@ -40,6 +42,8 @@ inline std::size_t writeSchema(const CommandIndex& index, char* buffer, std::siz
 }
 
 // Grouped commands use packed group/index IDs and slash-path catalog names.
+// A slash is ordinary label text here; serialization does not split or
+// normalize it, and reordering groups changes their positional identities.
 // Command itself stays unchanged; the catalog owns hierarchy once per group.
 template <class Abi = detail::CurrentAbiTag>
 inline std::uint32_t schemaCrc(const CommandCatalogIndex& index) noexcept

@@ -46,6 +46,8 @@ class Getter {
     X(char16_t, character16)             \
     X(char32_t, character32)
 
+    // invoke_ identifies the active union member. Copies preserve both words;
+    // no address is ever recovered through a different function-pointer type.
     union Payload {
         void* object;
         Scalar (*scalar)() noexcept;
@@ -136,6 +138,7 @@ public:
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
                       "Getter::bind requires a member function");
+        static_assert(Method != nullptr, "Getter target cannot be null");
         static_assert(!std::is_volatile_v<T>, "Getter owners cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Method), T&>,
                       "The getter must return a Scalar-compatible value and be noexcept");
@@ -148,8 +151,13 @@ public:
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bindContext(T& object) noexcept
     {
+        // Invocability describes a type, not whether a pointer value is null.
+        if constexpr (std::is_pointer_v<decltype(Adapter)>)
+            static_assert(Adapter != nullptr, "Getter adapter cannot be null");
         static_assert(!std::is_volatile_v<T>, "Getter contexts cannot be volatile");
-        static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Adapter), T&>,
+        // A C++20 structural adapter is a const lvalue template-parameter
+        // object. Test the same value category used by invokeContext_.
+        static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype((Adapter)), T&>,
                       "Getter adapter must return a Scalar-compatible value and be noexcept");
         return Getter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
@@ -197,6 +205,8 @@ private:
     template <class T>
     static constexpr void* eraseObject_(T* pointer) noexcept
     {
+        // T is retained by the invoker and restored before dereferencing; this
+        // storage cast never grants permission to mutate a const owner.
         return const_cast<void*>(static_cast<const volatile void*>(pointer));
     }
 

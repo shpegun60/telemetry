@@ -15,6 +15,8 @@
 
 namespace telemetry {
 
+// Select only the wire representation; Scalar storage and hashes do not
+// change. String is useful for clients whose JSON numbers use binary64.
 enum class JsonInt64Mode : std::uint8_t {
     Number,
     String,
@@ -27,6 +29,9 @@ static_assert(sizeof(JsonOptions) == 1 && alignof(JsonOptions) == 1,
               "JsonOptions is a fixed one-byte compiled API contract");
 
 namespace detail {
+// Every compiled entry carries the caller's exact layout tuple in its symbol.
+// Keep overloads tagged even when an operation only reads a few descriptor
+// members: their offsets still depend on the complete configured ABI.
 std::uint32_t schemaCrcAbi(const Catalog* catalogs, std::size_t count, CurrentAbiTag) noexcept;
 std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept;
 std::size_t writeSchemaAbi(const Catalog* catalogs, std::size_t count,

@@ -20,10 +20,15 @@ using EnumDescription = bool (*)(void*, EnumEntrySink) noexcept;
 
 namespace detail {
 struct FieldTableAccess;
+// Invalid descriptor construction is a programming error: constexpr use fails
+// compilation, while runtime construction terminates instead of storing bounds
+// that would make later validation ambiguous.
 [[noreturn]] inline void invalidFieldLimits() noexcept { std::abort(); }
 } // namespace detail
 
 class FieldType {
+    // Internal callers must supply the canonical Scalar alternative selected
+    // by valueType_; this function intentionally does not read a second tag.
     template <class T>
     TELEMETRY_FORCE_INLINE constexpr const detail::NumericBounds<T>& boundsFor_() const noexcept
     {
@@ -98,6 +103,8 @@ public:
 
     constexpr FieldType withLimits(Scalar minimum, Scalar maximum, Scalar initial) const noexcept
     {
+        // Normalize all three values first, then check ordering in the stored
+        // type. Integer limits therefore share write's truncation policy.
         if (!convertScalar(minimum, valueType_, minimum)
             || !convertScalar(maximum, valueType_, maximum)
             || !convertScalar(initial, valueType_, initial)) detail::invalidFieldLimits();
@@ -124,6 +131,8 @@ public:
 
     bool describeEnum(void* context, EnumEntrySink sink) const noexcept
     {
+        // Descriptions are streamed synchronously. The sink may refuse an
+        // entry; neither its context nor its Scalar argument is retained.
         return describe_ != nullptr && sink != nullptr && describe_(context, sink);
     }
 
@@ -233,6 +242,8 @@ private:
     ScalarType valueType_ = ScalarType::Null;
     bool restricted_ = false;
     detail::FieldBounds bounds_{};
+    // Keep write validation above this boundary; defaults and enum callbacks
+    // are only metadata and are not consulted by the ordinary write path.
     Scalar initial_{};
     EnumDescription describe_ = nullptr;
 

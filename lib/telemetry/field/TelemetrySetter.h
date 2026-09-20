@@ -57,6 +57,8 @@ class Setter {
     X(char16_t, character16)             \
     X(char32_t, character32)
 
+    // Native callbacks keep their exact C++ type, including distinct integer
+    // aliases of the same width. The paired invoker selects the active member.
     union Payload {
         void* object;
         WriteResult (*scalar)(const Scalar&) noexcept;
@@ -143,6 +145,10 @@ public:
         static_assert(std::is_convertible_v<decltype(FunctionPointer), Function>,
                       "The setter must accept const Scalar&, return WriteResult and be noexcept");
         static_assert(FunctionPointer != nullptr, "Setter target cannot be null");
+        // C++20 structural objects may convert to a noexcept pointer yet have
+        // a throwing call operator. invokeStatic_ calls the object itself.
+        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((FunctionPointer)), const Scalar&>,
+                      "The actual setter invocation must be noexcept");
         return Setter(Payload{}, &invokeStatic_<FunctionPointer>);
     }
 
@@ -151,6 +157,7 @@ public:
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
                       "Setter::bind requires a member function");
+        static_assert(Method != nullptr, "Setter target cannot be null");
         static_assert(!std::is_volatile_v<T>, "Setter owners cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(Method), T&, const Scalar&>,
                       "The setter must accept const Scalar&, return WriteResult and be noexcept");
@@ -163,8 +170,12 @@ public:
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Setter bindContext(T& object) noexcept
     {
+        // A null function pointer is type-invocable but cannot be called.
+        if constexpr (std::is_pointer_v<decltype(Adapter)>)
+            static_assert(Adapter != nullptr, "Setter adapter cannot be null");
         static_assert(!std::is_volatile_v<T>, "Setter contexts cannot be volatile");
-        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(Adapter), T&, const Scalar&>,
+        // Match the const-lvalue expression used for a structural NTTP adapter.
+        static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((Adapter)), T&, const Scalar&>,
                       "Setter adapter must accept context and Scalar, return WriteResult and be noexcept");
         return Setter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
@@ -198,6 +209,8 @@ private:
     {
         constexpr auto type = Scalar::from(T{}).type();
         using Stored = Scalar::NativeType<type>;
+        // Descriptor writes have already converted. Direct Setter calls must
+        // supply this alternative too; never reinterpret a wrong Scalar tag.
         const auto* native = value.template getIf<Stored>();
         return native != nullptr
             ? native_(payload, NativeTag<T>{})(static_cast<T>(*native))
@@ -220,6 +233,7 @@ private:
     template <class T>
     static constexpr void* eraseObject_(T* pointer) noexcept
     {
+        // The invoker restores the original T, including const qualification.
         return const_cast<void*>(static_cast<const volatile void*>(pointer));
     }
 

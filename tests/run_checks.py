@@ -17,23 +17,23 @@ LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
 FACTORY_REJECTIONS = {
     1: "exact same C\\+\\+ type", 2: "exact same C\\+\\+ type", 3: "return WriteResult",
-    4: "noexcept", 5: "no matching", 6: "numeric or enum", 7: "Metadata values must match",
-    8: "invalidFieldLimits", 9: "signature|noexcept|owner", 10: "no matching",
-    11: "no matching", 12: "no matching", 13: "metadata count", 14: "Metadata values must match",
+    4: "noexcept", 5: "no matching|deleted", 6: "numeric or enum", 7: "Metadata values must match",
+    8: "invalidFieldLimits", 9: "signature|noexcept|owner", 10: "no matching|deleted",
+    11: "no matching|deleted", 12: "no matching|deleted", 13: "metadata count", 14: "Metadata values must match",
     15: "invalidFieldLimits", 16: "noexcept", 17: "without references", 18: "numeric or enum",
     19: "numeric or enum", 20: "return CommandResult", 21: "owner|invocable",
     22: "target cannot be null", 23: "deleted", 24: "no matching",
     25: "invalidFieldLimits", 26: "deleted", 27: "deleted", 28: "reserved for Scalar",
-    29: "no matching", 30: "invalidFieldLimits", 31: "noexcept",
+    29: "no matching|deleted", 30: "invalidFieldLimits", 31: "noexcept",
     32: "exact same C\\+\\+ type", 33: "noexcept", 34: "no matching",
     35: "no matching", 36: "deleted", 37: "no matching", 38: "no matching",
     39: "native numeric or bool", 40: "no matching",
     41: "noexcept", 42: "concrete operator|operator\\(\\)", 43: "concrete operator|operator\\(\\)",
-    44: "no matching", 45: "exact enum type", 46: "exact same enum type",
+    44: "no matching|deleted", 45: "exact enum type", 46: "exact same enum type",
     47: "codes must be unique", 48: "exact enum type", 49: "numeric value", 50: "deleted",
     51: "deleted", 52: "deleted",
     53: "positions must be unique", 54: "outside the function", 55: "Metadata values must match",
-    56: "cannot mix positional", 57: "no matching", 58: "exact same C\\+\\+ type",
+    56: "cannot mix positional", 57: "no matching|deleted", 58: "exact same C\\+\\+ type",
     59: "exact enum type|Metadata values must match", 60: "positions must be unique",
     61: "indexed arg", 62: "deleted", 63: "deleted", 64: "deleted",
     65: "noexcept", 66: "noexcept", 67: "concrete operator|operator\\(\\)",
@@ -58,6 +58,8 @@ REJECTIONS = {
     **{case: r"deleted" for case in range(31, 36)},
     36: r"accepted prefix|positional bounds", 37: r"accepted prefix|positional bounds",
     38: r"no matching", 39: r"no matching",
+    **{case: r"cannot be null" for case in range(40, 44)},
+    **{case: r"conversion must be noexcept" for case in range(44, 47)},
 }
 
 
@@ -110,6 +112,26 @@ def main():
         run(flags + [f"-DTELEMETRY_READ_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryReadCompileFail.cpp"], f"reject-{case}", message)
     print(f"{len(REJECTIONS)} expected compilation failures verified", flush=True)
+    if args.std == "c++20":
+        for case in range(1, 4):
+            run(flags + [f"-DTELEMETRY_ADAPTER_FAIL_CASE={case}", "-fsyntax-only",
+                         "tests/TelemetryAdapterCompileFail.cpp"],
+                f"structural-adapter-reject-{case}", r"(?:setter invocation|adapter must).*noexcept")
+        print("3 structural adapter compilation rejections verified", flush=True)
+    for case in range(1, 11):
+        run(flags + [f"-DTELEMETRY_COMMAND_LIFETIME_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryCommandLifetimeCompileFail.cpp"],
+            f"command-lifetime-reject-{case}", r"deleted|no matching")
+    print("10 command lifetime compilation rejections verified", flush=True)
+    borrowed = output / ("BorrowedFieldLvalues" + (".exe" if os.name == "nt" else ""))
+    run(flags + build_flags + ["tests/TelemetryBorrowedFieldCompileFail.cpp",
+                              *LIBRARY_SOURCES, "-o", str(borrowed)], "borrowed-field-lvalues-build")
+    run([str(borrowed)], "borrowed-field-lvalues-run")
+    for case in range(1, 37):
+        run(flags + [f"-DTELEMETRY_BORROWED_FIELD_FAIL_CASE={case}", "-fsyntax-only",
+                     "tests/TelemetryBorrowedFieldCompileFail.cpp"],
+            f"borrowed-field-reject-{case}", r"deleted|no matching")
+    print("36 borrowed field compilation rejections verified", flush=True)
     for case in range(1, 10):
         run(flags + [f"-DTELEMETRY_FIELD_FAIL_CASE={case}", "-fsyntax-only", "tests/TelemetryFieldCompileFail.cpp"],
             f"immutable-field-{case}", r"deleted|const|read.only")
@@ -130,7 +152,7 @@ def main():
     for header in sorted((ROOT / "lib/telemetry").rglob("*.h")):
         label = "-".join(header.relative_to(ROOT / "lib/telemetry").with_suffix("").parts)
         run(flags + ["-include", str(header), "-fsyntax-only", str(empty)], label + "-standalone")
-    for option in ("-ffast-math", "-ffinite-math-only"):
+    for option in ("-ffast-math", "-ffinite-math-only", "-D_M_FP_FAST=1"):
         run(flags + [option, "-include", "core/TelemetryConversion.h", "-fsyntax-only", str(empty)],
             "reject" + option, r"Compile telemetry conversions without")
     print("Standalone headers and fast-math rejection verified", flush=True)

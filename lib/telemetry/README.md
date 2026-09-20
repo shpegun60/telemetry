@@ -105,6 +105,13 @@ result = commandIndex.execute(receiveCommandId(), arguments, 2);
 result = meterCommands.call(receivePosition(), 230.0f, Mode::Auto);
 ```
 
+The template numbers in a local table are zero-based entry positions, with
+no group component. For example, `meterFields.read<0>()` selects `Ua`, and
+`meterFields.write<1>(value)` selects `Limit` in the declaration above. Named
+`constexpr std::size_t` constants can replace these numbers. Scoped enums
+are not implicitly accepted as template indices; cast them to `std::size_t`
+when defining such a constant. Global typed APIs take `makeId(group, entry)`.
+
 `field(...)` supports the same NTTP methods/free functions, parameter function
 pointers, capture-free lambdas and borrowed callable lvalues through this one factory.
 `makeField` was removed; use `field(...)` entries in a `FieldTable`.
@@ -136,6 +143,9 @@ runtime view; global runtime convenience methods use that same view. The
 tables are non-copyable/non-movable; borrowed owners, closures, strings and
 local tables must outlive their consumers. Extracting views from temporaries
 is rejected. None of these layers stores an ID or allocates memory.
+Metadata values such as `limits(...)` and `arg<N>(...)` are copied, but their
+name/unit pointers do not copy text. A temporary string's `c_str()` is not a
+valid persistent label; use literals or storage that remains alive and stable.
 
 `field` produces a temporary typed definition. `FieldTable` materializes the
 same concrete RW32 `Field`; there is no additional runtime wrapper. The native getter determines `numericType<T>()` or
@@ -232,6 +242,8 @@ Direct `CommandTable{...}` construction owns its metadata tuple and ordinary
 Command descriptors. Those descriptors point into the owned metadata, so the
 table is non-copyable and non-movable. `data()`, `operator[]` and `index()` are
 lvalue-only. `size()` may be used on a temporary because it returns a value.
+Copying a `Command` descriptor out of the table does not copy its referenced
+metadata or owner; the table must still outlive that copied descriptor's use.
 In C++17 construct CommandTable directly: returning a self-referential table
 from a factory is not a portable constant expression. `CommandCatalogTable`
 is now the multi-group registry shown above, not an owning single-group wrapper.
@@ -245,13 +257,16 @@ table.call(runtimeIndex, voltage, mode); // Runtime position, native arguments.
 index.execute(id, scalarArgs, count); // Runtime ID and runtime Scalar values.
 ```
 
-`call<Index>()` resolves the definition, owner and target at compilation. Its
+`call<Index>()` selects the definition and target signature at compilation. The
+owner address and metadata values can still come from runtime construction. Its
 argument count and exact native C++ types must match the selected signature;
 `float` is not interchangeable with `int`, and an enum is not interchangeable
 with its underlying integer. Lvalue cv/ref qualifiers are removed for this
 comparison. An invalid index, arity or type is a compile-time error. Runtime
-values still pass finite, enum and custom-bound checks before one direct target
-call. This path constructs no Scalar array and performs no indirect invocation.
+values still pass finite, enum and custom-bound checks before one target call.
+This path constructs no Scalar array and bypasses the erased Command invoker.
+Ordinary nonvirtual template targets can compile to direct calls; virtual
+methods retain normal C++ dispatch unless the compiler can devirtualize them.
 
 `call(runtimeIndex, ...)` uses the same exact native signature and validation,
 but emits typed branches because the local zero-based table position is known
@@ -260,8 +275,8 @@ only at runtime. A selected definition with another signature returns
 generated dispatcher has one range check and emits comparisons/invocations
 only for definitions whose signature exactly matches `Input...`. Unrelated
 definitions are removed by `if constexpr`, rather than left for the optimizer
-to discover. Matching branches call their concrete targets directly, without
-Scalar. Generated code can grow with the number of matching definitions, so
+to discover. Matching branches invoke the selected native target without
+Scalar, subject to the same virtual-method rule. Generated code can grow with the number of matching definitions, so
 this path trades Flash for dispatch speed.
 
 `CommandIndex::execute()` and `CommandCatalogIndex::execute()` remain the fully
@@ -284,7 +299,7 @@ callback must return `CommandResult`; results are passed through unchanged.
 |---|---|
 | `Executed` | Owner completed the action synchronously |
 | `Accepted` | Owner queued a copied request; not yet completed |
-| `NotFound` | ID is outside the accepted command prefix |
+| `NotFound` | ID is outside the positional command bounds |
 | `Unavailable` | Command has no handler |
 | `ArgumentCountMismatch` | Dynamic native argument signature or Scalar count differs from the target |
 | `InvalidValue` | Conversion, finite-value or range validation failed |
@@ -297,7 +312,8 @@ does not imply rollback of its own side effects.
 `writeSchema(flatActions, buffer, size)` emits the legacy flat
 `{"schema":"...","commands":[...]}` document. A `CommandCatalogIndex` emits
 `{"schema":"...","commandCatalogs":[{"id":0,"name":"device","commands":[...]}]}`.
-Each command contains `i`, packed `id`, `n` and `params`; parameters have `i`, numeric `t`,
+Grouped commands contain `i`, packed `id`, `n` and `params`; the flat format
+contains `id`, `n` and `params` without a separate `i`. Parameters have `i`, numeric `t`,
 `min`, `max`, `default`, optional names/units and enum dictionaries. Absent
 metadata omits `n`/`u`, allowing a UI to display arg0/arg1. Schema generation
 never invokes command handlers. `JsonInt64Mode::String` also applies to command
@@ -371,7 +387,7 @@ Plain default declarations work without braces:
 ```cpp
 Scalar value;    // Null.
 Field field;     // name/unit "", declaredType Null, get/set nullptr.
-Catalog group;   // id 0, name "", fields nullptr, count 0.
+Catalog group;   // name "", fields nullptr, count 0; identity comes from position.
 ```
 
 The same defaults apply in `constexpr` declarations and when trailing
@@ -471,7 +487,7 @@ immutability, including the read tag duplicated from declaredType. Existing
 Copy construction works; `field = other` and `field.declaredType = ...` do not.
 To change a definition, build a replacement table and its Catalog/view with
 the required lifetimes. Values inside bound owners remain mutable under the
-caller's synchronization contract. Catalog retains its validated prefix.
+caller's synchronization contract. Catalog retains its capped positional bounds.
 
 ## Write limits and defaults
 
@@ -689,7 +705,8 @@ Scalar value = index.read(id);
 For this static example, source addresses must be usable in constant
 expressions. The sources themselves may be mutable. An instance-bound table
 uses the same constructors without `constexpr`; the owning object must keep
-its address. The demo shows both forms.
+its address. The demo uses namespace-scope owners and constexpr tables; the
+capturing callback example above shows a local runtime binding.
 
 The lookup splits the ID with `id >> 16` and `id & 0xffff`, checks the group
 against the group count, then checks the position against that
@@ -862,20 +879,24 @@ native function pointer or borrowed object pointer, plus one generated invoker.
 It is 8 bytes on ARM32. The union is read only through the invoker selected by
 the constructor; no incompatible function-pointer conversion or type punning
 is used. Compile-time function/method bindings and native parameter-form
-callbacks stay constexpr in C++17. Dynamic rows retain one indirect dispatch;
-known rows can be folded by the compiler. Conversion objects may throw during
-construction before an existing getter is replaced; invocation remains
-noexcept. Copying a getter copies its binding, not its source.
+callbacks stay constexpr in C++17. Runtime descriptor calls use an erased
+invoker; a stored runtime function pointer can add another indirect target
+transfer. Known rows and targets can be folded by the compiler. At the low-level
+Getter constructor, conversion objects may throw before an existing getter is
+replaced; invocation remains noexcept. The higher-level `field(...)` factories
+require function-pointer conversions to be noexcept. Copying a getter copies
+its binding, not its source.
 
 `Getter::bindContext<&adapter>(owner)` is the low-level adapter form used by
 typed factories when a generated function must receive a stable runtime owner.
-The adapter signature is `Scalar(Owner&) noexcept`. The owner must remain alive
+The adapter accepts `Owner&`, is `noexcept`, and returns a Scalar-compatible
+value, such as Scalar or a supported native number. The owner must remain alive
 at the same address, and temporary owners are rejected.
 
 ## Optional writes
 
-Field's last member is `Setter set = nullptr`. Existing five-member rows
-remain read-only. Setter uses the same trivial payload/invoker representation
+Field's optional final constructor argument is `Setter`, defaulting to nullptr.
+Rows containing only name, unit, type and getter remain read-only. Setter uses the same trivial payload/invoker representation
 and is 8 bytes on ARM32. It can retain the exact native typed callback pointer
 or a borrowed owner; an empty setter returns ReadOnly, including when
 initialized or assigned a typed null pointer.
@@ -896,7 +917,7 @@ result = index.write(makeId(0, 8), 275.5);      // double -> F32.
 result = field.write(12.7);                    // e.g. U16 receives 12.
 ```
 
-The index uses the same direct lookup and accepted prefixes as reads.
+The index uses the same direct lookup and positional bounds as reads.
 It returns NotFound for a missing ID, ReadOnly for an empty setter,
 InvalidValue when conversion or the numeric interval check fails, or the owner's result after one call.
 The owner receives a Scalar already converted to `declaredType`. No getter
@@ -949,7 +970,7 @@ type conversion and numeric interval checks. Bindings and metadata remain fixed 
 
 ## Serialization
 
-Use the accepted view to avoid repeating even group-prefix validation:
+Use the existing borrowed index when exporting the same catalog repeatedly:
 
 ```cpp
 writeSchema(index, schemaBuffer, sizeof(schemaBuffer));
@@ -962,7 +983,7 @@ writeValues(index, valuesBuffer, sizeof(valuesBuffer), webSafe);
 ```
 
 The retained pointer/count overloads construct a CatalogIndex for that call.
-All overloads publish exactly the accepted group and field prefixes, matching
+All overloads publish exactly the capped group and field positions, matching
 lookup. The schema includes each group's numeric `id` and each field's local
 `i` plus packed `id`:
 
@@ -1036,7 +1057,7 @@ subscriptions or scheduling.
 ## Verification and Cortex-M7 code generation
 
 [TelemetryCheck.cpp](../../tests/TelemetryCheck.cpp) exercises the public
-contracts, including prefix clipping, endpoints and actual 65536-component
+contracts, including count clipping, endpoints and actual 65536-component
 capacity. [TelemetryWriteCheck.cpp](../../tests/TelemetryWriteCheck.cpp) checks
 numeric boundaries, all 121 numeric/bool conversion pairs, native getter forms,
 setter policy and write dispatch. [TelemetryReadCheck.cpp](../../tests/TelemetryReadCheck.cpp)
@@ -1046,14 +1067,14 @@ endpoints. It checks all 121 source/declared type pairs through both reads
 and writes, and verifies that an explicit read type cannot bypass declared
 rounding, truncation or range limits.
 [TelemetryReadCompileFail.cpp](../../tests/TelemetryReadCompileFail.cpp) supplies
-thirty-five expected compilation failures, covering static reads, invalid
+expected compilation failures, covering static reads, invalid
 bindings, enum contracts and inconsistent limit definitions.
-[TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) has 33 checks and sweeps
+[TelemetryJsonCheck.cpp](../../tests/TelemetryJsonCheck.cpp) sweeps
 buffer lengths, checks null output and early stopping, requires a decimal-comma
 locale in CI, rejects null catalog/field/unit metadata safely, and checks 4096
 samples plus endpoints for each of F32/F64/U64/S64. It also checks exact default
 output, selective U64/S64 quoting, schema metadata and fingerprint stability in
-string mode.
+string mode, and independence from source addresses and current values.
 [TelemetryNumericCheck.cpp](../../tests/TelemetryNumericCheck.cpp) compares all
 121 conversion pairs against an independent extended-precision oracle with
 explicit truncation, checking endpoints and 1024 source samples per pair.
@@ -1067,14 +1088,16 @@ inclusive boundaries, write-only validation and mandatory metadata exports.
 [TelemetryFactoryCheck.cpp](../../tests/TelemetryFactoryCheck.cpp) covers inferred
 fields, native/enum setters, runtime owners, capture-free lambdas and stable
 borrowed capturing/stateful callables, including the explicit Scalar escape
-hatch (40 checks).
+hatch.
 [TelemetryCommandCheck.cpp](../../tests/TelemetryCommandCheck.cpp) covers command
 conversion, side effects, schema, metadata lifetimes, indexed partial metadata,
-owning tables, the two native dispatch levels and more than eight arguments
-(74 checks).
+owning tables, the two native dispatch levels and more than eight arguments.
 [TelemetryFactoryCompileFail.cpp](../../tests/TelemetryFactoryCompileFail.cpp)
-adds 82 rejected definitions and calls, including all six temporary-table view
+adds rejected definitions and calls, including temporary-table view
 extractions plus compile-time typed index, arity and exact-type failures.
+[TelemetryBorrowedFieldCompileFail.cpp](../../tests/TelemetryBorrowedFieldCompileFail.cpp)
+checks temporary callable/owner rejection even with explicit const or reference
+template arguments, along with accepted stable const bindings and inline lambdas.
 The [test runner and instructions](../../tests/README.md) reproduce all suites,
 standalone header compilation, rejected bindings and rejected fast-math flags.
 [IndexCodegen.cpp](../../tests/IndexCodegen.cpp) is a compile-only ARM probe

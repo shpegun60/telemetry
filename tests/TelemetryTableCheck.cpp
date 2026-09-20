@@ -41,6 +41,16 @@ static_assert(telemetryAbiVersion==6 && sizeof(Command)==5*sizeof(void*));
 float freeValue=1;
 float freeRead() noexcept {return freeValue;}
 WriteResult freeWrite(float v) noexcept {freeValue=v;return WriteResult::Busy;}
+int converterCopies=0,converterCalls=0;
+template<class Function,Function Target>
+struct CallbackConversion {
+    CallbackConversion() noexcept = default;
+    // Copying is legal at the public call boundary, but the factory body must
+    // not make another potentially throwing copy just to obtain the pointer.
+    CallbackConversion(const CallbackConversion&) noexcept(false) {++converterCopies;}
+    Function operator+() const noexcept {return Target;}
+    operator Function() const noexcept {++converterCalls;return Target;}
+};
 constexpr FieldTable functions{
     field<&freeRead,&freeWrite>("nttp",""),
     field("function","",freeRead,freeWrite),
@@ -92,8 +102,80 @@ struct Base {
 struct Derived : Prefix, Base {};
 constexpr auto prebuilt = commandArgs(arg<0>("v","",2.f,-5.f,10.f));
 constexpr CommandTable prebuiltActions{command<&configure>("configure",prebuilt)};
+
+// These unscoped enums exercise both partial and completely empty automatic
+// scans. Explicit dictionaries must control every path, including direct set.
+enum FixedWide : std::uint16_t { FixedOff=0, FixedHigh=1000, FixedMax=2000 };
+enum UnfixedWide { UnfixedHigh=1000, UnfixedMax=2000 };
+enum UnfixedNegative { NegativeLow=-2000, NegativeHigh=-1000 };
+template<class E> Owner<E> enumOwner;
+template<class E> E readEnum() noexcept { return enumOwner<E>.read(); }
+template<class E> WriteResult writeEnum(E value) noexcept { return enumOwner<E>.write(value); }
+constexpr auto wideCodes=enumSpec<FixedOff,FixedHigh,FixedMax>();
+constexpr FieldTable explicitFree{
+    field<&readEnum<FixedWide>,&writeEnum<FixedWide>>("fixed","",wideCodes)};
+constexpr FieldTable explicitMember{
+    field<&Owner<UnfixedWide>::read,&Owner<UnfixedWide>::write>(
+        "unfixed","",enumOwner<UnfixedWide>,enumSpec<UnfixedHigh,UnfixedMax>())};
+constexpr FieldTable explicitSubset{
+    field<&readEnum<FixedWide>,&writeEnum<FixedWide>>("subset","",enumSpec<FixedHigh,FixedMax>())};
+static_assert(explicitMember[0].declaredType.defaultValue().get<std::underlying_type_t<UnfixedWide>>() == 1000);
+
+template<class E,class Table>
+void checkExplicitEnum(const Table& table,Owner<E>& source,int minimum,int maximum) {
+    using Raw=std::underlying_type_t<E>;
+    const FieldCatalogTable catalog{group("enum",table)};
+    for(const int input : {minimum, (minimum+maximum)/2, maximum}) {
+        const int before=source.writes;
+        expect(table.template write<0>(input)==WriteResult::Applied,
+               "explicit enum local native write accepts selected interval");
+        expect(catalog.template write<makeId(0,0)>(input)==WriteResult::Applied,
+               "explicit enum global native write accepts selected interval");
+        expect(catalog.write(makeId(0,0),input)==WriteResult::Applied,
+               "explicit enum dynamic write accepts selected interval");
+        expect(table[0].set(Scalar::from(static_cast<Raw>(input)))==WriteResult::Applied,
+               "explicit enum direct setter uses the selected dictionary");
+        expect(source.writes==before+4 && static_cast<Raw>(source.value)==static_cast<Raw>(input),
+               "explicit enum invokes once per accepted write");
+        expect(table.template read<0,double>()==double(input)
+               && table[0].template read<double>()==double(input),
+               "explicit enum native and dynamic reads agree");
+    }
+    const int before=source.writes;
+    for(const int input : {minimum-1,maximum+1}) {
+        expect(table.template write<0>(input)==WriteResult::InvalidValue
+               && catalog.template write<makeId(0,0)>(input)==WriteResult::InvalidValue
+               && catalog.write(makeId(0,0),input)==WriteResult::InvalidValue,
+               "explicit enum bounds reject before all descriptor writes");
+        expect(table[0].set(Scalar::from(static_cast<Raw>(input)))==WriteResult::InvalidValue,
+               "explicit enum direct setter guards casts outside selected interval");
+    }
+    expect(table[0].set(Scalar::null())==WriteResult::InvalidValue && source.writes==before,
+           "invalid enum writes never reach the callback");
+}
+
+void checkExplicitEnums() {
+    checkExplicitEnum(explicitFree,enumOwner<FixedWide>,0,2000);
+    checkExplicitEnum(explicitMember,enumOwner<UnfixedWide>,1000,2000);
+    checkExplicitEnum(explicitSubset,enumOwner<FixedWide>,1000,2000);
+    Owner<UnfixedNegative> negative;
+    auto read=[&negative]() noexcept {return negative.read();};
+    auto write=[&negative](UnfixedNegative value) noexcept {return negative.write(value);};
+    const FieldTable borrowed{field("negative","",read,write,enumSpec<NegativeLow,NegativeHigh>())};
+    checkExplicitEnum(borrowed,negative,-2000,-1000);
+}
 }
 int main() {
+    checkExplicitEnums();
+    using ReadConversion=CallbackConversion<decltype(&freeRead),&freeRead>;
+    using WriteConversion=CallbackConversion<decltype(&freeWrite),&freeWrite>;
+    const FieldTable converted{
+        field("converted","",ReadConversion{},WriteConversion{}),
+        field("read","",ReadConversion{})};
+    expect(converterCopies==0 && converterCalls==3,
+           "factory converts callback wrappers once without internal copies");
+    expect(converted.write<0>(8)==WriteResult::Busy && converted.read<1>()==8.f,
+           "custom noexcept callback conversions retain exact targets");
     checkFunctions(std::make_index_sequence<5>{});
     matrix<float>();matrix<double>();matrix<bool>();
     matrix<std::uint8_t>();matrix<std::uint16_t>();matrix<std::uint32_t>();matrix<std::uint64_t>();

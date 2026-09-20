@@ -231,6 +231,44 @@ void checkEarlyStop()
            "a successful frame calls each getter exactly once");
 }
 
+void checkSchemaIndependence()
+{
+    Source first{1.0f, 0};
+    Source second{2.0f, 0};
+    const Field firstFields[] = {
+        {"value", "V", ScalarType::F32, Getter::bind<&Source::read>(first)},
+    };
+    const Field secondFields[] = {
+        {"value", "V", numericType<float>(), Getter::bind<&Source::read>(second)},
+    };
+    const Catalog firstCatalogs[] = {{"source", firstFields}};
+    const Catalog secondCatalogs[] = {{"source", secondFields}};
+    const CatalogIndex firstIndex{firstCatalogs};
+    const CatalogIndex secondIndex{secondCatalogs};
+    char original[512];
+    char copy[512];
+    const auto originalSize = writeSchema(firstIndex, original, sizeof(original));
+    expect(originalSize != 0 && writeSchema(secondIndex, copy, sizeof(copy)) == originalSize
+               && std::strcmp(original, copy) == 0 && schemaCrc(firstIndex) == schemaCrc(secondIndex)
+               && first.reads == 0 && second.reads == 0,
+           "equivalent schemas ignore owner/descriptor addresses and do not invoke getters");
+
+    first.value = std::numeric_limits<float>::infinity();
+    expect(writeSchema(firstIndex, copy, sizeof(copy)) == originalSize
+               && std::strcmp(original, copy) == 0 && first.reads == 0,
+           "a changing or non-finite source value cannot change its schema");
+    expect(writeValues(firstIndex, copy, sizeof(copy)) != 0
+               && std::strcmp(copy, "{\"source\":[null]}") == 0 && first.reads == 1 && second.reads == 0,
+           "value export reads only the selected owner after independent schema export");
+
+    const CatalogIndex empty{nullptr, std::numeric_limits<std::size_t>::max()};
+    expect(schemaCrc(empty) == schemaCrc(CatalogIndex{})
+               && writeValues(empty, copy, sizeof(copy)) == 2 && std::strcmp(copy, "{}") == 0
+               && writeSchema(empty, copy, sizeof(copy)) != 0
+               && std::strcmp(copy, "{\"schema\":\"811c9dc5\",\"catalogs\":[]}") == 0,
+           "null catalog storage with the largest count remains an empty safe schema");
+}
+
 std::uint64_t nextBits(std::uint64_t& state)
 {
     state ^= state << 13;
@@ -349,6 +387,7 @@ int main()
     checkBuffers(static_cast<Serialize>(&writeSchema), "schema respects every output boundary");
     checkBuffers(static_cast<Serialize>(&writeValues), "values respect every output boundary");
     checkEarlyStop();
+    checkSchemaIndependence();
     checkMetadataStrings();
     checkNullMetadata();
     checkInt64Modes();

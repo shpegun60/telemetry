@@ -10,6 +10,9 @@
 #ifndef TELEMETRY_H
 #define TELEMETRY_H
 
+// Public construction starts with field()/command() and owning local tables.
+// Catalog tables borrow those locals; indexes are transport-facing views.
+// Keep the ABI guard in every consumer even when neither JSON source is linked.
 #include "core/TelemetryId.h"
 #include "field/TelemetryEnum.h"
 #include "field/TelemetryFieldFactory.h"

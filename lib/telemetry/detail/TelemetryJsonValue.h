@@ -42,6 +42,9 @@ inline constexpr const char* scalarTypeName(const ScalarType type) noexcept
 }
 
 
+// Wire values preserve the stored numeric alternative. JSON has no NaN or
+// infinity literal, so unavailable and non-finite readings share null.
+// This formatting step never performs field validation or invokes callbacks.
 static inline bool appendScalar(JsonWriter& out, const Scalar& value) noexcept
 {
     if (value.type() == ScalarType::Null) {
@@ -137,6 +140,9 @@ struct EnumJsonContext {
 
 static inline bool appendEnumEntry(void* context, const Scalar& value, std::string_view name) noexcept
 {
+    // Dictionary keys are always decimal strings, independently of the option
+    // that quotes 64-bit numeric values elsewhere. The sink is synchronous;
+    // neither this callback nor JsonWriter retains the borrowed name view.
     auto& state = *static_cast<EnumJsonContext*>(context);
     if (!state.first && !state.out.append(",")) return false;
     state.first = false;

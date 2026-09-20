@@ -15,6 +15,8 @@ namespace telemetry {
 
 // Command IDs use the same packed group/index arithmetic as Field IDs, but
 // remain a separate logical ID space. Positions are identities.
+// This descriptor borrows the label and rows. A null row pointer means an empty
+// group; otherwise requestedCount must not exceed the actual array extent.
 struct CommandCatalog {
     const char* const name = "";
     const Command* const commands = nullptr;
@@ -45,6 +47,9 @@ constexpr bool commandStringEqual(const char* a, const char* b) noexcept
     return *a == *b;
 }
 
+// Optional definition-time checks: names do not participate in dispatch.
+// Both helpers reject null names before passing them to commandStringEqual,
+// whose arguments must be valid null-terminated strings.
 constexpr bool commandNamesUnique(const Command* commands, std::size_t count) noexcept
 {
     if (commands == nullptr) return count == 0;

@@ -45,6 +45,8 @@ HEADERS += \
     $$PWD/detail/TelemetryJsonWriter.h \
     $$PWD/detail/TelemetryJsonValue.h
 SOURCES += $$PWD/abi/TelemetryAbi.cpp
+# The ABI anchor is mandatory in core-only builds too. Set telemetry_no_json
+# before including this file; it removes serializers, not numeric/table support.
 !contains(CONFIG, telemetry_no_json) {
     SOURCES += $$PWD/serialization/TelemetryJson.cpp
     SOURCES += $$PWD/serialization/TelemetryCommandJson.cpp

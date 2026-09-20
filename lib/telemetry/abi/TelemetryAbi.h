@@ -45,6 +45,8 @@ constexpr std::uint64_t appendAbiWord_(std::uint64_t hash, std::uint64_t value) 
 
 template <std::uint64_t... Layout>
 struct AbiTag {
+    // The complete pack, not this diagnostic hash, identifies the link symbol.
+    // Hash collisions therefore cannot make incompatible layouts link.
     static constexpr std::uint64_t signature() noexcept
     {
         std::uint64_t hash = UINT64_C(14695981039346656037);
@@ -118,6 +120,8 @@ void requireTelemetryAbi(CurrentAbiTag) noexcept;
 template <class Abi = detail::CurrentAbiTag>
 inline void requireTelemetryAbi() noexcept
 {
+    // Inline-only integrations opt in at a module boundary. JSON entry points
+    // already carry the tag themselves. No read/write path calls this anchor.
     detail::requireTelemetryAbi(Abi{});
 }
 

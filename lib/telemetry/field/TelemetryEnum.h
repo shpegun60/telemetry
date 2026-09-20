@@ -37,6 +37,8 @@ bool emitEnumEntry(void* context, EnumEntrySink sink) noexcept
 {
     using Raw = std::underlying_type_t<E>;
     constexpr auto name = magic_enum::enum_name<Value>();
+    // The name refers to static reflection storage; the numeric Scalar is
+    // local to this callback. Sinks retaining a value must copy it.
     const Scalar number = Scalar::from(static_cast<Raw>(Value));
     return sink(context, number, name);
 }
@@ -71,8 +73,10 @@ constexpr auto enumLimits(const std::array<E, N>& values) noexcept
     return NumericBounds<Raw>{low, high};
 }
 
-// Command hot paths need only the raw numeric interval. Keep that interval
+// Typed hot paths need only the raw numeric interval. Keep that interval
 // independent of FieldType/Scalar so typed dispatch compiles to comparisons.
+// Explicit dictionaries must use their own extrema, including named values
+// outside the automatic scan. The interval permits unnamed interior values.
 template <class E, class Constraint>
 struct EnumConstraintBounds {
     static constexpr auto get() noexcept
@@ -172,6 +176,8 @@ constexpr auto enumSpec(decltype(First) initial) noexcept
     static_assert(std::is_enum_v<E>, "enumSpec requires enum values");
     static_assert((std::is_same_v<E, decltype(Rest)> && ...),
                   "All enumSpec values must have the exact same enum type");
+    // Signature matching, named-code validation and default bounds are checked
+    // when this lightweight specification is materialized into a descriptor.
     return detail::EnumSpec<E, First, Rest...>{initial};
 }
 

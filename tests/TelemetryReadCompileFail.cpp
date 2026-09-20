@@ -3,6 +3,7 @@
 // g++ -std=c++17 -Ilib/telemetry -Ilib/delegate
 //     -DTELEMETRY_READ_FAIL_CASE=N -fsyntax-only tests/TelemetryReadCompileFail.cpp
 #include "catalog/TelemetryIndex.h"
+#include "field/TelemetryFieldFactory.h"
 #include "field/TelemetryEnum.h"
 using namespace telemetry;
 
@@ -111,6 +112,40 @@ auto rejected = index.read<makeId(0, 0), long double>(); // Unsupported requeste
 #elif TELEMETRY_READ_FAIL_CASE == 39
 enum class Mode : std::uint8_t { Off, Auto };
 auto rejected = index.write<makeId(0, 0)>(Mode::Auto); // Applications supply a number.
+#elif TELEMETRY_READ_FAIL_CASE == 40
+struct Owner {} owner;
+constexpr auto missing = static_cast<float (Owner::*)() noexcept>(nullptr);
+auto rejected = Getter::bind<missing>(owner);
+#elif TELEMETRY_READ_FAIL_CASE == 41
+struct Owner {} owner;
+constexpr auto missing = static_cast<WriteResult (Owner::*)(const Scalar&) noexcept>(nullptr);
+auto rejected = Setter::bind<missing>(owner);
+#elif TELEMETRY_READ_FAIL_CASE == 42
+struct Owner {} owner;
+constexpr auto missing = static_cast<float (*)(Owner&) noexcept>(nullptr);
+auto rejected = Getter::bindContext<missing>(owner);
+#elif TELEMETRY_READ_FAIL_CASE == 43
+struct Owner {} owner;
+constexpr auto missing = static_cast<WriteResult (*)(Owner&, const Scalar&) noexcept>(nullptr);
+auto rejected = Setter::bindContext<missing>(owner);
+#elif TELEMETRY_READ_FAIL_CASE == 44 || TELEMETRY_READ_FAIL_CASE == 45 || TELEMETRY_READ_FAIL_CASE == 46
+float read() noexcept {return 0;}
+WriteResult write(float) noexcept {return WriteResult::Applied;}
+struct ReadConversion {
+    using Function=float (*)() noexcept;
+    Function operator+() const noexcept {return &read;}
+    operator Function() const noexcept(TELEMETRY_READ_FAIL_CASE == 45) {return &read;}
+};
+struct WriteConversion {
+    using Function=WriteResult (*)(float) noexcept;
+    Function operator+() const noexcept {return &write;}
+    operator Function() const noexcept(TELEMETRY_READ_FAIL_CASE != 45) {return &write;}
+};
+#if TELEMETRY_READ_FAIL_CASE == 46
+auto rejected=field("conversion","",ReadConversion{});
 #else
-#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 39"
+auto rejected=field("conversion","",ReadConversion{},WriteConversion{});
+#endif
+#else
+#error "Select TELEMETRY_READ_FAIL_CASE from 1 through 46"
 #endif

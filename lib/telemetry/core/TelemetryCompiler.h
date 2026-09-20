@@ -9,6 +9,8 @@
 
 // Keep small adapters at the call site so known IDs, types and bindings fold
 // even in size-optimized builds. Unsupported compilers use ordinary inline.
+// These attributes affect code generation only; correctness never depends on
+// successful inlining. NOINLINE is also used to keep measurement probes honest.
 #if defined(_MSC_VER)
 #define TELEMETRY_FORCE_INLINE __forceinline
 #define TELEMETRY_NOINLINE __declspec(noinline)

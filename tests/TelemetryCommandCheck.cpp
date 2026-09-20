@@ -15,7 +15,7 @@ constexpr telemetry::CommandCatalogTable emptyCommandCatalog{};
 static_assert(emptyCommandTable.size() == 0);
 static_assert(emptyCommandTable.index().find(0) == nullptr);
 static_assert(emptyCommandCatalog.size() == 0);
-static_assert(emptyCommandCatalog.size() == 0);
+static_assert(emptyCommandCatalog.index().find(0) == nullptr);
 static_assert(telemetry::CommandTable{}.size() == 0);
 static_assert(telemetry::CommandCatalogTable{}.size() == 0);
 
@@ -25,6 +25,20 @@ void expect(bool ok, const char* label) { ++checks; if (!ok) {++failures; std::p
 enum class Mode : std::uint8_t { Fast, Normal, Precise };
 enum class Error : std::uint16_t { None = 0, Overvoltage = 1000, Overcurrent = 2000 };
 enum Legacy { Low = -2, High = 2 };
+// No enumerator lies in magic_enum's default scan; the explicit dictionary
+// must control validation before casting an integer to this unfixed enum.
+enum LegacySparse { SparseLow = 1000, SparseHigh = 2000 };
+enum LegacyNegative { NegativeLow = -2000, NegativeHigh = -1000 };
+int sparseCalls = 0;
+int sparseCode = 0;
+CommandResult setSparse(LegacySparse value) noexcept
+{ ++sparseCalls; sparseCode = static_cast<int>(value); return CommandResult::Executed; }
+CommandResult setNegative(LegacyNegative value) noexcept
+{ ++sparseCalls; sparseCode = static_cast<int>(value); return CommandResult::Executed; }
+constexpr CommandTable sparseCommands{
+    command<&setSparse>("Sparse", arg<0>("Code", "", enumSpec<SparseLow, SparseHigh>())),
+    command<&setNegative>("Negative", arg<0>("Code", "", enumSpec<NegativeLow, NegativeHigh>()))};
+constexpr CommandCatalogTable sparseCatalog{group("sparse", sparseCommands)};
 struct Device {
     int calls = 0;
     float voltage = 0;
@@ -51,6 +65,7 @@ CommandResult numbers(float f,double d,std::uint8_t u8,std::uint16_t u16,std::ui
         && s64==INT64_MIN && flag ? CommandResult::Executed : CommandResult::Failed;
 }
 constexpr auto many=detail::materializeCommand<&numbers>("numbers");
+constexpr CommandTable manyTyped{command<&numbers>("numbers")};
 CommandResult freeCommand(std::int64_t, bool) noexcept { ++freeCalls; return CommandResult::Failed; }
 struct System { static CommandResult save() noexcept { return CommandResult::Executed; } };
 constexpr auto lambdaTarget = +[](std::uint16_t value) noexcept {
@@ -159,6 +174,52 @@ bool boundaries(const Index& view,JsonOptions options)
 }
 int main()
 {
+    expect(sparseCommands.call<0>(SparseHigh) == CommandResult::Executed
+           && sparseCommands.call(std::size_t{0}, SparseLow) == CommandResult::Executed
+           && sparseCommands.index().call(0, 1500) == CommandResult::Executed
+           && sparseCalls == 3 && sparseCode == 1500,
+           "explicit unscoped dictionary accepts large codes and safe interior gaps");
+    expect(sparseCatalog.call<makeId(0, 1)>(NegativeLow) == CommandResult::Executed
+           && sparseCatalog.call(makeId(0, 1), -1500) == CommandResult::Executed
+           && sparseCode == -1500 && sparseCalls == 5,
+           "global native and erased calls use explicit negative enum bounds");
+    expect(sparseCommands.index().call(0, 999) == CommandResult::InvalidValue
+           && sparseCommands.index().call(0, 2001) == CommandResult::InvalidValue
+           && sparseCommands.index().call(1, -2001) == CommandResult::InvalidValue
+           && sparseCommands.index().call(1, -999) == CommandResult::InvalidValue
+           && sparseCommands.index().call(0, UINT64_MAX) == CommandResult::InvalidValue
+           && sparseCalls == 5,
+           "explicit unscoped enum rejects invalid input before cast and owner side effects");
+    struct Prefix { std::uint64_t marker = UINT64_C(0x12345678); };
+    struct VirtualOwner {
+        int calls = 0;
+        virtual CommandResult update(std::uint16_t) noexcept { return CommandResult::Failed; }
+        virtual ~VirtualOwner() = default;
+    };
+    struct DerivedOwner : Prefix, VirtualOwner {
+        CommandResult update(std::uint16_t value) noexcept override
+        { ++calls; return value == 42 ? CommandResult::Executed : CommandResult::Failed; }
+    } derived;
+    VirtualOwner& base = derived;
+    const CommandTable virtualCommands{
+        command<&VirtualOwner::update>("Derived owner", derived),
+        command<&VirtualOwner::update>("Base view", base)};
+    expect(virtualCommands.call<0>(std::uint16_t{42}) == CommandResult::Executed
+           && virtualCommands.call<1>(std::uint16_t{42}) == CommandResult::Executed
+           && virtualCommands.index().call(0, 42) == CommandResult::Executed
+           && virtualCommands.index().call(1, 42) == CommandResult::Executed
+           && derived.calls == 4 && derived.marker == UINT64_C(0x12345678),
+           "native and erased member bindings preserve virtual dispatch and owner adjustment");
+    struct LvalueCallable {
+        int calls = 0;
+        CommandResult operator()(bool value) & noexcept
+        { ++calls; return value ? CommandResult::Accepted : CommandResult::Failed; }
+    } lvalueCallable;
+    const CommandTable lvalueCommands{command("Lvalue callable", lvalueCallable)};
+    expect(lvalueCommands.call<0>(true) == CommandResult::Accepted
+           && lvalueCommands.index().call(0, 1) == CommandResult::Accepted
+           && lvalueCallable.calls == 2,
+           "borrowed ref-qualified callable stays an lvalue on both paths");
     expect(commandsIndex.call(0)==CommandResult::Executed && device.calls==1,"zero-argument method");
     expect(commandsIndex.call(1,250,Mode::Precise)==CommandResult::Executed && device.voltage==250.0f && device.mode==Mode::Precise,"typed member conversion");
     const auto before=device.calls;
@@ -169,6 +230,9 @@ int main()
     expect(commandsIndex.call(1,Scalar{},1)==CommandResult::InvalidValue,"null arg rejected");
     expect(commandsIndex.execute(1,nullptr,2)==CommandResult::InvalidValue,"null pointer with matching count");
     expect(commandsIndex.execute(1,nullptr,0)==CommandResult::ArgumentCountMismatch,"count checked first");
+    expect(commandsIndex.execute(1, nullptr, std::numeric_limits<std::size_t>::max())
+               == CommandResult::ArgumentCountMismatch && device.calls == before,
+           "extreme count rejected without reading an argument pointer");
     expect(commandsIndex.call(100)==CommandResult::NotFound,"command ID out of bounds");
     expect(Command{}.call()==CommandResult::Unavailable,"empty command safe");
     expect(commandsIndex.call(2,UINT64_MAX)==CommandResult::Accepted && device.address==UINT64_MAX,"U64 exact and Accepted forwarded");
@@ -182,6 +246,11 @@ int main()
     expect(many.call(1.25f,-2.5,256,UINT16_MAX,UINT32_MAX,UINT64_MAX,INT8_MIN,
                     INT16_MIN,INT32_MIN,INT64_MIN,true)==CommandResult::InvalidValue && manyCalls==1,
            "interior argument overflow prevents wide signature invocation");
+    expect(manyTyped.call<0>(1.25f, -2.5, std::uint8_t{UINT8_MAX}, std::uint16_t{UINT16_MAX},
+               std::uint32_t{UINT32_MAX}, std::uint64_t{UINT64_MAX}, std::int8_t{INT8_MIN},
+               std::int16_t{INT16_MIN}, std::int32_t{INT32_MIN}, std::int64_t{INT64_MIN}, true)
+               == CommandResult::Executed && manyCalls == 2,
+           "native command passes all eleven exact numeric types including 64-bit extrema");
     expect(lambdaCommand.call(12.9)==CommandResult::Executed,"named C++17 lambda with truncation");
     Device borrowedDevice;
     auto capturing = [&borrowedDevice](float value, Mode next) noexcept {
@@ -350,6 +419,17 @@ int main()
     const Device constant;
     const auto diagnostics=detail::materializeCommand<&Device::diagnostics>("diag",constant);
     expect(diagnostics.call()==CommandResult::Busy,"const owner method");
+    const CommandTable explicitConstOwner{
+        command<&Device::diagnostics, const Device>("explicit const", constant)};
+    const auto explicitConstDescriptor =
+        detail::materializeCommand<&Device::diagnostics, const Device>("explicit descriptor", constant);
+    const auto explicitConstMetadata =
+        detail::materializeCommand<&Device::calibrate, Device, decltype(calibrateArgs)>(
+            "explicit metadata", local, calibrateArgs);
+    expect(explicitConstOwner.call<0>() == CommandResult::Busy
+           && explicitConstDescriptor.call() == CommandResult::Busy
+           && explicitConstMetadata.call(250, Mode::Normal) == CommandResult::Executed,
+           "explicit non-reference owner and metadata types retain valid const lvalue bindings");
     int described=0;
     expect(!commands[1].describeParameters(&described,&stop) && described==1,"schema sink can stop");
     expect(!commands[1].describeParameters(nullptr,nullptr),"null sink safe");

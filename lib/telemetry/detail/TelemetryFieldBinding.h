@@ -14,7 +14,9 @@
 namespace telemetry {
 namespace detail {
 
-template <auto Read, auto Write, class Owner>
+// Constraint must travel with the generated setter as well as the descriptor.
+// It determines safe enum casts even when someone calls Field::set directly.
+template <auto Read, auto Write, class Owner, class Constraint = NoLimits>
 struct FieldBinding {
     using ReadTraits = CallableTraits<decltype(Read)>;
     using Value = typename ReadTraits::Result;
@@ -35,7 +37,7 @@ struct FieldBinding {
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(std::addressof(owner), value);
         else {
             Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
+            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
             return invokeFactory<Write>(std::addressof(owner), native);
         }
     }
@@ -44,7 +46,7 @@ struct FieldBinding {
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write, NoOwner>(nullptr, value);
         else {
             Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
+            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
             return invokeFactory<Write, NoOwner>(nullptr, native);
         }
     }
@@ -154,7 +156,7 @@ struct BorrowedFieldReadBinding {
     }
 };
 
-template <class ReadCallable, class WriteCallable>
+template <class ReadCallable, class WriteCallable, class Constraint = NoLimits>
 struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
     using Base = BorrowedFieldReadBinding<ReadCallable>;
     using Value = typename Base::Value;
@@ -180,7 +182,7 @@ struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
         if constexpr (std::is_same_v<Value, Scalar>) return callable(value);
         else {
             Value native{};
-            if (!extractFactoryValue(value, native)) return WriteResult::InvalidValue;
+            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
             return callable(native);
         }
     }
@@ -229,6 +231,10 @@ constexpr Field materializeField(const char* name, const char* unit,
                           Read read, Write write, Limits metadata = {}) noexcept
 {
     using Binding = detail::DirectFieldPairBinding<ReadFunction, WriteFunction>;
+    static_assert(noexcept(detail::fieldFunction<ReadFunction>(read)),
+                  "Factory getter function-pointer conversion must be noexcept");
+    static_assert(noexcept(detail::fieldFunction<WriteFunction>(write)),
+                  "Factory setter function-pointer conversion must be noexcept");
     const ReadFunction getter = read;
     const WriteFunction setter = write;
     if (getter == nullptr || setter == nullptr) detail::invalidFieldLimits();
@@ -261,7 +267,7 @@ template <class Read, class Write, class Limits = detail::NoLimits,
 constexpr Field materializeField(const char* name, const char* unit,
                           Read& read, Write& write, Limits metadata = {}) noexcept
 {
-    using Binding = detail::BorrowedFieldPairBinding<Read, Write>;
+    using Binding = detail::BorrowedFieldPairBinding<Read, Write, Limits>;
     return Field{name, unit, detail::refineType<typename Binding::Value>(metadata),
                  Binding::getter(read), Binding::setter(write)};
 }
@@ -304,7 +310,7 @@ template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::N
 constexpr Field materializeField(const char* name, const char* unit,
                           Owner&& owner, Limits metadata = {}) noexcept
 {
-    using Binding = detail::FieldBinding<Read, Write, std::remove_reference_t<Owner>>;
+    using Binding = detail::FieldBinding<Read, Write, std::remove_reference_t<Owner>, Limits>;
     return Binding::make(name, unit, std::addressof(owner),
                          detail::refineType<typename Binding::Value>(metadata));
 }
@@ -314,7 +320,7 @@ template <auto Read, auto Write = nullptr, class Limits = detail::NoLimits,
                            && detail::IsLimits<Limits>::value, int> = 0>
 constexpr Field materializeField(const char* name, const char* unit, Limits metadata = {}) noexcept
 {
-    using Binding = detail::FieldBinding<Read, Write, detail::NoOwner>;
+    using Binding = detail::FieldBinding<Read, Write, detail::NoOwner, Limits>;
     return Binding::make(name, unit, nullptr, detail::refineType<typename Binding::Value>(metadata));
 }
 

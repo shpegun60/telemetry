@@ -15,6 +15,8 @@
 namespace telemetry {
 
 namespace detail {
+// The sentinel identifies positional metadata only; it is never an argument
+// array index. Indexed metadata can omit parameters and arrive in any order.
 inline constexpr std::size_t positionalCommandArgument =
     std::numeric_limits<std::size_t>::max();
 
@@ -72,6 +74,8 @@ constexpr auto arg(const char* name, const char* unit, T initial, T minimum, T m
 }
 
 template <class... A> struct CommandArgs {
+    // Values are owned, labels are borrowed. Immutability preserves the limits
+    // validated when CommandTable materializes its descriptors.
     const std::tuple<A...> entries;
     static constexpr std::size_t count = sizeof...(A);
     static constexpr bool positional =
@@ -113,6 +117,7 @@ inline constexpr bool isIndexedArgumentMetadata =
 
 template <class Metadata, std::size_t Index>
 struct CommandMetadataSlot {
+    // An absent slot must not instantiate tuple_element at the sentinel index.
     static constexpr bool present = false;
     static constexpr std::size_t position = positionalCommandArgument;
 };

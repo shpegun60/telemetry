@@ -11,6 +11,8 @@
 
 namespace telemetry {
 namespace detail {
+// Specifications own only their provided values. They carry no pointers into
+// temporary storage and do not mutate the application object's initial state.
 struct NoLimits {};
 template <class T, bool Bounded> struct ValueLimits {
     T initial;
@@ -60,6 +62,8 @@ constexpr FieldType refineType(EnumSpec<E, Values...> values) noexcept
 template <class T>
 constexpr auto limits(T initial, T minimum, T maximum) noexcept
 {
+    // One deduced T keeps limits tied to the exact callback signature; no
+    // implicit mixed-type metadata conversion is hidden in this factory.
     static_assert(detail::isFactoryValue<T>, "limits requires numeric or enum values");
     return detail::ValueLimits<T, true>{initial, minimum, maximum};
 }
