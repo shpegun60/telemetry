@@ -1,5 +1,9 @@
 # Current positional table checks
 
+[C++20 resource checks](resources/README.md) validate the independent resource
+core, packet protocol and external telemetry providers. They also compile/link
+the application facade on Cortex-M7 without modifying telemetry descriptors.
+
 [Flags and traversal](audit/FLAGS_TRAVERSAL.md) records the ABI 7 addition,
 schema delta, lifetime/visitor checks and unchanged ARM instruction encodings
 against `7751891`. Field remains 96 bytes on ARM32 and Command remains 20.

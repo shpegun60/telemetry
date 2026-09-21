@@ -1,18 +1,22 @@
 QT += widgets
 TARGET = telemetry_playground
-CONFIG += c++17 warn_on
+CONFIG += c++20 warn_on
 
 include(lib/telemetry/telemetry.pri)
+CONFIG += resource_telemetry
+include(lib/resource/resource.pri)
 INCLUDEPATH += $$PWD/app
 
 SOURCES += \
     app/main.cpp \
     app/mainwindow.cpp \
-    app/demo/DemoCatalog.cpp
+    app/demo/DemoCatalog.cpp \
+    app/resources/DeviceResources.cpp
 
 HEADERS += \
     app/mainwindow.h \
-    app/demo/DemoCatalog.h
+    app/demo/DemoCatalog.h \
+    app/resources/DeviceResources.hpp
 
 FORMS += \
     app/mainwindow.ui
@@ -28,6 +32,10 @@ DISTFILES += \
     .github/workflows/ci.yml \
     tests/run_checks.py \
     tests/run_arm_checks.py \
+    tests/resources/run.py \
+    tests/resources/README.md \
+    tests/resources/.clang-format \
+    $$files($$PWD/tests/resources/*.cpp) \
     tests/README.md \
     tests/factory-codegen.json \
     $$files($$PWD/tests/*.pro) \

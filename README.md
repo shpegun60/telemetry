@@ -1,6 +1,6 @@
 # Telemetry playground
 
-A Qt Widgets application for exercising the standalone C++17 telemetry
+A C++20 Qt Widgets application for exercising the standalone C++17 telemetry
 library copied from the analyzer. All values in this application are
 simulated; it does not connect to an instrument.
 
@@ -16,6 +16,13 @@ this repository. The bundled delegate implements telemetry's borrowed and owned
 callback slots; ordinary Getter/Setter and the other slots do not depend on it.
 No analyzer firmware checkout or Git submodule is required.
 
+The playground also contains the C++20 [resource library](lib/resource/README.md),
+with optional [protocol](lib/resource/protocol/README.md) and
+[telemetry adapter](lib/resource/telemetry/README.md) modules. Its
+[application facade](app/resources/DeviceResources.hpp) exposes schema, commands
+and live values as bounded resource streams. Telemetry itself is unchanged.
+See [resource checks](tests/resources/README.md) for host and ARM validation.
+
 Licensed under the [MIT License](LICENSE), with the same license text and
 copyright notice as the delegate project. The reusable telemetry library
 carries its own copy of [LICENSE](lib/telemetry/LICENSE); the bundled delegate
@@ -27,6 +34,10 @@ telemetry.pro                       Qt Creator entry point
 app/
   main.cpp, mainwindow.*            Qt application and value display
   demo/DemoCatalog.*               simulated sources and field tables
+  resources/DeviceResources.*     resource assembly and runtime facade
+lib/resource/                     independent C++20 flat resource table
+  protocol/                       LIST/STAT/READ/WRITE packets
+  telemetry/                      external chunked telemetry providers
 lib/telemetry/
   Telemetry.h                       public umbrella (no forwarding headers)
   core/, field/, catalog/           public numeric, field and lookup layers
