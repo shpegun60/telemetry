@@ -5,7 +5,7 @@
  * License: MIT; see ../LICENSE.
  */
 #include "SchemaFile.hpp"
-#include "detail/BinaryStream.hpp"
+#include "detail/BlockStream.hpp"
 #include "detail/Metadata.hpp"
 #include <telemetry/catalog/TelemetryIndex.h>
 #include <magic_enum/magic_enum.hpp>
@@ -42,8 +42,13 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
             return;
         }
     }
+    if (measure.size > detail::offsetMask)
+    {
+        return;
+    }
     for (const auto catalog : index.catalogs())
     {
+        const auto catalogStart = measure.size;
         if (!measure.record(code(SchemaRecord::Catalog),
                             [&](BinaryWriter& out) noexcept
                             {
@@ -55,8 +60,13 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
         {
             return;
         }
+        if (measure.size - catalogStart > detail::offsetMask)
+        {
+            return;
+        }
         for (const auto entry : catalog.fields())
         {
+            const auto blockStart = measure.size;
             const auto& field = entry.field();
             std::uint32_t enums = 0;
             if (!detail::enumEntries(
@@ -89,6 +99,10 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
             {
                 return;
             }
+            if (measure.size - blockStart > detail::offsetMask)
+            {
+                return;
+            }
             ++fields_;
             const auto width = 1u + payloadSize(toWireType(field.readType));
             if (width > UINT32_MAX - valuesSize)
@@ -111,81 +125,101 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
     {
         return {resource::Status::InvalidData, cursor};
     }
-    detail::BinaryStream stream{cursor, output, records_ + 1};
-    if (!stream.rawRecord(metadataHeaderSize,
-                          [&](BinaryWriter& out) noexcept
-                          {
-                              return out.raw("TSCH") && out.u16(binaryMajor) &&
-                                     out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
-                                     out.u32(size_) && out.u64(hash_.value()) &&
-                                     out.u32(records_) &&
-                                     out.u32(static_cast<std::uint32_t>(count_)) &&
-                                     out.u32(fields_) && out.u32(enums_) &&
-                                     out.u32(static_cast<std::uint32_t>(flagDefinitions.size()));
-                          }))
+    using detail::BlockKind;
+    detail::BlockStream stream{cursor, output};
+    const telemetry::CatalogIndex index{catalogs_, count_};
+    while (stream.active())
     {
-        return stream.result();
-    }
-    for (const auto& [flag, name] : flagDefinitions)
-    {
-        if (!stream.record(code(SchemaRecord::FieldFlagDefinition),
-                           [&](BinaryWriter& out) noexcept
-                           {
-                               return out.u32(static_cast<std::uint32_t>(flag)) && out.string(name);
-                           }))
+        if (stream.kind() == BlockKind::Prefix)
         {
-            return stream.result();
-        }
-    }
-    for (const auto catalog : telemetry::CatalogIndex{catalogs_, count_}.catalogs())
-    {
-        if (!stream.record(code(SchemaRecord::Catalog),
-                           [&](BinaryWriter& out) noexcept
-                           {
-                               return detail::catalogPayload(
-                                   out, catalog.index(),
-                                   static_cast<std::uint32_t>(catalog.fields().size()),
-                                   catalog.name());
-                           }))
-        {
-            return stream.result();
-        }
-        for (const auto entry : catalog.fields())
-        {
-            const auto& field = entry.field();
-            std::uint32_t enums = 0;
-            if (!detail::enumCount(field.declaredType, enums))
+            if (!stream.rawRecord(
+                    metadataHeaderSize,
+                    [&](BinaryWriter& out) noexcept
+                    {
+                        return out.raw("TSCH") && out.u16(binaryMajor) && out.u16(binaryMinor) &&
+                               out.u32(metadataHeaderSize) && out.u32(size_) &&
+                               out.u64(hash_.value()) && out.u32(records_) &&
+                               out.u32(static_cast<std::uint32_t>(count_)) && out.u32(fields_) &&
+                               out.u32(enums_) &&
+                               out.u32(static_cast<std::uint32_t>(flagDefinitions.size()));
+                    }))
             {
-                stream.fail(resource::Status::InvalidData);
-                return stream.result();
+                break;
+            }
+            for (const auto& [flag, name] : flagDefinitions)
+            {
+                if (!stream.record(code(SchemaRecord::FieldFlagDefinition),
+                                   [&](BinaryWriter& out) noexcept
+                                   {
+                                       return out.u32(static_cast<std::uint32_t>(flag)) &&
+                                              out.string(name);
+                                   }))
+                {
+                    return stream.result();
+                }
+            }
+            stream.finish(detail::catalogCursor(0, count_));
+        }
+        else if (stream.kind() == BlockKind::Catalog)
+        {
+            // Validate the full 32-bit key before narrowing it to GroupId.
+            const auto group = stream.key();
+            if (group >= count_)
+            {
+                stream.fail(resource::Status::InvalidCursor);
+                break;
+            }
+            const auto& catalog = *index.catalog(static_cast<telemetry::GroupId>(group));
+            if (!stream.record(code(SchemaRecord::Catalog),
+                               [&](BinaryWriter& out) noexcept
+                               {
+                                   return detail::catalogPayload(
+                                       out, group, static_cast<std::uint32_t>(catalog.count),
+                                       catalog.name);
+                               }))
+            {
+                break;
+            }
+            stream.finish(catalog.count != 0 ? detail::pack(BlockKind::Entry, group << 16)
+                                             : detail::catalogCursor(group + 1, count_));
+        }
+        else
+        {
+            const auto id = stream.key();
+            const auto* field = index.find(id);
+            if (field == nullptr)
+            {
+                stream.fail(resource::Status::InvalidCursor);
+                break;
             }
             if (!stream.record(code(SchemaRecord::Field),
                                [&](BinaryWriter& out) noexcept
                                {
-                                   return detail::fieldPayload(out, catalog.index(), entry.index(),
-                                                               field, enums);
+                                   return detail::fieldPayload(out, id >> 16, id & 0xffffu, *field,
+                                                               field->declaredType.enumCount());
                                }))
             {
-                return stream.result();
+                break;
             }
             std::uint32_t ordinal = 0;
             if (!detail::enumEntries(
-                    field.declaredType,
+                    field->declaredType,
                     [&](const telemetry::Scalar& value, std::string_view name) noexcept
                     {
-                        const bool ok =
-                            stream.record(code(SchemaRecord::FieldEnumEntry),
-                                          [&](BinaryWriter& out) noexcept
-                                          {
-                                              return out.u32(entry.id()) && out.u32(ordinal) &&
-                                                     out.scalar(value) && out.string(name);
-                                          });
+                        const bool ok = stream.record(code(SchemaRecord::FieldEnumEntry),
+                                                      [&](BinaryWriter& out) noexcept
+                                                      {
+                                                          return out.u32(id) && out.u32(ordinal) &&
+                                                                 out.scalar(value) &&
+                                                                 out.string(name);
+                                                      });
                         ++ordinal;
                         return ok;
                     }))
             {
-                return stream.result();
+                break;
             }
+            stream.finish(detail::nextEntry(index, id));
         }
     }
     return stream.result();

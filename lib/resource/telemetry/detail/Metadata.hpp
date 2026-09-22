@@ -27,21 +27,6 @@ bool enumEntries(const telemetry::FieldType& type, Visit&& visit) noexcept
         });
 }
 
-inline bool enumCount(const telemetry::FieldType& type, std::uint32_t& count) noexcept
-{
-    count = 0;
-    return enumEntries(type,
-                       [&](const telemetry::Scalar&, std::string_view) noexcept
-                       {
-                           if (count == UINT32_MAX)
-                           {
-                               return false;
-                           }
-                           ++count;
-                           return true;
-                       });
-}
-
 inline bool requiredString(BinaryWriter& out, const char* text) noexcept
 {
     return text != nullptr ? out.string(text) : out.fail();

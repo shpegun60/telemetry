@@ -5,7 +5,7 @@
  * License: MIT; see ../LICENSE.
  */
 #include "ValuesFile.hpp"
-#include "detail/BinaryStream.hpp"
+#include "detail/BlockStream.hpp"
 #include <telemetry/catalog/TelemetryIndex.h>
 
 namespace telemetry_resource
@@ -36,6 +36,24 @@ ValuesFile::ValuesFile(const SchemaFile& schema) noexcept
 {
 }
 
+namespace
+{
+// Values omit empty catalogs. This scans only consecutive empty groups AFTER
+// the current entry (or after the header), never groups preceding a resume key.
+resource::Cursor firstValue(const telemetry::CatalogIndex& index, std::uint32_t group) noexcept
+{
+    while (group < index.size())
+    {
+        if (index.catalog(static_cast<telemetry::GroupId>(group))->count != 0)
+        {
+            return detail::pack(detail::BlockKind::Entry, group << 16);
+        }
+        ++group;
+    }
+    return detail::endCursor;
+}
+} // namespace
+
 resource::ReadResult ValuesFile::read(resource::Cursor cursor,
                                       resource::Output output) const noexcept
 {
@@ -43,40 +61,54 @@ resource::ReadResult ValuesFile::read(resource::Cursor cursor,
     {
         return {resource::Status::InvalidData, cursor};
     }
-    detail::BinaryStream stream{cursor, output, fields_ + 1};
-    if (!stream.active())
+    using detail::BlockKind;
+    detail::BlockStream stream{cursor, output};
+    const telemetry::CatalogIndex index{catalogs_, count_};
+    while (stream.active())
     {
-        return stream.result();
-    }
-    if (stream.skipEntries(1) == 0)
-    {
-        std::byte header[valuesHeaderSize]{std::byte{'T'}, std::byte{'V'}, std::byte{'A'},
-                                           std::byte{'L'}};
-        detail::storePayload(header + 4, binaryMajor, 2);
-        detail::storePayload(header + 6, binaryMinor, 2);
-        detail::storePayload(header + 8, hash_.value(), 8);
-        detail::storePayload(header + 16, fields_, 4);
-        if (!stream.fixedRecord(header))
+        if (stream.kind() == BlockKind::Prefix)
         {
-            return stream.result();
+            std::byte header[valuesHeaderSize]{std::byte{'T'}, std::byte{'V'}, std::byte{'A'},
+                                               std::byte{'L'}};
+            detail::storePayload(header + 4, binaryMajor, 2);
+            detail::storePayload(header + 6, binaryMinor, 2);
+            detail::storePayload(header + 8, hash_.value(), 8);
+            detail::storePayload(header + 16, fields_, 4);
+            if (!stream.fixedRecord(header))
+            {
+                break;
+            }
+            stream.finish(firstValue(index, 0));
         }
-    }
-    for (const auto catalog : telemetry::CatalogIndex{catalogs_, count_}.catalogs())
-    {
-        const auto entries = catalog.fields();
-        const auto first = stream.skipEntries(entries.size());
-        for (std::size_t i = first; i < entries.size(); ++i)
+        else if (stream.kind() == BlockKind::Entry)
         {
-            const auto& field = catalog.catalog().fields[i];
-            const auto width = payloadSize(toWireType(field.readType));
-            if (!stream.atomic(1u + width,
+            const auto id = stream.key();
+            const auto* field = index.find(id);
+            if (field == nullptr)
+            {
+                stream.fail(resource::Status::InvalidCursor);
+                break;
+            }
+            const auto width = 1u + payloadSize(toWireType(field->readType));
+            // Preflight is inside atomic(): no getter runs for a partial token.
+            if (!stream.atomic(width,
                                [&](resource::Output out) noexcept
                                {
-                                   valueToken(out, field);
+                                   valueToken(out, *field);
                                }))
             {
-                return stream.result();
+                break;
             }
+            const auto group = id >> 16;
+            const auto position = id & 0xffffu;
+            const auto* catalog = index.catalog(static_cast<telemetry::GroupId>(group));
+            stream.finish(position + 1 < catalog->count ? detail::pack(BlockKind::Entry, id + 1)
+                                                        : firstValue(index, group + 1));
+        }
+        else
+        {
+            // Catalog cursors have no meaning in a values stream.
+            stream.fail(resource::Status::InvalidCursor);
         }
     }
     return stream.result();

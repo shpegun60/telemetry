@@ -35,12 +35,12 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   length overflow and 80000 random typed payloads are covered. FNV-1a 64 checks
   use RFC 9923 vectors, independent two-word arithmetic, all 4096 random byte
   prefixes and chunked/empty updates.
-- StreamCheck: 4417 checks of record offsets, empty/tiny buffers, atomic
+- StreamCheck: hierarchical block offsets, empty/tiny buffers, atomic
   preflight, output guards, EOF and invalid cursors.
 - TelemetryFilesCheck: 24211 checks with an independent binary reader against
   the real metadata. Full-file goldens pin schema, commands and values bytes,
   including fingerprints. Chunk capacities 1/2/3/7/31/63/127/220/256/1024 and
-  every record byte offset reconstruct identical metadata. Checks cover
+  every block byte offset reconstruct identical metadata. Checks cover
   min/max/default, enum dictionaries, maximum packed ID, empty catalogs,
   reserved fields, labels with quotes/newlines/UTF-8 and enum names with NUL,
   null versus empty parameter labels, flags/fingerprint changes, atomic getter
@@ -151,3 +151,18 @@ No hardware cycle result is asserted here.
 
 Wire contract and lifetime/cursor rules: [binary adapter](../../lib/resource/telemetry/README.md).
 Other modules: [core](../../lib/resource/README.md), [protocol](../../lib/resource/protocol/README.md).
+
+## Direct cursor stage
+
+Baseline v2 bytes and fingerprints stay fixed. `LocalityCheck.cpp` uses test-only
+metadata counters and 65536 catalogs: resuming the last field/command calls no
+earlier metadata. Values sample only the selected field after complete preflight.
+The max-ID fixture reaches `0xffffffff` and canonical EOF. BlockStream checks
+30-bit size limits without allocating giant buffers. Malformed prefix/catalog/EOF
+keys, invalid offsets and repeated EOF are explicit controls.
+
+The intermediate direct-cursor implementation still uses a counting writer in
+READ. GCC 14 O2 reports Schema read 224 B, Command read 184 B, Values read 120 B.
+The schema exceeds the retained 168 B guard; the guard is deliberately unchanged.
+The following single-encode stage must resolve this before final publication.
+This checkpoint is a functional comparison, not the final performance result.

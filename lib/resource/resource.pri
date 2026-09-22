@@ -28,7 +28,7 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
             $$PWD/telemetry/ValuesFile.hpp \
             $$PWD/telemetry/BinaryFormat.hpp \
             $$PWD/telemetry/detail/BinaryWriter.hpp \
-            $$PWD/telemetry/detail/BinaryStream.hpp \
+            $$PWD/telemetry/detail/BlockStream.hpp \
             $$PWD/telemetry/detail/BinaryScalar.hpp \
             $$PWD/telemetry/detail/Fingerprint.hpp \
             $$PWD/telemetry/detail/Metadata.hpp

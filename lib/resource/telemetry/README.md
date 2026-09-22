@@ -171,26 +171,40 @@ whole value. Different fields/chunks may reflect different instants.
 
 ## Cursors and bounded output
 
-All three files use `u64(recordOrdinal) << 32 | byteOffset`. Logical record zero
-is the file header. Schema/command wire records follow it. For values, logical
-record 1 is field 0; nonzero offsets within values are invalid. Headers and
-metadata records may split at any byte. A metadata offset equal to the record
-length advances to the next record; a larger offset is invalid. EOF is exactly
-`recordCountIncludingHeader << 32`.
+Cursors are opaque `u64` values: bits 63..62 select the block kind, bits 61..30
+hold a 32-bit key, and bits 29..0 hold the byte offset inside that block. Cursor
+zero starts the prefix. This replaces the ordinal cursor used through `f17a253`;
+restart at zero after upgrading. The binary v2 payload and fingerprints do not change.
 
-A pause after writing any bytes returns Ok and the continuation cursor. If the
-next atomic value cannot fit an otherwise empty output, BufferTooSmall retains
-the cursor. Errors commit zero bytes and retain the original cursor; callers
-must discard any output prefix. Use at least 9 payload bytes to guarantee live
-value progress (plus the protocol's 12-byte READ envelope where applicable).
+| Kind | Key | Schema | Commands | Values |
+| --- | --- | --- | --- | --- |
+| 0 Prefix | must be 0 | header + flag definitions | header | header |
+| 1 Catalog | catalog position | catalog record | catalog record | invalid |
+| 2 Entry | packed field/command ID | field + enum records | command + parameter/enum records | one atomic value |
+| 3 End | must be 0, offset must be 0 | EOF | EOF | EOF |
+
+EOF is exactly `3ull << 62`. Reading it returns Ok, zero bytes, EOF and the same
+cursor. Prefix/catalog/metadata offsets may reach the exact block size, which
+advances to the next block; larger offsets are invalid. Value offsets must be
+zero. Each metadata block must fit `(1u << 30) - 1` bytes; provider construction
+rejects larger blocks with size zero and InvalidData. Total file size remains u32.
+Catalog keys are checked before narrowing to the 16-bit group type. Advancing
+past field/command ID `0xffffffff` reaches EOF without wrapping.
+
+A pause after byte or cursor progress returns Ok. If the next atomic value
+cannot fit an otherwise empty output and no progress was made, BufferTooSmall
+retains the cursor. Errors commit zero bytes and retain the original cursor;
+callers must discard any output prefix. Use at least 9 payload bytes to guarantee
+live value progress (plus the protocol's 12-byte READ envelope where applicable).
 Output storage must not overlap immutable provider metadata.
 
-Value continuation skips preceding fields by positional counts. Metadata
-continuation skips encoding earlier records, but still walks their descriptions
-to locate the ordinal. Public enum/parameter APIs expose sequential visitors,
-so metadata resume is not O(1). No per-client state, seek index or large cache is
-allocated to hide that cost. Labels in selected records require their C-string
-length; arbitrary bytes in earlier records are not copied or escaped.
+Resume resolves the selected descriptor directly through the positional index.
+No earlier catalog, field or command description is traversed. Local records
+inside that selected field/command block may still require traversal and string
+length calculations. The original sequential metadata callbacks serve this local
+walk; counts are read directly from the new ops tables. Values scan only any
+consecutive empty groups *after* the current position. No per-client state,
+global seek tables or extra descriptor storage is allocated.
 
 ## Semantic fingerprints
 

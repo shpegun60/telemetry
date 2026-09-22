@@ -5,7 +5,7 @@
  * License: MIT; see ../LICENSE.
  */
 #include "CommandsFile.hpp"
-#include "detail/BinaryStream.hpp"
+#include "detail/BlockStream.hpp"
 #include "detail/Metadata.hpp"
 #include <telemetry/command/TelemetryCommandCatalogIndex.h>
 
@@ -34,6 +34,7 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
     detail::MetadataMeasure measure{"TCMD"};
     for (const auto catalog : index.catalogs())
     {
+        const auto catalogStart = measure.size;
         if (!measure.record(code(CommandRecord::Catalog),
                             [&](BinaryWriter& out) noexcept
                             {
@@ -45,8 +46,13 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
         {
             return;
         }
+        if (measure.size - catalogStart > detail::offsetMask)
+        {
+            return;
+        }
         for (const auto entry : catalog.commands())
         {
+            const auto blockStart = measure.size;
             std::uint32_t parameterCount = 0;
             if (!parameters(
                     entry.command(),
@@ -106,6 +112,10 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
             {
                 return;
             }
+            if (measure.size - blockStart > detail::offsetMask)
+            {
+                return;
+            }
             ++commands_;
         }
     }
@@ -121,73 +131,81 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
     {
         return {resource::Status::InvalidData, cursor};
     }
-    detail::BinaryStream stream{cursor, output, records_ + 1};
-    if (!stream.rawRecord(metadataHeaderSize,
-                          [&](BinaryWriter& out) noexcept
-                          {
-                              return out.raw("TCMD") && out.u16(binaryMajor) &&
-                                     out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
-                                     out.u32(size_) && out.u64(hash_.value()) &&
-                                     out.u32(records_) &&
-                                     out.u32(static_cast<std::uint32_t>(count_)) &&
-                                     out.u32(commands_) && out.u32(parameters_) && out.u32(enums_);
-                          }))
+    using detail::BlockKind;
+    detail::BlockStream stream{cursor, output};
+    const telemetry::CommandCatalogIndex index{catalogs_, count_};
+    while (stream.active())
     {
-        return stream.result();
-    }
-    for (const auto catalog : telemetry::CommandCatalogIndex{catalogs_, count_}.catalogs())
-    {
-        if (!stream.record(code(CommandRecord::Catalog),
-                           [&](BinaryWriter& out) noexcept
-                           {
-                               return detail::catalogPayload(
-                                   out, catalog.index(),
-                                   static_cast<std::uint32_t>(catalog.commands().size()),
-                                   catalog.name());
-                           }))
+        if (stream.kind() == BlockKind::Prefix)
         {
-            return stream.result();
-        }
-        for (const auto entry : catalog.commands())
-        {
-            std::uint32_t count = 0;
-            if (!parameters(entry.command(),
-                            [&](const telemetry::CommandParam&) noexcept
-                            {
-                                if (count == UINT32_MAX)
-                                {
-                                    return false;
-                                }
-                                ++count;
-                                return true;
-                            }))
+            if (!stream.rawRecord(metadataHeaderSize,
+                                  [&](BinaryWriter& out) noexcept
+                                  {
+                                      return out.raw("TCMD") && out.u16(binaryMajor) &&
+                                             out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
+                                             out.u32(size_) && out.u64(hash_.value()) &&
+                                             out.u32(records_) &&
+                                             out.u32(static_cast<std::uint32_t>(count_)) &&
+                                             out.u32(commands_) && out.u32(parameters_) &&
+                                             out.u32(enums_);
+                                  }))
             {
-                stream.fail(resource::Status::InvalidData);
-                return stream.result();
+                break;
+            }
+            stream.finish(detail::catalogCursor(0, count_));
+        }
+        else if (stream.kind() == BlockKind::Catalog)
+        {
+            const auto group = stream.key();
+            if (group >= count_)
+            {
+                stream.fail(resource::Status::InvalidCursor);
+                break;
+            }
+            const auto& catalog = *index.catalog(static_cast<telemetry::GroupId>(group));
+            if (!stream.record(code(CommandRecord::Catalog),
+                               [&](BinaryWriter& out) noexcept
+                               {
+                                   return detail::catalogPayload(
+                                       out, group, static_cast<std::uint32_t>(catalog.count),
+                                       catalog.name);
+                               }))
+            {
+                break;
+            }
+            stream.finish(catalog.count != 0 ? detail::pack(BlockKind::Entry, group << 16)
+                                             : detail::catalogCursor(group + 1, count_));
+        }
+        else
+        {
+            const auto id = stream.key();
+            const auto* command = index.find(id);
+            if (command == nullptr)
+            {
+                stream.fail(resource::Status::InvalidCursor);
+                break;
             }
             if (!stream.record(code(CommandRecord::Command),
                                [&](BinaryWriter& out) noexcept
                                {
-                                   return detail::commandPayload(
-                                       out, catalog.index(), entry.index(), entry.command(), count);
+                                   return detail::commandPayload(out, id >> 16, id & 0xffffu,
+                                                                 *command,
+                                                                 command->parameterCount());
                                }))
             {
-                return stream.result();
+                break;
             }
+            // Only the selected command is traversed. Its original sequential
+            // callback avoids indexed dispatch for every parameter in this block.
             if (!parameters(
-                    entry.command(),
+                    *command,
                     [&](const telemetry::CommandParam& p) noexcept
                     {
-                        std::uint32_t enums = 0;
-                        if (!detail::enumCount(p.type, enums))
-                        {
-                            return stream.fail(resource::Status::InvalidData);
-                        }
                         if (!stream.record(code(CommandRecord::Parameter),
                                            [&](BinaryWriter& out) noexcept
                                            {
-                                               return detail::parameterPayload(out, entry.id(), p,
-                                                                               enums);
+                                               return detail::parameterPayload(out, id, p,
+                                                                               p.type.enumCount());
                                            }))
                         {
                             return false;
@@ -201,7 +219,7 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                                     code(CommandRecord::ParameterEnum),
                                     [&](BinaryWriter& out) noexcept
                                     {
-                                        return out.u32(entry.id()) &&
+                                        return out.u32(id) &&
                                                out.u32(static_cast<std::uint32_t>(p.index)) &&
                                                out.u32(ordinal) && out.scalar(value) &&
                                                out.string(name);
@@ -211,8 +229,9 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                             });
                     }))
             {
-                return stream.result();
+                break;
             }
+            stream.finish(detail::nextEntry(index, id));
         }
     }
     return stream.result();

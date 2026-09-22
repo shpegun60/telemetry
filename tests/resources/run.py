@@ -95,7 +95,7 @@ def main():
             if not re.search(r"\.rodata\S*\s+\S+\s+resource_probe_files", sections):
                 raise RuntimeError("Resource table did not land in constant storage")
             for name in ("resource_probe_read", "resource_probe_known", "resource_probe_stat",
-                         "resource_probe_fingerprint"):
+                         "resource_probe_fingerprint", "resource_probe_value_lookup"):
                 match = re.search(rf"<{name}>:\n(.*?)(?=\nDisassembly|\n[0-9a-f]+ <|\Z)", dump, re.S)
                 if not match:
                     raise RuntimeError("Missing dispatch probe: " + name)
@@ -104,6 +104,16 @@ def main():
                     raise RuntimeError("Unexpected runtime work in " + name)
                 if name == "resource_probe_known" and re.search(r"\bblx\b|\bbx\s+r[0-9]+", body):
                     raise RuntimeError("Known provider retained indirect dispatch")
+                if name == "resource_probe_value_lookup":
+                    instructions = re.findall(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{4}\s+)+([^\n]+)", body, re.M)
+                    if len(instructions) > 40 or re.search(r"\bbl(?:\.w)?\b|\bblx\b", body):
+                        raise RuntimeError("Direct value lookup gained a call or excessive work")
+                    # No backwards branches: the selected descriptor is reached
+                    # through two bounds checks, never an ordinal loop.
+                    for address, instruction in instructions:
+                        branch = re.match(r"b(?:eq|ne|hi|ls|cc|cs|lo|hs|ge|gt|le|lt|\.n|\.w)?(?:\.\w+)?\s+([0-9a-f]+)\b", instruction)
+                        if branch and int(branch[1], 16) < int(address, 16):
+                            raise RuntimeError("Direct value lookup acquired a backwards branch")
             # The hash itself uses the hardware widening multiply. The probe's
             # call to that shared hash loop is intentional; libgcc helpers are not.
             kernel = re.search(
@@ -126,6 +136,7 @@ def main():
                 "BinaryCheck": [],
                 "StreamCheck": [],
                 "TelemetryFilesCheck": TELEMETRY + ADAPTERS + PROTOCOL,
+                "LocalityCheck": TELEMETRY + ADAPTERS,
                 "DeviceCheck": sources,
                 "NoHeapCheck": TELEMETRY + ADAPTERS + PROTOCOL,
             }
@@ -148,7 +159,7 @@ def main():
                     *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(build / f"abi7-{adapter}.exe")],
                     f"abi7-{adapter}", reject=True)
     print(f"Resources: {len(HEADERS)} standalone headers, 11 contract rejections + control; "
-          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "6 host suites + 3 ABI controls/rejections passed"), flush=True)
+          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "7 host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
 
 
 if __name__ == "__main__":

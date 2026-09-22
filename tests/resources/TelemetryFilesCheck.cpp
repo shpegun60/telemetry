@@ -2,6 +2,7 @@
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
 #include "TestSupport.hpp"
 #include "Golden.hpp"
+#include <resource/telemetry/detail/BlockStream.hpp>
 #include <algorithm>
 #include <telemetry/Telemetry.h>
 #include <resource/telemetry/TelemetryFiles.hpp>
@@ -345,23 +346,42 @@ Bytes boundaries(const File& file)
         CHECK(result.status == resource::Status::InvalidCursor && result.written == 0 &&
               result.next == cursor);
     }
-    // Resume at every byte of every record, including the valid end offset.
+    // Independently reconstruct hierarchical blocks from the wire records.
+    // A prefix includes flags; a field/command includes all child records.
+    using telemetry_resource::detail::BlockKind;
+    using telemetry_resource::detail::pack;
+    const bool isSchema = all[1] == std::byte{'S'};
     Reader reader{all};
     reader.offset = 44;
-    std::vector<std::size_t> starts{0, 44};
+    std::vector<std::size_t> starts{0};
+    std::vector<resource::Cursor> cursors{0};
     while (reader.offset < all.size())
     {
-        reader.number(4);
-        auto size = reader.u32();
+        const auto start = reader.offset;
+        const auto kind = reader.u8();
+        reader.number(3);
+        const auto size = reader.u32();
+        Reader payload{reader.bytes.subspan(reader.offset, size)};
+        if (kind == (isSchema ? 2u : 1u))
+        {
+            starts.push_back(start);
+            cursors.push_back(pack(BlockKind::Catalog, payload.u32()));
+        }
+        else if (kind == (isSchema ? 3u : 2u))
+        {
+            payload.number(8);
+            starts.push_back(start);
+            cursors.push_back(pack(BlockKind::Entry, payload.u32()));
+        }
         reader.raw(size);
-        starts.push_back(reader.offset);
     }
+    starts.push_back(all.size());
     for (std::size_t n = 0; n + 1 < starts.size(); ++n)
     {
         for (std::size_t offset = 0; offset <= starts[n + 1] - starts[n] + 1; ++offset)
         {
             Bytes bytes(all.size());
-            const auto cursor = (resource::Cursor(n) << 32) | offset;
+            const auto cursor = cursors[n] | offset;
             const auto result = file.read(cursor, bytes);
             if (offset > starts[n + 1] - starts[n])
             {
@@ -440,7 +460,10 @@ int main(int argc, char** argv)
             const auto before = getters;
             const auto r = vf.read(offset, {output.data() + 1, capacity});
             CHECK(r.status == resource::Status::Ok && r.written == capacity && !r.eof);
-            CHECK(r.next == (offset + capacity == 20 ? UINT64_C(1) << 32 : offset + capacity));
+            CHECK(r.next == (offset + capacity == 20
+                                 ? telemetry_resource::detail::pack(
+                                       telemetry_resource::detail::BlockKind::Entry, 0)
+                                 : offset + capacity));
             CHECK(
                 std::equal(output.begin() + 1, output.begin() + 1 + capacity, vb.begin() + offset));
             CHECK(output.front() == std::byte{0xa5} && output[capacity + 1] == std::byte{0xa5});
@@ -465,7 +488,8 @@ int main(int argc, char** argv)
         {
             std::array<std::byte, 9> out{};
             auto before = getters;
-            auto cursor = resource::Cursor(i + 1) << 32;
+            auto cursor =
+                telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, i);
             auto r = vf.read(cursor, {out.data(), capacity});
             CHECK(r.status == resource::Status::BufferTooSmall && r.next == cursor &&
                   r.written == 0 && getters == before);
@@ -475,14 +499,22 @@ int main(int argc, char** argv)
     }
     std::array<std::byte, 5> first{};
     auto before = getters;
-    CHECK(vf.read(UINT64_C(1) << 32, first).written == 5 && getters == before + 1);
+    CHECK(vf.read(telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, 0),
+                  first)
+                  .written == 5 &&
+          getters == before + 1);
     values[0] = Scalar::fromF32(2);
     std::array<std::byte, 5> second{};
-    CHECK(vf.read(UINT64_C(1) << 32, second).written == 5 && first != second &&
-          getters == before + 2);
+    CHECK(vf.read(telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, 0),
+                  second)
+                  .written == 5 &&
+          first != second && getters == before + 2);
     values[0] = Scalar::null();
     CHECK(vf.size() == vb.size());
-    CHECK(vf.read(UINT64_C(1) << 32, second).written == 5 && second[0] == std::byte{1});
+    CHECK(vf.read(telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, 0),
+                  second)
+                  .written == 5 &&
+          second[0] == std::byte{1});
     CHECK(std::all_of(second.begin() + 1, second.end(),
                       [](auto b)
                       {
@@ -597,18 +629,39 @@ int main(int argc, char** argv)
     ValuesFile bigValues{bigSchema};
     CHECK(bigIndex.find(UINT32_MAX) == &manyFields.back() && bigValues.size() == 20 + 65535 + 2);
     std::array<std::byte, 2> last{};
-    auto lastResult = bigValues.read(UINT64_C(65536) << 32, last);
-    CHECK(lastResult.eof && lastResult.written == 2 && last[0] == std::byte{0} &&
-          last[1] == std::byte{42});
-    // Header + flag definition + all catalogs + earlier fields precede the last field.
+    auto lastResult = bigValues.read(
+        telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, UINT32_MAX),
+        last);
+    CHECK(lastResult.eof && lastResult.next == telemetry_resource::detail::endCursor &&
+          lastResult.written == 2 && last[0] == std::byte{0} && last[1] == std::byte{42});
+    // Direct resume does not visit any earlier catalog or field.
     std::array<std::byte, 100> record{};
-    auto lastField = bigSchema.read(UINT64_C(131073) << 32, record);
+    auto lastField = bigSchema.read(
+        telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, UINT32_MAX),
+        record);
     CHECK(lastField.status == resource::Status::Ok && lastField.eof);
     Reader lastReader{{record.data(), lastField.written}};
     auto lastPayload = lastReader.record(3);
     CHECK(lastPayload.u32() == 65535 && lastPayload.u32() == 65535 &&
           lastPayload.u32() == UINT32_MAX);
     lastReader.done();
+    std::vector<Command> manyCommands(65535);
+    manyCommands.push_back(commandTable[0]);
+    std::vector<CommandCatalog> manyCommandCatalogs;
+    manyCommandCatalogs.reserve(65536);
+    for (unsigned i = 0; i < 65535; ++i)
+        manyCommandCatalogs.emplace_back("empty", nullptr, 0);
+    manyCommandCatalogs.emplace_back("last", manyCommands.data(), manyCommands.size());
+    CommandsFile bigCommands{CommandCatalogIndex{manyCommandCatalogs.data(), manyCommandCatalogs.size()}};
+    std::array<std::byte, 1024> commandBytes{};
+    const auto lastCommand = bigCommands.read(
+        telemetry_resource::detail::pack(telemetry_resource::detail::BlockKind::Entry, UINT32_MAX), commandBytes);
+    CHECK(lastCommand.status == resource::Status::Ok && lastCommand.eof &&
+          lastCommand.next == telemetry_resource::detail::endCursor);
+    Reader commandReader{{commandBytes.data(), lastCommand.written}};
+    auto commandPayload = commandReader.record(2);
+    CHECK(commandPayload.u32() == 65535 && commandPayload.u32() == 65535 &&
+          commandPayload.u32() == UINT32_MAX);
     if (argc > 1)
     {
         std::filesystem::create_directories(argv[1]);

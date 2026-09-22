@@ -2,6 +2,7 @@
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
 #include <resource/FileSystem.hpp>
 #include <resource/telemetry/TelemetryFiles.hpp>
+#include <resource/telemetry/detail/BlockStream.hpp>
 #include "../../app/resources/DeviceResources.hpp"
 #include <cstddef>
 
@@ -81,6 +82,17 @@ extern "C" std::uint64_t resource_probe_fingerprint(const std::byte* bytes, std:
     telemetry_resource::detail::Fingerprint hash;
     hash.bytes({bytes, n});
     return hash.value();
+}
+
+// Probe the exact index primitive used by ValuesFile::read after decoding its
+// Entry key. There is no ordinal or preceding-catalog scan in this lookup.
+extern "C" const telemetry::Field* resource_probe_value_lookup(
+    const telemetry::CatalogIndex& index, resource::Cursor cursor) noexcept
+{
+    using namespace telemetry_resource::detail;
+    if ((cursor >> kindShift) != static_cast<unsigned>(BlockKind::Entry) ||
+        (cursor & offsetMask) != 0) return nullptr;
+    return index.find(static_cast<std::uint32_t>(cursor >> keyShift));
 }
 
 int main()
