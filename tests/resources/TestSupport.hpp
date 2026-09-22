@@ -1,6 +1,7 @@
 // Shared bounded transfer and independent binary-reader checks (MIT).
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
 #pragma once
+#include <algorithm>
 #include <resource/Types.hpp>
 #include <array>
 #include <bit>
@@ -11,6 +12,7 @@
 #include <limits>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 inline unsigned checks = 0;
 #define CHECK(...)                                                                                 \

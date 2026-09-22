@@ -2,6 +2,7 @@
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
 #include "TestSupport.hpp"
 #include "Golden.hpp"
+#include <algorithm>
 #include <telemetry/Telemetry.h>
 #include <resource/telemetry/TelemetryFiles.hpp>
 #include <resource/telemetry/BinaryFormat.hpp>
