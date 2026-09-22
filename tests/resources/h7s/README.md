@@ -7,6 +7,14 @@ baseline with a snapshot of the current library. It reuses the copied Cube
 scaffold described in [the field benchmark](../../field_layout/h7s/README.md),
 without modifying the original COBS project. Use the CubeIDE compiler.
 
+This is the retained **2.0 direct-cursor experiment**, pinned to its original
+wire bytes. To reproduce it, use the `c5739b2` checkout and the copied Cube
+scaffold. The later 2.1 hardening deliberately changes version bytes and
+fingerprints, so a current-tree run against f1cfbd8 cannot pass this fixture's
+cross-version byte-equality assertions. Those assertions are not relaxed to
+hide a format change. The retained receipt verifier remains runnable on current
+source; it validates the recorded measurements, not new 2.1 MCU timings.
+
 ```powershell
 python tests/resources/h7s/run.py --arm-cxx <path-to-arm-none-eabi-g++.exe> --output build/resource-measurement
 python tests/resources/h7s/run.py --arm-cxx <path-to-arm-none-eabi-g++.exe> --output build/resource-live --run --serial 002A001F3033510135393935 --port COM6

@@ -54,7 +54,7 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   resuming the final field/command visits no earlier descriptor or getter.
 - DecoderCheck: Node runs the actual browser ES module against the C++ fixtures.
   Exact BigInt/signed/float values, unknown type-99 records with 17-byte payloads,
-  minor/header extensions, 1667 truncation cases, invalid lengths/counts/status,
+  header extensions, unsupported major/minor versions, 1667 truncation cases, invalid lengths/counts/status,
   nonzero byteOffset views and 6000 deterministic packet mutations are covered.
   All 64 single-bit fingerprint mismatches are rejected. Published v1 goldens
   are rejected before their old headers can be misread. Independent BigInt
@@ -217,3 +217,36 @@ now include both optimizations, complete file transfers, error preflight and
 nested PSP watermarks. Last-group reads improve substantially; the report also
 records the 5.9% Os sequential-parameter regression and the H7RS MPU startup fix.
 Both Flash restoration and resumed original-firmware execution were verified.
+
+## Binary 2.1 protocol checks
+
+The protocol checks LIST path lengths 65533, 65534, 65535 and 65536 with full and
+undersized reply buffers. Only 65533 fits a u16 payload plus its two-byte length;
+larger paths report InvalidData instead of requesting an impossible larger packet.
+The generic file descriptor's path contract remains protocol-independent.
+
+Commands now preserve reserved positions via `commandFlags & 1`. Tests use equal
+names, positions and zero arity to distinguish a reserved descriptor from a real
+command, compare fingerprints, and verify that an empty function slot is still a
+real command. Each fixture is transferred at every record boundary and decoded
+independently by JS. All three files emit 2.1. The decoder accepts exactly that
+version; unsupported major and minor versions are rejected before interpretation.
+The updated goldens keep record layouts and sizes unchanged while pinning the new
+version bytes and fingerprints. Version bytes belong to the hash domain; cached
+2.0 metadata must be discarded even for catalogs without reserved commands.
+
+Decoder checks toggle every record-header flag bit on every known v1 record,
+reject unsupported capability/parameter bits and contradictory reserved records,
+and retain unknown policy bits. Unknown record types/versions remain opaque.
+The host, sanitizer and Cortex-M7 checks cover these changes. Individual ARM
+READ stack budgets and the selected-value direct-lookup guard remain unchanged.
+The startup pattern, descriptor layout and core implementation are unchanged.
+The LIST condition is checked by the protocol tests; that unused protocol entry
+point is removed from the linked demo fixture by section GC.
+
+GCC 14.3.1 reports `.text` 32936/24792 bytes at O2/Os: +56/+32 bytes versus
+260e168/c5739b2. `.rodata` remains 2336/2272, `.data` 116 and `.bss` 444 bytes.
+DeviceResources, DemoCatalog, TelemetryAbi and ArmProbe objects remain identical
+after removing debug/comment sections. The file table still occupies 48 bytes
+in `.rodata`. The version constants and reserved-command encoding change the
+resource providers; no new MCU timing claim is inferred from this build.

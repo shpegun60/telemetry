@@ -328,6 +328,36 @@ int main()
     CHECK(process(view, Input{request}.first(9), Output{out}.first(22)).status ==
               Status::BufferTooSmall &&
           get(out, 1, 8) == 0);
+    // Generic resource paths have no protocol length limit. LIST must separate
+    // a small caller buffer from a path no possible v1 packet can represent.
+    for (std::size_t length : {65533u, 65534u, 65535u, 65536u})
+    {
+        std::string label(length, 'x');
+        label.front() = '/';
+        const auto longFs = filesystem(file(std::string_view{label}, memory));
+        CHECK(longFs.path(0).size() == length);
+        std::vector<std::byte> guarded(12 + 65535 + 2, std::byte{0xa5});
+        auto reply = Output{guarded}.subspan(1, 12 + 65535);
+        const auto result = process(longFs.view(), Input{request}.first(9), reply);
+        if (length == 65533)
+        {
+            CHECK(result.status == Status::Ok && result.written == reply.size() &&
+                  get(reply, 1, 8) == 1 && reply[9] == std::byte{1} &&
+                  get(reply, 10, 2) == 65535 && get(reply, 12, 2) == length &&
+                  std::memcmp(reply.data() + 14, label.data(), length) == 0);
+            CHECK(process(longFs.view(), Input{request}.first(9), reply.first(reply.size() - 1))
+                      .status == Status::BufferTooSmall);
+        }
+        else
+        {
+            CHECK(result.status == Status::InvalidData && result.written == 12 &&
+                  get(reply, 1, 8) == 0 && get(reply, 10, 2) == 0 && reply[9] == std::byte{0});
+            CHECK(process(longFs.view(), Input{request}.first(9), reply.first(12)).status ==
+                  Status::InvalidData);
+        }
+        CHECK(guarded.front() == std::byte{0xa5} && guarded.back() == std::byte{0xa5});
+        CHECK(memory.stats == statCalls);
+    }
     request[0] = std::byte{2};
     CHECK(process(view, Input{request}.first(5), out).written == 6 && get(out, 1, 4) == 10 &&
           out[5] == std::byte{3});

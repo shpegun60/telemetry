@@ -211,7 +211,7 @@ void enums(const FieldType& t, Visit&& visitor)
 void verifySchema(const Bytes& bytes, const CatalogIndex& index, std::uint64_t fingerprint)
 {
     Reader r{bytes};
-    CHECK(r.raw(4) == "TSCH" && r.u16() == 2 && r.u16() == 0);
+    CHECK(r.raw(4) == "TSCH" && r.u16() == 2 && r.u16() == 1);
     CHECK(r.u32() == 44 && r.u32() == bytes.size() && r.number(8) == fingerprint);
     const auto records = r.u32(), catalogs = r.u32(), fieldsCount = r.u32(), enumsCount = r.u32(),
                flags = r.u32();
@@ -265,7 +265,7 @@ void verifySchema(const Bytes& bytes, const CatalogIndex& index, std::uint64_t f
 void verifyCommands(const Bytes& bytes, const CommandCatalogIndex& index, std::uint64_t fingerprint)
 {
     Reader r{bytes};
-    CHECK(r.raw(4) == "TCMD" && r.u16() == 2 && r.u16() == 0);
+    CHECK(r.raw(4) == "TCMD" && r.u16() == 2 && r.u16() == 1);
     CHECK(r.u32() == 44 && r.u32() == bytes.size() && r.number(8) == fingerprint);
     const auto records = r.u32(), catalogs = r.u32(), commandsCount = r.u32(), params = r.u32(),
                enumsCount = r.u32();
@@ -285,7 +285,8 @@ void verifyCommands(const Bytes& bytes, const CommandCatalogIndex& index, std::u
             ++cc;
             CHECK(cr.u32() == c.index() && cr.u32() == e.index() && cr.u32() == e.id());
             const auto paramCount = cr.u32();
-            CHECK(cr.u32() == 0 && cr.string() == e.command().name);
+            CHECK(cr.u32() == (e.command().invoke == nullptr ? 1u : 0u) &&
+                  cr.string() == e.command().name);
             cr.done();
             unsigned ordinal = 0;
             if (e.command().hasDescription())
@@ -411,6 +412,20 @@ constexpr CommandTable goldenCommands{
     command<&goldenConfigure>("C", arg<0>("P", "V", 230.f, 0.f, 300.f))};
 constexpr CommandCatalogTable goldenCommandCatalogs{group("m", goldenCommands)};
 
+CommandResult noArguments() noexcept
+{
+    ++invoked;
+    return CommandResult::Executed;
+}
+// Equal labels, positions and arities isolate the reserved flag and its hash.
+constexpr CommandTable zeroArguments{command<&noArguments>("")};
+constexpr CommandTable vacantCommand{reservedCommand()};
+FunctionSlot<CommandResult() noexcept> commandSlot;
+constexpr CommandTable lateCommand{command("", commandSlot)};
+constexpr CommandCatalogTable zeroCatalogs{group("m", zeroArguments)};
+constexpr CommandCatalogTable vacantCatalogs{group("m", vacantCommand)};
+constexpr CommandCatalogTable lateCatalogs{group("m", lateCommand)};
+
 int main(int argc, char** argv)
 {
     using namespace telemetry_resource;
@@ -427,6 +442,17 @@ int main(int argc, char** argv)
     CHECK(collect(gs, 7) == unhex(schemaGolden));
     CHECK(collect(gc, 7) == unhex(commandsGolden));
     CHECK(collect(gv, 9) == unhex(valuesGolden));
+    CommandsFile zeroFile{zeroCatalogs.index()}, vacantFile{vacantCatalogs.index()},
+        lateFile{lateCatalogs.index()};
+    CHECK(!commandSlot && invoked == 0 && zeroFile.size() == vacantFile.size() &&
+          zeroFile.fingerprint() != vacantFile.fingerprint() &&
+          zeroFile.fingerprint() == lateFile.fingerprint());
+    const auto zeroBytes = boundaries(zeroFile), vacantBytes = boundaries(vacantFile),
+               lateBytes = boundaries(lateFile);
+    CHECK(zeroBytes != vacantBytes && zeroBytes == lateBytes && invoked == 0);
+    verifyCommands(zeroBytes, zeroCatalogs.index(), zeroFile.fingerprint());
+    verifyCommands(vacantBytes, vacantCatalogs.index(), vacantFile.fingerprint());
+    verifyCommands(lateBytes, lateCatalogs.index(), lateFile.fingerprint());
     const auto gettersBefore = getters;
     const CatalogIndex allIndex{scalarCatalogs};
     SchemaFile allSchema{allIndex};
@@ -438,7 +464,7 @@ int main(int argc, char** argv)
     CHECK(getters == gettersBefore + 12);
     CHECK(collect(independent, 64) == vb);
     Reader vr{vb};
-    CHECK(vr.raw(4) == "TVAL" && vr.u16() == 2 && vr.u16() == 0 &&
+    CHECK(vr.raw(4) == "TVAL" && vr.u16() == 2 && vr.u16() == 1 &&
           vr.number(8) == allSchema.fingerprint() && vr.u32() == 13);
     for (unsigned i = 0; i < 13; ++i)
     {
@@ -673,6 +699,9 @@ int main(int argc, char** argv)
         save(argv[1], "golden-schema.bin", collect(gs, 7));
         save(argv[1], "golden-commands.bin", collect(gc, 7));
         save(argv[1], "golden-values.bin", collect(gv, 9));
+        save(argv[1], "zero-commands.bin", zeroBytes);
+        save(argv[1], "reserved-commands.bin", vacantBytes);
+        save(argv[1], "slot-commands.bin", lateBytes);
     }
     std::printf("Binary telemetry: %u checks\n", checks);
 }

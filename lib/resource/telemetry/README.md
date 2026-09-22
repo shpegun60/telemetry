@@ -57,7 +57,7 @@ The ABI-tagged constructors retain telemetry's mixed-layout link protection.
 
 ## Common wire rules
 
-Version 2.0 uses explicit little-endian integers, two's-complement signed bits,
+Version 2.1 uses explicit little-endian integers, two's-complement signed bits,
 and IEEE-754 binary32/binary64 float bits. No C++ struct memory is serialized.
 Strings are `u32 byteLength` followed by exactly those bytes. Names from the
 current C-string descriptor API end at the first NUL; enum names supplied as
@@ -69,6 +69,13 @@ headers grow from 40 to 44 bytes, and the values header from 16 to 20. Record
 layouts and per-value tokens are unchanged. Update firmware and decoders
 together and discard cached v1 metadata; the reference decoder rejects v1.
 Rebuild all C++ resource consumers because cached provider layouts also change.
+
+Version 2.1 defines `CommandRecordFlag::Reserved` in the existing command flags
+word. All three files emit 2.1; their header sizes and record layouts are unchanged.
+The reference decoder supports exactly 2.1 and rejects other major/minor versions.
+Update firmware and decoder together and discard cached metadata. Both version
+numbers are part of the semantic hash, so even otherwise unchanged descriptions
+have new fingerprints. There is no legacy decoding mode.
 
 Stable type codes in [BinaryFormat.hpp](BinaryFormat.hpp) are independent of
 telemetry's internal ScalarType ordinals:
@@ -88,8 +95,10 @@ and availability semantics.
 
 Every schema/command record has an eight-byte header:
 `u8 type, u8 version=1, u16 flags=0, u32 payloadSize`.
-Unknown records can be skipped by size. A reader must reject unsupported file
-major versions. Record counts exclude the file header. In the tables below,
+Unknown records can be skipped by size. A reader must reject unsupported
+file versions and nonzero header flags on known version-1 record types.
+Unknown types/versions remain opaque, including their flags. Record counts
+exclude the file header. In the tables below,
 `string` means length-prefixed bytes, while paired labels have both lengths
 before their bytes.
 
@@ -138,16 +147,24 @@ u32 catalogCount, commandCount, parameterCount, enumEntryCount
 | Record type | Payload in wire order |
 |---|---|
 | 1 Catalog | `u32 catalogIndex, commandCount; string name` |
-| 2 Command | `u32 catalogIndex, commandIndex, commandId, parameterCount, commandFlags=0; string name` |
+| 2 Command | `u32 catalogIndex, commandIndex, commandId, parameterCount, commandFlags; string name` |
 | 3 Parameter | `u32 commandId, parameterIndex, parameterFlags=0, enumCount; u8 type, presenceFlags; u16 reserved=0; u32 nameLength, unitLength; name bytes, unit bytes; Scalar min, max, default` |
 | 4 ParameterEnum | `u32 commandId, parameterIndex, ordinal; Scalar code; string name` |
 
 Order is catalog, command, parameters; each parameter precedes its enum records.
 Presence bits HasName=1 and HasUnit=2 distinguish a missing pointer from an
 explicit empty string. An absent label has length zero. Descriptions are visited
-synchronously; temporary CommandParam references are never retained. Reserved
-commands have no parameters and flags zero. This file describes commands only;
-it is not a new execution protocol.
+synchronously; temporary CommandParam references are never retained.
+`commandFlags` bit 0 is Reserved: no invoker and no parameters. A real zero-arg
+command has flags zero. Late-bound commands also have flags zero even while
+their slot is empty; temporary availability is not part of static metadata.
+This file describes commands only; it is not a new execution protocol.
+
+The reference decoder exposes `command.reserved` and rejects unsupported command,
+parameter, field-record and access bits. Application `policyFlags` retain unknown
+bits for forward compatibility. Earlier 2.0 files encoded flags zero for both
+cases and could not distinguish them; 2.1 gives reserved positions an explicit
+wire meaning. Reserved command flags participate in the semantic fingerprint.
 
 ## values.bin
 
@@ -174,7 +191,9 @@ whole value. Different fields/chunks may reflect different instants.
 Cursors are opaque `u64` values: bits 63..62 select the block kind, bits 61..30
 hold a 32-bit key, and bits 29..0 hold the byte offset inside that block. Cursor
 zero starts the prefix. This replaces the ordinal cursor used through `f17a253`;
-restart at zero after upgrading. The binary v2 payload and fingerprints do not change.
+restart at zero after upgrading. That cursor change itself left record layouts
+and fingerprints unchanged; the later 2.1 version update changes fingerprints
+as described above.
 
 | Kind | Key | Schema | Commands | Values |
 | --- | --- | --- | --- | --- |

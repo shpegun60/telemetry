@@ -33,9 +33,11 @@ it by one. LIST never calls provider `size()`. A cursor equal to fileCount is
 valid EOF; a larger cursor is invalid. A whole path entry must fit the available
 payload after the 12-byte header. With some entries emitted, a full buffer
 returns Ok and the first unreturned index. If the first entry cannot fit, it
-returns BufferTooSmall with an unchanged cursor. A path length above 65535
-cannot be represented and returns InvalidData. Because the complete data size
-is u16, the largest individually transferable LIST path is 65533 bytes.
+returns BufferTooSmall with an unchanged cursor. Because the complete data size
+is u16 and includes the two-byte path length, the largest individually
+transferable LIST path is 65533 bytes. Longer paths return InvalidData even
+with a large response buffer: enlarging it cannot make such an entry fit.
+The transport-independent core deliberately imposes no wire length limit.
 
 READ payload capacity is min(response size - 12, 65535). WRITE validates the
 entire packet and the 14-byte reply capacity before invoking the provider.

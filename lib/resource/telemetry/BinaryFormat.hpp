@@ -10,9 +10,10 @@
 
 namespace telemetry_resource
 {
-// v2 widens all fingerprints to u64. v1 headers must not be decoded as v2.
+// v2 widens all fingerprints to u64. v2.1 defines the reserved-command bit.
+// The layout is unchanged; the version is part of the semantic fingerprint.
 inline constexpr std::uint16_t binaryMajor = 2;
-inline constexpr std::uint16_t binaryMinor = 0;
+inline constexpr std::uint16_t binaryMinor = 1;
 inline constexpr std::uint32_t metadataHeaderSize = 44;
 inline constexpr std::uint32_t valuesHeaderSize = 20;
 inline constexpr std::uint32_t recordHeaderSize = 8;
@@ -67,6 +68,11 @@ enum AccessFlag : std::uint8_t
 };
 
 enum FieldRecordFlag : std::uint8_t
+{
+    Reserved = 1
+};
+
+enum class CommandRecordFlag : std::uint32_t
 {
     Reserved = 1
 };

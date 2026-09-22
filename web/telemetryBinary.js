@@ -1,5 +1,5 @@
 /**
- * Reference browser decoder for telemetry resource binary v2.
+ * Reference browser decoder for telemetry resource binary v2.1.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. MIT; see ../LICENSE.
  * 64-bit integers and fingerprints are BigInt. No MCU headers or host endian assumptions.
  */
@@ -93,6 +93,7 @@ function header(input, magic) {
     require(String.fromCharCode(...r.bytes(4)) === magic, 'wrong file magic');
     const major = r.u16(), minor = r.u16();
     require(major === 2, 'unsupported major version');
+    require(minor === 1, 'unsupported minor version');
     const headerSize = r.u32(), totalSize = r.u32(), fingerprint = r.u64(), recordCount = r.u32();
     require(headerSize >= 44 && headerSize <= r.data.length && totalSize === r.data.length, 'invalid file size');
     const counts = [r.u32(), r.u32(), r.u32(), r.u32()];
@@ -100,14 +101,19 @@ function header(input, magic) {
     require(recordCount <= Math.floor(r.remaining / 8), 'impossible record count');
     return {r, major, minor, fingerprint, recordCount, counts};
 }
-function records(h, visit) {
+function records(h, knownTypes, visit) {
     const unknownRecords = [];
     for (let i = 0; i < h.recordCount; ++i) {
         const type = h.r.u8(), version = h.r.u8(), flags = h.r.u16(), size = h.r.u32();
         const bytes = h.r.bytes(size);
         const r = new Reader(bytes);
-        if (version === 1 && visit(type, r, flags)) r.done();
-        else unknownRecords.push({type, version, flags, payload: bytes.slice()});
+        if (version === 1 && knownTypes.includes(type)) {
+            // A known version is not enough if flags change its semantics.
+            // Unknown types/versions remain opaque, including their flags.
+            require(flags === 0, 'unsupported record flags');
+            visit(type, r);
+            r.done();
+        } else unknownRecords.push({type, version, flags, payload: bytes.slice()});
     }
     h.r.done();
     return unknownRecords;
@@ -120,7 +126,7 @@ export function parseSchema(input) {
         catalogs: [], fields: [], flags: new Map(), flagDefinitions: []};
     const byId = new Map();
     let enumCount = 0;
-    schema.unknownRecords = records(h, (type, r) => {
+    schema.unknownRecords = records(h, [1, 2, 3, 4], (type, r) => {
         if (type === 1) {
             const value = r.u32(), name = r.string();
             require(!schema.flags.has(value), 'duplicate flag definition');
@@ -135,6 +141,8 @@ export function parseSchema(input) {
             const policyFlags = r.u32(), enums = r.u32();
             const declaredType = r.u8(), valueType = r.u8(), accessFlags = r.u8(), fieldFlags = r.u8();
             width(declaredType); width(valueType);
+            require((accessFlags & ~3) === 0 && (fieldFlags & ~1) === 0, 'unsupported field flags');
+            require(!(fieldFlags & 1) || (valueType === 0 && accessFlags === 0), 'reserved field has capabilities');
             const nl = r.u32(), ul = r.u32();
             const f = {catalogIndex, index, id, policyFlags, enumCount: enums,
                 declaredType, valueType, accessFlags, fieldFlags, enumEntries: []};
@@ -164,7 +172,7 @@ export function parseCommands(input) {
     const h = header(input, 'TCMD');
     const result = {major: h.major, minor: h.minor, fingerprint: h.fingerprint, catalogs: [], commands: []};
     const byId = new Map(); let parameterCount = 0, enumCount = 0;
-    result.unknownRecords = records(h, (type, r) => {
+    result.unknownRecords = records(h, [1, 2, 3, 4], (type, r) => {
         if (type === 1) {
             const index = r.u32(), commandCount = r.u32();
             require(index === result.catalogs.length && index <= 65535 && commandCount <= 65536, 'invalid command catalog');
@@ -172,11 +180,15 @@ export function parseCommands(input) {
         } else if (type === 2) {
             const catalogIndex = r.u32(), index = r.u32(), id = r.u32(); identity(catalogIndex, index, id);
             const c = {catalogIndex, index, id, parameterCount: r.u32(), commandFlags: r.u32(), parameters: []};
+            require((c.commandFlags & ~1) === 0, 'unsupported command flags');
+            c.reserved = (c.commandFlags & 1) !== 0;
+            require(!c.reserved || c.parameterCount === 0, 'reserved command has parameters');
             label(c, 'name', r.string()); const catalog = result.catalogs[catalogIndex];
             require(catalog && index === catalog.commands.length && index < catalog.commandCount && !byId.has(id), 'invalid command position');
             catalog.commands.push(c); result.commands.push(c); byId.set(id, c);
         } else if (type === 3) {
             const commandId = r.u32(), index = r.u32(), parameterFlags = r.u32(), enums = r.u32();
+            require(parameterFlags === 0, 'unsupported parameter flags');
             const scalarType = r.u8(), presenceFlags = r.u8(); require(r.u16() === 0, 'parameter reserved bits');
             width(scalarType); require((presenceFlags & ~3) === 0, 'unknown parameter presence');
             const nl = r.u32(), ul = r.u32();
@@ -210,6 +222,7 @@ export function parseValues(input, schema) {
     const r = new Reader(input);
     require(String.fromCharCode(...r.bytes(4)) === 'TVAL', 'wrong values magic');
     const major = r.u16(), minor = r.u16(); require(major === 2, 'unsupported major version');
+    require(minor === 1, 'unsupported minor version');
     const fingerprint = r.u64(), fieldCount = r.u32();
     require(fingerprint === schema.fingerprint, 'schema fingerprint mismatch');
     require(fieldCount === schema.fields.length, 'values count mismatch');

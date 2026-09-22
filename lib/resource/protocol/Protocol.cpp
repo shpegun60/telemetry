@@ -97,7 +97,9 @@ Reply process(resource::FileSystemView files, resource::Input request,
         while (next < files.fileCount())
         {
             const auto path = files.path(static_cast<FileIndex>(next));
-            if (path.size() > maxPayload)
+            // The u16 dataSize includes this entry's u16 length prefix too.
+            // A larger path can never fit, even with an unlimited caller buffer.
+            if (path.size() > maxPayload - sizeof(std::uint16_t))
             {
                 return chunkReply(response, Status::InvalidData, cursor, 0, false);
             }

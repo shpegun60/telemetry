@@ -201,9 +201,13 @@ inline bool commandPayload(Writer& out, std::uint32_t group, std::uint32_t posit
                            const telemetry::Command& command, std::uint32_t parameters,
                            StringRef name) noexcept
 {
-    (void)command;
+    // A vacant position differs from a real zero-argument command. This is
+    // descriptor capability; an empty late-bound slot still has an invoker.
+    const auto flags = command.invoke == nullptr
+                           ? static_cast<std::uint32_t>(CommandRecordFlag::Reserved)
+                           : 0u;
     return out.u32(group) && out.u32(position) && out.u32((group << 16) | position) &&
-           out.u32(parameters) && out.u32(0) && out.string(name.view());
+           out.u32(parameters) && out.u32(flags) && out.string(name.view());
 }
 
 // Construction hashes once through the same encoders. These overloads validate
