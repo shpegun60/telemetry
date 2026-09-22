@@ -33,6 +33,12 @@ DISTFILES += \
     tests/run_checks.py \
     tests/run_arm_checks.py \
     tests/resources/run.py \
+    tests/resources/stack_check.py \
+    tests/resources/no_json.pro \
+    tests/resources/DecoderCheck.mjs \
+    $$files($$PWD/tests/resources/*.hpp) \
+    web/package.json \
+    web/telemetryBinary.js \
     tests/resources/README.md \
     tests/resources/.clang-format \
     $$files($$PWD/tests/resources/*.cpp) \

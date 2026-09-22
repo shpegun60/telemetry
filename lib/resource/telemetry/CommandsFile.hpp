@@ -1,6 +1,6 @@
 /**
  * @file CommandsFile.hpp
- * @brief Stream grouped command metadata without retaining parameter visitors.
+ * @brief Descriptive binary command/parameter records, without executing commands.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
@@ -10,8 +10,7 @@
 
 namespace telemetry_resource
 {
-// Copy the small index view, borrow the immutable command catalogs. Parameter
-// descriptions are generated synchronously when counting or emitting a record.
+// Catalogs and all borrowed metadata must outlive the file and remain immutable.
 class CommandsFile
 {
 public:
@@ -23,6 +22,11 @@ public:
         return size_;
     }
 
+    std::uint32_t fingerprint() const noexcept
+    {
+        return hash_;
+    }
+
     resource::ReadResult read(resource::Cursor cursor, resource::Output output) const noexcept;
 
 private:
@@ -31,5 +35,8 @@ private:
     std::uint32_t hash_ = 0;
     std::uint32_t size_ = 0;
     std::uint32_t records_ = 0;
+    std::uint32_t commands_ = 0;
+    std::uint32_t parameters_ = 0;
+    std::uint32_t enums_ = 0;
 };
 } // namespace telemetry_resource

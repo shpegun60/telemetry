@@ -1,22 +1,23 @@
 /**
  * @file ValuesFile.hpp
- * @brief Fixed-width hex readings; one getter invocation per whole value token.
+ * @brief Fixed-size binary readings with one invocation per complete live value.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
 #pragma once
-#include <resource/Types.hpp>
-#include <telemetry/abi/TelemetryAbi.h>
+#include "SchemaFile.hpp"
 
 namespace telemetry_resource
 {
-// Metadata is borrowed and immutable. Readings remain live: repeated reads
-// can return newer values; this adapter does not acquire a cross-field snapshot.
+// Metadata is immutable and borrowed. Values are live, without a multi-field
+// snapshot guarantee; retrying a cursor can yield a newer complete value.
 class ValuesFile
 {
 public:
     explicit ValuesFile(const telemetry::CatalogIndex& index,
                         telemetry::detail::CurrentAbiTag = {}) noexcept;
+    // Reuse the schema's measured size/fingerprint; does not borrow the SchemaFile.
+    explicit ValuesFile(const SchemaFile& schema) noexcept;
 
     resource::FileSize size() const noexcept
     {
@@ -28,8 +29,8 @@ public:
 private:
     const telemetry::Catalog* catalogs_;
     std::size_t count_;
-    // Widths come from declared types, so these counts never require a getter.
-    std::uint32_t size_ = 0;
-    std::uint32_t records_ = 0;
+    std::uint32_t size_;
+    std::uint32_t fields_;
+    std::uint32_t hash_;
 };
 } // namespace telemetry_resource

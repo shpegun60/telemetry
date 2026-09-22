@@ -1,119 +1,233 @@
-# Telemetry resource adapters (C++20)
+# Binary telemetry resources (C++20)
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../LICENSE).
 
-Three providers connect public telemetry metadata to resource streams:
+The adapter exposes three read-only files. They share the flat resource protocol
+but have different payloads:
 
-```cpp
-#include <resource/telemetry/TelemetryFiles.hpp>
-#include <resource/FileSystem.hpp>
+| Index | Path | Purpose |
+|---|---|---|
+| 0 | `/telemetry/schema.bin` | Descriptive fields, limits, flags and enums |
+| 1 | `/telemetry/commands.bin` | Descriptive commands, parameters and enums |
+| 2 | `/telemetry/values.bin` | Dense live values, decoded using the matching schema |
 
-telemetry_resource::SchemaFile schema{fields.index()};
-telemetry_resource::CommandsFile commandSchema{commands.index()};
-telemetry_resource::ValuesFile values{fields.index()};
+There is no decimal conversion, hex text, JSON escaping, allocation or complete
+file buffer. The existing public telemetry JSON API is independent and unchanged.
+This is a breaking resource format change: clients must use the binary decoder,
+restart old cursors, and use the new paths. It is not a change to packet framing.
 
-constinit const auto fs = resource::filesystem(
-    resource::file("/telemetry/schema.json", schema),
-    resource::file("/telemetry/commands.json", commandSchema),
-    resource::file("/telemetry/values.json", values));
-```
-
-The provider constructors copy the index pointer/count, including from a
-temporary `.index()`. Catalogs, descriptors and metadata must remain immutable
-at stable addresses for the providers' lifetimes. Constructors count the exact
-output size once; they never read values or execute commands. Finish startup
-before exposing the providers to transports. The file table itself supports
-constant initialization and read-only storage.
-
-Use the single resource qmake include with the telemetry option:
+## Integration
 
 ```qmake
+CONFIG += telemetry_no_json resource_telemetry
 include(lib/telemetry/telemetry.pri)
-CONFIG += resource_telemetry
 include(lib/resource/resource.pri)
 ```
 
-The adapter requires normal telemetry JSON support for the public fingerprint
-functions. The resource include selects C++20 without changing telemetry's
-independent language requirements. Compile the three provider `.cpp` files;
-the core library and its existing serializers are unchanged. Provider headers carry telemetry's
-exact ABI tag in their constructor symbols to reject incompatible compiled
-layouts. Keep them at the assembly point; consumers include only
-[DeviceResources.hpp](../../../app/resources/DeviceResources.hpp), which has no
-telemetry includes. The new adapters do not include telemetry's private helpers.
+`telemetry_no_json` is optional; omit it if other application code uses the old
+JSON API. There is one resource `.pri`, with no nested include cycle.
 
-## Schema and commands
+```cpp
+#include <resource/FileSystem.hpp>
+#include <resource/telemetry/TelemetryFiles.hpp>
 
-SchemaFile emits the current field schema, including `meta.formatVersion`,
-the reflected `fieldFlags` dictionary, per-field flags, bounds, defaults and
-enum dictionaries. CommandsFile emits the grouped command schema through
-`forEachParameter`; temporary parameter references are consumed synchronously.
-The v1 resources use the default numeric representation for 64-bit JSON values.
-The existing JSON API continues to offer its separate string option.
+telemetry_resource::SchemaFile schema{fields.index()};
+telemetry_resource::CommandsFile commandFile{commands.index()};
+telemetry_resource::ValuesFile values{schema};
 
-Counting and chunk output use the same emission path. Immutable text may be
-split anywhere, including within an escaped name or UTF-8 sequence. Chunks
-must be concatenated before interpreting the JSON. No full file or temporary
-dictionary is constructed. Repeated valid cursors produce identical bytes
-while metadata stays unchanged. Floating metadata uses a bounded decimal
-formatter with 17 significant digits and nearest, ties-to-even rounding. It
-uses integer arithmetic, no allocation, no locale state and no large lookup
-tables. Differential tests compare it with both `to_chars` and `snprintf`,
-including subnormals, rounding ties and the largest finite values. This
-formatter is used for schema bounds/defaults, not live hex values.
-
-The private cursor is a u32 logical record ordinal followed by a u32 byte
-offset within that record. A record is a document/catalog delimiter or one
-field/command description. Both fit because total file length is checked
-against u32 and every record contributes bytes. Its packing is private, not a
-wire interpretation clients should recreate. The core forwards it unchanged.
-EOF has a continuation cursor too and is safe to read again, including with
-an empty output span. Invalid record/offset values produce InvalidCursor.
-
-Resuming skips whole catalogs and entry prefixes using their counts, without
-serializing earlier fields. The current record is regenerated up to its byte
-offset; a very long field dictionary or command with many parameters can
-therefore require repeated work with tiny chunks. The adapter stores no per-
-client state and imposes no artificial 16-bit limit on those byte offsets.
-Malformed metadata or an output length exceeding u32 makes `size()==0` and
-read return InvalidData. STAT still reports the provider's declared size;
-the read status is authoritative for content validity.
-
-## Live values
-
-ValuesFile is a separate machine representation; existing `writeValues()`
-retains its numeric JSON format. Example:
-
-```json
-{"meter":["003f800000","001234","0100000000"]}
+constinit const auto files = resource::filesystem(
+    resource::file("/telemetry/schema.bin", schema),
+    resource::file("/telemetry/commands.bin", commandFile),
+    resource::file("/telemetry/values.bin", values));
 ```
 
-Every string is two hex status digits followed by fixed-width payload hex:
-00 = available, 01 = Null/unavailable. All unavailable payload digits are zero.
-Payload widths are U8/S8/Bool=2 hex digits, U16/S16=4, U32/S32/F32=8,
-U64/S64/F64=16; a Null descriptor has only status `"01"`. Bool uses 00/01.
-Payload digits are most significant first, independently of CPU endianness.
-Signed integers use their low two's-complement bits; float/double use
-`std::bit_cast` of the normalized value returned by `Field::read()`.
-IEEE binary32/binary64 is checked at compile time. Normal telemetry conversion
-rules apply before representation, so a failed conversion becomes unavailable.
+`ValuesFile{fields.index()}` is also supported. It computes the schema metadata
+once to obtain its matching fingerprint. `ValuesFile{schema}` copies the cached
+index, fingerprint, field count and value size instead; it does not borrow the
+SchemaFile object's address.
 
-One whole value token, including its leading comma, is atomic. Before calling
-a getter, the adapter checks the complete token width. If it does not fit,
-that token's cursor remains unchanged and the getter is not called. Previously
-emitted document text can still be returned as a successful partial chunk.
-When nothing fits, the result is BufferTooSmall with zero bytes and the input
-cursor. The largest atomic token is 21 bytes. Metadata text can use smaller
-chunks, but a values client must eventually provide at least that much space.
+Catalogs, descriptors, labels and metadata must remain immutable at stable
+addresses for the providers' lifetimes. Owners may change values under the
+application's synchronization policy. No cross-field snapshot is acquired.
+Construction finishes before transfers start. Construction walks descriptions
+once and invokes no getter or command. `size()` is a cached u32 load. Metadata
+that cannot be encoded or exceeds the u32 file limit yields size zero and
+`read()` reports `InvalidData`; valid empty catalogs still have a file header.
+The ABI-tagged constructors retain telemetry's mixed-layout link protection.
 
-`size()` depends only on immutable metadata, not readings. Each emitted value
-calls its getter exactly once. Retrying the same cursor can produce a newer
-whole value. There is no cross-field snapshot or synchronization; owners
-provide these if needed. No getter runs during construction, size calculation,
-invalid-token-offset handling or insufficient-token-capacity handling.
-Tokens are written directly into their reserved output span. Hex formatting
-uses 32-bit words; a 64-bit payload uses two words, and a float is never widened
-to double for this representation.
+## Common wire rules
 
-See [resource contracts](../README.md), [protocol](../protocol/README.md)
-and [validation](../../../tests/resources/README.md).
+Version 1.0 uses explicit little-endian integers, two's-complement signed bits,
+and IEEE-754 binary32/binary64 float bits. No C++ struct memory is serialized.
+Strings are `u32 byteLength` followed by exactly those bytes. Names from the
+current C-string descriptor API end at the first NUL; enum names supplied as
+`string_view` preserve embedded NUL. Quotes, newlines and backslashes need no
+escaping. UTF-8 is a UI convention, not a wire constraint.
+
+Stable type codes in [BinaryFormat.hpp](BinaryFormat.hpp) are independent of
+telemetry's internal ScalarType ordinals:
+
+| Type | Null | Bool | U8 | U16 | U32 | U64 | S8 | S16 | S32 | S64 | F32 | F64 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Code | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+| Payload bytes | 0 | 1 | 1 | 2 | 4 | 8 | 1 | 2 | 4 | 8 | 4 | 8 |
+
+Metadata Scalars are `[u8 type][u8 state][u8 payloadSize][payload]`.
+Canonical Null is `00 00 00`; other types use state 1 and their exact width.
+Bool payloads are 0 or 1. Exact min, max and default are always sent, including
+native endpoints. No implicit `null means native bound` convention is used.
+The scalar codec preserves nonfinite IEEE patterns. FieldType's existing
+validation of metadata is unchanged; live reads retain Field::read conversion
+and availability semantics.
+
+Every schema/command record has an eight-byte header:
+`u8 type, u8 version=1, u16 flags=0, u32 payloadSize`.
+Unknown records can be skipped by size. A reader must reject unsupported file
+major versions. Record counts exclude the file header. In the tables below,
+`string` means length-prefixed bytes, while paired labels have both lengths
+before their bytes.
+
+## schema.bin
+
+The 40-byte header contains, in order:
+
+```
+char[4] magic = TSCH
+u16 major, minor
+u32 headerSize, totalSize, schemaFingerprint, recordCount
+u32 catalogCount, fieldCount, enumEntryCount, flagDefinitionCount
+```
+
+| Record type | Payload in wire order |
+|---|---|
+| 1 FieldFlagDefinition | `u32 value, string name` |
+| 2 Catalog | `u32 catalogIndex, fieldCount, string name` |
+| 3 Field | `u32 catalogIndex, fieldIndex, fieldId, policyFlags, enumCount; u8 declaredType, valueType, accessFlags, fieldFlags; u32 nameLength, unitLength; name bytes, unit bytes; Scalar min, max, default` |
+| 4 FieldEnumEntry | `u32 fieldId, ordinal; Scalar code; string name` |
+
+Order is flag definitions, then each catalog followed by its fields; each field
+is immediately followed by its enum records. Flag names are reflected from
+FieldFlag with magic_enum's flags mode. `accessFlags` is Readable=1, Writable=2,
+using descriptor capability, not temporary slot availability. `fieldFlags`
+Reserved=1 identifies an empty positional descriptor (Null type, no callbacks).
+Policy flags are separate. `fieldId = catalogIndex * 65536 + fieldIndex`.
+`valueType` specifies the payload width in values.bin; a client must not infer
+that width from some other member. Both type members currently have equal values.
+
+## commands.bin
+
+The 40-byte header contains:
+
+```
+char[4] magic = TCMD
+u16 major, minor
+u32 headerSize, totalSize, commandsFingerprint, recordCount
+u32 catalogCount, commandCount, parameterCount, enumEntryCount
+```
+
+| Record type | Payload in wire order |
+|---|---|
+| 1 Catalog | `u32 catalogIndex, commandCount; string name` |
+| 2 Command | `u32 catalogIndex, commandIndex, commandId, parameterCount, commandFlags=0; string name` |
+| 3 Parameter | `u32 commandId, parameterIndex, parameterFlags=0, enumCount; u8 type, presenceFlags; u16 reserved=0; u32 nameLength, unitLength; name bytes, unit bytes; Scalar min, max, default` |
+| 4 ParameterEnum | `u32 commandId, parameterIndex, ordinal; Scalar code; string name` |
+
+Order is catalog, command, parameters; each parameter precedes its enum records.
+Presence bits HasName=1 and HasUnit=2 distinguish a missing pointer from an
+explicit empty string. An absent label has length zero. Descriptions are visited
+synchronously; temporary CommandParam references are never retained. Reserved
+commands have no parameters and flags zero. This file describes commands only;
+it is not a new execution protocol.
+
+## values.bin
+
+The 16-byte header is `TVAL, u16 major, minor, u32 schemaFingerprint, fieldCount`.
+Then every field, including reserved entries, contributes exactly:
+
+```
+u8 status       // 0 available; 1 unavailable
+payload         // width from the matching schema's valueType
+```
+
+Unavailable payloads are zero filled. A Null field contributes one unavailable
+status byte. There are no IDs, types or lengths per value. Fields appear in
+catalog/field position order, so size is exactly
+`16 + sum(1 + payloadSize(field.valueType))` and does not change with readings.
+
+The full token (at most 9 bytes) must fit before its getter is called. A getter
+runs exactly once for each emitted token; measuring, skipping, invalid offsets
+and insufficient space never call that getter. Retrying may return a newer
+whole value. Different fields/chunks may reflect different instants.
+
+## Cursors and bounded output
+
+All three files use `u64(recordOrdinal) << 32 | byteOffset`. Logical record zero
+is the file header. Schema/command wire records follow it. For values, logical
+record 1 is field 0; nonzero offsets within values are invalid. Headers and
+metadata records may split at any byte. A metadata offset equal to the record
+length advances to the next record; a larger offset is invalid. EOF is exactly
+`recordCountIncludingHeader << 32`.
+
+A pause after writing any bytes returns Ok and the continuation cursor. If the
+next atomic value cannot fit an otherwise empty output, BufferTooSmall retains
+the cursor. Errors commit zero bytes and retain the original cursor; callers
+must discard any output prefix. Use at least 9 payload bytes to guarantee live
+value progress (plus the protocol's 12-byte READ envelope where applicable).
+Output storage must not overlap immutable provider metadata.
+
+Value continuation skips preceding fields by positional counts. Metadata
+continuation skips encoding earlier records, but still walks their descriptions
+to locate the ordinal. Public enum/parameter APIs expose sequential visitors,
+so metadata resume is not O(1). No per-client state, seek index or large cache is
+allocated to hide that cost. Labels in selected records require their C-string
+length; arbitrary bytes in earlier records are not copied or escaped.
+
+## Semantic fingerprints
+
+Fingerprints belong to this binary adapter and do not call telemetry schemaCrc.
+FNV-1a starts at 2166136261 and updates `(hash XOR byte) * 16777619` modulo 2^32.
+First hash four magic bytes (TSCH or TCMD), then LE u16 major and minor. Hash
+records as `[u8 type, u8 1, u16 0, payload, u32 payloadSize]`, without padding.
+Semantic record order is:
+
+- Schema: flag definitions; each catalog; for each field, its enum entries
+  before its Field record.
+- Commands: each catalog; for each command, each parameter's enums before that
+  Parameter record, followed by the Command record.
+
+This postorder discovers child counts in one construction pass. Wire output
+remains parent first. Headers, cached sizes and live values are not hash inputs;
+all descriptive payloads, positions, labels, capabilities, exact scalar bits
+and dictionaries are. Goldens pin the algorithm. Fingerprints are change hints,
+not collision-free identities or integrity checks. Commands have a separate
+fingerprint; values carry the schema fingerprint so a client can reload metadata
+when they differ.
+
+## Browser
+
+[telemetryBinary.js](../../../web/telemetryBinary.js) exports `parseSchema`,
+`parseCommands`, `parseValues`. Serve files as `application/octet-stream`:
+
+```js
+import {parseSchema, parseValues} from './telemetryBinary.js';
+const schema = parseSchema(await fetch('/telemetry/schema.bin').then(r => r.arrayBuffer()));
+const readings = parseValues(await fetch('/telemetry/values.bin').then(r => r.arrayBuffer()), schema);
+console.log(schema.catalogs[0].fields[0].name, readings.values[0].value);
+```
+
+U64/S64 are BigInt, never rounded Number. Scalars retain raw payload bytes (NaN
+payloads remain inspectable). Strings expose decoded text and a `nameBytes` or
+`unitBytes` array; invalid UTF-8 gives null text with exact bytes retained.
+Parameter presenceFlags still distinguish absent text. Unknown record types or
+versions are retained in unknownRecords. Missing required definitions are
+rejected, because an incomplete schema cannot safely decode dense values.
+Bounds, counts, positional identities, bool/status bytes and fingerprints are
+validated. The parser accepts ArrayBuffer and views with nonzero byteOffset.
+For debug JSON on the PC use a BigInt/Map replacer:
+
+```js
+JSON.stringify(schema, (_, value) => typeof value === 'bigint' ? value.toString()
+    : value instanceof Map ? Object.fromEntries(value) : value, 2);
+```
+
+See [tests and measured footprint](../../../tests/resources/README.md).

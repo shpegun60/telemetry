@@ -1,6 +1,6 @@
 /**
  * @file SchemaFile.hpp
- * @brief Borrowed immutable field schema exposed as a bounded resource stream.
+ * @brief Descriptive binary field metadata, measured once without reading values.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
@@ -10,9 +10,8 @@
 
 namespace telemetry_resource
 {
-// Construction counts metadata once. It copies the index's pointer/count,
-// allowing SchemaFile{fields.index()}; the underlying catalogs must outlive it.
-// The ABI tag protects the compiled adapter boundary just like telemetry JSON.
+// Copies the index view, borrows immutable descriptors/strings at stable addresses.
+// Invalid/unrepresentable metadata gives size()==0 and read()==InvalidData.
 class SchemaFile
 {
 public:
@@ -24,14 +23,22 @@ public:
         return size_;
     }
 
+    std::uint32_t fingerprint() const noexcept
+    {
+        return hash_;
+    }
+
     resource::ReadResult read(resource::Cursor cursor, resource::Output output) const noexcept;
 
 private:
+    friend class ValuesFile;
     const telemetry::Catalog* catalogs_;
     std::size_t count_;
-    // Cached metadata only; no serialized document or runtime values are kept.
     std::uint32_t hash_ = 0;
     std::uint32_t size_ = 0;
-    std::uint32_t records_ = 0;
+    std::uint32_t records_ = 0; // Wire records, excluding the file header.
+    std::uint32_t fields_ = 0;
+    std::uint32_t enums_ = 0;
+    std::uint32_t valuesSize_ = 0;
 };
 } // namespace telemetry_resource

@@ -20,7 +20,9 @@ The playground also contains the C++20 [resource library](lib/resource/README.md
 with optional [protocol](lib/resource/protocol/README.md) and
 [telemetry adapter](lib/resource/telemetry/README.md) modules. Its
 [application facade](app/resources/DeviceResources.hpp) exposes schema, commands
-and live values as bounded resource streams. Telemetry itself is unchanged.
+and live values as bounded binary resource streams (`schema.bin`, `commands.bin`,
+`values.bin`). A [browser decoder](web/telemetryBinary.js) converts them to JS
+objects with exact BigInt values. Telemetry itself is unchanged.
 See [resource checks](tests/resources/README.md) for host and ARM validation.
 
 Licensed under the [MIT License](LICENSE), with the same license text and

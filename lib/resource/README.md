@@ -32,7 +32,7 @@ include(lib/resource/resource.pri)
 ```
 
 Set the option before the resource include; repeated includes add no duplicate
-sources. The telemetry providers require telemetry's normal JSON support.
+sources. Binary telemetry providers also work with `CONFIG += telemetry_no_json`.
 
 ```cpp
 #include <resource/FileSystem.hpp>
@@ -110,3 +110,9 @@ It owns no cursor and permits overlapping input/output spans.
 See [resource tests](../../tests/resources/README.md), the
 [packet protocol](protocol/README.md), and
 [telemetry adapters](telemetry/README.md).
+
+The compact result ABI uses 16-byte ReadResult/WriteResult and 8-byte FileStat
+on ARM32. Status-first brace construction remains supported through constexpr
+constructors. These types are no longer aggregates; designated initializers
+must become ordinary constructor calls. Rebuild all resource consumers after
+this ABI change. The packet representation is independent and unchanged.

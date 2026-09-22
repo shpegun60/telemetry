@@ -22,6 +22,9 @@ jobs:
           - {cxx: clang++-18, standard: c++17, mode: sanitized}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Prepare decimal-comma locale
         run: sudo localedef -i de_DE -f UTF-8 de_DE.UTF-8
       - name: Compile and check
@@ -43,7 +46,7 @@ jobs:
         run: |
           flags=()
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
-          python3 tests/resources/run.py --build-dir build/resources "${flags[@]}"
+          python3 tests/resources/run.py --node node --build-dir build/resources "${flags[@]}"
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
         run: |
@@ -97,3 +100,10 @@ jobs:
           make -j2
       - name: Startup check
         run: build/qt/telemetry_playground -platform offscreen --smoke-test
+      - name: Resource adapter without telemetry JSON
+        run: |
+          mkdir -p build/no-json
+          cd build/no-json
+          qmake6 ../../tests/resources/no_json.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
+          make -j2
+          ./resource_no_json

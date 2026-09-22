@@ -3,7 +3,7 @@
 #
 # The core and packet protocol need only C++20. For telemetry providers, include
 # lib/telemetry/telemetry.pri first and set CONFIG += resource_telemetry before
-# including this file. Telemetry must have its normal JSON support enabled.
+# including this file. The adapter also supports CONFIG += telemetry_no_json.
 isEmpty(RESOURCE_PRI_INCLUDED) {
     RESOURCE_PRI_INCLUDED = 1
 
@@ -21,18 +21,17 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
     SOURCES += $$PWD/protocol/Protocol.cpp
 
     contains(CONFIG, resource_telemetry) {
-        contains(CONFIG, telemetry_no_json) {
-            error(resource_telemetry requires telemetry JSON support for schema fingerprints)
-        }
-
         HEADERS += \
             $$PWD/telemetry/TelemetryFiles.hpp \
             $$PWD/telemetry/SchemaFile.hpp \
             $$PWD/telemetry/CommandsFile.hpp \
             $$PWD/telemetry/ValuesFile.hpp \
-            $$PWD/telemetry/detail/FloatText.hpp \
-            $$PWD/telemetry/detail/Stream.hpp \
-            $$PWD/telemetry/detail/Json.hpp
+            $$PWD/telemetry/BinaryFormat.hpp \
+            $$PWD/telemetry/detail/BinaryWriter.hpp \
+            $$PWD/telemetry/detail/BinaryStream.hpp \
+            $$PWD/telemetry/detail/BinaryScalar.hpp \
+            $$PWD/telemetry/detail/Fingerprint.hpp \
+            $$PWD/telemetry/detail/Metadata.hpp
 
         SOURCES += \
             $$PWD/telemetry/SchemaFile.cpp \

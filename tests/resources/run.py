@@ -4,21 +4,20 @@
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 """
 import argparse
+import json
 import os
 from pathlib import Path
 import re
 import subprocess
+from stack_check import check_usage, self_test as check_stack_controls
 
 ROOT = Path(__file__).resolve().parents[2]
-TELEMETRY = ["lib/telemetry/abi/TelemetryAbi.cpp",
-             "lib/telemetry/serialization/TelemetryJson.cpp",
-             "lib/telemetry/serialization/TelemetryCommandJson.cpp"]
+TELEMETRY = ["lib/telemetry/abi/TelemetryAbi.cpp"]
 ADAPTERS = [f"lib/resource/telemetry/{name}.cpp" for name in ("SchemaFile", "CommandsFile", "ValuesFile")]
 PROTOCOL = ["lib/resource/protocol/Protocol.cpp"]
 DEVICE = ["app/resources/DeviceResources.cpp", "app/demo/DemoCatalog.cpp"]
 HEADERS = [str(p.relative_to(ROOT / "lib")).replace("\\", "/")
-           for folder in ("resource", "resource/protocol", "resource/telemetry")
-           for p in sorted((ROOT / "lib" / folder).glob("*.hpp"))]
+           for p in sorted((ROOT / "lib/resource").rglob("*.hpp"))]
 
 
 def main():
@@ -27,9 +26,11 @@ def main():
     parser.add_argument("--build-dir", type=Path, required=True)
     parser.add_argument("--sanitize", action="store_true")
     parser.add_argument("--arm", action="store_true")
+    parser.add_argument("--node", help="Node executable for the browser decoder checks")
     parser.add_argument("--objdump", default="arm-none-eabi-objdump")
     parser.add_argument("--size", default="arm-none-eabi-size")
     args = parser.parse_args()
+    check_stack_controls()
     build = args.build_dir.resolve()
     build.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -43,7 +44,7 @@ def main():
         (build / (name + ".log")).write_text("COMMAND " + repr(command) + "\n" + result.stdout, encoding="utf-8")
         if (result.returncode == 0) == reject:
             raise RuntimeError(name + "\n" + result.stdout)
-        if result.returncode == 0 and result.stdout and not name.startswith(("compile", "header", "negative", "dump")):
+        if result.returncode == 0 and result.stdout and not name.startswith(("compile", "header", "negative", "dump", "link")):
             print(result.stdout.strip(), flush=True)
         return result.stdout
 
@@ -71,17 +72,20 @@ def main():
             obj = build / f"{opt}-{Path(src).stem}.o"
             run(object_flags + ["-" + opt, "-c", src, "-o", str(obj)], f"compile-{opt}-{obj.stem}")
             objects[src] = str(obj)
+            if args.arm and src in ADAPTERS + PROTOCOL:
+                symbols = run([args.objdump, "-tC", str(obj)], f"dump-object-symbols-{opt}-{Path(src).stem}")
+                if re.search(r"malloc|calloc|realloc|operator new", symbols):
+                    raise RuntimeError("Heap dependency entered resource code: " + src)
+
         if args.arm:
-            numbers = build / f"{opt}-NumberTextProbe.o"
-            run(object_flags + ["-" + opt, "-c", "tests/resources/NumberTextProbe.cpp", "-o", str(numbers)],
-                f"compile-{opt}-numbers")
-            numeric_dump = run([args.objdump, "-drC", str(numbers)], f"dump-numbers-{opt}")
-            for function in re.split(r"(?m)^[0-9a-f]+ <", numeric_dump)[1:]:
-                name, _, body = function.partition(">:\n")
-                native = name in ("resource_probe_u32", "resource_probe_s32") or re.search(
-                    r"Writer::integer<(?:unsigned )?(?:int|long)>\(", name)
-                if native and re.search(r"__aeabi_(?:ul|l)divmod", body):
-                    raise RuntimeError("32-bit formatting widened into 64-bit division: " + name)
+            stack = {}
+            for source in ADAPTERS + PROTOCOL:
+                stem = Path(source).stem
+                report = build / f"{opt}-{stem}.su"
+                stack[stem] = check_usage(report.read_text(encoding="utf-8"),
+                    required=stem if stem.endswith("File") else None)
+            (build / f"stack-usage-{opt}.log").write_text(json.dumps(stack, indent=2), encoding="utf-8")
+            print(f"ARM {opt} bounded stack guards passed", flush=True)
             obj = build / f"{opt}-ArmProbe.o"
             run(object_flags + ["-" + opt, "-c", "tests/resources/ArmProbe.cpp", "-o", str(obj)], f"compile-{opt}-probe")
             dump = run([args.objdump, "-drC", str(obj)], f"dump-{opt}")
@@ -102,21 +106,23 @@ def main():
                          "-Wl,--gc-sections", "-o", str(elf)], f"link-{opt}")
             run([args.size, "-A", str(elf)], f"size-{opt}")
             symbols = run([args.objdump, "-tC", str(elf)], f"dump-symbols-{opt}")
-            if "POW10_SPLIT" in symbols or "ryu::" in symbols:
-                raise RuntimeError("Large floating-format tables returned to the resource image")
+            if re.search(r"snprintf|_printf_float|localeconv|strtod|to_chars|ryu|schubfach|POW10|\bpow[f l]?\b|schemaCrc", symbols, re.I):
+                raise RuntimeError("Text formatting or JSON dependency entered the binary resource image")
         else:
             tests = {
                 "CoreCheck": PROTOCOL,
-                "NumberTextCheck": [],
+                "BinaryCheck": [],
                 "StreamCheck": [],
-                "TelemetryFilesCheck": TELEMETRY + ADAPTERS,
+                "TelemetryFilesCheck": TELEMETRY + ADAPTERS + PROTOCOL,
                 "DeviceCheck": sources,
                 "NoHeapCheck": TELEMETRY + ADAPTERS + PROTOCOL,
             }
             for name, deps in tests.items():
                 exe = build / (name + (".exe" if os.name == "nt" else ""))
                 run(flags + ["-" + opt, f"tests/resources/{name}.cpp", *(objects[d] for d in deps), "-o", str(exe)], "compile-" + name)
-                run([str(exe)], name)
+                run([str(exe), *([str(build / "fixtures")] if name == "TelemetryFilesCheck" else [])], name)
+            if args.node:
+                run([args.node, "tests/resources/DecoderCheck.mjs", str(build / "fixtures")], "DecoderCheck")
             for adapter in range(3):
                 for mismatch in (False, True):
                     options = [f"-DADAPTER={adapter}"]

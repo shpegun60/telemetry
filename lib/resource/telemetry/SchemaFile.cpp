@@ -1,130 +1,192 @@
 /**
  * @file SchemaFile.cpp
- * @brief Resume field schema records without materializing the file.
+ * @brief Parent-first binary records and a single construction-time metadata pass.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
 #include "SchemaFile.hpp"
-#include "detail/Json.hpp"
-#include <telemetry/serialization/TelemetryJson.h>
+#include "detail/BinaryStream.hpp"
+#include "detail/Metadata.hpp"
+#include <telemetry/catalog/TelemetryIndex.h>
 #include <magic_enum/magic_enum.hpp>
 
 namespace telemetry_resource
 {
 namespace
 {
-using detail::Stream;
-using detail::Writer;
+using detail::BinaryWriter;
+constexpr auto flagDefinitions =
+    magic_enum::enum_entries<telemetry::FieldFlag, magic_enum::as_flags<>>();
 
-bool emit(const telemetry::CatalogIndex& index, std::uint32_t hash, Stream& stream) noexcept
+constexpr auto code(SchemaRecord r) noexcept
 {
-    if (!stream.record(
-            [hash](Writer& out) noexcept
-            {
-                if (!out.text("{\"schema\":\"") || !out.hex32(hash) ||
-                    !out.text("\",\"meta\":{\"formatVersion\":") ||
-                    !out.integer(telemetry::jsonSchemaFormatVersion) ||
-                    !out.text(",\"fieldFlags\":{\"type\":\"u32\",\"values\":{"))
-                {
-                    return false;
-                }
-                constexpr auto flags =
-                    magic_enum::enum_entries<telemetry::FieldFlag, magic_enum::as_flags<>>();
-                bool first = true;
-                for (const auto& [flag, name] : flags)
-                {
-                    if ((!first && !out.text(",")) || !out.text("\"") ||
-                        !out.integer(static_cast<std::uint32_t>(flag)) || !out.text("\":") ||
-                        !out.string(name))
-                    {
-                        return false;
-                    }
-                    first = false;
-                }
-                return out.text("}}},\"catalogs\":[");
-            }))
-    {
-        return false;
-    }
-    for (const auto catalog : index.catalogs())
-    {
-        const auto entries = catalog.fields();
-        if (stream.skip(entries.size() + 2))
-        {
-            continue;
-        }
-        if (!stream.record(
-                [&](Writer& out) noexcept
-                {
-                    return (catalog.index() == 0 || out.text(",")) && out.text("{\"id\":") &&
-                           out.integer(catalog.index()) && out.text(",\"name\":") &&
-                           out.requiredString(catalog.name()) && out.text(",\"fields\":[");
-                }))
-        {
-            return false;
-        }
-        const auto start = stream.skipEntries(entries.size());
-        // Direct positional access after range validation avoids walking all
-        // earlier fields when resuming a later record in a large catalog.
-        for (std::size_t i = start; i < entries.size(); ++i)
-        {
-            const auto& field = catalog.catalog().fields[i];
-            if (!stream.record(
-                    [&](Writer& out) noexcept
-                    {
-                        const auto id = telemetry::makeId(catalog.index(),
-                                                          static_cast<telemetry::EntryOffset>(i));
-                        return (i == 0 || out.text(",")) && out.text("{\"i\":") && out.integer(i) &&
-                               out.text(",\"id\":") && out.integer(id) && out.text(",\"n\":") &&
-                               out.requiredString(field.name) && out.text(",\"u\":") &&
-                               out.requiredString(field.unit) && out.text(",\"t\":\"") &&
-                               out.text(detail::typeName(field.declaredType)) &&
-                               out.text("\",\"w\":") &&
-                               out.text(field.writable() ? "true" : "false") &&
-                               out.text(",\"f\":") && out.integer(field.flags().value()) &&
-                               detail::limits(out, field.declaredType) && out.text("}");
-                    }))
-            {
-                return false;
-            }
-        }
-        if (!stream.record(
-                [](Writer& out) noexcept
-                {
-                    return out.text("]}");
-                }))
-        {
-            return false;
-        }
-    }
-    return stream.record(
-        [](Writer& out) noexcept
-        {
-            return out.text("]}");
-        });
+    return static_cast<std::uint8_t>(r);
 }
 } // namespace
 
 SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
                        telemetry::detail::CurrentAbiTag) noexcept
-    : catalogs_(index.data()), count_(index.size()), hash_(telemetry::schemaCrc(index))
+    : catalogs_(index.data()), count_(index.size())
 {
-    Stream measure;
-    if (emit(index, hash_, measure))
+    detail::MetadataMeasure measure{"TSCH"};
+    std::uint32_t valuesSize = valuesHeaderSize;
+    for (const auto& [flag, name] : flagDefinitions)
     {
-        size_ = measure.size();
-        records_ = measure.records();
+        if (!measure.record(code(SchemaRecord::FieldFlagDefinition),
+                            [&](BinaryWriter& out) noexcept
+                            {
+                                return out.u32(static_cast<std::uint32_t>(flag)) &&
+                                       out.string(name);
+                            }))
+        {
+            return;
+        }
     }
+    for (const auto catalog : index.catalogs())
+    {
+        if (!measure.record(code(SchemaRecord::Catalog),
+                            [&](BinaryWriter& out) noexcept
+                            {
+                                return detail::catalogPayload(
+                                    out, catalog.index(),
+                                    static_cast<std::uint32_t>(catalog.fields().size()),
+                                    catalog.name());
+                            }))
+        {
+            return;
+        }
+        for (const auto entry : catalog.fields())
+        {
+            const auto& field = entry.field();
+            std::uint32_t enums = 0;
+            if (!detail::enumEntries(
+                    field.declaredType,
+                    [&](const telemetry::Scalar& value, std::string_view name) noexcept
+                    {
+                        const bool ok =
+                            measure.record(code(SchemaRecord::FieldEnumEntry),
+                                           [&](BinaryWriter& out) noexcept
+                                           {
+                                               return out.u32(entry.id()) && out.u32(enums) &&
+                                                      out.scalar(value) && out.string(name);
+                                           });
+                        if (ok)
+                        {
+                            ++enums;
+                            ++enums_;
+                        }
+                        return ok;
+                    }))
+            {
+                return;
+            }
+            if (!measure.record(code(SchemaRecord::Field),
+                                [&](BinaryWriter& out) noexcept
+                                {
+                                    return detail::fieldPayload(out, catalog.index(), entry.index(),
+                                                                field, enums);
+                                }))
+            {
+                return;
+            }
+            ++fields_;
+            const auto width = 1u + payloadSize(toWireType(field.readType));
+            if (width > UINT32_MAX - valuesSize)
+            {
+                return;
+            }
+            valuesSize += width;
+        }
+    }
+    hash_ = measure.hash.value();
+    size_ = measure.size;
+    records_ = measure.records;
+    valuesSize_ = valuesSize;
 }
 
-resource::ReadResult SchemaFile::read(resource::Cursor cursor, resource::Output out) const noexcept
+resource::ReadResult SchemaFile::read(resource::Cursor cursor,
+                                      resource::Output output) const noexcept
 {
     if (size_ == 0)
     {
         return {resource::Status::InvalidData, cursor};
     }
-    Stream stream{cursor, out};
-    (void)emit(telemetry::CatalogIndex{catalogs_, count_}, hash_, stream);
-    return stream.result(records_);
+    detail::BinaryStream stream{cursor, output, records_ + 1};
+    if (!stream.rawRecord(metadataHeaderSize,
+                          [&](BinaryWriter& out) noexcept
+                          {
+                              return out.raw("TSCH") && out.u16(binaryMajor) &&
+                                     out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
+                                     out.u32(size_) && out.u32(hash_) && out.u32(records_) &&
+                                     out.u32(static_cast<std::uint32_t>(count_)) &&
+                                     out.u32(fields_) && out.u32(enums_) &&
+                                     out.u32(static_cast<std::uint32_t>(flagDefinitions.size()));
+                          }))
+    {
+        return stream.result();
+    }
+    for (const auto& [flag, name] : flagDefinitions)
+    {
+        if (!stream.record(code(SchemaRecord::FieldFlagDefinition),
+                           [&](BinaryWriter& out) noexcept
+                           {
+                               return out.u32(static_cast<std::uint32_t>(flag)) && out.string(name);
+                           }))
+        {
+            return stream.result();
+        }
+    }
+    for (const auto catalog : telemetry::CatalogIndex{catalogs_, count_}.catalogs())
+    {
+        if (!stream.record(code(SchemaRecord::Catalog),
+                           [&](BinaryWriter& out) noexcept
+                           {
+                               return detail::catalogPayload(
+                                   out, catalog.index(),
+                                   static_cast<std::uint32_t>(catalog.fields().size()),
+                                   catalog.name());
+                           }))
+        {
+            return stream.result();
+        }
+        for (const auto entry : catalog.fields())
+        {
+            const auto& field = entry.field();
+            std::uint32_t enums = 0;
+            if (!detail::enumCount(field.declaredType, enums))
+            {
+                stream.fail(resource::Status::InvalidData);
+                return stream.result();
+            }
+            if (!stream.record(code(SchemaRecord::Field),
+                               [&](BinaryWriter& out) noexcept
+                               {
+                                   return detail::fieldPayload(out, catalog.index(), entry.index(),
+                                                               field, enums);
+                               }))
+            {
+                return stream.result();
+            }
+            std::uint32_t ordinal = 0;
+            if (!detail::enumEntries(
+                    field.declaredType,
+                    [&](const telemetry::Scalar& value, std::string_view name) noexcept
+                    {
+                        const bool ok =
+                            stream.record(code(SchemaRecord::FieldEnumEntry),
+                                          [&](BinaryWriter& out) noexcept
+                                          {
+                                              return out.u32(entry.id()) && out.u32(ordinal) &&
+                                                     out.scalar(value) && out.string(name);
+                                          });
+                        ++ordinal;
+                        return ok;
+                    }))
+            {
+                return stream.result();
+            }
+        }
+    }
+    return stream.result();
 }
 } // namespace telemetry_resource

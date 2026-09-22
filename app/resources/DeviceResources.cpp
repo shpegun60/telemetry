@@ -14,13 +14,13 @@ namespace
 {
 telemetry_resource::SchemaFile schema{demo::fields.index()};
 telemetry_resource::CommandsFile commands{demo::commands.index()};
-telemetry_resource::ValuesFile values{demo::fields.index()};
+telemetry_resource::ValuesFile values{schema};
 // Providers hold small runtime views; the descriptor table needs no startup
 // construction and can live in read-only storage. Initialization finishes
 // before main; application transports must not read it from other initializers.
-constinit const auto fs = resource::filesystem(resource::file("/telemetry/schema.json", schema),
-                                               resource::file("/telemetry/commands.json", commands),
-                                               resource::file("/telemetry/values.json", values));
+constinit const auto fs = resource::filesystem(resource::file("/telemetry/schema.bin", schema),
+                                               resource::file("/telemetry/commands.bin", commands),
+                                               resource::file("/telemetry/values.bin", values));
 static_assert(decltype(fs)::fileCount() == 3);
 } // namespace
 
