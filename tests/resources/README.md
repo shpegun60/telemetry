@@ -37,7 +37,7 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   prefixes and chunked/empty updates.
 - StreamCheck: hierarchical block offsets, empty/tiny buffers, atomic
   preflight, output guards, EOF and invalid cursors.
-- TelemetryFilesCheck: 24211 checks with an independent binary reader against
+- TelemetryFilesCheck: 24253 checks with an independent binary reader against
   the real metadata. Full-file goldens pin schema, commands and values bytes,
   including fingerprints. Chunk capacities 1/2/3/7/31/63/127/220/256/1024 and
   every block byte offset reconstruct identical metadata. Checks cover
@@ -46,6 +46,12 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   null versus empty parameter labels, flags/fingerprint changes, atomic getter
   counts, changing readings, unavailable zero payloads and protocol READ paging.
   Every values-header byte offset is checked, including both fingerprint words.
+- MetadataSizeCheck: 51440 checks compare checked arithmetic sizes with actual
+  encodings over all native Scalar types and 128 label lengths. They cover
+  nullable labels, embedded NUL, enum records, u32 overflow, and rejection of
+  all invalid internal ScalarType tags in field and parameter descriptors.
+- LocalityCheck: 65536 catalogs with instrumented metadata callbacks prove that
+  resuming the final field/command visits no earlier descriptor or getter.
 - DecoderCheck: Node runs the actual browser ES module against the C++ fixtures.
   Exact BigInt/signed/float values, unknown type-99 records with 17-byte payloads,
   minor/header extensions, 1667 truncation cases, invalid lengths/counts/status,
@@ -166,3 +172,42 @@ READ. GCC 14 O2 reports Schema read 224 B, Command read 184 B, Values read 120 B
 The schema exceeds the retained 168 B guard; the guard is deliberately unchanged.
 The following single-encode stage must resolve this before final publication.
 This checkpoint is a functional comparison, not the final performance result.
+
+## Single-encode stage
+
+READ now prepares string references once per processed record, calculates its
+length with checked arithmetic, then encodes it at most once. Skipped records
+run no encoder. The shared wire primitives are specialized for construction-time
+count/hash or bounded output; READ stores no hash pointer or measuring flag.
+Each min/max/default temporary ends before the next is created. Values use a
+dedicated fixed-token loop, with one complete-token reservation before its getter.
+
+The v2 Golden.hpp payloads, 64-bit semantic fingerprints and browser decoder
+are unchanged. All earlier cursor boundary and locality controls still pass.
+The intermediate stage's stack regression is resolved without raising any limit:
+
+| Individual READ frame | GCC 13 O2 | GCC 13 Os | GCC 14 O2 | GCC 14 Os |
+|---|---:|---:|---:|---:|
+| SchemaFile | 168 | 160 | 168 | 160 |
+| CommandsFile | 112 | 96 | 112 | 96 |
+| ValuesFile | 112 | 128 | 120 | 120 |
+
+These numbers still exclude nested calls, owner callbacks and IRQs. The complete
+linked demo fixture with CubeIDE GCC 14.3.1 has:
+
+| Optimization | `.text` | `.rodata` | `.data` | `.bss` | text + rodata vs f1cfbd8 |
+|---|---:|---:|---:|---:|---:|
+| O2 | 32880 | 2336 | 116 | 444 | -560 B |
+| Os | 24760 | 2272 | 116 | 444 | +2384 B |
+
+The Os increase is an explicit code-size cost of direct block dispatch and
+specialized bounded encoding. These are build measurements, not cycle claims.
+The fixture links no decimal formatter or JSON serializer. Resource objects
+contain no allocation references or software 64-bit multiply. The selected
+values lookup has no call or loop; a backwards jump to a shared return is allowed
+as normal compiler tail merging and is not mistaken for a traversal loop.
+
+[H7S harness](h7s/README.md) compares the exact f1cfbd8 baseline with current source,
+including first/last entry READ, sequential enum/parameter visitors and complete
+nested stack watermarks. It retains input/image hashes and restores the saved
+64 KiB image before reporting success.

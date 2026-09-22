@@ -19,7 +19,7 @@ resource::ReadResult read(resource::Cursor cursor, resource::Output output)
         if (stream.kind() == BlockKind::Prefix)
         {
             if (!stream.rawRecord(3,
-                                  [](BinaryWriter& out) noexcept
+                                  [](OutputWriter& out) noexcept
                                   {
                                       return out.raw("abc");
                                   }))
@@ -30,8 +30,8 @@ resource::ReadResult read(resource::Cursor cursor, resource::Output output)
         }
         else if (stream.kind() == BlockKind::Catalog)
         {
-            if (!stream.record(7,
-                               [](BinaryWriter& out) noexcept
+            if (!stream.record(7, 7,
+                               [](OutputWriter& out) noexcept
                                {
                                    return out.string("A\nB");
                                }))
@@ -102,12 +102,42 @@ int main()
         CHECK(read(bad, output).status == Status::InvalidCursor && calls == 0);
     }
     BlockStream failed{0, output};
-    CHECK(!failed.record(1,
-                         [](BinaryWriter& out) noexcept
+    CHECK(!failed.record(1, 1,
+                         [](OutputWriter& out) noexcept
                          {
                              return out.fail();
                          }));
     CHECK(failed.result().status == Status::InvalidData);
+    // Supplied arithmetic lengths are checked against a completed encoding.
+    // Each READ encodes once; records preceding the local offset encode zero times.
+    for (const auto payload : {1u, 3u})
+    {
+        BlockStream mismatch{0, output};
+        unsigned encoded = 0;
+        CHECK(!mismatch.record(1, payload,
+                               [&](OutputWriter& out) noexcept
+                               {
+                                   ++encoded;
+                                   return out.raw("AB");
+                               }));
+        const auto result = mismatch.result();
+        CHECK(encoded == 1 && result.status == Status::InvalidData && result.next == 0 &&
+              result.written == 0);
+    }
+    unsigned encoded = 0;
+    const auto pair = [&](OutputWriter& out) noexcept
+    {
+        ++encoded;
+        return out.raw("AB");
+    };
+    BlockStream once{0, output};
+    CHECK(once.record(1, 2, pair) && encoded == 1 && once.finish(endCursor));
+    BlockStream skip{10, output};
+    CHECK(skip.record(1, 2, pair) && encoded == 1 && skip.finish(endCursor));
+    BlockStream partial{8, resource::Output{output, 1}};
+    CHECK(!partial.record(1, 2, pair) && encoded == 2);
+    CHECK(partial.result().status == Status::Ok && partial.result().written == 1 &&
+          partial.result().next == 9);
     BlockStream zero{0, output};
     CHECK(!zero.atomic(0,
                        [](resource::Output) noexcept
@@ -115,7 +145,7 @@ int main()
                        }));
     CHECK(zero.result().status == Status::InvalidData);
     unsigned emitted = 0;
-    const auto emit = [&](BinaryWriter&) noexcept
+    const auto emit = [&](OutputWriter&) noexcept
     {
         ++emitted;
         return true;

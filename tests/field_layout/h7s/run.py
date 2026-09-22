@@ -65,7 +65,7 @@ def copy_git_tree(reference, relative, destination):
     return commit
 
 
-def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=(), fixture_inputs=()):
+def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=(), fixture_inputs=(), cxx_standard='c++17'):
     cube = args.cube.resolve()
     compiler = Path(args.arm_cxx).resolve()
     gcc = compiler.with_name('arm-none-eabi-gcc.exe')
@@ -111,7 +111,7 @@ def build(args, output, *, fixture_sources=None, linker_sections='', link_flags=
         for variant in args.variants:
             directory = output/variant/opt
             directory.mkdir()
-            cppflags = [*flags, *include, *BASE['includes'](output/variant), '-std=c++17', '-'+opt,
+            cppflags = [*flags, *include, *BASE['includes'](output/variant), '-I'+str(output/variant/'lib'), '-std='+cxx_standard, '-'+opt,
                         '-Wall', '-Wextra', '-Werror', '-pedantic-errors', '-fno-use-cxa-atexit', '-fstack-usage',
                         f'-DTELEMETRY_LAYOUT_VARIANT={BASE["VARIANTS"][variant]}',
                         f'-DLAYOUT_OPT={2 if opt == "O2" else 0}', '-DLAYOUT_FIELD_COUNT=128', '-DLAYOUT_TABLE_ALIGN=32']

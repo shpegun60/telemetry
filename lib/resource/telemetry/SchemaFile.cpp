@@ -134,7 +134,7 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
         {
             if (!stream.rawRecord(
                     metadataHeaderSize,
-                    [&](BinaryWriter& out) noexcept
+                    [&](detail::OutputWriter& out) noexcept
                     {
                         return out.raw("TSCH") && out.u16(binaryMajor) && out.u16(binaryMinor) &&
                                out.u32(metadataHeaderSize) && out.u32(size_) &&
@@ -148,11 +148,18 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
             }
             for (const auto& [flag, name] : flagDefinitions)
             {
-                if (!stream.record(code(SchemaRecord::FieldFlagDefinition),
-                                   [&](BinaryWriter& out) noexcept
+                detail::StringRef text;
+                std::uint32_t size;
+                if (!detail::stringRef(name, text) || !detail::namedPayloadSize(4, text, size))
+                {
+                    stream.fail(resource::Status::InvalidData);
+                    return stream.result();
+                }
+                if (!stream.record(code(SchemaRecord::FieldFlagDefinition), size,
+                                   [&](detail::OutputWriter& out) noexcept
                                    {
                                        return out.u32(static_cast<std::uint32_t>(flag)) &&
-                                              out.string(name);
+                                              out.string(text.view());
                                    }))
                 {
                     return stream.result();
@@ -170,12 +177,19 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
                 break;
             }
             const auto& catalog = *index.catalog(static_cast<telemetry::GroupId>(group));
-            if (!stream.record(code(SchemaRecord::Catalog),
-                               [&](BinaryWriter& out) noexcept
+            detail::StringRef name;
+            std::uint32_t catalogSize;
+            if (!detail::stringRef(catalog.name, name) ||
+                !detail::catalogPayloadSize(name, catalogSize))
+            {
+                stream.fail(resource::Status::InvalidData);
+                break;
+            }
+            if (!stream.record(code(SchemaRecord::Catalog), catalogSize,
+                               [&](detail::OutputWriter& out) noexcept
                                {
                                    return detail::catalogPayload(
-                                       out, group, static_cast<std::uint32_t>(catalog.count),
-                                       catalog.name);
+                                       out, group, static_cast<std::uint32_t>(catalog.count), name);
                                }))
             {
                 break;
@@ -192,26 +206,44 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
                 stream.fail(resource::Status::InvalidCursor);
                 break;
             }
-            if (!stream.record(code(SchemaRecord::Field),
-                               [&](BinaryWriter& out) noexcept
-                               {
-                                   return detail::fieldPayload(out, id >> 16, id & 0xffffu, *field,
-                                                               field->declaredType.enumCount());
-                               }))
             {
-                break;
+                detail::LabelRefs refs;
+                std::uint32_t fieldSize;
+                if (!detail::labelRefs(field->name, field->unit, false, refs) ||
+                    !detail::fieldPayloadSize(*field, refs, fieldSize))
+                {
+                    stream.fail(resource::Status::InvalidData);
+                    break;
+                }
+                if (!stream.record(code(SchemaRecord::Field), fieldSize,
+                                   [&](detail::OutputWriter& out) noexcept
+                                   {
+                                       return detail::fieldPayload(
+                                           out, id >> 16, id & 0xffffu, *field,
+                                           field->declaredType.enumCount(), refs);
+                                   }))
+                {
+                    break;
+                }
             }
             std::uint32_t ordinal = 0;
             if (!detail::enumEntries(
                     field->declaredType,
                     [&](const telemetry::Scalar& value, std::string_view name) noexcept
                     {
-                        const bool ok = stream.record(code(SchemaRecord::FieldEnumEntry),
-                                                      [&](BinaryWriter& out) noexcept
+                        detail::StringRef text;
+                        std::uint32_t size;
+                        if (!detail::stringRef(name, text) ||
+                            !detail::enumPayloadSize(false, value, text, size))
+                        {
+                            return stream.fail(resource::Status::InvalidData);
+                        }
+                        const bool ok = stream.record(code(SchemaRecord::FieldEnumEntry), size,
+                                                      [&](detail::OutputWriter& out) noexcept
                                                       {
                                                           return out.u32(id) && out.u32(ordinal) &&
                                                                  out.scalar(value) &&
-                                                                 out.string(name);
+                                                                 out.string(text.view());
                                                       });
                         ++ordinal;
                         return ok;

@@ -202,7 +202,11 @@ Resume resolves the selected descriptor directly through the positional index.
 No earlier catalog, field or command description is traversed. Local records
 inside that selected field/command block may still require traversal and string
 length calculations. The original sequential metadata callbacks serve this local
-walk; counts are read directly from the new ops tables. Values scan only any
+walk; counts are read directly from the new ops tables. Record lengths come from checked
+arithmetic and string references prepared once for that record. READ never runs
+an encoder just to count its bytes, and metadata records skipped by a local
+offset do not run their encoders. Construction retains the original semantic
+hash pass. Values scan only any
 consecutive empty groups *after* the current position. No per-client state,
 global seek tables or extra descriptor storage is allocated.
 

@@ -122,15 +122,16 @@ public:
             return pause();
         }
         const auto skip = offset_ - position_;
-        BinaryWriter out{out_.subspan(used_), skip};
+        OutputWriter out{out_.subspan(used_), skip};
         const bool done = emit(out);
+        const auto written = out_.size() - used_ - out.remaining();
         if (!out.ok() || (!done && !out.full()) ||
-            (done && (out.skip() != 0 || out.used() != width - skip)) || out.used() > width - skip)
+            (done && (out.skip() != 0 || written != width - skip)) || written > width - skip)
         {
             return fail(resource::Status::InvalidData);
         }
-        used_ += out.used();
-        offset_ += static_cast<std::uint32_t>(out.used());
+        used_ += written;
+        offset_ += static_cast<std::uint32_t>(written);
         if (!done)
         {
             return pause();
@@ -139,53 +140,21 @@ public:
         return true;
     }
 
+    // A READ never runs an encoder to discover its length. The caller shares
+    // precomputed string refs between checked arithmetic sizing and this encode.
     template <class Emit>
-    bool record(std::uint8_t type, Emit emit) noexcept
+    bool record(std::uint8_t type, std::uint32_t payload, Emit emit) noexcept
     {
-        if (!active())
-        {
-            return false;
-        }
-        BinaryWriter writer;
-        if (!emit(writer) || !writer.ok() || writer.count() > offsetMask - recordHeaderSize)
+        if (payload > offsetMask - recordHeaderSize)
         {
             return fail(resource::Status::InvalidData);
         }
-        const auto size = writer.count();
-        const auto width = recordHeaderSize + size;
-        if (width > offsetMask - position_)
-        {
-            return fail(resource::Status::InvalidData);
-        }
-        if (offset_ >= position_ + width)
-        {
-            position_ += width;
-            return true;
-        }
-        if (used_ == out_.size())
-        {
-            return pause();
-        }
-        const auto skip = offset_ - position_;
-        // Reuse the measure writer's lifetime/storage. Two simultaneously live
-        // writers would add stack at every level of the metadata visitor chain.
-        writer = BinaryWriter{out_.subspan(used_), skip};
-        const bool done =
-            writer.u8(type) && writer.u8(1) && writer.u16(0) && writer.u32(size) && emit(writer);
-        if (!writer.ok() || (!done && !writer.full()) ||
-            (done && (writer.skip() != 0 || writer.used() != width - skip)) ||
-            writer.used() > width - skip)
-        {
-            return fail(resource::Status::InvalidData);
-        }
-        used_ += writer.used();
-        offset_ += static_cast<std::uint32_t>(writer.used());
-        if (!done)
-        {
-            return pause();
-        }
-        position_ += width;
-        return true;
+        return rawRecord(recordHeaderSize + payload,
+                         [&](OutputWriter& out) noexcept
+                         {
+                             return out.u8(type) && out.u8(1) && out.u16(0) && out.u32(payload) &&
+                                    emit(out);
+                         });
     }
 
     bool fixedRecord(resource::Input bytes) noexcept
@@ -195,7 +164,7 @@ public:
             return fail(resource::Status::InvalidData);
         }
         return rawRecord(static_cast<std::uint32_t>(bytes.size()),
-                         [&](BinaryWriter& out) noexcept
+                         [&](OutputWriter& out) noexcept
                          {
                              return out.bytes(bytes);
                          });

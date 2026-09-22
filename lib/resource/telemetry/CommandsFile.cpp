@@ -139,7 +139,7 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
         if (stream.kind() == BlockKind::Prefix)
         {
             if (!stream.rawRecord(metadataHeaderSize,
-                                  [&](BinaryWriter& out) noexcept
+                                  [&](detail::OutputWriter& out) noexcept
                                   {
                                       return out.raw("TCMD") && out.u16(binaryMajor) &&
                                              out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
@@ -163,12 +163,19 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                 break;
             }
             const auto& catalog = *index.catalog(static_cast<telemetry::GroupId>(group));
-            if (!stream.record(code(CommandRecord::Catalog),
-                               [&](BinaryWriter& out) noexcept
+            detail::StringRef name;
+            std::uint32_t catalogSize;
+            if (!detail::stringRef(catalog.name, name) ||
+                !detail::catalogPayloadSize(name, catalogSize))
+            {
+                stream.fail(resource::Status::InvalidData);
+                break;
+            }
+            if (!stream.record(code(CommandRecord::Catalog), catalogSize,
+                               [&](detail::OutputWriter& out) noexcept
                                {
                                    return detail::catalogPayload(
-                                       out, group, static_cast<std::uint32_t>(catalog.count),
-                                       catalog.name);
+                                       out, group, static_cast<std::uint32_t>(catalog.count), name);
                                }))
             {
                 break;
@@ -185,12 +192,20 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                 stream.fail(resource::Status::InvalidCursor);
                 break;
             }
-            if (!stream.record(code(CommandRecord::Command),
-                               [&](BinaryWriter& out) noexcept
+            detail::StringRef name;
+            std::uint32_t commandSize;
+            if (!detail::stringRef(command->name, name) ||
+                !detail::commandPayloadSize(name, commandSize))
+            {
+                stream.fail(resource::Status::InvalidData);
+                break;
+            }
+            if (!stream.record(code(CommandRecord::Command), commandSize,
+                               [&](detail::OutputWriter& out) noexcept
                                {
                                    return detail::commandPayload(out, id >> 16, id & 0xffffu,
                                                                  *command,
-                                                                 command->parameterCount());
+                                                                 command->parameterCount(), name);
                                }))
             {
                 break;
@@ -201,11 +216,18 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                     *command,
                     [&](const telemetry::CommandParam& p) noexcept
                     {
-                        if (!stream.record(code(CommandRecord::Parameter),
-                                           [&](BinaryWriter& out) noexcept
+                        detail::LabelRefs refs;
+                        std::uint32_t size;
+                        if (!detail::labelRefs(p.name, p.unit, true, refs) ||
+                            !detail::parameterPayloadSize(p, refs, size))
+                        {
+                            return stream.fail(resource::Status::InvalidData);
+                        }
+                        if (!stream.record(code(CommandRecord::Parameter), size,
+                                           [&](detail::OutputWriter& out) noexcept
                                            {
-                                               return detail::parameterPayload(out, id, p,
-                                                                               p.type.enumCount());
+                                               return detail::parameterPayload(
+                                                   out, id, p, p.type.enumCount(), refs);
                                            }))
                         {
                             return false;
@@ -215,14 +237,21 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                             p.type,
                             [&](const telemetry::Scalar& value, std::string_view name) noexcept
                             {
+                                detail::StringRef text;
+                                std::uint32_t size;
+                                if (!detail::stringRef(name, text) ||
+                                    !detail::enumPayloadSize(true, value, text, size))
+                                {
+                                    return stream.fail(resource::Status::InvalidData);
+                                }
                                 const bool ok = stream.record(
-                                    code(CommandRecord::ParameterEnum),
-                                    [&](BinaryWriter& out) noexcept
+                                    code(CommandRecord::ParameterEnum), size,
+                                    [&](detail::OutputWriter& out) noexcept
                                     {
                                         return out.u32(id) &&
                                                out.u32(static_cast<std::uint32_t>(p.index)) &&
                                                out.u32(ordinal) && out.scalar(value) &&
-                                               out.string(name);
+                                               out.string(text.view());
                                     });
                                 ++ordinal;
                                 return ok;

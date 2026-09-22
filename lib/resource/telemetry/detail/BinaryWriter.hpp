@@ -7,6 +7,7 @@
 #pragma once
 #include "BinaryScalar.hpp"
 #include "Fingerprint.hpp"
+#include <telemetry/core/TelemetryCompiler.h>
 #include <resource/Types.hpp>
 #include <algorithm>
 #include <cstring>
@@ -15,81 +16,47 @@
 
 namespace telemetry_resource::detail
 {
-class BinaryWriter
+// Numeric and string wire primitives have one implementation. CRTP selects
+// counting/hash or bounded output at compile time; no virtual dispatch or mode
+// flag is needed in the READ path.
+template <class Derived>
+class WireWriter
 {
+    Derived& sink_() noexcept
+    {
+        return static_cast<Derived&>(*this);
+    }
+
 public:
-    BinaryWriter() noexcept = default; // Measure only; never touches payload callbacks.
-
-    explicit BinaryWriter(Fingerprint& hash) noexcept : hash_(&hash)
-    {
-    }
-
-    BinaryWriter(resource::Output out, std::uint32_t skip = 0) noexcept
-        : out_(out), skip_(skip), measuring_(false)
-    {
-    }
-
-    bool bytes(resource::Input value) noexcept
-    {
-        if (!ok_ || full_)
-        {
-            return false;
-        }
-        if (measuring_)
-        {
-            if (value.size() > UINT32_MAX - count_)
-            {
-                return fail();
-            }
-            count_ += static_cast<std::uint32_t>(value.size());
-            if (hash_ != nullptr)
-            {
-                hash_->bytes(value);
-            }
-            return true;
-        }
-        const auto skipped = std::min<std::size_t>(skip_, value.size());
-        skip_ -= static_cast<std::uint32_t>(skipped);
-        value = value.subspan(skipped);
-        const auto copied = std::min(value.size(), out_.size() - used_);
-        if (copied != 0)
-        {
-            std::memcpy(out_.data() + used_, value.data(), copied);
-        }
-        used_ += copied;
-        full_ = copied != value.size();
-        return !full_;
-    }
-
     bool raw(std::string_view value) noexcept
     {
-        return bytes(std::as_bytes(std::span{value.data(), value.size()}));
+        return sink_().bytes(std::as_bytes(std::span{value.data(), value.size()}));
     }
 
     bool string(std::string_view value) noexcept
     {
         return value.size() <= UINT32_MAX
                    ? u32(static_cast<std::uint32_t>(value.size())) && raw(value)
-                   : fail();
+                   : sink_().fail();
     }
 
     bool u8(std::uint8_t value) noexcept
     {
         const auto byte = static_cast<std::byte>(value);
-        return bytes({&byte, 1});
+        return sink_().bytes({&byte, 1});
     }
 
     bool u16(std::uint16_t value) noexcept
     {
         const std::byte data[]{std::byte(value & 255u), std::byte(value >> 8)};
-        return bytes(data);
+        return sink_().bytes(data);
     }
 
     bool u32(std::uint32_t value) noexcept
     {
         const std::byte data[]{std::byte(value & 255u), std::byte((value >> 8) & 255u),
                                std::byte((value >> 16) & 255u), std::byte(value >> 24)};
-        return bytes(data);
+        return sink_().bytes(data);
     }
 
     bool u64(std::uint64_t value) noexcept
@@ -101,6 +68,10 @@ public:
     bool scalar(const telemetry::Scalar& value) noexcept
     {
         const auto type = toWireType(value.type());
+        if (type == invalidWireType)
+        {
+            return sink_().fail();
+        }
         const auto width = payloadSize(type);
         if (!u8(static_cast<std::uint8_t>(type)) ||
             !u8(static_cast<std::uint8_t>(width == 0 ? ScalarState::Null : ScalarState::Value)) ||
@@ -125,6 +96,84 @@ public:
                 return u64(bits);
         }
     }
+};
+
+// Construction-only measuring/hash sink. READ never instantiates this type.
+class BinaryWriter : public WireWriter<BinaryWriter>
+{
+public:
+    BinaryWriter() noexcept = default;
+
+    explicit BinaryWriter(Fingerprint& hash) noexcept : hash_(&hash)
+    {
+    }
+
+    bool bytes(resource::Input value) noexcept
+    {
+        if (!ok_ || value.size() > UINT32_MAX - count_)
+        {
+            return fail();
+        }
+        count_ += static_cast<std::uint32_t>(value.size());
+        if (hash_ != nullptr)
+        {
+            hash_->bytes(value);
+        }
+        return true;
+    }
+
+    bool fail() noexcept
+    {
+        ok_ = false;
+        return false;
+    }
+
+    bool ok() const noexcept
+    {
+        return ok_;
+    }
+
+    std::uint32_t count() const noexcept
+    {
+        return count_;
+    }
+
+private:
+    Fingerprint* hash_ = nullptr;
+    std::uint32_t count_ = 0;
+    bool ok_ = true;
+};
+
+// READ-only sink. Only output bounds and local byte skip survive in RAM.
+class OutputWriter : public WireWriter<OutputWriter>
+{
+public:
+    explicit OutputWriter(resource::Output out, std::uint32_t skip = 0) noexcept
+        : out_(out), skip_(skip)
+    {
+    }
+
+    TELEMETRY_FORCE_INLINE bool bytes(resource::Input value) noexcept
+    {
+        if (!ok_ || full_)
+        {
+            return false;
+        }
+        const auto skipped = std::min<std::size_t>(skip_, value.size());
+        skip_ -= static_cast<std::uint32_t>(skipped);
+        value = value.subspan(skipped);
+        const auto copied = std::min(value.size(), out_.size());
+        if (copied != 0)
+        {
+            std::memcpy(out_.data(), value.data(), copied);
+        }
+        if (copied != 0)
+        {
+            out_ = out_.subspan(copied);
+        }
+        full_ = copied != value.size();
+        return !full_;
+    }
 
     bool fail() noexcept
     {
@@ -142,14 +191,9 @@ public:
         return full_;
     }
 
-    std::size_t used() const noexcept
+    std::size_t remaining() const noexcept
     {
-        return used_;
-    }
-
-    std::uint32_t count() const noexcept
-    {
-        return count_;
+        return out_.size();
     }
 
     std::uint32_t skip() const noexcept
@@ -158,14 +202,9 @@ public:
     }
 
 private:
-    resource::Output out_{};
-    Fingerprint* hash_ = nullptr;
-    std::size_t used_ = 0;
-    std::uint32_t count_ = 0;
-    std::uint32_t skip_ = 0;
-    bool measuring_ = true;
-    bool ok_ = true;
-    bool full_ = false;
+    resource::Output out_;
+    std::uint32_t skip_;
+    bool ok_ = true, full_ = false;
 };
 
 // Construction visits metadata once. Semantic hash records are postorder:

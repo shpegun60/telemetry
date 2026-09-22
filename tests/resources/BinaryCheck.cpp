@@ -4,6 +4,7 @@
 #include <resource/telemetry/detail/BinaryWriter.hpp>
 using namespace telemetry_resource;
 using detail::BinaryWriter;
+using detail::OutputWriter;
 using telemetry::Scalar;
 
 void fingerprint()
@@ -68,10 +69,10 @@ void scalar(Scalar value, std::string_view hex)
         {
             std::array<std::byte, 32> buffer;
             buffer.fill(std::byte{0xa5});
-            BinaryWriter out{{buffer.data() + 1, size}, static_cast<std::uint32_t>(offset)};
+            OutputWriter out{{buffer.data() + 1, size}, static_cast<std::uint32_t>(offset)};
             const bool done = out.scalar(value);
             const auto count = std::min(size, expected.size() - offset);
-            CHECK(out.ok() && out.used() == count && out.skip() == 0);
+            CHECK(out.ok() && size - out.remaining() == count && out.skip() == 0);
             CHECK(done == (size >= expected.size() - offset));
             CHECK(std::equal(buffer.begin() + 1, buffer.begin() + 1 + count,
                              expected.begin() + offset));
@@ -110,9 +111,9 @@ int main()
            "0b 01 08 00 00 00 00 00 00 f0 ff");
     constexpr std::string_view text{"A\"B\nC\\D\0\xc3\xa9", 10};
     std::array<std::byte, 30> buffer{};
-    BinaryWriter out{buffer};
+    OutputWriter out{buffer};
     CHECK(out.string(text));
-    Reader r{{buffer.data(), out.used()}};
+    Reader r{{buffer.data(), buffer.size() - out.remaining()}};
     CHECK(r.string() == text);
     r.done();
     // 65536 valid 64-KiB spans exceed the u32 file limit; measuring never reads them.
@@ -139,9 +140,9 @@ int main()
         for (unsigned n = 0; n < inputs.size(); ++n)
         {
             std::array<std::byte, 11> bytes{};
-            BinaryWriter w{bytes};
+            OutputWriter w{bytes};
             CHECK(w.scalar(inputs[n]));
-            Reader r{{bytes.data(), w.used()}};
+            Reader r{{bytes.data(), bytes.size() - w.remaining()}};
             constexpr unsigned types[]{5, 9, 10, 11};
             CHECK(r.u8() == types[n] && r.u8() == 1);
             const auto payload = r.u8();

@@ -32,6 +32,9 @@ enum class WireScalarType : std::uint8_t
     F32 = 10,
     F64 = 11
 };
+// Internal rejection sentinel; never a valid serialized type code.
+inline constexpr auto invalidWireType = static_cast<WireScalarType>(255);
+
 enum class ScalarState : std::uint8_t
 {
     Null = 0,
@@ -104,7 +107,7 @@ constexpr WireScalarType toWireType(telemetry::ScalarType type) noexcept
         case T::Null:
             return WireScalarType::Null;
     }
-    return WireScalarType::Null;
+    return invalidWireType;
 }
 
 constexpr std::uint8_t payloadSize(WireScalarType type) noexcept
