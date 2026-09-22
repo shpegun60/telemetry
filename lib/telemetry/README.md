@@ -710,8 +710,8 @@ version or a collision-based substitute for the link tuple.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
 at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
-settings and require the final link to fail. They also reject frozen ABI 6
-callers against each ABI 7 core/field-JSON/command-JSON archive. Separate executables still use
+settings and require the final link to fail. They also reject frozen ABI 6/7
+callers against each ABI 8 core/field-JSON/command-JSON archive. Separate executables still use
 their own signatures normally.
 
 On Cortex-M7 the current Field remains 96 bytes/aligned to 32. Setter stays at
@@ -1549,3 +1549,24 @@ not board cycle measurements or a general ranking of std::visit implementations.
 
 The archived previous arbitrary-ID implementation is
 in [archive/id_ranges](../../archive/id_ranges/README.md) and is not built.
+
+## Indexed metadata (ABI 8)
+
+`FieldType::enumCount()` and `Command::parameterCount()` read immutable counts
+without invoking visitors. `describeEnumEntry(i, context, sink)` and
+`describeParameter(i, context, sink)` describe only the requested entry;
+`visitParameter(i, visitor)` also accepts a borrowed noexcept callable. Out-of-range
+indices, absent descriptions and null sinks return false without invocation.
+
+`describeEnum()` and `forEachParameter()` retain their separate generated
+sequential traversal, including early termination. They do not loop through the
+indexed API. A real zero-argument command has `hasDescription() == true` and
+count zero; a reserved command has no description. Parameter labels distinguish
+absent metadata (`nullptr`) from explicit empty labels (`""`). References passed
+to sinks last only for that synchronous invocation; copy what must outlive it.
+
+Each descriptor still stores one pointer. Shared `EnumOps` / `CommandParamOps`
+contain count, sequential callback and indexed callback. Direct users of the old
+`Command::describe` data member migrate to `hasDescription()` or the visitor API.
+Enum indexed storage uses native codes and string views in constant storage;
+there is no enum lookup on field read/write or command execution.

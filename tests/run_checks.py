@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SUITES = ("TelemetryCheck", "TelemetryWriteCheck", "TelemetryReadCheck",
           "TelemetryJsonCheck", "TelemetryNumericCheck", "TelemetryEnumCheck", "TelemetryLimitsCheck",
           "TelemetryFactoryCheck", "TelemetryCommandCheck", "TelemetryTableCheck", "TelemetryOwnerSlotCheck",
-          "TelemetryFunctionSlotCheck", "TelemetryLateBoundCheck", "TelemetryTraversalCheck")
+          "TelemetryFunctionSlotCheck", "TelemetryLateBoundCheck", "TelemetryTraversalCheck",
+          "TelemetryMetadataCheck")
 LIBRARY_SOURCES = ("lib/telemetry/abi/TelemetryAbi.cpp",
                    "lib/telemetry/serialization/TelemetryJson.cpp",
                    "lib/telemetry/serialization/TelemetryCommandJson.cpp")
@@ -326,7 +327,12 @@ def main():
             "tests/abi/LegacyAbi6Link.cpp", "-o", str(legacy)], f"abi6-{module}-caller-compile")
         run(flags + build_flags + [str(legacy), str(archive), "-o", str(executable)],
             f"abi6-{module}-mismatch-link", r"undefined reference|unresolved external|AbiTag")
-    print("Independent core/JSON/command ABI archives linked; mixed alignments and ABI 6/7 rejected", flush=True)
+        legacy = output / f"LegacyAbi7-{module}.o"
+        run(flags + build_flags + abi64 + [f"-DTELEMETRY_LEGACY_ABI_MODULE={module_id}", "-c",
+            "tests/abi/LegacyAbi7Link.cpp", "-o", str(legacy)], f"abi7-{module}-caller-compile")
+        run(flags + build_flags + [str(legacy), str(archive), "-o", str(executable)],
+            f"abi7-{module}-mismatch-link", r"undefined reference|unresolved external|AbiTag")
+    print("Independent core/JSON/command ABI archives linked; mixed alignments and ABI 6/7 versus 8 rejected", flush=True)
 
 
 if __name__ == "__main__":

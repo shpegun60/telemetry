@@ -79,7 +79,7 @@ static_assert(std::is_same_v<decltype(*localCommands.begin()), const Command&>);
 static_assert(std::is_same_v<decltype(*fields.begin()), const Catalog&>);
 static_assert(std::is_same_v<decltype(*commands.begin()), const CommandCatalog&>);
 static_assert(std::is_trivially_copyable_v<FieldEntryView> && std::is_trivially_copyable_v<CommandEntryView>);
-static_assert(telemetryAbiVersion == 7);
+static_assert(telemetryAbiVersion == 8);
 static_assert(Field::abiFlagsOffset() == offsetof(Field, unit) + sizeof(const char*));
 static_assert(offsetof(Field, set) == cacheLineBytes);
 #if defined(__arm__)

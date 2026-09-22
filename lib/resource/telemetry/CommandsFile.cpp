@@ -23,7 +23,7 @@ constexpr auto code(CommandRecord r) noexcept
 template <class Visit>
 bool parameters(const telemetry::Command& command, Visit&& visit) noexcept
 {
-    return command.describe == nullptr || command.forEachParameter(std::forward<Visit>(visit));
+    return !command.hasDescription() || command.forEachParameter(std::forward<Visit>(visit));
 }
 } // namespace
 

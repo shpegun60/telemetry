@@ -28,6 +28,15 @@ struct CommandParam {
 // The parameter reference is valid only for this synchronous sink invocation.
 using CommandParamSink = bool (*)(void*, const CommandParam&) noexcept;
 
+// One immutable table per signature/metadata type, shared by all owners.
+// A real zero-argument command has a table with count == 0; a reserved
+// descriptor has no table. No parameter storage is added to Command itself.
+struct CommandParamOps {
+    std::uint32_t count;
+    bool (*forEach)(const void*, void*, CommandParamSink) noexcept;
+    bool (*at)(const void*, std::uint32_t, void*, CommandParamSink) noexcept;
+};
+
 enum class CommandResult : std::uint8_t {
     Executed = 0,
     Accepted, // Queued by the owner; completion has not been established.
@@ -49,14 +58,13 @@ template <class, class> struct BorrowedCommandBinding;
 // No defaults are filled in: they describe initial UI values, not omitted args.
 struct Command {
     using Invoke = CommandResult (*)(const void*, const void*, const Scalar*, std::size_t) noexcept;
-    using Describe = bool (*)(const void*, void*, CommandParamSink) noexcept;
 
     const char* const name = "";
     // Public const storage keeps the descriptor standard-layout for ABI checks.
     const void* const owner = nullptr;
     const void* const metadata = nullptr;
     const Invoke invoke = nullptr;
-    const Describe describe = nullptr;
+    const CommandParamOps* const params = nullptr;
 
     constexpr Command() noexcept = default;
 
@@ -77,9 +85,17 @@ struct Command {
         return execute(args.data(), args.size());
     }
 
-    bool describeParameters(void* context, CommandParamSink sink) const noexcept
+    constexpr bool hasDescription() const noexcept { return params != nullptr; }
+    constexpr std::uint32_t parameterCount() const noexcept { return hasDescription() ? params->count : 0; }
+
+    bool describeParameter(std::uint32_t index, void* context, CommandParamSink sink) const noexcept
     {
-        return describe != nullptr && sink != nullptr && describe(metadata, context, sink);
+        return sink != nullptr && index < parameterCount() && params->at(metadata, index, context, sink);
+    }
+
+    TELEMETRY_FORCE_INLINE bool describeParameters(void* context, CommandParamSink sink) const noexcept
+    {
+        return hasDescription() && sink != nullptr && params->forEach(metadata, context, sink);
     }
 
     // Synchronous adapter: no parameter array, visitor copy or retained context.
@@ -87,6 +103,19 @@ struct Command {
     // visitor returns; copy a description if it is needed after that call.
     template <class Visitor>
     bool forEachParameter(Visitor&& visitor) const noexcept
+    {
+        return visit_<false>(0, std::forward<Visitor>(visitor));
+    }
+
+    template <class Visitor>
+    bool visitParameter(std::uint32_t index, Visitor&& visitor) const noexcept
+    {
+        return visit_<true>(index, std::forward<Visitor>(visitor));
+    }
+
+private:
+    template <bool Indexed, class Visitor>
+    bool visit_(std::uint32_t index, Visitor&& visitor) const noexcept
     {
         static_assert(std::is_nothrow_invocable_r_v<bool, Visitor&, const CommandParam&>,
                       "Command parameter visitor must be noexcept and return bool");
@@ -97,15 +126,17 @@ struct Command {
         if constexpr (std::is_function_v<Callable>) {
             // A function is not an object and cannot be sent through void*.
             // Its pointer is an object; borrow that local pointer synchronously.
-            return forEachParameter(std::addressof(visitor));
+            return visit_<Indexed>(index, std::addressof(visitor));
         } else {
             // Pass the callable itself, without a second pointer-holding context.
             // Restore its exact cv-qualified type in the thunk before invocation;
             // the erased mutable pointer does not permit mutating a const visitor.
             void* context = const_cast<void*>(static_cast<const volatile void*>(std::addressof(visitor)));
-            return describeParameters(context, +[](void* raw, const CommandParam& parameter) noexcept {
+            const auto sink = +[](void* raw, const CommandParam& parameter) noexcept {
                 return static_cast<bool>(std::invoke(*static_cast<Callable*>(raw), parameter));
-            });
+            };
+            if constexpr (Indexed) return describeParameter(index, context, sink);
+            else return describeParameters(context, sink);
         }
     }
 
@@ -113,9 +144,9 @@ private:
     template <auto, class, class> friend struct detail::CommandBinding;
     template <class, class> friend struct detail::BorrowedCommandBinding;
     constexpr Command(const char* label, const void* object,
-                       const void* parameters, Invoke run, Describe schema) noexcept
+                       const void* parameters, Invoke run, const CommandParamOps* schema) noexcept
         : name(label), owner(object), metadata(parameters),
-          invoke(run), describe(schema) {}
+          invoke(run), params(schema) {}
 };
 static_assert(std::is_standard_layout_v<Command> && std::is_trivially_copyable_v<Command>);
 } // namespace telemetry

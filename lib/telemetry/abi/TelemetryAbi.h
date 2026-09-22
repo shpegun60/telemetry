@@ -18,9 +18,9 @@
 namespace telemetry {
 
 // In-memory ABI revision, not a wire-format version.
-// Revision 7 uses former Field padding for policy flags. Revision 6 objects
-// cannot be mixed in even where size/alignment and previous offsets agree.
-inline constexpr std::uint32_t telemetryAbiVersion = 7;
+// Revision 8 replaces metadata function pointers with indexed ops pointers.
+// Old descriptors cannot be mixed in even when sizes and offsets agree.
+inline constexpr std::uint32_t telemetryAbiVersion = 8;
 
 // std::variant is not standard-layout on every supported standard library.
 // Descriptors remain trivially copyable; each supported compiler's
@@ -75,7 +75,7 @@ using CurrentAbiTag = AbiTag<
     alignof(FieldType),
     FieldType::abiValueTypeOffset(), FieldType::abiRestrictedOffset(),
     FieldType::abiBoundsOffset(), FieldType::abiInitialOffset(),
-    FieldType::abiDescribeOffset(), FieldType::abiBoundsSize(), FieldType::abiBoundsAlign(),
+    FieldType::abiEnumOpsOffset(), FieldType::abiBoundsSize(), FieldType::abiBoundsAlign(),
     sizeof(Field),
     alignof(Field),
     offsetof(Field, get),
@@ -95,7 +95,11 @@ using CurrentAbiTag = AbiTag<
     sizeof(Command), alignof(Command),
     offsetof(Command, name),
     offsetof(Command, owner), offsetof(Command, metadata),
-    offsetof(Command, invoke), offsetof(Command, describe),
+    offsetof(Command, invoke), offsetof(Command, params),
+    sizeof(EnumOps), alignof(EnumOps), offsetof(EnumOps, count),
+    offsetof(EnumOps, forEach), offsetof(EnumOps, at),
+    sizeof(CommandParamOps), alignof(CommandParamOps),
+    offsetof(CommandParamOps, count), offsetof(CommandParamOps, forEach), offsetof(CommandParamOps, at),
     sizeof(CommandParam), alignof(CommandParam),
     offsetof(CommandParam, index), offsetof(CommandParam, name),
     offsetof(CommandParam, unit), offsetof(CommandParam, type),

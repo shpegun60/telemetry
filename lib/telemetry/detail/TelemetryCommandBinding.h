@@ -188,6 +188,29 @@ struct CommandContract {
                       std::make_index_sequence<Traits::arity>{});
     }
 
+    template <std::size_t I>
+    static bool parameterEntry(const void* metadata, void* context, CommandParamSink sink) noexcept
+    {
+        return sink(context, parameter<I>(static_cast<const Metadata*>(metadata)));
+    }
+
+    template <std::size_t... I>
+    static constexpr auto parameterEntries(std::index_sequence<I...>) noexcept
+    {
+        using Emit = bool (*)(const void*, void*, CommandParamSink) noexcept;
+        return std::array<Emit, sizeof...(I)>{&parameterEntry<I>...};
+    }
+
+    static bool describeParameter(const void* metadata, std::uint32_t index,
+                                  void* context, CommandParamSink sink) noexcept
+    {
+        static constexpr auto entries = parameterEntries(std::make_index_sequence<Traits::arity>{});
+        return sink != nullptr && index < entries.size() && entries[index](metadata, context, sink);
+    }
+    static_assert(Traits::arity <= UINT32_MAX, "Command parameter count exceeds indexed metadata capacity");
+    inline static constexpr CommandParamOps parameterOps{
+        static_cast<std::uint32_t>(Traits::arity), &schema, &describeParameter};
+
     template <std::size_t... I>
     static constexpr void validate(const Metadata* metadata, std::index_sequence<I...>) noexcept
     {
@@ -294,7 +317,7 @@ struct CommandBinding {
                                   const Metadata* metadata = nullptr) noexcept
     {
         Contract::validateMetadata(metadata);
-        return Command{name, owner, metadata, &run, &Contract::schema};
+        return Command{name, owner, metadata, &run, &Contract::parameterOps};
     }
 };
 
@@ -370,7 +393,7 @@ struct BorrowedCommandBinding {
                                   const Metadata* metadata = nullptr) noexcept
     {
         Contract::validateMetadata(metadata);
-        return Command{name, callable, metadata, &run, &Contract::schema};
+        return Command{name, callable, metadata, &run, &Contract::parameterOps};
     }
 };
 

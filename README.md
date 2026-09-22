@@ -236,8 +236,9 @@ The demo exposes native local/global reads and the ordinary runtime `read<T>(id)
 Group and entry positions start at zero. Reordering or deleting entries changes
 their public IDs. Keep retired positions with `reservedField()` or
 `reservedCommand()`. Runtime lookup checks the two actual bounds; JSON derives
-IDs from the same traversal. The current **ABI 7** adds policy bytes in existing
-padding and requires a clean consumer rebuild, despite unchanged descriptor sizes.
+IDs from the same traversal. The current **ABI 8** adds indexed metadata ops while preserving descriptor
+sizes. All consumers need a clean rebuild; ABI 6/7 objects are rejected at guarded
+module boundaries.
 See [the migration contract](lib/telemetry/README.md#field-abi-migration-and-storage).
 
 The previous range/pointer-slot implementation is retained in

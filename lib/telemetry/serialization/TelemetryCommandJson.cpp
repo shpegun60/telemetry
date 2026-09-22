@@ -84,7 +84,7 @@ bool hashCommand(ParameterHash& state, const Command& command, CommandId id) noe
     if (command.name == nullptr) return false;
     hash = word(byte(hash, 'C'), id);
     hash = string(hash, command.name);
-    if (command.describe != nullptr && !command.forEachParameter(state)) return false;
+    if (command.hasDescription() && !command.forEachParameter(state)) return false;
     hash = byte(hash, 'E');
     return true;
 }
@@ -143,7 +143,7 @@ std::size_t writeCommandSchemaAbi(const CommandIndex& index, char* buffer, std::
     for (const Command& command : index) {
         if (!out.append("%s{\"id\":%" PRIu32 ",\"n\":", position == 0 ? "" : ",", position)
             || !out.appendRequiredString(command.name) || !out.append(",\"params\":[")
-            || (command.describe != nullptr && !command.forEachParameter(out)) || !out.append("]}")) return 0;
+            || (command.hasDescription() && !command.forEachParameter(out)) || !out.append("]}")) return 0;
         ++position;
     }
     (void) out.append("]}");
@@ -188,7 +188,7 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex& index,
                             entry.index() == 0 ? "" : ",", static_cast<unsigned long>(entry.index()), entry.id())
                 || !out.appendRequiredString(command.name)
                 || !out.append(",\"params\":[")
-                || (command.describe != nullptr && !command.forEachParameter(out))
+                || (command.hasDescription() && !command.forEachParameter(out))
                 || !out.append("]}")) return 0;
         }
         if (!out.append("]}")) return 0;

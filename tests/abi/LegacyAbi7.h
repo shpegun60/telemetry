@@ -1,11 +1,10 @@
-// Frozen ABI 6 tuple from 7751891. Field flags use former padding, so the
-// remaining reflected layouts match ABI 6 on these supported configurations.
-// Compile this caller separately and require ABI 8 archives to reject its symbols.
+// Frozen ABI 7 tuple from f1cfbd8. Identical pointer offsets do not imply identical semantics.
+#pragma once
 #include "abi/TelemetryAbi.h"
-static_assert(telemetry::telemetryAbiVersion == 8, "Review the legacy fixture for a new ABI");
+static_assert(telemetry::telemetryAbiVersion == 8, "Review legacy ABI fixtures");
 namespace telemetry::detail {
-using LegacyAbi6Tag = AbiTag<
-    6,
+using LegacyAbi7Tag = AbiTag<
+    7,
     cacheLineBytes,
     sizeof(void*),
     sizeof(Scalar),
@@ -32,6 +31,7 @@ using LegacyAbi6Tag = AbiTag<
     offsetof(Field, unit),
     offsetof(Field, set),
     offsetof(Field, declaredType),
+    Field::abiFlagsOffset(), sizeof(FieldFlags), alignof(FieldFlags),
     sizeof(Catalog),
     alignof(Catalog),
     offsetof(Catalog, name),
@@ -53,17 +53,4 @@ using LegacyAbi6Tag = AbiTag<
     offsetof(CommandCatalog, commands), offsetof(CommandCatalog, count),
     sizeof(CommandCatalogIndex), alignof(CommandCatalogIndex),
     CommandCatalogIndex::abiCatalogsOffset(), CommandCatalogIndex::abiCountOffset()>;
-void requireTelemetryAbi(LegacyAbi6Tag) noexcept;
-std::uint32_t schemaCrcAbi(const CatalogIndex&, LegacyAbi6Tag) noexcept;
-std::uint32_t commandSchemaCrcAbi(const CommandIndex&, LegacyAbi6Tag) noexcept;
-}
-int main()
-{
-#if TELEMETRY_LEGACY_ABI_MODULE == 0
-    telemetry::detail::requireTelemetryAbi(telemetry::detail::LegacyAbi6Tag{});
-#elif TELEMETRY_LEGACY_ABI_MODULE == 1
-    return static_cast<int>(telemetry::detail::schemaCrcAbi(telemetry::CatalogIndex{}, telemetry::detail::LegacyAbi6Tag{}));
-#else
-    return static_cast<int>(telemetry::detail::commandSchemaCrcAbi(telemetry::CommandIndex{}, telemetry::detail::LegacyAbi6Tag{}));
-#endif
 }

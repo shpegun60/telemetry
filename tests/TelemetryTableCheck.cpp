@@ -43,7 +43,7 @@ static_assert(sizeof(values)==5*sizeof(Field) && alignof(decltype(values))==alig
 static_assert(std::is_same_v<decltype(values.read<1>()),std::optional<std::uint16_t>>);
 static_assert(std::is_same_v<decltype(registry.read<makeId(1,0)>()),std::optional<float>>);
 static_assert(registry.find(makeId(1,4))==&values[4] && registry.find(makeId(0,0))==nullptr);
-static_assert(telemetryAbiVersion==7 && sizeof(Command)==5*sizeof(void*));
+static_assert(telemetryAbiVersion==8 && sizeof(Command)==5*sizeof(void*));
 
 float freeValue=1;
 float freeRead() noexcept {return freeValue;}

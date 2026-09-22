@@ -16,7 +16,13 @@
 
 namespace telemetry {
 using EnumEntrySink = bool (*)(void*, const Scalar&, std::string_view) noexcept;
-using EnumDescription = bool (*)(void*, EnumEntrySink) noexcept;
+// Shared immutable metadata. Indexed access creates only the selected entry;
+// the sink borrows its Scalar for the duration of the synchronous call.
+struct EnumOps {
+    std::uint32_t count;
+    bool (*forEach)(void*, EnumEntrySink) noexcept;
+    bool (*at)(std::uint32_t, void*, EnumEntrySink) noexcept;
+};
 
 namespace detail {
 struct FieldTableAccess;
@@ -72,11 +78,11 @@ class FieldType {
     }
 
     template <class T>
-    constexpr FieldType(detail::NumericBounds<T> bounds, T initial, EnumDescription describe) noexcept
+    constexpr FieldType(detail::NumericBounds<T> bounds, T initial, const EnumOps* ops) noexcept
         : valueType_(Scalar::from(T{}).type()),
           restricted_(bounds.minimum != std::numeric_limits<T>::lowest()
               || bounds.maximum != std::numeric_limits<T>::max()),
-          bounds_(bounds), initial_(Scalar::from(initial)), describe_(describe) {}
+          bounds_(bounds), initial_(Scalar::from(initial)), enumOps_(ops) {}
 
     template <class T>
     constexpr FieldType checked_(const Scalar& minimum, const Scalar& maximum, const Scalar& initial) const noexcept
@@ -87,7 +93,7 @@ class FieldType {
                 || !detail::scalarFinite(start)) detail::invalidFieldLimits();
         }
         if (!(low <= start && start <= high)) detail::invalidFieldLimits();
-        return FieldType(detail::NumericBounds<T>{low, high}, start, describe_);
+        return FieldType(detail::NumericBounds<T>{low, high}, start, enumOps_);
     }
 
 
@@ -96,7 +102,8 @@ public:
         : valueType_(type), bounds_(nativeBounds_(type)), initial_(nativeDefault_(type)) {}
 
     TELEMETRY_FORCE_INLINE constexpr operator ScalarType() const noexcept { return valueType_; }
-    constexpr bool hasEnum() const noexcept { return describe_ != nullptr; }
+    constexpr bool hasEnum() const noexcept { return enumOps_ != nullptr; }
+    constexpr std::uint32_t enumCount() const noexcept { return hasEnum() ? enumOps_->count : 0; }
     constexpr Scalar minimum() const noexcept { return project_<0>(); }
     constexpr Scalar maximum() const noexcept { return project_<1>(); }
     constexpr Scalar defaultValue() const noexcept { return initial_; }
@@ -129,11 +136,14 @@ public:
         return withLimits(minimum(), maximum(), initial);
     }
 
-    bool describeEnum(void* context, EnumEntrySink sink) const noexcept
+    bool describeEnumEntry(std::uint32_t index, void* context, EnumEntrySink sink) const noexcept
     {
-        // Descriptions are streamed synchronously. The sink may refuse an
-        // entry; neither its context nor its Scalar argument is retained.
-        return describe_ != nullptr && sink != nullptr && describe_(context, sink);
+        return sink != nullptr && index < enumCount() && enumOps_->at(index, context, sink);
+    }
+
+    TELEMETRY_FORCE_INLINE bool describeEnum(void* context, EnumEntrySink sink) const noexcept
+    {
+        return hasEnum() && sink != nullptr && enumOps_->forEach(context, sink);
     }
 
     // Exact private layout for the link-time ABI signature.
@@ -145,16 +155,16 @@ public:
     { return offsetof(FieldType, bounds_); }
     static constexpr std::size_t abiInitialOffset() noexcept
     { return offsetof(FieldType, initial_); }
-    static constexpr std::size_t abiDescribeOffset() noexcept
-    { return offsetof(FieldType, describe_); }
+    static constexpr std::size_t abiEnumOpsOffset() noexcept
+    { return offsetof(FieldType, enumOps_); }
     static constexpr std::size_t abiBoundsSize() noexcept
     { return sizeof(detail::FieldBounds); }
     static constexpr std::size_t abiBoundsAlign() noexcept
     { return alignof(detail::FieldBounds); }
 
 private:
-    constexpr FieldType(ScalarType type, EnumDescription describe) noexcept
-        : FieldType(type) { describe_ = describe; }
+    constexpr FieldType(ScalarType type, const EnumOps* ops) noexcept
+        : FieldType(type) { enumOps_ = ops; }
 
     static constexpr detail::FieldBounds nativeBounds_(ScalarType type) noexcept
     {
@@ -245,7 +255,7 @@ private:
     // Keep write validation above this boundary; defaults and enum callbacks
     // are only metadata and are not consulted by the ordinary write path.
     Scalar initial_{};
-    EnumDescription describe_ = nullptr;
+    const EnumOps* enumOps_ = nullptr;
 
     static constexpr std::size_t writeBytes_() noexcept { return offsetof(FieldType, initial_); }
 };

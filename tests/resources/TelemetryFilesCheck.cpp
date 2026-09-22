@@ -287,7 +287,7 @@ void verifyCommands(const Bytes& bytes, const CommandCatalogIndex& index, std::u
             CHECK(cr.u32() == 0 && cr.string() == e.command().name);
             cr.done();
             unsigned ordinal = 0;
-            if (e.command().describe)
+            if (e.command().hasDescription())
             {
                 CHECK(e.command().forEachParameter(
                     [&](const CommandParam& p) noexcept

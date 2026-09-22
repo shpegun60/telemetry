@@ -478,6 +478,13 @@ def main():
             run(flags + [str(legacy), str(archive), *link_tail,
                          "-o", str(output / (f"abi6-{module}-mismatch" + optimization + ".elf"))],
                 f"abi6-{module}{optimization}-link", r"undefined reference|AbiTag")
+            legacy = output / (f"LegacyAbi7-{module}" + optimization + ".o")
+            run(flags + [f"-DTELEMETRY_LEGACY_ABI_MODULE={module_id}", "-c",
+                         "tests/abi/LegacyAbi7Link.cpp", "-o", str(legacy)],
+                f"abi7-{module}{optimization}-compile")
+            run(flags + [str(legacy), str(archive), *link_tail,
+                         "-o", str(output / (f"abi7-{module}-mismatch" + optimization + ".elf"))],
+                f"abi7-{module}{optimization}-link", r"undefined reference|AbiTag")
         print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
               "newlib-nano consumer and independent core/JSON/command ABI archives linked, mixed ABI rejected",
               flush=True)

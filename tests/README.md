@@ -63,7 +63,7 @@ and run; a 128-byte caller against each 64-byte archive must fail through its
 ABI-tagged symbol. [TelemetryAbiLinkCheck.cpp](TelemetryAbiLinkCheck.cpp) proves
 the core umbrella/anchor needs no JSON; [TelemetryJsonAbiLinkCheck.cpp](TelemetryJsonAbiLinkCheck.cpp)
 checks the compiled serializer entry point. Frozen ABI 6 callers must also fail
-against each ABI 7 archive. Two subprocess controls require invalid runtime
+against each ABI 8 archive. Two subprocess controls require invalid runtime
 Persistent definitions (missing getter/setter) to terminate during construction.
 Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop

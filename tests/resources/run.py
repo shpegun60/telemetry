@@ -144,6 +144,9 @@ def main():
                     run(flags + options + ["tests/resources/AbiCheck.cpp",
                         *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(exe)],
                         f"abi-{adapter}-{int(mismatch)}", reject=mismatch)
+                run(flags + [f"-DADAPTER={adapter}", "-DLEGACY_ABI7", "tests/resources/AbiCheck.cpp",
+                    *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(build / f"abi7-{adapter}.exe")],
+                    f"abi7-{adapter}", reject=True)
     print(f"Resources: {len(HEADERS)} standalone headers, 11 contract rejections + control; "
           + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "6 host suites + 3 ABI controls/rejections passed"), flush=True)
 

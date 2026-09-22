@@ -44,18 +44,43 @@ bool emitEnumEntry(void* context, EnumEntrySink sink) noexcept
 }
 
 template <class E, E... Values>
-bool describeEnum(void* context, EnumEntrySink sink) noexcept
-{
-    return (emitEnumEntry<E, Values>(context, sink) && ...);
-}
+struct IndexedEnum {
+    using Raw = std::underlying_type_t<E>;
+    struct Entry {
+        Raw code;
+        std::string_view name;
+    };
+    // Native codes avoid one Scalar/tag and one emitter function per entry.
+    // The independent sequential fold below keeps its original generated path.
+    inline static constexpr std::array<Entry, sizeof...(Values)> entries{{
+        {static_cast<Raw>(Values), magic_enum::enum_name<Values>()}...
+    }};
+    static_assert(sizeof...(Values) <= UINT32_MAX, "Enum dictionary exceeds indexed metadata capacity");
+
+    static bool forEach(void* context, EnumEntrySink sink) noexcept
+    {
+        // Keep the original generated traversal, without per-entry lookup.
+        return (emitEnumEntry<E, Values>(context, sink) && ...);
+    }
+
+    static bool at(std::uint32_t index, void* context, EnumEntrySink sink) noexcept
+    {
+        // Public callers already check bounds; retain the check for direct ops use.
+        if (index >= entries.size() || sink == nullptr) return false;
+        const auto& item = entries[index];
+        const Scalar number = Scalar::from(item.code);
+        return sink(context, number, item.name);
+    }
+    inline static constexpr EnumOps ops{static_cast<std::uint32_t>(sizeof...(Values)), &forEach, &at};
+};
 
 template <class E, std::size_t... I>
-constexpr EnumDescription automaticEnumDescription(std::index_sequence<I...>) noexcept
+constexpr const EnumOps* automaticEnumOps(std::index_sequence<I...>) noexcept
 {
-    // Only compile-time values become template arguments. There is no owned
-    // EnumEntry array and no runtime reflection or enum-to-string search.
+    // The dictionary is shared constant storage; no runtime reflection or
+    // enum-to-string search is needed by either metadata access path.
     constexpr auto values = magic_enum::enum_values<E>();
-    return &describeEnum<E, values[I]...>;
+    return &IndexedEnum<E, values[I]...>::ops;
 }
 
 template <class E, std::size_t N>
@@ -124,14 +149,14 @@ constexpr FieldType enumType() noexcept
             static_assert(((!magic_enum::enum_name<Values>().empty()) && ...),
                           "Enum dictionary values must have names");
             constexpr auto limits = detail::enumLimits(std::array<E, sizeof...(Values)>{Values...});
-            return FieldType{type, &detail::describeEnum<E, Values...>}
+            return FieldType{type, &detail::IndexedEnum<E, Values...>::ops}
                 .withLimits(limits.minimum, limits.maximum, limits.minimum);
         } else {
             constexpr auto values = magic_enum::enum_values<E>();
             static_assert(values.size() != 0, "Enum dictionary is empty; configure the range or list values");
             if constexpr (values.size() != 0) {
                 constexpr auto limits = detail::enumLimits(values);
-                return FieldType{type, detail::automaticEnumDescription<E>(std::make_index_sequence<values.size()>{})}
+                return FieldType{type, detail::automaticEnumOps<E>(std::make_index_sequence<values.size()>{})}
                     .withLimits(limits.minimum, limits.maximum, limits.minimum);
             } else return {};
         }
