@@ -10,10 +10,11 @@
 
 namespace telemetry_resource
 {
-inline constexpr std::uint16_t binaryMajor = 1;
+// v2 widens all fingerprints to u64. v1 headers must not be decoded as v2.
+inline constexpr std::uint16_t binaryMajor = 2;
 inline constexpr std::uint16_t binaryMinor = 0;
-inline constexpr std::uint32_t metadataHeaderSize = 40;
-inline constexpr std::uint32_t valuesHeaderSize = 16;
+inline constexpr std::uint32_t metadataHeaderSize = 44;
+inline constexpr std::uint32_t valuesHeaderSize = 20;
 inline constexpr std::uint32_t recordHeaderSize = 8;
 
 enum class WireScalarType : std::uint8_t

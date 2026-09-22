@@ -1,6 +1,7 @@
 // Cortex-M7 layout, static storage and runtime dispatch probes (MIT).
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
 #include <resource/FileSystem.hpp>
+#include <resource/telemetry/TelemetryFiles.hpp>
 #include "../../app/resources/DeviceResources.hpp"
 #include <cstddef>
 
@@ -37,6 +38,11 @@ static_assert(offsetof(resource::FileEntry, path) == 0 &&
               offsetof(resource::FileEntry, object) == 8 &&
               offsetof(resource::FileEntry, ops) == 12);
 static_assert(sizeof(resource::FileSystemView) == 8);
+// Widening cached fingerprints must cost exactly four bytes per provider.
+static_assert(sizeof(telemetry_resource::SchemaFile) == 36);
+static_assert(sizeof(telemetry_resource::CommandsFile) == 36);
+static_assert(sizeof(telemetry_resource::ValuesFile) == 24);
+static_assert(alignof(telemetry_resource::detail::Fingerprint) == 4);
 static_assert(sizeof(resource::ReadResult) == 16 && alignof(resource::ReadResult) == 8);
 static_assert(offsetof(resource::ReadResult, next) == 0 &&
               offsetof(resource::ReadResult, written) == 8 &&
@@ -68,6 +74,13 @@ extern "C" resource::FileStat resource_probe_stat(resource::FileSystemView view,
                                                   resource::FileIndex i) noexcept
 {
     return view.stat(i);
+}
+
+extern "C" std::uint64_t resource_probe_fingerprint(const std::byte* bytes, std::size_t n) noexcept
+{
+    telemetry_resource::detail::Fingerprint hash;
+    hash.bytes({bytes, n});
+    return hash.value();
 }
 
 int main()

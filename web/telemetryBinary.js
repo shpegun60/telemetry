@@ -1,7 +1,7 @@
 /**
- * Reference browser decoder for telemetry resource binary v1.
+ * Reference browser decoder for telemetry resource binary v2.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. MIT; see ../LICENSE.
- * 64-bit integers are BigInt. No MCU headers, JSON serializer or host endian assumptions.
+ * 64-bit integers and fingerprints are BigInt. No MCU headers or host endian assumptions.
  */
 export const WireScalarType = Object.freeze({
     Null: 0, Bool: 1, U8: 2, U16: 3, U32: 4, U64: 5,
@@ -34,6 +34,7 @@ class Reader {
     u8() { return this.view.getUint8(this.reserve(1)); }
     u16() { return this.view.getUint16(this.reserve(2), true); }
     u32() { return this.view.getUint32(this.reserve(4), true); }
+    u64() { return this.view.getBigUint64(this.reserve(8), true); }
     bytes(length) { const start = this.reserve(length); return this.data.subarray(start, start + length); }
     text(length) {
         const bytes = this.bytes(length).slice();
@@ -91,11 +92,11 @@ function header(input, magic) {
     const r = new Reader(input);
     require(String.fromCharCode(...r.bytes(4)) === magic, 'wrong file magic');
     const major = r.u16(), minor = r.u16();
-    require(major === 1, 'unsupported major version');
-    const headerSize = r.u32(), totalSize = r.u32(), fingerprint = r.u32(), recordCount = r.u32();
-    require(headerSize >= 40 && headerSize <= r.data.length && totalSize === r.data.length, 'invalid file size');
+    require(major === 2, 'unsupported major version');
+    const headerSize = r.u32(), totalSize = r.u32(), fingerprint = r.u64(), recordCount = r.u32();
+    require(headerSize >= 44 && headerSize <= r.data.length && totalSize === r.data.length, 'invalid file size');
     const counts = [r.u32(), r.u32(), r.u32(), r.u32()];
-    r.reserve(headerSize - 40);
+    r.reserve(headerSize - 44);
     require(recordCount <= Math.floor(r.remaining / 8), 'impossible record count');
     return {r, major, minor, fingerprint, recordCount, counts};
 }
@@ -208,8 +209,8 @@ export function parseCommands(input) {
 export function parseValues(input, schema) {
     const r = new Reader(input);
     require(String.fromCharCode(...r.bytes(4)) === 'TVAL', 'wrong values magic');
-    const major = r.u16(), minor = r.u16(); require(major === 1, 'unsupported major version');
-    const fingerprint = r.u32(), fieldCount = r.u32();
+    const major = r.u16(), minor = r.u16(); require(major === 2, 'unsupported major version');
+    const fingerprint = r.u64(), fieldCount = r.u32();
     require(fingerprint === schema.fingerprint, 'schema fingerprint mismatch');
     require(fieldCount === schema.fields.length, 'values count mismatch');
     const values = [];

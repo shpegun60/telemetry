@@ -109,7 +109,7 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
             ++commands_;
         }
     }
-    hash_ = measure.hash.value();
+    hash_ = measure.hash;
     size_ = measure.size;
     records_ = measure.records;
 }
@@ -127,7 +127,8 @@ resource::ReadResult CommandsFile::read(resource::Cursor cursor,
                           {
                               return out.raw("TCMD") && out.u16(binaryMajor) &&
                                      out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
-                                     out.u32(size_) && out.u32(hash_) && out.u32(records_) &&
+                                     out.u32(size_) && out.u64(hash_.value()) &&
+                                     out.u32(records_) &&
                                      out.u32(static_cast<std::uint32_t>(count_)) &&
                                      out.u32(commands_) && out.u32(parameters_) && out.u32(enums_);
                           }))

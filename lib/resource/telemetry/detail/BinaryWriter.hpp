@@ -102,7 +102,9 @@ public:
     {
         const auto type = toWireType(value.type());
         const auto width = payloadSize(type);
-        if (!u8(static_cast<std::uint8_t>(type)) || !u8(width == 0 ? 0 : 1) || !u8(width))
+        if (!u8(static_cast<std::uint8_t>(type)) ||
+            !u8(static_cast<std::uint8_t>(width == 0 ? ScalarState::Null : ScalarState::Value)) ||
+            !u8(width))
         {
             return false;
         }

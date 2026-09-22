@@ -98,7 +98,7 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
             valuesSize += width;
         }
     }
-    hash_ = measure.hash.value();
+    hash_ = measure.hash;
     size_ = measure.size;
     records_ = measure.records;
     valuesSize_ = valuesSize;
@@ -117,7 +117,8 @@ resource::ReadResult SchemaFile::read(resource::Cursor cursor,
                           {
                               return out.raw("TSCH") && out.u16(binaryMajor) &&
                                      out.u16(binaryMinor) && out.u32(metadataHeaderSize) &&
-                                     out.u32(size_) && out.u32(hash_) && out.u32(records_) &&
+                                     out.u32(size_) && out.u64(hash_.value()) &&
+                                     out.u32(records_) &&
                                      out.u32(static_cast<std::uint32_t>(count_)) &&
                                      out.u32(fields_) && out.u32(enums_) &&
                                      out.u32(static_cast<std::uint32_t>(flagDefinitions.size()));

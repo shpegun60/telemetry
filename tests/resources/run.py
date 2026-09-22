@@ -76,6 +76,8 @@ def main():
                 symbols = run([args.objdump, "-tC", str(obj)], f"dump-object-symbols-{opt}-{Path(src).stem}")
                 if re.search(r"malloc|calloc|realloc|operator new", symbols):
                     raise RuntimeError("Heap dependency entered resource code: " + src)
+                if re.search(r"__aeabi_lmul|__muldi3", symbols):
+                    raise RuntimeError("Software 64-bit multiply entered resource code: " + src)
 
         if args.arm:
             stack = {}
@@ -92,7 +94,8 @@ def main():
             sections = run([args.objdump, "-t", str(obj)], f"dump-sections-{opt}")
             if not re.search(r"\.rodata\S*\s+\S+\s+resource_probe_files", sections):
                 raise RuntimeError("Resource table did not land in constant storage")
-            for name in ("resource_probe_read", "resource_probe_known", "resource_probe_stat"):
+            for name in ("resource_probe_read", "resource_probe_known", "resource_probe_stat",
+                         "resource_probe_fingerprint"):
                 match = re.search(rf"<{name}>:\n(.*?)(?=\nDisassembly|\n[0-9a-f]+ <|\Z)", dump, re.S)
                 if not match:
                     raise RuntimeError("Missing dispatch probe: " + name)
@@ -101,6 +104,15 @@ def main():
                     raise RuntimeError("Unexpected runtime work in " + name)
                 if name == "resource_probe_known" and re.search(r"\bblx\b|\bbx\s+r[0-9]+", body):
                     raise RuntimeError("Known provider retained indirect dispatch")
+            # The hash itself uses the hardware widening multiply. The probe's
+            # call to that shared hash loop is intentional; libgcc helpers are not.
+            kernel = re.search(
+                r"<telemetry_resource::detail::Fingerprint::bytes\([^\n]*>:\n"
+                r"(.*?)(?=\nDisassembly|\n[0-9a-f]+ <|\Z)", dump, re.S)
+            if (not kernel or not re.search(r"\bumull\b", kernel[1])
+                    or re.search(r"\bbl(?:\.w)?\b|\bblx\b", kernel[1])
+                    or re.search(r"__aeabi_lmul|__muldi3", dump)):
+                raise RuntimeError("Fingerprint lost its hardware multiply")
             elf = build / f"{opt}-resources.elf"
             run(flags + ["-" + opt, str(obj), *objects.values(), "--specs=nano.specs", "--specs=nosys.specs",
                          "-Wl,--gc-sections", "-o", str(elf)], f"link-{opt}")

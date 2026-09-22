@@ -207,11 +207,11 @@ void enums(const FieldType& t, Visit&& visitor)
                          }));
 }
 
-void verifySchema(const Bytes& bytes, const CatalogIndex& index, std::uint32_t fingerprint)
+void verifySchema(const Bytes& bytes, const CatalogIndex& index, std::uint64_t fingerprint)
 {
     Reader r{bytes};
-    CHECK(r.raw(4) == "TSCH" && r.u16() == 1 && r.u16() == 0);
-    CHECK(r.u32() == 40 && r.u32() == bytes.size() && r.u32() == fingerprint);
+    CHECK(r.raw(4) == "TSCH" && r.u16() == 2 && r.u16() == 0);
+    CHECK(r.u32() == 44 && r.u32() == bytes.size() && r.number(8) == fingerprint);
     const auto records = r.u32(), catalogs = r.u32(), fieldsCount = r.u32(), enumsCount = r.u32(),
                flags = r.u32();
     CHECK(catalogs == index.size() && flags == 1);
@@ -261,11 +261,11 @@ void verifySchema(const Bytes& bytes, const CatalogIndex& index, std::uint32_t f
     r.done();
 }
 
-void verifyCommands(const Bytes& bytes, const CommandCatalogIndex& index, std::uint32_t fingerprint)
+void verifyCommands(const Bytes& bytes, const CommandCatalogIndex& index, std::uint64_t fingerprint)
 {
     Reader r{bytes};
-    CHECK(r.raw(4) == "TCMD" && r.u16() == 1 && r.u16() == 0);
-    CHECK(r.u32() == 40 && r.u32() == bytes.size() && r.u32() == fingerprint);
+    CHECK(r.raw(4) == "TCMD" && r.u16() == 2 && r.u16() == 0);
+    CHECK(r.u32() == 44 && r.u32() == bytes.size() && r.number(8) == fingerprint);
     const auto records = r.u32(), catalogs = r.u32(), commandsCount = r.u32(), params = r.u32(),
                enumsCount = r.u32();
     CHECK(catalogs == index.size());
@@ -347,8 +347,8 @@ Bytes boundaries(const File& file)
     }
     // Resume at every byte of every record, including the valid end offset.
     Reader reader{all};
-    reader.offset = 40;
-    std::vector<std::size_t> starts{0, 40};
+    reader.offset = 44;
+    std::vector<std::size_t> starts{0, 44};
     while (reader.offset < all.size())
     {
         reader.number(4);
@@ -418,8 +418,8 @@ int main(int argc, char** argv)
     CHECK(getters == gettersBefore + 12);
     CHECK(collect(independent, 64) == vb);
     Reader vr{vb};
-    CHECK(vr.raw(4) == "TVAL" && vr.u16() == 1 && vr.u16() == 0 &&
-          vr.u32() == allSchema.fingerprint() && vr.u32() == 13);
+    CHECK(vr.raw(4) == "TVAL" && vr.u16() == 2 && vr.u16() == 0 &&
+          vr.number(8) == allSchema.fingerprint() && vr.u32() == 13);
     for (unsigned i = 0; i < 13; ++i)
     {
         const auto t = tag(scalarRows[i].readType), w = width(t);
@@ -429,6 +429,34 @@ int main(int argc, char** argv)
         CHECK(value == (i >= 11 ? 0 : bits(values[i]) & mask));
     }
     vr.done();
+    // The widened values header may resume at every byte, including within
+    // either fingerprint word. Header-only requests must never sample values.
+    for (std::size_t offset = 0; offset < 20; ++offset)
+    {
+        for (std::size_t capacity = 1; capacity <= 20 - offset; ++capacity)
+        {
+            std::array<std::byte, 22> output{};
+            output.fill(std::byte{0xa5});
+            const auto before = getters;
+            const auto r = vf.read(offset, {output.data() + 1, capacity});
+            CHECK(r.status == resource::Status::Ok && r.written == capacity && !r.eof);
+            CHECK(r.next == (offset + capacity == 20 ? UINT64_C(1) << 32 : offset + capacity));
+            CHECK(
+                std::equal(output.begin() + 1, output.begin() + 1 + capacity, vb.begin() + offset));
+            CHECK(output.front() == std::byte{0xa5} && output[capacity + 1] == std::byte{0xa5});
+            CHECK(getters == before);
+        }
+    }
+    {
+        std::array<std::byte, 5> output{};
+        const auto before = getters;
+        auto r = vf.read(21, output);
+        CHECK(r.status == resource::Status::InvalidCursor && r.next == 21 && r.written == 0 &&
+              getters == before);
+        r = vf.read(20, output);
+        CHECK(r.status == resource::Status::Ok && r.written == 5 && getters == before + 1);
+        CHECK(std::equal(output.begin(), output.end(), vb.begin() + 20));
+    }
     // Each value is atomic. Wrong offsets and undersized output never read it.
     for (unsigned i = 0; i < 13; ++i)
     {
@@ -477,7 +505,7 @@ int main(int argc, char** argv)
                                  return WriteResult::Applied;
                              }},
                             {"V", "V", numericType<float>(1, -1, 1), &readVoltage}};
-    std::vector<std::uint32_t> hashes;
+    std::vector<std::uint64_t> hashes;
     for (const auto& row : varied)
     {
         const Catalog c[]{Catalog{"m", &row, 1}};
@@ -513,7 +541,7 @@ int main(int argc, char** argv)
     ValuesFile emptyValues{empty};
     verifySchema(boundaries(empty), CatalogIndex{}, empty.fingerprint());
     verifyCommands(boundaries(emptyCommands), CommandCatalogIndex{}, emptyCommands.fingerprint());
-    CHECK(collect(emptyValues, 1).size() == 16);
+    CHECK(collect(emptyValues, 1).size() == 20);
     // Transport reconstructs exact bytes using deliberately small READ packets.
     auto fs = resource::filesystem(resource::file("/schema.bin", schema));
     Bytes transported;
@@ -567,7 +595,7 @@ int main(int argc, char** argv)
     const CatalogIndex bigIndex{manyCatalogs.data(), manyCatalogs.size()};
     SchemaFile bigSchema{bigIndex};
     ValuesFile bigValues{bigSchema};
-    CHECK(bigIndex.find(UINT32_MAX) == &manyFields.back() && bigValues.size() == 16 + 65535 + 2);
+    CHECK(bigIndex.find(UINT32_MAX) == &manyFields.back() && bigValues.size() == 20 + 65535 + 2);
     std::array<std::byte, 2> last{};
     auto lastResult = bigValues.read(UINT64_C(65536) << 32, last);
     CHECK(lastResult.eof && lastResult.written == 2 && last[0] == std::byte{0} &&

@@ -8,6 +8,9 @@ const directory = process.argv[2];
 const read = name => fs.readFileSync(path.join(directory, name));
 const sb = read('schema.bin'), cb = read('commands.bin'), vb = read('values.bin');
 const schema = parseSchema(sb), commands = parseCommands(cb), values = parseValues(vb, schema);
+assert.equal(typeof schema.fingerprint, 'bigint');
+assert.equal(typeof commands.fingerprint, 'bigint');
+assert.equal(values.schemaFingerprint, schema.fingerprint);
 assert.equal(schema.fields.length, 3);
 assert.equal(schema.catalogs[0].name, 'me"ter');
 assert.equal(schema.fields[0].name, 'U"a\u00e9');
@@ -40,12 +43,73 @@ for (const [name, decode] of [['golden-schema.bin', parseSchema], ['golden-comma
 }
 assert.equal(parseValues(read('golden-values.bin'), parseSchema(read('golden-schema.bin'))).values[0].value, 1);
 
+// Independent BigInt arithmetic over wire payloads checks the encoder's entire
+// semantic hash domain, including the postorder used for fields and parameters.
+function semanticFingerprint(bytes, isCommands) {
+    let hash = 0xcbf29ce484222325n;
+    const add = part => {
+        for (const byte of part) hash = BigInt.asUintN(64, (hash ^ BigInt(byte)) * 0x100000001b3n);
+    };
+    const record = part => {
+        add(part.subarray(0, 4));
+        add(part.subarray(8));
+        add(part.subarray(4, 8));
+    };
+    add(bytes.subarray(0, 8));
+    let parent = null, parameter = null;
+    const flushParameter = () => {
+        if (parameter) record(parameter);
+        parameter = null;
+    };
+    const flushParent = () => {
+        flushParameter();
+        if (parent) record(parent);
+        parent = null;
+    };
+    for (let offset = 44; offset < bytes.length;) {
+        const type = bytes[offset], size = bytes.readUInt32LE(offset + 4);
+        const part = bytes.subarray(offset, offset + 8 + size);
+        offset += part.length;
+        if (type === 4) record(part);
+        else if (isCommands && type === 3) {
+            flushParameter(); parameter = part;
+        } else {
+            flushParent();
+            if (type === (isCommands ? 2 : 3)) parent = part;
+            else record(part);
+        }
+    }
+    flushParent();
+    return hash;
+}
+for (const name of ['schema.bin', 'all-schema.bin', 'golden-schema.bin',
+                    'commands.bin', 'golden-commands.bin']) {
+    const bytes = read(name);
+    assert.equal(semanticFingerprint(bytes, name.includes('commands')), bytes.readBigUInt64LE(16));
+}
+
+// These are complete published v1 goldens, not merely v2 bytes with a changed version.
+const legacySchema = Buffer.from(
+    '545343480100000028000000960000007033fbfe0300000001000000010000000000000001000000' +
+    '0101000012000000010000000a00000050657273697374656e74020100000d00000000000000' +
+    '01000000010000006d03010000370000000000000000000000000000000000000000000000' +
+    '0a0a0100010000000100000056560a0104000000000a0104000096430a010400006643', 'hex');
+const legacyCommands = Buffer.from(
+    '54434d44010000002800000099000000366c723c0300000001000000010000000100000000000000' +
+    '010100000d0000000000000001000000010000006d02010000190000000000000000000000' +
+    '00000000010000000000000001000000430301000033000000000000000000000000000000' +
+    '000000000a030000010000000100000050560a0104000000000a0104000096430a010400006643', 'hex');
+const legacyValues = Buffer.from('5456414c010000007033fbfe01000000000000803f', 'hex');
+assert.throws(() => parseSchema(legacySchema), /major version/);
+assert.throws(() => parseCommands(legacyCommands), /major version/);
+assert.throws(() => parseValues(legacyValues, schema), /major version/);
+
 // Unknown records have explicit size/version and can be skipped, including at the front.
 function withUnknown(bytes, version = 1) {
     const extra = Buffer.alloc(25, 0xa5);
     extra[0] = 99; extra[1] = version; extra.writeUInt16LE(0, 2); extra.writeUInt32LE(17, 4);
-    const b = Buffer.concat([bytes.subarray(0, 40), extra, bytes.subarray(40)]);
-    b.writeUInt32LE(b.length, 12); b.writeUInt32LE(bytes.readUInt32LE(20) + 1, 20);
+    const b = Buffer.concat([bytes.subarray(0, 44), extra, bytes.subarray(44)]);
+    b.writeUInt32LE(b.length, 12); b.writeUInt32LE(bytes.readUInt32LE(24) + 1, 24);
     return b;
 }
 for (const [bytes, decode] of [[sb, parseSchema], [cb, parseCommands]]) {
@@ -58,17 +122,20 @@ for (const [bytes, decode] of [[sb, parseSchema], [cb, parseCommands]]) {
         assert.deepEqual(newer.catalogs, plain.catalogs);
     }
     // Header extensions and minor versions are compatible; major versions are not.
-    const extended = Buffer.concat([bytes.subarray(0, 40), Buffer.alloc(4), bytes.subarray(40)]);
-    extended.writeUInt32LE(44, 8); extended.writeUInt32LE(extended.length, 12); extended.writeUInt16LE(1, 6);
+    const extended = Buffer.concat([bytes.subarray(0, 44), Buffer.alloc(4), bytes.subarray(44)]);
+    extended.writeUInt32LE(48, 8); extended.writeUInt32LE(extended.length, 12); extended.writeUInt16LE(1, 6);
     assert.deepEqual(decode(extended).catalogs, plain.catalogs);
-    const major = Buffer.from(bytes); major.writeUInt16LE(2, 4); assert.throws(() => decode(major));
+    for (const version of [0, 1, 3, 65535]) {
+        const major = Buffer.from(bytes); major.writeUInt16LE(version, 4);
+        assert.throws(() => decode(major), /major version/);
+    }
 }
 // Every truncation is rejected, also when the declared total size is adjusted.
 let rejected = 0;
 for (const [bytes, decode] of [[sb, parseSchema], [cb, parseCommands], [vb, b => parseValues(b, schema)]]) {
     for (let n = 0; n < bytes.length; ++n) {
         assert.throws(() => decode(bytes.subarray(0, n))); ++rejected;
-        if (n >= 40 && bytes !== vb) {
+        if (n >= 44 && bytes !== vb) {
             const shortened = Buffer.from(bytes.subarray(0, n)); shortened.writeUInt32LE(n, 12);
             assert.throws(() => decode(shortened)); ++rejected;
         }
@@ -79,21 +146,28 @@ for (const [bytes, decode] of [[sb, parseSchema], [cb, parseCommands], [vb, b =>
     const padded = Buffer.concat([Buffer.alloc(13), bytes, Buffer.alloc(7)]);
     assert.deepEqual(decode(padded.subarray(13, 13 + bytes.length)), decode(bytes));
 }
-const mismatch = Buffer.from(vb); mismatch.writeUInt32LE((schema.fingerprint ^ 1) >>> 0, 8);
-assert.throws(() => parseValues(mismatch, schema), /fingerprint/);
-const badStatus = Buffer.from(vb); badStatus[16] = 2; assert.throws(() => parseValues(badStatus, schema));
-const unavailable = Buffer.from(vb); unavailable[16] = 1;
+// Every fingerprint bit participates, especially the previously absent upper word.
+for (let bit = 0n; bit < 64n; ++bit) {
+    const mismatch = Buffer.from(vb); mismatch.writeBigUInt64LE(schema.fingerprint ^ (1n << bit), 8);
+    assert.throws(() => parseValues(mismatch, schema), /fingerprint/);
+}
+for (const version of [0, 1, 3, 65535]) {
+    const major = Buffer.from(vb); major.writeUInt16LE(version, 4);
+    assert.throws(() => parseValues(major, schema), /major version/);
+}
+const badStatus = Buffer.from(vb); badStatus[20] = 2; assert.throws(() => parseValues(badStatus, schema));
+const unavailable = Buffer.from(vb); unavailable[20] = 1;
 assert.throws(() => parseValues(unavailable, schema), /zero/);
-unavailable.fill(0, 17, 21); assert.equal(parseValues(unavailable, schema).values[0].value, null);
+unavailable.fill(0, 21, 25); assert.equal(parseValues(unavailable, schema).values[0].value, null);
 for (const [bytes, decode] of [[sb, parseSchema], [cb, parseCommands]]) {
-    for (const offset of [8, 12, 20, 24, 28, 32, 36, 44]) {
+    for (const offset of [8, 12, 24, 28, 32, 36, 40, 48]) {
         const b = Buffer.from(bytes); b.writeUInt32LE(0xffffffff, offset); assert.throws(() => decode(b));
     }
 }
 // Bit-preserving values decode for subnormal, negative zero, infinities and NaN.
 const singleSchema = parseSchema(read('golden-schema.bin'));
 for (const [bits, expected] of [[0x80000000, -0], [0x00000001, 2 ** -149], [0x7f800000, Infinity], [0xff800000, -Infinity], [0x7fc12345, NaN]]) {
-    const b = read('golden-values.bin'); b.writeUInt32LE(bits, 17);
+    const b = read('golden-values.bin'); b.writeUInt32LE(bits, 21);
     const value = parseValues(b, singleSchema).values[0];
     assert(Object.is(value.value, expected));
     assert.equal(new DataView(value.bytes.buffer).getUint32(0, true), bits);

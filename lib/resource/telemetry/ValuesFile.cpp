@@ -18,7 +18,7 @@ void valueToken(resource::Output out, const telemetry::Field& field) noexcept
 {
     const auto value = field.read();
     const bool available = value.type() != telemetry::ScalarType::Null;
-    out[0] = available ? std::byte{0} : std::byte{1};
+    out[0] = static_cast<std::byte>(available ? ValueStatus::Available : ValueStatus::Unavailable);
     detail::storePayload(out.data() + 1, available ? detail::scalarBits(value) : 0,
                          static_cast<unsigned>(out.size() - 1));
 }
@@ -54,8 +54,8 @@ resource::ReadResult ValuesFile::read(resource::Cursor cursor,
                                            std::byte{'L'}};
         detail::storePayload(header + 4, binaryMajor, 2);
         detail::storePayload(header + 6, binaryMinor, 2);
-        detail::storePayload(header + 8, hash_, 4);
-        detail::storePayload(header + 12, fields_, 4);
+        detail::storePayload(header + 8, hash_.value(), 8);
+        detail::storePayload(header + 16, fields_, 4);
         if (!stream.fixedRecord(header))
         {
             return stream.result();

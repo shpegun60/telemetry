@@ -5,6 +5,7 @@
  * License: MIT; see ../LICENSE.
  */
 #pragma once
+#include "detail/Fingerprint.hpp"
 #include <resource/Types.hpp>
 #include <telemetry/abi/TelemetryAbi.h>
 
@@ -22,9 +23,9 @@ public:
         return size_;
     }
 
-    std::uint32_t fingerprint() const noexcept
+    std::uint64_t fingerprint() const noexcept
     {
-        return hash_;
+        return hash_.value();
     }
 
     resource::ReadResult read(resource::Cursor cursor, resource::Output output) const noexcept;
@@ -32,7 +33,7 @@ public:
 private:
     const telemetry::CommandCatalog* catalogs_;
     std::size_t count_;
-    std::uint32_t hash_ = 0;
+    detail::Fingerprint hash_{0};
     std::uint32_t size_ = 0;
     std::uint32_t records_ = 0;
     std::uint32_t commands_ = 0;

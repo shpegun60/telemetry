@@ -31,6 +31,6 @@ private:
     std::size_t count_;
     std::uint32_t size_;
     std::uint32_t fields_;
-    std::uint32_t hash_;
+    detail::Fingerprint hash_;
 };
 } // namespace telemetry_resource

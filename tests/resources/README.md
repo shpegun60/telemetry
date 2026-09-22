@@ -29,13 +29,15 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   lifetimes, capabilities, packet byte order, whole-path LIST paging, repeated
   WRITE delivery and malformed packets. Ok/unfinished callbacks must make
   byte or cursor progress; zero-byte EOF/complete and cursor-only progress work.
-- BinaryCheck: 793478 checks of exact scalar patterns, signed minima, U64 max,
+- BinaryCheck: 797621 checks of exact scalar patterns, signed minima, U64 max,
   bool/Null, negative zero, subnormals, NaN payloads and infinities. Partial
   writes at every scalar offset, raw strings including NUL/UTF-8, checked u32
-  length overflow and 80000 random typed payloads are covered.
+  length overflow and 80000 random typed payloads are covered. FNV-1a 64 checks
+  use RFC 9923 vectors, independent two-word arithmetic, all 4096 random byte
+  prefixes and chunked/empty updates.
 - StreamCheck: 4417 checks of record offsets, empty/tiny buffers, atomic
   preflight, output guards, EOF and invalid cursors.
-- TelemetryFilesCheck: 22903 checks with an independent binary reader against
+- TelemetryFilesCheck: 24211 checks with an independent binary reader against
   the real metadata. Full-file goldens pin schema, commands and values bytes,
   including fingerprints. Chunk capacities 1/2/3/7/31/63/127/220/256/1024 and
   every record byte offset reconstruct identical metadata. Checks cover
@@ -43,10 +45,14 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   reserved fields, labels with quotes/newlines/UTF-8 and enum names with NUL,
   null versus empty parameter labels, flags/fingerprint changes, atomic getter
   counts, changing readings, unavailable zero payloads and protocol READ paging.
+  Every values-header byte offset is checked, including both fingerprint words.
 - DecoderCheck: Node runs the actual browser ES module against the C++ fixtures.
   Exact BigInt/signed/float values, unknown type-99 records with 17-byte payloads,
-  minor/header extensions, 1655 truncation cases, invalid lengths/counts/status,
+  minor/header extensions, 1667 truncation cases, invalid lengths/counts/status,
   nonzero byteOffset views and 6000 deterministic packet mutations are covered.
+  All 64 single-bit fingerprint mismatches are rejected. Published v1 goldens
+  are rejected before their old headers can be misread. Independent BigInt
+  hashing reconstructs semantic postorder from the complete wire fixtures.
 - DeviceCheck: all three `.bin` paths and the application facade from a consumer
   that includes no telemetry headers. Protocol LIST is also checked.
 - NoHeapCheck: C++ new/new[] are rejected during construction and transfers.
@@ -58,6 +64,9 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
 - ArmProbe: FileEntry is 16 bytes, its offsets 0/8/12; view is 8 bytes. ReadResult
   and WriteResult are 16 bytes and FileStat 8 bytes. Constant descriptor storage
   and direct known-provider dispatch are verified at both optimizations.
+  SchemaFile/CommandsFile/ValuesFile are 36/36/24 bytes: each cached fingerprint
+  costs exactly four more bytes than v1. The FNV kernel must contain hardware
+  UMULL and no helper calls; resource objects reject software 64-bit multiply.
 
 [Golden.hpp](Golden.hpp) specifies the complete bytes for catalog `m`, field
 `V` of F32 (limits 0..300, default230), and command `C(P: F32)` with the same
@@ -95,27 +104,34 @@ Compiler: CubeIDE GCC 14.3.1, Cortex-M7 hard-float, nano/nosys, section GC.
 | Fixture | `.text` | `.rodata` | `.data` | `.bss` |
 |---|---:|---:|---:|---:|
 | JSON baseline, O2 | 38236 | 2880 | 116 | 404 |
-| Binary v1, O2 | 33784 | 2272 | 116 | 432 |
+| Binary v1 (`5885caa`), O2 | 33784 | 2272 | 116 | 432 |
+| Binary v2 (FNV-1a 64), O2 | 33504 | 2272 | 116 | 444 |
 | JSON baseline, Os | 28132 | 2720 | 116 | 404 |
-| Binary v1, Os | 22304 | 2208 | 116 | 432 |
+| Binary v1 (`5885caa`), Os | 22304 | 2208 | 116 | 432 |
+| Binary v2 (FNV-1a 64), Os | 22440 | 2208 | 116 | 444 |
 
-Text plus read-only data decreases by 5060 bytes at O2 and 6340 at Os. Cached
-metadata counts/fingerprints cost 28 additional bytes of BSS in this fixture.
+V2 reduces text plus read-only data by 5340 bytes at O2 and 6204 at Os against
+the JSON baseline. Against v1 it saves 280 bytes at O2 and adds 136 at Os.
+The shared construction-time hash loop avoids repeated inlining into writer
+primitives. The three cached fingerprints add 12 bytes of BSS over v1 (40
+over the JSON baseline). They are never recomputed during values reads.
 The much earlier to_chars implementation had 104568 bytes of floating lookup
 tables alone; both those tables and the replacement decimal formatter are now
 absent. These are build measurements, not board cycle measurements.
 
-GCC 14.3.1 individual read frames are:
+V2 individual read frames in bytes are:
 
-| Function | O2 | Os |
-|---|---:|---:|
-| SchemaFile::read | 160 | 160 |
-| CommandsFile::read | 176 | 152 |
-| ValuesFile::read | 120 | 144 |
+| Function | GCC 13 O2 | GCC 13 Os | GCC 14 O2 | GCC 14 Os |
+|---|---:|---:|---:|---:|
+| SchemaFile::read | 168 | 160 | 168 | 160 |
+| CommandsFile::read | 192 | 160 | 176 | 152 |
+| ValuesFile::read | 120 | 152 | 128 | 152 |
 
-The old decimal helper alone needed 464/456 bytes. The largest new resource
-frame across GCC 13/14 is 184 bytes. [stack_check.py](stack_check.py) pins
-schema/command/value read budgets at 168/184/152 bytes and other emitted frames
+The old decimal helper alone needed 464/456 bytes. The largest v2 resource
+frame across GCC 13/14 is 192 bytes. GCC 13's command read at O2 grows by eight
+bytes over v1; this is an explicit cost of the change. Values reads grow by
+eight bytes on both compilers. [stack_check.py](stack_check.py) pins
+schema/command/value read budgets at 168/192/152 bytes and other emitted frames
 at 192 bytes, with positive and negative controls and required-function checks.
 These are per-frame limits, **not cumulative call-chain, owner or IRQ budgets**.
 Nested metadata visitors and telemetry conversion calls still consume stack.
@@ -127,8 +143,11 @@ symbols in its system signal object linked via abort; this is not an allocation
 performed by the resource adapter. Its object/disassembly logs identify the
 origin. Consequently the GCC 13 image is not described as heap-symbol-free.
 Core dispatch probes reject runtime path comparison/strlen and retained indirect
-calls for a known provider. No byte-format benchmark or hardware cycle result
-is asserted here; the format change removes formatting work by construction.
+calls for a known provider. Compared with the rebuilt v1 baseline, their ARM
+instructions/relocations are unchanged at O2/Os, as are the complete DemoCatalog
+and TelemetryAbi objects. Replacing literal state bytes with wire enum constants
+was checked separately: all three adapter instruction streams were unchanged.
+No hardware cycle result is asserted here.
 
 Wire contract and lifetime/cursor rules: [binary adapter](../../lib/resource/telemetry/README.md).
 Other modules: [core](../../lib/resource/README.md), [protocol](../../lib/resource/protocol/README.md).

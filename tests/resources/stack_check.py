@@ -6,7 +6,9 @@ This is not the maximum stack along nested visitors, owner callbacks or IRQs.
 import re
 
 FRAME_LIMIT = 192
-READ_LIMITS = {"SchemaFile": 168, "CommandsFile": 184, "ValuesFile": 152}
+# Binary v2: GCC 13 uses eight extra bytes in CommandsFile::read for the
+# widened header. Keep this measured change explicit; do not hide it in a helper.
+READ_LIMITS = {"SchemaFile": 168, "CommandsFile": 192, "ValuesFile": 152}
 READ_FUNCTION = re.compile(r"resource::ReadResult telemetry_resource::(SchemaFile|CommandsFile|ValuesFile)::read\(resource::Cursor, resource::Output\) const$")
 
 
@@ -38,12 +40,15 @@ def check_usage(text, required=None):
 def self_test():
     helper = "probe.cpp:1:1:bool binaryPayload()"
     read = "probe.cpp:2:1:resource::ReadResult telemetry_resource::SchemaFile::read(resource::Cursor, resource::Output) const"
+    command = "probe.cpp:3:1:resource::ReadResult telemetry_resource::CommandsFile::read(resource::Cursor, resource::Output) const"
     good = f"{helper}\t192\tstatic\n{read}\t168\tdynamic,bounded\n"
     if check_usage(good, "SchemaFile")["maximum"] != 192:
         raise RuntimeError("Stack guard positive control failed")
+    check_usage(f"{command}\t192\tstatic", "CommandsFile")
     bad = ["", "not a report", f"{helper}\t-1\tstatic",
            f"{helper}\t193\tstatic", f"{helper}\t64\tdynamic",
-           f"{helper}\t64\tstatic,ignoring_inline_asm", f"{read}\t169\tstatic"]
+           f"{helper}\t64\tstatic,ignoring_inline_asm", f"{read}\t169\tstatic",
+           f"{command}\t193\tstatic"]
     for text in bad:
         try:
             check_usage(text)

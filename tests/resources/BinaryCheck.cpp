@@ -6,6 +6,57 @@ using namespace telemetry_resource;
 using detail::BinaryWriter;
 using telemetry::Scalar;
 
+void fingerprint()
+{
+    using detail::Fingerprint;
+    // RFC 9923 section 8.3 known answers, including high-bit input bytes.
+    constexpr std::string_view inputs[]{"", "a", "foobar", "Hello!\x01\xff\xed"};
+    constexpr std::uint64_t expected[]{UINT64_C(0xcbf29ce484222325), UINT64_C(0xaf63dc4c8601ec8c),
+                                       UINT64_C(0x85944171f73967e8), UINT64_C(0xbd51ea7094ee6fa1)};
+    for (unsigned i = 0; i < std::size(inputs); ++i)
+    {
+        const auto bytes = std::as_bytes(std::span{inputs[i].data(), inputs[i].size()});
+        for (std::size_t split = 0; split <= bytes.size(); ++split)
+        {
+            Fingerprint hash;
+            hash.bytes(bytes.first(split));
+            hash.bytes({});
+            hash.bytes(bytes.subspan(split));
+            CHECK(hash.value() == expected[i]);
+            CHECK(Fingerprint{hash.value()}.value() == expected[i]);
+        }
+    }
+
+    // Independent two-limb arithmetic checks carries and wrapping at every
+    // prefix, then verifies that chunk boundaries and embedded NULs do not matter.
+    std::array<std::byte, 4096> bytes{};
+    std::uint32_t state = 0x63ab1739, low = 0x84222325, high = 0xcbf29ce4;
+    Fingerprint incremental;
+    for (auto& byte : bytes)
+    {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        byte = std::byte(state & 255u);
+        low ^= std::to_integer<std::uint8_t>(byte);
+        const auto product = std::uint64_t{low} * 435u;
+        high = high * 435u + (low << 8) + static_cast<std::uint32_t>(product >> 32);
+        low = static_cast<std::uint32_t>(product);
+        incremental.bytes({&byte, 1});
+        CHECK(incremental.value() == ((std::uint64_t{high} << 32) | low));
+    }
+    for (const auto chunk : {1u, 2u, 3u, 7u, 31u, 256u, 4096u})
+    {
+        Fingerprint hash;
+        for (std::size_t offset = 0; offset < bytes.size(); offset += chunk)
+        {
+            hash.bytes(std::span{bytes}.subspan(
+                offset, std::min<std::size_t>(chunk, bytes.size() - offset)));
+        }
+        CHECK(hash.value() == incremental.value());
+    }
+}
+
 void scalar(Scalar value, std::string_view hex)
 {
     const auto expected = unhex(hex);
@@ -31,6 +82,7 @@ void scalar(Scalar value, std::string_view hex)
 
 int main()
 {
+    fingerprint();
     scalar(Scalar{}, "00 00 00");
     scalar(Scalar::fromBool(false), "01 01 01 00");
     scalar(Scalar::fromBool(true), "01 01 01 01");

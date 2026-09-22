@@ -57,12 +57,18 @@ The ABI-tagged constructors retain telemetry's mixed-layout link protection.
 
 ## Common wire rules
 
-Version 1.0 uses explicit little-endian integers, two's-complement signed bits,
+Version 2.0 uses explicit little-endian integers, two's-complement signed bits,
 and IEEE-754 binary32/binary64 float bits. No C++ struct memory is serialized.
 Strings are `u32 byteLength` followed by exactly those bytes. Names from the
 current C-string descriptor API end at the first NUL; enum names supplied as
 `string_view` preserve embedded NUL. Quotes, newlines and backslashes need no
 escaping. UTF-8 is a UI convention, not a wire constraint.
+
+Version 2 widens schema and command fingerprints from u32 to u64. Metadata
+headers grow from 40 to 44 bytes, and the values header from 16 to 20. Record
+layouts and per-value tokens are unchanged. Update firmware and decoders
+together and discard cached v1 metadata; the reference decoder rejects v1.
+Rebuild all C++ resource consumers because cached provider layouts also change.
 
 Stable type codes in [BinaryFormat.hpp](BinaryFormat.hpp) are independent of
 telemetry's internal ScalarType ordinals:
@@ -89,12 +95,14 @@ before their bytes.
 
 ## schema.bin
 
-The 40-byte header contains, in order:
+The 44-byte header contains, in order:
 
 ```
 char[4] magic = TSCH
 u16 major, minor
-u32 headerSize, totalSize, schemaFingerprint, recordCount
+u32 headerSize, totalSize
+u64 schemaFingerprint
+u32 recordCount
 u32 catalogCount, fieldCount, enumEntryCount, flagDefinitionCount
 ```
 
@@ -116,12 +124,14 @@ that width from some other member. Both type members currently have equal values
 
 ## commands.bin
 
-The 40-byte header contains:
+The 44-byte header contains:
 
 ```
 char[4] magic = TCMD
 u16 major, minor
-u32 headerSize, totalSize, commandsFingerprint, recordCount
+u32 headerSize, totalSize
+u64 commandsFingerprint
+u32 recordCount
 u32 catalogCount, commandCount, parameterCount, enumEntryCount
 ```
 
@@ -141,7 +151,7 @@ it is not a new execution protocol.
 
 ## values.bin
 
-The 16-byte header is `TVAL, u16 major, minor, u32 schemaFingerprint, fieldCount`.
+The 20-byte header is `TVAL, u16 major, minor, u64 schemaFingerprint, u32 fieldCount`.
 Then every field, including reserved entries, contributes exactly:
 
 ```
@@ -152,7 +162,7 @@ payload         // width from the matching schema's valueType
 Unavailable payloads are zero filled. A Null field contributes one unavailable
 status byte. There are no IDs, types or lengths per value. Fields appear in
 catalog/field position order, so size is exactly
-`16 + sum(1 + payloadSize(field.valueType))` and does not change with readings.
+`20 + sum(1 + payloadSize(field.valueType))` and does not change with readings.
 
 The full token (at most 9 bytes) must fit before its getter is called. A getter
 runs exactly once for each emitted token; measuring, skipping, invalid offsets
@@ -185,7 +195,9 @@ length; arbitrary bytes in earlier records are not copied or escaped.
 ## Semantic fingerprints
 
 Fingerprints belong to this binary adapter and do not call telemetry schemaCrc.
-FNV-1a starts at 2166136261 and updates `(hash XOR byte) * 16777619` modulo 2^32.
+FNV-1a 64 starts at `0xcbf29ce484222325` and updates
+`(hash XOR byte) * 0x100000001b3` modulo 2^64, as defined in
+[RFC 9923](https://www.rfc-editor.org/rfc/rfc9923.html#section-2).
 First hash four magic bytes (TSCH or TCMD), then LE u16 major and minor. Hash
 records as `[u8 type, u8 1, u16 0, payload, u32 payloadSize]`, without padding.
 Semantic record order is:
@@ -198,10 +210,15 @@ Semantic record order is:
 This postorder discovers child counts in one construction pass. Wire output
 remains parent first. Headers, cached sizes and live values are not hash inputs;
 all descriptive payloads, positions, labels, capabilities, exact scalar bits
-and dictionaries are. Goldens pin the algorithm. Fingerprints are change hints,
-not collision-free identities or integrity checks. Commands have a separate
-fingerprint; values carry the schema fingerprint so a client can reload metadata
-when they differ.
+and dictionaries are. Goldens pin the algorithm. Commands have a separate
+fingerprint; values carry the schema fingerprint. The decoder compares all 64
+bits and rejects a mismatch, so the client must reload the schema.
+
+The wider hash reduces accidental matches but remains a change hint, not a
+collision-free identity or payload integrity check. Two FNV32 streams with
+different seeds are not used as a substitute for FNV-1a 64. Cached hashes use
+two u32 words to avoid extra ARM32 alignment padding; only construction hashes
+descriptions. Reads copy the cached value and never hash metadata again.
 
 ## Browser
 
@@ -215,8 +232,8 @@ const readings = parseValues(await fetch('/telemetry/values.bin').then(r => r.ar
 console.log(schema.catalogs[0].fields[0].name, readings.values[0].value);
 ```
 
-U64/S64 are BigInt, never rounded Number. Scalars retain raw payload bytes (NaN
-payloads remain inspectable). Strings expose decoded text and a `nameBytes` or
+U64/S64 and fingerprints are BigInt, never rounded Number. Scalars retain raw
+payload bytes (NaN payloads remain inspectable). Strings expose decoded text and a `nameBytes` or
 `unitBytes` array; invalid UTF-8 gives null text with exact bytes retained.
 Parameter presenceFlags still distinguish absent text. Unknown record types or
 versions are retained in unknownRecords. Missing required definitions are
