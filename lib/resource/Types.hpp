@@ -51,26 +51,47 @@ constexpr bool has(FileFlags value, FileFlag bit) noexcept
 // Cursor zero starts a transfer. Only the provider interprets other cursors.
 // For Ok, written/consumed never exceeds the supplied span. On core errors
 // no provider is invoked, the cursor is unchanged and the count is zero.
+// Store the widest members first to avoid padding in these frequent returns.
+// Constructors keep the public {status, cursor, count, finished} argument order;
+// that order is independent of the in-memory layout and the wire encoding.
 struct ReadResult
 {
-    Status status = Status::Ok;
     Cursor next = 0;
     std::uint32_t written = 0;
+    Status status = Status::Ok;
     bool eof = false;
+
+    constexpr ReadResult(Status resultStatus = Status::Ok, Cursor nextCursor = 0,
+                         std::uint32_t byteCount = 0, bool atEnd = false) noexcept
+        : next(nextCursor), written(byteCount), status(resultStatus), eof(atEnd)
+    {
+    }
 };
 
 struct WriteResult
 {
-    Status status = Status::Ok;
     Cursor next = 0;
     std::uint32_t consumed = 0;
+    Status status = Status::Ok;
     bool complete = false;
+
+    constexpr WriteResult(Status resultStatus = Status::Ok, Cursor nextCursor = 0,
+                          std::uint32_t byteCount = 0, bool finished = false) noexcept
+        : next(nextCursor), consumed(byteCount), status(resultStatus), complete(finished)
+    {
+    }
 };
 
 struct FileStat
 {
-    Status status = Status::Ok;
     FileSize size = 0;
+    Status status = Status::Ok;
     FileFlags flags = FileFlag::None;
+
+    constexpr FileStat(Status resultStatus = Status::Ok, FileSize byteCount = 0,
+                       FileFlags capabilities = FileFlag::None) noexcept
+        : size(byteCount), status(resultStatus), flags(capabilities)
+    {
+    }
 };
 } // namespace resource

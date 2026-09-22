@@ -37,6 +37,20 @@ static_assert(offsetof(resource::FileEntry, path) == 0 &&
               offsetof(resource::FileEntry, object) == 8 &&
               offsetof(resource::FileEntry, ops) == 12);
 static_assert(sizeof(resource::FileSystemView) == 8);
+static_assert(sizeof(resource::ReadResult) == 16 && alignof(resource::ReadResult) == 8);
+static_assert(offsetof(resource::ReadResult, next) == 0 &&
+              offsetof(resource::ReadResult, written) == 8 &&
+              offsetof(resource::ReadResult, status) == 12 &&
+              offsetof(resource::ReadResult, eof) == 13);
+static_assert(sizeof(resource::WriteResult) == 16 && alignof(resource::WriteResult) == 8);
+static_assert(offsetof(resource::WriteResult, next) == 0 &&
+              offsetof(resource::WriteResult, consumed) == 8 &&
+              offsetof(resource::WriteResult, status) == 12 &&
+              offsetof(resource::WriteResult, complete) == 13);
+static_assert(sizeof(resource::FileStat) == 8 && alignof(resource::FileStat) == 4);
+static_assert(offsetof(resource::FileStat, size) == 0 &&
+              offsetof(resource::FileStat, status) == 4 &&
+              offsetof(resource::FileStat, flags) == 5);
 
 extern "C" resource::ReadResult resource_probe_read(resource::FileSystemView view,
                                                     resource::FileIndex i, resource::Cursor c,

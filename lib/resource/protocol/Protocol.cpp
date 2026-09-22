@@ -155,7 +155,9 @@ Reply process(resource::FileSystemView files, resource::Input request,
         const auto result = files.read(index, cursor, payload);
         if (!validStatus(result.status) || result.written > payload.size() ||
             (result.status != Status::Ok &&
-             (result.written != 0 || result.next != cursor || result.eof)))
+             (result.written != 0 || result.next != cursor || result.eof)) ||
+            (result.status == Status::Ok && !result.eof && result.written == 0 &&
+             result.next == cursor))
         {
             return chunkReply(response, Status::InternalError, cursor, 0, false);
         }
@@ -184,7 +186,9 @@ Reply process(resource::FileSystemView files, resource::Input request,
         auto result = files.write(index, cursor, request.subspan(16), final != 0);
         if (!validStatus(result.status) || result.consumed > length ||
             (result.status != Status::Ok &&
-             (result.consumed != 0 || result.next != cursor || result.complete)))
+             (result.consumed != 0 || result.next != cursor || result.complete)) ||
+            (result.status == Status::Ok && !result.complete && result.consumed == 0 &&
+             result.next == cursor))
         {
             result = {Status::InternalError, cursor};
         }

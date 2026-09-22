@@ -45,7 +45,10 @@ InvalidData status byte if possible. Valid requests retain the operation's
 normal response envelope on errors. If that envelope cannot fit, no provider
 is invoked and `Reply{BufferTooSmall, 0}` tells the transport to enlarge its
 buffer. Provider result counts/statuses are checked before encoding; inconsistent
-results become InternalError. This cannot repair a provider that has already
+results become InternalError. An Ok, unfinished READ/WRITE must produce bytes
+or change its cursor; returning zero bytes with an unchanged cursor becomes
+InternalError. EOF/complete with zero bytes remains valid, as do cursor-only
+progress and byte-only progress. This cannot repair a provider that has already
 written outside its C++ span: that remains a provider contract violation.
 
 WRITE retries are delivered again. There is no transaction or deduplication

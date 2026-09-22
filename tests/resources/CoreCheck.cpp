@@ -144,6 +144,27 @@ struct Misreport
 };
 
 static_assert(!Provider<Throwing> && !Provider<WrongSize>);
+static_assert(std::is_standard_layout_v<ReadResult> && std::is_trivially_copyable_v<ReadResult>);
+static_assert(std::is_standard_layout_v<WriteResult> && std::is_trivially_copyable_v<WriteResult>);
+static_assert(std::is_standard_layout_v<FileStat> && std::is_trivially_copyable_v<FileStat>);
+constexpr ReadResult defaultRead;
+constexpr WriteResult defaultWrite;
+constexpr FileStat defaultStat;
+static_assert(defaultRead.status == Status::Ok && defaultRead.next == 0 &&
+              defaultRead.written == 0 && !defaultRead.eof);
+static_assert(defaultWrite.status == Status::Ok && defaultWrite.next == 0 &&
+              defaultWrite.consumed == 0 && !defaultWrite.complete);
+static_assert(defaultStat.status == Status::Ok && defaultStat.size == 0 &&
+              defaultStat.flags == FileFlag::None);
+constexpr ReadResult fullRead{Status::CursorExpired, 0x100000007ull, 23, true};
+constexpr WriteResult fullWrite{Status::InvalidCursor, 0x100000009ull, 29, true};
+constexpr FileStat fullStat{Status::InvalidData, 31, FileFlag::Writable};
+static_assert(fullRead.status == Status::CursorExpired && fullRead.next == 0x100000007ull &&
+              fullRead.written == 23 && fullRead.eof);
+static_assert(fullWrite.status == Status::InvalidCursor && fullWrite.next == 0x100000009ull &&
+              fullWrite.consumed == 29 && fullWrite.complete);
+static_assert(fullStat.status == Status::InvalidData && fullStat.size == 31 &&
+              fullStat.flags == FileFlag::Writable);
 static_assert(Provider<Memory> && Provider<const Memory> && !WritableProvider<const Memory>);
 Memory memory;
 const ReadOnly ro;
@@ -175,8 +196,96 @@ std::uint64_t get(Input in, std::size_t p, std::size_t n)
     return r;
 }
 
+void progressChecks()
+{
+    // Exercise each independent form of progress, including a cursor change
+    // confined to the high word. Final input does not imply provider completion.
+    struct Progress
+    {
+        bool advance = false;
+        bool finish = false;
+        std::uint32_t count = 0;
+        Status status = Status::Ok;
+        mutable unsigned calls = 0;
+
+        FileSize size() const noexcept
+        {
+            return 1;
+        }
+
+        ReadResult read(Cursor cursor, Output out) const noexcept
+        {
+            ++calls;
+            if (count != 0 && !out.empty())
+            {
+                out[0] = std::byte{0x5a};
+            }
+            return {status, advance ? cursor + (Cursor{1} << 32) : cursor, count, finish};
+        }
+
+        WriteResult write(Cursor cursor, Input, bool) noexcept
+        {
+            ++calls;
+            return {status, advance ? cursor + (Cursor{1} << 32) : cursor, count, finish};
+        }
+    } provider;
+
+    const auto fs = filesystem(file("/progress", provider));
+    constexpr Cursor cursor = 0x0102030405060708ull;
+    std::array<std::byte, 17> request{};
+    std::array<std::byte, 32> response{};
+    put(Output{request}, 5, cursor);
+    put(Output{request}, 14, std::uint16_t{1});
+    request[16] = std::byte{0x5a};
+    using resource_protocol::process;
+    for (unsigned mode = 0; mode < 8; ++mode)
+    {
+        provider.advance = (mode & 1) != 0;
+        provider.finish = (mode & 2) != 0;
+        provider.count = (mode & 4) ? 1 : 0;
+        const bool stalled = mode == 0;
+        const auto expectedStatus = stalled ? Status::InternalError : Status::Ok;
+        const auto expectedCursor = provider.advance ? cursor + (Cursor{1} << 32) : cursor;
+        request[0] = std::byte{3};
+        const auto read = process(fs.view(), Input{request}.first(13), response);
+        CHECK(read.status == expectedStatus && read.written == 12 + provider.count);
+        CHECK(response[0] == std::byte(expectedStatus) && get(response, 1, 8) == expectedCursor);
+        CHECK(get(response, 10, 2) == provider.count && response[9] == std::byte(provider.finish));
+        if (provider.count)
+        {
+            CHECK(response[12] == std::byte{0x5a});
+        }
+        request[0] = std::byte{4};
+        for (unsigned final = 0; final <= 1; ++final)
+        {
+            request[13] = std::byte(final);
+            const auto written = process(fs.view(), request, response);
+            CHECK(written.status == expectedStatus && written.written == 14);
+            CHECK(response[0] == std::byte(expectedStatus) &&
+                  get(response, 1, 8) == expectedCursor);
+            CHECK(get(response, 9, 4) == provider.count &&
+                  response[13] == std::byte(provider.finish));
+        }
+    }
+    CHECK(provider.calls == 24);
+
+    // A provider can legitimately ask for a larger buffer with no progress;
+    // the guard must preserve this error rather than inventing InternalError.
+    provider.advance = provider.finish = false;
+    provider.count = 0;
+    provider.status = Status::BufferTooSmall;
+    for (unsigned op : {3u, 4u})
+    {
+        request[0] = std::byte(op);
+        const auto result = process(fs.view(), Input{request}.first(op == 3 ? 13 : 17), response);
+        CHECK(result.status == Status::BufferTooSmall && get(response, 1, 8) == cursor);
+        CHECK(get(response, op == 3 ? 10 : 9, op == 3 ? 2 : 4) == 0);
+    }
+}
+
 int main()
 {
+    progressChecks();
     std::array<std::byte, 128> out{};
     CHECK(files.path(3).empty());
     CHECK(files.stat(3).status == Status::InvalidFile);
