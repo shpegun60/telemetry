@@ -46,3 +46,10 @@ U64 switch is 18 bytes smaller at Os in this fixture; no universal size or speed
 claim follows from these results. Sequential folds stay independent of the
 indexed storage choice. No resource cursor or binary payload changes belong to
 this first stage.
+
+The later [H7S resource measurement](../resources/h7s/README.md#measured-completion-2026-09-22)
+also measures these original visitors on hardware. Enum traversal differs by
+under 1% in that fixture; parameter traversal improves at O2 but regresses 5.9%
+at Os while using 48 fewer bytes of nested stack. The original pack fold is
+preserved, but shared parameter factories change Os outlining. This is not a
+claim of identical cycles for every runtime metadata call.

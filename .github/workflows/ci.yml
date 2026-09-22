@@ -60,6 +60,7 @@ jobs:
           python3 tests/json_stack/verify.py --receipt tests/json_stack/layered-receipt.json --self-test
           python3 tests/command_dispatch/h7s/verify.py --self-test
           python3 tests/position_tables/h7s/verify.py --self-test
+          python3 tests/resources/h7s/verify.py --self-test
 
   arm:
     name: Cortex-M7 compile and link

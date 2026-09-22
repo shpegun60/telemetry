@@ -211,3 +211,9 @@ as normal compiler tail merging and is not mistaken for a traversal loop.
 including first/last entry READ, sequential enum/parameter visitors and complete
 nested stack watermarks. It retains input/image hashes and restores the saved
 64 KiB image before reporting success.
+
+The [completed H7S measurements](h7s/README.md#measured-completion-2026-09-22)
+now include both optimizations, complete file transfers, error preflight and
+nested PSP watermarks. Last-group reads improve substantially; the report also
+records the 5.9% Os sequential-parameter regression and the H7RS MPU startup fix.
+Both Flash restoration and resumed original-firmware execution were verified.

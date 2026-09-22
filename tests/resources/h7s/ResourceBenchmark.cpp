@@ -89,9 +89,8 @@ constexpr resource::Cursor cursor(unsigned file, unsigned group) noexcept
 #endif
 }
 
-std::uint32_t checksum(resource::Input bytes) noexcept
+std::uint32_t checksum(resource::Input bytes, std::uint32_t sum = 2166136261u) noexcept
 {
-    std::uint32_t sum = 2166136261u;
     for (auto byte : bytes)
     {
         sum = (sum ^ std::to_integer<unsigned>(byte)) * 16777619u;
@@ -182,6 +181,93 @@ void line(const char* text)
         Error_Handler();
     }
 }
+
+// These checks run before timing and use the same bounded read contract as a
+// transport. Two chunk sizes must produce the same complete bytes/checksum.
+template <class File>
+void checkFile(const File& file, unsigned number, unsigned chunk)
+{
+    resource::Cursor position = 0;
+    std::uint32_t sum = 2166136261u, bytes = 0;
+    const auto before = getters;
+    bool ended = false;
+    for (unsigned calls = 0; calls < file.size() + 1; ++calls)
+    {
+        const auto result = file.read(position, resource::Output{buffer, chunk});
+        if (result.status != resource::Status::Ok || result.written > chunk ||
+            (result.written == 0 && !result.eof) || (!result.eof && result.next == position))
+        {
+            valid = false;
+            break;
+        }
+        sum = checksum(resource::Input{buffer, result.written}, sum);
+        bytes += result.written;
+        position = result.next;
+        if (result.eof)
+        {
+            const auto again = file.read(position, resource::Output{buffer, chunk});
+            ended = again.status == resource::Status::Ok && again.eof && again.written == 0;
+            break;
+        }
+    }
+    valid = valid && ended && bytes == file.size() &&
+            getters == before + (number == 2 ? groups * 2 : 0);
+    char report[112];
+    std::snprintf(report, sizeof report, "RESOURCE F %u %u %lu %lu %u\r\n", number, chunk,
+                  static_cast<unsigned long>(bytes), static_cast<unsigned long>(sum),
+                  getters - before);
+    line(report);
+}
+
+void checkContracts() noexcept
+{
+    const auto before = getters;
+    const auto position = cursor(2, groups - 1);
+    const auto small = values->read(position, resource::Output{buffer, 2});
+    const auto bad = values->read(position + 1, resource::Output{buffer, 3});
+    valid = valid && small.status == resource::Status::BufferTooSmall && small.written == 0 &&
+            small.next == position && bad.status == resource::Status::InvalidCursor &&
+            bad.written == 0 && getters == before;
+
+#if TELEMETRY_LAYOUT_VARIANT != 7
+    const auto& type = fieldRows[1].declaredType;
+    unsigned count = 0, sum = 0;
+    const auto sink = +[](void* raw, const Scalar& value, std::string_view name) noexcept
+    {
+        if (value.type() != ScalarType::U16)
+        {
+            return false;
+        }
+        *static_cast<unsigned*>(raw) += value.get<std::uint16_t>() + name.size();
+        return true;
+    };
+    valid = valid && type.enumCount() == 3 && commandRows[0].parameterCount() == 2;
+    for (unsigned i = 0; i < 3; ++i)
+    {
+        const bool visited = type.describeEnumEntry(i, &sum, sink);
+        valid = valid && visited;
+    }
+    for (unsigned i = 0; i < 2; ++i)
+    {
+        const bool visited =
+            commandRows[0].visitParameter(i,
+                                          [&](const CommandParam& param) noexcept
+                                          {
+                                              ++count;
+                                              return param.index == i && param.name != nullptr;
+                                          });
+        valid = valid && visited;
+    }
+    const bool extra = commandRows[0].visitParameter(2,
+                                                     [&](const CommandParam&) noexcept
+                                                     {
+                                                         ++count;
+                                                         return true;
+                                                     });
+    valid = valid && sum == 16 && count == 2 && !extra && !type.describeEnumEntry(3, &sum, sink) &&
+            sum == 16;
+#endif
+}
 } // namespace
 
 extern "C" void bench_init()
@@ -199,6 +285,19 @@ extern "C" void bench_init()
     region.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
     region.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
     HAL_MPU_ConfigRegion(&region);
+
+    // ES0596, section 2.2.17: even speculative access to this unused H7RS
+    // GFXMMU window can stall the bus. The Cube scaffold's background map
+    // otherwise leaves it Normal/cacheable. Device + XN forbids speculation.
+    region.Number = MPU_REGION_NUMBER2;
+    region.BaseAddress = 0x25000000;
+    region.Size = MPU_REGION_SIZE_16MB;
+    region.TypeExtField = MPU_TEX_LEVEL0;
+    region.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+    region.IsBufferable = MPU_ACCESS_BUFFERABLE;
+    region.IsShareable = MPU_ACCESS_SHAREABLE;
+    region.AccessPermission = MPU_REGION_NO_ACCESS;
+    HAL_MPU_ConfigRegion(&region);
     HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
     SCB_EnableICache();
     SCB_EnableDCache();
@@ -207,18 +306,34 @@ extern "C" void bench_init()
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
     __DSB();
     __ISB();
-    schema = new (schemaStorage) SchemaFile{CatalogIndex{catalogs.data(), catalogs.size()}};
-    commandFile =
-        new (commandsStorage) CommandsFile{CommandCatalogIndex{commands.data(), commands.size()}};
-    values = new (valuesStorage) ValuesFile{*schema};
 }
 
 extern "C" void bench_loop()
 {
     std::uint8_t input;
-    if (HAL_UART_Receive(&huart3, &input, 1, 100) != HAL_OK || input != 'R')
+    if (HAL_UART_Receive(&huart3, &input, 1, 100) != HAL_OK)
     {
         return;
+    }
+    // Reset always returns to idle, including after an interrupted test.
+    // The host checks this handshake before requesting any resource work.
+    if (input == 'P')
+    {
+        line("RESOURCE IDLE 2\r\n");
+        return;
+    }
+    if (input != 'R')
+    {
+        return;
+    }
+    valid = true;
+    getters = 0;
+    if (schema == nullptr)
+    {
+        schema = new (schemaStorage) SchemaFile{CatalogIndex{catalogs.data(), catalogs.size()}};
+        commandFile = new (commandsStorage)
+            CommandsFile{CommandCatalogIndex{commands.data(), commands.size()}};
+        values = new (valuesStorage) ValuesFile{*schema};
     }
     if (SystemCoreClock != 600000000u || __get_IPSR() != 0 || (__get_CONTROL() & 3u) != 0 ||
         (SCB->CCR & (SCB_CCR_IC_Msk | SCB_CCR_DC_Msk)) != (SCB_CCR_IC_Msk | SCB_CCR_DC_Msk) ||
@@ -228,13 +343,26 @@ extern "C" void bench_loop()
         return;
     }
     char report[192];
-    std::snprintf(report, sizeof report, "RESOURCE READY 1 %u %u %lu %u %u %u %u %lu %lu %lu\r\n",
+    std::snprintf(report, sizeof report, "RESOURCE READY 2 %u %u %lu %u %u %u %u %lu %lu %lu\r\n",
                   TELEMETRY_LAYOUT_VARIANT, LAYOUT_OPT, static_cast<unsigned long>(SystemCoreClock),
                   groups, iterations, repetitions, operations,
                   static_cast<unsigned long>(schema->size()),
                   static_cast<unsigned long>(commandFile->size()),
                   static_cast<unsigned long>(values->size()));
     line(report);
+    valid = valid && getters == 0;
+    checkContracts();
+    for (unsigned chunk : {31u, 256u})
+    {
+        checkFile(*schema, 0, chunk);
+        checkFile(*commandFile, 1, chunk);
+        checkFile(*values, 2, chunk);
+    }
+    if (!valid)
+    {
+        line("RESOURCE FAIL contracts\r\n");
+        return;
+    }
     for (unsigned operation = 0; operation < operations; ++operation)
     {
         for (unsigned repeat = 0; repeat < repetitions; ++repeat)
