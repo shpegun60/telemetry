@@ -541,6 +541,11 @@ struct Function;
 Назви внутрішніх adapter classes можуть змінюватися без зміни користувацьких
 `field/command/service` або wire records.
 
+`get<I>(object)` приймає лише lvalue aggregate і повертає посилання з
+правильним `const`. Boost.PFR для rvalue aggregate повертає член за значенням;
+тому тимчасовий object відхиляємо, щоб не приховувати копіювання і не
+змінювати семантику доступу до членів.
+
 У C++20 PFR використовується лише за facade. Сигнатури facade не містять
 типів Boost, `magic_enum` або `std::meta::info`; вони повертають C++ типи,
 значення й `std::string_view` зі стабільним lifetime. Транзитивне включення
@@ -2275,6 +2280,7 @@ backend/config або звужуємо заявлену матрицю з явн
 Тести:
 
 - Free/static, const/nonconst member, `&`/`const &` qualifiers.
+- Lvalue `get<I>()` зберігає посилання; rvalue aggregate відхиляється.
 - Rejection `&&`, volatile, throwing, variadic, mutable request reference.
 - Response reference/pointer не проходить після remove_cvref normalization.
 - Bare lambda, `+lambda`, function pointer, NTTP і borrowed lvalue.

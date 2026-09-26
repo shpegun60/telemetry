@@ -110,3 +110,34 @@ The ARM size rows describe the **test objects**, which include `main` and
 `printf`; they do not isolate PFR overhead or predict the final firmware.
 No STM32 board run is claimed for this header-only compiler probe. Stage 02
 can now build the stable reflection facade on this verified backend.
+
+## Stage 02: stable reflection facade
+
+The new [`reflection`](../../lib/telemetry_structured/reflection) namespace
+contains the sole aggregate and callable traits interface for future
+Registry/Codec/Model code. Only `reflection/detail/PfrAdapter.hpp` includes
+Boost.PFR; direct vendor symbols are forbidden outside the backend adapter.
+`Aggregate.hpp` exposes `memberCount`, exact `MemberType`, `memberName` and
+`get`. The facade validates compiler-derived member names as ASCII
+identifiers. A mutable or const lvalue keeps its member reference and cv.
+PFR copies a member when passed a temporary aggregate; the facade rejects
+that call so member access remains reference based and copy free.
+
+`Callable.hpp` provides `Function<Signature>` facts for free functions,
+function pointers, member functions with all cv/ref/noexcept combinations,
+unique callable objects and the four existing slot families. Its
+`EndpointTraits` validates the common shape before normalizing one request
+and unwrapping a `ServiceResult<Response>` return. It preserves the original
+Result and Arguments for factory-specific checks. `ServiceResult` storage is
+deferred to Stage 06; these traits need only its declared type. `Enum.hpp`
+defines the explicit specialization point and planned normalized interface;
+the actual dictionary is the next stage.
+
+[`facade/run.py`](facade/run.py) checks a host executable and a second
+translation unit, 13 distinct compile-time rejection reasons, and the
+source-level vendor boundary. ARM runs compile at `-O2`, `-Os` and `-Og`.
+It passed locally on Qt MinGW GCC 13.1, Ubuntu Clang 18.1, ARM GCC 13.2 and
+CubeIDE ARM GCC 14.3. The CubeIDE O2/Os test objects have 20/18 total bytes
+of `.text`, respectively, and no `.data/.bss`; these are small facade
+fixtures, not a firmware-size comparison. The new CI steps run the same
+checks on host GCC/Clang and Cortex-M7. They do not claim a board run.
