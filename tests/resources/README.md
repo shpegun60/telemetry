@@ -25,7 +25,7 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
 
 ## Coverage
 
-- CoreCheck: 4162 checks of core/protocol bounds, const providers, borrowed
+- CoreCheck: 4198 checks of core/protocol bounds, const providers, borrowed
   lifetimes, capabilities, packet byte order, whole-path LIST paging, repeated
   WRITE delivery and malformed packets. Ok/unfinished callbacks must make
   byte or cursor progress; zero-byte EOF/complete and cursor-only progress work.
@@ -37,7 +37,7 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   prefixes and chunked/empty updates.
 - StreamCheck: hierarchical block offsets, empty/tiny buffers, atomic
   preflight, output guards, EOF and invalid cursors.
-- TelemetryFilesCheck: 24253 checks with an independent binary reader against
+- TelemetryFilesCheck: 27554 checks with an independent binary reader against
   the real metadata. Full-file goldens pin schema, commands and values bytes,
   including fingerprints. Chunk capacities 1/2/3/7/31/63/127/220/256/1024 and
   every block byte offset reconstruct identical metadata. Checks cover
@@ -65,7 +65,8 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   ARM object checks additionally reject malloc/calloc/realloc/operator new
   references from adapter/protocol code.
 - Fifteen resource headers compile independently, including internal codec
-  headers. Eleven negative compile cases have a successful control. Each of
+  headers. Fourteen negative compile cases have a successful control and check
+  the intended diagnostic. Each of
   three adapters has matching-layout link success and mixed-layout rejection.
 - ArmProbe: FileEntry is 16 bytes, its offsets 0/8/12; view is 8 bytes. ReadResult
   and WriteResult are 16 bytes and FileStat 8 bytes. Constant descriptor storage
@@ -79,6 +80,13 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
 limits. These bytes are not regenerated from the production encoder during tests.
 
 ## Integration
+
+The normal resource runner also executes MetadataContractCheck (110 checks),
+CursorCheck (600000 arbitrary cursors and 300000 packets), and the shared
+host/MCU EmbeddedReviewCheck (3328 checks). The latter reconstructs every byte
+of all three v2.1 goldens at small chunk sizes and executes ARM-sensitive numeric
+boundaries. [The review checks](../regression/README.md) describe their CI and
+hardware coverage.
 
 The resource runner deliberately links only TelemetryAbi.cpp from telemetry;
 it does not compile either public JSON serializer. The independent qmake target
@@ -189,10 +197,11 @@ The intermediate stage's stack regression is resolved without raising any limit:
 | Individual READ frame | GCC 13 O2 | GCC 13 Os | GCC 14 O2 | GCC 14 Os |
 |---|---:|---:|---:|---:|
 | SchemaFile | 168 | 160 | 168 | 160 |
-| CommandsFile | 112 | 96 | 112 | 96 |
+| CommandsFile (v2.0, 260e168) | 168 | 144 | 168 | 144 |
+| CommandsFile (v2.1, da0f59f) | 176 | 152 | 176 | 152 |
 | ValuesFile | 112 | 128 | 120 | 120 |
 
-These numbers still exclude nested calls, owner callbacks and IRQs. The complete
+The formerly listed 112/96 bytes belong to the parameter visitor helper, not `CommandsFile::read`. These numbers still exclude nested calls, owner callbacks and IRQs. The complete
 linked demo fixture with CubeIDE GCC 14.3.1 has:
 
 | Optimization | `.text` | `.rodata` | `.data` | `.bss` | text + rodata vs f1cfbd8 |

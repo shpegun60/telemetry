@@ -14,6 +14,9 @@
 
 #include "../core/TelemetryCompiler.h"
 #include "../core/TelemetryScalar.h"
+#include "../core/TelemetryConversion.h"
+#include "../detail/TelemetryOwner.h"
+#include "../detail/TelemetryTarget.h"
 
 namespace telemetry {
 namespace detail { struct FieldTableAccess; }
@@ -28,7 +31,7 @@ enum class WriteResult : std::uint8_t {
 };
 
 // Field::write normalizes to the declared ScalarType before dispatch. Setter
-// then adapts that exact Scalar alternative to the native callback parameter.
+// then converts to the native callback parameter if its representation differs.
 // The two-word payload/invoker representation keeps the RW32 write prefix
 // unchanged and never calls through a mismatched function-pointer type.
 class Setter {
@@ -115,16 +118,9 @@ public:
         noexcept(noexcept(asNative_<Native>(std::forward<F>(function))))
         : Setter(asNative_<Native>(std::forward<F>(function))) {}
 
-    // At -O2, inlining removes one dispatch boundary. Under GCC/Clang -Os,
-    // keeping this two-load adapter out of the caller avoids reserving the
-    // invoker register throughout Field::write's conversion/range switch.
-    // Both forms use the same two-word representation and observable contract.
+    // Keep one inline definition across translation units compiled at different
+    // optimization levels. The compiler chooses the size/speed trade-off.
     [[nodiscard]]
-#if (defined(__GNUC__) || defined(__clang__)) && defined(__OPTIMIZE_SIZE__)
-    TELEMETRY_NOINLINE
-#else
-    TELEMETRY_FORCE_INLINE
-#endif
     WriteResult operator()(const Scalar& value) const noexcept
     {
         return invoke_ != nullptr ? invoke_(payload_, value) : WriteResult::ReadOnly;
@@ -145,7 +141,8 @@ public:
     {
         static_assert(std::is_convertible_v<decltype(FunctionPointer), Function>,
                       "The setter must accept const Scalar&, return WriteResult and be noexcept");
-        static_assert(FunctionPointer != nullptr, "Setter target cannot be null");
+        static_assert(detail::nonNullTarget<static_cast<Function>(FunctionPointer)>,
+                      "Setter target cannot be null");
         // C++20 structural objects may convert to a noexcept pointer yet have
         // a throwing call operator. invokeStatic_ calls the object itself.
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((FunctionPointer)), const Scalar&>,
@@ -158,22 +155,25 @@ public:
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
                       "Setter::bind requires a member function");
-        static_assert(Method != nullptr, "Setter target cannot be null");
+        static_assert(detail::nonNullTarget<Method>, "Setter target cannot be null");
+        static_assert(detail::isDirectMemberOwner<decltype(Method), T>,
+                      "Setter owner must be the actual object or a derived object; dereference pointers explicitly or use OwnerSlot");
         static_assert(!std::is_volatile_v<T>, "Setter owners cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype(Method), T&, const Scalar&>,
                       "The setter must accept const Scalar&, return WriteResult and be noexcept");
         return Setter(Payload(eraseObject_(std::addressof(object))), &invokeMethod_<Method, T>);
     }
 
-    template <auto Method, class T>
-    static Setter bind(T&&) = delete;
+    template <auto Method, class T = void, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
+    static Setter bind(Argument&&) = delete;
 
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Setter bindContext(T& object) noexcept
     {
         // A null function pointer is type-invocable but cannot be called.
         if constexpr (std::is_pointer_v<decltype(Adapter)>)
-            static_assert(Adapter != nullptr, "Setter adapter cannot be null");
+            static_assert(detail::nonNullTarget<Adapter>, "Setter adapter cannot be null");
         static_assert(!std::is_volatile_v<T>, "Setter contexts cannot be volatile");
         // Match the const-lvalue expression used for a structural NTTP adapter.
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((Adapter)), T&, const Scalar&>,
@@ -181,8 +181,9 @@ public:
         return Setter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
 
-    template <auto Adapter, class T>
-    static Setter bindContext(T&&) = delete;
+    template <auto Adapter, class T = void, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
+    static Setter bindContext(Argument&&) = delete;
 
 private:
     constexpr Setter(Payload payload, Invoke invoke) noexcept
@@ -210,11 +211,15 @@ private:
     {
         constexpr auto type = Scalar::from(T{}).type();
         using Stored = Scalar::NativeType<type>;
-        // Descriptor writes have already converted. Direct Setter calls must
-        // supply this alternative too; never reinterpret a wrong Scalar tag.
+        // Inferred descriptors reach this exact-type branch. Manual Fields
+        // may declare another wire type; preserve its normalization, then
+        // perform a checked conversion to the callback's actual C++ type.
         const auto* native = value.template getIf<Stored>();
-        return native != nullptr
-            ? native_(payload, NativeTag<T>{})(static_cast<T>(*native))
+        if (native != nullptr)
+            return native_(payload, NativeTag<T>{})(static_cast<T>(*native));
+        const auto converted = convertScalar<T>(value);
+        return converted
+            ? native_(payload, NativeTag<T>{})(*converted)
             : WriteResult::InvalidValue;
     }
 

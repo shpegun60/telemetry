@@ -86,7 +86,7 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
                             ++enums_;
                         }
                         return ok;
-                    }))
+                    }) || enums != field.declaredType.enumCount())
             {
                 return;
             }

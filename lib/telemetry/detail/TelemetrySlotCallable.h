@@ -7,6 +7,7 @@
 #ifndef TELEMETRY_SLOT_CALLABLE_H
 #define TELEMETRY_SLOT_CALLABLE_H
 #include "../../delegate/tiny_delegate.hpp"
+#include <functional>
 #include <tuple>
 #include <type_traits>
 namespace telemetry::detail {
@@ -33,6 +34,18 @@ struct SlotSignaturesMatch<R(A...), S(B...)> : std::bool_constant<
             && std::is_convertible_v<std::add_pointer_t<std::remove_reference_t<S>>,
                                      std::add_pointer_t<std::remove_reference_t<R>>>))> {};
 
+// Explicit operator()<int&> also makes `auto value` look like int&. Inspect
+// its unreferenced specialization as well: a reference slot may only bind a
+// parameter that actually declares a reference (auto& or auto&&).
+template <class Wanted, class Actual> struct SlotPreservesReferences : std::false_type {};
+template <class R, class... A, class S, class... B>
+struct SlotPreservesReferences<R(A...), S(B...)> {
+    static constexpr bool value = [] {
+        if constexpr (sizeof...(A) != sizeof...(B)) return false;
+        else return ((!std::is_reference_v<A> || std::is_reference_v<B>) && ...);
+    }();
+};
+
 template <class F, class R, class... A>
 inline constexpr bool slotSignatureMatches = [] {
     using T = std::decay_t<F>;
@@ -41,9 +54,14 @@ inline constexpr bool slotSignatureMatches = [] {
         return SlotSignaturesMatch<R(A...), tiny::sig_of_t<T>>::value;
     else if constexpr (SlotConcreteCall<T>::valid)
         return SlotSignaturesMatch<R(A...), typename SlotConcreteCall<T>::Signature>::value;
-    else if constexpr (SlotGenericCall<T, std::tuple<A...>>::valid && std::is_invocable_v<F&, A...>)
-        return SlotSignaturesMatch<R(A...), typename SlotGenericCall<T, std::tuple<A...>>::Signature>::value
+    else if constexpr (SlotGenericCall<T, std::tuple<A...>>::valid && std::is_invocable_v<F&, A...>) {
+        using Plain = SlotGenericCall<T, std::tuple<std::remove_reference_t<A>...>>;
+        if constexpr (!Plain::valid) return false;
+        else return SlotSignaturesMatch<R(A...), typename SlotGenericCall<T, std::tuple<A...>>::Signature>::value
+            && SlotPreservesReferences<R(A...), typename Plain::Signature>::value
+            && std::is_nothrow_invocable_v<decltype(&T::template operator()<A...>), F&, A...>
             && SlotSignaturesMatch<R(A...), std::invoke_result_t<F&, A...>(A...)>::value;
+    }
     else if constexpr (std::is_class_v<T> && std::is_invocable_v<F&, A...>) {
         // A known slot signature can select an exact overload, including a
         // generic call operator. Also check the actually selected result: a
@@ -55,5 +73,26 @@ inline constexpr bool slotSignatureMatches = [] {
             && SlotSignaturesMatch<R(A...), std::invoke_result_t<F&, A...>(A...)>::value;
     } else return false;
 }();
+
+// Invoke the exact specialization/overload that was checked above. Repeating
+// normal overload resolution could choose a different by-value overload.
+template <class R, class... A, class F>
+decltype(auto) invokeSlotCallable(F& callable, A&&... args) noexcept
+{
+    using T = std::remove_cv_t<F>;
+    if constexpr (SlotConcreteCall<T>::valid || !std::is_class_v<T>) {
+        return std::invoke(callable, std::forward<A>(args)...);
+    } else if constexpr (SlotGenericCall<T, std::tuple<A...>>::valid) {
+        return std::invoke(&T::template operator()<A...>, callable, std::forward<A>(args)...);
+    } else if constexpr (!std::is_const_v<F> && SlotHasCall<R(T::*)(A...) noexcept, T>::value) {
+        return std::invoke(static_cast<R(T::*)(A...) noexcept>(&T::operator()), callable, std::forward<A>(args)...);
+    } else if constexpr (SlotHasCall<R(T::*)(A...) const noexcept, T>::value) {
+        return std::invoke(static_cast<R(T::*)(A...) const noexcept>(&T::operator()), callable, std::forward<A>(args)...);
+    } else if constexpr (!std::is_const_v<F> && SlotHasCall<R(T::*)(A...) & noexcept, T>::value) {
+        return std::invoke(static_cast<R(T::*)(A...) & noexcept>(&T::operator()), callable, std::forward<A>(args)...);
+    } else {
+        return std::invoke(static_cast<R(T::*)(A...) const & noexcept>(&T::operator()), callable, std::forward<A>(args)...);
+    }
+}
 } // namespace telemetry::detail
 #endif

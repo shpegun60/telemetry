@@ -56,7 +56,8 @@ constexpr bool validPath(std::string_view path) noexcept
     {
         if (i != path.size() && path[i] != '/')
         {
-            if (static_cast<unsigned char>(path[i]) < 0x20 || path[i] == '\\')
+            const auto byte = static_cast<unsigned char>(path[i]);
+            if (byte < 0x20 || byte == 0x7f || path[i] == '\\')
             {
                 return false;
             }
@@ -135,8 +136,14 @@ constexpr FileEntry file(std::string_view path, T& provider) noexcept
     return {path, const_cast<void*>(static_cast<const void*>(std::addressof(provider))),
             &detail::operations<T>};
 }
-template <class T>
-FileEntry file(std::string_view, T&&) = delete;
+// Deduce the actual argument independently of any explicitly supplied provider
+// type, so a converting temporary cannot leave a dangling provider reference.
+// Invalid lvalue providers remain subject to the Provider concept diagnostics.
+template <class... Explicit, class Actual>
+    requires(!std::is_lvalue_reference_v<Actual> ||
+             !(std::is_convertible_v<std::add_pointer_t<std::remove_reference_t<Actual>>,
+                                     std::add_pointer_t<Explicit>> && ...))
+FileEntry file(std::string_view, Actual&&) = delete;
 // Reject owning temporary strings without pulling <string> into this header.
 template <class Path, class T>
     requires(!std::is_lvalue_reference_v<Path> &&

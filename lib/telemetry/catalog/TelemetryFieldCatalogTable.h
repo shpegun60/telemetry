@@ -56,6 +56,11 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Field* find(FieldId id) const & noexcept
     { return index().find(id); }
     const Field* find(FieldId) const && = delete;
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    TELEMETRY_FORCE_INLINE constexpr const Field* find(Id id) const & noexcept
+    { return index().find(id); }
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    const Field* find(Id) const && = delete;
     // A known packed ID selects a tuple element and then the local definition.
     // Native definitions retain their direct callback path; the local table
     // decides whether a Scalar/manual definition requires its fallback.
@@ -87,12 +92,16 @@ public:
     // A requested T changes the result conversion, not the lookup contract.
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(FieldId id) const noexcept
     { return index().read(id); }
-    template <class T>
-    [[nodiscard]] TELEMETRY_FORCE_INLINE auto read(FieldId id) const noexcept
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(Id id) const noexcept
+    { return index().read(id); }
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE auto read(Id id) const noexcept
         -> decltype(std::declval<CatalogIndex>().template read<T>(id))
     { return index().template read<T>(id); }
-    template <class T>
-    [[nodiscard]] TELEMETRY_FORCE_INLINE auto write(FieldId id, T value) const noexcept
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE auto write(Id id, T value) const noexcept
         -> decltype(std::declval<CatalogIndex>().write(id, value))
     { return index().write(id, value); }
 };

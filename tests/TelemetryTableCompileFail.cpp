@@ -54,7 +54,7 @@ auto bad=FieldTable{Field{}};
 #elif TELEMETRY_TABLE_FAIL_CASE == 23
 auto bad=field<&Owner::read>(0,"x","",owner);
 #elif TELEMETRY_TABLE_FAIL_CASE == 24
-auto bad=command<&run>(0,"run");
+auto bad=command<&run>(0);
 #elif TELEMETRY_TABLE_FAIL_CASE == 25
 auto bad=telemetry::makeField<&Owner::read>("x","",owner);
 #elif TELEMETRY_TABLE_FAIL_CASE == 26

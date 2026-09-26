@@ -35,8 +35,10 @@ payload after the 12-byte header. With some entries emitted, a full buffer
 returns Ok and the first unreturned index. If the first entry cannot fit, it
 returns BufferTooSmall with an unchanged cursor. Because the complete data size
 is u16 and includes the two-byte path length, the largest individually
-transferable LIST path is 65533 bytes. Longer paths return InvalidData even
-with a large response buffer: enlarging it cannot make such an entry fit.
+transferable LIST path is 65533 bytes. A longer path ends an already populated
+page with Ok and leaves its index as the next cursor. Starting at that entry
+returns InvalidData even with a large response buffer: enlarging it cannot
+make such an entry fit. Earlier valid paths remain listable.
 The transport-independent core deliberately imposes no wire length limit.
 
 READ payload capacity is min(response size - 12, 65535). WRITE validates the

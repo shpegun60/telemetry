@@ -101,6 +101,12 @@ Reply process(resource::FileSystemView files, resource::Input request,
             // A larger path can never fit, even with an unlimited caller buffer.
             if (path.size() > maxPayload - sizeof(std::uint16_t))
             {
+                // Keep a completed prefix visible. The next request starts at
+                // this unrepresentable entry and reports its error separately.
+                if (used != 0)
+                {
+                    break;
+                }
                 return chunkReply(response, Status::InvalidData, cursor, 0, false);
             }
             const auto required = 2 + path.size();

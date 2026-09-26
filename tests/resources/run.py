@@ -38,12 +38,14 @@ def main():
         env.setdefault("ASAN_OPTIONS", "detect_leaks=1:detect_stack_use_after_return=1")
         env.setdefault("UBSAN_OPTIONS", "halt_on_error=1")
 
-    def run(command, name, text=None, reject=False):
+    def run(command, name, text=None, reject=False, diagnostic=None):
         result = subprocess.run(command, cwd=ROOT, env=env, input=text,
                                 text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         (build / (name + ".log")).write_text("COMMAND " + repr(command) + "\n" + result.stdout, encoding="utf-8")
         if (result.returncode == 0) == reject:
             raise RuntimeError(name + "\n" + result.stdout)
+        if diagnostic and not re.search(diagnostic, result.stdout, re.IGNORECASE):
+            raise RuntimeError(name + " failed for an unexpected reason\n" + result.stdout)
         if result.returncode == 0 and result.stdout and not name.startswith(("compile", "header", "negative", "dump", "link")):
             print(result.stdout.strip(), flush=True)
         return result.stdout
@@ -59,9 +61,12 @@ def main():
     run([args.cxx, "--version"], "compiler")
     for n, header in enumerate(HEADERS):
         run(flags + ["-x", "c++", "-fsyntax-only", "-"], f"header-{n}", f"#include <{header}>\n")
-    for case in range(12):
+    for case in range(15):
+        diagnostic = (r"deleted" if case in (1, 7, 8, 13, 14) else
+                      r"invalidDefinition" if case in (2, 3, 4, 5, 6, 12) else
+                      r"constraints not satisfied|constraint.*not satisfied" if case in (9, 10, 11) else None)
         run(flags + [f"-DCASE={case}", "-fsyntax-only", "tests/resources/Negative.cpp"],
-            f"negative-{case}", reject=case != 0)
+            f"negative-{case}", reject=case != 0, diagnostic=diagnostic)
     sources = TELEMETRY + ADAPTERS + PROTOCOL + DEVICE
     # Only object builds need .su output. Syntax-only checks otherwise leave
     # a--.su / a-Negative.su beside the repository sources on ARM GCC.
@@ -80,6 +85,9 @@ def main():
                     raise RuntimeError("Software 64-bit multiply entered resource code: " + src)
 
         if args.arm:
+            run(object_flags + ["-" + opt, "-c", "tests/resources/EmbeddedReviewCheck.cpp",
+                               "-o", str(build / (opt + "-EmbeddedReviewCheck.o"))],
+                "compile-" + opt + "-embedded-review")
             stack = {}
             for source in ADAPTERS + PROTOCOL:
                 stem = Path(source).stem
@@ -142,6 +150,9 @@ def main():
                 "TelemetryFilesCheck": TELEMETRY + ADAPTERS + PROTOCOL,
                 "LocalityCheck": TELEMETRY + ADAPTERS,
                 "MetadataSizeCheck": TELEMETRY + ADAPTERS,
+                "MetadataContractCheck": TELEMETRY + ADAPTERS,
+                "EmbeddedReviewCheck": TELEMETRY + ADAPTERS,
+                "CursorCheck": TELEMETRY + ADAPTERS + PROTOCOL,
                 "DeviceCheck": sources,
                 "NoHeapCheck": TELEMETRY + ADAPTERS + PROTOCOL,
             }
@@ -163,8 +174,8 @@ def main():
                 run(flags + [f"-DADAPTER={adapter}", "-DLEGACY_ABI7", "tests/resources/AbiCheck.cpp",
                     *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(build / f"abi7-{adapter}.exe")],
                     f"abi7-{adapter}", reject=True)
-    print(f"Resources: {len(HEADERS)} standalone headers, 11 contract rejections + control; "
-          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "8 host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
+    print(f"Resources: {len(HEADERS)} standalone headers, 14 contract rejections + control; "
+          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "11 host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
 
 
 if __name__ == "__main__":

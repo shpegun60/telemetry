@@ -45,7 +45,7 @@ inline constexpr const char* scalarTypeName(const ScalarType type) noexcept
 // Wire values preserve the stored numeric alternative. JSON has no NaN or
 // infinity literal, so unavailable and non-finite readings share null.
 // This formatting step never performs field validation or invokes callbacks.
-static inline bool appendScalar(JsonWriter& out, const Scalar& value) noexcept
+inline bool appendScalar(JsonWriter& out, const Scalar& value) noexcept
 {
     if (value.type() == ScalarType::Null) {
         return out.append("null");
@@ -89,7 +89,7 @@ static inline bool appendScalar(JsonWriter& out, const Scalar& value) noexcept
     }
 }
 
-static TELEMETRY_FORCE_INLINE bool appendMetadata(JsonWriter& out,
+TELEMETRY_FORCE_INLINE bool appendMetadata(JsonWriter& out,
                                                   const Scalar& value) noexcept
 {
     // A client commonly parses schema numbers into double. Nine F32 digits
@@ -109,7 +109,7 @@ TELEMETRY_FORCE_INLINE bool appendNumericBound(JsonWriter& out, const Scalar& va
     return value.get<T>() == native ? out.append("null") : appendMetadata(out, value);
 }
 
-static inline bool appendBound(JsonWriter& out, const Scalar& value, bool minimum,
+inline bool appendBound(JsonWriter& out, const Scalar& value, bool minimum,
                                bool enumBound) noexcept
 {
     // Schema-only shorthand: null means the native endpoint of the numeric
@@ -138,7 +138,7 @@ struct EnumJsonContext {
     bool first = true;
 };
 
-static inline bool appendEnumEntry(void* context, const Scalar& value, std::string_view name) noexcept
+inline bool appendEnumEntry(void* context, const Scalar& value, std::string_view name) noexcept
 {
     // Dictionary keys are always decimal strings, independently of the option
     // that quotes 64-bit numeric values elsewhere. The sink is synchronous;

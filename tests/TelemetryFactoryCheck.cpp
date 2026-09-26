@@ -99,8 +99,10 @@ int main()
     auto functionPair = telemetry::field("function pair","",getFree,setFree,limits(1.0f,0.0f,5.0f)).materialize();
     expect(functionPair.write(3)==WriteResult::Busy && functionPair.read<float>()==3.0f,
            "parameter function names: getter and setter");
-    expect(functionPair.set(Scalar::fromU32(3))==WriteResult::InvalidValue,
-           "typed setter rejects a non-normalized direct Scalar call");
+    expect(functionPair.set(Scalar::fromU32(3))==WriteResult::Busy && globalValue == 3.0f,
+           "native function setter performs a checked conversion for a manual Scalar call");
+    expect(functionPair.set(Scalar::fromF64(1.e300))==WriteResult::InvalidValue && globalValue == 3.0f,
+           "native function setter rejects unrepresentable input without calling its owner");
     auto addressPair = telemetry::field("address pair","",&getFree,&setFree).materialize();
     expect(addressPair.write(2.5)==WriteResult::Busy && addressPair.read<float>()==2.5f,
            "parameter function addresses: getter and setter");

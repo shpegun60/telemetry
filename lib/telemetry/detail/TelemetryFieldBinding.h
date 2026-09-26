@@ -20,7 +20,7 @@ template <auto Read, auto Write, class Owner, class Constraint = NoLimits>
 struct FieldBinding {
     using ReadTraits = CallableTraits<decltype(Read)>;
     using Value = typename ReadTraits::Result;
-    static_assert(Read != nullptr, "Field getter cannot be null");
+    static_assert(nonNullTarget<Read>, "Field getter cannot be null");
     static_assert(ReadTraits::arity == 0, "Field getter must have no parameters");
     static_assert(isFactoryValue<Value> || std::is_same_v<Value, Scalar>,
                   "Field getter must return a numeric, enum or Scalar value");
@@ -75,7 +75,7 @@ struct FieldBinding {
         if constexpr (std::is_same_v<decltype(Write), std::nullptr_t>) return nullptr;
         else {
             using Traits = CallableTraits<decltype(Write)>;
-            static_assert(Write != nullptr, "Field setter cannot be a null function pointer");
+            static_assert(nonNullTarget<Write>, "Field setter cannot be a null function pointer");
             static_assert(std::is_same_v<typename Traits::Result, WriteResult>, "Field setter must return WriteResult");
             static_assert(Traits::arity == 1, "Field setter must have exactly one parameter");
             using Arg = std::tuple_element_t<0, typename Traits::Arguments>;

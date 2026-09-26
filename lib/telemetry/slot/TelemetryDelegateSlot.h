@@ -24,8 +24,8 @@ class DelegateSlot<R(Args...) noexcept, Bytes, Align> {
         F callable;
         R operator()(Args... args) noexcept
         {
-            if constexpr (std::is_void_v<R>) std::invoke(callable, std::forward<Args>(args)...);
-            else return std::invoke(callable, std::forward<Args>(args)...);
+            if constexpr (std::is_void_v<R>) detail::invokeSlotCallable<R, Args...>(callable, std::forward<Args>(args)...);
+            else return detail::invokeSlotCallable<R, Args...>(callable, std::forward<Args>(args)...);
         }
     };
 public:

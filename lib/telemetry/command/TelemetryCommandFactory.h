@@ -28,7 +28,12 @@ constexpr auto ownedCommandMetadata(Entries... entries) noexcept
 
 template <class... Entries>
 constexpr auto ownedCommandMetadata(CommandArgs<Entries...> metadata) noexcept
-{ return metadata; }
+{
+    // An explicitly empty pack means exactly the same thing as omitted
+    // metadata, including a null descriptor metadata pointer and no storage.
+    if constexpr (sizeof...(Entries) == 0) return NoCommandArgs{};
+    else return metadata;
+}
 
 // Definitions are construction recipes. Their metadata is copied into the
 // final table before descriptor pointers are formed; no recipe is borrowed.
@@ -132,6 +137,10 @@ template <auto Target, class Owner, class... Entries,
 constexpr auto command(const char* name, Owner& owner,
                        Entries... entries) noexcept
 {
+    if (name == nullptr) detail::invalidFieldLimits();
+    static_assert(detail::isDirectMemberOwner<decltype(Target),
+                      std::remove_pointer_t<decltype(detail::resolveFactoryOwner(std::addressof(owner)))>>,
+                  "Command requires a direct owner object or OwnerSlot for that object");
     auto metadata = detail::ownedCommandMetadata(entries...);
     using StoredOwner = std::remove_reference_t<Owner>;
     using Metadata = decltype(metadata);
@@ -142,14 +151,16 @@ constexpr auto command(const char* name, Owner& owner,
 // Deduction and explicitly supplied const Owner template arguments must both
 // reject temporaries. A forwarding-reference constraint alone is bypassable
 // by spelling Owner as const T& and would retain a dangling owner pointer.
-template <auto Target, class Owner, class... Entries,
-          std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>, int> = 0>
-auto command(const char*, Owner&&, Entries...) = delete;
+template <auto Target, class ExplicitOwner = void, class Argument, class... Entries,
+          std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>
+              && !detail::isBorrowedObjectArgument<ExplicitOwner, Argument>, int> = 0>
+auto command(const char*, Argument&&, Entries...) = delete;
 
 template <auto Target, class... Entries,
           std::enable_if_t<!std::is_member_function_pointer_v<decltype(Target)>, int> = 0>
 constexpr auto command(const char* name, Entries... entries) noexcept
 {
+    if (name == nullptr) detail::invalidFieldLimits();
     auto metadata = detail::ownedCommandMetadata(entries...);
     using Metadata = decltype(metadata);
     return detail::OwnedCommandDefinition<Target, detail::NoOwner, Metadata>{
@@ -161,6 +172,7 @@ template <class Callable, class... Entries,
 constexpr auto command(const char* name, Callable& callable,
                        Entries... entries) noexcept
 {
+    if (name == nullptr) detail::invalidFieldLimits();
     static_assert(detail::hasFactoryCallSignature<Callable>,
                   "Borrowed command callable must have one concrete operator(); generic and overloaded callables are unsupported");
     auto metadata = detail::ownedCommandMetadata(entries...);
@@ -169,10 +181,22 @@ constexpr auto command(const char* name, Callable& callable,
         name, std::addressof(callable), metadata};
 }
 
-template <class Callable, class... Entries,
-          std::enable_if_t<std::is_class_v<std::remove_cv_t<Callable>>
-              && !std::is_lvalue_reference_v<Callable>, int> = 0>
-auto command(const char*, Callable&&, Entries...) = delete;
+template <class ExplicitCallable = void, class Argument, class... Entries,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<std::remove_reference_t<Argument>>>
+              && !detail::isBorrowedObjectArgument<ExplicitCallable, Argument>, int> = 0>
+auto command(const char*, Argument&&, Entries...) = delete;
+
+// A name is text, never a positional ID. Catch null-pointer constants such as
+// command<&run>(0) before they can silently become null const char pointers.
+template <auto Target, class Name, class... Rest,
+          std::enable_if_t<std::is_integral_v<Name>
+              || std::is_same_v<Name, std::nullptr_t>, int> = 0>
+auto command(Name, Rest&&...) = delete;
+
+template <class Name, class... Rest,
+          std::enable_if_t<std::is_integral_v<Name>
+              || std::is_same_v<Name, std::nullptr_t>, int> = 0>
+auto command(Name, Rest&&...) = delete;
 
 } // namespace telemetry
 #endif

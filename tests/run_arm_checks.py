@@ -522,6 +522,11 @@ def main():
              "-fsyntax-only", "tests/TelemetryPositionCompileFail.cpp"],
             f"position-rejection-{case}", diagnostic)
     print("18 invalid positions rejected on ARM32 before index narrowing", flush=True)
+    from regression.checks import check_contracts
+    check_contracts([compiler, *FLAGS], run)
+    run([compiler, *FLAGS, "-fsyntax-only", "tests/regression/ReviewCheck.cpp"],
+        "review-arm32-public-api")
+    print("Review contracts and wide-ID API compile on ARM32", flush=True)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,8 @@
 namespace telemetry {
 namespace detail {
 
+template <class Access> class FieldDefinition;
+
 // Access is valid only for payloads materialized by the corresponding factory.
 // Each union member is read with its original exact type; no pointer punning.
 struct FieldTableAccess {
@@ -35,6 +37,24 @@ struct StaticFieldAccess {
     static constexpr bool writable = !std::is_same_v<decltype(Write), std::nullptr_t>;
     static constexpr bool nullableRead = isOwnerSlot<Owner>
         && std::is_member_function_pointer_v<decltype(Read)>;
+
+    // The access type creates its own descriptor. Keeping these inputs typed
+    // prevents an unrelated Field payload from being paired with this accessor.
+    static constexpr FieldDefinition<StaticFieldAccess> make(
+        const char* name, const char* unit, Owner* owner, Constraint metadata = {}) noexcept
+    {
+        return FieldDefinition<StaticFieldAccess>{
+            FieldBinding<Read, Write, Owner, Constraint>::make(
+                name, unit, owner, refineType<Value>(metadata))};
+    }
+    static constexpr FieldDefinition<StaticFieldAccess> makeScalar(
+        const char* name, const char* unit, FieldType type, Owner* owner) noexcept
+    {
+        static_assert(std::is_same_v<Value, Scalar>,
+                      "Explicit FieldType is reserved for Scalar-returning getters");
+        return FieldDefinition<StaticFieldAccess>{
+            FieldBinding<Read, Write, Owner, Constraint>::make(name, unit, owner, type)};
+    }
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     {
         static_assert(!nullableRead, "Slot reads must use the optional readSlot adapter");
@@ -71,6 +91,19 @@ struct DirectFieldAccess {
     using Value = typename CallableTraits<Read>::Result;
     static constexpr bool nullableRead = false;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
+
+    template <class Limits>
+    static constexpr FieldDefinition<DirectFieldAccess> make(
+        const char* name, const char* unit, Read read, Write write, Limits metadata) noexcept
+    {
+        if constexpr (writable) {
+            return FieldDefinition<DirectFieldAccess>{
+                materializeField(name, unit, read, write, metadata)};
+        } else {
+            return FieldDefinition<DirectFieldAccess>{
+                materializeField(name, unit, read, metadata)};
+        }
+    }
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     { return FieldTableAccess::function<Value>(entry.get)(); }
     static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
@@ -86,6 +119,29 @@ struct BorrowedFieldAccess {
     using EnumConstraint = Constraint;
     static constexpr bool nullableRead = isCallableSlot<Read>;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
+
+    static constexpr FieldDefinition<BorrowedFieldAccess> make(
+        const char* name, const char* unit, Read* read, Write* write, Constraint metadata = {}) noexcept
+    {
+        if constexpr (writable) {
+            return FieldDefinition<BorrowedFieldAccess>{
+                materializeField(name, unit, *read, *write, metadata)};
+        } else {
+            return FieldDefinition<BorrowedFieldAccess>{
+                materializeField(name, unit, *read, metadata)};
+        }
+    }
+    static constexpr FieldDefinition<BorrowedFieldAccess> makeScalar(
+        const char* name, const char* unit, FieldType type, Read* read, Write* write) noexcept
+    {
+        if constexpr (writable) {
+            return FieldDefinition<BorrowedFieldAccess>{
+                materializeField(name, unit, type, *read, *write)};
+        } else {
+            return FieldDefinition<BorrowedFieldAccess>{
+                materializeField(name, unit, type, *read)};
+        }
+    }
     static TELEMETRY_FORCE_INLINE Value read(const Field& entry) noexcept
     {
         static_assert(!nullableRead, "Slot reads must use the optional readSlot adapter");
@@ -112,18 +168,22 @@ struct BorrowedFieldAccess {
     }
 };
 
-struct ManualFieldAccess { using Value = Scalar; };
+struct ManualFieldAccess {
+    using Value = Scalar;
+    static constexpr FieldDefinition<ManualFieldAccess> make(Field entry) noexcept;
+};
 
 // Only factories pair an Access type with its matching immutable descriptor.
 // That invariant permits reading the original payload directly on typed calls.
 // Manual Scalar definitions deliberately retain checked erased dispatch.
 template <class Access>
 class FieldDefinition {
+    friend Access;
     const Field entry_;
+    constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry) {}
 public:
     using Value = typename Access::Value;
     static constexpr bool hasNativeFastPath = isFactoryValue<Value>;
-    constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry) {}
     constexpr Field materialize() const noexcept { return entry_; }
 
     // Replace only policy metadata, retaining the exact native Access type.
@@ -185,6 +245,9 @@ public:
     }
 };
 
+constexpr FieldDefinition<ManualFieldAccess> ManualFieldAccess::make(Field entry) noexcept
+{ return FieldDefinition<ManualFieldAccess>{entry}; }
+
 template <class> struct IsFieldDefinition : std::false_type {};
 template <class A> struct IsFieldDefinition<FieldDefinition<A>> : std::true_type {};
 } // namespace detail
@@ -197,14 +260,14 @@ template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::N
 constexpr auto field(const char* name, const char* unit, Owner& owner, Limits metadata = {}) noexcept
 {
     using Access = detail::StaticFieldAccess<Read, Write, std::remove_reference_t<Owner>, Limits>;
-    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, owner, metadata)};
+    return Access::make(name, unit, std::addressof(owner), metadata);
 }
 template <auto Read, auto Write = nullptr, class Limits = detail::NoLimits,
           std::enable_if_t<!detail::fieldNeedsOwner<Read, Write> && detail::IsLimits<Limits>::value, int> = 0>
 constexpr auto field(const char* name, const char* unit, Limits metadata = {}) noexcept
 {
     using Access = detail::StaticFieldAccess<Read, Write, detail::NoOwner, Limits>;
-    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, metadata)};
+    return Access::make(name, unit, nullptr, metadata);
 }
 template <auto Read, auto Write = nullptr, class Owner,
           std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
@@ -212,14 +275,14 @@ template <auto Read, auto Write = nullptr, class Owner,
 constexpr auto field(const char* name, const char* unit, FieldType type, Owner& owner) noexcept
 {
     using Access = detail::StaticFieldAccess<Read, Write, std::remove_reference_t<Owner>>;
-    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, type, owner)};
+    return Access::makeScalar(name, unit, type, std::addressof(owner));
 }
 template <auto Read, auto Write = nullptr,
           std::enable_if_t<!detail::fieldNeedsOwner<Read, Write>, int> = 0>
 constexpr auto field(const char* name, const char* unit, FieldType type) noexcept
 {
     using Access = detail::StaticFieldAccess<Read, Write, detail::NoOwner>;
-    return detail::FieldDefinition<Access>{detail::materializeField<Read, Write>(name, unit, type)};
+    return Access::makeScalar(name, unit, type, nullptr);
 }
 
 template <class Read, class Limits = detail::NoLimits,
@@ -232,8 +295,8 @@ constexpr auto field(const char* name, const char* unit, Read read, Limits metad
     // conversion objects need not be copied again inside this noexcept body.
     static_assert(noexcept(detail::fieldFunction<Function>(read)),
                   "Factory function-pointer conversion must be noexcept");
-    return detail::FieldDefinition<detail::DirectFieldAccess<Function>>{
-        detail::materializeField(name, unit, detail::fieldFunction<Function>(read), metadata)};
+    return detail::DirectFieldAccess<Function>::make(
+        name, unit, detail::fieldFunction<Function>(read), nullptr, metadata);
 }
 template <class Read, class Write, class Limits = detail::NoLimits,
           class R = decltype(+std::declval<Read>()), class W = decltype(+std::declval<Write>()),
@@ -246,9 +309,8 @@ constexpr auto field(const char* name, const char* unit, Read read, Write write,
                   "Factory getter function-pointer conversion must be noexcept");
     static_assert(noexcept(detail::fieldFunction<W>(write)),
                   "Factory setter function-pointer conversion must be noexcept");
-    return detail::FieldDefinition<detail::DirectFieldAccess<R, W>>{
-        detail::materializeField(name, unit, detail::fieldFunction<R>(read),
-                                 detail::fieldFunction<W>(write), metadata)};
+    return detail::DirectFieldAccess<R, W>::make(
+        name, unit, detail::fieldFunction<R>(read), detail::fieldFunction<W>(write), metadata);
 }
 template <class Read, class Limits = detail::NoLimits,
           std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
@@ -256,8 +318,8 @@ template <class Read, class Limits = detail::NoLimits,
               && detail::IsLimits<Limits>::value, int> = 0>
 constexpr auto field(const char* name, const char* unit, Read& read, Limits metadata = {}) noexcept
 {
-    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read, std::nullptr_t, Limits>>{
-        detail::materializeField(name, unit, read, metadata)};
+    return detail::BorrowedFieldAccess<Read, std::nullptr_t, Limits>::make(
+        name, unit, std::addressof(read), nullptr, metadata);
 }
 template <class Read, class Write, class Limits = detail::NoLimits,
           std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
@@ -268,14 +330,14 @@ template <class Read, class Write, class Limits = detail::NoLimits,
               && detail::IsLimits<Limits>::value, int> = 0>
 constexpr auto field(const char* name, const char* unit, Read& read, Write& write, Limits metadata = {}) noexcept
 {
-    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read, Write, Limits>>{
-        detail::materializeField(name, unit, read, write, metadata)};
+    return detail::BorrowedFieldAccess<Read, Write, Limits>::make(
+        name, unit, std::addressof(read), std::addressof(write), metadata);
 }
 template <class Read, std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && !detail::HasNativeFunctionPointer<Read>::value, int> = 0>
 constexpr auto field(const char* name, const char* unit, FieldType type, Read& read) noexcept
 {
-    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read>>{detail::materializeField(name, unit, type, read)};
+    return detail::BorrowedFieldAccess<Read>::makeScalar(name, unit, type, std::addressof(read), nullptr);
 }
 template <class Read, class Write, std::enable_if_t<std::is_class_v<std::remove_cv_t<Read>>
               && std::is_class_v<std::remove_cv_t<Write>>
@@ -284,21 +346,22 @@ template <class Read, class Write, std::enable_if_t<std::is_class_v<std::remove_
               && !detail::IsLimits<std::remove_cv_t<Write>>::value, int> = 0>
 constexpr auto field(const char* name, const char* unit, FieldType type, Read& read, Write& write) noexcept
 {
-    return detail::FieldDefinition<detail::BorrowedFieldAccess<Read, Write>>{
-        detail::materializeField(name, unit, type, read, write)};
+    return detail::BorrowedFieldAccess<Read, Write>::makeScalar(
+        name, unit, type, std::addressof(read), std::addressof(write));
 }
 
-// A forced template argument such as const Owner must not let a temporary bind
-// to the lvalue overload's const reference. Reference template arguments are
-// rejected above; these better rvalue matches close the remaining lifetime gap.
-template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::NoLimits,
+// Deduce the argument independently: an explicit const Owner must not permit
+// a proxy conversion to a short-lived owner. Safe cv/base lvalues still bind.
+template <auto Read, auto Write = nullptr, class Owner = void, class Limits = detail::NoLimits,
+          class Argument,
           std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
-              && !std::is_reference_v<Owner> && detail::IsLimits<Limits>::value, int> = 0>
-auto field(const char*, const char*, Owner&&, Limits = {}) = delete;
-template <auto Read, auto Write = nullptr, class Owner,
+              && !detail::isBorrowedObjectArgument<Owner, Argument>
+              && detail::IsLimits<Limits>::value, int> = 0>
+auto field(const char*, const char*, Argument&&, Limits = {}) = delete;
+template <auto Read, auto Write = nullptr, class Owner = void, class Argument,
           std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
-              && !std::is_reference_v<Owner>, int> = 0>
-auto field(const char*, const char*, FieldType, Owner&&) = delete;
+              && !detail::isBorrowedObjectArgument<Owner, Argument>, int> = 0>
+auto field(const char*, const char*, FieldType, Argument&&) = delete;
 
 namespace detail {
 // Exact class types only: explicitly supplied reference types must not reopen
@@ -311,36 +374,42 @@ template <class Read, class Write, class Limits>
 inline constexpr bool isBorrowedFieldPair = isBorrowedFieldCallable<Read>
     && isBorrowedFieldCallable<Write> && !IsLimits<std::remove_cv_t<Write>>::value
     && IsLimits<Limits>::value;
+
+template <class Expected, class Argument>
+using BorrowedArgumentType = std::conditional_t<std::is_void_v<Expected>,
+    std::remove_reference_t<Argument>, Expected>;
 } // namespace detail
 
-template <class Read, class Limits = detail::NoLimits,
-          std::enable_if_t<detail::isBorrowedFieldCallable<Read>
+template <class Read = void, class Limits = detail::NoLimits, class Argument,
+          std::enable_if_t<detail::isBorrowedFieldCallable<detail::BorrowedArgumentType<Read, Argument>>
+              && !detail::isBorrowedObjectArgument<Read, Argument>
               && detail::IsLimits<Limits>::value, int> = 0>
-auto field(const char*, const char*, Read&&, Limits = {}) = delete;
-template <class Read, class Write, class Limits = detail::NoLimits,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
-auto field(const char*, const char*, Read&&, Write&, Limits = {}) = delete;
-template <class Read, class Write, class Limits = detail::NoLimits,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
-auto field(const char*, const char*, Read&, Write&&, Limits = {}) = delete;
-template <class Read, class Write, class Limits = detail::NoLimits,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
-auto field(const char*, const char*, Read&&, Write&&, Limits = {}) = delete;
+auto field(const char*, const char*, Argument&&, Limits = {}) = delete;
+template <class Read = void, class Write = void, class Limits = detail::NoLimits,
+          class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, Limits>
+              && !std::is_same_v<std::decay_t<ReadArgument>, ScalarType>
+              && !std::is_same_v<std::decay_t<ReadArgument>, FieldType>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument>), int> = 0>
+auto field(const char*, const char*, ReadArgument&&, WriteArgument&&, Limits = {}) = delete;
 
-template <class Read, std::enable_if_t<detail::isBorrowedFieldCallable<Read>, int> = 0>
-auto field(const char*, const char*, FieldType, Read&&) = delete;
-template <class Read, class Write,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
-auto field(const char*, const char*, FieldType, Read&&, Write&) = delete;
-template <class Read, class Write,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
-auto field(const char*, const char*, FieldType, Read&, Write&&) = delete;
-template <class Read, class Write,
-          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
-auto field(const char*, const char*, FieldType, Read&&, Write&&) = delete;
+template <class Read = void, class Argument,
+          std::enable_if_t<detail::isBorrowedFieldCallable<detail::BorrowedArgumentType<Read, Argument>>
+              && !detail::isBorrowedObjectArgument<Read, Argument>, int> = 0>
+auto field(const char*, const char*, FieldType, Argument&&) = delete;
+template <class Read = void, class Write = void, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, detail::NoLimits>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument>), int> = 0>
+auto field(const char*, const char*, FieldType, ReadArgument&&, WriteArgument&&) = delete;
 
 constexpr auto field(Field entry) noexcept
-{ return detail::FieldDefinition<detail::ManualFieldAccess>{entry}; }
+{ return detail::ManualFieldAccess::make(entry); }
 constexpr auto reservedField() noexcept { return field(Field{}); }
 
 } // namespace telemetry

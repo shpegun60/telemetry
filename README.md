@@ -1,5 +1,7 @@
 # Telemetry playground
 
+September 2026 technical review: [resolved findings and maintained regression checks](doc/Review-2026-09-25/Resolution.md).
+
 A C++20 Qt Widgets application for exercising the standalone C++17 telemetry
 library copied from the analyzer. All values in this application are
 simulated; it does not connect to an instrument.

@@ -10,6 +10,8 @@
 #include "../field/TelemetryEnum.h"
 #include "../slot/TelemetryOwnerSlot.h"
 #include "../slot/TelemetryFunctionSlot.h"
+#include "TelemetryOwner.h"
+#include "TelemetryTarget.h"
 #include <functional>
 #include <tuple>
 #include <type_traits>
@@ -146,8 +148,10 @@ TELEMETRY_FORCE_INLINE bool extractFactoryValue(const Scalar& value, T& result) 
 template <auto Function, class Owner, class... A>
 TELEMETRY_FORCE_INLINE auto invokeFactory(Owner* owner, A... args) noexcept
 {
-    static_assert(Function != nullptr, "Factory target cannot be null");
+    static_assert(nonNullTarget<Function>, "Factory target cannot be null");
     if constexpr (CallableTraits<decltype(Function)>::member) {
+        static_assert(isDirectMemberOwner<decltype(Function), Owner>,
+                      "Factory owner must be the actual object or a derived object; dereference pointers explicitly or use OwnerSlot");
         static_assert(std::is_nothrow_invocable_v<decltype(Function), Owner&, A...>,
                       "Factory owner or parameter types do not match the noexcept target");
         if constexpr (std::is_same_v<std::remove_cv_t<Owner>,

@@ -128,6 +128,13 @@ errors, checked before narrowing to `size_t`, including 64-bit enums on ARM32.
 Position names add no runtime work. Global typed APIs still take the packed
 `makeId(group, entry)`; a local position enum does not identify its group.
 
+Runtime integer/enum IDs are checked at their original width before conversion
+to the 32-bit ID or local `size_t`. Negative and oversized values report
+`NotFound` (or null/empty for lookup/read), without invoking a callback.
+`makeId(group, entry)` requires both components in `0..65535`: invalid constant
+expressions fail compilation and invalid runtime calls abort. For input that
+can fail validation, use `tryMakeId(group, entry)` and check its optional result.
+
 `field(...)` supports the same NTTP methods/free functions, parameter function
 pointers, capture-free lambdas and borrowed callable lvalues through this one factory.
 `makeField` was removed; use `field(...)` entries in a `FieldTable`.
@@ -283,7 +290,12 @@ return `WriteResult`; both callbacks must be `noexcept`. A different enum
 with the same underlying integer is rejected. Getters and command parameters
 must return/take values, without reference, pointer, string or long-double
 parameters. Const and lvalue-qualified methods are supported. Owners are
-borrowed lvalues, including runtime objects; temporary owners are rejected.
+borrowed lvalues, including runtime objects. Pass the actual object (or a derived
+object), explicitly dereference a stable pointer, or use `OwnerSlot` for late
+binding. Pointer variables, smart pointers and `reference_wrapper` are not
+owners. Temporary owners and converting proxies are rejected, including when
+the owner type is explicitly supplied as a template argument. The application
+must still keep every borrowed object alive for the duration of all calls.
 
 `limits(default)` changes only the initial metadata. The three-argument form
 is `limits(default, min, max)`. Values must match the signature's exact C++
@@ -349,8 +361,9 @@ path and therefore must be named lvalues that outlive every copied `Field`.
 For an enum-returning capture-free lambda, use a named template target as in the
 lambda pair; the template form preserves enum identity. Commands have the same
 stable-lvalue rule for borrowed callable objects. Generic, overloaded or
-throwing call operators and temporary capturing closures are rejected. No
-factory stores a pointer to a temporary closure.
+throwing call operators and direct temporary capturing closures are rejected.
+A helper accepting `const T&` can hide the original value category; it must
+not publish a binding to a temporary that dies when the helper returns.
 
 Command IDs form a separate logical space. For one flat zero-based array,
 `CommandIndex` clips its count to the entry capacity and uses one bounds check.
@@ -370,11 +383,17 @@ The old public `makeCommand` factory is removed; use `CommandTable` entries.
 Direct `CommandTable{...}` construction owns its metadata tuple and ordinary
 Command descriptors. Those descriptors point into the owned metadata, so the
 table is non-copyable and non-movable. `data()`, `operator[]` and `index()` are
-lvalue-only. `size()` may be used on a temporary because it returns a value.
+lvalue-only. This blocks direct calls on rvalues, not lifetime escapes through
+`std::data(temporaryTable)` or helpers taking `const T&`. Such helpers must not
+return views that outlive the original owning table. `size()` may be used on a
+temporary because it returns a value.
 Copying a `Command` descriptor out of the table does not copy its referenced
 metadata or owner; the table must still outlive that copied descriptor's use.
-In C++17 construct CommandTable directly: returning a self-referential table
-from a factory is not a portable constant expression. `CommandCatalogTable`
+In C++17 a factory may return a directly constructed prvalue `CommandTable`:
+guaranteed copy elision constructs it in its final storage. Returning a named
+local would require an unavailable copy/move if elision is not performed.
+The constexpr prvalue form is checked on GCC and Clang; MSVC is not verified.
+`CommandCatalogTable`
 is now the multi-group registry shown above, not an owning single-group wrapper.
 There is no fixed arity limit beyond compiler and application resources.
 
@@ -408,8 +427,9 @@ but emits typed branches because the local zero-based table position is known
 only at runtime. A selected definition with another argument count returns
 `ArgumentCountMismatch`; an out-of-range position returns `NotFound`. The
 generated dispatcher has one range check and emits comparisons/invocations
-only for definitions with the supplied argument count. Other arities are
-removed by `if constexpr`. Each selected branch knows the destination types
+for definitions with the supplied argument count and for reserved rows, which
+accept every count and report `Unavailable`. Other arities are removed by
+`if constexpr`. Each selected branch knows the destination types
 and converts directly without Scalar, subject to the same virtual-method rule.
 Generated code grows with the number of matching arities. With automatic
 conversion this can include more definitions than exact-type filtering did;
@@ -494,7 +514,8 @@ unknown wire bits; ordinary integers cannot implicitly become a policy.
 The wire contract currently defines `None = 0` and `Persistent = 1u << 0`.
 Existing bits will not be renumbered; consumers ignore unknown bits.
 Persistent means save **and** restore, so both getter and setter capabilities
-must exist. Invalid constexpr definitions fail compilation; invalid runtime
+must exist and the declared type must be a supported numeric or Bool type.
+Null and unknown types cannot be Persistent. Invalid constexpr definitions fail compilation; invalid runtime
 construction terminates with `std::abort()` before publishing the descriptor.
 A declared late-bound slot may be empty: its adapter still supplies that
 capability and reports unavailability when called. Flags do not affect
@@ -651,7 +672,8 @@ Catalog group;   // name "", fields nullptr, count 0; identity comes from positi
 
 The same defaults apply in `constexpr` declarations and when trailing
 arguments are omitted from a Field initializer. Its constexpr constructor
-retains the order `{name, unit, declaredType, getter, setter}`.
+retains the order `{name, unit, declaredType, getter, setter, flags}`; flags
+default to an empty mask.
 Field is no longer an aggregate: designated initializers are not supported.
 Copy/move construction and public metadata reads remain available. Field
 members are const; assignment and individual definition edits are rejected.
@@ -687,10 +709,10 @@ remains **96 bytes**, aligned to **32**.
 
 ### Field ABI migration and storage
 
-`telemetry::telemetryAbiVersion` is **7**. The four policy bytes now occupy
-former Field padding, even though descriptor sizes have not grown. ABI 6
-objects must be rebuilt: the exact signature now includes flag offset, size
-and alignment, and compiled entry points reject the old ABI tuple.
+`telemetry::telemetryAbiVersion` is **8**. ABI 7 added policy bytes in former
+Field padding. ABI 8 adds the sequential/indexed metadata operation tables.
+Descriptor sizes are unchanged, but all ABI 6/7 consumers must be rebuilt;
+compiled entry points reject their old ABI tuples.
 
 The earlier ABI 6 migration removed stored `id` from Field, Command, Catalog
 and CommandCatalog. Their
@@ -705,7 +727,11 @@ covers all remaining members, nested storage, sizes and alignment, including
 the cache-line policy. Its unhashed tuple is part of compiled JSON and explicit
 `requireTelemetryAbi()` link symbols. Mixed builds fail when they use those
 entry points. Inline-only consumers must call the explicit anchor at a module
-boundary if they need that link-time check. The diagnostic hash is not a wire
+boundary if they need that link-time check. That call must survive linker
+garbage collection: putting it in an unreferenced function does not protect
+the module. The tests cover both a live mismatching reference (link failure)
+and a discarded one (no guarantee). A header-only TU does not automatically
+emit a retained anchor. The diagnostic hash is not a wire
 version or a collision-based substitute for the link tuple.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
@@ -878,7 +904,7 @@ to the owner. Reads ignore the write interval and may publish code 100.
 `writeSchema()` emits the numeric type and an extra property:
 
 ```json
-{"t":"u16","min":0,"max":2,"default":1,"enum":{"0":"Off","1":"Auto","2":"Manual"}}
+{"t":"u16","w":true,"f":0,"min":0,"max":2,"default":1,"enum":{"0":"Off","1":"Auto","2":"Manual"}}
 ```
 
 `writeValues()` still emits numbers. Lookup and read/write never inspect enum
@@ -1161,6 +1187,14 @@ at the same address, and temporary owners are rejected.
 
 ## Optional writes
 
+An inferred getter/setter pair must have the same C++ value type. A manual
+`Field` may instead pair a declared type with a native function-pointer setter
+of another numeric type: `Field::write()` first normalizes to `declaredType`,
+then the setter performs checked conversion to its actual argument type.
+Exact types take the direct branch. A failed conversion never invokes the
+callback. Raw Scalar callbacks and NTTP Scalar adapters retain their existing
+explicit Scalar contract; `.set()` alone does not apply Field limits.
+
 Field's optional final constructor argument is `Setter`, defaulting to nullptr.
 Rows containing only name, unit, type and getter remain read-only. Setter uses the same trivial payload/invoker representation
 and is 8 bytes on ARM32. It can retain the exact native typed callback pointer
@@ -1200,6 +1234,13 @@ is invoked by a write. Explicit Scalar inputs are also accepted.
   round to zero. Finite min/max bounds reject NaN/Inf before the setter.
 - Null and unknown destination tags are rejected. Compile without fast-math/finite-only
   assumptions so floating-point range checks retain their meaning.
+
+The build guards reject `-ffast-math`, `-ffinite-math-only`, `-Ofast` and
+MSVC's fast mode marker. Clang versions exposing `-Wnan-infinity-disabled`
+(tested: Clang 18) also reject either individual `-fno-honor-nans` or
+`-fno-honor-infinities`, even if the command line suppresses that diagnostic.
+On older compilers without that diagnostic these individual options remain
+unsupported preconditions, rather than an automatically detected error.
 
 Conversion is constexpr and shared by all field reads and writes. Equal native
 types copy directly, without numeric conversion or representability checks. A Scalar
@@ -1244,7 +1285,7 @@ Use the existing borrowed index when exporting the same catalog repeatedly:
 ```cpp
 writeSchema(index, schemaBuffer, sizeof(schemaBuffer));
 writeValues(index, valuesBuffer, sizeof(valuesBuffer));
-auto fingerprint = schemaCrc(index);
+auto fingerprint = trySchemaCrc(index); // optional<uint32_t>; zero is a valid hash.
 
 JsonOptions webSafe{JsonInt64Mode::String};
 writeSchema(index, schemaBuffer, sizeof(schemaBuffer), webSafe);
@@ -1270,7 +1311,7 @@ The dictionary keys are decimal **bit masks**, not bit positions; `f:0` means
 none of the flags. Command schemas publish only `"meta":{"formatVersion":1}`.
 There is no build date, slot state, ID layout or value-encoding profile in this
 minimal header. `jsonSchemaFormatVersion` describes the JSON contract, separately
-from ABI 7, any future storage format and the schema fingerprint. Old schemas
+from ABI 8, binary storage formats and the schema fingerprint. Old schemas
 without `meta` predate this envelope. Adding known flag names need not change
 the format version, but it changes the field fingerprint automatically.
 
@@ -1285,7 +1326,10 @@ The root format version and reflected field-flag codes/names are included too.
 Command fingerprints include their format version without the field dictionary.
 The ABI 7 schema adds `f` even for zero masks, so old cached field fingerprints
 change. The fingerprint is a schema hint, not a Flash-format version or a promise
-against collisions. The packed numbering and group schema IDs change the
+against collisions. `trySchemaCrc()` returns `nullopt` for invalid metadata;
+all 32-bit results, including zero, can be valid fingerprints. The retained
+`schemaCrc()` convenience returns zero on failure too, so do not use a zero
+test to decide whether a schema is valid. The packed numbering and group schema IDs change the
 previous playground schema; the production firmware is not changed.
 
 Serializers use the same public traversal: indexed catalog/entry views where
@@ -1407,7 +1451,7 @@ with reproduction flags in its opening comment; use the same flags for
 [FactoryCodegen.cpp](../../tests/FactoryCodegen.cpp),
 [BorrowedFieldCodegen.cpp](../../tests/BorrowedFieldCodegen.cpp) and
 [CommandTableCodegen.cpp](../../tests/CommandTableCodegen.cpp).
-The [ARM runner](../../tests/run_arm_checks.py) compiles all fifteen probes and
+The [ARM runner](../../tests/run_arm_checks.py) compiles all sixteen probes and
 all positive suites at `-O2`/`-Os`, checks for startup initialization/writable
 probe storage, pins exported table sizes, links the newlib-nano consumer and
 independently checks core, field-JSON and command-JSON archives. Each matching layout links; each
@@ -1420,7 +1464,7 @@ keeps the erased wrapper as an explicit indirect-dispatch control.
 It compares manual and inferred read wrappers in the same build and rejects
 growth. The [factory checkpoint](../../tests/README.md#signature-factory-and-command-codegen)
 records a separate 14/14 object-byte comparison against `c6012d9` and the free
-getter improvement. The current ABI-7 layout is Field 96, Command 20 and Catalog 12 bytes on ARM32.
+getter improvement. The current ABI-8 layout is Field 96, Command 20 and Catalog 12 bytes on ARM32.
 See [positional table checks](../../tests/position_tables/README.md) for current evidence.
 
 ### Historical code-generation and board checkpoints

@@ -1,5 +1,13 @@
 # Runtime binding slots
 
+Generic delegate callbacks must preserve reference parameters. A slot such as
+`DelegateSlot<void(int&) noexcept>` accepts `[](auto& x) noexcept { ... }` or
+`[](auto&& x) noexcept { ... }`, but rejects `[](auto x) noexcept { ... }`.
+The adapter invokes the exact specialization/overload whose signature was
+checked. Borrowed `DelegateRefSlot` callbacks and direct method owners must
+remain alive until the last invocation; pass actual objects, not pointer or
+smart-pointer variables. `OwnerSlot` is the explicit rebindable-object API.
+
 Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT; see [LICENSE](../LICENSE).
 
 Tables borrow a slot at a stable address. Bind it after constructing application

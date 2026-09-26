@@ -70,7 +70,8 @@ from an invalid index. A provider returns an exact size representable in u32.
 The table, provider and path text have independent lifetimes. `file()` rejects
 temporary providers and owning temporary path strings. An explicitly created
 `string_view` remains the caller's lifetime responsibility. Paths must start
-with `/`, have nonempty components, and contain no control bytes, backslashes,
+with `/`, have nonempty components, and contain no ASCII control bytes
+(`0x00..0x1f`, `0x7f`), backslashes,
 `.` or `..` components, or trailing slash. Duplicate paths are rejected.
 These checks run during constant evaluation for constexpr/constinit definitions;
 invalid runtime definitions terminate with `abort()`. There is no protocol

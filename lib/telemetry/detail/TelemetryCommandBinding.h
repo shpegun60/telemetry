@@ -9,6 +9,7 @@
 
 #include "../command/TelemetryCommand.h"
 #include "../command/TelemetryCommandArgs.h"
+#include "TelemetryTarget.h"
 #include <memory>
 
 namespace telemetry {
@@ -251,7 +252,7 @@ struct CommandBinding {
     using Traits = CallableTraits<decltype(Target)>;
     using Contract = CommandContract<Traits, Metadata>;
     using Arguments = typename Contract::Arguments;
-    static_assert(Target != nullptr, "Command target cannot be null");
+    static_assert(nonNullTarget<Target>, "Command target cannot be null");
     static_assert(std::is_same_v<typename Traits::Result, CommandResult>,
                   "Command target must return CommandResult");
 
@@ -316,6 +317,7 @@ struct CommandBinding {
     static constexpr Command make(const char* name, Owner* owner,
                                   const Metadata* metadata = nullptr) noexcept
     {
+        if (name == nullptr) invalidFieldLimits();
         Contract::validateMetadata(metadata);
         return Command{name, owner, metadata, &run, &Contract::parameterOps};
     }
@@ -392,6 +394,7 @@ struct BorrowedCommandBinding {
     static constexpr Command make(const char* name, Callable* callable,
                                   const Metadata* metadata = nullptr) noexcept
     {
+        if (name == nullptr) invalidFieldLimits();
         Contract::validateMetadata(metadata);
         return Command{name, callable, metadata, &run, &Contract::parameterOps};
     }

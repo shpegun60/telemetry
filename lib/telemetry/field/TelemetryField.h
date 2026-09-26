@@ -71,7 +71,11 @@ struct alignas(cacheLineBytes) Field {
         : get(getter), readType(static_cast<ScalarType>(fieldType)),
           name(fieldName), unit(fieldUnit), flags_(policy), set(setter), declaredType(fieldType)
     {
-        if (persistent() && (!get || !set)) detail::invalidFieldFlags();
+        // Persistent means save and restore: both callbacks and a supported
+        // numeric/bool representation are required even for a manual row.
+        if (persistent() && (!get || !set || readType <= ScalarType::Null
+                             || readType > ScalarType::S64))
+            detail::invalidFieldFlags();
     }
 
     constexpr FieldFlags flags() const noexcept { return flags_; }

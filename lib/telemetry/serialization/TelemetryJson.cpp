@@ -101,18 +101,18 @@ bool hash_enum_entry_(void* context, const Scalar& value, std::string_view name)
 
 namespace detail {
 
-std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
+std::optional<std::uint32_t> trySchemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
 {
     std::uint32_t hash = schemaHeaderHash;
     for (const auto catalog : index.catalogs()) {
-        if (catalog.name() == nullptr) return 0;
+        if (catalog.name() == nullptr) return std::nullopt;
         hash = hash_byte_(hash, 'C');
         hash = hash_byte_(hash, static_cast<std::uint8_t>(catalog.index()));
         hash = hash_byte_(hash, static_cast<std::uint8_t>(catalog.index() >> 8));
         hash = fnv1a_(hash, catalog.name());
         for (const auto entry : catalog.fields()) {
             const Field& field = entry.field();
-            if (field.name == nullptr || field.unit == nullptr) return 0;
+            if (field.name == nullptr || field.unit == nullptr) return std::nullopt;
             hash = hash_byte_(hash, 'F');
             // Explicit byte order, independent of host endianness/padding.
             for (unsigned shift = 0; shift < 32; shift += 8) {
@@ -134,13 +134,18 @@ std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept
             hash = hash_scalar_(hash, field.declaredType.defaultValue());
             if (field.declaredType.hasEnum()) {
                 hash = hash_byte_(hash, 'D');
-                (void) field.declaredType.describeEnum(&hash, &hash_enum_entry_);
+                if (!field.declaredType.describeEnum(&hash, &hash_enum_entry_)) return std::nullopt;
                 hash = hash_byte_(hash, 'd');
             }
         }
         hash = hash_byte_(hash, 'E');
     }
     return hash;
+}
+
+std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag tag) noexcept
+{
+    return trySchemaCrcAbi(index, tag).value_or(0);
 }
 
 namespace {
@@ -154,9 +159,11 @@ std::size_t writeSchemaWithOptions_(const CatalogIndex& index, char* const buffe
     // and no source getter are needed.
     JsonWriter out {buffer, size, options.int64 == JsonInt64Mode::String};
     if (!out.ok()) return 0;
+    const auto fingerprint = trySchemaCrcAbi(index, tag);
+    if (!fingerprint) return 0;
     if (!out.append("{\"schema\":\"%08lx\",\"meta\":{\"formatVersion\":%" PRIu32
                     ",\"fieldFlags\":{\"type\":\"u32\",\"values\":{",
-                    static_cast<unsigned long>(schemaCrcAbi(index, tag)), jsonSchemaFormatVersion)) return 0;
+                    static_cast<unsigned long>(*fingerprint), jsonSchemaFormatVersion)) return 0;
     bool firstFlag = true;
     for (const auto& [flag, name] : fieldFlagEntries) {
         if (!out.append("%s\"%" PRIu32 "\":", firstFlag ? "" : ",", static_cast<std::uint32_t>(flag))

@@ -358,6 +358,24 @@ int main()
         CHECK(guarded.front() == std::byte{0xa5} && guarded.back() == std::byte{0xa5});
         CHECK(memory.stats == statCalls);
     }
+    // A later unrepresentable path must not hide the preceding valid page.
+    std::string oversized(65534, 'x');
+    oversized.front() = '/';
+    const auto partialFs = filesystem(file("/a", memory), file(std::string_view{oversized}, memory));
+    for (std::size_t capacity : {4u, 5u, 100u, 65535u})
+    {
+        std::vector<std::byte> page(12 + capacity, std::byte{0xa5});
+        put(Output{request}, 1, Cursor{0});
+        const auto first = process(partialFs.view(), Input{request}.first(9), page);
+        CHECK(first.status == Status::Ok && first.written == 16 && get(page, 1, 8) == 1 &&
+              get(page, 10, 2) == 4 && page[9] == std::byte{0});
+        CHECK(get(page, 12, 2) == 2 && page[14] == std::byte{'/'} && page[15] == std::byte{'a'});
+        put(Output{request}, 1, Cursor{1});
+        const auto second = process(partialFs.view(), Input{request}.first(9), page);
+        CHECK(second.status == Status::InvalidData && second.written == 12 &&
+              get(page, 1, 8) == 1 && get(page, 10, 2) == 0);
+    }
+    put(Output{request}, 1, Cursor{0});
     request[0] = std::byte{2};
     CHECK(process(view, Input{request}.first(5), out).written == 6 && get(out, 1, 4) == 10 &&
           out[5] == std::byte{3});
@@ -406,6 +424,26 @@ int main()
     request[0] = std::byte{4};
     CHECK(process(view, Input{request}.first(19), request).status == Status::Ok &&
           memory.bytes[0] == std::byte{10});
+    // All request fields are captured before an in-place reply overwrites them.
+    for (unsigned op : {1u, 2u, 3u})
+    {
+        request.fill(std::byte{0});
+        request[0] = std::byte(op);
+        const std::size_t length = op == 1 ? 9 : op == 2 ? 5 : 13;
+        auto shared = request;
+        const auto separate = process(view, Input{request}.first(length), out);
+        const auto inplace = process(view, Input{shared}.first(length), shared);
+        CHECK(inplace.status == separate.status && inplace.written == separate.written &&
+              std::equal(out.begin(), out.begin() + separate.written, shared.begin()));
+    }
+    // Empty final WRITE is delivered once; it can finish a provider transaction.
+    request.fill(std::byte{0});
+    request[0] = std::byte{4};
+    request[13] = std::byte{1};
+    writes = memory.writes;
+    const auto emptyWrite = process(view, Input{request}.first(16), out);
+    CHECK(emptyWrite.status == Status::Ok && emptyWrite.written == 14 &&
+          memory.writes == writes + 1 && get(out, 9, 4) == 0 && out[13] == std::byte{1});
     // A size larger than the wire payload is capped before reaching a provider.
     std::vector<std::byte> large(70000, std::byte{0});
     request.fill(std::byte{0});

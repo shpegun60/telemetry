@@ -69,8 +69,9 @@ class CommandTable {
     {
         if (index >= sizeof...(Definitions)) return CommandResult::NotFound;
         CommandResult result = CommandResult::ArgumentCountMismatch;
-        // Only matching arities emit branches. The selected definition knows
-        // every target type and performs checked native conversions if needed.
+        // Matching arities and reserved rows emit branches. The selected
+        // definition performs checked native conversions; every reserved row
+        // reports Unavailable regardless of the supplied argument count.
         const bool matched = (callRuntimeMatch_<I>(index, result, values...) || ...);
         (void) matched;
         return result;
@@ -99,6 +100,9 @@ public:
     CommandTable& operator=(const CommandTable&) = delete;
     CommandTable& operator=(CommandTable&&) = delete;
 
+    // Views borrow this table. Direct calls on temporaries are rejected, but a
+    // const-reference helper (including std::data) can still hide a temporary;
+    // callers must keep the original table alive for the full view lifetime.
     constexpr const Command* data() const & noexcept { return commands_.data(); }
     const Command* data() const && = delete;
     constexpr std::size_t size() const noexcept { return commands_.size(); }
@@ -152,6 +156,18 @@ public:
             return callRuntime_(runtimeIndex,
                                 std::index_sequence_for<Definitions...>{}, values...);
         return CommandResult::InvalidValue;
+    }
+
+    // Preserve a wide transport index until it has been checked. In particular,
+    // uint64_t must not wrap to a valid row on targets with 32-bit size_t.
+    template <class Index, class... Input,
+              std::enable_if_t<detail::isIdInput<Index>
+                  && !std::is_same_v<Index, std::size_t>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE
+    CommandResult call(Index runtimeIndex, Input... values) const noexcept
+    {
+        if (!detail::indexFits<std::size_t>(runtimeIndex)) return CommandResult::NotFound;
+        return call(static_cast<std::size_t>(runtimeIndex), values...);
     }
 };
 

@@ -6,8 +6,9 @@ This is not the maximum stack along nested visitors, owner callbacks or IRQs.
 import re
 
 FRAME_LIMIT = 192
-# Binary v2: GCC 13 uses eight extra bytes in CommandsFile::read for the
-# widened header. Keep this measured change explicit; do not hide it in a helper.
+# Binary v2.1: CommandsFile::read is 176/152 bytes (O2/Os) on the
+# reviewed GCC 13/14 builds; the v2.0 stage used 168/144. The existing 192-byte
+# ceiling covers both compiler families. Visitor-helper frames are separate.
 READ_LIMITS = {"SchemaFile": 168, "CommandsFile": 192, "ValuesFile": 152}
 READ_FUNCTION = re.compile(r"resource::ReadResult telemetry_resource::(SchemaFile|CommandsFile|ValuesFile)::read\(resource::Cursor, resource::Output\) const$")
 

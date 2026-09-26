@@ -1,0 +1,38 @@
+{
+  "-O2": {
+    "manual": {
+      "factory_known_read": 12,
+      "factory_free_read": 4,
+      "factory_runtime_read": 2376,
+      "factory_known_write": 52,
+      "factory_known_command": 52,
+      "factory_runtime_command": 30
+    },
+    "inferred": {
+      "factory_known_read": 12,
+      "factory_free_read": 4,
+      "factory_runtime_read": 2376,
+      "factory_known_write": 52,
+      "factory_known_command": 52,
+      "factory_runtime_command": 30
+    }
+  },
+  "-Os": {
+    "manual": {
+      "factory_known_read": 12,
+      "factory_free_read": 4,
+      "factory_runtime_read": 2206,
+      "factory_known_write": 50,
+      "factory_known_command": 52,
+      "factory_runtime_command": 30
+    },
+    "inferred": {
+      "factory_known_read": 12,
+      "factory_free_read": 4,
+      "factory_runtime_read": 2206,
+      "factory_known_write": 50,
+      "factory_known_command": 52,
+      "factory_runtime_command": 30
+    }
+  }
+}

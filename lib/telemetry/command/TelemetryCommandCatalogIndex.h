@@ -45,13 +45,38 @@ public:
         return index < catalog.count ? catalog.commands + index : nullptr;
     }
 
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    TELEMETRY_FORCE_INLINE constexpr const Command* find(Id id) const noexcept
+    {
+        return detail::indexFits<CommandId>(id)
+            ? find(static_cast<CommandId>(id)) : nullptr;
+    }
+
     constexpr const CommandCatalog* catalog(GroupId group) const noexcept
     {
         return group < count_ ? catalogs_ + group : nullptr;
     }
 
+    template <class Group, std::enable_if_t<detail::isIdInput<Group>
+        && !std::is_same_v<Group, GroupId>, int> = 0>
+    constexpr const CommandCatalog* catalog(Group group) const noexcept
+    {
+        return detail::indexFits<GroupId>(group)
+            ? catalog(static_cast<GroupId>(group)) : nullptr;
+    }
+
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult execute(CommandId id, const Scalar* values, std::size_t count) const noexcept
+    {
+        const Command* command = find(id);
+        return command != nullptr ? command->execute(values, count) : CommandResult::NotFound;
+    }
+
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE
+    CommandResult execute(Id id, const Scalar* values, std::size_t count) const noexcept
     {
         const Command* command = find(id);
         return command != nullptr ? command->execute(values, count) : CommandResult::NotFound;
@@ -63,6 +88,15 @@ public:
     {
         // Native-looking arguments are normalized by Command::call here.
         // Compile-time target routing is provided by CommandCatalogTable.
+        const Command* command = find(id);
+        return command != nullptr ? command->call(values...) : CommandResult::NotFound;
+    }
+
+    template <class Id, class... A, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(Id id, A... values) const noexcept
+        -> decltype(std::declval<const Command&>().call(values...))
+    {
         const Command* command = find(id);
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }

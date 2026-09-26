@@ -285,3 +285,10 @@ JSON.stringify(schema, (_, value) => typeof value === 'bigint' ? value.toString(
 ```
 
 See [tests and measured footprint](../../../tests/resources/README.md).
+
+Construction validates that custom enum and parameter operations emit exactly
+their advertised counts, and that reserved commands carry no description.
+Inconsistent metadata produces a zero-sized invalid file whose READ returns
+InvalidData without writing output. The metadata and operation tables must
+remain immutable throughout the provider's lifetime; READ does not repeat
+these construction-time traversals.

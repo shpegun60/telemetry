@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace telemetry {
 
@@ -39,6 +40,7 @@ namespace detail {
 // members: their offsets still depend on the complete configured ABI.
 std::uint32_t schemaCrcAbi(const Catalog* catalogs, std::size_t count, CurrentAbiTag) noexcept;
 std::uint32_t schemaCrcAbi(const CatalogIndex& index, CurrentAbiTag) noexcept;
+std::optional<std::uint32_t> trySchemaCrcAbi(const CatalogIndex&, CurrentAbiTag) noexcept;
 std::size_t writeSchemaAbi(const Catalog* catalogs, std::size_t count,
                            char* buffer, std::size_t size, CurrentAbiTag) noexcept;
 std::size_t writeSchemaAbi(const CatalogIndex& index, char* buffer,
@@ -61,6 +63,21 @@ std::size_t writeValuesAbi(const CatalogIndex& index, char* buffer,
 
 // Order-sensitive FNV-1a schema fingerprint, with string/record boundaries.
 // This is a version hint, not a guarantee against hash collisions.
+// trySchemaCrc distinguishes invalid metadata from a legitimate zero hash.
+template <class Abi = detail::CurrentAbiTag>
+inline std::optional<std::uint32_t> trySchemaCrc(const CatalogIndex& index) noexcept
+{
+    return detail::trySchemaCrcAbi(index, Abi{});
+}
+
+template <class Abi = detail::CurrentAbiTag>
+inline std::optional<std::uint32_t> trySchemaCrc(const Catalog* catalogs, std::size_t count) noexcept
+{
+    return detail::trySchemaCrcAbi(CatalogIndex{catalogs, count}, Abi{});
+}
+
+// Compatibility convenience: invalid metadata also yields zero. Callers that
+// need to distinguish failure must use trySchemaCrc, never test this for zero.
 template <class Abi = detail::CurrentAbiTag>
 inline std::uint32_t schemaCrc(const Catalog* catalogs, std::size_t count) noexcept
 {
@@ -108,7 +125,8 @@ inline std::uint32_t schemaCrc(const CatalogIndex& index) noexcept
 // Pointer/count overloads create such a view for the duration of the call.
 // Names, units and enum labels use UTF-8; JSON special/control bytes are escaped.
 // Catalog/field names and units must be non-null, NUL-terminated strings.
-// The fingerprint and schema serialization return zero for any null metadata.
+// Schema serialization returns zero for invalid/null metadata. trySchemaCrc
+// returns nullopt; a present zero fingerprint is a valid hash and is exported.
 // Catalog names must be globally unique; field names unique within a catalog.
 // Returns the length excluding the terminator, or 0 on insufficient space
 // or a null buffer (regardless of size). A nonempty output buffer always

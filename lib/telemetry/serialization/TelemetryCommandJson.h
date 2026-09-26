@@ -16,8 +16,10 @@ namespace detail {
 // Local and grouped indexes have distinct wire envelopes and fingerprints.
 // Their compiled boundaries share the exact ABI tag used by field schemas.
 std::uint32_t commandSchemaCrcAbi(const CommandIndex&, CurrentAbiTag) noexcept;
+std::optional<std::uint32_t> tryCommandSchemaCrcAbi(const CommandIndex&, CurrentAbiTag) noexcept;
 std::size_t writeCommandSchemaAbi(const CommandIndex&, char*, std::size_t, JsonOptions, CurrentAbiTag) noexcept;
 std::uint32_t commandSchemaCrcAbi(const CommandCatalogIndex&, CurrentAbiTag) noexcept;
+std::optional<std::uint32_t> tryCommandSchemaCrcAbi(const CommandCatalogIndex&, CurrentAbiTag) noexcept;
 std::size_t writeCommandSchemaAbi(const CommandCatalogIndex&, char*, std::size_t,
                                   JsonOptions, CurrentAbiTag) noexcept;
 } // namespace detail
@@ -30,6 +32,14 @@ std::size_t writeCommandSchemaAbi(const CommandCatalogIndex&, char*, std::size_t
 // independently of U64/S64 number/string mode and callback addresses.
 // Every command schema emits meta.formatVersion and hashes that version.
 // The fieldFlags dictionary belongs only to field schemas: commands have no f.
+// Prefer trySchemaCrc when failure matters: every uint32_t, including zero,
+// is a possible successful fingerprint. schemaCrc keeps the legacy zero fallback.
+template <class Abi = detail::CurrentAbiTag>
+inline std::optional<std::uint32_t> trySchemaCrc(const CommandIndex& index) noexcept
+{
+    return detail::tryCommandSchemaCrcAbi(index, Abi{});
+}
+
 template <class Abi = detail::CurrentAbiTag>
 inline std::uint32_t schemaCrc(const CommandIndex& index) noexcept
 {
@@ -47,6 +57,12 @@ inline std::size_t writeSchema(const CommandIndex& index, char* buffer, std::siz
 // A slash is ordinary label text here; serialization does not split or
 // normalize it, and reordering groups changes their positional identities.
 // Command itself stays unchanged; the catalog owns hierarchy once per group.
+template <class Abi = detail::CurrentAbiTag>
+inline std::optional<std::uint32_t> trySchemaCrc(const CommandCatalogIndex& index) noexcept
+{
+    return detail::tryCommandSchemaCrcAbi(index, Abi{});
+}
+
 template <class Abi = detail::CurrentAbiTag>
 inline std::uint32_t schemaCrc(const CommandCatalogIndex& index) noexcept
 {

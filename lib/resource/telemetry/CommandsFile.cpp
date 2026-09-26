@@ -52,6 +52,13 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
         }
         for (const auto entry : catalog.commands())
         {
+            // A reserved row has neither an invoker nor parameter metadata.
+            // Custom ops must obey the same immutable contract as factories.
+            const auto& command = entry.command();
+            if (command.invoke == nullptr && command.hasDescription())
+            {
+                return;
+            }
             const auto blockStart = measure.size;
             std::uint32_t parameterCount = 0;
             if (!parameters(
@@ -82,7 +89,7 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                                         ++enums_;
                                     }
                                     return ok;
-                                }))
+                                }) || enums != p.type.enumCount())
                         {
                             return false;
                         }
@@ -98,7 +105,7 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                         ++parameterCount;
                         ++parameters_;
                         return true;
-                    }))
+                    }) || parameterCount != command.parameterCount())
             {
                 return;
             }

@@ -62,9 +62,21 @@ public:
         return index < entry.count ? entry.fields + index : nullptr;
     }
 
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    TELEMETRY_FORCE_INLINE constexpr const Field* find(Id id) const noexcept
+    {
+        return detail::indexFits<FieldId>(id) ? find(static_cast<FieldId>(id)) : nullptr;
+    }
+
     constexpr const Catalog* catalog(GroupId group) const noexcept
     {
         return group < count_ ? catalogs_ + group : nullptr;
+    }
+
+    template <class Group, std::enable_if_t<detail::isIdInput<Group>, int> = 0>
+    constexpr const Catalog* catalog(Group group) const noexcept
+    {
+        return detail::indexFits<GroupId>(group) ? catalog(static_cast<GroupId>(group)) : nullptr;
     }
 
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(FieldId id) const noexcept
@@ -73,9 +85,18 @@ public:
         return field != nullptr ? field->read() : Scalar::null();
     }
 
-    template <class T>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(Id id) const noexcept
+    {
+        const Field* const field = find(id);
+        return field != nullptr ? field->read() : Scalar::null();
+    }
+
+    template <class T, class Id = FieldId,
+              std::enable_if_t<detail::isIdInput<Id> && detail::isScalarReadType<T>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
-    auto read(FieldId id) const noexcept -> decltype(std::declval<const Field&>().template read<T>())
+    auto read(Id id) const noexcept -> decltype(std::declval<const Field&>().template read<T>())
     {
         const Field* const field = find(id);
         return field != nullptr ? field->template read<T>() : std::nullopt;
@@ -83,9 +104,9 @@ public:
 
     // The same direct lookup and capped positional bounds serve reads and writes.
     // The view and its metadata stay const; only the bound owner is modified.
-    template <class T>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
-    auto write(FieldId id, T value) const noexcept
+    auto write(Id id, T value) const noexcept
         -> decltype(std::declval<const Field&>().write(value))
     {
         const Field* const field = find(id);
@@ -139,7 +160,13 @@ public:
         return index_.find(id);
     }
 
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    TELEMETRY_FORCE_INLINE static constexpr const Field* find(Id id) noexcept
+    { return index_.find(id); }
+
     static constexpr const Catalog* catalog(GroupId group) noexcept { return index_.catalog(group); }
+    template <class Group, std::enable_if_t<detail::isIdInput<Group>, int> = 0>
+    static constexpr const Catalog* catalog(Group group) noexcept { return index_.catalog(group); }
     static constexpr const Catalog* data() noexcept { return index_.data(); }
     static constexpr std::size_t size() noexcept { return index_.size(); }
     static constexpr bool empty() noexcept { return index_.empty(); }
@@ -152,9 +179,14 @@ public:
         return index_.read(id);
     }
 
-    template <class T>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE static Scalar read(Id id) noexcept
+    { return index_.read(id); }
+
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
-    static auto read(FieldId id) noexcept -> decltype(index_.template read<T>(id))
+    static auto read(Id id) noexcept -> decltype(index_.template read<T>(id))
     {
         return index_.template read<T>(id);
     }
@@ -193,9 +225,9 @@ public:
         else return std::nullopt;
     }
 
-    template <class T>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
-    static auto write(FieldId id, T value) noexcept -> decltype(index_.write(id, value))
+    static auto write(Id id, T value) noexcept -> decltype(index_.write(id, value))
     {
         return index_.write(id, value);
     }

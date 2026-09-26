@@ -11,7 +11,8 @@ removed. The internal descriptor builders live under `detail/`.
 Positions determine IDs. Neither definitions nor descriptors store field,
 command or group IDs. Reordering entries changes the wire IDs; use
 `reservedField()` / `reservedCommand()` to retain retired positions.
-For unchanged ordered definitions, JSON and schema fingerprints are preserved.
+For unchanged ordered definitions, that ABI 5-to-6 refactor preserved JSON and
+schema fingerprints. Later changes deliberately added `meta` and `f`.
 
 ## Verification
 
@@ -41,12 +42,16 @@ Scalar adapter. The independent unchanged-wire test is:
 python3 tests/position_tables/compare_schema.py --cxx g++ --build-dir build/schema-parity
 ```
 
-It builds the current tree and pre-refactor commit
+This is a historical parity probe. It builds the selected worktree and pre-refactor commit
 `b3f0fa6818293fd8e995ce0c53115d0a4a0ce0bc` without changing the worktree.
-All three complete JSON documents (field schema, values and command schema),
+At the positional refactor, all three complete JSON documents (field schema, values and command schema),
 including embedded CRCs, match. The JSONL SHA-256 is
 `a6b9794513ad8653e1118f1869e830aa055e4b17c144ef72267307ba7a6b1c46`.
 Git history containing that commit is required for this optional comparison.
+It is expected to report a difference on the current tree because of the later
+`meta`/`f` format changes. Do not remove these properties or ignore fingerprints
+to make the historical comparison pass. Current wire correctness is covered by
+the host JSON suites and resource binary goldens.
 
 ARM32 layout is Field 96 bytes/aligned 32, Getter 8, Setter 8, FieldType 48,
 Catalog 12, Command 20, CommandCatalog 12. Field offsets are getter 0,

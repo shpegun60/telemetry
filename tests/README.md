@@ -1,5 +1,7 @@
 # Current positional table checks
 
+September 2026 technical review: [resolved findings and maintained regression checks](regression/README.md).
+
 [C++20 resource checks](resources/README.md) validate the independent resource
 core, packet protocol and external telemetry providers. They also compile/link
 the application facade on Cortex-M7 without modifying telemetry descriptors.
@@ -47,7 +49,7 @@ On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
 compiler's `bin` directory in PATH for its runtime DLLs. The corresponding
 `telemetry_*_check.pro` files also build each suite through the library's `.pri`.
 
-The runner executes fourteen suites (including native/dynamic table parity, all five slot types,
+The runner executes fifteen core suites plus the review regression suites (including native/dynamic table parity, all five slot types,
 flags, Scalar visitation and indexed traversal), verifies
 46 read/binding rejected programs, nine immutable-Field cases,
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
@@ -118,7 +120,7 @@ override its sibling tool. The same script runs in GitHub Actions using the
 Ubuntu 24.04 ARM GCC/newlib packages specified in the workflow. This CI
 compiler is separate from the CubeIDE compiler used for local firmware work.
 
-At both `-O2` and `-Os` it compiles 38 positive library/demo/test translation
+At both `-O2` and `-Os` it compiles 39 positive library/demo/test translation
 units, including the codegen probes, with Cortex-M7 hard-float flags, no exceptions/RTTI
 and warnings as errors. All sixteen codegen objects must have no startup
 initialization and no writable data sections: their mutable owners are
@@ -176,6 +178,8 @@ inlining. The runner requires inferred read wrappers to be no larger.
 | Known free-function F32 read | 304 | 4 | 288 | 4 |
 | Runtime Field Scalar read | 2388 | 2384 | 2210 | 2206 |
 
+This factory table is historical; current per-build byte counts are emitted in `factory-codegen.json` by the ARM runner.
+
 The free-function factory stores the native function pointer directly,
 avoiding the manual `Getter::bind<&function>()` Scalar adapter; its read is
 a direct tail branch. A manually supplied native function pointer already
@@ -183,10 +187,10 @@ has this advantage. The tiny size difference in runtime read does not prove
 fewer executed instructions; compiler placement can affect instruction widths.
 Member binding deliberately retains its existing implementation.
 
-Additional inferred wrappers occupy 52/50 bytes for a known typed setter,
+In that historical snapshot, additional inferred wrappers occupy 52/50 bytes for a known typed setter,
 52/52 for a known two-argument command and 30/30 for runtime command dispatch
 (`-O2`/`-Os`). Command stores no duplicated arity or parameter-type array and
-occupies 24 bytes on ARM32. These are compiled wrapper sizes, excluding any
+occupied 24 bytes on ARM32. Current ABI 8 uses 20 bytes. These are historical compiled wrapper sizes, excluding any
 out-of-line callees; they are not cycle measurements. Command execution is
 measured separately below.
 
@@ -254,7 +258,9 @@ bytes. At the production `-O2`, repeated execution was unchanged and the
 1024-row sequential/random cases were up to 0.38% slower; a reordered compact
 row was 4.35% slower. Half-line alignment improved `-Os` execution by
 7.7-8.0%, but made standalone lookup 9.1% slower. Since the speed-oriented
-firmware build uses `-O2`, production retains the original 24-byte layout.
+firmware build uses `-O2`, that revision retained the original 24-byte layout.
+The later positional-ID refactor reduced the current natural Command to 20 bytes;
+the following timing results are historical, not a measurement of that change.
 Every session validated all checksums and restored the original 64 KiB image;
 the before/after SHA-256 was
 `a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
@@ -472,18 +478,20 @@ lvalues while capture-free lambdas stay on the native function-pointer path.
 
 Indexed `arg<N>` command metadata can be partial and arbitrarily ordered;
 signature positions without metadata are inferred. `CommandTable{...}` and
-the global `CommandCatalogTable{group(...)}` borrows local tables; CommandTable owns metadata and expose ordinary Command views.
-They require direct C++17 construction and are non-copyable/non-movable because
-their descriptors point into their own storage. Pointer, reference and index
-views can only be extracted from lvalue tables, so a temporary table cannot
-produce a dangling view. `CommandCatalogTable` intentionally exposes no flat
+the global `CommandCatalogTable{group(...)}` borrows local tables. CommandTable
+owns metadata and exposes ordinary Command views. Both are non-copyable and
+non-movable. C++17 prvalue factory returns use guaranteed copy elision.
+Direct pointer/reference/index extraction requires an lvalue table; a generic
+const-reference helper can still hide a temporary. The owner must outlive the
+view. `CommandCatalogTable` intentionally exposes no flat
 `CommandIndex`; packed IDs are resolved through `CommandCatalogIndex`, including
 a constexpr owning group-1 regression. The older positional `commandArgs` API
 remains source-compatible.
 
 Explicit `enumSpec<values...>()` covers sparse/subset dictionaries for both
 fields and command parameters. `CommandCatalogIndex` adds packed group/index
-lookup and grouped schema paths without growing the 24-byte ARM Command.
+lookup and grouped schema paths without growing the then 24-byte ARM Command
+(current positional descriptors use 20 bytes).
 ABI revision 6 covers public descriptor/index offsets and the private nested
 Scalar, Getter, Setter and FieldType layout. At that checkpoint the compact
 core stopped depending on tiny_delegate. The later delegate slot family uses
@@ -505,7 +513,7 @@ as numeric-oracle coverage. All 130 invalid C++17 programs were rejected.
 CubeIDE GCC 14.3.1 compiled 28 sources and eleven read-only probes at both
 `-O2` and `-Os`, linked the newlib-nano consumer and all three independent ABI
 archives, and rejected every mixed layout. ARM32 sizes are Scalar 16, Getter 8,
-Setter 8, FieldType 48, Field 96/aligned 32 and Command 24 bytes.
+Setter 8, FieldType 48, Field 96/aligned 32 and Command 20 bytes (the earlier measurement used 24).
 The static field and command-scaling probes additionally enforce the new
 compile-time access and signature-filtered dispatch properties described above.
 

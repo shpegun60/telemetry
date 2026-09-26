@@ -51,6 +51,8 @@ HEADERS += \
     $$PWD/serialization/TelemetryJson.h \
     $$PWD/serialization/TelemetryCommandJson.h \
     $$PWD/detail/TelemetryCallable.h \
+    $$PWD/detail/TelemetryOwner.h \
+    $$PWD/detail/TelemetryTarget.h \
     $$PWD/detail/TelemetrySlotCallable.h \
     $$PWD/detail/TelemetryNumberConversion.h \
     $$PWD/detail/TelemetryBounds.h \

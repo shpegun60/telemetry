@@ -32,6 +32,9 @@ public:
     CommandCatalogTable(CommandCatalogTable&&) = delete;
     CommandCatalogTable& operator=(const CommandCatalogTable&) = delete;
     CommandCatalogTable& operator=(CommandCatalogTable&&) = delete;
+    // Every exported view borrows this table. A helper taking const& can hide
+    // the original value category, so the caller must retain that original
+    // object; the deleted rvalue overloads guard direct member calls only.
     constexpr const CommandCatalog* data() const & noexcept { return catalogs_.data(); }
     const CommandCatalog* data() const && = delete;
     constexpr std::size_t size() const noexcept { return catalogs_.size(); }
@@ -52,6 +55,13 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Command* find(CommandId id) const & noexcept
     { return index().find(id); }
     const Command* find(CommandId) const && = delete;
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    TELEMETRY_FORCE_INLINE constexpr const Command* find(Id id) const & noexcept
+    { return index().find(id); }
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    const Command* find(Id) const && = delete;
     template <CommandId Id, class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult call(Input... values) const noexcept
     {
@@ -65,10 +75,20 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult execute(
         CommandId id, const Scalar* values, std::size_t count) const noexcept
     { return index().execute(id, values, count); }
+    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult execute(
+        Id id, const Scalar* values, std::size_t count) const noexcept
+    { return index().execute(id, values, count); }
     // A global runtime ID selects erased descriptors and checked conversions.
     // Local CommandTable::call(runtimeIndex, ...) has a different native path.
     template <class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, Input... values) const noexcept
+        -> decltype(std::declval<CommandCatalogIndex>().call(id, values...))
+    { return index().call(id, values...); }
+    template <class Id, class... Input, std::enable_if_t<detail::isIdInput<Id>
+        && !std::is_same_v<Id, CommandId>, int> = 0>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(Id id, Input... values) const noexcept
         -> decltype(std::declval<CommandCatalogIndex>().call(id, values...))
     { return index().call(id, values...); }
 };

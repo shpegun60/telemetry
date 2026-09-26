@@ -127,7 +127,9 @@ template <class Abi = detail::CurrentAbiTag>
 inline void requireTelemetryAbi() noexcept
 {
     // Inline-only integrations opt in at a module boundary. JSON entry points
-    // already carry the tag themselves. No read/write path calls this anchor.
+    // already carry the tag themselves. This call must be in a live entry
+    // point: section GC may discard references from unused helper functions.
+    // No read/write path calls this anchor.
     detail::requireTelemetryAbi(Abi{});
 }
 

@@ -9,6 +9,22 @@
 #include <limits>
 #include <string>
 
+namespace command_test {
+telemetry::CommandResult malformedTarget() noexcept { return telemetry::CommandResult::Executed; }
+}
+
+namespace telemetry::detail {
+// Normal definitions reject a null label at construction. Build a deliberately
+// malformed low-level descriptor to retain the serializer's boundary checks.
+template <>
+struct CommandBinding<&command_test::malformedTarget, void, NoCommandArgs> {
+    static constexpr Command make() noexcept
+    {
+        return Command{nullptr, nullptr, nullptr, nullptr, nullptr};
+    }
+};
+}
+
 namespace {
 constexpr telemetry::CommandTable emptyCommandTable{};
 constexpr telemetry::CommandCatalogTable emptyCommandCatalog{};
@@ -533,7 +549,7 @@ int main()
         detail::materializeCommand<&System::save>("same"),
         detail::materializeCommand<&System::save>("same"),
     };
-    const Command nullCommandNames[]={detail::materializeCommand<&System::save>(nullptr)};
+    const Command nullCommandNames[]={detail::CommandBinding<&command_test::malformedTarget, void, detail::NoCommandArgs>::make()};
     const CommandCatalog duplicateCatalogNames[]={
         {"same",commands},
         {"same",motorCommands},
@@ -611,7 +627,7 @@ int main()
            && std::strstr(groupedJson.data(),"\"i\":0,\"id\":65536,\"n\":\"Tune\"")!=nullptr,
            "grouped command hierarchy schema");
     expect(writeSchema(commandsIndex,nullptr,0)==0 && writeSchema(commandsIndex,nullptr,4096)==0,"null buffers");
-    const Command nullNames[]={detail::materializeCommand<&System::save>(nullptr)};
+    const Command nullNames[]={detail::CommandBinding<&command_test::malformedTarget, void, detail::NoCommandArgs>::make()};
     expect(writeSchema(CommandIndex{nullNames},json.data(),json.size())==0 && schemaCrc(CommandIndex{nullNames})==0,"null command name");
     const Command escaped[]={detail::materializeCommand<&System::save>("A\"B\n")};
     expect(writeSchema(CommandIndex{escaped},json.data(),json.size())!=0 && std::strstr(json.data(),"A\\\"B\\u000a")!=nullptr,"escaped names");

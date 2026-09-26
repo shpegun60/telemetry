@@ -181,6 +181,7 @@ def main():
     for case in range(1, 27):
         run(flags + [f"-DTELEMETRY_TABLE_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryTableCompileFail.cpp"], f"table-reject-{case}",
+            r"deleted" if case == 24 else
             r"outside|deleted|no matching|requires group|native numeric or enum|accepts only|indexed arg|make(?:Field|Command).*(?:not|member)|no member named")
     print("26 positional table compilation rejections verified", flush=True)
 
@@ -253,7 +254,7 @@ def main():
     for header in sorted((ROOT / "lib/telemetry").rglob("*.h")):
         label = "-".join(header.relative_to(ROOT / "lib/telemetry").with_suffix("").parts)
         run(flags + ["-include", str(header), "-fsyntax-only", str(empty)], label + "-standalone")
-    for option in ("-ffast-math", "-ffinite-math-only", "-D_M_FP_FAST=1"):
+    for option in ("-ffast-math", "-ffinite-math-only", "-Ofast", "-D_M_FP_FAST=1"):
         run(flags + [option, "-include", "core/TelemetryConversion.h", "-fsyntax-only", str(empty)],
             "reject" + option, r"Compile telemetry conversions without")
     print("Standalone headers and fast-math rejection verified", flush=True)
@@ -291,6 +292,9 @@ def main():
             f"cacheline-field-{size}")
     print("Field layout obeys explicit 64/128-byte alignment; Command stays compact", flush=True)
 
+    from regression.checks import check as check_review_regressions
+    check_review_regressions(args, flags, build_flags, run, output, LIBRARY_SOURCES, environment)
+
     # The core anchor is independently linkable, and compiled JSON entry points
     # carry the same exact tag. Equal layouts link normally; a caller built with
     # a different Field layout must fail instead of using incompatible offsets.
@@ -300,6 +304,18 @@ def main():
     abi64 = ["-DTELEMETRY_FORCE_CACHELINE=64"]
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[0], "-o", str(abi_object)],
         "abi64-core-compile")
+    # An opt-in reference must survive section GC. Prove the live match and
+    # mismatch cases, and retain the discarded-reference case as a documented
+    # control rather than promising automatic checks in every header-only TU.
+    for alignment, live in ((64, 1), (128, 1), (128, 0)):
+        run(flags + build_flags + [f"-DTELEMETRY_FORCE_CACHELINE={alignment}",
+             f"-DCALL_FROM_MAIN={live}", "-ffunction-sections", "-fdata-sections",
+             "tests/regression/AbiGcSections.cpp", str(abi_object), "-Wl,--gc-sections",
+             "-o", str(output / f"abi-gc-{alignment}-{live}.exe")],
+            f"abi-gc-{alignment}-{live}", r"undefined reference|unresolved external|AbiTag"
+            # PE/COFF ld diagnoses this reference even in the unused section;
+            # ELF ld discards it. The documented guarantee requires live code.
+            if alignment == 128 and (live or os.name == "nt") else None)
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[1], "-o", str(json_object)],
         "abi64-json-compile")
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[2], "-o", str(command_object)],

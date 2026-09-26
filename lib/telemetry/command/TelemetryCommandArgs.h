@@ -79,7 +79,7 @@ template <class... A> struct CommandArgs {
     const std::tuple<A...> entries;
     static constexpr std::size_t count = sizeof...(A);
     static constexpr bool positional =
-        ((A::index == detail::positionalCommandArgument) && ...);
+        count != 0 && ((A::index == detail::positionalCommandArgument) && ...);
     static constexpr bool indexed =
         ((A::index != detail::positionalCommandArgument) && ...);
     static constexpr bool indicesUnique =

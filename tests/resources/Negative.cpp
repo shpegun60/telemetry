@@ -71,7 +71,22 @@ struct Wide
 } wide;
 
 auto bad = resource::file("/narrowing", wide);
+#elif CASE == 12
+constexpr auto bad = resource::file("/control\x7f", provider);
+#elif CASE == 13
+struct Holder {
+    Provider value;
+    operator const Provider&() const noexcept { return value; }
+};
+auto bad = resource::file<const Provider>("/converted-temporary", Holder{});
+#elif CASE == 14
+struct Proxy { operator Provider() const noexcept { return Provider{}; } } proxy;
+auto bad = resource::file<const Provider>("/converted-lvalue", proxy);
 #else
 constexpr auto good = resource::filesystem(resource::file("/good", provider));
 static_assert(good.fileCount() == 1);
+struct Derived : Provider {};
+Derived derived;
+constexpr auto goodBase = resource::file<const Provider>("/base", derived);
+static_assert(goodBase.path == "/base");
 #endif

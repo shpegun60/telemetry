@@ -1,0 +1,226 @@
+[
+  {
+    "probe": "BorrowedFieldCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 39,
+    "before_sha256": "c8e364a2bc173573e830c9491a661191c490634a888ac33c81b162dcaff8443d",
+    "after_sha256": "c8e364a2bc173573e830c9491a661191c490634a888ac33c81b162dcaff8443d"
+  },
+  {
+    "probe": "BorrowedFieldCodegen-Os-disassembly.log",
+    "identical": false,
+    "words": 40,
+    "before_sha256": "27017c25386c9c085a8b28d483a32da5a1cf234bef4c753f6f39bcf0278de5b8",
+    "after_sha256": "7c5131d3da7313d69597eb2f56e6c74eb931857996fc4add193cb40a8ddd8f91"
+  },
+  {
+    "probe": "CommandDispatchScalingCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 175,
+    "before_sha256": "a5c08f03831214c1da8a3da4ab9caffc0dcb9e9d5d8a998d275d9484ce976cca",
+    "after_sha256": "a5c08f03831214c1da8a3da4ab9caffc0dcb9e9d5d8a998d275d9484ce976cca"
+  },
+  {
+    "probe": "CommandDispatchScalingCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 175,
+    "before_sha256": "9f1786955604a379bbfb6eced029c33d15796bf47fb8dc69d42d0f04aac6dd8d",
+    "after_sha256": "9f1786955604a379bbfb6eced029c33d15796bf47fb8dc69d42d0f04aac6dd8d"
+  },
+  {
+    "probe": "CommandTableCodegen-O2-disassembly.log",
+    "identical": false,
+    "words": 2884,
+    "before_sha256": "87cf1ba178d9a63f4ee3c41052ac5f85895779e1688b44f4880b9a5c8565eda1",
+    "after_sha256": "cac41e00e0baee8db2291054dac5a57f6bf6402aa26c964ad68b76fecdd0aa47"
+  },
+  {
+    "probe": "CommandTableCodegen-Os-disassembly.log",
+    "identical": false,
+    "words": 2708,
+    "before_sha256": "190a01405f98cba5decff0c8f313901dc8c3afeab0a04a978b0a367e24df8327",
+    "after_sha256": "cf83605a71706438d9d6b7d79b0d76283c452bd5ac2dc8f196bf16cee564cf06"
+  },
+  {
+    "probe": "ConversionCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 181,
+    "before_sha256": "85ff719b8f3ab7299ef4e64366c709b2ee9dc1d96f70df08014b3fe524f2c4fc",
+    "after_sha256": "85ff719b8f3ab7299ef4e64366c709b2ee9dc1d96f70df08014b3fe524f2c4fc"
+  },
+  {
+    "probe": "ConversionCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 157,
+    "before_sha256": "bdd33d12dc7759ade232b700ecf26ab9635ef3049d2ff34918f77f5649a3e9e5",
+    "after_sha256": "bdd33d12dc7759ade232b700ecf26ab9635ef3049d2ff34918f77f5649a3e9e5"
+  },
+  {
+    "probe": "DeclaredTypeCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 355,
+    "before_sha256": "182b27d45f2a8984aa2d70f74be4c16d6af492d1abb309497020f38bcfcb0eca",
+    "after_sha256": "182b27d45f2a8984aa2d70f74be4c16d6af492d1abb309497020f38bcfcb0eca"
+  },
+  {
+    "probe": "DeclaredTypeCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 380,
+    "before_sha256": "f3785bf6c8e9863ab276c1e1a6333788bb120e1a07e442d020e960643645134f",
+    "after_sha256": "f3785bf6c8e9863ab276c1e1a6333788bb120e1a07e442d020e960643645134f"
+  },
+  {
+    "probe": "EnumCodegen-O2-disassembly.log",
+    "identical": false,
+    "words": 1102,
+    "before_sha256": "b077ba27eace2b0da1dc3468831dc0340943c18a3040f746e10f6282d26cb958",
+    "after_sha256": "b4ee2448c39ba8a61d5082a222d1c5f3c9195799912098e85d0520e06c3df17b"
+  },
+  {
+    "probe": "EnumCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 1094,
+    "before_sha256": "14423a24a9df6a5f96f9a137d551468e8720684e799dc5cc5eb2673203e51a08",
+    "after_sha256": "14423a24a9df6a5f96f9a137d551468e8720684e799dc5cc5eb2673203e51a08"
+  },
+  {
+    "probe": "FactoryCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 770,
+    "before_sha256": "2e8bbd3cd26e00f4581acdbf6e319e7aabdddaec3527eae8177a41e880b0738b",
+    "after_sha256": "2e8bbd3cd26e00f4581acdbf6e319e7aabdddaec3527eae8177a41e880b0738b"
+  },
+  {
+    "probe": "FactoryCodegen-Os-disassembly.log",
+    "identical": false,
+    "words": 731,
+    "before_sha256": "c1810605b6d4526b00563f268e7a5513479d113eb0ef2cef568c3a441ba01a25",
+    "after_sha256": "b19355359d9b2769b8ddfc80994a112f5dfa350a57513a97468f6f1182c62a0f"
+  },
+  {
+    "probe": "FieldTableCodegen-O2-disassembly.log",
+    "identical": false,
+    "words": 1374,
+    "before_sha256": "7867bdf7d5bc487346c974f798951035c0dc720a1993215137f2efde201b64f4",
+    "after_sha256": "6686e077eca077e56a9ed15f37bf5e5ad69b5b1f85129a7046c83381b77293c9"
+  },
+  {
+    "probe": "FieldTableCodegen-Os-disassembly.log",
+    "identical": false,
+    "words": 1272,
+    "before_sha256": "24bf18d9fdf69b429caa2dd445ef34c911f761494da1d479645fcef8417580cf",
+    "after_sha256": "e9e90f3e0b90787bbe43e92c359cc73935e09acec44533663e1787170b980968"
+  },
+  {
+    "probe": "FunctionSlotCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 322,
+    "before_sha256": "a351826a51030b3c24bd1d6bee7334c39a6cfea493b54e08614b956382e3b6bd",
+    "after_sha256": "a351826a51030b3c24bd1d6bee7334c39a6cfea493b54e08614b956382e3b6bd"
+  },
+  {
+    "probe": "FunctionSlotCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 232,
+    "before_sha256": "1e37681ffcac3b160f2d3362ef76cdb8ae35bfcea22077e491f1656fb20ae2ee",
+    "after_sha256": "1e37681ffcac3b160f2d3362ef76cdb8ae35bfcea22077e491f1656fb20ae2ee"
+  },
+  {
+    "probe": "IndexCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 276,
+    "before_sha256": "7285f163bbb3d39b001f993d9d055d4e0a5bc96f891e65e323ba50df49dca578",
+    "after_sha256": "7285f163bbb3d39b001f993d9d055d4e0a5bc96f891e65e323ba50df49dca578"
+  },
+  {
+    "probe": "IndexCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 307,
+    "before_sha256": "16707fcaf6da9722235c82f78d48629186aac4465d55e20e530345385951a60b",
+    "after_sha256": "16707fcaf6da9722235c82f78d48629186aac4465d55e20e530345385951a60b"
+  },
+  {
+    "probe": "LateBoundCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 744,
+    "before_sha256": "788d58ed862897888be0c31881e3bb95c0fa3d44efe0cc1ccec051ee6541bfa2",
+    "after_sha256": "788d58ed862897888be0c31881e3bb95c0fa3d44efe0cc1ccec051ee6541bfa2"
+  },
+  {
+    "probe": "LateBoundCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 647,
+    "before_sha256": "c902bda8b97def2395c84f86ee1d2053260e16503079ed6dedb51404774fb44e",
+    "after_sha256": "c902bda8b97def2395c84f86ee1d2053260e16503079ed6dedb51404774fb44e"
+  },
+  {
+    "probe": "LimitsCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 207,
+    "before_sha256": "a7173059e4849b4d6ec433b6c7e20c777d949acbbb12b6949464c94390418b6b",
+    "after_sha256": "a7173059e4849b4d6ec433b6c7e20c777d949acbbb12b6949464c94390418b6b"
+  },
+  {
+    "probe": "LimitsCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 205,
+    "before_sha256": "9c7cdd4a7d86f71b0b12f2d171a73144176ce13e5354b61579b65753ef653a3e",
+    "after_sha256": "9c7cdd4a7d86f71b0b12f2d171a73144176ce13e5354b61579b65753ef653a3e"
+  },
+  {
+    "probe": "OwnerSlotCodegen-O2-disassembly.log",
+    "identical": false,
+    "words": 291,
+    "before_sha256": "b11b0c3d0ff589b41fc00e881bdf9efc675a8ccad89bc75ac5ac1e04036fe86b",
+    "after_sha256": "99ff7c4aae2cff850d6a749518a95a400a2c07844e4de10619b7ace7417b3154"
+  },
+  {
+    "probe": "OwnerSlotCodegen-Os-disassembly.log",
+    "identical": false,
+    "words": 230,
+    "before_sha256": "3a9beffc9bc0048a7f3642cc6ccf5582db232db85fa87890c36c53ddf6d70d2a",
+    "after_sha256": "e7d6cede4a6e4bb11d29e67583862bcaef925d04339ee2043bc7430a262febf0"
+  },
+  {
+    "probe": "ScalarStorageCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 62,
+    "before_sha256": "c438bdc95d7a78a09bd5301420a850f3b6526c65a8856f737668266f1667dc11",
+    "after_sha256": "c438bdc95d7a78a09bd5301420a850f3b6526c65a8856f737668266f1667dc11"
+  },
+  {
+    "probe": "ScalarStorageCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 60,
+    "before_sha256": "94b7f239bb36b07c5ac2fcbd64ad7831da05976cc12c86f6b4689fd91e75564a",
+    "after_sha256": "94b7f239bb36b07c5ac2fcbd64ad7831da05976cc12c86f6b4689fd91e75564a"
+  },
+  {
+    "probe": "ScalarVisitCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 219,
+    "before_sha256": "e4ab9d68f9ee541ca90d02d049289876e33e268600d236fd72742274bd7ca934",
+    "after_sha256": "e4ab9d68f9ee541ca90d02d049289876e33e268600d236fd72742274bd7ca934"
+  },
+  {
+    "probe": "ScalarVisitCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 300,
+    "before_sha256": "68acfb10f1d2db44b6a34122cc21780ce8d48ebc13eaa78dc7cdf89ba1e8db2a",
+    "after_sha256": "68acfb10f1d2db44b6a34122cc21780ce8d48ebc13eaa78dc7cdf89ba1e8db2a"
+  },
+  {
+    "probe": "TraversalCodegen-O2-disassembly.log",
+    "identical": true,
+    "words": 131,
+    "before_sha256": "1ac405277e6aa7624ea3e25728f402b1effab157b0831dba2a2f9265bee1a8df",
+    "after_sha256": "1ac405277e6aa7624ea3e25728f402b1effab157b0831dba2a2f9265bee1a8df"
+  },
+  {
+    "probe": "TraversalCodegen-Os-disassembly.log",
+    "identical": true,
+    "words": 109,
+    "before_sha256": "29d8c499963b6661e864297a34842e1bba02ca3fc4fac1e892b43c8826381487",
+    "after_sha256": "29d8c499963b6661e864297a34842e1bba02ca3fc4fac1e892b43c8826381487"
+  }
+]

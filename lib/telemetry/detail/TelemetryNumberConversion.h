@@ -23,6 +23,20 @@
 #error "Compile telemetry conversions without fast-math, finite-math-only or /fp:fast"
 #endif
 
+// Clang exposes no macro for individual -fno-honor-nans/infinities flags.
+// Its constant evaluator diagnoses use of the disabled values. Promote that
+// diagnostic here even without -Werror: a scoped precise pragma cannot repair
+// a caller whose parameter attributes already exclude NaN or infinity.
+#if defined(__clang__)
+#if __has_warning("-Wnan-infinity-disabled")
+#pragma clang diagnostic push
+#pragma clang diagnostic error "-Wnan-infinity-disabled"
+static_assert(__builtin_isnan(__builtin_nan("")), "Telemetry requires IEEE NaN semantics");
+static_assert(__builtin_isinf(__builtin_inf()), "Telemetry requires IEEE infinity semantics");
+#pragma clang diagnostic pop
+#endif
+#endif
+
 namespace telemetry {
 namespace detail {
 

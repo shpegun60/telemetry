@@ -14,6 +14,8 @@
 
 #include "../core/TelemetryCompiler.h"
 #include "../core/TelemetryScalar.h"
+#include "../detail/TelemetryOwner.h"
+#include "../detail/TelemetryTarget.h"
 
 namespace telemetry {
 namespace detail { struct FieldTableAccess; }
@@ -126,7 +128,7 @@ public:
         static_assert(std::is_pointer_v<decltype(FunctionPointer)>
                       && std::is_function_v<std::remove_pointer_t<decltype(FunctionPointer)>>,
                       "Getter::bind requires a function pointer");
-        static_assert(FunctionPointer != nullptr, "Getter target cannot be null");
+        static_assert(detail::nonNullTarget<FunctionPointer>, "Getter target cannot be null");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(FunctionPointer)>,
                       "The getter must return a Scalar-compatible value and be noexcept");
         return Getter(Payload{}, &invokeStatic_<FunctionPointer>);
@@ -138,22 +140,25 @@ public:
     {
         static_assert(std::is_member_function_pointer_v<decltype(Method)>,
                       "Getter::bind requires a member function");
-        static_assert(Method != nullptr, "Getter target cannot be null");
+        static_assert(detail::nonNullTarget<Method>, "Getter target cannot be null");
+        static_assert(detail::isDirectMemberOwner<decltype(Method), T>,
+                      "Getter owner must be the actual object or a derived object; dereference pointers explicitly or use OwnerSlot");
         static_assert(!std::is_volatile_v<T>, "Getter owners cannot be volatile");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(Method), T&>,
                       "The getter must return a Scalar-compatible value and be noexcept");
         return Getter(Payload(eraseObject_(std::addressof(object))), &invokeMethod_<Method, T>);
     }
 
-    template <auto Method, class T>
-    static Getter bind(T&&) = delete;
+    template <auto Method, class T = void, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
+    static Getter bind(Argument&&) = delete;
 
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bindContext(T& object) noexcept
     {
         // Invocability describes a type, not whether a pointer value is null.
         if constexpr (std::is_pointer_v<decltype(Adapter)>)
-            static_assert(Adapter != nullptr, "Getter adapter cannot be null");
+            static_assert(detail::nonNullTarget<Adapter>, "Getter adapter cannot be null");
         static_assert(!std::is_volatile_v<T>, "Getter contexts cannot be volatile");
         // A C++20 structural adapter is a const lvalue template-parameter
         // object. Test the same value category used by invokeContext_.
@@ -162,8 +167,9 @@ public:
         return Getter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
 
-    template <auto Adapter, class T>
-    static Getter bindContext(T&&) = delete;
+    template <auto Adapter, class T = void, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
+    static Getter bindContext(Argument&&) = delete;
 
 private:
     constexpr Getter(Payload payload, Invoke invoke) noexcept
