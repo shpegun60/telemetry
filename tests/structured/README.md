@@ -131,9 +131,8 @@ and unwrapping a `ServiceResult<Response>` return. It preserves the original
 Result and Arguments for factory-specific checks. Only Service has a
 `Response` payload; CommandResult and WriteResult remain operation statuses.
 `ServiceResult` storage is deferred to Stage 06; these traits need only its
-declared type. `Enum.hpp`
-defines the explicit specialization point and planned normalized interface;
-the actual dictionary is the next stage.
+declared type. Stage 02 established the `Enum.hpp` specialization point;
+Stage 03 supplies the normalized dictionary.
 
 [`facade/run.py`](facade/run.py) checks a host executable and a second
 translation unit, 14 distinct compile-time rejection reasons, and the
@@ -143,3 +142,49 @@ CubeIDE ARM GCC 14.3. The CubeIDE O2/Os test objects have 20/18 total bytes
 of `.text`, respectively, and no `.data/.bss`; these are small facade
 fixtures, not a firmware-size comparison. The new CI steps run the same
 checks on host GCC/Clang and Cortex-M7. They do not claim a board run.
+The exact-SHA CI run
+[36274996182](https://github.com/shpegun60/telemetry/actions/runs/36274996182)
+completed 9/9 jobs successfully for
+`a9d445db0d640fcfabdb1c540ee1b27efe09db83`, closing the Stage 00–02
+checkpoint before Stage 03 changed the library.
+
+## Stage 03: fixed wire types and enum dictionaries
+
+[`types/run.py`](types/run.py) checks two positive probes and 43 distinct
+compile-time rejection cases. The positive checks cover all eleven scalar
+codes, fixed-size arrays, empty and nested aggregates, zero-byte types,
+checked wire-size and expanded-node budgets, default-underlying enums,
+ordinary and sparse enums,
+aliases, an explicit empty dictionary, signed ordering, exact UTF-8 names,
+and a name copied from a local char array into the constexpr definition.
+The negative matrix covers unsupported C++ shapes, enum dictionary mistakes,
+borrowed-name impostors, invalid UTF-8, range/depth budgets and common packed
+layouts. Each case must
+fail with its intended diagnostic; a mere nonzero compiler exit is insufficient.
+
+Run the focused checks with:
+
+```text
+python tests/structured/types/run.py --cxx g++ --build-dir build/structured-types-gcc
+python tests/structured/types/run.py --cxx clang++-18 --build-dir build/structured-types-clang
+python tests/structured/types/run.py --cxx clang++-18 --sanitize --build-dir build/structured-types-sanitized
+python tests/structured/types/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-types-arm
+```
+
+The current local matrix passed with Qt MinGW GCC 13.1, Ubuntu Clang 18.1,
+Ubuntu ARM GCC 13.2, and CubeIDE ARM GCC 14.3. The ARM probes compile at
+`-O2`, `-Os` and `-Og`, with exceptions and RTTI disabled. The host Clang
+probes also ran under address and undefined-behavior sanitizers. This is
+compile-time type metadata and does not claim an MCU cycle measurement or a
+board run.
+
+One toolchain difference changed the implementation: on the ARM GCC targets,
+`std::int32_t` can alias `long` while `int` is also a 32-bit signed type.
+The scalar classifier therefore uses checked width and signedness, excluding
+plain `char` and character types, rather than the spelling of a typedef.
+Similarly, GCC's PFR rejects typical packed fields while Clang may accept
+them. An explicit alignment check rejects the tested whole-struct and
+member-level packed forms. Packed C++ aggregates remain outside the contract;
+no C++20/PFR trait proves the absence of every packing attribute, especially
+with nontrivial default member initialization. The ordinary aggregate wire
+size is already padding-free.

@@ -739,6 +739,22 @@ standard-layout, trivially copyable і trivially destructible.
 `std::array<T, 0>` і порожня структура мають wireSize 0; zero-count масив
 не створює нескінченного циклу чи ділення на нуль у cursor codec.
 
+`packed` aggregate не належить до підтримуваного subset, навіть якщо
+розмір його C++ object виглядає як потрібний wire size. Звичайний aggregate
+так само кодується без padding, а невирівняний член `packed` може пройти
+через PFR як звичайне посилання. GCC і Clang поводяться тут по-різному:
+перевірки вирівнювання відхиляють перевірені форми, але C++20/PFR не дає
+універсального trait для всіх compiler-specific packing attributes.
+Отже це також явна умова для автора типу; адаптер до зовнішнього packed
+формату копіює його поля в звичайний вирівняний aggregate. До появи
+повнішої рефлексії не заявляємо, що кожен packed type діагностується.
+
+Це різниця між доступом за значенням і посиланням: CubeIDE GCC приймає
+`uint32_t copy = packet.value` для packed поля, але відхиляє прив'язку
+`uint32_t& ref = packet.value` із `cannot bind packed field`. PFR facade
+надає саме доступ до членів за посиланням, тож пряме читання packed поля
+поза facade не доводить безпечності такого типу для telemetry.
+
 Default member initializers на кшталт `float gain = 1.0f` не є metadata:
 їх не експортуємо, не використовуємо для пропущених байтів і не називаємо
 wire default. Decoder має явно заповнити кожен член. Бажана реалізація —
@@ -2328,10 +2344,13 @@ compiler; наявність цієї можливості в CubeIDE не пр�
 4. Додати `enumCodes`, `enumEntry`, `enumEntries` і пріоритет
    `EnumReflection<E>`: explicit values з backend names та точний
    code/name dictionary, включно з sparse/large codes та empty override.
-5. Заборонити всі unsupported member categories до створення descriptor.
+5. Заборонити unsupported member categories до створення descriptor там,
+   де C++20 backend надає надійну діагностику; packing залишається також
+   явною умовою для автора типу згідно з §5.2.
 6. Зафіксувати обмеження щодо linkage, packed/bit-field та DMI.
-7. Реалізувати ceilings depth/count/expanded nodes із розділу 10.8;
-   це ресурсні межі моделі, а не Service value constraints.
+7. Реалізувати per-type ceilings depth/wire bytes/expanded nodes із §10.8;
+   сумарні type/catalog/endpoint counts перевіряє Model/Registry після
+   появи цих структур. Це ресурсні межі, а не Service value constraints.
 
 Тести:
 

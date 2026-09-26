@@ -72,6 +72,7 @@ def main() -> None:
     flags = [
         args.cxx, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-pedantic-errors",
         "-fdiagnostics-color=never", "-Ilib", "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
     ]
     if args.arm:
         flags += [
