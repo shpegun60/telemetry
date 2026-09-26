@@ -1,0 +1,336 @@
+Critic comparison draft - capability matrix sources (2026-09-25)
+===============================================================
+
+Evidence tags used by the research: V = confirmed on a fetched official page; S = seen only
+in an official-site search snippet; I = inference from confirmed facts; M = from memory,
+not checked on the web. Cells for this library come from the code, the READMEs and the
+trial in this directory (Notes.txt), not from the web.
+
+Cell codes: Y yes, P partial, N no. "meta" = units / limits / defaults / enums / flags.
+
+ThingSet (spec v0.6, thingset-node-c, thingset-zephyr-sdk)
+----------------------------------------------------------
+typed Y (bool, u8..u64, i8..i64, f32, decfrac, string, bytes, arrays; no f64) T12 T16 V
+meta: units Y (name suffix, unit key) / limits P / defaults N / enums P / flags P
+      (limits, enums, flags only in the external _Metadata JSON) T1 T2 V
+commands Y (EXEC on x-items; parameters are child items; returns void or i32) T3 T4 T12 V
+discovery P (FETCH lists child names; node-c metadata endpoint gives name + type) T4 T14 V
+ID stability Y (explicit 16-bit IDs; insert renumbers nothing; reuse needs data-version bump) T1 T19 V/I
+name/path Y (paths in text and binary mode) T4 T5 V
+encodings JSON-based text + CBOR binary T4 T5 V
+streaming P (reports; subsets on-change and periodic; no per-client subscription) T1 T2 T6 V
+persistence Y in the Zephyr SDK (NVM subset to EEPROM/flash, CRC) T19 T20 V
+access control P (user/expert/manufacturer rights; plain-text password over xAuth) T12 T21 V
+strings/arrays/records Y T1 T12 V
+host tools P (ThingSet App generic UI; python-thingset CLI; no codegen) T24 T25 V
+transports Y (serial, CAN/ISO-TP, BLE, WebSocket; MQTT/CoAP/LoRaWAN mappings) T7 T8 V
+build P (Zephyr module; PyPI client) T18 V
+RTOS P (requires Zephyr) T17 V
+footprint N published (targets RFC 7228 C0..C2 classes only) T9 V
+safety N claims T17 V
+license Apache-2.0 T17 V
+maturity low-medium (spec 2016..v0.6; node-c 2023, no releases, 10 stars, 5 contributors;
+      Libre Solar products) T26 T27 T28 V
+URLs: T1 https://thingset.io/spec/v0.6/data_model/structure.html
+      T2 https://thingset.io/spec/v0.6/data_model/overlays.html
+      T3 https://thingset.io/spec/v0.6/protocol/functions.html
+      T4 https://thingset.io/spec/v0.6/protocol/text_mode.html
+      T5 https://thingset.io/spec/v0.6/protocol/binary_mode.html
+      T6 https://thingset.io/spec/v0.6/protocol/connectivity.html
+      T7 https://thingset.io/spec/v0.6/transports/can.html
+      T8 https://thingset.io/spec/v0.6/introduction/abstract
+      T9 https://thingset.io/spec/v0.6/introduction/objectives.html
+      T12 https://raw.githubusercontent.com/ThingSet/thingset-node-c/main/include/thingset.h
+      T14 https://raw.githubusercontent.com/ThingSet/thingset-node-c/main/tests/protocol/src/txt.c
+      T16 https://raw.githubusercontent.com/ThingSet/thingset-node-c/main/Kconfig.thingset
+      T17 https://github.com/ThingSet/thingset-node-c , https://thingset.io/software/node_library
+      T18 https://raw.githubusercontent.com/ThingSet/thingset-node-c/main/CMakeLists.txt
+      T19 https://raw.githubusercontent.com/ThingSet/thingset-zephyr-sdk/main/src/Kconfig.storage
+      T20 https://raw.githubusercontent.com/ThingSet/thingset-zephyr-sdk/main/src/storage_flash.c
+      T21 https://raw.githubusercontent.com/ThingSet/thingset-zephyr-sdk/main/src/Kconfig.auth
+      T24 https://github.com/ThingSet/thingset-app
+      T25 https://github.com/Brill-Power/python-thingset
+      T26 https://api.github.com/orgs/ThingSet/repos?per_page=100
+      T27 https://api.github.com/repos/ThingSet/thingset-node-c
+      T28 https://libre.solar/software/bms.html
+
+CANopenNode (v4 object dictionary, CANopenEditor, storage)
+----------------------------------------------------------
+typed P (types in EDS/XDD; compiled OD keeps pointer, length, attribute bits) C2 C3 V
+meta: units N / limits P (EDS only) / defaults P (initialisers, 0x1011 restore) / enums N /
+      flags P (per-entry attribute bits) C3 C11 V
+commands P (writes to OD entries handled by extension callbacks; NMT) C3 C5 V
+discovery N (names and types only in EDS; SDO probing) C2 C3 V
+ID stability Y (explicit 16-bit index + 8-bit subindex) C2 V/I
+name/path N (index/subindex only) C2 C7 V
+encodings binary CAN + CiA 309-3 ASCII gateway; EDS (INI) / XDD (XML) descriptions C7 C10 V
+streaming Y (TPDO synchronous / event-driven with timers; heartbeat, EMCY) C4 V
+persistence Y (0x1010 save / 0x1011 load; storage groups; CRC16) C5 C6 V
+access control P (per-entry R/W attributes; no authentication) C3 V
+strings/arrays/records Y (VISIBLE/OCTET/UNICODE strings, DOMAIN, ARRAY, RECORD) C2 C3 V
+host tools Y (CANopenEditor GUI, generates OD.c/OD.h; CANopenLinux cocomm) C10 C12 V
+transports CAN only (classic CAN; FD not implemented) C15 C16 V
+build P (no top-level build; ports supply Make/CubeMX; Zephyr module is legacy) C1 C13 C14 V
+RTOS Y broad (bare metal, FreeRTOS, Linux, STM32 incl. H7) C9 C13 V
+footprint N published ("16-bit microcontrollers and above") C1 C17 V
+safety Y claim (MISRA C:2012 with listed deviations, PC-lint Plus; conformance tool passed) C8 V
+license Apache-2.0 (CANopenEditor GPL-3.0) C18 C10 V
+maturity very high (2004; ~2,000 stars; v4.1 2025-11-22) C18 C19 V
+URLs: C1 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/README.md
+      C2 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/doc/objectDictionary.md
+      C3 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/301/CO_ODinterface.h
+      C4 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/301/CO_PDO.h
+      C5 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/storage/CO_storage.h
+      C6 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/storage/CO_storageEeprom.c
+      C7 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/309/CO_gateway_ascii.h
+      C8 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/MISRA.md
+      C9 https://raw.githubusercontent.com/CANopenNode/CANopenNode/master/doc/deviceSupport.md
+      C10 https://github.com/CANopenNode/CANopenEditor
+      C11 https://raw.githubusercontent.com/CANopenNode/CANopenEditor/main/libEDSsharp/eds.cs
+      C12 https://github.com/CANopenNode/CANopenLinux
+      C13 https://github.com/CANopenNode/CanOpenSTM32
+      C14 https://docs.zephyrproject.org/latest/develop/manifest/external/canopennode.html
+      C15 https://github.com/zephyrproject-rtos/zephyr/issues/106828
+      C16 https://github.com/CANopenNode/CANopenNode/issues/342
+      C17 https://github.com/CANopenNode/CANopenNode/issues/302
+      C18 https://github.com/CANopenNode/CANopenNode/tags
+      C19 https://sourceforge.net/projects/canopennode/
+
+MAVLink (parameter, command, component metadata; generators, pymavlink, QGroundControl)
+-------------------------------------------------------------------------------------
+typed P (params carried in a 4-byte float field; 64-bit values lossy) M1 V/I
+meta: units Y / limits Y / defaults Y / enums Y / flags Y - via component metadata JSON
+      (served over MAVLink FTP or HTTP; in practice PX4) M4 M5 M17 V
+commands Y (COMMAND_LONG/INT, ACK with result and progress, cancel) M3 V
+discovery P (PARAM_REQUEST_LIST gives name/type/value; metadata schemas "work in progress") M1 M4 V
+ID stability Y (parameters keyed by name; index may move; fixed message IDs) M1 M9 V
+name/path P (flat 16-character names, no hierarchy) M1 V
+encodings binary only (JSON for metadata files, XML for definitions) M6 V
+streaming Y (per-link message intervals) M8 V
+persistence P (MAV_CMD_PREFLIGHT_STORAGE; storage in the flight stack) M19 S
+access control P (link signing; no per-item rights) M7 V
+strings/arrays/structs P (fixed arrays in messages; params scalar; FTP for blobs) M10 M14 V
+host tools Y (mavgen 10+ languages, pymavlink, MAVSDK, QGroundControl) M11 M16 M18 V
+transports any byte stream (UART/UDP examples) M12 V
+build Y (CMake find_package(MAVLink), pip) M15 M16 V
+RTOS neutral (header-only C) M13 V
+footprint N published (wire overhead only) M13 V
+safety N M12 V
+license MIT generated code; LGPLv3 generator M11 M16 V
+maturity very high (2009; ~2,400 stars; PX4, ArduPilot) M11 M15 V
+URLs: M1 https://mavlink.io/en/services/parameter.html
+      M3 https://mavlink.io/en/services/command.html
+      M4 https://mavlink.io/en/services/component_metadata.html
+      M5 https://raw.githubusercontent.com/mavlink/mavlink/master/component_metadata/parameter.schema.json
+      M6 https://mavlink.io/en/guide/serialization.html
+      M7 https://mavlink.io/en/guide/message_signing.html
+      M8 https://mavlink.io/en/guide/message_rates.html
+      M9 https://mavlink.io/en/guide/define_xml_element.html
+      M10 https://mavlink.io/en/guide/xml_schema.html
+      M11 https://mavlink.io/en/
+      M12 https://mavlink.io/en/about/overview.html
+      M13 https://mavlink.io/en/mavgen_c/
+      M14 https://mavlink.io/en/services/ftp.html
+      M15 https://github.com/mavlink/mavlink
+      M16 https://pypi.org/project/pymavlink/
+      M17 https://docs.px4.io/main/en/advanced/px4_metadata
+      M18 https://api.github.com/repos/mavlink/qgroundcontrol
+      M19 https://raw.githubusercontent.com/mavlink/mavlink/master/message_definitions/v1.0/common.xml (S)
+
+Zephyr settings + MCUmgr/SMP (+ stats)
+--------------------------------------
+typed N settings (opaque bytes, <=256 B); stats u16/u32/u64 counters Z2 Z5 Z7 V
+meta: all N Z1 Z5 Z6 V
+commands Y (SMP groups: OS, image, fs, settings, stats, shell, application groups) Z4 Z8 V
+discovery P (group enumeration, stat names; settings keys not listable over SMP) Z5 Z6 Z10 V
+ID stability Y (settings keyed by name; SMP group/command IDs fixed; unnamed stats positional) Z1 Z4 Z7 V/I
+name/path Y (settings keys with subtrees, 64 chars) Z1 Z2 V
+encodings binary CBOR over SMP (Base64 framing on console) Z4 Z12 V
+streaming N (request/response only) Z4 V
+persistence Y (NVS, ZMS, FCB, file backends) Z1 V
+access control P (DTLS/BLE permissions, per-key and per-command hooks) Z13 Z14 Z15 V
+strings/arrays P (blob settings; custom CBOR groups) Z3 Z4 V/I
+host tools Y (smpmgr, mcumgr-web, nRF Connect Device Manager, AuTerm; no codegen) Z11 Z23 Z25 V
+transports Y (UART, shell, BLE, UDP, LoRaWAN, SPI; no CAN) Z11 Z12 V
+build Zephyr only (CMake, Kconfig, west) Z11 V/I
+RTOS Zephyr only Z11 V
+footprint N published Z1 Z11 V
+safety P (project guidelines are a MISRA C 2012 subset; IEC 61508 effort, not certified) Z18 Z19 V
+license Apache-2.0 Z20 V
+maturity very high (Zephyr 4.4.2, 2026-08-07; ~16.6k stars; >3,000 contributors) Z20 Z21 V
+URLs: Z1 https://docs.zephyrproject.org/latest/services/storage/settings/index.html
+      Z2 https://raw.githubusercontent.com/zephyrproject-rtos/zephyr/main/include/zephyr/settings/settings.h
+      Z4 https://docs.zephyrproject.org/latest/services/device_mgmt/smp_protocol.html
+      Z5 https://docs.zephyrproject.org/latest/services/device_mgmt/smp_groups/smp_group_3.html
+      Z6 https://docs.zephyrproject.org/latest/services/device_mgmt/smp_groups/smp_group_2.html
+      Z7 https://raw.githubusercontent.com/zephyrproject-rtos/zephyr/main/include/zephyr/stats/stats.h
+      Z10 https://docs.zephyrproject.org/latest/services/device_mgmt/smp_groups/smp_group_10.html
+      Z11 https://docs.zephyrproject.org/latest/services/device_mgmt/mcumgr.html
+      Z12 https://docs.zephyrproject.org/latest/services/device_mgmt/smp_transport.html
+      Z13 https://docs.zephyrproject.org/latest/services/device_mgmt/mcumgr_callbacks.html
+      Z18 https://docs.zephyrproject.org/latest/contribute/coding_guidelines/index.html
+      Z19 https://docs.zephyrproject.org/latest/safety/safety_overview.html
+      Z20 https://github.com/zephyrproject-rtos/zephyr
+      Z23 https://github.com/intercreate/smpmgr
+      Z25 https://github.com/NordicSemiconductor/Android-nRF-Connect-Device-Manager
+
+Pigweed (pw_metric, pw_tokenizer, pw_rpc, pw_protobuf, pw_kvs)
+-------------------------------------------------------------
+typed Y (metrics u32/float/u64 and more; proto3 scalars) P1 P10 V
+meta: units N / limits N / defaults N / enums P (host .proto only) / flags N P1 P10 V
+commands Y (pw_rpc unary and streaming, generated C++) P6 P7 V
+discovery N (tokens need the host token database; no reflection service) P1 P9 V
+ID stability Y (32-bit / 28-bit hashes of names; order-independent; rename changes ID) P3 P9 V/I
+name/path P (token paths; string paths unsupported) P2 V
+encodings binary protobuf + HDLC framing; Base64 tokens P5 P8 P15 V
+streaming P (RPC streams; no metric subscriptions) P2 P7 V
+persistence P (pw_kvs flash KV store, separate module) P12 V
+access control N (nothing documented) P6 V
+strings/arrays/structs Y via protobuf; metrics scalar only P10 P1 V
+host tools Y (C++/Python/TypeScript/Java clients, pw_console, protoc plugins) P6 P16 V
+transports P (transport-agnostic, HDLC provided) P6 P15 V
+build Y (GN, Bazel, CMake; Zephyr module) P17 P18 V
+RTOS Y (FreeRTOS, ThreadX, embOS; Zephyr partial) P20 P21 V
+footprint P (pw_metric object sizes 8..16 B published) P1 V
+safety N claims; fuzzing support P22 V
+license Apache-2.0 P25 V
+maturity medium-high (2020; no numbered releases; Pixel, Nest) P23 P24 V
+URLs (P1..P22 under https://raw.githubusercontent.com/google/pigweed/main/):
+      P1 pw_metric/docs.rst  P2 pw_metric/pw_metric_proto/metric_service.proto
+      P3 pw_tokenizer/tokenization.rst  P5 pw_tokenizer/detokenization.rst
+      P6 pw_rpc/docs.rst  P7 pw_rpc/design.rst  P8 pw_rpc/protocol.rst  P9 pw_rpc/py/pw_rpc/ids.py
+      P10 pw_protobuf/docs.rst  P12 pw_kvs/docs.rst  P15 pw_hdlc/docs.rst  P16 pw_console/docs.rst
+      P17 docs/sphinx/build/overview.rst  P18 seed/0111.rst  P20 pw_thread/docs.rst
+      P21 docs/sphinx/os/zephyr/index.rst  P22 pw_fuzzer/docs.rst
+      P23 https://opensource.googleblog.com/2024/08/introducing-pigweed-sdk.html
+      P24 https://opensource.googleblog.com/2020/03/pigweed-collection-of-embedded-libraries.html
+      P25 https://github.com/google/pigweed
+      P29 seed/0103.rst (nanopb struct size counterpoint)
+
+nanopb
+------
+typed Y (protobuf scalar types) N2 V
+meta: units N / limits N / defaults Y (proto2) / enums Y / flags N - all in the host .proto N2 N5 V
+commands N (codec only) N2 V (no service codegen: M)
+discovery N ("Reflection ... is not supported") N2 N3 V
+ID stability Y (explicit field numbers; reserved numbers) N11 V
+name/path N N3 V
+encodings binary protobuf only N2 V
+streaming N (codec with stream callbacks) N2 V
+persistence N ; access control N ; transports none
+strings/arrays/structs Y (bounded or callback strings/bytes, repeated, nested, oneof, maps) N2 N4 V
+host tools Y codegen (nanopb_generator via pip; any protobuf host library) N7 N8 V
+build Y broad (Make, CMake, Bazel, Meson, PlatformIO, Conan, vcpkg, Zephyr module) N8 N10 V
+RTOS any (pure C, no malloc required) N2 V
+footprint Y published (5..20 kB code, ~1 kB stack) N2 V
+safety P (OSS-Fuzz, documented input bounds; no MISRA) N6 N12 V
+license zlib N1 V
+maturity very high (2012; 0.4.9.2 2026-08-24; ~5.6k stars) N8 N9 V
+URLs: N1 https://jpa.kapsi.fi/nanopb/  N2 https://jpa.kapsi.fi/nanopb/docs/
+      N3 https://jpa.kapsi.fi/nanopb/docs/concepts.html  N4 https://jpa.kapsi.fi/nanopb/docs/reference.html
+      N5 https://raw.githubusercontent.com/nanopb/nanopb/master/generator/proto/nanopb.proto
+      N6 https://jpa.kapsi.fi/nanopb/docs/security.html  N7 https://jpa.kapsi.fi/nanopb/docs/whats_new.html
+      N8 https://github.com/nanopb/nanopb  N9 https://raw.githubusercontent.com/nanopb/nanopb/master/CHANGELOG.txt
+      N10 https://docs.zephyrproject.org/latest/services/serialization/nanopb.html
+      N11 https://protobuf.dev/programming-guides/proto3/
+      N12 https://github.com/google/oss-fuzz/tree/master/projects/nanopb
+
+Extras (not in the matrix)
+--------------------------
+Memfault metrics: keys declared in a .def file, names resolved in the cloud from the .elf;
+  SDK ~5 KB flash / 1.5 KB RAM; license restricted to Memfault services.
+  https://docs.memfault.com/docs/mcu/metrics-api , https://raw.githubusercontent.com/memfault/memfault-firmware-sdk/master/LICENSE
+Glaze: JSON Schema generation from structs; many binary formats; builds with -fno-exceptions
+  and -fno-rtti; requires C++23; MIT.  https://github.com/stephenberry/glaze
+reflect-cpp: JSON Schema (JSON only); many binary formats; C++20; no-exceptions/no-RTTI
+  builds not established; MIT.  https://github.com/getml/reflect-cpp
+
+Cyphal register API (uavcan.register.Access 384 / List 385) and implementations
+------------------------------------------------------------------------------
+typed Y (Value union: string, bytes, bit, int/uint 8..64, real16/32/64; values are arrays) Value V
+meta: units N / limits P (optional "name<" and "name>" registers) / defaults P ("name=") /
+      enums N / flags Y (mutable, persistent) Access V
+commands Y (ExecuteCommand 435: restart, factory reset, store persistent states, vendor codes) V
+discovery P (List returns names by index; Access returns type/size/flags; no units) List V
+ID stability Y by name (list index not stable across restarts) List Access V
+name/path Y (dotted names up to 255 bytes) Access Name V
+encodings binary DSDL only on the wire (YAML/JSON only in host tools) serialization.tex V
+streaming P (pub/sub is the core; registers must be polled) V
+persistence P (persistent flag; store-persistent-states command; storage left to the app) V
+access control N ("security ... outside of the scope") functions.tex V
+strings/arrays P (strings and bytes <=256 B, bounded arrays; no structs in registers) V
+host tools Y (Yakut CLI, pycyphal, Nunavut codegen; Yukon GUI stale) V
+transports P (CAN classic/FD; UDP and serial experimental) V
+build P (libcanard copy-in files, ESP-IDF registry, NuttX; PyPI tools) V
+RTOS P (bare metal, Linux SocketCAN, NuttX/PX4) V
+footprint N library figure (target classes only) V
+safety P claim (libcanard v4: automatically enforceable MISRA C rules, 100 % coverage) V
+license MIT V
+maturity moderate/niche (spec v1.0 May 2025; libcanard ~450 stars; PX4: "not yet seen
+      significant adoption") V
+URLs: https://github.com/OpenCyphal/public_regulated_data_types/blob/master/uavcan/register/384.Access.1.0.dsdl
+      https://github.com/OpenCyphal/public_regulated_data_types/blob/master/uavcan/register/385.List.1.0.dsdl
+      https://github.com/OpenCyphal/public_regulated_data_types/blob/master/uavcan/register/Value.1.0.dsdl
+      https://github.com/OpenCyphal/public_regulated_data_types/blob/master/uavcan/node/435.ExecuteCommand.1.3.dsdl
+      https://github.com/OpenCyphal/specification/blob/master/specification/application/functions.tex
+      https://github.com/OpenCyphal/libcanard/blob/v4.0.0/README.md
+      https://github.com/OpenCyphal/yakut  https://github.com/OpenCyphal/nunavut
+      https://docs.px4.io/main/en/can/
+
+NXP FreeMASTER (driver 3.0.13 / protocol v4; host 3.2.7)
+--------------------------------------------------------
+typed Y via TSA tables (u8..u64, s8..s64, fractional, float, double, structs) tsa_table_definition.md V
+meta: units N on device (host project) / limits N / defaults N / enums P (TSA_ENUM) /
+      flags Y (RO/RW, enforced with TSA safety) freemaster_tsa.h cfg_tsa.md V
+commands Y (application commands with code, data and result) 20_features.md V
+discovery Y with TSA (names, types, addresses, RO/RW, members, enums); else host needs ELF V
+ID stability by C symbol name (wire uses addresses) freemaster_protocol.h V/I
+name/path P (names resolved on the host) V
+encodings binary protocol; JSON-RPC for host automation V / S
+streaming P (oscilloscope polling, on-target recorder, pipes) V
+persistence N V
+access control Y (three password levels, SHA-1 challenge, TSA safety) freemaster_protocol.c V
+strings/arrays/structs P (structs, arrays, memory blocks, files; no string type) V
+host tools Y (FreeMASTER GUI, FreeMASTER Lite JSON-RPC, Python/Node clients; no codegen) V
+transports Y (UART, USB CDC, CAN/CAN FD, TCP/UDP, RTT, JTAG/BDM) cfg_transport_net.md V
+build P (MCUXpresso SDK middleware, Zephyr module) V
+RTOS P (bare metal poll/interrupt modes; Zephyr) V
+footprint N published V
+safety N claim ("Misra issues cleanup" only) ChangeLogKSDK.txt V
+license proprietary: "solely for use in combination with a NXP Product"; use with non-NXP
+      MCUs "not permitted" LICENSE.txt 10_introduction.md V
+maturity mature, vendor-controlled (since 2004/2006; protocol v4 since 2019) V
+URLs: https://github.com/nxp-mcuxpresso/mcux-freemaster/blob/main/doc/user_guide/10_introduction.md
+      https://github.com/nxp-mcuxpresso/mcux-freemaster/blob/main/LICENSE.txt
+      https://github.com/nxp-mcuxpresso/mcux-freemaster/blob/main/doc/user_guide/20_features.md
+      https://github.com/nxp-mcuxpresso/mcux-freemaster/blob/main/src/common/freemaster_tsa.h
+      https://www.nxp.com/design/design-center/software/development-software/freemaster-run-time-debugging-tool:FREEMASTER
+
+OMA LwM2M: Anjay 3.15.0, Anjay Lite 3.0.2, Eclipse Wakaama
+----------------------------------------------------------
+typed Y (string, integer, unsigned, float, boolean, opaque, time, objlnk) TS App. C V
+meta: units P (object definition XML only) / limits P (free-text RangeEnumeration) /
+      defaults N / enums P (RangeEnumeration) / flags Y (operations, mandatory, multiple) XSD V
+commands Y (Execute with arguments; create/delete instances) TS 6.3.5 V
+discovery P (Register + Discover list instantiated objects; types/units need the registry XML) V
+ID stability Y (registry object/resource numbers; removed resource IDs never reused) TS 7.2 V
+name/path P (numeric paths /3/0/7; names only in definitions) V
+encodings text (plain, JSON, SenML JSON) and binary (TLV, CBOR, SenML CBOR, LwM2M CBOR) TS 7.5 V
+streaming Y (Observe/Notify with pmin/pmax/gt/lt/st; Send) V
+persistence P (Anjay persists security/server/ACL objects; core persistence commercial) V
+access control Y (Access Control Object, DTLS/TLS PSK/X.509, OSCORE); Wakaama ACL incomplete V
+strings/arrays P (strings, opaque with block transfer, multiple-instance resources; no structs) V
+host tools Y (anjay_codegen.py from object XML, registry tool, Coiote DM commercial; Leshan M) V
+transports P (UDP, TCP; SMS/NIDD commercial in Anjay) V
+build P (CMake, Zephyr module; ESP-IDF and CubeMX packs archived) V
+RTOS Y (Linux, FreeRTOS on STM32, Zephyr; Anjay Lite bare metal without heap) V
+footprint P (Anjay Lite 33.2 kB minimal .. 65.5 kB everything, core context 7.8 kB RAM) CompilationImpact.rst V
+safety N claim (static analysis: Coverity, clang-tidy, CodeQL) V
+license Anjay: Non-Commercial License since 3.10.0 (commercial use needs registration);
+      Wakaama: EPL-2.0 OR BSD-3-Clause V
+maturity Anjay active (2017..3.15.0 2026-09-18); Wakaama archived V
+URLs: https://www.openmobilealliance.org/release/lightweightm2m/V1_2_2-20240613-A/HTML-Version/OMA-TS-LightweightM2M_Core-V1_2_2-20240613-A.html
+      https://github.com/OpenMobileAlliance/lwm2m-registry
+      https://github.com/AVSystem/Anjay  https://github.com/AVSystem/Anjay/blob/master/LICENSE
+      https://github.com/AVSystem/Anjay-lite/blob/master/doc/sphinx/source/CompilationImpact.rst
+      https://github.com/eclipse-wakaama/wakaama  https://projects.eclipse.org/projects/iot.wakaama

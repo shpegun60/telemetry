@@ -1,0 +1,249 @@
+[
+  {
+    "file": "transcripts/01-numeric-core.md",
+    "role": "Reviewer: numeric core",
+    "start": "2026-09-25T19:43:17.266000+00:00",
+    "end": "2026-09-25T20:06:55.457000+00:00",
+    "minutes": 23.6,
+    "records": 241,
+    "tool_calls": 62,
+    "tools": {
+      "Bash": 30,
+      "Read": 24,
+      "Write": 4,
+      "Grep": 3,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 2,
+    "usage": {
+      "input_tokens": 220,
+      "cache_creation_input_tokens": 711903,
+      "cache_read_input_tokens": 21930783,
+      "output_tokens": 125090
+    },
+    "later_messages": 2
+  },
+  {
+    "file": "transcripts/02-fields.md",
+    "role": "Reviewer: fields",
+    "start": "2026-09-25T19:43:39.301000+00:00",
+    "end": "2026-09-25T20:38:58.115000+00:00",
+    "minutes": 55.3,
+    "records": 537,
+    "tool_calls": 127,
+    "tools": {
+      "Bash": 96,
+      "Write": 10,
+      "TaskStop": 6,
+      "Grep": 4,
+      "Read": 3,
+      "Monitor": 3,
+      "ToolSearch": 2,
+      "Edit": 2,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 5,
+    "usage": {
+      "input_tokens": 530,
+      "cache_creation_input_tokens": 2221967,
+      "cache_read_input_tokens": 89500777,
+      "output_tokens": 255794
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/03-catalog-json.md",
+    "role": "Reviewer: catalogs, packed IDs, JSON, ABI",
+    "start": "2026-09-25T19:44:07.682000+00:00",
+    "end": "2026-09-25T20:25:36.292000+00:00",
+    "minutes": 41.5,
+    "records": 505,
+    "tool_calls": 143,
+    "tools": {
+      "Bash": 80,
+      "Read": 49,
+      "Write": 10,
+      "Edit": 2,
+      "Glob": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 4,
+    "usage": {
+      "input_tokens": 476,
+      "cache_creation_input_tokens": 1088924,
+      "cache_read_input_tokens": 70035928,
+      "output_tokens": 221899
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/04-commands.md",
+    "role": "Reviewer: commands",
+    "start": "2026-09-25T19:44:30.783000+00:00",
+    "end": "2026-09-25T20:20:55.908000+00:00",
+    "minutes": 36.4,
+    "records": 438,
+    "tool_calls": 111,
+    "tools": {
+      "Bash": 66,
+      "Read": 29,
+      "Write": 14,
+      "Glob": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 3,
+    "usage": {
+      "input_tokens": 458,
+      "cache_creation_input_tokens": 1226971,
+      "cache_read_input_tokens": 62424113,
+      "output_tokens": 192220
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/05-slots.md",
+    "role": "Reviewer: slots and delegate",
+    "start": "2026-09-25T19:44:55.466000+00:00",
+    "end": "2026-09-25T20:26:20.548000+00:00",
+    "minutes": 41.4,
+    "records": 444,
+    "tool_calls": 99,
+    "tools": {
+      "Bash": 78,
+      "Write": 14,
+      "Grep": 6,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 2,
+    "usage": {
+      "input_tokens": 472,
+      "cache_creation_input_tokens": 1101639,
+      "cache_read_input_tokens": 70183603,
+      "output_tokens": 193236
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/06-resource.md",
+    "role": "Reviewer: resource library, protocol, adapters, web decoder",
+    "start": "2026-09-25T19:45:19.125000+00:00",
+    "end": "2026-09-25T20:18:04.720000+00:00",
+    "minutes": 32.8,
+    "records": 393,
+    "tool_calls": 91,
+    "tools": {
+      "Bash": 84,
+      "Write": 5,
+      "Edit": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 1,
+    "usage": {
+      "input_tokens": 408,
+      "cache_creation_input_tokens": 1072249,
+      "cache_read_input_tokens": 57489449,
+      "output_tokens": 184077
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/07-critic.md",
+    "role": "Critic: end-user trial and market comparison",
+    "start": "2026-09-25T19:51:53.483000+00:00",
+    "end": "2026-09-25T20:46:34.777000+00:00",
+    "minutes": 54.7,
+    "records": 522,
+    "tool_calls": 114,
+    "tools": {
+      "Bash": 78,
+      "Write": 18,
+      "Edit": 7,
+      "ToolSearch": 3,
+      "Agent": 3,
+      "Read": 2,
+      "Glob": 1,
+      "SubagentHandback": 1,
+      "TaskStop": 1
+    },
+    "tool_errors": 1,
+    "usage": {
+      "input_tokens": 564,
+      "cache_creation_input_tokens": 1837994,
+      "cache_read_input_tokens": 58987326,
+      "output_tokens": 205759
+    },
+    "later_messages": 9
+  },
+  {
+    "file": "transcripts/07a-critic-helper-thingset-canopen-mavlink.md",
+    "role": "Critic's helper: ThingSet, CANopenNode, MAVLink",
+    "start": "2026-09-25T19:54:01.920000+00:00",
+    "end": "2026-09-25T20:29:41.999000+00:00",
+    "minutes": 35.7,
+    "records": 545,
+    "tool_calls": 148,
+    "tools": {
+      "WebFetch": 137,
+      "WebSearch": 9,
+      "ToolSearch": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 0,
+    "usage": {
+      "input_tokens": 510,
+      "cache_creation_input_tokens": 338605,
+      "cache_read_input_tokens": 26089706,
+      "output_tokens": 101483
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/07b-critic-helper-cyphal-freemaster-lwm2m.md",
+    "role": "Critic's helper: Cyphal, FreeMASTER, LwM2M",
+    "start": "2026-09-25T19:54:12.663000+00:00",
+    "end": "2026-09-25T20:33:21.911000+00:00",
+    "minutes": 39.2,
+    "records": 674,
+    "tool_calls": 165,
+    "tools": {
+      "Bash": 116,
+      "WebFetch": 32,
+      "WebSearch": 12,
+      "ToolSearch": 2,
+      "Read": 1,
+      "TaskStop": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 2,
+    "usage": {
+      "input_tokens": 656,
+      "cache_creation_input_tokens": 870629,
+      "cache_read_input_tokens": 55421658,
+      "output_tokens": 124819
+    },
+    "later_messages": 1
+  },
+  {
+    "file": "transcripts/07c-critic-helper-zephyr-pigweed-nanopb.md",
+    "role": "Critic's helper: Zephyr MCUmgr, Pigweed, nanopb",
+    "start": "2026-09-25T19:54:25.806000+00:00",
+    "end": "2026-09-25T20:21:15.168000+00:00",
+    "minutes": 26.8,
+    "records": 394,
+    "tool_calls": 122,
+    "tools": {
+      "WebFetch": 105,
+      "WebSearch": 15,
+      "ToolSearch": 1,
+      "SubagentHandback": 1
+    },
+    "tool_errors": 0,
+    "usage": {
+      "input_tokens": 376,
+      "cache_creation_input_tokens": 421706,
+      "cache_read_input_tokens": 17631516,
+      "output_tokens": 104429
+    },
+    "later_messages": 1
+  }
+]

@@ -1,0 +1,143 @@
+{
+  "before": {
+    "sha256": "b4f9fce0bb69d162e9023e7fe537be67133bffdccdeb101f57296ec952444727",
+    "sections": {
+      ".text": {
+        "size": 22440,
+        "address": 32784
+      },
+      ".rodata": {
+        "size": 2208,
+        "address": 55264
+      }
+    },
+    "text_rodata": 24648,
+    "families": {
+      "Application facade and catalogs": 1808,
+      "Commands provider and callbacks": 3018,
+      "Enum and command metadata operations": 494,
+      "Other symbols and runtime support": 2301,
+      "Other telemetry helpers": 8799,
+      "Schema provider and callbacks": 2814,
+      "Shared binary and cursor helpers": 2048,
+      "Unnamed data and alignment": 544,
+      "Values provider": 2822
+    },
+    "alias_ranges": 23,
+    "indexed_symbols": []
+  },
+  "after": {
+    "sha256": "72663eb2e36a71a499493e05b6ddcbfc72c23e32c7988f1e2eac25ae8d5ca70f",
+    "sections": {
+      ".text": {
+        "size": 24760,
+        "address": 32784
+      },
+      ".rodata": {
+        "size": 2272,
+        "address": 57568
+      }
+    },
+    "text_rodata": 27032,
+    "families": {
+      "Application facade and catalogs": 1808,
+      "Commands provider and callbacks": 3650,
+      "Enum and command metadata operations": 432,
+      "Other symbols and runtime support": 2292,
+      "Other telemetry helpers": 9347,
+      "Schema provider and callbacks": 3298,
+      "Shared binary and cursor helpers": 2700,
+      "Unnamed data and alignment": 547,
+      "Values provider": 2958
+    },
+    "alias_ranges": 23,
+    "indexed_symbols": [
+      {
+        "address": 46340,
+        "bytes": 60,
+        "section": ".text",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::IndexedEnum<demo::Mode, (demo::Mode)0, (demo::Mode)1, (demo::Mode)2>::at(unsigned long, void*, bool (*)(void*, telemetry::Scalar const&, std::basic_string_view<char, std::char_traits<char> >) noexcept)"
+      },
+      {
+        "address": 59200,
+        "bytes": 12,
+        "section": ".rodata",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::IndexedEnum<demo::Mode, (demo::Mode)0, (demo::Mode)1, (demo::Mode)2>::ops"
+      },
+      {
+        "address": 59212,
+        "bytes": 36,
+        "section": ".rodata",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::IndexedEnum<demo::Mode, (demo::Mode)0, (demo::Mode)1, (demo::Mode)2>::entries"
+      },
+      {
+        "address": 58320,
+        "bytes": 12,
+        "section": ".rodata",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)(float, demo::Mode) noexcept>, telemetry::CommandArgs<telemetry::detail::ArgumentMetadata<0u, telemetry::detail::ValueLimits<float, true> >, telemetry::detail::ArgumentMetadata<1u, telemetry::detail::ValueLimits<demo::Mode, false> > > >::parameterOps"
+      },
+      {
+        "address": 54544,
+        "bytes": 26,
+        "section": ".text",
+        "family": "Enum and command metadata operations",
+        "name": "bool telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)(float, demo::Mode) noexcept>, telemetry::CommandArgs<telemetry::detail::ArgumentMetadata<0u, telemetry::detail::ValueLimits<float, true> >, telemetry::detail::ArgumentMetadata<1u, telemetry::detail::ValueLimits<demo::Mode, false> > > >::parameterEntry<0u>(void const*, void*, bool (*)(void*, telemetry::CommandParam const&) noexcept)"
+      },
+      {
+        "address": 54712,
+        "bytes": 26,
+        "section": ".text",
+        "family": "Enum and command metadata operations",
+        "name": "bool telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)(float, demo::Mode) noexcept>, telemetry::CommandArgs<telemetry::detail::ArgumentMetadata<0u, telemetry::detail::ValueLimits<float, true> >, telemetry::detail::ArgumentMetadata<1u, telemetry::detail::ValueLimits<demo::Mode, false> > > >::parameterEntry<1u>(void const*, void*, bool (*)(void*, telemetry::CommandParam const&) noexcept)"
+      },
+      {
+        "address": 45960,
+        "bytes": 40,
+        "section": ".text",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)(float, demo::Mode) noexcept>, telemetry::CommandArgs<telemetry::detail::ArgumentMetadata<0u, telemetry::detail::ValueLimits<float, true> >, telemetry::detail::ArgumentMetadata<1u, telemetry::detail::ValueLimits<demo::Mode, false> > > >::describeParameter(void const*, unsigned long, void*, bool (*)(void*, telemetry::CommandParam const&) noexcept)"
+      },
+      {
+        "address": 58332,
+        "bytes": 12,
+        "section": ".rodata",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)() noexcept>, telemetry::detail::NoCommandArgs>::parameterOps"
+      },
+      {
+        "address": 45938,
+        "bytes": 4,
+        "section": ".text",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)() noexcept>, telemetry::detail::NoCommandArgs>::describeParameter(void const*, unsigned long, void*, bool (*)(void*, telemetry::CommandParam const&) noexcept)"
+      },
+      {
+        "address": 57952,
+        "bytes": 8,
+        "section": ".rodata",
+        "family": "Enum and command metadata operations",
+        "name": "telemetry::detail::CommandContract<telemetry::detail::CallableTraits<telemetry::CommandResult (demo::Meter::*)(float, demo::Mode) noexcept>, telemetry::CommandArgs<telemetry::detail::ArgumentMetadata<0u, telemetry::detail::ValueLimits<float, true> >, telemetry::detail::ArgumentMetadata<1u, telemetry::detail::ValueLimits<demo::Mode, false> > > >::describeParameter(void const*, unsigned long, void*, bool (*)(void*, telemetry::CommandParam const&) noexcept)::entries"
+      }
+    ]
+  },
+  "deltas": {
+    "Application facade and catalogs": 0,
+    "Commands provider and callbacks": 632,
+    "Enum and command metadata operations": -62,
+    "Other symbols and runtime support": -9,
+    "Other telemetry helpers": 548,
+    "Schema provider and callbacks": 484,
+    "Shared binary and cursor helpers": 652,
+    "Unnamed data and alignment": 3,
+    "Values provider": 136
+  },
+  "baseline_commit": "f1cfbd891ef2f0c23f0fb2dae70be8ed4bd6fcaf",
+  "current_commit": "260e16836f7738829b79ea1ee3d759ab7c757952",
+  "compiler": "CubeIDE GCC 14.3.1, Cortex-M7 hard-float, Os, no LTO",
+  "fixture": "tests/resources/ArmProbe.cpp + application DeviceResources/DemoCatalog",
+  "indexed_gross_bytes": 236
+}

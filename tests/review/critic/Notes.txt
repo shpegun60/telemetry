@@ -1,0 +1,105 @@
+Critic trial log - telemetry + resource libraries as a first-time adopter (2026-09-25)
+==================================================================================
+
+Scope: everything here was built by hand with plain compiler invocations (no qmake,
+no repository runners). Build outputs are in build/review-critic/ only.
+
+Files
+-----
+CriticDevice.h              device struct (5 readings, writable limit with range, enum mode,
+                            2 commands) and the field/command tables, from lib/telemetry/README.md
+CriticMain.cpp              C++17: local/runtime reads, writes, command execution, JSON schema,
+                            values and command schema; optional resource dump
+CriticResources.cpp         C++20: schema.bin/commands.bin/values.bin + one protocol READ
+CriticFirmware*.cpp         Cortex-M7 image variants for arm-none-eabi-size
+CriticMistakes.cpp          12 natural mistakes, CRITIC_CASE=1..12
+CriticHazards.cpp           stale positional ID after a reorder; duplicate group names
+CriticArrays.cpp            63-element array exposed as 63 fields
+decode_bin.py               Python decoder written only from the 2.1 format README
+time_builds.py, arm_sizes.py, gen_scaling.py, ScaleMain.cpp   measurement helpers
+
+Time to first working program
+-----------------------------
+Reading root README + lib/telemetry/README.md (1572 lines) + resource READMEs: the bulk of
+the effort (a human reader: 1-2 h; the library README alone is ~33k tokens).
+Host fields/commands/JSON consumer: compiled and ran on the FIRST attempt (~2 min of writing).
+Resource consumer: FIRST attempt, but only after opening Types.hpp to learn that
+resource::Output is std::span<std::byte> (not stated in the README).
+Python decoder of schema.bin/values.bin from the README spec alone: first run, ~10 min.
+
+Friction log
+------------
+F1  No CMake/Make/Zephyr/PlatformIO integration; the only build glue is qmake .pri files.
+    The non-qmake recipe is two sentences (lib/telemetry/README.md lines 17-22).
+F2  Two include conventions: telemetry expects -Ilib/telemetry and "Telemetry.h"; resource
+    expects -Ilib and <resource/...>, <telemetry/...>. A mixed consumer needs both paths.
+F3  Resource library requires C++20 (span, concepts, constinit) while telemetry is C++17:
+    a C++17 firmware cannot use the binary files at all.
+F4  Resource README shows files.read(0, 0, output) but never what Output is, nor a read loop.
+F5  lib/telemetry/README.md is internally inconsistent: "telemetryAbiVersion is 7" (l.690),
+    "ABI 7" (l.1273, 1286, 1423) vs ABI 8 (l.1553, code); "Catalog 16" (l.1471) vs 12 (l.1423,
+    measured). archive/id_ranges/README.md points to a moved path.
+F6  README reads as a verification log: cycle counts, byte-identical object hashes, board
+    windows, migration notes for ABI 5/6/7 - no task-oriented "getting started" or API reference.
+F7  Values JSON carries no schema fingerprint (schema JSON has a 32-bit one; binary has a
+    different 64-bit one), so a JSON client cannot detect a stale schema from a values poll.
+F8  F32 values print with 9 significant digits: 230.1f -> 230.100006, 33.3333f -> 33.3333321.
+F9  No wire path for field writes or command execution: the three resource files are read-only
+    and commands.bin "is not a new execution protocol". The adopter designs write/execute framing.
+F10 No host client for the packet protocol and no non-JS decoder (web/telemetryBinary.js only,
+    package.json is private, no npm package, no TypeScript types).
+F11 Duplicate field and group names compile silently; values JSON then has duplicate keys:
+    {"protection":[260,280],"protection":[280,260]}. The optional names_unique() check fails
+    with a bare "static assertion failed" that does not name the duplicate.
+F12 Reordering rows silently re-targets cached IDs: a stale write of the over-voltage trip level
+    landed in the under-voltage threshold and returned Applied (CriticHazards.cpp). There is no
+    write-with-expected-fingerprint API.
+F13 No strings/arrays/blobs/structs: a 63-element float array needs 63 fields, 6048 B of
+    descriptors (63 x 96) and a 6114 B schema.
+F14 Cache-line alignment cannot be disabled (#error "at least 32"); Cortex-M0/M3/M4 without a
+    data cache still get 96-byte, 32-aligned Fields (natural layout would be ~80 B).
+F15 Describing two command parameters (arg<0>, arg<1>) links FieldType::withLimits (~7.8 KB at
+    -Os) even if no command schema is ever serialized.
+
+Compiler diagnostics (MinGW g++ 13.1, -fsyntax-only)
+----------------------------------------------------
+case 1  setter double vs getter float       14 lines, clear static_assert message        good
+case 2  setter without noexcept             113 lines, 19 errors; first message clear     noisy
+case 3  setter returns bool                 20 lines, clear                               good
+case 4  getter without noexcept             34 lines, 5 errors; first message clear       ok
+case 5  temporary owner                     8 lines, "use of deleted function field(...Owner&&...)" ok
+case 6  duplicate field and group names     accepted silently                             bad
+case 7  duplicate names + names_unique()    "static assertion failed", no name            weak
+case 8  limits(260.0, ...) for float        12 lines, clear                               good
+case 9  limits in (min,max,default) order   14 lines, "call to non-constexpr invalidFieldLimits" ok
+case 10 getter returns const float&         46 lines, clear first message                 ok
+case 11 constexpr table, local owner        one 2.7 KB line "... is not a constant expression" bad
+case 12 read<3>() on a 1-row table          11 lines, clear                               good
+
+Compile time (MinGW g++ 13.1, median of 3, wall clock)
+-------------------------------------------------------
+<cstdio>-only TU 0.07 s; Telemetry.h only 0.45 s; consumer TU 1.0 s (-O2) / 1.1 s (-O0);
+C++20 resource consumer TU 1.0 s; the 7 library TUs 5.1 s total.
+Generated catalogs: 64 fields 1.15 s, 256 fields 1.35 s, 1024 fields 2.83 s (host -O2);
+ARM -Os 1.0 / 1.1 / 1.4 s.  Scaling is gentle.
+
+Cortex-M7 image size (CubeIDE GCC 14.3.1, newlib-nano, --gc-sections; delta vs empty main)
+------------------------------------------------------------------------------------------
+                         -O2 text  data  bss      -Os text  data  bss
+fields only (7 fields)     +6560   +32    +8        +7744  +112  +324
++ 2 commands, no arg<>     +7552   +32    +8        +8624  +112  +324
++ arg<> metadata (core)   +16224  +112  +324       +16760  +112  +324
+core + JSON (+_printf_float) +46581 +488 +2004     +40205  +488 +2004  (bss includes my 1.6 KB of JSON buffers)
+core + binary resources   +38956  +116  +708       +31352  +116  +708  (bss includes my 288 B packet buffers)
+core + JSON + resources   +69133  +492 +2388       +54397  +492 +2388
+Large catalogs (-Os, full image): 64 fields 22.1 KB, 256 fields 42.6 KB, 1024 fields 124.9 KB
+=> about 107 B of Flash per additional field (96 B descriptor + name + share of commands).
+RAM: the library itself adds none; tables are .rodata, providers are ~100 B of RAM.
+Descriptor sizes on ARM32: Field 96 (align 32), FieldType 48, Command 20, Catalog 12, Scalar 16.
+Libgcc 64-bit-integer/float helpers (~2.4 KB) are linked even with no 64-bit field.
+
+Portability
+-----------
+Consumer builds warning-free (-Wall -Wextra -Werror -pedantic-errors) with MinGW g++ 13.1,
+MSYS2 g++ 15.2, clang++-18 (WSL Ubuntu 24.04) and arm-none-eabi-g++ 14.3.1. The 64-bit schema
+fingerprint is identical on Windows and Linux (965579a9e540a38b).

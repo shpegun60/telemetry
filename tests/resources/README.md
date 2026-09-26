@@ -250,3 +250,39 @@ DeviceResources, DemoCatalog, TelemetryAbi and ArmProbe objects remain identical
 after removing debug/comment sections. The file table still occupies 48 bytes
 in `.rodata`. The version constants and reserved-command encoding change the
 resource providers; no new MCU timing claim is inferred from this build.
+
+## Os size attribution
+
+`size_attribution.py` compares linked `.text` and `.rodata` by emitted symbol
+family. It counts overlapping aliases once and reports unnamed data/alignment
+separately. [Retained totals](os-attribution.json) compare the original GCC 14.3.1
+f1cfbd8 and 260e168 demo images from the table above, before the v2 edge fixes:
+
+| Symbol family | Delta, bytes |
+|---|---:|
+| Commands provider and its callbacks | +632 |
+| Schema provider and its callbacks | +484 |
+| Values provider | +136 |
+| Shared binary/cursor helpers | +652 |
+| Other telemetry helpers | +548 |
+| Enum/command metadata operations | -62 |
+| Other symbols/runtime support | -9 |
+| Unnamed data and alignment | +3 |
+| **Total** | **+2384** |
+
+The directly identifiable new indexed entry points, entry tables and ops objects
+occupy 236 bytes in the new image. That is gross retained storage, not their net
+cost: some old emitters/helpers shrink or disappear, and shared factories change
+outlining. The full metadata family is smaller by 62 bytes. It would be incorrect
+to assign the entire 2384-byte increase to unused `at()` dispatch.
+
+These are symbol-family totals, not independent causal costs of source features.
+Inlining and shared helpers redistribute code between families. Resume remains
+O(1) to the selected descriptor and O(k) within its variable-length metadata block;
+using `at()` alone cannot map a byte offset to an enum/parameter ordinal without
+additional length/index information. No seek tables or descriptor changes are
+introduced by this review.
+
+```sh
+python tests/resources/size_attribution.py --before old/Os-resources.elf --after new/Os-resources.elf --nm arm-none-eabi-nm --size arm-none-eabi-size --output build/os-attribution.json
+```
