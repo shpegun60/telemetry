@@ -21,9 +21,9 @@ public:
     template <class = void>
     constexpr CommandCatalogIndex(const CommandCatalog* catalogs,
                                   std::size_t requestedCount) noexcept
-        : catalogs_(catalogs), count_(catalogs == nullptr ? 0
-              : (requestedCount < idComponentCapacity
-                    ? requestedCount : idComponentCapacity))
+        : catalogs_(catalogs), count_(detail::pointerPresent(catalogs)
+              ? (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity) : 0)
     {
     }
 
@@ -113,7 +113,7 @@ public:
     constexpr std::size_t size() const noexcept { return count_; }
     constexpr bool empty() const noexcept { return count_ == 0; }
     constexpr const CommandCatalog* begin() const noexcept { return catalogs_; }
-    constexpr const CommandCatalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
+    constexpr const CommandCatalog* end() const noexcept { return detail::pointerPresent(catalogs_) ? catalogs_ + count_ : nullptr; }
     constexpr CommandCatalogRange catalogs() const noexcept
     { return CommandCatalogRange::fromCapped(catalogs_, count_, 0); }
 

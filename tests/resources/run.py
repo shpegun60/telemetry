@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--cxx", default=os.environ.get("CXX", "g++"))
     parser.add_argument("--build-dir", type=Path, required=True)
     parser.add_argument("--sanitize", action="store_true")
+    parser.add_argument("--null-checks", action="store_true",
+                        help="compile every resource check with -fno-delete-null-pointer-checks")
     parser.add_argument("--arm", action="store_true")
     parser.add_argument("--node", help="Node executable for the browser decoder checks")
     parser.add_argument("--objdump", default="arm-none-eabi-objdump")
@@ -53,6 +55,8 @@ def main():
 
     flags = [args.cxx, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-pedantic-errors",
              "-fdiagnostics-color=never", "-Ilib", "-Ilib/telemetry", "-Ilib/delegate"]
+    if args.null_checks:
+        flags.append("-fno-delete-null-pointer-checks")
     if args.arm:
         flags += ["-mcpu=cortex-m7", "-mthumb", "-mfpu=fpv5-d16", "-mfloat-abi=hard",
                   "-fno-exceptions", "-fno-rtti", "-ffunction-sections", "-fdata-sections"]

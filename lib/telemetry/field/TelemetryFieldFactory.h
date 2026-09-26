@@ -35,8 +35,12 @@ struct StaticFieldAccess {
     using Value = typename FieldBinding<Read, Write, Owner, Constraint>::Value;
     using EnumConstraint = Constraint;
     static constexpr bool writable = !std::is_same_v<decltype(Write), std::nullptr_t>;
+    static constexpr bool checkReadTarget = true;
     static constexpr bool nullableRead = isOwnerSlot<Owner>
         && std::is_member_function_pointer_v<decltype(Read)>;
+
+    static TELEMETRY_FORCE_INLINE bool readTargetAvailable(const Field&) noexcept
+    { return targetAvailable<Read>(); }
 
     // The access type creates its own descriptor. Keeping these inputs typed
     // prevents an unrelated Field payload from being paired with this accessor.
@@ -69,6 +73,7 @@ struct StaticFieldAccess {
         // optional<Value> that prevents a tail call on GCC 13 at -Os.
         auto* target = resolveFactoryOwner(FieldTableAccess::object<Owner>(entry.get));
         if (!target) return std::nullopt;
+        if (!readTargetAvailable(entry)) return std::nullopt;
         using Stored = Scalar::NativeType<Scalar::from(RawNumberT<Value>{}).type()>;
         return readNumber<T>(static_cast<Stored>(invokeFactory<Read>(target)));
     }
@@ -80,9 +85,11 @@ struct StaticFieldAccess {
             if constexpr (isOwnerSlot<Owner>) {
                 if (!target) return WriteResult::Unavailable;
             }
+            if (!targetAvailable<Write>()) return WriteResult::Unavailable;
             return invokeFactory<Write>(target, value);
         }
-        else return invokeFactory<Write, NoOwner>(nullptr, value);
+        else return targetAvailable<Write>()
+            ? invokeFactory<Write, NoOwner>(nullptr, value) : WriteResult::Unavailable;
     }
 };
 
@@ -90,7 +97,11 @@ template <class Read, class Write = std::nullptr_t>
 struct DirectFieldAccess {
     using Value = typename CallableTraits<Read>::Result;
     static constexpr bool nullableRead = false;
+    static constexpr bool checkReadTarget = true;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
+
+    static TELEMETRY_FORCE_INLINE bool readTargetAvailable(const Field& entry) noexcept
+    { return FieldTableAccess::function<Value>(entry.get) != nullptr; }
 
     template <class Limits>
     static constexpr FieldDefinition<DirectFieldAccess> make(
@@ -108,7 +119,10 @@ struct DirectFieldAccess {
     { return FieldTableAccess::function<Value>(entry.get)(); }
     static TELEMETRY_FORCE_INLINE WriteResult write(const Field& entry, Value value) noexcept
     {
-        if constexpr (writable) return FieldTableAccess::function<Value>(entry.set)(value);
+        if constexpr (writable) {
+            const auto function = FieldTableAccess::function<Value>(entry.set);
+            return function != nullptr ? function(value) : WriteResult::Unavailable;
+        }
         else return WriteResult::ReadOnly;
     }
 };
@@ -118,6 +132,7 @@ struct BorrowedFieldAccess {
     using Value = typename CallableObjectTraits<Read>::Result;
     using EnumConstraint = Constraint;
     static constexpr bool nullableRead = isCallableSlot<Read>;
+    static constexpr bool checkReadTarget = false;
     static constexpr bool writable = !std::is_same_v<Write, std::nullptr_t>;
 
     static constexpr FieldDefinition<BorrowedFieldAccess> make(
@@ -205,6 +220,11 @@ public:
     static TELEMETRY_FORCE_INLINE std::optional<T> read(const Field& entry) noexcept
     {
         if constexpr (hasNativeFastPath) {
+            // A weak NTTP or direct function pointer may resolve to null.
+            // Check before Access::read(), whose native return has no absence tag.
+            if constexpr (Access::checkReadTarget) {
+                if (!Access::readTargetAvailable(entry)) return std::nullopt;
+            }
             // Inferred fields use the getter's exact numeric representation;
             // canonical integer aliases change C++ spelling, not the value.
             using Raw = RawNumberT<Value>;

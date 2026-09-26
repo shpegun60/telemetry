@@ -32,10 +32,15 @@ struct FieldBinding {
         if constexpr (isOwnerSlot<Owner>) {
             if (!target) return Scalar::null();
         }
+        if (!targetAvailable<Read>()) return Scalar::null();
         return factoryScalar(invokeFactory<Read>(target));
     }
-    static RawNumberT<Value> enumReadFree() noexcept
-    { return static_cast<RawNumberT<Value>>(invokeFactory<Read, NoOwner>(nullptr)); }
+    static Scalar enumReadFree() noexcept
+    {
+        if (!targetAvailable<Read>()) return Scalar::null();
+        return Scalar::from(static_cast<RawNumberT<Value>>(
+            invokeFactory<Read, NoOwner>(nullptr)));
+    }
 
     static TELEMETRY_FORCE_INLINE WriteResult typedWrite(Owner& owner, const Scalar& value) noexcept
     {
@@ -43,6 +48,7 @@ struct FieldBinding {
         if constexpr (isOwnerSlot<Owner>) {
             if (!target) return WriteResult::Unavailable;
         }
+        if (!targetAvailable<Write>()) return WriteResult::Unavailable;
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(target, value);
         else {
             return invokeFactoryValue<Value, Constraint>(value,
@@ -52,6 +58,7 @@ struct FieldBinding {
     }
     static TELEMETRY_FORCE_INLINE WriteResult typedWriteFree(const Scalar& value) noexcept
     {
+        if (!targetAvailable<Write>()) return WriteResult::Unavailable;
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write, NoOwner>(nullptr, value);
         else {
             return invokeFactoryValue<Value, Constraint>(value,
@@ -230,7 +237,7 @@ constexpr Field materializeField(const char* name, const char* unit,
     static_assert(noexcept(detail::fieldFunction<Function>(function)),
                   "Factory function-pointer conversion must be noexcept");
     const Function target = function;
-    if (!target) detail::invalidFieldLimits();
+    if (!detail::pointerPresent(target)) detail::invalidFieldLimits();
     return Field{name, unit, detail::refineType<Value>(metadata),
                  detail::DirectFieldReadBinding<Function>::getter(target)};
 }
@@ -257,7 +264,8 @@ constexpr Field materializeField(const char* name, const char* unit,
                   "Factory setter function-pointer conversion must be noexcept");
     const ReadFunction getter = read;
     const WriteFunction setter = write;
-    if (getter == nullptr || setter == nullptr) detail::invalidFieldLimits();
+    if (!detail::pointerPresent(getter) || !detail::pointerPresent(setter))
+        detail::invalidFieldLimits();
     return Field{name, unit, detail::refineType<typename Binding::Value>(metadata),
                  Binding::getter(getter), Binding::setter(setter)};
 }

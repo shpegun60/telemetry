@@ -20,6 +20,8 @@ jobs:
         mode: [release]
         include:
           - {cxx: clang++-18, standard: c++17, mode: sanitized}
+          - {cxx: g++, standard: c++17, mode: nullchecks}
+          - {cxx: g++, standard: c++20, mode: nullchecks}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,6 +41,7 @@ jobs:
         run: |
           flags=()
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/run_checks.py --std "$STANDARD" --build-dir build/checks "${flags[@]}"
       - name: C++20 resource libraries
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
@@ -49,6 +52,7 @@ jobs:
         run: |
           flags=()
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/resources/run.py --node node --build-dir build/resources "${flags[@]}"
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'

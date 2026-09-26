@@ -62,9 +62,19 @@ def check_contracts(flags, run):
             run(flags + [f"-DCASE={case}", "-fsyntax-only", f"tests/regression/{name}.cpp"],
                 f"review-{name}-{case}", diagnostic if case else None)
         rejection_count += count
-    run(flags + ["-fno-delete-null-pointer-checks", "-DTELEMETRY_NULL_CHECKS_SLOT_ONLY",
-                 "-fsyntax-only",
-                 "tests/regression/NullChecksFlag.cpp"], "review-null-pointer-control")
+    null_flags = flags if "-fno-delete-null-pointer-checks" in flags else [
+        *flags, "-fno-delete-null-pointer-checks"]
+    run(null_flags + ["-fsyntax-only", "tests/regression/NullChecksFlag.cpp"],
+        "review-null-pointer-control")
+    for case in range(1, 14):
+        run(null_flags + [f"-DCASE={case}", "-fsyntax-only",
+                          "tests/regression/NullChecksMatrix.cpp"],
+            f"review-null-matrix-{case}")
+    for case in range(20, 27):
+        run(null_flags + [f"-DCASE={case}", "-fsyntax-only",
+                          "tests/regression/NullChecksMatrix.cpp"],
+            f"review-null-matrix-{case}",
+            r"error:[^\n]*(?:static assertion failed|static_assert failed)[^\n]*null")
     # Require an error, not a word in an overload-candidate note. Some explicit
     # braced calls reject during overload resolution; they must not pass merely
     # because the compiler listed an unrelated deleted overload afterwards.
@@ -89,8 +99,8 @@ def check_contracts(flags, run):
     weak_cases = range(1, 12)
     for case in (0, *weak_cases):
         run(flags + [f"-DTELEMETRY_WEAK_TARGET_FAIL_CASE={case}", "-fsyntax-only",
-                     "tests/regression/WeakTargetCompileFail.cpp"],
-            f"review-weak-target-{case}", r"constant" if case else None)
+                     "tests/regression/WeakTargetInstantiation.cpp"],
+            f"review-weak-target-{case}")
     id_cases = {case: r"error:[^\n]*deleted" for case in range(1, 105)}
     id_cases.update({case: r"error:[^\n]*no matching" for case in
                      (3, 4, 7, 8, 11, 12, 25, 26, 30, 31, 34, 35, 53, 54, 76, 78, 79, 82, 83)})
@@ -103,7 +113,7 @@ def check_contracts(flags, run):
                      "tests/regression/IdBoundaryCompileFail.cpp"],
             f"review-id-boundary-{case}", id_cases.get(case))
     return (rejection_count + len(brace_cases) + len(name_cases) + len(slot_cases)
-            + len(weak_cases) + len(id_cases))
+            + 7 + len(id_cases))
 
 
 def check(args, flags, build_flags, run, output, library_sources, environment):
@@ -124,12 +134,29 @@ def check(args, flags, build_flags, run, output, library_sources, environment):
     suites = ("ReviewCheck", "NumericEdges", "CommandArityCheck",
               "JsonBoundaryCheck", "SlotEdgesCheck", "HonorFlagsCheck",
               "BorrowedBraceCompileFail", "SetterConversionCheck", "SlotCallableCheck", "NullChecksFlag",
+              "WeakTargetCheck",
               "IdBoundaryCheck")
     for name in suites:
         executable = output / (name + (".exe" if os.name == "nt" else ""))
         run(flags + build_flags + [f"tests/regression/{name}.cpp", *library_sources,
                                   "-o", str(executable)], f"review-{name}-build")
         run([str(executable)], f"review-{name}-run")
+
+    if os.name != "nt":
+        source = "tests/regression/WeakOverrideCheck.cpp"
+        objects = []
+        for label, define in (("default", "TELEMETRY_WEAK_OVERRIDE_DEFAULT"),
+                              ("strong", "TELEMETRY_WEAK_OVERRIDE_STRONG"),
+                              ("client", None)):
+            obj = output / f"WeakOverrideCheck-{label}.o"
+            objects.append(str(obj))
+            definition = [f"-D{define}"] if define else []
+            run(flags + build_flags + definition + ["-c", source, "-o", str(obj)],
+                f"review-weak-override-{label}-build")
+        executable = output / "WeakOverrideCheck"
+        run(flags + build_flags + [*objects, "-o", str(executable)],
+            "review-weak-override-link")
+        run([str(executable)], "review-weak-override-run")
 
     # One type per build preserves the complete matrix while staying within
     # CI's compiler time/memory budget, including ASan and UBSan at -O1.

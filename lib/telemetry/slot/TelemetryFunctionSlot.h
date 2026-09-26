@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <utility>
 #include "TelemetrySlotTraits.h"
+#include "../detail/TelemetryTarget.h"
 
 namespace telemetry {
 
@@ -37,8 +38,8 @@ public:
     constexpr void bind(Function function) noexcept { function_ = function; }
     constexpr void reset() noexcept { function_ = nullptr; }
     [[nodiscard]] constexpr Function get() const noexcept { return function_; }
-    [[nodiscard]] constexpr bool available() const noexcept { return function_ != nullptr; }
-    [[nodiscard]] constexpr explicit operator bool() const noexcept { return function_ != nullptr; }
+    [[nodiscard]] constexpr bool available() const noexcept { return detail::pointerPresent(function_); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return available(); }
     // Precondition: engaged, with bind/reset externally serialized with calls.
     R invoke(Args... args) const noexcept { return function_(std::forward<Args>(args)...); }
 private:

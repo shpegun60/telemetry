@@ -85,7 +85,7 @@ struct Command {
         return execute(args.data(), args.size());
     }
 
-    constexpr bool hasDescription() const noexcept { return params != nullptr; }
+    constexpr bool hasDescription() const noexcept { return detail::pointerPresent(params); }
     constexpr std::uint32_t parameterCount() const noexcept { return hasDescription() ? params->count : 0; }
 
     bool describeParameter(std::uint32_t index, void* context, CommandParamSink sink) const noexcept

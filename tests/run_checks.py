@@ -72,12 +72,16 @@ def main():
     parser.add_argument("--std", choices=("c++17", "c++20"), default="c++17")
     parser.add_argument("--build-dir", type=Path, required=True)
     parser.add_argument("--sanitize", action="store_true", help="ASan and UBSan (Clang host)")
+    parser.add_argument("--null-checks", action="store_true",
+                        help="compile every suite with GCC's no-delete-null-pointer-checks option")
     args = parser.parse_args()
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     flags = [args.cxx, "-std=" + args.std, "-Wall", "-Wextra", "-Werror",
              "-pedantic-errors", "-fdiagnostics-color=never",
              "-Ilib/telemetry", "-Ilib/delegate"]
+    if args.null_checks:
+        flags.append("-fno-delete-null-pointer-checks")
     build_flags = ["-O2"]
     if args.sanitize:
         build_flags = ["-O1", "-g", "-fno-omit-frame-pointer",

@@ -11,6 +11,7 @@
 #include "../detail/TelemetrySlotCallable.h"
 #include "../detail/TelemetryTarget.h"
 #include "../detail/TelemetryOwner.h"
+#include <cstdlib>
 #include <utility>
 namespace telemetry {
 template <class S> class DelegateRefSlot {
@@ -75,6 +76,10 @@ public:
         static_assert(detail::isDirectMemberOwner<decltype(Method), Owner>, "DelegateRefSlot requires a direct owner object");
         static_assert(std::is_nothrow_invocable_r_v<R, decltype(Method), Owner&, Args...>,
                       "DelegateRefSlot method must be noexcept and match its signature");
+        // A weak target can resolve to null. Resolve it once when binding;
+        // constant evaluation cannot safely assume an undecidable address.
+        if (detail::pointerPresenceUncertain(Method)) std::abort();
+        if (!detail::targetAvailable<Method>()) { reset(); return; }
         delegate_ = Delegate::template bind<Method>(owner);
     }
     template <auto Method, class Owner = void, class Argument,
@@ -91,6 +96,8 @@ public:
         static_assert(detail::slotSignatureMatches<decltype(FunctionTarget), R, Args...>, "DelegateRefSlot target signature must match exactly");
         static_assert(std::is_nothrow_invocable_r_v<R, decltype(FunctionTarget), Args...>,
                       "DelegateRefSlot function must be noexcept and match its signature");
+        if (detail::pointerPresenceUncertain(FunctionTarget)) std::abort();
+        if (!detail::targetAvailable<FunctionTarget>()) { reset(); return; }
         delegate_ = Delegate::template bind<FunctionTarget>();
     }
     constexpr void reset() noexcept { delegate_.reset(); }

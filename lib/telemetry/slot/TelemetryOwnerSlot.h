@@ -8,6 +8,7 @@
 #define TELEMETRY_OWNER_SLOT_H
 
 #include "../detail/TelemetryOwner.h"
+#include "../detail/TelemetryTarget.h"
 #include <memory>
 #include <type_traits>
 
@@ -41,8 +42,8 @@ public:
     void bind(std::initializer_list<U>) = delete;
     constexpr void reset() noexcept { owner_ = nullptr; }
     [[nodiscard]] constexpr T* get() const noexcept { return owner_; }
-    [[nodiscard]] constexpr bool available() const noexcept { return owner_ != nullptr; }
-    [[nodiscard]] constexpr explicit operator bool() const noexcept { return owner_ != nullptr; }
+    [[nodiscard]] constexpr bool available() const noexcept { return detail::pointerPresent(owner_); }
+    [[nodiscard]] constexpr explicit operator bool() const noexcept { return available(); }
 };
 
 namespace detail {

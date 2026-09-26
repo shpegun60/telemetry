@@ -1273,16 +1273,20 @@ suppress it. Per-function fast-math attributes/pragmas are not reliably detected
 either. All of these modes remain unsupported, including on callers into which
 the conversion code is inlined. Warning suppression does not make them valid.
 
-GCC 13/14 also have a separate constexpr address-comparison limitation with
-`-fno-delete-null-pointer-checks` (PR71962); UBSan implicitly enables that option.
-The full GCC UBSan suite cannot currently compile these constexpr tables;
-explicit `-fdelete-null-pointer-checks` does not repair all cases. Full sanitizer
-validation uses Clang ASan/UBSan without disabling categories. The targeted
-GCC slot-only compile check is not a
-promise that arbitrary nullable constexpr function pointers or Persistent rows
-work with the affected GCC option. Public NTTP targets must have a provably
-nonnull constant address; GNU weak functions use the runtime pointer forms,
-whose null check preserves an unresolved symbol as an empty binding.
+GCC can reject a direct `&function != nullptr` constant expression with
+`-fno-delete-null-pointer-checks` (PR71962); GCC UBSan enables the same mode.
+NTTP bindings reject an explicitly typed null through template identity and
+check the target again before invocation. A GNU weak symbol with no linked
+definition is therefore usable: a numeric read yields `std::nullopt`, a Scalar
+read yields Null, and a write or command yields `Unavailable`. A defined weak
+target can be overridden by a strong application definition at link time.
+Ordinary function-pointer arguments retain their constexpr table form. When
+GCC cannot decide their presence during constant evaluation, the descriptor
+keeps the callback capability and the invocation checks the linked pointer.
+At run time, null pointer arguments retain their ordinary empty/invalid-input
+behavior. `OwnerSlot` separately checks the bound object's availability.
+The GCC C++17/C++20 null-check jobs compile the complete host suites with the
+flag; Clang ASan/UBSan remains the sanitizer run.
 
 Conversion is constexpr and shared by all field reads and writes. Equal native
 types copy directly, without numeric conversion or representability checks. A Scalar

@@ -43,6 +43,7 @@ directory specified by `--build-dir`:
 python3 tests/run_checks.py --cxx g++ --std c++17 --build-dir build/checks-gcc17
 python3 tests/run_checks.py --cxx clang++ --std c++20 --build-dir build/checks-clang20
 python3 tests/run_checks.py --cxx clang++ --std c++17 --sanitize --build-dir build/checks-sanitized
+python3 tests/run_checks.py --cxx g++ --std c++20 --null-checks --build-dir build/checks-null
 ```
 
 On Windows, use `python` and the installed Qt MinGW `g++.exe`. Include that
@@ -56,7 +57,7 @@ flags, Scalar visitation and indexed traversal), verifies
 18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
 rejection cases, 25 policy/traversal/visitor cases, plus two no-heap controls
 (336 base cases; 343 in C++20 with structural
-adapters and additional invalid position types), plus **262** review contract
+adapters and additional invalid position types), plus **258** review contract
 rejections documented in [regression/README.md](regression/README.md). It checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid

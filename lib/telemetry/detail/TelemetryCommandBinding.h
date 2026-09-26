@@ -264,6 +264,7 @@ struct CommandBinding {
         if constexpr (isOwnerSlot<Owner>) {
             if (owner == nullptr) return CommandResult::Unavailable;
         }
+        if (!targetAvailable<Target>()) return CommandResult::Unavailable;
         Arguments converted{};
         const auto* definition = static_cast<const Metadata*>(metadata);
         if (!Contract::convertAll(definition, values, converted, sequence))
@@ -291,6 +292,7 @@ struct CommandBinding {
         if constexpr (isOwnerSlot<Owner>) {
             if (owner == nullptr) return CommandResult::Unavailable;
         }
+        if (!targetAvailable<Target>()) return CommandResult::Unavailable;
         if constexpr (Contract::template exactArguments<Input...>) {
             // Preserve the original direct path, including its stack/codegen.
             if (!Contract::validateNativeAll(metadata, sequence, values...))

@@ -18,8 +18,8 @@ public:
     constexpr CommandIndex() noexcept = default;
     template <class = void>
     constexpr CommandIndex(const Command* commands, std::size_t count) noexcept
-        : commands_(commands), count_(commands == nullptr ? 0
-              : (count < idComponentCapacity ? count : idComponentCapacity)) {}
+        : commands_(commands), count_(detail::pointerPresent(commands)
+              ? (count < idComponentCapacity ? count : idComponentCapacity) : 0) {}
     template <std::size_t N>
     constexpr explicit CommandIndex(const Command (&commands)[N]) noexcept
         : CommandIndex(static_cast<const Command*>(commands), N) {}
@@ -81,7 +81,7 @@ public:
     constexpr std::size_t size() const noexcept { return count_; }
     constexpr bool empty() const noexcept { return count_ == 0; }
     constexpr const Command* begin() const noexcept { return commands_; }
-    constexpr const Command* end() const noexcept { return commands_ != nullptr ? commands_ + count_ : nullptr; }
+    constexpr const Command* end() const noexcept { return detail::pointerPresent(commands_) ? commands_ + count_ : nullptr; }
     static constexpr std::size_t abiCommandsOffset() noexcept;
     static constexpr std::size_t abiCountOffset() noexcept;
 private:

@@ -10,7 +10,7 @@ The critic's architecture/product proposals are outside this change.
 
 Run `python tests/run_checks.py --build-dir build/checks` for C++17, or add
 `--std c++20`; Clang supports `--sanitize`. This runs the 15 existing core
-suites plus eleven additional single-source suites, a separately compiled
+suites plus twelve additional single-source suites, a separately compiled
 JSON linkage check, and 18 single-type builds of FieldParityCheck.
 Each type runs **4320** comparisons, preserving all **77760** comparisons while
 bounding compiler time and memory. Three types per build exceeded the 180-second
@@ -25,10 +25,10 @@ timeout, every binding form, every limit case and the same optimization flags.
 | BorrowedBraceCompileFail | 72 rejections and 52 executed controls: explicit const types, braces, proxy conversions, mixed getter/setter pairs, array contexts and slot Target lifetimes |
 | CommandArityCheck | commands ArityMatrix; 46 order/side-effect checks |
 | JsonBoundaryCheck | catalog-json JsonBoundaryProbe; every buffer size, both integer modes |
-| SlotEdgesCheck, NullChecksFlag | slot presence/lifetime edges; runtime weak/null pointer handling and the explicitly limited GCC slot-only no-delete control |
+| SlotEdgesCheck, NullChecksFlag, NullChecksMatrix | slot presence/lifetime edges; full-table GCC no-delete-null-pointer mode and explicit typed-null rejections |
 | SlotCallableCheck, SlotCallableCompileFail | ordinary overload resolution, forwarding and cv preservation; 25/26 runtime checks and 15 rejections |
 | SetterConversionCheck, NativeSetterCodegen, BoundSetterCodegen | 138 checks across nine native binding forms, including every slot kind; inspect the actual erased setter thunks as well as typed wrappers |
-| WeakTargetCompileFail | 11 weak NTTP rejections, rather than calling an unresolved address |
+| WeakTargetInstantiation, WeakTargetCheck, WeakOverrideCheck | 11 accepted weak NTTP forms, ELF runtime absence checks for fields, commands and slots, and a strong definition overriding a weak default across translation units |
 | IdBoundaryCheck, IdBoundaryCompileFail, IdBoundaryCodegen | 122 runtime checks, 104 rejections, six abort cases, ARM32 high-word branch and a mutated-register control |
 | DefinitionNamesCompileFail | eight missing required field/unit/group label rejections |
 | JsonLinkageCheck | four shared JSON helper addresses agree across separate translation units; catches TU-local linkage even when output bytes agree |
@@ -37,16 +37,17 @@ timeout, every binding form, every limit case and the same optimization flags.
 | RuntimeLimitsAbort, RuntimeMetadataAbort | 13 intentional abort cases, including missing field/group/command labels and wide makeId input |
 | AbiGcSections, AbiRetention | matching/mismatching emitted and namespace anchors survive section GC/LTO; compiler-omitted code remains an explicit control |
 
-The core runner verifies **262 review compile-fail cases**, eight successful
-case-zero controls and the slot-only `-fno-delete-null-pointer-checks` check.
+The core runner verifies the diagnostic rejections, eleven weak-target
+instantiation controls and the full `-fno-delete-null-pointer-checks` matrix.
 The ARM runner executes the same
 compile-contract matrix, so host width cannot conceal 32-bit narrowing.
 Clang independently tests `-fno-honor-nans` and `-fno-honor-infinities` at O1/O2,
 even with that particular warning disabled on the command line. Global `-w`
 and system-header suppression can hide the diagnostic; those compiler modes
 remain unsupported, as do per-function fast-math assumptions. Full sanitizer
-runs use Clang. GCC's full UBSan build still rejects some constexpr function
-addresses; explicit `-fdelete-null-pointer-checks` is not a complete workaround.
+runs use Clang. GCC builds also exercise the complete C++17/C++20 host suites
+with `-fno-delete-null-pointer-checks`, including constexpr field and command
+tables, Persistent metadata and the ordinary function-pointer forms.
 
 `NativeSetterCodegen` checks four emitted native-pointer invokers, and
 `BoundSetterCodegen` checks nine method/free/callable/slot adapters. CubeIDE GCC

@@ -1,38 +1,14 @@
 // Regression promoted from tests/review/slots/NullChecksFlag.cpp.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-// GCC 13/14 may leave function addresses incomparable with nullptr in constant
-// evaluation under -fno-delete-null-pointer-checks (also implied by UBSan).
-// Public NTTP targets require exact constant nonnull-address validation: a
-// named GNU weak function may resolve to null. Private library adapter thunks
-// use a known-defined construction path without another nullable conversion.
-//
-// This is a targeted control, not general support for the flag: arbitrary
-// nullable constexpr pointer parameters, public function NTTP targets,
-// and constexpr Persistent validation (Getter/Setter::operator bool) still
-// meet the affected GCC boundary. The runtime checks below preserve exact null
-// behavior instead of guessing that
-// an expression which GCC cannot fold is nonnull. GNU unresolved weak symbols
-// are exercised only as runtime pointer values; NTTP targets require a constant
-// nonnull address. Default mode uses normal flags; success of this one file
-// does not establish full-suite GCC UBSan compatibility.
-// Supported subset: -DTELEMETRY_NULL_CHECKS_SLOT_ONLY
-//                  -fno-delete-null-pointer-checks -fsyntax-only <this>
+// GCC may not fold an address/null comparison in constant evaluation under
+// -fno-delete-null-pointer-checks (also enabled by its UBSan driver). The full
+// table below must compile and run with that option; weak NTTP invocations are
+// checked separately in WeakTargetCheck.cpp on ELF. This test is one part of
+// the complete null-check-mode host runner, not a slot-only exception.
 #include "Telemetry.h"
 #include <cstdio>
 using namespace telemetry;
 
-#if defined(TELEMETRY_NULL_CHECKS_SLOT_ONLY)
-FunctionSlot<float() noexcept> reading;
-FunctionSlot<WriteResult(float) noexcept> writing;
-constexpr FieldTable rows{
-    field("Slot", "V", reading),
-    field("Slot pair", "V", reading, writing),
-};
-int main()
-{
-    return !rows.read<0>() && rows.write<1>(2.f) == WriteResult::Unavailable ? 0 : 1;
-}
-#else
 namespace null_checks_probe {
 float nativeValue = 1.f;
 unsigned writeCalls = 0;
@@ -56,10 +32,8 @@ WriteResult Owner::write(float next) noexcept { value = next; return WriteResult
 
 // A template specialization's address is the original failing free-getter
 // shape. The enum factory has another generated free-function adapter.
-#if defined(REVIEW_TEMPLATE_CONSTEXPR_TARGET)
 template <class T> T readTemplate() noexcept { return T{7}; }
-constexpr auto templateTarget = Getter::bind<&readTemplate<float>>();
-#endif
+[[maybe_unused]] constexpr auto templateTarget = Getter::bind<&readTemplate<float>>();
 
 using NativeRead = float (*)() noexcept;
 using NativeWrite = WriteResult (*)(float) noexcept;
@@ -91,16 +65,14 @@ constexpr FieldTable rows{
     field<&readScalar, &writeScalar>("Scalar pair", "V", ScalarType::F32),
 };
 
-#if defined(REVIEW_SLOT_CONSTEXPR_BIND)
 float source() noexcept { return 1.f; }
 constexpr bool boundInConstantEvaluation() noexcept
 {
     FunctionSlot<float() noexcept> local;
     local.bind(&source);
-    return local.available(); // function_ != nullptr on a function address
+    return local.available();
 }
 static_assert(boundInConstantEvaluation());
-#endif
 
 int main()
 {
@@ -176,4 +148,3 @@ int main()
     std::printf("%s %u null-check flag and runtime pointer checks passed\n", ok ? "All" : "Not all", checks);
     return ok ? 0 : 1;
 }
-#endif

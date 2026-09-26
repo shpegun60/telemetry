@@ -85,12 +85,17 @@ public:
     using Function = Scalar (*)() noexcept;
 
     constexpr Getter(Function function = nullptr) noexcept
-        : payload_(function), invoke_(function != nullptr ? &invokeScalar_ : nullptr) {}
+        : payload_(function),
+          invoke_(detail::pointerPresent(function)
+              ? (detail::pointerPresenceUncertain(function) ? &invokeScalarChecked_ : &invokeScalar_)
+              : nullptr) {}
 
     template <class R, std::enable_if_t<detail::isScalarReadType<R>, int> = 0>
     constexpr Getter(NativeFunction<R> function) noexcept
         : payload_(function, NativeTag<R>{}),
-          invoke_(function != nullptr ? &invokeNative_<R> : nullptr) {}
+          invoke_(detail::pointerPresent(function)
+              ? (detail::pointerPresenceUncertain(function) ? &invokeNativeChecked_<R> : &invokeNative_<R>)
+              : nullptr) {}
 
     // A capture-free lambda converts to its exact noexcept function pointer.
     template <class F, std::enable_if_t<std::is_class_v<std::decay_t<F>>
@@ -117,7 +122,7 @@ public:
         return invoke_ != nullptr ? invoke_(payload_) : Scalar::null();
     }
 
-    constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
+    constexpr explicit operator bool() const noexcept { return detail::pointerPresent(invoke_); }
 
     // Exact private layout for the link-time ABI signature.
     static constexpr std::size_t abiPayloadOffset() noexcept
@@ -213,6 +218,12 @@ private:
         return payload.scalar();
     }
 
+    static TELEMETRY_FORCE_INLINE Scalar invokeScalarChecked_(Payload payload) noexcept
+    {
+        const auto function = payload.scalar;
+        return function != nullptr ? function() : Scalar::null();
+    }
+
 #define TELEMETRY_GETTER_ACCESSOR(Type, Name) \
     static constexpr NativeFunction<Type> native_(Payload payload, NativeTag<Type>) noexcept \
     { return payload.Name; }
@@ -229,9 +240,17 @@ private:
         return Scalar::from(native_(payload, NativeTag<R>{})());
     }
 
+    template <class R>
+    static TELEMETRY_FORCE_INLINE Scalar invokeNativeChecked_(Payload payload) noexcept
+    {
+        const auto function = native_(payload, NativeTag<R>{});
+        return function != nullptr ? Scalar::from(function()) : Scalar::null();
+    }
+
     template <auto FunctionPointer>
     static TELEMETRY_FORCE_INLINE Scalar invokeStatic_(Payload) noexcept
     {
+        if (!detail::targetAvailable<FunctionPointer>()) return Scalar::null();
         return FunctionPointer();
     }
 
@@ -252,12 +271,14 @@ private:
     template <auto Method, class T>
     static TELEMETRY_FORCE_INLINE Scalar invokeMethod_(Payload payload) noexcept
     {
+        if (!detail::targetAvailable<Method>()) return Scalar::null();
         return std::invoke(Method, object_<T>(payload));
     }
 
     template <auto Adapter, class T>
     static TELEMETRY_FORCE_INLINE Scalar invokeContext_(Payload payload) noexcept
     {
+        if (!detail::targetAvailable<Adapter>()) return Scalar::null();
         return Adapter(object_<T>(payload));
     }
 

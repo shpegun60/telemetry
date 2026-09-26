@@ -28,8 +28,8 @@ struct CommandCatalog {
     constexpr CommandCatalog(const char* label, const Command* rows,
                              std::size_t requestedCount) noexcept
         : name(label), commands(rows),
-          count(rows == nullptr ? 0 : (requestedCount < idComponentCapacity
-                    ? requestedCount : idComponentCapacity)) {}
+          count(detail::pointerPresent(rows) ? (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity) : 0) {}
 
     template <std::size_t N>
     constexpr CommandCatalog(const char* label, const Command (&rows)[N]) noexcept
@@ -41,7 +41,7 @@ struct CommandCatalog {
     CommandCatalog(const char*, const Command (&&)[N], std::size_t) = delete;
 
     constexpr const Command* begin() const noexcept { return commands; }
-    constexpr const Command* end() const noexcept { return commands != nullptr ? commands + count : nullptr; }
+    constexpr const Command* end() const noexcept { return detail::pointerPresent(commands) ? commands + count : nullptr; }
     constexpr std::size_t size() const noexcept { return count; }
     constexpr bool empty() const noexcept { return count == 0; }
 };
@@ -57,9 +57,9 @@ constexpr bool commandStringEqual(const char* a, const char* b) noexcept
 // whose arguments must be valid null-terminated strings.
 constexpr bool commandNamesUnique(const Command* commands, std::size_t count) noexcept
 {
-    if (commands == nullptr) return count == 0;
+    if (!detail::pointerPresent(commands)) return count == 0;
     for (std::size_t i = 0; i < count; ++i) {
-        if (commands[i].name == nullptr) return false;
+        if (!detail::pointerPresent(commands[i].name)) return false;
         for (std::size_t j = 0; j < i; ++j) {
             if (commandStringEqual(commands[i].name, commands[j].name)) return false;
         }
@@ -70,9 +70,9 @@ constexpr bool commandNamesUnique(const Command* commands, std::size_t count) no
 constexpr bool commandCatalogNamesUnique(const CommandCatalog* catalogs,
                                          std::size_t count) noexcept
 {
-    if (catalogs == nullptr) return count == 0;
+    if (!detail::pointerPresent(catalogs)) return count == 0;
     for (std::size_t i = 0; i < count; ++i) {
-        if (catalogs[i].name == nullptr) return false;
+        if (!detail::pointerPresent(catalogs[i].name)) return false;
         for (std::size_t j = 0; j < i; ++j) {
             if (commandStringEqual(catalogs[i].name, catalogs[j].name)) return false;
         }

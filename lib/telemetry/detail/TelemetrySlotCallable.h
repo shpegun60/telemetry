@@ -63,8 +63,9 @@ template <class Pointer, class T>
 inline constexpr bool slotNonTemplateCall = [] {
     if constexpr (!SlotHasCall<Pointer, T>::value) return false;
     else if constexpr (!SlotHasTemplateCall<Pointer, T>::value) return true;
-    else return static_cast<Pointer>(&T::operator())
-             != static_cast<Pointer>(&T::template operator()<>);
+    else return !std::is_same_v<
+        std::integral_constant<Pointer, static_cast<Pointer>(&T::operator())>,
+        std::integral_constant<Pointer, static_cast<Pointer>(&T::template operator()<>)>>;
 }();
 
 template <class F, class Signature> struct SlotCall;

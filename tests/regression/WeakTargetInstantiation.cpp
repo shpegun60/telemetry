@@ -1,6 +1,5 @@
-// Public NTTP callbacks need a constant nonnull address. A GNU weak declaration
-// can resolve to null even though it names a function. Runtime nullable pointer
-// forms are covered separately by NullChecksFlag.cpp.
+// Every public weak NTTP form must instantiate. WeakTargetCheck.cpp exercises
+// absence after ELF linking; this file also compiles on non-ELF hosts.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
 #include "Telemetry.h"
 
@@ -23,27 +22,27 @@ WriteResult strongWrite(float next) noexcept { value = next; return WriteResult:
 CommandResult strongRun() noexcept { return CommandResult::Executed; }
 
 #if TELEMETRY_WEAK_TARGET_FAIL_CASE == 1
-constexpr FieldTable rejected{field<&missingRead>("value", "")};
+constexpr FieldTable probe{field<&missingRead>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 2
-constexpr FieldTable rejected{field<&strongRead, &missingWrite>("value", "")};
+constexpr FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 3
-constexpr CommandTable rejected{command<&missingCommand>("run")};
+constexpr CommandTable probe{command<&missingCommand>("run")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 4
-const FieldTable rejected{field<&missingRead>("value", "")};
+const FieldTable probe{field<&missingRead>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 5
-const FieldTable rejected{field<&strongRead, &missingWrite>("value", "")};
+const FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 6
-const CommandTable rejected{command<&missingCommand>("run")};
+const CommandTable probe{command<&missingCommand>("run")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 7
-const auto rejected = Getter::bind<&missingRead>();
+const auto probe = Getter::bind<&missingRead>();
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 8
-const auto rejected = Setter::bind<&missingScalarWrite>();
+const auto probe = Setter::bind<&missingScalarWrite>();
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 9
-const auto rejected = Getter::bindContext<&missingContextRead>(value);
+const auto probe = Getter::bindContext<&missingContextRead>(value);
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 10
-const auto rejected = Setter::bindContext<&missingContextWrite>(value);
+const auto probe = Setter::bindContext<&missingContextWrite>(value);
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 11
-void rejected()
+void probe()
 {
     DelegateRefSlot<float() noexcept> slot;
     slot.bind<&missingRead>();

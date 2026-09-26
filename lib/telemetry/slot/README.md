@@ -20,6 +20,16 @@ state, replace its target, or reset it without rebuilding the table or schema.
 All five types are noncopyable and nonmovable, with `bind`, `reset`, `available`
 and `explicit operator bool`. No runtime mode chooses between their strategies.
 
+`DelegateRefSlot::bind<&function>()` resolves a GNU weak target when binding.
+If it is absent, the slot remains empty. With GCC's
+`-fno-delete-null-pointer-checks`, even a defined function address can have
+undecidable presence during constant evaluation. A reference slot cannot bind
+such a target in `constexpr` because its two-word delegate has no later
+availability check; bind that slot during startup instead. Direct
+`field<&function>` and `command<&function>`
+definitions may remain constexpr because their invocation checks the linked
+target and reports absence through the field or command result.
+
 | Type | Stores | Owns target | ARM32 storage |
 | --- | --- | --- | --- |
 | `OwnerSlot<T>` | `T*` | No | 4 bytes |

@@ -34,9 +34,9 @@ public:
     // See Catalog: prefer the deleted array-rvalue overload over decay.
     template <class = void>
     constexpr CatalogIndex(const Catalog* catalogs, std::size_t requestedCount) noexcept
-        : catalogs_(catalogs), count_(catalogs == nullptr ? 0
-              : (requestedCount < idComponentCapacity
-                    ? requestedCount : idComponentCapacity))
+        : catalogs_(catalogs), count_(detail::pointerPresent(catalogs)
+              ? (requestedCount < idComponentCapacity
+                    ? requestedCount : idComponentCapacity) : 0)
     {
     }
 
@@ -124,7 +124,7 @@ public:
     constexpr std::size_t size() const noexcept { return count_; }
     constexpr bool empty() const noexcept { return count_ == 0; }
     constexpr const Catalog* begin() const noexcept { return catalogs_; }
-    constexpr const Catalog* end() const noexcept { return catalogs_ != nullptr ? catalogs_ + count_ : nullptr; }
+    constexpr const Catalog* end() const noexcept { return detail::pointerPresent(catalogs_) ? catalogs_ + count_ : nullptr; }
     // This index owns no descriptors, so the returned range is independent of
     // the index object's own lifetime (including a temporary index()).
     constexpr FieldCatalogRange catalogs() const noexcept
@@ -209,9 +209,9 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE static auto read() noexcept
     {
         constexpr const Field* field = index_.find(detail::packedIdValue<Id>());
-        static_assert(field != nullptr,
+        static_assert(detail::pointerPresent(field),
                       "The read ID must belong to the catalog's positional bounds");
-        if constexpr (field != nullptr) {
+        if constexpr (detail::pointerPresent(field)) {
             constexpr ScalarType type = field->declaredType;
             constexpr bool numeric = type != ScalarType::Null
                 && static_cast<std::size_t>(type) < Scalar::typeCount;
@@ -229,13 +229,13 @@ public:
     {
         constexpr auto id = detail::packedIdValue<Id>();
         constexpr const Field* field = index_.find(id);
-        static_assert(field != nullptr,
+        static_assert(detail::pointerPresent(field),
                       "The read ID must belong to the catalog's positional bounds");
         // Keep the constexpr lookup above as the contract check, but invoke
         // through the catalog expression itself. This exposes the concrete
         // field directly, allowing the compiler to preserve or further inline
         // the same known-field operation without any runtime lookup.
-        if constexpr (field != nullptr)
+        if constexpr (detail::pointerPresent(field))
             return Catalogs[groupOf(id)].fields[indexOf(id)].template read<T>();
         else return std::nullopt;
     }
@@ -254,9 +254,9 @@ public:
     {
         constexpr auto id = detail::packedIdValue<Id>();
         constexpr const Field* field = index_.find(id);
-        static_assert(field != nullptr,
+        static_assert(detail::pointerPresent(field),
                       "The write ID must belong to the catalog's positional bounds");
-        if constexpr (field != nullptr)
+        if constexpr (detail::pointerPresent(field))
             return Catalogs[groupOf(id)].fields[indexOf(id)].write(value);
         else return WriteResult::NotFound;
     }

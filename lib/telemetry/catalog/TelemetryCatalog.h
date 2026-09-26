@@ -43,7 +43,7 @@ struct Catalog {
     Catalog(const char*, const Field (&&)[N], std::size_t) = delete;
 
     constexpr const Field* begin() const noexcept { return fields; }
-    constexpr const Field* end() const noexcept { return fields != nullptr ? fields + count : nullptr; }
+    constexpr const Field* end() const noexcept { return detail::pointerPresent(fields) ? fields + count : nullptr; }
     constexpr std::size_t size() const noexcept { return count; }
     constexpr bool empty() const noexcept { return count == 0; }
 
@@ -51,7 +51,7 @@ private:
     static constexpr std::size_t clippedCount_(const Field* rows,
                                                std::size_t requestedCount) noexcept
     {
-        if (rows == nullptr) return 0;
+        if (!detail::pointerPresent(rows)) return 0;
         return requestedCount < idComponentCapacity
             ? requestedCount : idComponentCapacity;
     }
@@ -72,9 +72,9 @@ constexpr bool str_equal(const char* a, const char* b) noexcept
 // The pointer/count must describe an actual array; nullptr is valid only empty.
 constexpr bool names_unique(const Field* fields, std::size_t count) noexcept
 {
-    if (fields == nullptr) return count == 0;
+    if (!detail::pointerPresent(fields)) return count == 0;
     for (std::size_t i = 0; i < count; ++i) {
-        if (fields[i].name == nullptr) return false;
+        if (!detail::pointerPresent(fields[i].name)) return false;
         for (std::size_t j = 0; j < i; ++j) {
             if (str_equal(fields[i].name, fields[j].name)) {
                 return false;
@@ -88,9 +88,9 @@ constexpr bool names_unique(const Field* fields, std::size_t count) noexcept
 // The pointer/count must describe an actual array; nullptr is valid only empty.
 constexpr bool catalog_names_unique(const Catalog* catalogs, std::size_t count) noexcept
 {
-    if (catalogs == nullptr) return count == 0;
+    if (!detail::pointerPresent(catalogs)) return count == 0;
     for (std::size_t i = 0; i < count; ++i) {
-        if (catalogs[i].name == nullptr) return false;
+        if (!detail::pointerPresent(catalogs[i].name)) return false;
         for (std::size_t j = 0; j < i; ++j) {
             if (str_equal(catalogs[i].name, catalogs[j].name)) return false;
         }

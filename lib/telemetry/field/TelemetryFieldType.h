@@ -9,6 +9,7 @@
 
 #include "../core/TelemetryConversion.h"
 #include "../detail/TelemetryBounds.h"
+#include "../detail/TelemetryTarget.h"
 #include <cstddef>
 #include <cstdlib>
 #include <limits>
@@ -102,7 +103,7 @@ public:
         : valueType_(type), bounds_(nativeBounds_(type)), initial_(nativeDefault_(type)) {}
 
     TELEMETRY_FORCE_INLINE constexpr operator ScalarType() const noexcept { return valueType_; }
-    constexpr bool hasEnum() const noexcept { return enumOps_ != nullptr; }
+    constexpr bool hasEnum() const noexcept { return detail::pointerPresent(enumOps_); }
     constexpr std::uint32_t enumCount() const noexcept { return hasEnum() ? enumOps_->count : 0; }
     constexpr Scalar minimum() const noexcept { return project_<0>(); }
     constexpr Scalar maximum() const noexcept { return project_<1>(); }

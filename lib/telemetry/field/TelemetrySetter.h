@@ -99,12 +99,17 @@ public:
     using Function = WriteResult (*)(const Scalar&) noexcept;
 
     constexpr Setter(Function function = nullptr) noexcept
-        : payload_(function), invoke_(function != nullptr ? &invokeScalar_ : nullptr) {}
+        : payload_(function),
+          invoke_(detail::pointerPresent(function)
+              ? (detail::pointerPresenceUncertain(function) ? &invokeScalarChecked_ : &invokeScalar_)
+              : nullptr) {}
 
     template <class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
     constexpr Setter(NativeFunction<T> function) noexcept
         : payload_(function, NativeTag<T>{}),
-          invoke_(function != nullptr ? &invokeNative_<T> : nullptr) {}
+          invoke_(detail::pointerPresent(function)
+              ? (detail::pointerPresenceUncertain(function) ? &invokeNativeChecked_<T> : &invokeNative_<T>)
+              : nullptr) {}
 
     template <class F, std::enable_if_t<std::is_class_v<std::decay_t<F>>
               && !std::is_base_of_v<Setter, std::decay_t<F>>
@@ -132,7 +137,7 @@ public:
         return invoke_ != nullptr ? invoke_(payload_, value) : WriteResult::ReadOnly;
     }
 
-    constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
+    constexpr explicit operator bool() const noexcept { return detail::pointerPresent(invoke_); }
 
     // Exact private layout for the link-time ABI signature.
     static constexpr std::size_t abiPayloadOffset() noexcept
@@ -228,6 +233,13 @@ private:
         return payload.scalar(value);
     }
 
+    static TELEMETRY_FORCE_INLINE WriteResult invokeScalarChecked_(Payload payload,
+                                                                    const Scalar& value) noexcept
+    {
+        const auto function = payload.scalar;
+        return function != nullptr ? function(value) : WriteResult::Unavailable;
+    }
+
 #define TELEMETRY_SETTER_ACCESSOR(Type, Name) \
     static constexpr NativeFunction<Type> native_(Payload payload, NativeTag<Type>) noexcept \
     { return payload.Name; }
@@ -253,6 +265,14 @@ private:
         return invokeConverted_<T>(native_(payload, NativeTag<T>{}), value);
     }
 
+    template <class T>
+    static TELEMETRY_FORCE_INLINE WriteResult invokeNativeChecked_(Payload payload,
+                                                                    const Scalar& value) noexcept
+    {
+        return native_(payload, NativeTag<T>{}) != nullptr
+            ? invokeNative_<T>(payload, value) : WriteResult::Unavailable;
+    }
+
     // A manual row can use a different declared type. Keep its uncommon
     // conversion out of the exact-tag thunk, so ordinary erased writes do not
     // reserve a conversion frame or save registers for this fallback at -Os.
@@ -273,6 +293,7 @@ private:
     static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeStatic_(Payload,
                                                              const Scalar& value) noexcept
     {
+        if (!detail::targetAvailable<FunctionPointer>()) return WriteResult::Unavailable;
         return FunctionPointer(value);
     }
 
@@ -293,6 +314,7 @@ private:
     static TELEMETRY_FORCE_INLINE WriteResult invokeMethod_(Payload payload,
                                                             const Scalar& value) noexcept
     {
+        if (!detail::targetAvailable<Method>()) return WriteResult::Unavailable;
         return std::invoke(Method, object_<T>(payload), value);
     }
 
@@ -300,6 +322,7 @@ private:
     static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeContext_(Payload payload,
                                                              const Scalar& value) noexcept
     {
+        if (!detail::targetAvailable<Adapter>()) return WriteResult::Unavailable;
         return Adapter(object_<T>(payload), value);
     }
 
