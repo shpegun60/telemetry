@@ -206,31 +206,69 @@ void allForms(const char* name)
 }
 } // namespace
 
-// -DPARITY_GROUP=1..6 builds three types per translation unit (sanitizer
-// builds of all 18 types at once need about 15 GB of compiler memory).
-#ifndef PARITY_GROUP
-#define PARITY_GROUP 0
+// -DPARITY_TYPE=1..18 builds one type per translation unit. Larger groups
+// exceed the per-command time limit on CI with sanitizers; all types at once
+// also need about 15 GB of compiler memory. Type 0 runs the complete matrix.
+#ifndef PARITY_TYPE
+#define PARITY_TYPE 0
 #endif
-#define PARITY_IN(g) (PARITY_GROUP == 0 || PARITY_GROUP == (g))
+static_assert(PARITY_TYPE >= 0 && PARITY_TYPE <= 18, "Unknown parity type");
+#define PARITY_IN(t) (PARITY_TYPE == 0 || PARITY_TYPE == (t))
 int main()
 {
 #if PARITY_IN(1)
-    allForms<float>("float"); allForms<double>("double"); allForms<bool>("bool");
+    allForms<float>("float");
 #endif
 #if PARITY_IN(2)
-    allForms<std::uint8_t>("u8"); allForms<std::uint16_t>("u16"); allForms<std::uint32_t>("u32");
+    allForms<double>("double");
 #endif
 #if PARITY_IN(3)
-    allForms<std::uint64_t>("u64"); allForms<std::int8_t>("s8"); allForms<std::int16_t>("s16");
+    allForms<bool>("bool");
 #endif
 #if PARITY_IN(4)
-    allForms<std::int32_t>("s32"); allForms<std::int64_t>("s64"); allForms<char>("char");
+    allForms<std::uint8_t>("u8");
 #endif
 #if PARITY_IN(5)
-    allForms<wchar_t>("wchar_t"); allForms<long>("long"); allForms<unsigned long>("unsigned long");
+    allForms<std::uint16_t>("u16");
 #endif
 #if PARITY_IN(6)
-    allForms<long long>("long long"); allForms<char16_t>("char16_t"); allForms<char32_t>("char32_t");
+    allForms<std::uint32_t>("u32");
+#endif
+#if PARITY_IN(7)
+    allForms<std::uint64_t>("u64");
+#endif
+#if PARITY_IN(8)
+    allForms<std::int8_t>("s8");
+#endif
+#if PARITY_IN(9)
+    allForms<std::int16_t>("s16");
+#endif
+#if PARITY_IN(10)
+    allForms<std::int32_t>("s32");
+#endif
+#if PARITY_IN(11)
+    allForms<std::int64_t>("s64");
+#endif
+#if PARITY_IN(12)
+    allForms<char>("char");
+#endif
+#if PARITY_IN(13)
+    allForms<wchar_t>("wchar_t");
+#endif
+#if PARITY_IN(14)
+    allForms<long>("long");
+#endif
+#if PARITY_IN(15)
+    allForms<unsigned long>("unsigned long");
+#endif
+#if PARITY_IN(16)
+    allForms<long long>("long long");
+#endif
+#if PARITY_IN(17)
+    allForms<char16_t>("char16_t");
+#endif
+#if PARITY_IN(18)
+    allForms<char32_t>("char32_t");
 #endif
     std::printf("%d/%d native/dynamic parity checks passed\n", checks - failures, checks);
     return failures != 0;

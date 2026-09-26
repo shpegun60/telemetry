@@ -37,12 +37,12 @@ def check(args, flags, build_flags, run, output, library_sources, environment):
                                   "-o", str(executable)], f"review-{name}-build")
         run([str(executable)], f"review-{name}-run")
 
-    # Preserve all 18 types and all six binding forms without asking one
-    # sanitizer compilation to instantiate a roughly 15 GB translation unit.
-    for group in range(1, 7):
-        name = f"FieldParityCheck-{group}"
+    # One type per build preserves the complete matrix while staying within
+    # CI's compiler time/memory budget, including ASan and UBSan at -O1.
+    for value_type in range(1, 19):
+        name = f"FieldParityCheck-{value_type}"
         executable = output / (name + (".exe" if os.name == "nt" else ""))
-        run(flags + build_flags + [f"-DPARITY_GROUP={group}",
+        run(flags + build_flags + [f"-DPARITY_TYPE={value_type}",
             "tests/regression/FieldParityCheck.cpp", *library_sources, "-o", str(executable)],
             f"review-{name}-build")
         run([str(executable)], f"review-{name}-run")

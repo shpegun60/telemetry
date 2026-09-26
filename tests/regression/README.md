@@ -9,15 +9,16 @@ The critic's architecture/product proposals are outside this change.
 
 Run `python tests/run_checks.py --build-dir build/checks` for C++17, or add
 `--std c++20`; Clang supports `--sanitize`. This runs the 15 existing core
-suites plus six additional suites and six groups of FieldParityCheck.
-Splitting the 18 types into groups preserves all **77760** comparisons while
-keeping sanitizer compilation memory bounded. It does not remove any binding
-form, limit case or optimization flag.
+suites plus six additional suites and 18 single-type builds of FieldParityCheck.
+Each type runs **4320** comparisons, preserving all **77760** comparisons while
+bounding compiler time and memory. Three types per build exceeded the 180-second
+command timeout on a CI sanitizer runner. The single-type builds retain that
+timeout, every binding form, every limit case and the same optimization flags.
 
 | Maintained check | Original review source / contract |
 |---|---|
 | NumericEdges, HonorFlagsCheck | numeric-core ConversionEdges/HonorFlagsProbe; 328 edge checks, forbidden FP modes |
-| FieldParityCheck (groups 1–6) | fields NativeDynamicParity; native and erased paths, 18 types, six binding forms |
+| FieldParityCheck (types 1–18) | fields NativeDynamicParity; native and erased paths, 18 types, six binding forms |
 | OwnerLifetimeCompileFail, PointerOwnerCompileFail | fields conversion temporaries and pointer-like owners; positive lvalue controls |
 | CommandArityCheck | commands ArityMatrix; 46 order/side-effect checks |
 | JsonBoundaryCheck | catalog-json JsonBoundaryProbe; every buffer size, both integer modes |
