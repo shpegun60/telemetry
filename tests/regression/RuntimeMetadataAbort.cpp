@@ -7,6 +7,7 @@
 //          4 = enum limits wider than the named interval, 5 = enumSpec default outside.
 //          6 = null command name (through a runtime pointer).
 //          7 = wide runtime makeId component (tryMakeId is the fallible API).
+//          8..12 = missing mandatory field/unit/group labels in factories.
 #include "Telemetry.h"
 #include <cmath>
 #include <cstdio>
@@ -17,6 +18,7 @@ using namespace telemetry;
 
 enum class Mode : std::uint8_t { A, B, C };
 struct Dev {
+    float value() const noexcept { return 1.f; }
     CommandResult f(float) noexcept { return CommandResult::Executed; }
     CommandResult m(Mode) noexcept { return CommandResult::Executed; }
 };
@@ -35,6 +37,11 @@ int main(int argc, char** argv)
     if (which == 5) { const CommandTable t{command<&Dev::m>("x", dev, arg<0>("m", "", enumSpec<Mode::A, Mode::B>(Mode::C)))}; std::printf("constructed %zu\n", t.size()); }
     if (which == 6) { const char* name = nullptr; const CommandTable t{command<&Dev::f>(name, dev)}; std::printf("constructed %zu\n", t.size()); }
     if (which == 7) { volatile std::uint64_t group = UINT64_C(1) << 32; std::printf("id %u\n", makeId(group, 0)); }
+    if (which == 8) { const FieldTable t{field<&Dev::value>(nullptr, "", dev)}; std::printf("constructed %zu\n", t.size()); }
+    if (which == 9) { const FieldTable t{field<&Dev::value>("value", nullptr, dev)}; std::printf("constructed %zu\n", t.size()); }
+    if (which == 10) { const FieldTable t{field(Field{nullptr, "", ScalarType::F32})}; std::printf("constructed %zu\n", t.size()); }
+    if (which == 11) { const FieldTable rows{field<&Dev::value>("value", "", dev)}; const FieldCatalogTable t{group(nullptr, rows)}; std::printf("constructed %zu\n", t.size()); }
+    if (which == 12) { const CommandTable rows{command<&Dev::f>("apply", dev)}; const CommandCatalogTable t{group(nullptr, rows)}; std::printf("constructed %zu\n", t.size()); }
     std::printf("returned normally\n");
     return 0;
 }

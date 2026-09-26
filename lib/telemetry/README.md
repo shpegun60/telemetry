@@ -128,12 +128,21 @@ errors, checked before narrowing to `size_t`, including 64-bit enums on ARM32.
 Position names add no runtime work. Global typed APIs still take the packed
 `makeId(group, entry)`; a local position enum does not identify its group.
 
-Runtime integer/enum IDs are checked at their original width before conversion
+Local runtime positions accept integers and enums. Global packed IDs accept
+integers only, including in template calls: a local enum must be combined with
+its group using `makeId`, not silently interpreted as group zero. Implicitly
+convertible classes and atomic objects are rejected consistently; use `.load()`
+or an explicit conversion that preserves the original width before lookup.
+Runtime inputs are checked at that width before conversion
 to the 32-bit ID or local `size_t`. Negative and oversized values report
 `NotFound` (or null/empty for lookup/read), without invoking a callback.
 `makeId(group, entry)` requires both components in `0..65535`: invalid constant
 expressions fail compilation and invalid runtime calls abort. For input that
 can fail validation, use `tryMakeId(group, entry)` and check its optional result.
+An ordinary call containing literals is not necessarily constant-evaluated.
+Use `makeId<Group, Entry>()` for guaranteed compile-time diagnostics.
+`groupOf` and `indexOf` similarly reject negative/oversized packed values before
+extracting components; `tryGroupOf` and `tryIndexOf` return optional results.
 
 `field(...)` supports the same NTTP methods/free functions, parameter function
 pointers, capture-free lambdas and borrowed callable lvalues through this one factory.
@@ -277,8 +286,10 @@ table pointer per group. They route compile-time IDs to the selected table
 without constructing a dynamic index. `.index()` returns the ordinary borrowed
 runtime view; global runtime convenience methods use that same view. The
 tables are non-copyable/non-movable; borrowed owners, closures, strings and
-local tables must outlive their consumers. Extracting views from temporaries
-is rejected. None of these layers stores an ID or allocates memory.
+local tables must outlive their consumers. Direct member calls that extract
+views from temporaries are rejected. `std::data`, `std::begin`, or another
+helper taking `const T&` can hide the original temporary; they do not extend
+its lifetime. None of these layers stores an ID or allocates memory.
 Metadata values such as `limits(...)` and `arg<N>(...)` are copied, but their
 name/unit pointers do not copy text. A temporary string's `c_str()` is not a
 valid persistent label; use literals or storage that remains alive and stable.
@@ -294,7 +305,10 @@ borrowed lvalues, including runtime objects. Pass the actual object (or a derive
 object), explicitly dereference a stable pointer, or use `OwnerSlot` for late
 binding. Pointer variables, smart pointers and `reference_wrapper` are not
 owners. Temporary owners and converting proxies are rejected, including when
-the owner type is explicitly supplied as a template argument. The application
+the owner type is explicitly supplied as a template argument. This includes
+`{}`, aggregate initializer lists and braced conversion proxies. A singleton
+`{owner}` may still bind the existing object directly. These are compile-time
+overload checks; no lifetime tracking is added to read/write/call. The application
 must still keep every borrowed object alive for the duration of all calls.
 
 `limits(default)` changes only the initial metadata. The three-argument form
@@ -571,7 +585,9 @@ All ranges borrow their tables, descriptors and strings. Copying a view does
 not extend the owners' lifetimes. A nested range copies its group context, so
 it does not borrow the temporary catalog view. Borrowed indexes may themselves
 be temporary if their backing storage survives. Extracting `begin()/end()` or
-`catalogs()` from a temporary owning table is rejected; keep that table alive.
+`catalogs()` by a direct member call on a temporary owning table is rejected;
+`std::begin(temporary)` can still hide its lifetime in C++17. Keep the owner alive;
+C++20 `std::ranges::begin/data` reject these non-borrowed temporary tables.
 Internal ranges reuse bounds already normalized by their catalog/index; the
 private construction path cannot be used to bypass public pointer/count checks.
 
@@ -727,11 +743,13 @@ covers all remaining members, nested storage, sizes and alignment, including
 the cache-line policy. Its unhashed tuple is part of compiled JSON and explicit
 `requireTelemetryAbi()` link symbols. Mixed builds fail when they use those
 entry points. Inline-only consumers must call the explicit anchor at a module
-boundary if they need that link-time check. That call must survive linker
-garbage collection: putting it in an unreferenced function does not protect
-the module. The tests cover both a live mismatching reference (link failure)
-and a discarded one (no guarantee). A header-only TU does not automatically
-emit a retained anchor. The diagnostic hash is not a wire
+boundary if they need that link-time check. An emitted caller retains its ABI
+reference even when the linker removes the caller's code. A compiler can omit
+an unused function, including during LTO; use `TELEMETRY_RETAIN_ABI()` once at
+namespace scope to require this TU's check independently of its live functions.
+This marker needs no dynamic initialization. Unextracted archive members and
+modules which never opt in are not automatically checked. Header inclusion alone
+still does not require linking TelemetryAbi.cpp. The diagnostic hash is not a wire
 version or a collision-based substitute for the link tuple.
 
 The guard adds no instruction to Field lookup/read/write. It compares no value
@@ -739,6 +757,10 @@ at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
 settings and require the final link to fail. They also reject frozen ABI 6/7
 callers against each ABI 8 core/field-JSON/command-JSON archive. Separate executables still use
 their own signatures normally.
+ARM retention uses one read-only address word at each emitted marker and
+requires non-PIC code plus GNU assembler/linker support for SHF_GNU_RETAIN.
+Unsupported ARM PIC/PIE anchor use is diagnosed. Linux PIE, linker GC and LTO
+are checked independently; the in-memory ABI revision remains 8.
 
 On Cortex-M7 the current Field remains 96 bytes/aligned to 32. Setter stays at
 offset 32 and declaredType at 40; Getter shrinks to 8 bytes and readType moves
@@ -1188,12 +1210,19 @@ at the same address, and temporary owners are rejected.
 ## Optional writes
 
 An inferred getter/setter pair must have the same C++ value type. A manual
-`Field` may instead pair a declared type with a native function-pointer setter
-of another numeric type: `Field::write()` first normalizes to `declaredType`,
+`Field` may instead pair a declared type with a native setter
+of another numeric type, including setters obtained from NTTP, method and
+borrowed-callable factories: `Field::write()` first normalizes to `declaredType`,
 then the setter performs checked conversion to its actual argument type.
 Exact types take the direct branch. A failed conversion never invokes the
 callback. Raw Scalar callbacks and NTTP Scalar adapters retain their existing
 explicit Scalar contract; `.set()` alone does not apply Field limits.
+Limits are checked in the declared representation. For a deliberately mismatched
+F64 descriptor and float callback, an accepted F64 endpoint such as `0.1` can
+round to `0.10000000149f` afterwards. Use an inferred field (matching types),
+or enforce the physical constraint in the owner if this rounding matters.
+Calling `set(Scalar)` directly bypasses descriptor policy for every binding;
+native callbacks still reject unrepresentable values and unsafe enum casts.
 
 Field's optional final constructor argument is `Setter`, defaulting to nullptr.
 Rows containing only name, unit, type and getter remain read-only. Setter uses the same trivial payload/invoker representation
@@ -1237,10 +1266,23 @@ is invoked by a write. Explicit Scalar inputs are also accepted.
 
 The build guards reject `-ffast-math`, `-ffinite-math-only`, `-Ofast` and
 MSVC's fast mode marker. Clang versions exposing `-Wnan-infinity-disabled`
-(tested: Clang 18) also reject either individual `-fno-honor-nans` or
-`-fno-honor-infinities`, even if the command line suppresses that diagnostic.
-On older compilers without that diagnostic these individual options remain
-unsupported preconditions, rather than an automatically detected error.
+(tested: Clang 18) diagnose individual `-fno-honor-nans` and
+`-fno-honor-infinities` when normal header warnings are enabled. This is a
+best-effort diagnostic: `-w`, system-header inclusion and some compiler versions
+suppress it. Per-function fast-math attributes/pragmas are not reliably detected
+either. All of these modes remain unsupported, including on callers into which
+the conversion code is inlined. Warning suppression does not make them valid.
+
+GCC 13/14 also have a separate constexpr address-comparison limitation with
+`-fno-delete-null-pointer-checks` (PR71962); UBSan implicitly enables that option.
+The full GCC UBSan suite cannot currently compile these constexpr tables;
+explicit `-fdelete-null-pointer-checks` does not repair all cases. Full sanitizer
+validation uses Clang ASan/UBSan without disabling categories. The targeted
+GCC slot-only compile check is not a
+promise that arbitrary nullable constexpr function pointers or Persistent rows
+work with the affected GCC option. Public NTTP targets must have a provably
+nonnull constant address; GNU weak functions use the runtime pointer forms,
+whose null check preserves an unresolved symbol as an empty binding.
 
 Conversion is constexpr and shared by all field reads and writes. Equal native
 types copy directly, without numeric conversion or representability checks. A Scalar

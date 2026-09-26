@@ -180,7 +180,13 @@ template <class Access>
 class FieldDefinition {
     friend Access;
     const Field entry_;
-    constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry) {}
+    constexpr explicit FieldDefinition(Field entry) noexcept : entry_(entry)
+    {
+        // Public factories publish complete descriptions. Low-level Field
+        // descriptors may still represent invalid imported metadata for the
+        // serializers to reject; do not let a factory silently publish it.
+        if (entry.name == nullptr || entry.unit == nullptr) invalidFieldLimits();
+    }
 public:
     using Value = typename Access::Value;
     static constexpr bool hasNativeFastPath = isFactoryValue<Value>;
@@ -363,6 +369,26 @@ template <auto Read, auto Write = nullptr, class Owner = void, class Argument,
               && !detail::isBorrowedObjectArgument<Owner, Argument>, int> = 0>
 auto field(const char*, const char*, FieldType, Argument&&) = delete;
 
+// An explicit Owner allows {} to create a temporary even though Argument
+// cannot be deduced from braces. Proxy elements need their own list check.
+template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && !std::is_reference_v<Owner> && detail::IsLimits<Limits>::value, int> = 0>
+auto field(const char*, const char*, std::remove_reference_t<Owner>&&, Limits = {}) = delete;
+template <auto Read, auto Write = nullptr, class Owner, class Limits = detail::NoLimits, class Argument,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && !detail::isBorrowedObjectArgument<Owner, Argument&>
+              && detail::IsLimits<Limits>::value, int> = 0>
+auto field(const char*, const char*, std::initializer_list<Argument>, Limits = {}) = delete;
+template <auto Read, auto Write = nullptr, class Owner,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && !std::is_reference_v<Owner>, int> = 0>
+auto field(const char*, const char*, FieldType, std::remove_reference_t<Owner>&&) = delete;
+template <auto Read, auto Write = nullptr, class Owner, class Argument,
+          std::enable_if_t<detail::fieldNeedsOwner<Read, Write>
+              && !detail::isBorrowedObjectArgument<Owner, Argument&>, int> = 0>
+auto field(const char*, const char*, FieldType, std::initializer_list<Argument>) = delete;
+
 namespace detail {
 // Exact class types only: explicitly supplied reference types must not reopen
 // the const-reference temporary loophole. Native function-pointer conversions
@@ -407,6 +433,94 @@ template <class Read = void, class Write = void, class ReadArgument, class Write
               && (!detail::isBorrowedObjectArgument<Read, ReadArgument>
                   || !detail::isBorrowedObjectArgument<Write, WriteArgument>), int> = 0>
 auto field(const char*, const char*, FieldType, ReadArgument&&, WriteArgument&&) = delete;
+
+// Braced borrowed callables follow the same rule as explicit owners. The
+// mixed pair forms check both arguments: a safe {getter} must not conceal a
+// setter conversion, nor may a safe {setter} conceal a getter conversion.
+template <class Read, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::isBorrowedFieldCallable<Read>
+              && detail::IsLimits<Limits>::value, int> = 0>
+auto field(const char*, const char*, std::remove_reference_t<Read>&&, Limits = {}) = delete;
+template <class Read, class Limits = detail::NoLimits, class Argument,
+          std::enable_if_t<detail::isBorrowedFieldCallable<Read>
+              && !detail::isBorrowedObjectArgument<Read, Argument&>
+              && detail::IsLimits<Limits>::value, int> = 0>
+auto field(const char*, const char*, std::initializer_list<Argument>, Limits = {}) = delete;
+template <class Read, class Write, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
+auto field(const char*, const char*, std::remove_reference_t<Read>&&, Write&, Limits = {}) = delete;
+template <class Read, class Write, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
+auto field(const char*, const char*, Read&, std::remove_reference_t<Write>&&, Limits = {}) = delete;
+template <class Read, class Write, class Limits = detail::NoLimits,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, Limits>, int> = 0>
+auto field(const char*, const char*, std::remove_reference_t<Read>&&, std::remove_reference_t<Write>&&, Limits = {}) = delete;
+template <class Read = void, class Write = void, class Limits = detail::NoLimits, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, Limits>
+              && !std::is_same_v<std::decay_t<ReadArgument>, ScalarType>
+              && !std::is_same_v<std::decay_t<ReadArgument>, FieldType>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument&>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument>), int> = 0>
+auto field(const char*, const char*, std::initializer_list<ReadArgument>, WriteArgument&&, Limits = {}) = delete;
+template <class Read = void, class Write = void, class Limits = detail::NoLimits, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, Limits>
+              && !std::is_same_v<std::decay_t<ReadArgument>, ScalarType>
+              && !std::is_same_v<std::decay_t<ReadArgument>, FieldType>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument&>), int> = 0>
+auto field(const char*, const char*, ReadArgument&&, std::initializer_list<WriteArgument>, Limits = {}) = delete;
+template <class Read = void, class Write = void, class Limits = detail::NoLimits, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, Limits>
+              && !std::is_same_v<std::decay_t<ReadArgument>, ScalarType>
+              && !std::is_same_v<std::decay_t<ReadArgument>, FieldType>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument&>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument&>), int> = 0>
+auto field(const char*, const char*, std::initializer_list<ReadArgument>, std::initializer_list<WriteArgument>, Limits = {}) = delete;
+
+template <class Read,
+          std::enable_if_t<detail::isBorrowedFieldCallable<Read>, int> = 0>
+auto field(const char*, const char*, FieldType, std::remove_reference_t<Read>&&) = delete;
+template <class Read, class Argument,
+          std::enable_if_t<detail::isBorrowedFieldCallable<Read>
+              && !detail::isBorrowedObjectArgument<Read, Argument&>, int> = 0>
+auto field(const char*, const char*, FieldType, std::initializer_list<Argument>) = delete;
+template <class Read, class Write,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
+auto field(const char*, const char*, FieldType, std::remove_reference_t<Read>&&, Write&) = delete;
+template <class Read, class Write,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
+auto field(const char*, const char*, FieldType, Read&, std::remove_reference_t<Write>&&) = delete;
+template <class Read, class Write,
+          std::enable_if_t<detail::isBorrowedFieldPair<Read, Write, detail::NoLimits>, int> = 0>
+auto field(const char*, const char*, FieldType, std::remove_reference_t<Read>&&, std::remove_reference_t<Write>&&) = delete;
+template <class Read = void, class Write = void, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, detail::NoLimits>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument&>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument>), int> = 0>
+auto field(const char*, const char*, FieldType, std::initializer_list<ReadArgument>, WriteArgument&&) = delete;
+template <class Read = void, class Write = void, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, detail::NoLimits>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument&>), int> = 0>
+auto field(const char*, const char*, FieldType, ReadArgument&&, std::initializer_list<WriteArgument>) = delete;
+template <class Read = void, class Write = void, class ReadArgument, class WriteArgument,
+          std::enable_if_t<detail::isBorrowedFieldPair<
+              detail::BorrowedArgumentType<Read, ReadArgument>,
+              detail::BorrowedArgumentType<Write, WriteArgument>, detail::NoLimits>
+              && (!detail::isBorrowedObjectArgument<Read, ReadArgument&>
+                  || !detail::isBorrowedObjectArgument<Write, WriteArgument&>), int> = 0>
+auto field(const char*, const char*, FieldType, std::initializer_list<ReadArgument>, std::initializer_list<WriteArgument>) = delete;
+
 
 constexpr auto field(Field entry) noexcept
 { return detail::ManualFieldAccess::make(entry); }

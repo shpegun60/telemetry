@@ -18,7 +18,11 @@
 #include "../detail/TelemetryTarget.h"
 
 namespace telemetry {
-namespace detail { struct FieldTableAccess; }
+namespace detail {
+struct FieldTableAccess;
+template <auto, auto, class, class> struct FieldBinding;
+template <class> struct BorrowedFieldReadBinding;
+}
 
 // A getter is exactly one target-sized payload plus one generated invoker.
 // Native function pointers retain their exact types; object bindings borrow a
@@ -26,6 +30,8 @@ namespace detail { struct FieldTableAccess; }
 // involved. An empty getter returns Null.
 class Getter {
     friend struct detail::FieldTableAccess;
+    template <auto, auto, class, class> friend struct detail::FieldBinding;
+    template <class> friend struct detail::BorrowedFieldReadBinding;
     template <class T> using NativeFunction = T (*)() noexcept;
     template <class T> struct NativeTag {};
 
@@ -131,7 +137,7 @@ public:
         static_assert(detail::nonNullTarget<FunctionPointer>, "Getter target cannot be null");
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype(FunctionPointer)>,
                       "The getter must return a Scalar-compatible value and be noexcept");
-        return Getter(Payload{}, &invokeStatic_<FunctionPointer>);
+        return bindKnown_<FunctionPointer>();
     }
 
     // The object must remain alive at the same address for every invocation.
@@ -153,6 +159,14 @@ public:
               std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
     static Getter bind(Argument&&) = delete;
 
+    // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
+    // and reject braced conversion proxies without rejecting {stableObject}.
+    template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static Getter bind(std::remove_reference_t<T>&&) = delete;
+    template <auto Method, class T, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument&>, int> = 0>
+    static Getter bind(std::initializer_list<Argument>) = delete;
+
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Getter bindContext(T& object) noexcept
     {
@@ -164,16 +178,35 @@ public:
         // object. Test the same value category used by invokeContext_.
         static_assert(std::is_nothrow_invocable_r_v<Scalar, decltype((Adapter)), T&>,
                       "Getter adapter must return a Scalar-compatible value and be noexcept");
-        return Getter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
+        return bindKnownContext_<Adapter>(object);
     }
 
     template <auto Adapter, class T = void, class Argument,
               std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
     static Getter bindContext(Argument&&) = delete;
 
+    // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
+    // and reject braced conversion proxies without rejecting {stableObject}.
+    template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static Getter bindContext(std::remove_reference_t<T>&&) = delete;
+    template <auto Adapter, class T, class Argument,
+              std::enable_if_t<!detail::isBorrowedContextListElement<T, Argument>, int> = 0>
+    static Getter bindContext(std::initializer_list<Argument>) = delete;
+
 private:
     constexpr Getter(Payload payload, Invoke invoke) noexcept
         : payload_(payload), invoke_(invoke) {}
+
+    // Only factory-generated, defined adapters may bypass public address
+    // validation. This carries no runtime presence flag or dispatch branch.
+    template <auto FunctionPointer>
+    static constexpr Getter bindKnown_() noexcept
+    { return Getter(Payload{}, &invokeStatic_<FunctionPointer>); }
+    template <auto Adapter, class T>
+    static constexpr Getter bindKnownContext_(T& object) noexcept
+    {
+        return Getter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
+    }
 
     static TELEMETRY_FORCE_INLINE Scalar invokeScalar_(Payload payload) noexcept
     {

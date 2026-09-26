@@ -36,6 +36,7 @@ def main():
     env = os.environ.copy()
     if args.sanitize:
         env.setdefault("ASAN_OPTIONS", "detect_leaks=1:detect_stack_use_after_return=1")
+    if args.sanitize:
         env.setdefault("UBSAN_OPTIONS", "halt_on_error=1")
 
     def run(command, name, text=None, reject=False, diagnostic=None):
@@ -61,12 +62,20 @@ def main():
     run([args.cxx, "--version"], "compiler")
     for n, header in enumerate(HEADERS):
         run(flags + ["-x", "c++", "-fsyntax-only", "-"], f"header-{n}", f"#include <{header}>\n")
-    for case in range(15):
-        diagnostic = (r"deleted" if case in (1, 7, 8, 13, 14) else
+    rejection_count = 34
+    deleted_file = r"call to deleted function ['\u2018]file|use of deleted function [^\n]*resource::file"
+    for case in range(rejection_count + 1):
+        diagnostic = (deleted_file if case in (1, 8, 13, 14) or case >= 15 else
+                      r"deleted" if case == 7 else
                       r"invalidDefinition" if case in (2, 3, 4, 5, 6, 12) else
-                      r"constraints not satisfied|constraint.*not satisfied" if case in (9, 10, 11) else None)
+                      r"satisfaction of .Provider|does not satisfy .Provider" if case in (9, 10, 11) else None)
         run(flags + [f"-DCASE={case}", "-fsyntax-only", "tests/resources/Negative.cpp"],
             f"negative-{case}", reject=case != 0, diagnostic=diagnostic)
+    if not args.arm:
+        control = build / ("FileBindingsControl.exe" if os.name == "nt" else "FileBindingsControl")
+        run(flags + ["-O1" if args.sanitize else "-O2", "-DCASE=0", "tests/resources/Negative.cpp",
+                     "-o", str(control)], "compile-binding-control")
+        run([str(control)], "binding-control")
     sources = TELEMETRY + ADAPTERS + PROTOCOL + DEVICE
     # Only object builds need .su output. Syntax-only checks otherwise leave
     # a--.su / a-Negative.su beside the repository sources on ARM GCC.
@@ -93,7 +102,7 @@ def main():
                 stem = Path(source).stem
                 report = build / f"{opt}-{stem}.su"
                 stack[stem] = check_usage(report.read_text(encoding="utf-8"),
-                    required=stem if stem.endswith("File") else None)
+                    required=stem if stem.endswith("File") else None, optimization=opt)
             (build / f"stack-usage-{opt}.log").write_text(json.dumps(stack, indent=2), encoding="utf-8")
             print(f"ARM {opt} bounded stack guards passed", flush=True)
             obj = build / f"{opt}-ArmProbe.o"
@@ -174,8 +183,9 @@ def main():
                 run(flags + [f"-DADAPTER={adapter}", "-DLEGACY_ABI7", "tests/resources/AbiCheck.cpp",
                     *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(build / f"abi7-{adapter}.exe")],
                     f"abi7-{adapter}", reject=True)
-    print(f"Resources: {len(HEADERS)} standalone headers, 14 contract rejections + control; "
-          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else "11 host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
+    print(f"Resources: {len(HEADERS)} standalone headers, {rejection_count} contract rejections + binding control; "
+          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else
+             f"{len(tests)} host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
 
 
 if __name__ == "__main__":

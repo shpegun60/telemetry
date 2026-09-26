@@ -71,7 +71,7 @@ def main():
     parser.add_argument("--ar", default=os.environ.get("AR", "ar"))
     parser.add_argument("--std", choices=("c++17", "c++20"), default="c++17")
     parser.add_argument("--build-dir", type=Path, required=True)
-    parser.add_argument("--sanitize", action="store_true")
+    parser.add_argument("--sanitize", action="store_true", help="ASan and UBSan (Clang host)")
     args = parser.parse_args()
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -87,8 +87,10 @@ def main():
     environment = os.environ.copy()
     environment.setdefault("ASAN_OPTIONS", "detect_leaks=1:detect_stack_use_after_return=1")
     environment.setdefault("UBSAN_OPTIONS", "halt_on_error=1")
+    compilation_rejections = 0
 
     def run(command, label, rejection=None):
+        nonlocal compilation_rejections
         result = subprocess.run(command, cwd=ROOT, env=environment,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding="utf-8", errors="replace", timeout=180)
@@ -100,6 +102,8 @@ def main():
         if not valid:
             print(result.stdout, file=sys.stderr)
             raise RuntimeError(f"{label} failed (exit {result.returncode}); see {output}")
+        if rejection is not None and "-fsyntax-only" in command:
+            compilation_rejections += 1
         if label.endswith("-run"):
             for line in result.stdout.splitlines():
                 if line.startswith("SKIP") or "checks passed" in line:
@@ -115,7 +119,8 @@ def main():
                      "tests/TelemetryReadCompileFail.cpp"], f"reject-{case}", message)
     print(f"{len(REJECTIONS)} expected compilation failures verified", flush=True)
 
-    for case in range(1, 26):
+    traversal_cases = range(1, 26)
+    for case in traversal_cases:
         if case <= 3:
             diagnostic = r"invalidFieldFlags|constant expression|constexpr"
         elif case in (4, 5):
@@ -132,7 +137,7 @@ def main():
             diagnostic = r"const|read.only|discard.*qualifier"
         run(flags + [f"-DTELEMETRY_TRAVERSAL_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryTraversalCompileFail.cpp"], f"traversal-reject-{case}", diagnostic)
-    print("25 metadata/visitor/traversal compilation rejections verified", flush=True)
+    print(f"{len(traversal_cases)} metadata/visitor/traversal compilation rejections verified", flush=True)
 
     # A runtime policy gets the same validation as a constexpr definition. The
     # separate process must abort, not return normally or fail with an unrelated
@@ -141,49 +146,55 @@ def main():
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(0x0001 | 0x0002)
     executable = output / ("TelemetryTraversalCheck.exe" if os.name == "nt" else "TelemetryTraversalCheck")
-    for mode in ("readonly", "writeonly"):
+    persistent_modes = ("readonly", "writeonly")
+    for mode in persistent_modes:
         result = subprocess.run([str(executable), mode], cwd=output, env=environment,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         (output / ("invalid-policy-" + mode + ".log")).write_bytes(result.stdout)
         aborted = result.returncode in ((3, -1073740791) if os.name == "nt" else (-6,))
         if not aborted:
             raise RuntimeError(f"Invalid {mode} persistent policy did not abort (exit {result.returncode})")
-    print("2 runtime persistent-policy construction failures verified", flush=True)
+    print(f"{len(persistent_modes)} runtime persistent-policy construction failures verified", flush=True)
     if args.std == "c++20":
-        for case in range(1, 4):
+        adapter_cases = range(1, 4)
+        for case in adapter_cases:
             run(flags + [f"-DTELEMETRY_ADAPTER_FAIL_CASE={case}", "-fsyntax-only",
                          "tests/TelemetryAdapterCompileFail.cpp"],
                 f"structural-adapter-reject-{case}", r"(?:setter invocation|adapter must).*noexcept")
-        print("3 structural adapter compilation rejections verified", flush=True)
-    for case in range(1, 11):
+        print(f"{len(adapter_cases)} structural adapter compilation rejections verified", flush=True)
+    command_cases = range(1, 11)
+    for case in command_cases:
         run(flags + [f"-DTELEMETRY_COMMAND_LIFETIME_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryCommandLifetimeCompileFail.cpp"],
             f"command-lifetime-reject-{case}", r"deleted|no matching")
-    print("10 command lifetime compilation rejections verified", flush=True)
+    print(f"{len(command_cases)} command lifetime compilation rejections verified", flush=True)
     borrowed = output / ("BorrowedFieldLvalues" + (".exe" if os.name == "nt" else ""))
     run(flags + build_flags + ["tests/TelemetryBorrowedFieldCompileFail.cpp",
                               *LIBRARY_SOURCES, "-o", str(borrowed)], "borrowed-field-lvalues-build")
     run([str(borrowed)], "borrowed-field-lvalues-run")
-    for case in range(1, 37):
+    borrowed_cases = range(1, 37)
+    for case in borrowed_cases:
         run(flags + [f"-DTELEMETRY_BORROWED_FIELD_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryBorrowedFieldCompileFail.cpp"],
             f"borrowed-field-reject-{case}", r"deleted|no matching")
-    print("36 borrowed field compilation rejections verified", flush=True)
-    for case in range(1, 10):
+    print(f"{len(borrowed_cases)} borrowed field compilation rejections verified", flush=True)
+    immutable_cases = range(1, 10)
+    for case in immutable_cases:
         run(flags + [f"-DTELEMETRY_FIELD_FAIL_CASE={case}", "-fsyntax-only", "tests/TelemetryFieldCompileFail.cpp"],
             f"immutable-field-{case}", r"deleted|const|read.only")
-    print("9 immutable Field rejections verified", flush=True)
+    print(f"{len(immutable_cases)} immutable Field rejections verified", flush=True)
     for case, message in FACTORY_REJECTIONS.items():
         run(flags + [f"-DTELEMETRY_FACTORY_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryFactoryCompileFail.cpp"], f"factory-reject-{case}", message)
     print(f"{len(FACTORY_REJECTIONS)} factory/command compilation rejections verified", flush=True)
 
-    for case in range(1, 27):
+    table_cases = range(1, 27)
+    for case in table_cases:
         run(flags + [f"-DTELEMETRY_TABLE_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryTableCompileFail.cpp"], f"table-reject-{case}",
             r"deleted" if case == 24 else
             r"outside|deleted|no matching|requires group|native numeric or enum|accepts only|indexed arg|make(?:Field|Command).*(?:not|member)|no member named")
-    print("26 positional table compilation rejections verified", flush=True)
+    print(f"{len(table_cases)} positional table compilation rejections verified", flush=True)
 
     position_cases = range(1, 23 if args.std == "c++20" else 19)
     for case in position_cases:
@@ -199,19 +210,18 @@ def main():
                      "tests/TelemetryPositionCompileFail.cpp"], f"position-reject-{case}", message)
     print(f"{len(position_cases)} typed position compilation rejections verified", flush=True)
 
-    for case in range(1, 19):
+    owner_cases = range(1, 19)
+    for case in owner_cases:
         if case in (8, 9):
             diagnostic = "Factory owner or parameter types"
         elif case in (13, 14):
             diagnostic = "OwnerSlot requires a non-volatile object type"
-        elif case == 16:
-            diagnostic = "no matching"
         else:
             diagnostic = "deleted"
         run(flags + [f"-DTELEMETRY_OWNER_SLOT_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryOwnerSlotCompileFail.cpp"],
             f"owner-slot-reject-{case}", diagnostic)
-    print("18 owner slot lifetime and type rejections verified", flush=True)
+    print(f"{len(owner_cases)} owner slot lifetime and type rejections verified", flush=True)
 
     function_slot_rejections = {
         1: "FunctionSlot requires", 2: "FunctionSlot requires",
@@ -225,7 +235,7 @@ def main():
         run(flags + [f"-DTELEMETRY_FUNCTION_SLOT_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/TelemetryFunctionSlotCompileFail.cpp"],
             f"function-slot-reject-{case}", diagnostic)
-    print("22 function slot lifetime and signature rejections verified", flush=True)
+    print(f"{len(function_slot_rejections)} function slot lifetime and signature rejections verified", flush=True)
 
     slot_rejections = {
         **{case: "requires an R" for case in (1, 2, 3)},
@@ -243,11 +253,13 @@ def main():
             f"late-bound-reject-{case}", diagnostic)
     # A consumer enabling the companion delegate's heap mode must not change
     # telemetry's fixed-capacity slot contract.
-    for case in (12, 13):
+    no_heap_cases = (12, 13)
+    for case in no_heap_cases:
         run(flags + ["-DTINY_DELEGATE_ENABLE_HEAP_FALLBACK=1", f"-DTELEMETRY_LATE_BOUND_FAIL_CASE={case}",
                      "-fsyntax-only", "tests/TelemetryLateBoundCompileFail.cpp"],
             f"late-bound-no-heap-{case}", "exceeds its inline")
-    print("42 late-bound lifetime/signature rejections and 2 no-heap controls verified", flush=True)
+    print(f"{len(slot_rejections)} late-bound lifetime/signature rejections "
+          f"and {len(no_heap_cases)} no-heap controls verified", flush=True)
 
     empty = output / "HeaderCheck.cpp"
     empty.write_text("int main() {}\n", encoding="utf-8")
@@ -274,12 +286,14 @@ def main():
     ]
     for case, (expected, definitions) in enumerate(cache_cases):
         run(flags + definitions + [f"-DEXPECTED_SIZE={expected}", "-fsyntax-only", str(cache)], f"cacheline-{case}")
-    for value in (0, 16, 48, -32):
+    bad_cache_sizes = (0, 16, 48, -32)
+    for value in bad_cache_sizes:
         run(flags + [f"-DTELEMETRY_FORCE_CACHELINE={value}", "-DEXPECTED_SIZE=64", "-fsyntax-only", str(cache)],
             f"cacheline-reject-{value}", r"must be a power of two")
     run(flags + ["-DTELEMETRY_FORCE_CACHELINE=32", "-DTELEMETRY_CACHELINE_BYTES=64", "-DEXPECTED_SIZE=64", "-fsyntax-only", str(cache)],
         "cacheline-conflict", r"Conflicting telemetry cache-line overrides")
-    print("9 cache-line configurations and 5 invalid overrides verified", flush=True)
+    print(f"{len(cache_cases)} cache-line configurations "
+          f"and {len(bad_cache_sizes) + 1} invalid overrides verified", flush=True)
     field_layout = output / "CachelineLayoutCheck.cpp"
     field_layout.write_text('#include "catalog/TelemetryCatalog.h"\n'
         '#include "command/TelemetryCommand.h"\n'
@@ -304,18 +318,20 @@ def main():
     abi64 = ["-DTELEMETRY_FORCE_CACHELINE=64"]
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[0], "-o", str(abi_object)],
         "abi64-core-compile")
+    from regression.checks import check_abi_retention
+    check_abi_retention(flags + build_flags, run, output, abi_object, 64, "abi-retained")
     # An opt-in reference must survive section GC. Prove the live match and
-    # mismatch cases, and retain the discarded-reference case as a documented
-    # control rather than promising automatic checks in every header-only TU.
+    # mismatch cases, including emitted code later discarded by the linker.
+    # Merely including a header still does not opt every TU into the guard.
     for alignment, live in ((64, 1), (128, 1), (128, 0)):
         run(flags + build_flags + [f"-DTELEMETRY_FORCE_CACHELINE={alignment}",
              f"-DCALL_FROM_MAIN={live}", "-ffunction-sections", "-fdata-sections",
              "tests/regression/AbiGcSections.cpp", str(abi_object), "-Wl,--gc-sections",
              "-o", str(output / f"abi-gc-{alignment}-{live}.exe")],
             f"abi-gc-{alignment}-{live}", r"undefined reference|unresolved external|AbiTag"
-            # PE/COFF ld diagnoses this reference even in the unused section;
-            # ELF ld discards it. The documented guarantee requires live code.
-            if alignment == 128 and (live or os.name == "nt") else None)
+            # A retained reference now survives linker collection on both
+            # ELF and PE. Compiler omission is covered by the namespace marker.
+            if alignment == 128 else None)
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[1], "-o", str(json_object)],
         "abi64-json-compile")
     run(flags + build_flags + abi64 + ["-c", LIBRARY_SOURCES[2], "-o", str(command_object)],
@@ -349,6 +365,8 @@ def main():
         run(flags + build_flags + [str(legacy), str(archive), "-o", str(executable)],
             f"abi7-{module}-mismatch-link", r"undefined reference|unresolved external|AbiTag")
     print("Independent core/JSON/command ABI archives linked; mixed alignments and ABI 6/7 versus 8 rejected", flush=True)
+    print(f"Total checked compilation rejections: {compilation_rejections} "
+          "(includes review, option and cache-line cases; excludes link/abort controls)", flush=True)
 
 
 if __name__ == "__main__":

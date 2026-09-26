@@ -22,4 +22,14 @@
 #define TELEMETRY_NOINLINE
 #endif
 
+// GCC's -Os can save a callee-saved register before a tiny dispatch branch
+// solely for the uncommon conversion call. Use speed optimization for that
+// thunk only. The attribute is identical across translation units; it never
+// depends on __OPTIMIZE_SIZE__, and does not enable fast-math.
+#if defined(__GNUC__) && !defined(__clang__)
+#define TELEMETRY_OPTIMIZE_SPEED __attribute__((optimize("O2")))
+#else
+#define TELEMETRY_OPTIMIZE_SPEED
+#endif
+
 #endif

@@ -55,8 +55,9 @@ flags, Scalar visitation and indexed traversal), verifies
 82 factory/command, 26 positional-table, 10 command-lifetime, 36 borrowed-field,
 18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
 rejection cases, 25 policy/traversal/visitor cases, plus two no-heap controls
-(336 total; 343 in C++20 with structural
-adapters and additional invalid position types), checks
+(336 base cases; 343 in C++20 with structural
+adapters and additional invalid position types), plus **262** review contract
+rejections documented in [regression/README.md](regression/README.md). It checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid
 overrides and Field layout with explicit 64/128-byte alignment. It builds callers and
@@ -71,6 +72,9 @@ Sanitized runs enable address, undefined-behavior and
 float-cast-overflow checks, including stack use after scope/return, and stop
 on the first diagnostic. Compiler warnings are errors. Each command's output
 is retained in a separate log.
+The final rejection total is counted from successful rejection checks rather
+than printed as a fixed constant. It also includes floating-option and
+cache-line rejection controls, but excludes linker and runtime-abort controls.
 
 The preceding audit checkpoint `9f95e49` added six field-name checks (109 core, 584 total C++17
 checks; 586 in C++20). `names_unique` now rejects null storage with nonzero

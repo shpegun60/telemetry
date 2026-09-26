@@ -156,6 +156,17 @@ template <auto Target, class ExplicitOwner = void, class Argument, class... Entr
               && !detail::isBorrowedObjectArgument<ExplicitOwner, Argument>, int> = 0>
 auto command(const char*, Argument&&, Entries...) = delete;
 
+// Explicit const types and braced proxy elements must not create borrowed
+// temporaries. Safe singleton braces around existing owners remain valid.
+template <auto Target, class Owner, class... Entries,
+          std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>
+              && !std::is_reference_v<Owner>, int> = 0>
+auto command(const char*, std::remove_reference_t<Owner>&&, Entries...) = delete;
+template <auto Target, class Owner, class Argument, class... Entries,
+          std::enable_if_t<std::is_member_function_pointer_v<decltype(Target)>
+              && !detail::isBorrowedObjectArgument<Owner, Argument&>, int> = 0>
+auto command(const char*, std::initializer_list<Argument>, Entries...) = delete;
+
 template <auto Target, class... Entries,
           std::enable_if_t<!std::is_member_function_pointer_v<decltype(Target)>, int> = 0>
 constexpr auto command(const char* name, Entries... entries) noexcept
@@ -185,6 +196,14 @@ template <class ExplicitCallable = void, class Argument, class... Entries,
           std::enable_if_t<std::is_class_v<std::remove_cv_t<std::remove_reference_t<Argument>>>
               && !detail::isBorrowedObjectArgument<ExplicitCallable, Argument>, int> = 0>
 auto command(const char*, Argument&&, Entries...) = delete;
+
+template <class Callable, class... Entries,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Callable>>, int> = 0>
+auto command(const char*, std::remove_reference_t<Callable>&&, Entries...) = delete;
+template <class Callable, class Argument, class... Entries,
+          std::enable_if_t<std::is_class_v<std::remove_cv_t<Callable>>
+              && !detail::isBorrowedObjectArgument<Callable, Argument&>, int> = 0>
+auto command(const char*, std::initializer_list<Argument>, Entries...) = delete;
 
 // A name is text, never a positional ID. Catch null-pointer constants such as
 // command<&run>(0) before they can silently become null const char pointers.

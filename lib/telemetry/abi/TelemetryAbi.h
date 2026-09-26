@@ -126,13 +126,44 @@ void requireTelemetryAbi(CurrentAbiTag) noexcept;
 template <class Abi = detail::CurrentAbiTag>
 inline void requireTelemetryAbi() noexcept
 {
-    // Inline-only integrations opt in at a module boundary. JSON entry points
-    // already carry the tag themselves. This call must be in a live entry
-    // point: section GC may discard references from unused helper functions.
-    // No read/write path calls this anchor.
+    // Retain the caller's exact tag even if linker GC removes its code. There
+    // is no dynamic initialization and no field read/write path uses this.
+#if defined(__ELF__) && defined(__arm__) && (defined(__GNUC__) || defined(__clang__))
+#if defined(__PIC__) || defined(__PIE__)
+    static_assert(!std::is_same_v<Abi, Abi>,
+                  "Retained telemetry ABI checks on ARM require a non-PIC build");
+#else
+    // arm-none-eabi GCC ignores the retain attribute, but GNU as/ld support
+    // SHF_GNU_RETAIN. The ordinary .rodata* linker rule places this word.
+    __asm__(".pushsection .rodata.telemetry.abi_reference,\"aR\",%%progbits\n\t"
+            ".balign 4\n\t.dc.a %c0\n\t.popsection"
+            :: "i"(static_cast<void (*)(Abi) noexcept>(&detail::requireTelemetryAbi)));
+#endif
+#elif defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
+    // The Abi template argument also distinguishes this local static's COMDAT
+    // name, so a matching TU cannot coalesce away another TU's mismatched tag.
+    __attribute__((used, retain)) static void (*const reference)(Abi) noexcept =
+        &detail::requireTelemetryAbi;
+#endif
+    // Keep the explicit call for PE/COFF and other targets. It also retains the
+    // original module-boundary semantics when the caller is live.
     detail::requireTelemetryAbi(Abi{});
 }
 
 } // namespace telemetry
+
+// Use once at namespace scope when a module needs an anchor independently of
+// which functions the compiler emits. This is an explicit opt-in; including
+// Telemetry.h alone does not require linking TelemetryAbi.cpp.
+#if defined(__GNUC__) || defined(__clang__)
+#define TELEMETRY_RETAIN_ABI() \
+    namespace { \
+    __attribute__((used)) void telemetryAbiReferenceForTranslationUnit_() noexcept \
+    { ::telemetry::requireTelemetryAbi(); } \
+    }
+#else
+#define TELEMETRY_RETAIN_ABI() \
+    static_assert(false, "Namespace telemetry ABI retention requires GCC or Clang")
+#endif
 
 #endif

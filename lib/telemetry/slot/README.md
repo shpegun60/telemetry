@@ -1,10 +1,15 @@
 # Runtime binding slots
 
-Generic delegate callbacks must preserve reference parameters. A slot such as
+Generic delegate callbacks must preserve mutable reference parameters. A slot such as
 `DelegateSlot<void(int&) noexcept>` accepts `[](auto& x) noexcept { ... }` or
 `[](auto&& x) noexcept { ... }`, but rejects `[](auto x) noexcept { ... }`.
-The adapter invokes the exact specialization/overload whose signature was
-checked. Borrowed `DelegateRefSlot` callbacks and direct method owners must
+Same-type read-only references are supported: `[](const auto& x)` observes a
+const reference even when the slot accepts `int&`, and a `const int&` slot may
+bind a by-value callback. The adapter invokes the callable once with ordinary
+C++ deduction and overload resolution. An exact non-template reference overload
+therefore takes precedence over a by-value template; a concrete by-value overload
+that takes precedence over a reference template is rejected for a mutable-reference
+slot. Borrowed `DelegateRefSlot` callbacks and direct method owners must
 remain alive until the last invocation; pass actual objects, not pointer or
 smart-pointer variables. `OwnerSlot` is the explicit rebindable-object API.
 
@@ -26,8 +31,10 @@ and `explicit operator bool`. No runtime mode chooses between their strategies.
 `Sig` is `R(Args...) noexcept`. The default owned capacity is 32 bytes and its
 default alignment is `alignof(std::max_align_t)`; both are template parameters.
 Callback invocation must be nothrow. Callback parameter/value-result types must
-match the slot signature exactly; bind does not silently narrow numbers inside
-a delegate. Compatible reference results and discarding a result for `void`
+match the slot's value types without implicit numeric or user-defined conversion.
+Parameters may add read-only reference qualification, and read-only inputs may
+be copied; mutable reference inputs must retain a reference. Compatible reference
+results and discarding a result for `void`
 are supported. A concrete or signature-resolvable generic/overloaded call
 operator is accepted; otherwise use an explicit typed lambda adapter.
 Owned callable construction from the given
@@ -90,7 +97,10 @@ objects, free functions and ordinary borrowed callables acquire no slot checks.
 `DelegateRefSlot` additionally supports `bind<&freeFunction>()`, `bind(function)`
 and capture-free temporary lambdas converted to function pointers. Method owners
 are stable object lvalues. Named stateful/capturing callables are borrowed without
-copying. `DelegateSlot` copies lvalue callables or moves rvalues, including
+copying. Explicit `bind<const Callable>(...)` selects borrowing, so a temporary
+is rejected even if that class also converts to a function pointer. The deduced
+`bind(temporaryCaptureFreeCallable)` form may still copy its function pointer.
+`DelegateSlot` copies lvalue callables or moves rvalues, including
 move-only closures. It intentionally has no borrowing/method-owner overload:
 capture an owner reference in its owned closure, or use `OwnerSlot`/`DelegateRefSlot`.
 
@@ -106,7 +116,10 @@ Binding/reset does not change a descriptor's declared capability or schema CRC.
 Callable slots expose `get()` snapshots/views for adapters and `invoke()` with
 the precondition that the target is engaged. There is no `operator()` accepting
 an unchecked call. A function/context snapshot keeps its selected target;
-delegate snapshots are views and do not copy/extend target lifetimes. The views
+delegate snapshots are views and do not copy/extend target lifetimes. Their
+`get()` requires an lvalue slot; extracting a Target from a temporary or an
+xvalue slot is rejected. Function/context snapshots are independent values.
+The views
 avoid copying `delegate_ref` to a temporary stack object on GCC at `-Os`.
 Delegate adapters use the companion library's checked `call_or` path; invalid
 direct invocation of an empty delegate slot terminates instead of calling null.

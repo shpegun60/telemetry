@@ -27,6 +27,9 @@ jobs:
           node-version: '22'
       - name: Prepare decimal-comma locale
         run: sudo localedef -i de_DE -f UTF-8 de_DE.UTF-8
+      - name: Install Clang LTO linker
+        if: matrix.cxx == 'clang++-18'
+        run: sudo apt-get update && sudo apt-get install -y lld
       - name: Compile and check
         env:
           CXX: ${{ matrix.cxx }}
@@ -62,6 +65,7 @@ jobs:
           python3 tests/position_tables/h7s/verify.py --self-test
           python3 tests/resources/h7s/verify.py --self-test
           python3 tests/regression/h7s/verify.py --self-test
+          python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/followup-receipt.json --self-test
 
   arm:
     name: Cortex-M7 compile and link

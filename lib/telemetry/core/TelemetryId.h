@@ -30,6 +30,10 @@ inline constexpr std::uint32_t idComponentCapacity = 65536u;
 namespace detail {
 template <class T>
 inline constexpr bool isIdInput = std::is_integral_v<T> || std::is_enum_v<T>;
+// Local positions may use scoped enums. Packed IDs have no enum provenance:
+// accepting a local position enum here would silently select group zero.
+template <class T>
+inline constexpr bool isPackedIdInput = std::is_integral_v<T>;
 
 // Check the original value before converting to a packed ID or a native
 // position. On ARM a uint64_t transport value must not wrap through size_t.
@@ -50,10 +54,21 @@ constexpr bool indexFits(From value) noexcept
     }
 }
 
-// No packed ID is spare: every 32-bit value names a possible position. The
-// unchecked-looking makeId API therefore treats invalid components as a
-// contract violation instead of manufacturing an ID that could name a row.
+// No packed ID is spare: every 32-bit value names a possible position. Packing
+// and decomposition treat invalid input as a contract violation instead of
+// manufacturing an ID or component that could name a different row.
 [[noreturn]] inline void invalidIdComponent() noexcept { std::abort(); }
+
+template <auto Id>
+constexpr PackedId packedIdValue() noexcept
+{
+    using T = std::remove_cv_t<decltype(Id)>;
+    static_assert(isPackedIdInput<T>, "Packed ID must be an integer; pack local enum positions with makeId");
+    if constexpr (isPackedIdInput<T>) {
+        static_assert(indexFits<PackedId>(Id), "Packed ID is outside the 32-bit range");
+        return static_cast<PackedId>(Id);
+    } else return 0;
+}
 
 // Preserve a template position at full width until the owning table checks
 // its actual size. Casting an enum straight to size_t could wrap a U64 code
@@ -94,9 +109,25 @@ constexpr std::optional<PackedId> tryMakeId(Group group, Position index) noexcep
     return makeId(static_cast<GroupId>(group), static_cast<EntryOffset>(index));
 }
 
+// Guaranteed compile-time diagnostics for statically chosen components, even
+// when the surrounding expression is evaluated at runtime.
+template <auto Group, auto Position>
+constexpr PackedId makeId() noexcept
+{
+    static_assert(detail::isIdInput<decltype(Group)> && detail::isIdInput<decltype(Position)>,
+                  "Static identifier components require integers or enums");
+    if constexpr (detail::isIdInput<decltype(Group)> && detail::isIdInput<decltype(Position)>) {
+        static_assert(detail::indexFits<GroupId>(Group), "Static group is outside the 16-bit ID range");
+        static_assert(detail::indexFits<EntryOffset>(Position), "Static position is outside the 16-bit ID range");
+        return makeId(static_cast<GroupId>(Group), static_cast<EntryOffset>(Position));
+    } else return 0;
+}
+
 // Preserve full-width integer literals and variables until validation. Invalid
 // constant expressions fail to compile; invalid runtime components terminate.
-// For fallible runtime input use tryMakeId() instead.
+// A literal in an ordinary call is not necessarily a constant expression; use
+// makeId<Group, Position>() for guaranteed diagnostics, or tryMakeId() for
+// fallible runtime input.
 template <class Group, class Position,
           std::enable_if_t<detail::isIdInput<Group> && detail::isIdInput<Position>, int> = 0>
 constexpr PackedId makeId(Group group, Position index) noexcept
@@ -120,6 +151,40 @@ constexpr EntryOffset indexOf(PackedId id) noexcept
 {
     return static_cast<EntryOffset>(id & 0xffffu);
 }
+
+template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+constexpr std::optional<GroupId> tryGroupOf(Id id) noexcept
+{
+    return detail::indexFits<PackedId>(id)
+        ? std::optional<GroupId>{groupOf(static_cast<PackedId>(id))} : std::nullopt;
+}
+
+template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+constexpr std::optional<EntryOffset> tryIndexOf(Id id) noexcept
+{
+    return detail::indexFits<PackedId>(id)
+        ? std::optional<EntryOffset>{indexOf(static_cast<PackedId>(id))} : std::nullopt;
+}
+
+template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+constexpr GroupId groupOf(Id id) noexcept
+{
+    return detail::indexFits<PackedId>(id) ? groupOf(static_cast<PackedId>(id))
+        : (detail::invalidIdComponent(), GroupId{});
+}
+
+template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+constexpr EntryOffset indexOf(Id id) noexcept
+{
+    return detail::indexFits<PackedId>(id) ? indexOf(static_cast<PackedId>(id))
+        : (detail::invalidIdComponent(), EntryOffset{});
+}
+
+// Block implicit class/floating/enum conversions into the narrow overloads.
+template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+GroupId groupOf(const Id&) = delete;
+template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+EntryOffset indexOf(const Id&) = delete;
 
 } // namespace telemetry
 

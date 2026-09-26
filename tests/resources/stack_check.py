@@ -7,13 +7,15 @@ import re
 
 FRAME_LIMIT = 192
 # Binary v2.1: CommandsFile::read is 176/152 bytes (O2/Os) on the
-# reviewed GCC 13/14 builds; the v2.0 stage used 168/144. The existing 192-byte
-# ceiling covers both compiler families. Visitor-helper frames are separate.
-READ_LIMITS = {"SchemaFile": 168, "CommandsFile": 192, "ValuesFile": 152}
+# reviewed GCC 13/14 builds; the v2.0 stage used 168/144. Pin the current command
+# read per optimization, independently of the broader helper-frame ceiling.
+# Visitor-helper frames are separate from the READ entry's own stack frame.
+READ_LIMITS = {"SchemaFile": 168, "CommandsFile": 176, "ValuesFile": 152}
+COMMAND_READ_LIMITS = {"O2": 176, "Os": 152}
 READ_FUNCTION = re.compile(r"resource::ReadResult telemetry_resource::(SchemaFile|CommandsFile|ValuesFile)::read\(resource::Cursor, resource::Output\) const$")
 
 
-def check_usage(text, required=None):
+def check_usage(text, required=None, optimization=None):
     frames = []
     found = set()
     for line in text.splitlines():
@@ -27,6 +29,8 @@ def check_usage(text, required=None):
             raise RuntimeError("Unbounded or unaudited stack usage: " + line)
         match = READ_FUNCTION.search(name)
         limit = READ_LIMITS[match[1]] if match else FRAME_LIMIT
+        if match and match[1] == "CommandsFile" and optimization in COMMAND_READ_LIMITS:
+            limit = COMMAND_READ_LIMITS[optimization]
         if match:
             found.add(match[1])
         size = int(amount)
@@ -45,11 +49,18 @@ def self_test():
     good = f"{helper}\t192\tstatic\n{read}\t168\tdynamic,bounded\n"
     if check_usage(good, "SchemaFile")["maximum"] != 192:
         raise RuntimeError("Stack guard positive control failed")
-    check_usage(f"{command}\t192\tstatic", "CommandsFile")
+    for opt, amount in COMMAND_READ_LIMITS.items():
+        check_usage(f"{command}\t{amount}\tstatic", "CommandsFile", opt)
+        for increase in (1, 8, 16):
+            try:
+                check_usage(f"{command}\t{amount + increase}\tstatic", "CommandsFile", opt)
+            except RuntimeError:
+                continue
+            raise RuntimeError(f"Stack guard accepted a {increase}-byte {opt} READ regression")
     bad = ["", "not a report", f"{helper}\t-1\tstatic",
            f"{helper}\t193\tstatic", f"{helper}\t64\tdynamic",
            f"{helper}\t64\tstatic,ignoring_inline_asm", f"{read}\t169\tstatic",
-           f"{command}\t193\tstatic"]
+           f"{command}\t177\tstatic"]
     for text in bad:
         try:
             check_usage(text)

@@ -7,6 +7,7 @@
 #ifndef TELEMETRY_OWNER_SLOT_H
 #define TELEMETRY_OWNER_SLOT_H
 
+#include "../detail/TelemetryOwner.h"
 #include <memory>
 #include <type_traits>
 
@@ -30,9 +31,14 @@ public:
     OwnerSlot& operator=(OwnerSlot&&) = delete;
 
     constexpr void bind(T& owner) noexcept { owner_ = std::addressof(owner); }
-    // Also reject temporaries for OwnerSlot<const T>, including derived ones.
-    template <class U, std::enable_if_t<!std::is_lvalue_reference_v<U>, int> = 0>
+    // Only actual cv/base lvalues may be borrowed; conversions may construct
+    // a temporary even when their source is an lvalue. Braces need separate
+    // overloads because a forwarding reference cannot deduce {} or {proxy}.
+    template <class U, std::enable_if_t<!detail::isBorrowedObjectArgument<T, U>, int> = 0>
     void bind(U&&) = delete;
+    void bind(T&&) = delete;
+    template <class U, std::enable_if_t<!detail::isBorrowedObjectArgument<T, U&>, int> = 0>
+    void bind(std::initializer_list<U>) = delete;
     constexpr void reset() noexcept { owner_ = nullptr; }
     [[nodiscard]] constexpr T* get() const noexcept { return owner_; }
     [[nodiscard]] constexpr bool available() const noexcept { return owner_ != nullptr; }

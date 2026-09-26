@@ -8,6 +8,7 @@
 #include "Types.hpp"
 #include <concepts>
 #include <cstdlib>
+#include <initializer_list>
 #include <memory>
 #include <string_view>
 #include <type_traits>
@@ -142,13 +143,32 @@ constexpr FileEntry file(std::string_view path, T& provider) noexcept
 template <class... Explicit, class Actual>
     requires(!std::is_lvalue_reference_v<Actual> ||
              !(std::is_convertible_v<std::add_pointer_t<std::remove_reference_t<Actual>>,
-                                     std::add_pointer_t<Explicit>> && ...))
+                                     std::add_pointer_t<Explicit>> &&
+               ...))
 FileEntry file(std::string_view, Actual&&) = delete;
+// A braced argument has no deducible Actual. With an explicit provider type,
+// still reject a temporary while permitting {provider} to bind a live lvalue.
+template <Provider T>
+    requires(!std::is_reference_v<T>)
+FileEntry file(std::string_view, std::remove_reference_t<T>&&) = delete;
+// Braces around a conversion wrapper must not hide its actual type either.
+template <class... Explicit, class Actual>
+    requires(!(std::is_convertible_v<Actual*, std::add_pointer_t<Explicit>> && ...))
+FileEntry file(std::string_view, std::initializer_list<Actual>) = delete;
 // Reject owning temporary strings without pulling <string> into this header.
-template <class Path, class T>
+// Keep T first, just as in the live-provider overload, so Path is still deduced
+// when the caller supplies an explicit provider type.
+template <class T, class Path>
     requires(!std::is_lvalue_reference_v<Path> &&
              !std::is_same_v<std::remove_cvref_t<Path>, std::string_view> &&
              !std::is_pointer_v<std::remove_cvref_t<Path>> &&
              !std::is_array_v<std::remove_reference_t<Path>>)
 FileEntry file(Path&&, T&) = delete;
+// Braces suppress reference deduction, so owning strings and conversion
+// wrappers in a braced path are rejected even when the element is an lvalue.
+template <class T, class Path>
+    requires(!std::is_same_v<std::remove_cvref_t<Path>, std::string_view> &&
+             !std::is_pointer_v<std::remove_cvref_t<Path>> &&
+             !std::is_array_v<std::remove_reference_t<Path>>)
+FileEntry file(std::initializer_list<Path>, T&) = delete;
 } // namespace resource

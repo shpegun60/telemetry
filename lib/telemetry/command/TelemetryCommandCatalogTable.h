@@ -55,42 +55,49 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Command* find(CommandId id) const & noexcept
     { return index().find(id); }
     const Command* find(CommandId) const && = delete;
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>
         && !std::is_same_v<Id, CommandId>, int> = 0>
     TELEMETRY_FORCE_INLINE constexpr const Command* find(Id id) const & noexcept
     { return index().find(id); }
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>
         && !std::is_same_v<Id, CommandId>, int> = 0>
     const Command* find(Id) const && = delete;
-    template <CommandId Id, class... Input>
+    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    const Command* find(const Id&) const & = delete;
+    template <auto Id, class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult call(Input... values) const noexcept
     {
         // Both halves of the packed ID are compile-time constants. The local
         // table validates the position/count and converts native arguments.
-        static_assert(groupOf(Id) < sizeof...(Groups), "Typed command group is outside CommandCatalogTable");
-        if constexpr (groupOf(Id) < sizeof...(Groups))
-            return std::get<groupOf(Id)>(tables_)->template call<indexOf(Id)>(values...);
+        constexpr auto id = detail::packedIdValue<Id>();
+        static_assert(groupOf(id) < sizeof...(Groups), "Typed command group is outside CommandCatalogTable");
+        if constexpr (groupOf(id) < sizeof...(Groups))
+            return std::get<groupOf(id)>(tables_)->template call<indexOf(id)>(values...);
         else return CommandResult::NotFound;
     }
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult execute(
         CommandId id, const Scalar* values, std::size_t count) const noexcept
     { return index().execute(id, values, count); }
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>
         && !std::is_same_v<Id, CommandId>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE CommandResult execute(
         Id id, const Scalar* values, std::size_t count) const noexcept
     { return index().execute(id, values, count); }
+    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    CommandResult execute(const Id&, const Scalar*, std::size_t) const = delete;
     // A global runtime ID selects erased descriptors and checked conversions.
     // Local CommandTable::call(runtimeIndex, ...) has a different native path.
     template <class... Input>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, Input... values) const noexcept
         -> decltype(std::declval<CommandCatalogIndex>().call(id, values...))
     { return index().call(id, values...); }
-    template <class Id, class... Input, std::enable_if_t<detail::isIdInput<Id>
+    template <class Id, class... Input, std::enable_if_t<detail::isPackedIdInput<Id>
         && !std::is_same_v<Id, CommandId>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(Id id, Input... values) const noexcept
         -> decltype(std::declval<CommandCatalogIndex>().call(id, values...))
     { return index().call(id, values...); }
+    template <class Id, class... Input, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    CommandResult call(const Id&, Input...) const = delete;
 };
 template <class... Groups> CommandCatalogTable(Groups...) -> CommandCatalogTable<std::decay_t<Groups>...>;
 } // namespace telemetry

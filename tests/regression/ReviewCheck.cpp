@@ -20,6 +20,7 @@ float stored = 1.f;
 float reviewRead() noexcept { return stored; }
 WriteResult reviewWrite(float value) noexcept { ++writes; stored = value; return WriteResult::Applied; }
 CommandResult run(std::uint32_t) noexcept { ++calls; return CommandResult::Executed; }
+CommandResult zeroFingerprintCommand() noexcept { return CommandResult::Executed; }
 constexpr FieldTable rows{field<&reviewRead, &reviewWrite>("value", "")};
 constexpr FieldCatalogTable groups{group("g", rows)};
 constexpr CommandTable commands{command<&run>("run")};
@@ -119,10 +120,9 @@ int main()
     borrowed.bind(forwardingRef);
     borrowed.invoke(value);
     CHECK(value == 7);
-    ReferenceTemplate mixed;
-    borrowed.bind(mixed);
-    borrowed.invoke(value);
-    CHECK(value == 19);
+    // Ordinary overload resolution selects the concrete int-by-value member.
+    // Binding must reject that copy, rather than force the reference template.
+    static_assert(!detail::slotSignatureMatches<ReferenceTemplate, void, int&>);
     DelegateSlot<int(int) noexcept> native;
     native.bind(genericValue);
     CHECK(native.invoke(4) == 5);
@@ -134,6 +134,21 @@ int main()
     CHECK(fingerprint && *fingerprint == 0 && schemaCrc(zero, 1) == 0);
     CHECK(writeSchema(zero, 1, json, sizeof json) != 0 &&
           std::strstr(json, "\"schema\":\"00000000\"") != nullptr);
+    // These names were derived by the original ZeroCrcCommands review probe;
+    // keep fixed fixtures here rather than searching for them during a test.
+    constexpr CommandTable zeroCommands{command<&zeroFingerprintCommand>("!Jf2X`")};
+    const auto localCommandFingerprint = trySchemaCrc(zeroCommands.index());
+    CHECK(localCommandFingerprint && *localCommandFingerprint == 0
+          && schemaCrc(zeroCommands.index()) == 0);
+    CHECK(writeSchema(zeroCommands.index(), json, sizeof json) != 0
+          && std::strstr(json, "\"schema\":\"00000000\"") != nullptr);
+    const CommandCatalog zeroCommandGroups[]{{"!NVy45", nullptr, 0}};
+    const CommandCatalogIndex zeroCommandIndex{zeroCommandGroups};
+    const auto groupedCommandFingerprint = trySchemaCrc(zeroCommandIndex);
+    CHECK(groupedCommandFingerprint && *groupedCommandFingerprint == 0
+          && schemaCrc(zeroCommandIndex) == 0);
+    CHECK(writeSchema(zeroCommandIndex, json, sizeof json) != 0
+          && std::strstr(json, "\"schema\":\"00000000\"") != nullptr);
     const Catalog invalid[]{{nullptr, nullptr, 0}};
     CHECK(!trySchemaCrc(invalid, 1));
     CHECK(writeSchema(invalid, 1, json, sizeof json) == 0);

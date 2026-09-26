@@ -68,11 +68,26 @@ the position starting at zero. Reordering the declarations changes identity.
 from an invalid index. A provider returns an exact size representable in u32.
 
 The table, provider and path text have independent lifetimes. `file()` rejects
-temporary providers and owning temporary path strings. An explicitly created
-`string_view` remains the caller's lifetime responsibility. Paths must start
-with `/`, have nonempty components, and contain no ASCII control bytes
-(`0x00..0x1f`, `0x7f`), backslashes,
-`.` or `..` components, or trailing slash. Duplicate paths are rejected.
+temporary providers and owning temporary path strings, including calls with an
+explicit provider type such as `file<const Base>(prefix + "/name", derived)`.
+An explicit provider type may add `const` or select a base class of a live
+provider; it cannot introduce a provider conversion temporary. Braced provider
+arguments follow the same rule: `{provider}` can bind the existing object,
+while `{}`, `{Provider{}}` and conversion wrappers are rejected.
+With an explicit provider type, `std::ref(provider)` and conversion-proxy
+lvalues are also rejected: pass the actual object, `.get()` reference or
+explicit dereference instead. The binding validates cv/base pointer conversion,
+not an arbitrary user-defined conversion. A helper returning `const T&` can
+still hide a temporary; the caller must keep the referenced provider alive.
+String literals, character pointers, `string_view` values and lvalue strings
+remain borrowed paths; the text must stay alive at the same address while the
+descriptor is in use. Braced paths accept literals, character pointers and
+`string_view` values. Braces around an owning string or conversion wrapper are
+rejected, including `{lvalueString}`; pass a stable string directly instead.
+An explicitly created `string_view` remains the caller's lifetime
+responsibility. Paths must start with `/`, have nonempty components, and contain
+no ASCII control bytes (`0x00..0x1f`, `0x7f`), backslashes, `.` or `..` components,
+or trailing slash. Duplicate paths are rejected.
 These checks run during constant evaluation for constexpr/constinit definitions;
 invalid runtime definitions terminate with `abort()`. There is no protocol
 length limit in this library. Consumers supply valid UTF-8 labels if their UI

@@ -31,6 +31,8 @@ TELEMETRY_FORCE_INLINE constexpr auto resolveFactoryOwner(Owner* owner) noexcept
     else return owner;
 }
 template <class> inline constexpr bool dependentFalse = false;
+template <class T> struct IsContextCallableSlot : std::false_type {};
+template <class S> struct IsContextCallableSlot<ContextFunctionSlot<S>> : std::true_type {};
 template <class T> struct CallableTraits {
     static_assert(dependentFalse<T>, "Factory requires a noexcept free/static function or member function");
 };
@@ -128,21 +130,51 @@ TELEMETRY_FORCE_INLINE bool acceptsFactoryEnum(Number value) noexcept
     } else return true;
 }
 
-// Extraction follows normalization. Check direct Setter use as well, without
-// std::get on a wrong alternative. The constraint is type-only, with no storage.
-template <class T, class Constraint = void>
-TELEMETRY_FORCE_INLINE bool extractFactoryValue(const Scalar& value, T& result) noexcept
+// Share numeric conversion across callbacks of the same native/constraint type.
+// Only the cold invocation below owns this helper's output storage.
+template <class T, class Constraint>
+TELEMETRY_NOINLINE bool extractConvertedFactoryValue(const Scalar& value, T& result) noexcept
 {
+    using Raw = RawNumberT<T>;
+    const auto number = convertScalar<Raw>(value);
+    if (!number || !acceptsFactoryEnum<T, Constraint>(*number)) return false;
+    result = static_cast<T>(*number);
+    return true;
+}
+
+// A manual Field can reuse a native setter with a different declared type.
+// Match the ordinary function-pointer setter: convert only when the incoming
+// alternative differs, then apply the enum cast's safety interval. This does
+// not apply Field limits; callers use Field::write for that policy.
+// Keep conversion storage and invocation together in the out-of-line fallback:
+// the matching-tag path needs no address-taken temporary. State is the already
+// resolved owner or callable snapshot, never a slot that could be read again.
+template <class T, class Constraint, class Invoke, class... State>
+TELEMETRY_NOINLINE auto invokeConvertedFactoryValue(const Scalar& value, Invoke invoke,
+                                                   State... state) noexcept
+    -> decltype(invoke(T{}, state...))
+{
+    using Result = decltype(invoke(T{}, state...));
+    T native{};
+    if (!extractConvertedFactoryValue<T, Constraint>(value, native)) return Result::InvalidValue;
+    return invoke(native, state...);
+}
+
+template <class T, class Constraint, class Invoke, class... State>
+TELEMETRY_FORCE_INLINE auto invokeFactoryValue(const Scalar& value, Invoke invoke,
+                                             State... state) noexcept
+    -> decltype(invoke(T{}, state...))
+{
+    using Result = decltype(invoke(T{}, state...));
     constexpr auto tag = Scalar::from(RawNumberT<T>{}).type();
     using Stored = Scalar::NativeType<tag>;
     const auto* number = value.template getIf<Stored>();
-    if (number == nullptr) return false;
+    if (number == nullptr) return invokeConvertedFactoryValue<T, Constraint>(value, invoke, state...);
     // Scoped enums have a fixed underlying type, so every representable raw
     // value can be cast safely. Unscoped enums may be unfixed: protect direct
     // Setter calls too. Field::write already applies the descriptor interval.
-    if (!acceptsFactoryEnum<T, Constraint>(*number)) return false;
-    result = static_cast<T>(*number);
-    return true;
+    if (!acceptsFactoryEnum<T, Constraint>(*number)) return Result::InvalidValue;
+    return invoke(static_cast<T>(*number), state...);
 }
 
 template <auto Function, class Owner, class... A>

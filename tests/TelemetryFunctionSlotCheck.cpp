@@ -120,8 +120,8 @@ int main()
            && fields.write<0>(260) == WriteResult::Applied && first == 260.f
            && fields.write(0, 270) == WriteResult::Applied && first == 270.f && writes == 3,
            "native and erased writes convert to the exact setter signature");
-    expect(rows[0].set(Scalar::fromU16(25)) == WriteResult::InvalidValue && writes == 3,
-           "raw setter never extracts a wrong Scalar alternative");
+    expect(rows[0].set(Scalar::fromF64(1.e300)) == WriteResult::InvalidValue && writes == 3,
+           "raw setter rejects an unrepresentable converted value");
     expect(rows.write<0>(501) == WriteResult::InvalidValue && fields.write(0, -1) == WriteResult::InvalidValue
            && writes == 3, "invalid values never invoke the setter");
     expect(rows.write<2>(2) == WriteResult::Applied && mode == Mode::Manual

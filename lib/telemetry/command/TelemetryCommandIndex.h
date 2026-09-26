@@ -38,6 +38,8 @@ public:
         return detail::indexFits<CommandId>(id)
             ? find(static_cast<CommandId>(id)) : nullptr;
     }
+    template <class Id, std::enable_if_t<!detail::isIdInput<Id>, int> = 0>
+    const Command* find(const Id&) const = delete;
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult execute(CommandId id, const Scalar* values, std::size_t count) const noexcept
     {
@@ -53,6 +55,8 @@ public:
         const Command* command = find(id);
         return command != nullptr ? command->execute(values, count) : CommandResult::NotFound;
     }
+    template <class Id, std::enable_if_t<!detail::isIdInput<Id>, int> = 0>
+    CommandResult execute(const Id&, const Scalar*, std::size_t) const = delete;
     template <class... A>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, A... values) const noexcept
         -> decltype(std::declval<const Command&>().call(values...))
@@ -71,6 +75,8 @@ public:
         const Command* command = find(id);
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }
+    template <class Id, class... A, std::enable_if_t<!detail::isIdInput<Id>, int> = 0>
+    CommandResult call(const Id&, A...) const = delete;
     constexpr const Command* data() const noexcept { return commands_; }
     constexpr std::size_t size() const noexcept { return count_; }
     constexpr bool empty() const noexcept { return count_ == 0; }

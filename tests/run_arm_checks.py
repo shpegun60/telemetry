@@ -293,6 +293,98 @@ def check_function_slots(disassembly, prefix="function_slot_", operations=("read
                 raise RuntimeError(f"FunctionSlotCodegen: {name} retained erased dispatch or table lookup")
 
 
+def check_id_boundaries(disassembly):
+    """Require the high-word test that a 64-bit host cannot prove for ARM32."""
+    for operation in ("local", "field", "command", "group", "index"):
+        name = "id_boundary_" + operation + "_u64"
+        body = function_body(disassembly, name)
+        high_word = re.search(r"\bcbn?z\s+r1,", body)
+        if not high_word:
+            raise RuntimeError(f"IdBoundaryCodegen: {name} lost its high-word rejection")
+        prefix = body[:high_word.start()]
+        if re.search(r"\b(?:ldr|ldrd|lsrs|uxth|bl|blx)\b", prefix):
+            raise RuntimeError(f"IdBoundaryCodegen: {name} uses the ID before checking its width")
+    # These native-width operations need only extraction and return. Do not
+    # trade a runtime check on wide inputs for overhead on ordinary packed IDs.
+    for operation, extraction in (("group", "lsrs"), ("index", "uxth")):
+        name = "id_boundary_" + operation + "_u32"
+        instructions = [(op, args) for op, args in normalized_instructions(disassembly, name)
+                        if op != "nop"]
+        if len(instructions) != 2 or instructions[0][0] != extraction or instructions[1] != ("bx", "lr"):
+            raise RuntimeError(f"IdBoundaryCodegen: {name} gained extra work")
+
+
+def check_bound_setters(disassembly, optimization, compiler_major):
+    """Inspect emitted adapters; typed wrapper equality cannot see these costs."""
+    # GCC 13 at -Os still outlines std::get_if, even in an O2-attributed thunk.
+    # Pin that measured exception separately from the stackless CubeIDE 14 path.
+    outlined = optimization == "-Os" and compiler_major == 13
+    limits = {"float": 9, "integer": 14 if outlined else 9, "free": 7,
+              "borrowed": 14 if outlined else 9, "owner": 17 if outlined else 13,
+              "function": 17 if outlined else 12, "context": 21 if outlined else 14,
+              "reference": 19 if outlined else 14, "owned": 19 if outlined else 14}
+    thunks = re.findall(r"^[0-9a-fA-F]+ <(telemetry::WriteResult telemetry::Setter::"
+                        r"invoke(?:Context|Static)_[^\n]+)>:", disassembly, re.MULTILINE)
+    found = set()
+    for thunk in thunks:
+        if "invokeStatic_" in thunk:
+            kind = "free"
+        elif "readFloat()" in thunk:
+            kind = "float"
+        elif "OwnerSlot<" in thunk:
+            kind = "owner"
+        elif "FieldBinding<&" in thunk:
+            kind = "integer"
+        elif "ContextFunctionSlot<" in thunk:
+            kind = "context"
+        elif "FunctionSlot<" in thunk:
+            kind = "function"
+        elif "DelegateRefSlot<" in thunk:
+            kind = "reference"
+        elif "DelegateSlot<" in thunk:
+            kind = "owned"
+        else:
+            kind = "borrowed"
+        if kind in found:
+            raise RuntimeError("BoundSetterCodegen: duplicate binding category " + kind)
+        found.add(kind)
+        body = function_body(disassembly, thunk)
+        instructions = [(op, args) for op, args in normalized_instructions(disassembly, thunk)
+                        if op != "nop" and not op.startswith(".")]
+        if len(instructions) > limits[kind]:
+            raise RuntimeError(f"BoundSetterCodegen: {kind} thunk grew beyond {limits[kind]} instructions")
+        # The uncommon numeric conversion must stay behind a tail branch.
+        if "invokeConvertedFactoryValue" not in body or re.search(
+                r"R_ARM_THM_CALL[^\n]*(?:invokeConverted|extractConverted)FactoryValue", body):
+            raise RuntimeError("BoundSetterCodegen: conversion lost its separate tail path")
+        calls = [op for op, _ in instructions if op.split(".")[0] in ("bl", "blx")]
+        saved = [args for op, args in instructions if op.split(".")[0] == "push"]
+        allow_outline = outlined and kind not in ("free", "float")
+        if allow_outline:
+            saved_words = 0
+            for group in saved:
+                for register in group.strip("{}").split(","):
+                    register = register.strip()
+                    span = re.fullmatch(r"r(\d+)-r(\d+)", register)
+                    if span:
+                        saved_words += int(span[2]) - int(span[1]) + 1
+                    elif re.fullmatch(r"r\d+|lr|ip|pc", register):
+                        saved_words += 1
+                    else:
+                        raise RuntimeError("BoundSetterCodegen: unrecognized saved register")
+            if (len(calls) > 1 or (calls and not re.search(r"R_ARM_THM_CALL[^\n]*std::get_if<", body))
+                    or len(saved) > 1 or saved_words > 4):
+                raise RuntimeError("BoundSetterCodegen: GCC 13 Os exceeded its get_if/frame allowance")
+            if any(re.search(r"\bsp\b", args) and op.split(".")[0] != "ldmia"
+                   or op in ("vpush", "vpop") for op, args in instructions):
+                raise RuntimeError("BoundSetterCodegen: exact thunk reserved conversion storage")
+        elif calls or any(re.search(r"\b(?:push|pop|vpush|vpop|sp)\b", op + " " + args)
+                          for op, args in instructions):
+            raise RuntimeError("BoundSetterCodegen: matching type gained stack work or a call")
+    if found != limits.keys():
+        raise RuntimeError("BoundSetterCodegen: missing native binding instantiations")
+
+
 def check_probe(name, headers, symbols, disassembly):
     if "file format elf32-littlearm" not in headers:
         raise RuntimeError(f"{name}: expected a little-endian ARM object")
@@ -320,6 +412,37 @@ def check_probe(name, headers, symbols, disassembly):
         check_static_field_dispatch(disassembly)
     elif name == "BorrowedFieldCodegen":
         expected = {"telemetry_probe_borrowed_field": 96}
+    elif name == "BoundSetterCodegen":
+        expected = {"boundSetterRows": 9 * 96}
+    elif name == "NativeSetterCodegen":
+        expected = {"nativeSetterRows": 5 * 96}
+        thunks = re.findall(r"^[0-9a-fA-F]+ <([^\n]*Setter::invokeNative_<[^\n]*)>:",
+                            disassembly, re.MULTILINE)
+        if len(thunks) != 4:
+            raise RuntimeError("NativeSetterCodegen: missing native pointer setter instantiations")
+        for thunk in thunks:
+            body = function_body(disassembly, thunk)
+            tail = re.search(r"\bbx\s+(?:r\d+|ip)\b", body)
+            if not tail:
+                raise RuntimeError("NativeSetterCodegen: exact type lost its tail dispatch")
+            exact_path = body[:tail.start()]
+            if re.search(r"\b(?:push|pop|vpush|vpop|sp|bl|blx)\b", exact_path):
+                raise RuntimeError("NativeSetterCodegen: matching type gained a stack frame or call")
+            if len(normalized_instructions(disassembly, thunk)) > 12:
+                raise RuntimeError("NativeSetterCodegen: conversion grew into the exact-type thunk")
+    elif name == "IdBoundaryCodegen":
+        check_id_boundaries(disassembly)
+        # A deliberately wrong register must fail this gate. This catches the
+        # reported mutation where narrowing drops the input's high word.
+        changed, count = re.subn(r"(\bcbn?z\s+)r1,", r"\g<1>r0,", disassembly, count=1)
+        if count != 1:
+            raise RuntimeError("IdBoundaryCodegen: missing mutation control")
+        try:
+            check_id_boundaries(changed)
+        except RuntimeError:
+            pass
+        else:
+            raise RuntimeError("IdBoundaryCodegen: gate accepted a removed high-word check")
     elif name == "CommandTableCodegen":
         expected = {"telemetry_probe_command_table": 4,
                     "telemetry_probe_command_count": 4}
@@ -393,6 +516,7 @@ def main():
         return result.stdout
 
     print(run([compiler, "--version"], "compiler-version").splitlines()[0], flush=True)
+    compiler_major = int(run([compiler, "-dumpversion"], "compiler-major").split(".")[0])
     target = run([compiler, "-dumpmachine"], "compiler-target").strip()
     if target != "arm-none-eabi":
         raise RuntimeError(f"Expected arm-none-eabi, got {target}")
@@ -402,6 +526,7 @@ def main():
                ROOT / "app/demo/DemoCatalog.cpp"]
     sources += sorted(source for source in (ROOT / "tests").glob("*.cpp")
                       if not source.name.endswith("CompileFail.cpp"))
+    sources.append(ROOT / "tests/regression/IdBoundaryCodegen.cpp")
     for optimization in ("-O2", "-Os"):
         flags = [compiler, *FLAGS, optimization]
         probes = 0
@@ -415,6 +540,22 @@ def main():
                 disassembly = run([objdump, "-dr", "-C", str(obj)],
                                   label + "-disassembly")
                 check_probe(source.stem, headers, symbols, disassembly)
+                if source.stem == "BoundSetterCodegen":
+                    check_bound_setters(disassembly, optimization, compiler_major)
+                    # A code-size ceiling alone must not conceal a reintroduced
+                    # conversion frame. Replace one instruction without growing it.
+                    changed, count = re.subn(
+                        r"(^[0-9a-fA-F]+ <telemetry::WriteResult telemetry::Setter::invoke(?:Context|Static)_[^\n]+>:\n)"
+                        r"[ \t]*[0-9a-fA-F]+:[^\n]*\n",
+                        r"\g<1>   0:\tb088      \tsub\tsp, #32\n", disassembly, count=1, flags=re.MULTILINE)
+                    if count != 1:
+                        raise RuntimeError("BoundSetterCodegen: missing frame mutation control")
+                    try:
+                        check_bound_setters(changed, optimization, compiler_major)
+                    except RuntimeError:
+                        pass
+                    else:
+                        raise RuntimeError("BoundSetterCodegen: gate accepted extra conversion storage")
                 probes += 1
         # Enum positions must emit precisely the numeric-position instruction
         # words, including literal pools. In particular U64 enum positions must
@@ -450,6 +591,10 @@ def main():
         abi_object = output / ("TelemetryAbi" + optimization + ".o")
         json_object = output / ("TelemetryJson" + optimization + ".o")
         command_object = output / ("TelemetryCommandJson" + optimization + ".o")
+        from regression.checks import check_abi_retention
+        check_abi_retention(flags, run, output, abi_object, 32,
+                            "abi-retained" + optimization,
+                            ["--specs=nano.specs", "--specs=nosys.specs"], execute=False)
         modules = (("core", "TelemetryAbiLinkCheck", abi_object),
                    ("json", "TelemetryJsonAbiLinkCheck", json_object),
                    ("command", "TelemetryCommandAbiLinkCheck", command_object))

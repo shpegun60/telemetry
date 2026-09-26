@@ -27,6 +27,8 @@
 // Its constant evaluator diagnoses use of the disabled values. Promote that
 // diagnostic here even without -Werror: a scoped precise pragma cannot repair
 // a caller whose parameter attributes already exclude NaN or infinity.
+// This diagnostic is best-effort: -w/system-header suppression can hide it.
+// Suppression does not make no-honor or per-function fast-math modes supported.
 #if defined(__clang__)
 #if __has_warning("-Wnan-infinity-disabled")
 #pragma clang diagnostic push

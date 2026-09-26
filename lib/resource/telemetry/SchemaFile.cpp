@@ -73,6 +73,12 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
                     field.declaredType,
                     [&](const telemetry::Scalar& value, std::string_view name) noexcept
                     {
+                        // A custom traversal can ignore false and call the sink again.
+                        if (!measure.valid || enums >= field.declaredType.enumCount())
+                        {
+                            measure.valid = false;
+                            return false;
+                        }
                         const bool ok =
                             measure.record(code(SchemaRecord::FieldEnumEntry),
                                            [&](BinaryWriter& out) noexcept
@@ -86,7 +92,8 @@ SchemaFile::SchemaFile(const telemetry::CatalogIndex& index,
                             ++enums_;
                         }
                         return ok;
-                    }) || enums != field.declaredType.enumCount())
+                    }) ||
+                !measure.valid || enums != field.declaredType.enumCount())
             {
                 return;
             }

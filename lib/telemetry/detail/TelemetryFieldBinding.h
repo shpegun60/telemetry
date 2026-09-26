@@ -20,6 +20,7 @@ template <auto Read, auto Write, class Owner, class Constraint = NoLimits>
 struct FieldBinding {
     using ReadTraits = CallableTraits<decltype(Read)>;
     using Value = typename ReadTraits::Result;
+    using Target = decltype(resolveFactoryOwner(std::declval<Owner*>()));
     static_assert(nonNullTarget<Read>, "Field getter cannot be null");
     static_assert(ReadTraits::arity == 0, "Field getter must have no parameters");
     static_assert(isFactoryValue<Value> || std::is_same_v<Value, Scalar>,
@@ -44,29 +45,28 @@ struct FieldBinding {
         }
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write>(target, value);
         else {
-            Value native{};
-            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return invokeFactory<Write>(target, native);
+            return invokeFactoryValue<Value, Constraint>(value,
+                [](Value native, Target resolved) noexcept { return invokeFactory<Write>(resolved, native); },
+                target);
         }
     }
     static TELEMETRY_FORCE_INLINE WriteResult typedWriteFree(const Scalar& value) noexcept
     {
         if constexpr (std::is_same_v<Value, Scalar>) return invokeFactory<Write, NoOwner>(nullptr, value);
         else {
-            Value native{};
-            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return invokeFactory<Write, NoOwner>(nullptr, native);
+            return invokeFactoryValue<Value, Constraint>(value,
+                [](Value native) noexcept { return invokeFactory<Write, NoOwner>(nullptr, native); });
         }
     }
 
     static constexpr Getter getter(Owner* owner) noexcept
     {
         if constexpr (ReadTraits::member) {
-            if constexpr (std::is_enum_v<Value> || isOwnerSlot<Owner>) return Getter::bindContext<&nativeRead>(*owner);
+            if constexpr (std::is_enum_v<Value> || isOwnerSlot<Owner>) return Getter::bindKnownContext_<&nativeRead>(*owner);
             else return Getter::bind<Read>(*owner);
         } else {
-            if constexpr (std::is_enum_v<Value>) return Getter(&enumReadFree);
-            else return Getter(Read);
+            if constexpr (std::is_enum_v<Value>) return Getter::bindKnown_<&enumReadFree>();
+            else return Getter::bind<Read>();
         }
     }
 
@@ -82,8 +82,8 @@ struct FieldBinding {
             static_assert(std::is_same_v<Arg, Value>
                           || (std::is_same_v<Value, Scalar> && std::is_same_v<Arg, const Scalar&>),
                           "Field getter and setter must use the exact same C++ type");
-            if constexpr (Traits::member) return Setter::bindContext<&typedWrite>(*owner);
-            else return Setter::bind<&typedWriteFree>();
+            if constexpr (Traits::member) return Setter::bindKnownContext_<&typedWrite>(*owner);
+            else return Setter::bindKnown_<&typedWriteFree>();
         }
     }
 
@@ -162,7 +162,7 @@ struct BorrowedFieldReadBinding {
 
     static constexpr Getter getter(ReadCallable& callable) noexcept
     {
-        return Getter::bindContext<&read>(callable);
+        return Getter::bindKnownContext_<&read>(callable);
     }
 };
 
@@ -170,6 +170,7 @@ template <class ReadCallable, class WriteCallable, class Constraint = NoLimits>
 struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
     using Base = BorrowedFieldReadBinding<ReadCallable>;
     using Value = typename Base::Value;
+    using Target = decltype(resolveFactoryCallable(std::declval<WriteCallable*>()));
     static_assert(hasFactoryCallSignature<WriteCallable>,
                   "Borrowed field setter must have one concrete operator(); generic and overloaded callables are unsupported");
     static_assert(!std::is_volatile_v<WriteCallable>,
@@ -192,16 +193,23 @@ struct BorrowedFieldPairBinding : BorrowedFieldReadBinding<ReadCallable> {
             if (!target) return WriteResult::Unavailable;
         }
         if constexpr (std::is_same_v<Value, Scalar>) return invokeResolvedCallable(target, value);
-        else {
-            Value native{};
-            if (!extractFactoryValue<Value, Constraint>(value, native)) return WriteResult::InvalidValue;
-            return invokeResolvedCallable(target, native);
+        else if constexpr (IsContextCallableSlot<std::remove_cv_t<WriteCallable>>::value) {
+            // Pass the snapshot's two words separately so the fallback does not
+            // require a temporary aggregate in the matching-tag path.
+            return invokeFactoryValue<Value, Constraint>(value,
+                [](Value native, void* context,
+                   typename std::remove_cv_t<WriteCallable>::Function function) noexcept { return function(context, native); },
+                target.context, target.function);
+        } else {
+            return invokeFactoryValue<Value, Constraint>(value,
+                [](Value native, Target resolved) noexcept { return invokeResolvedCallable(resolved, native); },
+                target);
         }
     }
 
     static constexpr Setter setter(WriteCallable& callable) noexcept
     {
-        return Setter::bindContext<&write>(callable);
+        return Setter::bindKnownContext_<&write>(callable);
     }
 };
 

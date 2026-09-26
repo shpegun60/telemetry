@@ -56,36 +56,41 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Field* find(FieldId id) const & noexcept
     { return index().find(id); }
     const Field* find(FieldId) const && = delete;
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     TELEMETRY_FORCE_INLINE constexpr const Field* find(Id id) const & noexcept
     { return index().find(id); }
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     const Field* find(Id) const && = delete;
+    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    const Field* find(const Id&) const & = delete;
     // A known packed ID selects a tuple element and then the local definition.
     // Native definitions retain their direct callback path; the local table
     // decides whether a Scalar/manual definition requires its fallback.
-    template <FieldId Id>
+    template <auto Id>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read() const noexcept
     {
-        static_assert(groupOf(Id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
-        if constexpr (groupOf(Id) < sizeof...(Groups))
-            return std::get<groupOf(Id)>(tables_)->template read<indexOf(Id)>();
+        constexpr auto id = detail::packedIdValue<Id>();
+        static_assert(groupOf(id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
+        if constexpr (groupOf(id) < sizeof...(Groups))
+            return std::get<groupOf(id)>(tables_)->template read<indexOf(id)>();
     }
-    template <FieldId Id, class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
+    template <auto Id, class T, std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE std::optional<T> read() const noexcept
     {
-        static_assert(groupOf(Id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
-        if constexpr (groupOf(Id) < sizeof...(Groups))
-            return std::get<groupOf(Id)>(tables_)->template read<indexOf(Id), T>();
+        constexpr auto id = detail::packedIdValue<Id>();
+        static_assert(groupOf(id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
+        if constexpr (groupOf(id) < sizeof...(Groups))
+            return std::get<groupOf(id)>(tables_)->template read<indexOf(id), T>();
         else return std::nullopt;
     }
-    template <FieldId Id, class T,
+    template <auto Id, class T,
               std::enable_if_t<detail::isScalarNumber<T> || std::is_same_v<T, Scalar>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE WriteResult write(T value) const noexcept
     {
-        static_assert(groupOf(Id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
-        if constexpr (groupOf(Id) < sizeof...(Groups))
-            return std::get<groupOf(Id)>(tables_)->template write<indexOf(Id)>(value);
+        constexpr auto id = detail::packedIdValue<Id>();
+        static_assert(groupOf(id) < sizeof...(Groups), "Typed field group is outside FieldCatalogTable");
+        if constexpr (groupOf(id) < sizeof...(Groups))
+            return std::get<groupOf(id)>(tables_)->template write<indexOf(id)>(value);
         else return WriteResult::NotFound;
     }
     // Unknown IDs use the same bounded CatalogIndex as standalone consumers.
@@ -93,14 +98,17 @@ public:
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(FieldId id) const noexcept
     { return index().read(id); }
     template <class... Explicit, class Id,
-              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(Id id) const noexcept
     { return index().read(id); }
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
+    Scalar read(const Id&) const = delete;
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read(Id id) const noexcept
         -> decltype(std::declval<CatalogIndex>().template read<T>(id))
     { return index().template read<T>(id); }
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto write(Id id, T value) const noexcept
         -> decltype(std::declval<CatalogIndex>().write(id, value))
     { return index().write(id, value); }

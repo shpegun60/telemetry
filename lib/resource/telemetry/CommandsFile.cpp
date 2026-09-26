@@ -65,9 +65,12 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                     entry.command(),
                     [&](const telemetry::CommandParam& p) noexcept
                     {
-                        // Generated descriptions are positional, including unnamed arguments.
-                        if (p.index != parameterCount)
+                        // Custom traversal may ignore a refused sink and call it again.
+                        // Keep every failure in the construction-local measure latch.
+                        if (!measure.valid || p.index != parameterCount ||
+                            parameterCount >= command.parameterCount())
                         {
+                            measure.valid = false;
                             return false;
                         }
                         std::uint32_t enums = 0;
@@ -75,6 +78,11 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                                 p.type,
                                 [&](const telemetry::Scalar& value, std::string_view name) noexcept
                                 {
+                                    if (!measure.valid || enums >= p.type.enumCount())
+                                    {
+                                        measure.valid = false;
+                                        return false;
+                                    }
                                     const bool ok = measure.record(
                                         code(CommandRecord::ParameterEnum),
                                         [&](BinaryWriter& out) noexcept
@@ -89,8 +97,10 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                                         ++enums_;
                                     }
                                     return ok;
-                                }) || enums != p.type.enumCount())
+                                }) ||
+                            !measure.valid || enums != p.type.enumCount())
                         {
+                            measure.valid = false;
                             return false;
                         }
                         if (!measure.record(code(CommandRecord::Parameter),
@@ -105,7 +115,8 @@ CommandsFile::CommandsFile(const telemetry::CommandCatalogIndex& index,
                         ++parameterCount;
                         ++parameters_;
                         return true;
-                    }) || parameterCount != command.parameterCount())
+                    }) ||
+                !measure.valid || parameterCount != command.parameterCount())
             {
                 return;
             }

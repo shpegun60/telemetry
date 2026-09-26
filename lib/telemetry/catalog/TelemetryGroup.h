@@ -6,12 +6,14 @@
  */
 #ifndef TELEMETRY_GROUP_H
 #define TELEMETRY_GROUP_H
+#include <cstdlib>
 #include <memory>
 #include <type_traits>
 namespace telemetry {
 template <class...> class FieldTable;
 template <class...> class CommandTable;
 namespace detail {
+[[noreturn]] inline void invalidGroupName() noexcept { std::abort(); }
 // Only the two owning local-table types may form groups. Matching a table's
 // Descriptor below also prevents mixing fields and commands in one registry.
 template <class> struct IsLocalTable : std::false_type {};
@@ -24,7 +26,10 @@ template <class Table> struct TableGroup {
     const char* const name;
     const Table* const table;
     constexpr TableGroup(const char* label, const Table& value) noexcept
-        : name(label), table(std::addressof(value)) {}
+        : name(label), table(std::addressof(value))
+    {
+        if (label == nullptr) invalidGroupName();
+    }
     TableGroup(const char*, const Table&&) = delete;
 };
 template <class G, class Descriptor, class = void> struct IsTableGroup : std::false_type {};

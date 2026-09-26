@@ -19,7 +19,11 @@
 #include "../detail/TelemetryTarget.h"
 
 namespace telemetry {
-namespace detail { struct FieldTableAccess; }
+namespace detail {
+struct FieldTableAccess;
+template <auto, auto, class, class> struct FieldBinding;
+template <class, class, class> struct BorrowedFieldPairBinding;
+}
 
 enum class WriteResult : std::uint8_t {
     Applied = 0,
@@ -36,6 +40,8 @@ enum class WriteResult : std::uint8_t {
 // unchanged and never calls through a mismatched function-pointer type.
 class Setter {
     friend struct detail::FieldTableAccess;
+    template <auto, auto, class, class> friend struct detail::FieldBinding;
+    template <class, class, class> friend struct detail::BorrowedFieldPairBinding;
     template <class T> using NativeFunction = WriteResult (*)(T) noexcept;
     template <class T> struct NativeTag {};
     template <class T> struct IsNativeFunction : std::false_type {};
@@ -147,7 +153,7 @@ public:
         // a throwing call operator. invokeStatic_ calls the object itself.
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((FunctionPointer)), const Scalar&>,
                       "The actual setter invocation must be noexcept");
-        return Setter(Payload{}, &invokeStatic_<FunctionPointer>);
+        return bindKnown_<FunctionPointer>();
     }
 
     template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
@@ -168,6 +174,14 @@ public:
               std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
     static Setter bind(Argument&&) = delete;
 
+    // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
+    // and reject braced conversion proxies without rejecting {stableObject}.
+    template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static Setter bind(std::remove_reference_t<T>&&) = delete;
+    template <auto Method, class T, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument&>, int> = 0>
+    static Setter bind(std::initializer_list<Argument>) = delete;
+
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Setter bindContext(T& object) noexcept
     {
@@ -178,16 +192,35 @@ public:
         // Match the const-lvalue expression used for a structural NTTP adapter.
         static_assert(std::is_nothrow_invocable_r_v<WriteResult, decltype((Adapter)), T&, const Scalar&>,
                       "Setter adapter must accept context and Scalar, return WriteResult and be noexcept");
-        return Setter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
+        return bindKnownContext_<Adapter>(object);
     }
 
     template <auto Adapter, class T = void, class Argument,
               std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument>, int> = 0>
     static Setter bindContext(Argument&&) = delete;
 
+    // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
+    // and reject braced conversion proxies without rejecting {stableObject}.
+    template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
+    static Setter bindContext(std::remove_reference_t<T>&&) = delete;
+    template <auto Adapter, class T, class Argument,
+              std::enable_if_t<!detail::isBorrowedContextListElement<T, Argument>, int> = 0>
+    static Setter bindContext(std::initializer_list<Argument>) = delete;
+
 private:
     constexpr Setter(Payload payload, Invoke invoke) noexcept
         : payload_(payload), invoke_(invoke) {}
+
+    // These private paths accept only adapters defined by the field binding
+    // layer. Public function and context targets still validate their address.
+    template <auto FunctionPointer>
+    static constexpr Setter bindKnown_() noexcept
+    { return Setter(Payload{}, &invokeStatic_<FunctionPointer>); }
+    template <auto Adapter, class T>
+    static constexpr Setter bindKnownContext_(T& object) noexcept
+    {
+        return Setter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
+    }
 
     static TELEMETRY_FORCE_INLINE WriteResult invokeScalar_(Payload payload,
                                                              const Scalar& value) noexcept
@@ -206,7 +239,7 @@ private:
 #endif
 
     template <class T>
-    static TELEMETRY_FORCE_INLINE WriteResult invokeNative_(Payload payload,
+    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeNative_(Payload payload,
                                                              const Scalar& value) noexcept
     {
         constexpr auto type = Scalar::from(T{}).type();
@@ -217,14 +250,27 @@ private:
         const auto* native = value.template getIf<Stored>();
         if (native != nullptr)
             return native_(payload, NativeTag<T>{})(static_cast<T>(*native));
+        return invokeConverted_<T>(native_(payload, NativeTag<T>{}), value);
+    }
+
+    // A manual row can use a different declared type. Keep its uncommon
+    // conversion out of the exact-tag thunk, so ordinary erased writes do not
+    // reserve a conversion frame or save registers for this fallback at -Os.
+    template <class T>
+    static TELEMETRY_NOINLINE WriteResult invokeConverted_(NativeFunction<T> function,
+                                                          const Scalar& value) noexcept
+    {
         const auto converted = convertScalar<T>(value);
         return converted
-            ? native_(payload, NativeTag<T>{})(*converted)
+            ? function(*converted)
             : WriteResult::InvalidValue;
     }
 
+    // Generated native adapters also carry a checked-conversion fallback.
+    // Optimize their emitted thunks like invokeNative_: on ARM GCC 14 this
+    // keeps the matching-tag path stackless even in a size-optimized build.
     template <auto FunctionPointer>
-    static TELEMETRY_FORCE_INLINE WriteResult invokeStatic_(Payload,
+    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeStatic_(Payload,
                                                              const Scalar& value) noexcept
     {
         return FunctionPointer(value);
@@ -251,7 +297,7 @@ private:
     }
 
     template <auto Adapter, class T>
-    static TELEMETRY_FORCE_INLINE WriteResult invokeContext_(Payload payload,
+    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeContext_(Payload payload,
                                                              const Scalar& value) noexcept
     {
         return Adapter(object_<T>(payload), value);

@@ -7,6 +7,7 @@
 #ifndef TELEMETRY_DETAIL_OWNER_H
 #define TELEMETRY_DETAIL_OWNER_H
 
+#include <initializer_list>
 #include <type_traits>
 
 namespace telemetry::detail {
@@ -39,6 +40,16 @@ struct IsBorrowedObjectArgument<Expected, Argument,
             || std::is_convertible_v<std::remove_reference_t<Argument>*, Expected*>)> {};
 template <class Expected, class Argument>
 inline constexpr bool isBorrowedObjectArgument = IsBorrowedObjectArgument<Expected, Argument>::value;
+
+// Deduction of initializer_list elements decays a named array to a pointer.
+// Context adapters may borrow arrays, so do not let the proxy guard hide the
+// ordinary reference binding of {namedArray}. Typed rvalue-array overloads
+// still reject initializer lists that would create new array storage.
+template <class Expected, class Element>
+inline constexpr bool isBorrowedContextListElement =
+    isBorrowedObjectArgument<Expected, Element&>
+    || (std::is_array_v<Expected> && std::is_pointer_v<Element>
+        && std::is_convertible_v<Element, std::add_pointer_t<std::remove_extent_t<Expected>>>);
 
 } // namespace telemetry::detail
 #endif

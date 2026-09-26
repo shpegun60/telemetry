@@ -38,7 +38,10 @@ is u16 and includes the two-byte path length, the largest individually
 transferable LIST path is 65533 bytes. A longer path ends an already populated
 page with Ok and leaves its index as the next cursor. Starting at that entry
 returns InvalidData even with a large response buffer: enlarging it cannot
-make such an entry fit. Earlier valid paths remain listable.
+make such an entry fit. That reply has the unchanged cursor, no data and
+`eof=0`. To skip this unrepresentable path and continue listing later entries,
+the client sends LIST with `cursor + 1`; advancing to `fileCount` returns EOF.
+Earlier valid paths remain listable.
 The transport-independent core deliberately imposes no wire length limit.
 
 READ payload capacity is min(response size - 12, 65535). WRITE validates the

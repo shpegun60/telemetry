@@ -169,6 +169,8 @@ public:
         if (!detail::indexFits<std::size_t>(runtimeIndex)) return CommandResult::NotFound;
         return call(static_cast<std::size_t>(runtimeIndex), values...);
     }
+    template <class Index, class... Input, std::enable_if_t<!detail::isIdInput<Index>, int> = 0>
+    CommandResult call(const Index&, Input...) const = delete;
 };
 
 template <class... Definitions>

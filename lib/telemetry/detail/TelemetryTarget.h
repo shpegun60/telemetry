@@ -1,6 +1,6 @@
 /**
  * @file TelemetryTarget.h
- * @brief Address-independent validation of compile-time callback targets.
+ * @brief Validation of public compile-time callback targets.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
@@ -11,16 +11,17 @@
 
 namespace telemetry::detail {
 
-// Compare template argument identities, not addresses. GCC may treat function
-// addresses as potentially zero with -fno-delete-null-pointer-checks (also used
-// by some sanitizer configurations), but the target's template identity is
-// still a constant expression. Runtime function pointers retain normal checks.
+// A named GNU weak function can still resolve to nullptr. Template identity
+// alone therefore cannot prove that a public target exists. Require an actual
+// constant nonnull address; an unresolved weak declaration is not eligible.
+// Affected GCC versions also reject ordinary function targets
+// with -fno-delete-null-pointer-checks. Private factory adapters use a separate
+// known-defined construction path; public targets keep this exact check.
 template <auto Target>
 inline constexpr bool nonNullTarget = [] {
     using T = decltype(Target);
     if constexpr (std::is_pointer_v<T> || std::is_member_pointer_v<T>) {
-        return !std::is_same_v<std::integral_constant<T, Target>,
-                               std::integral_constant<T, nullptr>>;
+        return Target != nullptr;
     } else {
         return false;
     }

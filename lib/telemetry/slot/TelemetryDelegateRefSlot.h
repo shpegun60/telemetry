@@ -9,6 +9,7 @@
 #include "TelemetrySlotTraits.h"
 #include "../core/TelemetryCompiler.h"
 #include "../detail/TelemetrySlotCallable.h"
+#include "../detail/TelemetryTarget.h"
 #include "../detail/TelemetryOwner.h"
 #include <utility>
 namespace telemetry {
@@ -39,11 +40,15 @@ public:
     DelegateRefSlot(DelegateRefSlot&&) = delete;
     DelegateRefSlot& operator=(const DelegateRefSlot&) = delete;
     DelegateRefSlot& operator=(DelegateRefSlot&&) = delete;
-    void bind(Function function) noexcept
+    template <class F = void, class Argument,
+              std::enable_if_t<detail::isSlotFunctionArgument<F, Argument, Function>, int> = 0>
+    void bind(Argument&& argument) noexcept(std::is_nothrow_constructible_v<Function, Argument&&>)
     {
+        Function function = std::forward<Argument>(argument);
         if (function) delegate_ = function;
         else reset();
     }
+    void bind(std::nullptr_t) noexcept { reset(); }
     template <class F, std::enable_if_t<std::is_class_v<std::remove_cv_t<F>>, int> = 0>
     void bind(F& callable) noexcept
     {
@@ -53,11 +58,19 @@ public:
     }
     template <class F = void, class Argument,
               std::enable_if_t<!detail::isBorrowedObjectArgument<F, Argument>
-                  && !std::is_convertible_v<Argument, Function>, int> = 0>
+                  && !detail::isSlotFunctionArgument<F, Argument, Function>, int> = 0>
     void bind(Argument&&) = delete;
+    // With an explicit F the callable is borrowed, even if F can convert to
+    // a function pointer. Only deduced temporary callbacks use that safe copy.
+    template <class F, std::enable_if_t<std::is_class_v<std::remove_cv_t<F>>, int> = 0>
+    void bind(std::remove_reference_t<F>&&) = delete;
+    template <class F, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<F, Argument&>, int> = 0>
+    void bind(std::initializer_list<Argument>) = delete;
     template <auto Method, class Owner, std::enable_if_t<!std::is_reference_v<Owner>, int> = 0>
     constexpr void bind(Owner& owner) noexcept
     {
+        static_assert(detail::nonNullTarget<Method>, "DelegateRefSlot target cannot be null");
         static_assert(detail::slotSignatureMatches<decltype(Method), R, Args...>, "DelegateRefSlot target signature must match exactly");
         static_assert(detail::isDirectMemberOwner<decltype(Method), Owner>, "DelegateRefSlot requires a direct owner object");
         static_assert(std::is_nothrow_invocable_r_v<R, decltype(Method), Owner&, Args...>,
@@ -67,15 +80,23 @@ public:
     template <auto Method, class Owner = void, class Argument,
               std::enable_if_t<!detail::isBorrowedObjectArgument<Owner, Argument>, int> = 0>
     void bind(Argument&&) = delete;
+    template <auto Method, class Owner, std::enable_if_t<!std::is_reference_v<Owner>, int> = 0>
+    void bind(std::remove_reference_t<Owner>&&) = delete;
+    template <auto Method, class Owner, class Argument,
+              std::enable_if_t<!detail::isBorrowedObjectArgument<Owner, Argument&>, int> = 0>
+    void bind(std::initializer_list<Argument>) = delete;
     template <auto FunctionTarget> constexpr void bind() noexcept
     {
+        static_assert(detail::nonNullTarget<FunctionTarget>, "DelegateRefSlot target cannot be null");
         static_assert(detail::slotSignatureMatches<decltype(FunctionTarget), R, Args...>, "DelegateRefSlot target signature must match exactly");
         static_assert(std::is_nothrow_invocable_r_v<R, decltype(FunctionTarget), Args...>,
                       "DelegateRefSlot function must be noexcept and match its signature");
         delegate_ = Delegate::template bind<FunctionTarget>();
     }
     constexpr void reset() noexcept { delegate_.reset(); }
-    [[nodiscard]] constexpr Target get() const noexcept { return Target(delegate_); }
+    // Target borrows delegate_ inside this slot; the slot must outlive it.
+    [[nodiscard]] constexpr Target get() const & noexcept { return Target(delegate_); }
+    Target get() const && = delete;
     [[nodiscard]] constexpr bool available() const noexcept { return bool(delegate_); }
     [[nodiscard]] constexpr explicit operator bool() const noexcept { return available(); }
     // Precondition: engaged. The external callable/owner and everything it

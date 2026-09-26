@@ -73,7 +73,9 @@ public:
     }
     void bind(std::nullptr_t) noexcept { reset(); }
     void reset() noexcept { delegate_.reset(); }
-    [[nodiscard]] Target get() const noexcept { return Target(delegate_); }
+    // Target borrows delegate_ inside this slot; the slot must outlive it.
+    [[nodiscard]] Target get() const & noexcept { return Target(delegate_); }
+    Target get() const && = delete;
     [[nodiscard]] bool available() const noexcept { return bool(delegate_); }
     [[nodiscard]] explicit operator bool() const noexcept { return available(); }
     // Precondition: engaged. Calls and replacement/destruction must not overlap,

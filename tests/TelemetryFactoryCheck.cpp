@@ -91,8 +91,10 @@ int main()
            "explicit sparse enum dictionary extends the inferred range");
     expect(sparseField.write(2001) == WriteResult::InvalidValue,
            "explicit sparse enum bounds reject values above the listed range");
-    expect(enumField.set(Scalar::fromU16(255)) == WriteResult::InvalidValue, "direct enum setter rejects wrong alternative");
-    expect(testedField.set(Scalar::fromU16(12)) == WriteResult::InvalidValue, "direct typed setter rejects wrong alternative");
+    expect(enumField.set(Scalar::fromU16(255)) == WriteResult::Applied,
+           "raw scoped-enum callback accepts a representable code; Field::write enforces its dictionary bounds");
+    expect(testedField.set(Scalar::fromU16(12)) == WriteResult::Applied,
+           "raw typed callback performs checked numeric conversion without descriptor limits");
     expect(global.write(2.0f) == WriteResult::Busy && globalValue == 2.0f, "free setter result preserved");
     expect(global.read<float>() == 2.0f && functionName.read<float>() == 2.0f
            && functionAddress.read<float>() == 2.0f, "free getter: template, name and address forms");

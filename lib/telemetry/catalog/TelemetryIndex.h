@@ -62,11 +62,13 @@ public:
         return index < entry.count ? entry.fields + index : nullptr;
     }
 
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     TELEMETRY_FORCE_INLINE constexpr const Field* find(Id id) const noexcept
     {
         return detail::indexFits<FieldId>(id) ? find(static_cast<FieldId>(id)) : nullptr;
     }
+    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    const Field* find(const Id&) const = delete;
 
     constexpr const Catalog* catalog(GroupId group) const noexcept
     {
@@ -78,6 +80,8 @@ public:
     {
         return detail::indexFits<GroupId>(group) ? catalog(static_cast<GroupId>(group)) : nullptr;
     }
+    template <class Group, std::enable_if_t<!detail::isIdInput<Group>, int> = 0>
+    const Catalog* catalog(const Group&) const = delete;
 
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(FieldId id) const noexcept
     {
@@ -86,15 +90,18 @@ public:
     }
 
     template <class... Explicit, class Id,
-              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE Scalar read(Id id) const noexcept
     {
         const Field* const field = find(id);
         return field != nullptr ? field->read() : Scalar::null();
     }
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
+    Scalar read(const Id&) const = delete;
 
     template <class T, class Id = FieldId,
-              std::enable_if_t<detail::isIdInput<Id> && detail::isScalarReadType<T>, int> = 0>
+              std::enable_if_t<detail::isPackedIdInput<Id> && detail::isScalarReadType<T>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     auto read(Id id) const noexcept -> decltype(std::declval<const Field&>().template read<T>())
     {
@@ -104,7 +111,7 @@ public:
 
     // The same direct lookup and capped positional bounds serve reads and writes.
     // The view and its metadata stay const; only the bound owner is modified.
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     auto write(Id id, T value) const noexcept
         -> decltype(std::declval<const Field&>().write(value))
@@ -160,13 +167,17 @@ public:
         return index_.find(id);
     }
 
-    template <class Id, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     TELEMETRY_FORCE_INLINE static constexpr const Field* find(Id id) noexcept
     { return index_.find(id); }
+    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    static const Field* find(const Id&) = delete;
 
     static constexpr const Catalog* catalog(GroupId group) noexcept { return index_.catalog(group); }
     template <class Group, std::enable_if_t<detail::isIdInput<Group>, int> = 0>
     static constexpr const Catalog* catalog(Group group) noexcept { return index_.catalog(group); }
+    template <class Group, std::enable_if_t<!detail::isIdInput<Group>, int> = 0>
+    static const Catalog* catalog(const Group&) = delete;
     static constexpr const Catalog* data() noexcept { return index_.data(); }
     static constexpr std::size_t size() noexcept { return index_.size(); }
     static constexpr bool empty() noexcept { return index_.empty(); }
@@ -180,21 +191,24 @@ public:
     }
 
     template <class... Explicit, class Id,
-              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Id>, int> = 0>
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE static Scalar read(Id id) noexcept
     { return index_.read(id); }
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
+    static Scalar read(const Id&) = delete;
 
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     static auto read(Id id) noexcept -> decltype(index_.template read<T>(id))
     {
         return index_.template read<T>(id);
     }
 
-    template <FieldId Id>
+    template <auto Id>
     [[nodiscard]] TELEMETRY_FORCE_INLINE static auto read() noexcept
     {
-        constexpr const Field* field = index_.find(Id);
+        constexpr const Field* field = index_.find(detail::packedIdValue<Id>());
         static_assert(field != nullptr,
                       "The read ID must belong to the catalog's positional bounds");
         if constexpr (field != nullptr) {
@@ -209,11 +223,12 @@ public:
         }
     }
 
-    template <FieldId Id, class T,
+    template <auto Id, class T,
               std::enable_if_t<detail::isScalarReadType<T>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE static std::optional<T> read() noexcept
     {
-        constexpr const Field* field = index_.find(Id);
+        constexpr auto id = detail::packedIdValue<Id>();
+        constexpr const Field* field = index_.find(id);
         static_assert(field != nullptr,
                       "The read ID must belong to the catalog's positional bounds");
         // Keep the constexpr lookup above as the contract check, but invoke
@@ -221,27 +236,28 @@ public:
         // field directly, allowing the compiler to preserve or further inline
         // the same known-field operation without any runtime lookup.
         if constexpr (field != nullptr)
-            return Catalogs[groupOf(Id)].fields[indexOf(Id)].template read<T>();
+            return Catalogs[groupOf(id)].fields[indexOf(id)].template read<T>();
         else return std::nullopt;
     }
 
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isIdInput<Id>, int> = 0>
+    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     static auto write(Id id, T value) noexcept -> decltype(index_.write(id, value))
     {
         return index_.write(id, value);
     }
 
-    template <FieldId Id, class T>
+    template <auto Id, class T>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     static auto write(T value) noexcept
         -> decltype(std::declval<const Field&>().write(value))
     {
-        constexpr const Field* field = index_.find(Id);
+        constexpr auto id = detail::packedIdValue<Id>();
+        constexpr const Field* field = index_.find(id);
         static_assert(field != nullptr,
                       "The write ID must belong to the catalog's positional bounds");
         if constexpr (field != nullptr)
-            return Catalogs[groupOf(Id)].fields[indexOf(Id)].write(value);
+            return Catalogs[groupOf(id)].fields[indexOf(id)].write(value);
         else return WriteResult::NotFound;
     }
 };

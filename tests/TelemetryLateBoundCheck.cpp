@@ -76,7 +76,7 @@ template <std::size_t I> void roundTrip(Meter& meter)
     expect(rows.write<I>(110.5) == WriteResult::Applied && meter.value == 110.5f
            && fields.write(makeId(0, I), 115) == WriteResult::Applied && meter.value == 115.f, "native setter conversion");
     const int writes = meter.writes;
-    expect(rows[I].set(Scalar::fromU16(123)) == WriteResult::InvalidValue
+    expect(rows[I].set(Scalar::fromF64(1.e300)) == WriteResult::InvalidValue
            && rows.write<I>(501) == WriteResult::InvalidValue && meter.writes == writes, "invalid write cannot invoke");
     expect(commands.call<I>(120., 1) == CommandResult::Accepted && meter.value == 120.f && meter.mode == Mode::Auto
            && actions.call<makeId(0, I)>(125, 2) == CommandResult::Accepted && meter.mode == Mode::Manual,

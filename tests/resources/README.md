@@ -65,8 +65,9 @@ clang-format --style=file:tests/resources/.clang-format -i path/to/source.cpp
   ARM object checks additionally reject malloc/calloc/realloc/operator new
   references from adapter/protocol code.
 - Fifteen resource headers compile independently, including internal codec
-  headers. Fourteen negative compile cases have a successful control and check
-  the intended diagnostic. Each of
+  headers. Thirty-four negative compile cases check the intended diagnostic;
+  34 executed positive controls preserve stable path/provider bindings,
+  including explicit provider types and cv/base adjustment. Each of
   three adapters has matching-layout link success and mixed-layout rejection.
 - ArmProbe: FileEntry is 16 bytes, its offsets 0/8/12; view is 8 bytes. ReadResult
   and WriteResult are 16 bytes and FileStat 8 bytes. Constant descriptor storage
@@ -81,7 +82,7 @@ limits. These bytes are not regenerated from the production encoder during tests
 
 ## Integration
 
-The normal resource runner also executes MetadataContractCheck (110 checks),
+The normal resource runner also executes MetadataContractCheck (342 checks),
 CursorCheck (600000 arbitrary cursors and 300000 packets), and the shared
 host/MCU EmbeddedReviewCheck (3328 checks). The latter reconstructs every byte
 of all three v2.1 goldens at small chunk sizes and executes ARM-sensitive numeric
@@ -145,7 +146,9 @@ The old decimal helper alone needed 464/456 bytes. The largest v2 resource
 frame across GCC 13/14 is 192 bytes. GCC 13's command read at O2 grows by eight
 bytes over v1; this is an explicit cost of the change. Values reads grow by
 eight bytes on both compilers. [stack_check.py](stack_check.py) pins
-schema/command/value read budgets at 168/192/152 bytes and other emitted frames
+schema/value read budgets at 168/152 bytes. The current command READ budget is
+176 bytes at O2 and 152 at Os, checked separately so a 16-byte regression cannot
+hide under the historical 192-byte ceiling. Other emitted frames remain capped
 at 192 bytes, with positive and negative controls and required-function checks.
 These are per-frame limits, **not cumulative call-chain, owner or IRQ budgets**.
 Nested metadata visitors and telemetry conversion calls still consume stack.
@@ -247,18 +250,30 @@ version bytes and fingerprints. Version bytes belong to the hash domain; cached
 Decoder checks toggle every record-header flag bit on every known v1 record,
 reject unsupported capability/parameter bits and contradictory reserved records,
 and retain unknown policy bits. Unknown record types/versions remain opaque.
-The host, sanitizer and Cortex-M7 checks cover these changes. Individual ARM
-READ stack budgets and the selected-value direct-lookup guard remain unchanged.
+The host, sanitizer and Cortex-M7 checks cover these changes. The selected-value
+direct-lookup guard remains unchanged; the later review follow-up tightens the
+command READ stack guard to the measured O2/Os frames listed above.
 The startup pattern, descriptor layout and core implementation are unchanged.
 The LIST condition is checked by the protocol tests; that unused protocol entry
 point is removed from the linked demo fixture by section GC.
 
-GCC 14.3.1 reports `.text` 32936/24792 bytes at O2/Os: +56/+32 bytes versus
+At the `23aca57` checkpoint, GCC 14.3.1 reported `.text` 32936/24792 bytes
+at O2/Os: +56/+32 bytes versus
 260e168/c5739b2. `.rodata` remains 2336/2272, `.data` 116 and `.bss` 444 bytes.
 DeviceResources, DemoCatalog, TelemetryAbi and ArmProbe objects remain identical
 after removing debug/comment sections. The file table still occupies 48 bytes
 in `.rodata`. The version constants and reserved-command encoding change the
 resource providers; no new MCU timing claim is inferred from this build.
+These figures describe that historical checkpoint. Later construction-time
+validation is measured separately in the review follow-up; it is not included
+in this size comparison.
+
+The September 26 follow-up fixture measures `.text` 33848/25400 bytes at O2/Os
+with CubeIDE GCC 14.3.1, versus 32992/24840 at `b19f1e9` (+856/+560 bytes).
+`.rodata` remains 2336/2272, `.data` 116 and `.bss` 444 bytes. The command READ
+frames still meet the 176/152-byte gates. These totals include the telemetry
+binding/ABI changes as well as constructor validation; they are not a cost
+attribution to one fix. See the [follow-up report](../../doc/Review-2026-09-25/LifetimeFollowup.md).
 
 ## Os size attribution
 
