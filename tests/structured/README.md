@@ -67,5 +67,46 @@ record the compiler and flags they actually use.
 
 ## Stage 01: C++20 reflection backend
 
-Pending the PFR/magic_enum probe. Its compiler and behavior results belong
-here before starting the stable facade of Stage 02.
+The unmodified Boost.PFR 1.92.0 header tree and its Boost Software License
+are in [`lib/boost_pfr`](../../lib/boost_pfr/VERSION.md). It is pinned to
+upstream commit `401385c240027423acbb1eb6dea2abe0043db5aa`. Only PFR was
+copied: 44 headers (1,242,624 source bytes) and the license. Existing
+`magic_enum` remains pinned at v0.9.8. The PFR source bytes are not a
+measurement of linked firmware size.
+
+[`PfrProbe.cpp`](reflection/PfrProbe.cpp) uses PFR's C++20 names and
+structured-binding engine for two scalar fields, repeated types, a nested
+aggregate, `std::array`, mutable/const reference access and names that are
+identical in a second translation unit. It exercises ordinary and signed
+enums, a sparse value outside `magic_enum`'s default scan, and numeric aliases.
+The automatic sparse scan finds only `None`; an explicit
+`enum_name<SparseMode::Far>()` does find `Far`. Aliases share a numeric code;
+the selected name is compiler-dependent. The probe rejects a non-ASCII
+automatic member name and accepts an explicit UTF-8 string as data. The
+actual public-name validation belongs to the facade stage.
+
+Run the focused checks with the vendored headers:
+
+```text
+python tests/structured/reflection/run.py --cxx g++ --build-dir build/structured-pfr-gcc
+python tests/structured/reflection/run.py --cxx clang++-18 --build-dir build/structured-pfr-clang
+python tests/structured/reflection/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-pfr-arm
+```
+
+The runner records each compiler command, diagnostic and elapsed time in the
+chosen build directory. The negative source must fail for its specific ASCII
+diagnostic. CI runs the host C++20 probe on GCC and Clang and the ARM probe
+at `-O2`, `-Os` and `-Og`.
+
+| Local compiler | Probe result | Typical positive compile time per unit | ARM object sections, O2/Os |
+| --- | --- | ---: | --- |
+| Qt MinGW GCC 13.1.0 | host link/run and negative check pass | 0.5–0.8 s | — |
+| Ubuntu GCC 13.3.0 | host link/run and negative check pass | 0.7–1.1 s | — |
+| Ubuntu Clang 18.1.3 | host link/run and negative check pass | 0.7–1.2 s | — |
+| ARM GCC 13.2.1 | O2/Os/Og compile and negative check pass | 0.6–1.0 s | Probe 150 B `.text`, Other 4 B `.text`; zero `.data/.bss` |
+| CubeIDE ARM GCC 14.3.1 | O2/Os/Og compile and negative check pass | 0.6–1.0 s | Probe 146 B `.text`, Other 4 B `.text`; zero `.data/.bss` |
+
+The ARM size rows describe the **test objects**, which include `main` and
+`printf`; they do not isolate PFR overhead or predict the final firmware.
+No STM32 board run is claimed for this header-only compiler probe. Stage 02
+can now build the stable reflection facade on this verified backend.
