@@ -25,7 +25,7 @@ DLL/unused-variable diagnostics, виправлення некоректного
 | NC-F1: окремі Clang no-honor flags | Уточнено межу: promoted warning не гарантує відмову під `-w`/system headers; fast-math callers не підтримуються | Звичайні diagnostic controls і позитивні IEEE тести; suppression cases описані у follow-up, не позначені як повністю виправлені |
 | FL-F1: pointer/smart-pointer/refwrapper як owner | Прив’язка приймає справжній об’єкт, derived-об’єкт або явний OwnerSlot | 9 негативних pointer-owner репро, lvalue/dereference/derived controls |
 | FL-F2: тимчасовий owner/closure через conversion | Тип фактичного аргументу виводиться незалежно від явно заданого типу | 18 lifetime cases та додаткові командні/slot/provider випадки |
-| FL-F3: manual Field із native setter іншого типу | Follow-up узгодив checked conversion між pointer/NTTP/member/borrowed/slot setters; raw set не перевіряє Field limits | 90 checks, raw-policy та endpoint-rounding controls; actual thunk codegen перевіряється окремо |
+| FL-F3: manual Field із native setter іншого типу | Follow-up узгодив checked conversion між pointer/NTTP/member/borrowed/slot setters; raw set не перевіряє Field limits | 138 checks, raw-policy та endpoint-rounding controls; actual thunk codegen перевіряється окремо |
 | FL-F4: довільне поєднання FieldDefinition і Field | Конструктор доступний лише відповідному Access builder | Дві негативні конструкції, чинні фабрики й повна parity-матриця |
 | FL-F5: Persistent для Null/unknown type | Потрібні обидві можливості доступу й підтримуваний числовий/Bool тип | Дві негативні constexpr декларації |
 | FL-F6: різні inline attributes при O2/Os | Єдине оголошення Setter; рішення про inline залишено компілятору | Обидві ARM-збірки, читання disassembly, без зміни layout |
