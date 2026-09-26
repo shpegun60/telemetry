@@ -57,7 +57,7 @@ flags, Scalar visitation and indexed traversal), verifies
 18 integer/enum-position, 18 owner-slot, 22 function-slot and 42 context/delegate-slot
 rejection cases, 25 policy/traversal/visitor cases, plus two no-heap controls
 (336 base cases; 343 in C++20 with structural
-adapters and additional invalid position types), plus **258** review contract
+adapters and additional invalid position types), plus **267** review contract
 rejections documented in [regression/README.md](regression/README.md). It checks
 each public header in isolation and checks that unsafe floating optimization
 flags are rejected. It also checks nine cache-line configurations, five invalid

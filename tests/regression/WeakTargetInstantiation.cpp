@@ -22,25 +22,25 @@ WriteResult strongWrite(float next) noexcept { value = next; return WriteResult:
 CommandResult strongRun() noexcept { return CommandResult::Executed; }
 
 #if TELEMETRY_WEAK_TARGET_FAIL_CASE == 1
-constexpr FieldTable probe{field<&missingRead>("value", "")};
+[[maybe_unused]] constexpr FieldTable probe{field<&missingRead>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 2
-constexpr FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
+[[maybe_unused]] constexpr FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 3
-constexpr CommandTable probe{command<&missingCommand>("run")};
+[[maybe_unused]] constexpr CommandTable probe{command<&missingCommand>("run")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 4
-const FieldTable probe{field<&missingRead>("value", "")};
+[[maybe_unused]] const FieldTable probe{field<&missingRead>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 5
-const FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
+[[maybe_unused]] const FieldTable probe{field<&strongRead, &missingWrite>("value", "")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 6
-const CommandTable probe{command<&missingCommand>("run")};
+[[maybe_unused]] const CommandTable probe{command<&missingCommand>("run")};
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 7
-const auto probe = Getter::bind<&missingRead>();
+[[maybe_unused]] const auto probe = Getter::bind<&missingRead>();
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 8
-const auto probe = Setter::bind<&missingScalarWrite>();
+[[maybe_unused]] const auto probe = Setter::bind<&missingScalarWrite>();
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 9
-const auto probe = Getter::bindContext<&missingContextRead>(value);
+[[maybe_unused]] const auto probe = Getter::bindContext<&missingContextRead>(value);
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 10
-const auto probe = Setter::bindContext<&missingContextWrite>(value);
+[[maybe_unused]] const auto probe = Setter::bindContext<&missingContextWrite>(value);
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 11
 void probe()
 {

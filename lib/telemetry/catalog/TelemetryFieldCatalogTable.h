@@ -56,12 +56,15 @@ public:
     TELEMETRY_FORCE_INLINE constexpr const Field* find(FieldId id) const & noexcept
     { return index().find(id); }
     const Field* find(FieldId) const && = delete;
-    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     TELEMETRY_FORCE_INLINE constexpr const Field* find(Id id) const & noexcept
     { return index().find(id); }
-    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     const Field* find(Id) const && = delete;
-    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
     const Field* find(const Id&) const & = delete;
     // A known packed ID selects a tuple element and then the local definition.
     // Native definitions retain their direct callback path; the local table
@@ -104,11 +107,13 @@ public:
     template <class... Explicit, class Id,
               std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
     Scalar read(const Id&) const = delete;
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+    template <class T, class... Explicit, class Id = FieldId,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto read(Id id) const noexcept
         -> decltype(std::declval<CatalogIndex>().template read<T>(id))
     { return index().template read<T>(id); }
-    template <class T, class Id = FieldId, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+    template <class T, class... Explicit, class Id = FieldId,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto write(Id id, T value) const noexcept
         -> decltype(std::declval<CatalogIndex>().write(id, value))
     { return index().write(id, value); }

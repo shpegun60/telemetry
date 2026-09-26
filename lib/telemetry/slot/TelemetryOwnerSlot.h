@@ -39,7 +39,7 @@ public:
     void bind(U&&) = delete;
     void bind(T&&) = delete;
     template <class U, std::enable_if_t<!detail::isBorrowedObjectArgument<T, U&>, int> = 0>
-    void bind(std::initializer_list<U>) = delete;
+    void bind(std::initializer_list<U>&&) = delete;
     constexpr void reset() noexcept { owner_ = nullptr; }
     [[nodiscard]] constexpr T* get() const noexcept { return owner_; }
     [[nodiscard]] constexpr bool available() const noexcept { return detail::pointerPresent(owner_); }

@@ -228,6 +228,36 @@ def check_command_scaling(disassembly):
 
 
 def check_owner_slots(disassembly):
+    def equivalent_register_allocation(manual, actual, operation, manual_name, actual_name):
+        # GCC 13 can keep the checked owner in r0 directly, omitting the
+        # manual wrapper's mov r0,r3 and padding nop. This is strictly shorter
+        # than the hand-written check, with the same load, branch and result.
+        # Pin both the null branch destination and owner relocation: matching
+        # mnemonics alone could still dereference the wrong object or branch
+        # into the direct call with a null owner.
+        if operation not in ("write", "call"):
+            return False
+        m = [entry for entry in manual if entry[0] not in ("nop", ".word")]
+        a = [entry for entry in actual if entry[0] not in ("nop", ".word")]
+        return (len(m) == 8 and len(a) == 7
+                and m[0][0] == a[0][0] == "ldr"
+                and re.fullmatch(r"r3, \[pc, #\d+\]", m[0][1])
+                and re.fullmatch(r"r3, \[pc, #\d+\]", a[0][1])
+                and m[1] == a[1] == ("mov", "r1, r0")
+                and m[2] == ("ldr", "r3, [r3, #0]")
+                and a[2] == ("ldr", "r0, [r3, #0]")
+                and m[3] == ("cbz", "r3, <self+0xe>")
+                and a[3] == ("cbz", "r0, <self+0xc>")
+                and m[4] == ("mov", "r0, r3")
+                and m[5] == a[4] == ("b.w", f"0 <SlotProbeOwner::{operation}(unsigned short)>")
+                and m[6] == a[5] and m[6][0] == "movs"
+                and m[7] == a[6] == ("bx", "lr")
+                and manual[-1] == actual[-1] == (".word", "0x00000000")
+                and re.findall(r"R_ARM_ABS32\s+(\w+)", function_body(disassembly, manual_name))
+                    == ["slotProbeOwner"]
+                and re.findall(r"R_ARM_ABS32\s+(\w+)", function_body(disassembly, actual_name))
+                    == ["slotProbeOwner"])
+
     def resolved(name, seen=()):
         if name in seen:
             raise RuntimeError("OwnerSlotCodegen: cyclic wrapper alias")
@@ -243,7 +273,9 @@ def check_owner_slots(disassembly):
         manual = resolved("slot_manual_" + operation)
         for route in ("local", "global"):
             name = "slot_" + route + "_" + operation
-            if resolved(name) != manual:
+            actual = resolved(name)
+            if actual != manual and not equivalent_register_allocation(
+                    manual, actual, operation, "slot_manual_" + operation, name):
                 raise RuntimeError(f"OwnerSlotCodegen: {name} differs from explicit pointer check")
             body = function_body(disassembly, name)
             if "Scalar" in body or re.search(r"\bblx\b", body):
@@ -507,7 +539,12 @@ def main():
                                 encoding="utf-8", errors="replace", timeout=180)
         (output / (label + ".log")).write_text(result.stdout, encoding="utf-8")
         if rejection is not None:
-            valid = result.returncode != 0 and re.search(rejection, result.stdout, re.IGNORECASE)
+            diagnostic = rejection
+            if rejection in ("deleted", "no matching|deleted", "deleted|no matching"):
+                diagnostic = r"error:[^\n]*(?:deleted|no matching)"
+            valid = result.returncode != 0 and re.search(diagnostic, result.stdout, re.IGNORECASE)
+            if "-fsyntax-only" in command:
+                valid = valid and re.search(r"\berror:", result.stdout, re.IGNORECASE)
         else:
             valid = result.returncode == 0
         if not valid:
@@ -669,6 +706,25 @@ def main():
     print("18 invalid positions rejected on ARM32 before index narrowing", flush=True)
     from regression.checks import check_contracts
     check_contracts([compiler, *FLAGS], run)
+    run([compiler, *FLAGS, "-Og", "-c", "tests/regression/DebugLevelCheck.cpp",
+         "-o", str(output / "DebugLevelCheck-Og.o")], "debug-level-Og-compile")
+    # A retained ARM ABI reference must also work in position-independent
+    # code. Its relative relocation must survive collection after the marker's
+    # function is discarded, and a mismatched layout must still fail linking.
+    pic = [compiler, *FLAGS, "-O2", "-fpie", "-ffunction-sections", "-fdata-sections"]
+    for cacheline in (32, 64):
+        marker = output / f"AbiRetention-pie-{cacheline}.o"
+        run(pic + [f"-DTELEMETRY_FORCE_CACHELINE={cacheline}",
+                   "-DABI_RETENTION_FORM=1", "-c", "tests/regression/AbiRetention.cpp",
+                   "-o", str(marker)], f"abi-pie-{cacheline}-compile")
+        relocations = run([objdump, "-r", str(marker)], f"abi-pie-{cacheline}-relocations")
+        if "R_ARM_REL32" not in relocations or ".rodata.telemetry.abi_reference" not in relocations:
+            raise RuntimeError("ARM PIC ABI marker lost its retained relative relocation")
+        run(pic + ["-pie", "-Wl,--gc-sections", str(marker), str(abi_object),
+                   "--specs=nano.specs", "--specs=nosys.specs",
+                   "-o", str(output / f"AbiRetention-pie-{cacheline}.elf")],
+            f"abi-pie-{cacheline}-link",
+            r"undefined reference" if cacheline == 64 else None)
     run([compiler, *FLAGS, "-fsyntax-only", "tests/regression/ReviewCheck.cpp"],
         "review-arm32-public-api")
     print("Review contracts and wide-ID API compile on ARM32", flush=True)

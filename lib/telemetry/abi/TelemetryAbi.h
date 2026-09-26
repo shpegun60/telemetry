@@ -130,8 +130,12 @@ inline void requireTelemetryAbi() noexcept
     // is no dynamic initialization and no field read/write path uses this.
 #if defined(__ELF__) && defined(__arm__) && (defined(__GNUC__) || defined(__clang__))
 #if defined(__PIC__) || defined(__PIE__)
-    static_assert(!std::is_same_v<Abi, Abi>,
-                  "Retained telemetry ABI checks on ARM require a non-PIC build");
+    // Relative relocation remains valid in a position-independent image.
+    // The section carries SHF_GNU_RETAIN even when its emitting function is
+    // removed by linker garbage collection.
+    __asm__(".pushsection .rodata.telemetry.abi_reference,\"aR\",%%progbits\n\t"
+            ".balign 4\n\t.word %c0 - .\n\t.popsection"
+            :: "X"(static_cast<void (*)(Abi) noexcept>(&detail::requireTelemetryAbi)));
 #else
     // arm-none-eabi GCC ignores the retain attribute, but GNU as/ld support
     // SHF_GNU_RETAIN. The ordinary .rodata* linker rule places this word.
@@ -142,8 +146,18 @@ inline void requireTelemetryAbi() noexcept
 #elif defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
     // The Abi template argument also distinguishes this local static's COMDAT
     // name, so a matching TU cannot coalesce away another TU's mismatched tag.
+#if defined(__has_attribute)
+#if __has_attribute(retain)
     __attribute__((used, retain)) static void (*const reference)(Abi) noexcept =
         &detail::requireTelemetryAbi;
+#else
+    __attribute__((used)) static void (*const reference)(Abi) noexcept =
+        &detail::requireTelemetryAbi;
+#endif
+#else
+    __attribute__((used)) static void (*const reference)(Abi) noexcept =
+        &detail::requireTelemetryAbi;
+#endif
 #endif
     // Keep the explicit call for PE/COFF and other targets. It also retains the
     // original module-boundary semantics when the caller is live.

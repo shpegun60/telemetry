@@ -10,6 +10,7 @@
 #include <functional>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 namespace telemetry::detail {
 template <class T, class = void> struct SlotConcreteCall { static constexpr bool valid = false; };
 template <class T> struct SlotConcreteCall<T, std::void_t<decltype(&T::operator())>> {
@@ -90,11 +91,29 @@ struct SlotCall<F, R(A...)> {
             return slotNonTemplateCall<Const, T> || slotNonTemplateCall<ConstRef, T>;
         else return false;
     }();
+    static decltype(auto) invoke(F& callable, A... args) noexcept
+    {
+        // Bind the exact specialization checked above. Ordinary overload
+        // resolution can instead select an int-by-value overload with a
+        // default argument, ellipsis, or volatile object qualifier.
+        if constexpr (rank == 2 && SlotHasCall<Mutable, T>::value)
+            return std::invoke(static_cast<Mutable>(&T::operator()), callable,
+                               std::forward<A>(args)...);
+        else if constexpr (rank == 2)
+            return std::invoke(static_cast<MutableRef>(&T::operator()), callable,
+                               std::forward<A>(args)...);
+        else if constexpr (SlotHasCall<Const, T>::value)
+            return std::invoke(static_cast<Const>(&T::operator()), callable,
+                               std::forward<A>(args)...);
+        else
+            return std::invoke(static_cast<ConstRef>(&T::operator()), callable,
+                               std::forward<A>(args)...);
+    }
 };
 
-// A by-value template can also match a reference function type by deducing
-// T=int&. Look for value forms before accepting it. Parameters can share a
-// template argument (T, T, int&), so check combinations as well as each input.
+// A by-value template can match a reference signature by instantiating its
+// parameter as T=int&. Check the same-type value forms before accepting it;
+// only a distinct reference specialization may be selected for invocation.
 template <class F, class R, class Selected, class Prefix, class Wanted,
           class Actual, bool Changed = false> struct SlotPreservesInputs;
 template <class F, class R, class Selected, class... B, bool Changed>
@@ -104,8 +123,10 @@ struct SlotPreservesInputs<F, R, Selected, std::tuple<B...>, std::tuple<>, std::
         else {
             using Copy = SlotCall<F, R(B...)>;
             if constexpr (Copy::rank == 0) return true;
-            else if constexpr (Copy::rank > Selected::rank || !Selected::nonTemplate) return false;
-            else return Copy::rank < Selected::rank || !Copy::nonTemplate;
+            else if constexpr (Copy::rank > Selected::rank) return false;
+            else if constexpr (Copy::rank < Selected::rank) return true;
+            else if constexpr (!Selected::nonTemplate) return false;
+            else return !Copy::nonTemplate;
         }
     }();
 };
@@ -134,6 +155,10 @@ struct SlotCandidate<F, R, std::tuple<A...>, std::tuple<B...>> {
         else return SlotPreservesInputs<F, R, Selected, std::tuple<>,
                                         std::tuple<A...>, std::tuple<B...>>::value;
     }();
+    static decltype(auto) invoke(F& callable, A... args) noexcept
+    {
+        return Selected::invoke(callable, std::forward<A>(args)...);
+    }
 };
 
 // Try only same-value-type parameter forms. Each failed function-type match
@@ -169,6 +194,11 @@ struct SlotParameters<F, R, Wanted, std::tuple<B...>, std::tuple<A, Rest...>> {
     using Choice = decltype(choose());
     static constexpr bool matched = Choice::matched;
     static constexpr bool value = Choice::value;
+    template <class... Values>
+    static decltype(auto) invoke(F& callable, Values&&... values) noexcept
+    {
+        return Choice::invoke(callable, std::forward<Values>(values)...);
+    }
 };
 
 template <class F, class R, class... A>
@@ -187,12 +217,21 @@ inline constexpr bool slotSignatureMatches = [] {
     } else return false;
 }();
 
-// Always use the same ordinary overload resolution that bind checks for
-// invocability, noexcept and result lifetime. Do not force a specialization.
+// For overloaded/generic classes, call the exact member specialization that
+// matched the slot signature. This preserves mutable references even when an
+// unrelated by-value overload would win an ordinary expression call.
 template <class R, class... A, class F>
 decltype(auto) invokeSlotCallable(F& callable, A&&... args) noexcept
 {
-    return std::invoke(callable, std::forward<A>(args)...);
+    using T = std::decay_t<F>;
+    if constexpr (std::is_class_v<T> && !SlotConcreteCall<T>::valid) {
+        using Result = std::invoke_result_t<F&, A...>;
+        using Parameters = SlotParameters<F, Result, std::tuple<A...>,
+                                          std::tuple<>, std::tuple<A...>>;
+        return Parameters::invoke(callable, std::forward<A>(args)...);
+    } else {
+        return std::invoke(callable, std::forward<A>(args)...);
+    }
 }
 } // namespace telemetry::detail
 #endif

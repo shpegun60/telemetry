@@ -100,8 +100,9 @@ constexpr PackedId makeId(GroupId group, EntryOffset index) noexcept
 
 // Use this form at transport boundaries. An invalid component cannot alias a
 // different entry; no conversion takes place until both bounds have passed.
-template <class Group, class Position,
-          std::enable_if_t<detail::isIdInput<Group> && detail::isIdInput<Position>, int> = 0>
+template <class... Explicit, class Group, class Position,
+          std::enable_if_t<sizeof...(Explicit) == 0
+              && detail::isIdInput<Group> && detail::isIdInput<Position>, int> = 0>
 constexpr std::optional<PackedId> tryMakeId(Group group, Position index) noexcept
 {
     if (!detail::indexFits<GroupId>(group) || !detail::indexFits<EntryOffset>(index))
@@ -128,8 +129,9 @@ constexpr PackedId makeId() noexcept
 // A literal in an ordinary call is not necessarily a constant expression; use
 // makeId<Group, Position>() for guaranteed diagnostics, or tryMakeId() for
 // fallible runtime input.
-template <class Group, class Position,
-          std::enable_if_t<detail::isIdInput<Group> && detail::isIdInput<Position>, int> = 0>
+template <class... Explicit, class Group, class Position,
+          std::enable_if_t<sizeof...(Explicit) == 0
+              && detail::isIdInput<Group> && detail::isIdInput<Position>, int> = 0>
 constexpr PackedId makeId(Group group, Position index) noexcept
 {
     const auto id = tryMakeId(group, index);
@@ -138,53 +140,44 @@ constexpr PackedId makeId(Group group, Position index) noexcept
 
 // Prevent floating or implicitly-convertible wrapper values from bypassing the
 // full-width check by selecting the uint16_t overload.
-template <class Group, class Position,
-          std::enable_if_t<!detail::isIdInput<Group> || !detail::isIdInput<Position>, int> = 0>
+template <class... Explicit, class Group, class Position,
+          std::enable_if_t<sizeof...(Explicit) == 0
+              && (!detail::isIdInput<Group> || !detail::isIdInput<Position>), int> = 0>
 PackedId makeId(Group, Position) = delete;
 
-constexpr GroupId groupOf(PackedId id) noexcept
-{
-    return static_cast<GroupId>(id >> 16);
-}
-
-constexpr EntryOffset indexOf(PackedId id) noexcept
-{
-    return static_cast<EntryOffset>(id & 0xffffu);
-}
-
-template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+template <class... Explicit, class Id,
+          std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
 constexpr std::optional<GroupId> tryGroupOf(Id id) noexcept
 {
     return detail::indexFits<PackedId>(id)
-        ? std::optional<GroupId>{groupOf(static_cast<PackedId>(id))} : std::nullopt;
+        ? std::optional<GroupId>{static_cast<GroupId>(static_cast<PackedId>(id) >> 16)}
+        : std::nullopt;
 }
 
-template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+template <class... Explicit, class Id,
+          std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
 constexpr std::optional<EntryOffset> tryIndexOf(Id id) noexcept
 {
     return detail::indexFits<PackedId>(id)
-        ? std::optional<EntryOffset>{indexOf(static_cast<PackedId>(id))} : std::nullopt;
+        ? std::optional<EntryOffset>{static_cast<EntryOffset>(static_cast<PackedId>(id) & 0xffffu)}
+        : std::nullopt;
 }
 
-template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+template <class... Explicit, class Id,
+          std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
 constexpr GroupId groupOf(Id id) noexcept
 {
-    return detail::indexFits<PackedId>(id) ? groupOf(static_cast<PackedId>(id))
+    return detail::indexFits<PackedId>(id) ? static_cast<GroupId>(static_cast<PackedId>(id) >> 16)
         : (detail::invalidIdComponent(), GroupId{});
 }
 
-template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>, int> = 0>
+template <class... Explicit, class Id,
+          std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>, int> = 0>
 constexpr EntryOffset indexOf(Id id) noexcept
 {
-    return detail::indexFits<PackedId>(id) ? indexOf(static_cast<PackedId>(id))
+    return detail::indexFits<PackedId>(id) ? static_cast<EntryOffset>(static_cast<PackedId>(id) & 0xffffu)
         : (detail::invalidIdComponent(), EntryOffset{});
 }
-
-// Block implicit class/floating/enum conversions into the narrow overloads.
-template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
-GroupId groupOf(const Id&) = delete;
-template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
-EntryOffset indexOf(const Id&) = delete;
 
 } // namespace telemetry
 

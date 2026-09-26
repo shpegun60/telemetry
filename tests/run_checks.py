@@ -100,7 +100,14 @@ def main():
                                 text=True, encoding="utf-8", errors="replace", timeout=180)
         (output / (label + ".log")).write_text(result.stdout, encoding="utf-8")
         if rejection is not None:
-            valid = result.returncode != 0 and re.search(rejection, result.stdout, re.IGNORECASE)
+            diagnostic = rejection
+            if rejection in ("deleted", "no matching|deleted", "deleted|no matching"):
+                # A deleted candidate mentioned in a note cannot justify an
+                # unrelated compilation failure. Match the actual error line.
+                diagnostic = r"error:[^\n]*(?:deleted|no matching)"
+            valid = result.returncode != 0 and re.search(diagnostic, result.stdout, re.IGNORECASE)
+            if "-fsyntax-only" in command:
+                valid = valid and re.search(r"\berror:", result.stdout, re.IGNORECASE)
         else:
             valid = result.returncode == 0
         if not valid:
@@ -155,7 +162,9 @@ def main():
         result = subprocess.run([str(executable), mode], cwd=output, env=environment,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         (output / ("invalid-policy-" + mode + ".log")).write_bytes(result.stdout)
-        aborted = result.returncode in ((3, -1073740791) if os.name == "nt" else (-6,))
+        # Windows subprocesses may report the same 0xC0000409 status signed
+        # or unsigned, depending on Python/toolchain runtime.
+        aborted = result.returncode in ((3, -1073740791, 3221226505) if os.name == "nt" else (-6,))
         if not aborted:
             raise RuntimeError(f"Invalid {mode} persistent policy did not abort (exit {result.returncode})")
     print(f"{len(persistent_modes)} runtime persistent-policy construction failures verified", flush=True)

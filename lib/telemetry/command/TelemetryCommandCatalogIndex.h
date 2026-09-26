@@ -45,14 +45,15 @@ public:
         return index < catalog.count ? catalog.commands + index : nullptr;
     }
 
-    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>
-        && !std::is_same_v<Id, CommandId>, int> = 0>
+    template <class... Explicit, class Id, std::enable_if_t<sizeof...(Explicit) == 0
+        && detail::isPackedIdInput<Id> && !std::is_same_v<Id, CommandId>, int> = 0>
     TELEMETRY_FORCE_INLINE constexpr const Command* find(Id id) const noexcept
     {
         return detail::indexFits<CommandId>(id)
             ? find(static_cast<CommandId>(id)) : nullptr;
     }
-    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
     const Command* find(const Id&) const = delete;
 
     constexpr const CommandCatalog* catalog(GroupId group) const noexcept
@@ -60,14 +61,15 @@ public:
         return group < count_ ? catalogs_ + group : nullptr;
     }
 
-    template <class Group, std::enable_if_t<detail::isIdInput<Group>
-        && !std::is_same_v<Group, GroupId>, int> = 0>
+    template <class... Explicit, class Group, std::enable_if_t<sizeof...(Explicit) == 0
+        && detail::isIdInput<Group> && !std::is_same_v<Group, GroupId>, int> = 0>
     constexpr const CommandCatalog* catalog(Group group) const noexcept
     {
         return detail::indexFits<GroupId>(group)
             ? catalog(static_cast<GroupId>(group)) : nullptr;
     }
-    template <class Group, std::enable_if_t<!detail::isIdInput<Group>, int> = 0>
+    template <class... Explicit, class Group,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isIdInput<Group>, int> = 0>
     const CommandCatalog* catalog(const Group&) const = delete;
 
     [[nodiscard]] TELEMETRY_FORCE_INLINE
@@ -77,18 +79,20 @@ public:
         return command != nullptr ? command->execute(values, count) : CommandResult::NotFound;
     }
 
-    template <class Id, std::enable_if_t<detail::isPackedIdInput<Id>
-        && !std::is_same_v<Id, CommandId>, int> = 0>
+    template <class... Explicit, class Id, std::enable_if_t<sizeof...(Explicit) == 0
+        && detail::isPackedIdInput<Id> && !std::is_same_v<Id, CommandId>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult execute(Id id, const Scalar* values, std::size_t count) const noexcept
     {
         const Command* command = find(id);
         return command != nullptr ? command->execute(values, count) : CommandResult::NotFound;
     }
-    template <class Id, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
     CommandResult execute(const Id&, const Scalar*, std::size_t) const = delete;
 
-    template <class... A>
+    template <class... Explicit, class... A,
+              std::enable_if_t<sizeof...(Explicit) == 0, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(CommandId id, A... values) const noexcept
         -> decltype(std::declval<const Command&>().call(values...))
     {
@@ -98,15 +102,17 @@ public:
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }
 
-    template <class Id, class... A, std::enable_if_t<detail::isPackedIdInput<Id>
-        && !std::is_same_v<Id, CommandId>, int> = 0>
+    template <class... Explicit, class Id, class... A,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isPackedIdInput<Id>
+                  && !std::is_same_v<Id, CommandId>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE auto call(Id id, A... values) const noexcept
         -> decltype(std::declval<const Command&>().call(values...))
     {
         const Command* command = find(id);
         return command != nullptr ? command->call(values...) : CommandResult::NotFound;
     }
-    template <class Id, class... A, std::enable_if_t<!detail::isPackedIdInput<Id>, int> = 0>
+    template <class... Explicit, class Id, class... A,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isPackedIdInput<Id>, int> = 0>
     CommandResult call(const Id&, A...) const = delete;
 
     constexpr const CommandCatalog* data() const noexcept { return catalogs_; }

@@ -181,11 +181,12 @@ public:
 
     // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
     // and reject braced conversion proxies without rejecting {stableObject}.
+    // A named initializer_list lvalue may be borrowed if kept alive by caller.
     template <auto Method, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static Setter bind(std::remove_reference_t<T>&&) = delete;
     template <auto Method, class T, class Argument,
               std::enable_if_t<!detail::isBorrowedObjectArgument<T, Argument&>, int> = 0>
-    static Setter bind(std::initializer_list<Argument>) = delete;
+    static Setter bind(std::initializer_list<Argument>&&) = delete;
 
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static constexpr Setter bindContext(T& object) noexcept
@@ -206,11 +207,12 @@ public:
 
     // Braces cannot deduce Argument. Keep an explicitly typed rvalue guard,
     // and reject braced conversion proxies without rejecting {stableObject}.
+    // A named initializer_list lvalue may be borrowed if kept alive by caller.
     template <auto Adapter, class T, std::enable_if_t<!std::is_reference_v<T>, int> = 0>
     static Setter bindContext(std::remove_reference_t<T>&&) = delete;
     template <auto Adapter, class T, class Argument,
               std::enable_if_t<!detail::isBorrowedContextListElement<T, Argument>, int> = 0>
-    static Setter bindContext(std::initializer_list<Argument>) = delete;
+    static Setter bindContext(std::initializer_list<Argument>&&) = delete;
 
 private:
     constexpr Setter(Payload payload, Invoke invoke) noexcept
@@ -227,13 +229,13 @@ private:
         return Setter(Payload(eraseObject_(std::addressof(object))), &invokeContext_<Adapter, T>);
     }
 
-    static TELEMETRY_FORCE_INLINE WriteResult invokeScalar_(Payload payload,
+    static inline WriteResult invokeScalar_(Payload payload,
                                                              const Scalar& value) noexcept
     {
         return payload.scalar(value);
     }
 
-    static TELEMETRY_FORCE_INLINE WriteResult invokeScalarChecked_(Payload payload,
+    static inline WriteResult invokeScalarChecked_(Payload payload,
                                                                     const Scalar& value) noexcept
     {
         const auto function = payload.scalar;
@@ -251,7 +253,7 @@ private:
 #endif
 
     template <class T>
-    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeNative_(Payload payload,
+    static TELEMETRY_OPTIMIZE_SPEED inline WriteResult invokeNative_(Payload payload,
                                                              const Scalar& value) noexcept
     {
         constexpr auto type = Scalar::from(T{}).type();
@@ -266,7 +268,7 @@ private:
     }
 
     template <class T>
-    static TELEMETRY_FORCE_INLINE WriteResult invokeNativeChecked_(Payload payload,
+    static inline WriteResult invokeNativeChecked_(Payload payload,
                                                                     const Scalar& value) noexcept
     {
         return native_(payload, NativeTag<T>{}) != nullptr
@@ -290,7 +292,7 @@ private:
     // Optimize their emitted thunks like invokeNative_: on ARM GCC 14 this
     // keeps the matching-tag path stackless even in a size-optimized build.
     template <auto FunctionPointer>
-    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeStatic_(Payload,
+    static TELEMETRY_OPTIMIZE_SPEED inline WriteResult invokeStatic_(Payload,
                                                              const Scalar& value) noexcept
     {
         if (!detail::targetAvailable<FunctionPointer>()) return WriteResult::Unavailable;
@@ -311,7 +313,7 @@ private:
     }
 
     template <auto Method, class T>
-    static TELEMETRY_FORCE_INLINE WriteResult invokeMethod_(Payload payload,
+    static inline WriteResult invokeMethod_(Payload payload,
                                                             const Scalar& value) noexcept
     {
         if (!detail::targetAvailable<Method>()) return WriteResult::Unavailable;
@@ -319,7 +321,7 @@ private:
     }
 
     template <auto Adapter, class T>
-    static TELEMETRY_OPTIMIZE_SPEED TELEMETRY_FORCE_INLINE WriteResult invokeContext_(Payload payload,
+    static TELEMETRY_OPTIMIZE_SPEED inline WriteResult invokeContext_(Payload payload,
                                                              const Scalar& value) noexcept
     {
         if (!detail::targetAvailable<Adapter>()) return WriteResult::Unavailable;

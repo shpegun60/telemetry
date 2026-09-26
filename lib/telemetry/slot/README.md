@@ -2,14 +2,16 @@
 
 Generic delegate callbacks must preserve mutable reference parameters. A slot such as
 `DelegateSlot<void(int&) noexcept>` accepts `[](auto& x) noexcept { ... }` or
-`[](auto&& x) noexcept { ... }`, but rejects `[](auto x) noexcept { ... }`.
+`[](auto&& x) noexcept { ... }`, but rejects an unconstrained
+`[](auto x) noexcept { ... }` that could copy the value.
 Same-type read-only references are supported: `[](const auto& x)` observes a
 const reference even when the slot accepts `int&`, and a `const int&` slot may
-bind a by-value callback. The adapter invokes the callable once with ordinary
-C++ deduction and overload resolution. An exact non-template reference overload
-therefore takes precedence over a by-value template; a concrete by-value overload
-that takes precedence over a reference template is rejected for a mutable-reference
-slot. Borrowed `DelegateRefSlot` callbacks and direct method owners must
+bind a by-value callback. For an overloaded or generic class, binding resolves
+the slot's exact signature and invocation calls that same member specialization.
+This prevents another overload with default arguments, an ellipsis or a
+volatile qualifier from silently copying a mutable-reference argument. A
+by-value template without a distinct reference specialization remains rejected.
+Borrowed `DelegateRefSlot` callbacks and direct method owners must
 remain alive until the last invocation; pass actual objects, not pointer or
 smart-pointer variables. `OwnerSlot` is the explicit rebindable-object API.
 

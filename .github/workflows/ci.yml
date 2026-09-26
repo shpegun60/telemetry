@@ -70,6 +70,7 @@ jobs:
           python3 tests/resources/h7s/verify.py --self-test
           python3 tests/regression/h7s/verify.py --self-test
           python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/followup-receipt.json --self-test
+          python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/current-receipt.json --self-test --current-code
 
   arm:
     name: Cortex-M7 compile and link

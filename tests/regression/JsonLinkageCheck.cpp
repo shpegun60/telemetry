@@ -8,6 +8,7 @@ struct JsonHelperAddresses {
     decltype(&telemetry::detail::appendScalar) scalar;
     decltype(&telemetry::detail::appendBound) bound;
     decltype(&telemetry::detail::appendEnumEntry) enumeration;
+    decltype(&telemetry::detail::appendMetadata) metadata;
 };
 
 #ifndef TELEMETRY_JSON_LINKAGE_PART
@@ -22,7 +23,8 @@ JsonHelperAddresses jsonHelpersFromSecondModule() noexcept
 #if TELEMETRY_JSON_LINKAGE_PART != 0
 {
     return {&telemetry::detail::scalarTypeName, &telemetry::detail::appendScalar,
-            &telemetry::detail::appendBound, &telemetry::detail::appendEnumEntry};
+            &telemetry::detail::appendBound, &telemetry::detail::appendEnumEntry,
+            &telemetry::detail::appendMetadata};
 }
 #else
 JsonHelperAddresses jsonHelpersFromFirstModule() noexcept;
@@ -33,7 +35,8 @@ int main()
     const auto first = jsonHelpersFromFirstModule();
     const auto second = jsonHelpersFromSecondModule();
     const bool same = first.type == second.type && first.scalar == second.scalar
-        && first.bound == second.bound && first.enumeration == second.enumeration;
+        && first.bound == second.bound && first.enumeration == second.enumeration
+        && first.metadata == second.metadata;
     std::printf("JSON helper linkage: %s\n", same ? "passed" : "different module identities");
     return same ? 0 : 1;
 }

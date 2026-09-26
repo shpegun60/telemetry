@@ -757,10 +757,14 @@ at runtime. Host and Cortex-M7 negative link checks compile opposite cache-line
 settings and require the final link to fail. They also reject frozen ABI 6/7
 callers against each ABI 8 core/field-JSON/command-JSON archive. Separate executables still use
 their own signatures normally.
-ARM retention uses one read-only address word at each emitted marker and
-requires non-PIC code plus GNU assembler/linker support for SHF_GNU_RETAIN.
-Unsupported ARM PIC/PIE anchor use is diagnosed. Linux PIE, linker GC and LTO
-are checked independently; the in-memory ABI revision remains 8.
+ARM retention uses one read-only word at each emitted marker and GNU
+assembler/linker support for SHF_GNU_RETAIN. A PIC/PIE marker uses a relative
+relocation; a non-PIC marker uses an absolute relocation. Both matching and
+mismatched ARM PIC/PIE links are checked with section collection. Older ELF
+compilers without the `retain` attribute still compile without a warning, but
+cannot promise retention of an unreferenced marker through linker collection;
+live `requireTelemetryAbi()` calls continue to enforce the ABI. Linux PIE,
+linker GC and LTO are checked independently; the in-memory ABI revision remains 8.
 
 On Cortex-M7 the current Field remains 96 bytes/aligned to 32. Setter stays at
 offset 32 and declaredType at 40; Getter shrinks to 8 bytes and readType moves

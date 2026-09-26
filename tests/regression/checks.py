@@ -79,7 +79,10 @@ def check_contracts(flags, run):
     # braced calls reject during overload resolution; they must not pass merely
     # because the compiler listed an unrelated deleted overload afterwards.
     brace_cases = {case: r"error:[^\n]*deleted" for case in range(1, 73)}
-    brace_cases.update({case: r"error:[^\n]*ambiguous" for case in (22, 23, 24, 57)})
+    brace_cases.update({case: r"error:[^\n]*ambiguous" for case in (22, 23, 24)})
+    # GCC reports the pair of deleted initializer_list/rvalue candidates as
+    # deleted, while Clang calls the same rejected braced call ambiguous.
+    brace_cases[57] = r"error:[^\n]*(?:ambiguous|deleted)"
     brace_cases.update({case: r"error:[^\n]*no matching" for case in range(58, 65)})
     for case in (0, *brace_cases):
         run(flags + [f"-DTELEMETRY_BORROWED_BRACE_FAIL_CASE={case}", "-fsyntax-only",
@@ -103,7 +106,8 @@ def check_contracts(flags, run):
             f"review-weak-target-{case}")
     id_cases = {case: r"error:[^\n]*deleted" for case in range(1, 105)}
     id_cases.update({case: r"error:[^\n]*no matching" for case in
-                     (3, 4, 7, 8, 11, 12, 25, 26, 30, 31, 34, 35, 53, 54, 76, 78, 79, 82, 83)})
+                     (3, 4, 7, 8, 11, 12, 19, 20, 25, 26, 30, 31, 34, 35,
+                      48, 49, 53, 54, 60, 61, 76, 78, 79, 82, 83)})
     id_cases.update({case: "invalidIdComponent" for case in (65, 66, 67, 68, 73, 74)})
     id_cases.update({case: "16-bit ID range" for case in (69, 70, 71, 72)})
     id_cases.update({case: "Packed ID must be an integer" for case in range(85, 99)})
@@ -112,8 +116,21 @@ def check_contracts(flags, run):
         run(flags + [f"-DTELEMETRY_ID_BOUNDARY_FAIL_CASE={case}", "-fsyntax-only",
                      "tests/regression/IdBoundaryCompileFail.cpp"],
             f"review-id-boundary-{case}", id_cases.get(case))
+    # Explicit template arguments must not narrow a runtime ID before the
+    # normal full-width checks see its original type and value.
+    for case in range(1, 10):
+        packing = ["-DPACKING"] if case >= 7 else []
+        run(flags + packing + [f"-DCASE={case}", "-fsyntax-only",
+                             "tests/regression/ExplicitIdTemplateArgCompileFail.cpp"],
+            f"review-explicit-id-{case}", r"error:[^\n]*(?:no matching|deleted)")
+    # These unrelated user helpers must remain callable through both a using
+    # directive and argument-dependent lookup on telemetry table types.
+    for case in range(1, 5):
+        run(flags + [f"-DCASE={case}", "-fsyntax-only",
+                     "tests/regression/IdNameCollisionCheck.cpp"],
+            f"review-id-name-collision-{case}")
     return (rejection_count + len(brace_cases) + len(name_cases) + len(slot_cases)
-            + 7 + len(id_cases))
+            + 7 + len(id_cases) + 9)
 
 
 def check(args, flags, build_flags, run, output, library_sources, environment):
@@ -135,12 +152,25 @@ def check(args, flags, build_flags, run, output, library_sources, environment):
               "JsonBoundaryCheck", "SlotEdgesCheck", "HonorFlagsCheck",
               "BorrowedBraceCompileFail", "SetterConversionCheck", "SlotCallableCheck", "NullChecksFlag",
               "WeakTargetCheck",
-              "IdBoundaryCheck")
+              "IdBoundaryCheck", "SlotOverloadCheck", "NamedListBindingCheck")
     for name in suites:
         executable = output / (name + (".exe" if os.name == "nt" else ""))
         run(flags + build_flags + [f"tests/regression/{name}.cpp", *library_sources,
                                   "-o", str(executable)], f"review-{name}-build")
         run([str(executable)], f"review-{name}-run")
+
+    for case in range(1, 5):
+        executable = output / (f"IdNameCollisionCheck-{case}" + (".exe" if os.name == "nt" else ""))
+        run(flags + build_flags + [f"-DCASE={case}", "tests/regression/IdNameCollisionCheck.cpp",
+                                   "-o", str(executable)], f"review-id-name-collision-{case}-build")
+        run([str(executable)], f"review-id-name-collision-{case}-run")
+
+    # -Og is the usual firmware Debug level. It must compile even when GCC
+    # declines to honor a forced-inline hint on a particular callback thunk.
+    debug_executable = output / ("DebugLevelCheck.exe" if os.name == "nt" else "DebugLevelCheck")
+    run(flags + ["-Og", "tests/regression/DebugLevelCheck.cpp", *library_sources,
+                 "-o", str(debug_executable)], "review-debug-level-build")
+    run([str(debug_executable)], "review-debug-level-run")
 
     if os.name != "nt":
         source = "tests/regression/WeakOverrideCheck.cpp"
@@ -181,7 +211,7 @@ def check(args, flags, build_flags, run, output, library_sources, environment):
                                     env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                     timeout=30)
             (output / f"review-{name}-{mode}.log").write_bytes(result.stdout)
-            if result.returncode not in ((3, -1073740791) if os.name == "nt" else (-6,)):
+            if result.returncode not in ((3, -1073740791, 3221226505) if os.name == "nt" else (-6,)):
                 raise RuntimeError(f"{name}({mode}) did not abort intentionally: {result.returncode}")
 
     # Compile each violation independently, including initialization before
@@ -195,7 +225,7 @@ def check(args, flags, build_flags, run, output, library_sources, environment):
         result = subprocess.run([str(executable)], cwd=output, env=environment,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
         (output / f"review-{name}-run.log").write_bytes(result.stdout)
-        if result.returncode not in ((3, -1073740791) if os.name == "nt" else (-6,)):
+        if result.returncode not in ((3, -1073740791, 3221226505) if os.name == "nt" else (-6,)):
             raise RuntimeError(f"{name} did not abort intentionally: {result.returncode}")
 
     # Clang has no option macros for individual no-honor flags. Check the

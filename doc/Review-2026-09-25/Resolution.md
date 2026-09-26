@@ -3,6 +3,11 @@
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 Початковий checkpoint: `23aca57147d893559c4212ad6311490cbb54d46e`.
 
+Пізніші виправлення для overloaded слотів, явних шаблонних ID, `-Og` і ARM PIC
+описані в [поточних regression checks](../../tests/regression/README.md). Таблиця
+нижче зберігає рішення й виміри свого checkpoint; для поточного контракту
+слотів див. [slot/README.md](../../lib/telemetry/slot/README.md).
+
 Уточнення після `b19f1e9`: нові репро виявили регресію braced-owner binding
 та додаткові lifetime випадки. Початкова оцінка нижче не означає, що захист
 покрив усі форми виклику. Виправлення й докази — у

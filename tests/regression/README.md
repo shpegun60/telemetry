@@ -10,7 +10,7 @@ The critic's architecture/product proposals are outside this change.
 
 Run `python tests/run_checks.py --build-dir build/checks` for C++17, or add
 `--std c++20`; Clang supports `--sanitize`. This runs the 15 existing core
-suites plus twelve additional single-source suites, a separately compiled
+suites plus fourteen additional single-source suites, a separately compiled
 JSON linkage check, and 18 single-type builds of FieldParityCheck.
 Each type runs **4320** comparisons, preserving all **77760** comparisons while
 bounding compiler time and memory. Three types per build exceeded the 180-second
@@ -26,21 +26,26 @@ timeout, every binding form, every limit case and the same optimization flags.
 | CommandArityCheck | commands ArityMatrix; 46 order/side-effect checks |
 | JsonBoundaryCheck | catalog-json JsonBoundaryProbe; every buffer size, both integer modes |
 | SlotEdgesCheck, NullChecksFlag, NullChecksMatrix | slot presence/lifetime edges; full-table GCC no-delete-null-pointer mode and explicit typed-null rejections |
-| SlotCallableCheck, SlotCallableCompileFail | ordinary overload resolution, forwarding and cv preservation; 25/26 runtime checks and 15 rejections |
+| SlotCallableCheck, SlotOverloadCheck, SlotCallableCompileFail | exact signature-specialization invocation, forwarding and cv preservation; 25/26 original runtime checks, four overload probes on both owned/borrowed slots, and 15 rejections |
+| NamedListBindingCheck, BorrowedBraceCompileFail | a named stable initializer-list context is borrowable; temporary braces remain rejected |
 | SetterConversionCheck, NativeSetterCodegen, BoundSetterCodegen | 138 checks across nine native binding forms, including every slot kind; inspect the actual erased setter thunks as well as typed wrappers |
 | WeakTargetInstantiation, WeakTargetCheck, WeakOverrideCheck | 11 accepted weak NTTP forms, ELF runtime absence checks for fields, commands and slots, and a strong definition overriding a weak default across translation units |
-| IdBoundaryCheck, IdBoundaryCompileFail, IdBoundaryCodegen | 122 runtime checks, 104 rejections, six abort cases, ARM32 high-word branch and a mutated-register control |
+| IdBoundaryCheck, IdBoundaryCompileFail, IdBoundaryCodegen, ExplicitIdTemplateArgCompileFail, IdNameCollisionCheck | 122 runtime checks, 113 rejections, four name-collision controls, six abort cases, ARM32 high-word branch and a mutated-register control |
 | DefinitionNamesCompileFail | eight missing required field/unit/group label rejections |
-| JsonLinkageCheck | four shared JSON helper addresses agree across separate translation units; catches TU-local linkage even when output bytes agree |
+| JsonLinkageCheck | five shared JSON helper addresses agree across separate translation units, including appendMetadata; catches TU-local linkage even when output bytes agree |
 | ReviewCheck | widened runtime IDs, checked manual setters, genuine zero fingerprint, empty metadata, reference slots |
 | ReviewCompileFail | 25 exact-diagnostic contract failures plus a valid control |
 | RuntimeLimitsAbort, RuntimeMetadataAbort | 13 intentional abort cases, including missing field/group/command labels and wide makeId input |
 | AbiGcSections, AbiRetention | matching/mismatching emitted and namespace anchors survive section GC/LTO; compiler-omitted code remains an explicit control |
+| DebugLevelCheck | constexpr read/write compiles at GCC `-Og`, including the CubeIDE ARM compiler |
 
 The core runner verifies the diagnostic rejections, eleven weak-target
 instantiation controls and the full `-fno-delete-null-pointer-checks` matrix.
 The ARM runner executes the same
 compile-contract matrix, so host width cannot conceal 32-bit narrowing.
+The ARM runner also checks relative ABI relocations and matching/mismatching
+PIC/PIE links under section collection. Host and ARM compile a field-table
+read/write probe at `-Og`; the normal O2/Os generated-code gates remain active.
 Clang independently tests `-fno-honor-nans` and `-fno-honor-infinities` at O1/O2,
 even with that particular warning disabled on the command line. Global `-w`
 and system-header suppression can hide the diagnostic; those compiler modes
@@ -48,6 +53,11 @@ remain unsupported, as do per-function fast-math assumptions. Full sanitizer
 runs use Clang. GCC builds also exercise the complete C++17/C++20 host suites
 with `-fno-delete-null-pointer-checks`, including constexpr field and command
 tables, Persistent metadata and the ordinary function-pointer forms.
+
+The 113 ID rejections and the four overload probes detect reported follow-up
+defects. NumericEdges, SlotEdgesCheck and similar broader suites also serve as
+regression guards; passing on an older checkpoint does not make them evidence
+that those defects were present there.
 
 `NativeSetterCodegen` checks four emitted native-pointer invokers, and
 `BoundSetterCodegen` checks nine method/free/callable/slot adapters. CubeIDE GCC
@@ -57,6 +67,16 @@ the same at O2. GCC 13 Os still outlines `std::get_if` in seven adapters, with
 runner pins this measured compiler-specific cost, instruction ceilings and tail
 conversion branches; a same-size instruction mutation must fail the frame gate.
 This is generated-code evidence, not a cycle measurement.
+
+GCC `-Og` cannot honor `always_inline` on an erased Getter/Setter thunk whose
+address comes from a constant descriptor. Those private thunks now use ordinary
+`inline`; the native-position FieldTable/CommandTable paths and runtime index probes
+remain instruction-identical at CubeIDE GCC 14.3.1 O2/Os. The linked ARM
+consumer is unchanged at O2 and gains 16 bytes of `.text` at Os. Some Os probes
+that read a known field through the low-level erased `Field::read()` expand
+instead of folding to the native getter; use `FieldTable::read<Position>()`
+when the position is known at compilation. This is a code-generation trade-off,
+not a measured H7S cycle result.
 
 `tests/resources/run.py` adds MetadataContractCheck, CursorCheck and
 EmbeddedReviewCheck to its ordinary host/sanitizer jobs. Resource definitions
@@ -83,11 +103,17 @@ to that bank, and restores and reads back the backup in `finally`. It never
 changes option bytes, external memory or the original COBS scaffold. The
 fixture includes the established H7RS GFXMMU speculative-access workaround.
 
-The [original receipt](h7s/receipt.json) and
-[follow-up receipt](h7s/followup-receipt.json) pin compiler, ELF/binary/object hashes,
+The [original receipt](h7s/receipt.json),
+[first follow-up receipt](h7s/followup-receipt.json), and
+[current follow-up receipt](h7s/current-receipt.json) pin compiler, ELF/binary/object hashes,
 library and fixture inputs, both O2/Os reports, and identical backup/readback
 hashes. CI checks its shape and 11 deliberately invalid mutations. This is
 archived measurement evidence, not a claim that CI has a connected board.
+For the current receipt, CI also compares all 77 library C++ and qmake input
+hashes with the checkout after normalizing line endings. The raw hashes remain
+in the board receipt; the normalized hashes let a Linux checkout verify the
+same code tested from Windows. Code changes require a new board run before
+this evidence can describe the updated library.
 
 ## Contract boundaries
 
@@ -103,7 +129,8 @@ internal function; it is an explicit per-TU opt-in. Header-only inclusion or an
 unextracted archive member still makes no such promise. Matching/mismatching
 links run with section GC and LTO on host and ARM, without field hot-path work.
 All modules still need consistent layout settings and a clean rebuild after an
-ABI change. ARM retained anchors currently require non-PIC builds.
+ABI change. ARM retained anchors also support PIC/PIE with a relative retained
+relocation on the tested CubeIDE and GNU ARM toolchains.
 
 For guaranteed static component diagnostics use `makeId<Group, Entry>()`.
 An invalid ordinary `makeId(0, 65537)` call may compile and then abort, including

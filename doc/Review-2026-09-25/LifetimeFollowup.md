@@ -3,6 +3,14 @@
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 База порівняння: `b19f1e938efac85f0614b465307468a3c03e6fe2`.
 
+Пізніша поправка до рядка SL-F2 нижче: виклик overloaded/generic slot тепер
+використовує саме спеціалізацію `operator()`, сигнатуру якої перевірено при
+прив'язці. Звичайне overload resolution могло вибрати by-value overload із
+default-аргументом, `...` або `volatile` і втратити mutable reference. Чотири
+такі форми перевіряє `tests/regression/SlotOverloadCheck.cpp`; 15 старих
+заборонених форм залишаються забороненими. Стара таблиця нижче описує стан
+попереднього checkpoint, а не цю поправку.
+
 Цей документ уточнює [перший звіт](Resolution.md). Три незалежні review
 перевіряли архів `981e6be`; це не був знімок тодішнього робочого дерева.
 Їхні репро перечитано й повторено на виправлених джерелах. Оригінальні файли
@@ -77,7 +85,7 @@ native function pointers перевіряються окремо. Для GCC 13 
 | Commands 2.7 | groupOf/indexOf перевіряють початкову ширину перед extraction. tryGroupOf/tryIndexOf повертають optional. Звичайні u32 extraction лишилися двома ARM-інструкціями. |
 | CJ-F1 | Emitted ABI references утримуються при linker GC. Namespace `TELEMETRY_RETAIN_ABI()` забезпечує compiler emission незалежно від викликів функцій. Перевіряються matching/mismatching links, LTO і compiler-omission controls. |
 | CJ-F3 | До maintained ReviewCheck додано успішні нульові local/grouped command fingerprints. Нуль не означає помилку; optional відрізняє відмову. |
-| CJ-F4 | Окремо скомпільовані TU перевіряють однакові адреси чотирьох inline JSON helpers. Контроль зі штучно поверненим TU-local helper завершується відмовою. |
+| CJ-F4 | Окремо скомпільовані TU перевіряють однакові адреси п'яти inline JSON helpers, включно з `appendMetadata`. Контроль зі штучно поверненим TU-local helper завершується відмовою. |
 
 IdBoundaryCheck має 122 runtime перевірки, 104 compile-fail cases і шість
 abort-контролів, включно з ініціалізацією до main. ARM gate перевіряє старше
@@ -87,8 +95,9 @@ abort-контролів, включно з ініціалізацією до ma
 ABI лишається **8**; розміри й розміщення descriptor не змінювалися.
 Header-only include сам по собі не створює ABI dependency. Compiler-omitted
 код без namespace opt-in та невитягнуті archive members не перевіряються.
-ARM retention зараз призначено для non-PIC збірок. Читання/запис Field не
-викликає цей механізм і не отримує перевірки ABI під час виконання.
+Пізніша правка додала ARM PIC/PIE через retained relative relocation; її
+перевіряє поточний ARM runner. Читання/запис Field не викликає цей механізм і
+не отримує перевірки ABI під час виконання.
 
 ## Межі, які не можна називати повністю виправленими
 

@@ -145,7 +145,8 @@ public:
         return CommandResult::ArgumentCountMismatch;
     }
 
-    template <class... Input>
+    template <class... Explicit, class... Input,
+              std::enable_if_t<sizeof...(Explicit) == 0, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult call(std::size_t runtimeIndex, Input... values) const noexcept
     {
@@ -160,8 +161,8 @@ public:
 
     // Preserve a wide transport index until it has been checked. In particular,
     // uint64_t must not wrap to a valid row on targets with 32-bit size_t.
-    template <class Index, class... Input,
-              std::enable_if_t<detail::isIdInput<Index>
+    template <class... Explicit, class Index, class... Input,
+              std::enable_if_t<sizeof...(Explicit) == 0 && detail::isIdInput<Index>
                   && !std::is_same_v<Index, std::size_t>, int> = 0>
     [[nodiscard]] TELEMETRY_FORCE_INLINE
     CommandResult call(Index runtimeIndex, Input... values) const noexcept
@@ -169,7 +170,8 @@ public:
         if (!detail::indexFits<std::size_t>(runtimeIndex)) return CommandResult::NotFound;
         return call(static_cast<std::size_t>(runtimeIndex), values...);
     }
-    template <class Index, class... Input, std::enable_if_t<!detail::isIdInput<Index>, int> = 0>
+    template <class... Explicit, class Index, class... Input,
+              std::enable_if_t<sizeof...(Explicit) == 0 && !detail::isIdInput<Index>, int> = 0>
     CommandResult call(const Index&, Input...) const = delete;
 };
 
