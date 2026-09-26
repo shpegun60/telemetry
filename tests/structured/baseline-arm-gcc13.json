@@ -1,0 +1,919 @@
+{
+  "source_sha": "5a289a8f12a85f68219275abcde7b58d925076ac",
+  "ci_run": "https://github.com/shpegun60/telemetry/actions/runs/36253273669",
+  "arm_compiler": "arm-none-eabi-g++ (15:13.2.rel1-2) 13.2.1 20231009",
+  "optimizations": {
+    "O2": {
+      "IndexCodegen": {
+        "telemetry_probe_field_read_native": [
+          [
+            "b.n",
+            "0 <(anonymous namespace)::read_voltage()>"
+          ],
+          [
+            "nop",
+            ""
+          ]
+        ],
+        "telemetry_probe_static_read_native": [
+          [
+            "ldr",
+            "r3, [pc, #4]"
+          ],
+          [
+            "vldr",
+            "s0, [r3]"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "telemetry_probe_field_write_float": [
+          [
+            "vldr",
+            "s15, [pc, #40]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x26>"
+          ],
+          [
+            "vldr",
+            "s15, [pc, #32]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x26>"
+          ],
+          [
+            "ldr",
+            "r3, [pc, #20]"
+          ],
+          [
+            "movs",
+            "r0, #0"
+          ],
+          [
+            "vstr",
+            "s0, [r3]"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "movs",
+            "r0, #3"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0xff7fffff"
+          ],
+          [
+            ".word",
+            "0x7f7fffff"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "telemetry_probe_static_write_float": [
+          [
+            "vldr",
+            "s15, [pc, #40]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x26>"
+          ],
+          [
+            "vldr",
+            "s15, [pc, #32]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x26>"
+          ],
+          [
+            "ldr",
+            "r3, [pc, #20]"
+          ],
+          [
+            "movs",
+            "r0, #0"
+          ],
+          [
+            "vstr",
+            "s0, [r3]"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "movs",
+            "r0, #3"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0xff7fffff"
+          ],
+          [
+            ".word",
+            "0x7f7fffff"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ]
+      },
+      "FieldTableCodegen": {
+        "table_direct_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "table_local_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "table_global_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ]
+      },
+      "CommandTableCodegen": {
+        "command_table_call_known": [
+          [
+            "vcmpe.f32",
+            "s0, #0.0"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x1c>"
+          ],
+          [
+            "vldr",
+            "s14, [pc, #28]"
+          ],
+          [
+            "vcmp.f32",
+            "s0, s14"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x1c>"
+          ],
+          [
+            "cmp",
+            "r0, #2"
+          ],
+          [
+            "bls.n",
+            "<self+0x20>"
+          ],
+          [
+            "movs",
+            "r0, #5"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "mov",
+            "r1, r0"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #8]"
+          ],
+          [
+            "b.w",
+            "0 <CommandProbeDevice::configure(float, CommandProbeMode)>"
+          ],
+          [
+            ".word",
+            "0x43fa0000"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "command_table_call_global": [
+          [
+            "vcmpe.f32",
+            "s0, #0.0"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x1c>"
+          ],
+          [
+            "vldr",
+            "s14, [pc, #28]"
+          ],
+          [
+            "vcmp.f32",
+            "s0, s14"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x1c>"
+          ],
+          [
+            "cmp",
+            "r0, #2"
+          ],
+          [
+            "bls.n",
+            "<self+0x20>"
+          ],
+          [
+            "movs",
+            "r0, #5"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "mov",
+            "r1, r0"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #8]"
+          ],
+          [
+            "b.w",
+            "0 <CommandProbeDevice::configure(float, CommandProbeMode)>"
+          ],
+          [
+            ".word",
+            "0x43fa0000"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "command_table_call_runtime": [
+          [
+            "cmp",
+            "r0, #1"
+          ],
+          [
+            "bhi.n",
+            "<self+0xa>"
+          ],
+          [
+            "beq.n",
+            "<self+0xe>"
+          ],
+          [
+            "movs",
+            "r0, #4"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "movs",
+            "r0, #2"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, #0.0"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x30>"
+          ],
+          [
+            "vldr",
+            "s14, [pc, #24]"
+          ],
+          [
+            "vcmp.f32",
+            "s0, s14"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x30>"
+          ],
+          [
+            "cmp",
+            "r1, #2"
+          ],
+          [
+            "bhi.n",
+            "<self+0x30>"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #12]"
+          ],
+          [
+            "b.w",
+            "0 <CommandProbeDevice::configure(float, CommandProbeMode)>"
+          ],
+          [
+            "movs",
+            "r0, #5"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            ".word",
+            "0x43fa0000"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ]
+      },
+      "linked_resource_sections": {
+        "text": 29372,
+        "rodata": 2336,
+        "data": 116,
+        "bss": 600
+      },
+      "resource_maximum_frame_bytes": {
+        "SchemaFile": 176,
+        "CommandsFile": 176,
+        "ValuesFile": 112,
+        "Protocol": 104
+      }
+    },
+    "Os": {
+      "IndexCodegen": {
+        "telemetry_probe_field_read_native": [
+          [
+            "b.n",
+            "0 <(anonymous namespace)::read_voltage()>"
+          ]
+        ],
+        "telemetry_probe_static_read_native": [
+          [
+            "ldr",
+            "r3, [pc, #4]"
+          ],
+          [
+            "vldr",
+            "s0, [r3]"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "telemetry_probe_field_write_float": [
+          [
+            "vldr",
+            "s15, [pc, #56]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "push",
+            "{r0, r1, r2, r3, r4, lr}"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "mov.w",
+            "r3, #1"
+          ],
+          [
+            "vstr",
+            "s0, [sp]"
+          ],
+          [
+            "strb.w",
+            "r3, [sp, #8]"
+          ],
+          [
+            "blt.n",
+            "<self+0x38>"
+          ],
+          [
+            "vldr",
+            "s15, [pc, #32]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x38>"
+          ],
+          [
+            "mov",
+            "r1, sp"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #20]"
+          ],
+          [
+            "bl",
+            "0 <(anonymous namespace)::read_voltage()>"
+          ],
+          [
+            "add",
+            "sp, #20"
+          ],
+          [
+            "ldr.w",
+            "pc, [sp], #4"
+          ],
+          [
+            "movs",
+            "r0, #3"
+          ],
+          [
+            "b.n",
+            "<self+0x32>"
+          ],
+          [
+            ".word",
+            "0xff7fffff"
+          ],
+          [
+            ".word",
+            "0x7f7fffff"
+          ],
+          [
+            ".word",
+            "0x00000100"
+          ]
+        ],
+        "telemetry_probe_static_write_float": [
+          [
+            "vldr",
+            "s15, [pc, #56]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "push",
+            "{r0, r1, r2, r3, r4, lr}"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "mov.w",
+            "r3, #1"
+          ],
+          [
+            "vstr",
+            "s0, [sp]"
+          ],
+          [
+            "strb.w",
+            "r3, [sp, #8]"
+          ],
+          [
+            "blt.n",
+            "<self+0x38>"
+          ],
+          [
+            "vldr",
+            "s15, [pc, #32]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s15"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x38>"
+          ],
+          [
+            "mov",
+            "r1, sp"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #20]"
+          ],
+          [
+            "bl",
+            "0 <(anonymous namespace)::read_voltage()>"
+          ],
+          [
+            "add",
+            "sp, #20"
+          ],
+          [
+            "ldr.w",
+            "pc, [sp], #4"
+          ],
+          [
+            "movs",
+            "r0, #3"
+          ],
+          [
+            "b.n",
+            "<self+0x32>"
+          ],
+          [
+            ".word",
+            "0xff7fffff"
+          ],
+          [
+            ".word",
+            "0x7f7fffff"
+          ],
+          [
+            ".word",
+            "0x00000100"
+          ]
+        ]
+      },
+      "FieldTableCodegen": {
+        "table_direct_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "table_local_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "table_global_read": [
+          [
+            "ldr",
+            "r0, [pc, #4]"
+          ],
+          [
+            "b.w",
+            "0 <TableOwner::read() const>"
+          ],
+          [
+            "nop",
+            ""
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ]
+      },
+      "CommandTableCodegen": {
+        "command_table_call_known": [
+          [
+            "vcmpe.f32",
+            "s0, #0.0"
+          ],
+          [
+            "mov",
+            "r1, r0"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x24>"
+          ],
+          [
+            "vldr",
+            "s14, [pc, #24]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s14"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x24>"
+          ],
+          [
+            "cmp",
+            "r0, #2"
+          ],
+          [
+            "bhi.n",
+            "<self+0x24>"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #12]"
+          ],
+          [
+            "b.w",
+            "0 <CommandProbeDevice::configure(float, CommandProbeMode)>"
+          ],
+          [
+            "movs",
+            "r0, #5"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            ".word",
+            "0x43fa0000"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ],
+        "command_table_call_global": [
+          [
+            "b.w",
+            "0 <command_table_call_known>"
+          ]
+        ],
+        "command_table_call_runtime": [
+          [
+            "cmp",
+            "r0, #1"
+          ],
+          [
+            "bhi.n",
+            "<self+0x28>"
+          ],
+          [
+            "bne.n",
+            "<self+0x2c>"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, #0.0"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "blt.n",
+            "<self+0x30>"
+          ],
+          [
+            "vldr",
+            "s14, [pc, #32]"
+          ],
+          [
+            "vcmpe.f32",
+            "s0, s14"
+          ],
+          [
+            "vmrs",
+            "APSR_nzcv, fpscr"
+          ],
+          [
+            "bhi.n",
+            "<self+0x30>"
+          ],
+          [
+            "cmp",
+            "r1, #2"
+          ],
+          [
+            "bhi.n",
+            "<self+0x30>"
+          ],
+          [
+            "ldr",
+            "r0, [pc, #20]"
+          ],
+          [
+            "b.w",
+            "0 <CommandProbeDevice::configure(float, CommandProbeMode)>"
+          ],
+          [
+            "movs",
+            "r0, #2"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "movs",
+            "r0, #4"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            "movs",
+            "r0, #5"
+          ],
+          [
+            "bx",
+            "lr"
+          ],
+          [
+            ".word",
+            "0x43fa0000"
+          ],
+          [
+            ".word",
+            "0x00000000"
+          ]
+        ]
+      },
+      "linked_resource_sections": {
+        "text": 20156,
+        "rodata": 2272,
+        "data": 116,
+        "bss": 600
+      },
+      "resource_maximum_frame_bytes": {
+        "SchemaFile": 160,
+        "CommandsFile": 160,
+        "ValuesFile": 128,
+        "Protocol": 104
+      }
+    }
+  }
+}
