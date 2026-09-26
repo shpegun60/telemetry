@@ -8,6 +8,8 @@
 #include "../reflection/ProbeTypes.hpp"
 
 #include <telemetry_structured/reflection/Reflection.hpp>
+#include <telemetry/command/TelemetryCommand.h>
+#include <telemetry/field/TelemetrySetter.h>
 
 #include <cstdint>
 #include <functional>
@@ -143,6 +145,15 @@ using ByValue = refl::EndpointTraits<refl::EndpointKind::Service,
 static_assert(std::is_void_v<Empty::Request> && std::is_void_v<Empty::Response>);
 static_assert(WrappedEmpty::wrapsServiceResult && std::is_void_v<WrappedEmpty::Response>);
 static_assert(std::is_same_v<ByValue::Request, facade_probe::Request>);
+
+using CommandStatus = refl::EndpointTraits<refl::EndpointKind::Command,
+    telemetry::CommandResult(const facade_probe::Request&) noexcept>;
+using FieldStatus = refl::EndpointTraits<refl::EndpointKind::Field,
+    telemetry::WriteResult(const facade_probe::Request&) noexcept>;
+static_assert(std::is_same_v<CommandStatus::Result, telemetry::CommandResult>
+              && std::is_void_v<CommandStatus::Response>);
+static_assert(std::is_same_v<FieldStatus::Result, telemetry::WriteResult>
+              && std::is_void_v<FieldStatus::Response>);
 
 extern "C" int structured_facade_other() noexcept;
 

@@ -4,7 +4,6 @@
 import argparse
 import os
 from pathlib import Path
-import re
 import subprocess
 import time
 
@@ -25,6 +24,7 @@ DIAGNOSTICS = {
     11: "Callable requires an unambiguous function signature",
     12: "Automatic reflected member names must be ASCII identifiers",
     13: "reflection::get requires an lvalue aggregate",
+    14: "Request must be by value or const lvalue reference, never volatile or a pointer",
 }
 
 
@@ -94,7 +94,7 @@ def main() -> None:
     for case, message in DIAGNOSTICS.items():
         run(flags + ["-O2", f"-DCASE={case}", "-fsyntax-only", str(SOURCES / "FacadeNegative.cpp")],
             f"negative-{case}", expected_failure=message)
-    print("Reflection boundary and 13 negative diagnostics passed", flush=True)
+    print("Reflection boundary and 14 negative diagnostics passed", flush=True)
 
 
 if __name__ == "__main__":

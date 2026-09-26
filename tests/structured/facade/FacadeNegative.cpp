@@ -53,6 +53,8 @@ int readTemporary()
 {
     return static_cast<int>(refl::get<0>(Request{1}));
 }
+#elif CASE == 14
+using Invalid = refl::EndpointTraits<Kind::Service, int(const volatile Request&) noexcept>;
 #else
 #error "CASE must select a deliberate rejection"
 #endif

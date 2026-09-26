@@ -70,7 +70,7 @@ record the compiler and flags they actually use.
 The unmodified Boost.PFR 1.92.0 header tree and its Boost Software License
 are in [`lib/boost_pfr`](../../lib/boost_pfr/VERSION.md). It is pinned to
 upstream commit `401385c240027423acbb1eb6dea2abe0043db5aa`. Only PFR was
-copied: 44 headers (1,242,624 source bytes) and the license. Existing
+copied: 44 headers and the license. Existing
 `magic_enum` remains pinned at v0.9.8. The PFR source bytes are not a
 measurement of linked firmware size.
 
@@ -128,13 +128,15 @@ function pointers, member functions with all cv/ref/noexcept combinations,
 unique callable objects and the four existing slot families. Its
 `EndpointTraits` validates the common shape before normalizing one request
 and unwrapping a `ServiceResult<Response>` return. It preserves the original
-Result and Arguments for factory-specific checks. `ServiceResult` storage is
-deferred to Stage 06; these traits need only its declared type. `Enum.hpp`
+Result and Arguments for factory-specific checks. Only Service has a
+`Response` payload; CommandResult and WriteResult remain operation statuses.
+`ServiceResult` storage is deferred to Stage 06; these traits need only its
+declared type. `Enum.hpp`
 defines the explicit specialization point and planned normalized interface;
 the actual dictionary is the next stage.
 
 [`facade/run.py`](facade/run.py) checks a host executable and a second
-translation unit, 13 distinct compile-time rejection reasons, and the
+translation unit, 14 distinct compile-time rejection reasons, and the
 source-level vendor boundary. ARM runs compile at `-O2`, `-Os` and `-Og`.
 It passed locally on Qt MinGW GCC 13.1, Ubuntu Clang 18.1, ARM GCC 13.2 and
 CubeIDE ARM GCC 14.3. The CubeIDE O2/Os test objects have 20/18 total bytes

@@ -601,12 +601,15 @@ mutable request або reference response.
 
 ```text
 Request = Void або remove_cvref_t<Argument0>
-Response = unwrap ServiceResult<T> до T, або оголошений Result
+Response = лише для Service: unwrap ServiceResult<T> до T або оголошений Result
 Kind = Field / Command / Service
 ```
 
 `ServiceResult<T>` не стає wire-структурою з reflected `optional`.
 Його status обробляє envelope, payload описується як `T`.
+Для Field і Command `Response` є `void`: їхній сирий `Result` трактує
+відповідна фабрика як значення getter або статус операції. `WriteResult` і
+`CommandResult` не реєструються як структурні response types.
 
 `Function<Signature>` описує **тип**, не оголошення конкретної функції.
 Із `void(int)` неможливо відновити ім'я параметра `speed` з

@@ -59,6 +59,7 @@ struct RequestShape<std::tuple<Arg>> {
         !std::is_rvalue_reference_v<Arg>
         && (!std::is_lvalue_reference_v<Arg>
             || std::is_const_v<std::remove_reference_t<Arg>>)
+        && !std::is_volatile_v<std::remove_reference_t<Arg>>
         && !std::is_pointer_v<type>;
 };
 
@@ -74,11 +75,14 @@ struct EndpointTraits {
     using Arguments = typename Callable::Arguments;
     using RequestShape = detail::RequestShape<Arguments>;
     using Request = typename RequestShape::type;
-    using Response = typename detail::ServicePayload<std::remove_cvref_t<Result>>::type;
+    // Only a Service has a response payload. For Field/Command the Result is
+    // a getter value or operation status, interpreted by its own factory.
+    using Response = std::conditional_t<Kind == EndpointKind::Service,
+        typename detail::ServicePayload<std::remove_cvref_t<Result>>::type, void>;
 
     static constexpr EndpointKind kind = Kind;
-    static constexpr bool wrapsServiceResult =
-        detail::ServicePayload<std::remove_cvref_t<Result>>::wrapped;
+    static constexpr bool wrapsServiceResult = Kind == EndpointKind::Service
+        && detail::ServicePayload<std::remove_cvref_t<Result>>::wrapped;
 
     static_assert(Callable::isNoexcept, "Structured endpoints must be noexcept");
     static_assert(!Callable::isVariadic, "Structured endpoints cannot be variadic");
@@ -88,7 +92,7 @@ struct EndpointTraits {
     static_assert(Callable::arity <= 1,
                   "Use one request structure instead of multiple parameters");
     static_assert(Callable::arity > 1 || RequestShape::supported,
-                  "Request must be by value or const lvalue reference, never a pointer");
+                  "Request must be by value or const lvalue reference, never volatile or a pointer");
     static_assert(!std::is_reference_v<Result> && !std::is_pointer_v<Result>
                   && !std::is_pointer_v<Response> && !std::is_reference_v<Response>,
                   "Response must be a value or void, never a pointer/reference");
