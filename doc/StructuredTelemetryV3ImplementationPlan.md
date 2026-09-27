@@ -2,7 +2,10 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **узгоджена специфікація для поетапної реалізації; наведений новий API ще не реалізований**.
+Статус: **специфікація поетапної реалізації**. Етапи 00–04 частково або
+повністю реалізовані; Field/Command/Service, Model і wire v3 у прикладах нижче
+ще є цільовим API, а не описом готової бібліотеки.
+
 Перша версія structured-модуля позначається далі як **structured v1**, а її
 мережевий формат — **v3.0**. Це різні номери: версія нового модуля і версія
 формату обміну.
@@ -27,12 +30,28 @@ Descriptor використовують власний facade. C++20 backend н�
 compile-time. Точні enum names можна задати разом із кодами, незалежно
 від automatic reflection. Контракт описаний у §4.4 і §5.3.
 
-Після завершення **всіх етапів 00–15 і перевірок цього плану** можливий
-окремий [рефактор зберігання scalar metadata](ScalarMetadataStorageRefactorPlan.md):
-обов'язкові name/unit, sparse optional limits/defaults і винесення
-холодних даних без сповільнення read/write/command. Він не входить у
-поточний implementation scope; під час structured v3 scalar baseline
-залишається незмінним. Limits до Service цим майбутнім етапом не додаються.
+### Кінцева архітектура
+
+`telemetry_structured` — **тимчасове місце розробки** нового type-driven core,
+а не друга постійна бібліотека. Упродовж етапів 00–15 старий C++17 core і
+wire v2.1 залишаються незмінним regression baseline. Після freeze typed core
+та wire v3 окремі етапи 16–20 переносять новий core у `lib/telemetry`,
+переводять усіх споживачів і **видаляють** старий Scalar-based core, binary
+v2.1 та старий JSON adapter. У фіналі існує один публічний `telemetry`/`ts`,
+одна система Field/Command/Service/Model і один wire v3. Compatibility adapter
+v2 у фінальному стані **не лишається**.
+
+Старий `telemetry::Scalar` поєднував контейнер значення та ознаку типу. У
+новій системі значенням є точний native `T`, а `Type<T>` і `TypeRegistry`
+описують його тип. `TypeKind::Scalar` — leaf-категорія нарівні з Enum, Array
+і Struct, не окрема object model. Це **type-driven, reflection-backed**
+архітектура: scalar не потребує PFR; facade потрібен там, де треба отримати
+члени aggregate, enum names/codes або властивості callable.
+
+[Попередній план рефактору scalar metadata](ScalarMetadataStorageRefactorPlan.md)
+скасовано: він оптимізував би реалізацію, яку етап 19 видаляє. Корисні ідеї
+про компактне зберігання можна окремо застосувати до нового Registry або
+descriptor після вимірів, без додавання limits/defaults до Service.
 
 ## Навігація
 
@@ -54,6 +73,7 @@ compile-time. Точні enum names можна задати разом із ко
 - [14. Клієнт JavaScript/Qt](#clients)
 - [15. Вимоги до ефективності](#performance)
 - [16. Етапи реалізації](#stages)
+- [Етапи 16–20: об'єднання після freeze v3](#unification-stages)
 - [17. Матриця перевірок](#verification)
 - [18. Умови завершення та межі першої версії](#completion)
 - [19. Джерела й уточнення до вихідних пропозицій](#sources)
@@ -98,6 +118,9 @@ Command не змінює значення свого результату. `Acc
 
 ### 1.3. Межа з поточною бібліотекою
 
+Наведені правила стосуються **лише етапів 00–15**. Вони ізолюють розробку
+нової системи від чинного baseline, а не вимагають двох довічних API.
+
 - Поточний scalar core залишається C++17, з чинним ABI та поведінкою.
 - Базова in-memory ABI revision — 8; це не номер wire v2.1/v3.0.
 - Новий модуль потребує C++20 і підключається явно.
@@ -107,6 +130,11 @@ Command не змінює значення свого результату. `Acc
 - Нові файли отримують окремі шляхи `/telemetry3/...`.
 - Структури не додаються альтернативами в поточний `Scalar`.
 - Реалізація нового модуля не є приводом ще раз рефакторити перевірений scalar core.
+
+Після freeze v3 етапи 16–20 переводять споживачів на єдиний C++20 core.
+Лише після останнього consumer видаляються старі C++17 descriptors,
+`Scalar` і v2.1 adapters; фінальна бібліотека більше не підтримує старий
+source/ABI/wire контракт.
 
 ### 1.4. Принципи виконання
 
@@ -127,7 +155,7 @@ Command не змінює значення свого результату. `Acc
 <a id="architecture"></a>
 ### 1.5. Архітектурні діаграми
 
-#### 1.5.1. Загальна схема після review
+#### 1.5.1. Схема розробки до Stage 15
 
 ```text
                          C++ types
@@ -166,6 +194,11 @@ Command не змінює значення свого результату. `Acc
                no hash             no hash
 ```
 
+Паралельно з цією схемою існує заморожений старий scalar core. Він не є
+частиною нового `TypeRegistry` і не стане другою постійною гілкою системи.
+Стрілка `C++ types → Reflection facade` тут означає нормалізацію потрібних
+властивостей, а не виклик PFR для кожного числа.
+
 Це схема зв'язків, **не послідовність runtime-викликів і не порядок
 ініціалізації об'єктів**. Її точне значення для реалізації:
 
@@ -190,7 +223,51 @@ Command не змінює значення свого результату. `Acc
 - Для offline читання зберігають пару `descriptor.bin + values.bin`.
   Сам `values.bin` не дозволяє відновити назви, типи чи прив'язану модель.
 
-#### 1.5.2. Прямий C++ виклик і закодований запит
+#### 1.5.2. Кінцева схема після об'єднання
+
+```text
+                    telemetry / ts
+                         │
+                   exact native T
+                         │
+                         ▼
+                      Type<T>
+                         │
+          ┌──────────────┼──────────────┬──────────────┐
+          ▼              ▼              ▼              ▼
+     Scalar leaf       Enum          Array          Struct
+   Bool/U8/…/F64   underlying T    Type<Element>   aggregate members
+   simple traits   enum facade     recursively     aggregate facade
+          │              │              │              │
+          └──────────────┴──────────────┴──────────────┘
+                         │
+                         ▼
+                   TypeRegistry ─────► runtime TypeDescriptor
+                         │
+          ┌──────────────┼──────────────┐
+          ▼              ▼              ▼
+      FieldTable     CommandTable    ServiceTable
+          └──────────────┼──────────────┘
+                         ▼
+                       Model
+                         │
+                         ▼
+                      wire v3
+
+   C++ callable ──► callable facade ──► table factories
+```
+
+Кожна гілка доходить до **одного** `TypeRegistry`, але reflection facade
+викликається лише там, де він потрібен: enum names/codes, aggregate members
+та сигнатура callable. `Type<std::uint32_t>` визначає scalar/U32 і 4 байти
+без PFR; `std::array<T, N>` рекурсивно застосовує `Type<T>`. Runtime
+`TypeDescriptor` — вид нормалізованого типу з Registry, а не контейнер
+поточного значення. Табличні фабрики споживають і type facts, і callable
+facts. У фінальній схемі немає legacy `Scalar` як контейнера значення,
+другого `FieldTable` або адаптера v2.1. `ts` — лише короткий alias
+`namespace ts = telemetry;`.
+
+#### 1.5.3. Прямий C++ виклик і закодований запит
 
 ```mermaid
 flowchart TB
@@ -223,7 +300,7 @@ late-bound target зберігаються там, де вони потрібн�
 пам'ять надає викликач. Reflection не створює прихованого heap або
 спільного scratch для одночасних викликів.
 
-#### 1.5.3. Що залишається користувачеві
+#### 1.5.4. Що залишається користувачеві
 
 ```cpp
 ts::service<&Device::readCalibration>("ReadCalibration", device);
@@ -434,6 +511,41 @@ inline constexpr ts::CommandTable motorCommands{
 };
 ```
 
+Канонічний **цільовий** приклад після Stage 16 — одна змішана таблиця.
+Це контракт майбутнього Field API, не твердження, що Stage 04 вже надає
+`FieldTable`:
+
+```cpp
+enum class Mode : std::uint8_t { Off, Run, Fault };
+
+struct Spectrum {
+    std::array<float, 64> bins;
+};
+
+// Device::temperature() -> float; Device::rpm() -> std::uint16_t;
+// Device::mode() -> Mode; Device::samples() -> std::array<float, 64>;
+// Device::state() -> MotorState; Device::spectrum() -> Spectrum;
+// Device::config() -> MotorConfig;
+// Device::setConfig(const MotorConfig&) -> telemetry::WriteResult.
+inline constexpr ts::FieldTable mixedFields{
+    ts::field<&Device::temperature>("Temperature", "C", device),
+    ts::field<&Device::rpm>("RPM", "rpm", device),
+    ts::field<&Device::mode>("Mode", "", device),
+    ts::field<&Device::samples>("Samples", "", device),
+    ts::field<&Device::state>("State", "", device),
+    ts::field<&Device::spectrum>("Spectrum", "", device),
+    ts::field<&Device::config, &Device::setConfig>("Config", "", device)
+};
+```
+
+Тут `float` і `std::uint16_t` — scalar leaves, `Mode` — enum,
+`samples()` — array, `Spectrum` — struct із вкладеним array,
+`MotorState` і `MotorConfig` — struct.
+Усі вони живуть в одному `FieldTable`; немає окремих scalar/structured
+таблиць. Для typed-виклику значення залишається native `T`; runtime encoded
+шлях використовує `Codec<T>` і caller-owned `Workspace`, без обгортки у
+старий `telemetry::Scalar`.
+
 Для Field зберігається один порядок аргументів: `name, unit, binding`.
 Відсутня одиниця — `""`; не додаємо паралельний набір `makeField`.
 Для Command і Service: `name, binding`, без `unit`.
@@ -443,7 +555,10 @@ Getter повертає `T` за значенням. Setter приймає то�
 Для struct setter рекомендована форма — `const T&`; by-value лишається
 явним вибором користувача з тією самою вимогою перевіряти вартість копії.
 Structured v1 не вводить структурних перетворень між різними C++ типами.
-Перетворення довільних чисел scalar core залишаються його власним API.
+Під час етапів 00–15 перетворення довільних чисел старого scalar core
+залишаються його власним API. Етап 16 визначає контракт native scalar
+аргументів єдиної нової таблиці; не переносимо старий runtime `Scalar`
+як прихований шар.
 
 ### 3.6. Одна форма декларації каталогів, три рівні виклику
 
@@ -721,6 +836,14 @@ Host prototype і його parity job необов'язкові для випу�
 Типи класифікуються в порядку scalar → enum → `std::array` → aggregate.
 `std::array` не можна випадково розкласти через внутрішні члени реалізації STL.
 
+`TypeKind::Scalar` означає лише leaf у спільній type system. Значення поля,
+аргументу або відповіді має точний C++ тип `T`; `Type<T>` дає kind, code та
+wire size, але **не є контейнером значення**. Старий `telemetry::Scalar`
+не використовується на typed або encoded шляхах нового core. Скалярні
+типи класифікуються напряму; reflection потрібен для aggregate shape,
+enum dictionary і callable signature, де ці дані справді відсутні в
+простих type traits.
+
 У wire-facing DTO варто прямо записувати ширину в C++ source:
 `std::uint32_t id`, `std::int16_t value`,
 `enum class Mode : std::uint8_t { Off, On };`. `int`, `long` і enum без
@@ -923,6 +1046,12 @@ Registry отримує members, enum entries та signature facts тільки 
 `reflection::…`. PFR/`magic_enum`/`std::meta` не впливають на алгоритм
 реєстрації поза нормалізованим результатом facade; ідентифікатор backend
 не стає TypeId або wire record.
+
+`Type<T>` описує compile-time тип; `TypeRegistry` збирає спільний граф
+нормалізованих типів; `TypeDescriptor` дає runtime-опис за TypeId.
+Жоден із них не зберігає поточне значення `T` і не замінює його runtime
+variant-ом. Одна registry обслуговує scalar, enum, array і struct Field,
+Command та Service.
 
 ### 6.2. Детермінований порядок
 
@@ -1920,8 +2049,9 @@ Encoded API приймає повний packet. Транспорт або над
 
 ### 13.1. Структура директорій
 
-Наведені нові шляхи — план. Файл створюється тоді, коли з'являється його
-відповідальність, а не як порожня заготовка наперед.
+Наведене дерево — **стан розробки для етапів 00–15**, не фінальна структура.
+Файл створюється тоді, коли з'являється його відповідальність, а не як
+порожня заготовка наперед. Частина файлів уже реалізована, решта є планом.
 
 ```text
 lib/
@@ -1947,11 +2077,11 @@ lib/
       Descriptor.hpp                 immutable type records/views
       Registry.hpp                   deduplication, deterministic TypeId
     codec/
-      Scalar.hpp                     canonical leaf encoding
-      Codec.hpp                      recursive aggregate/array codec
+      Codec.hpp                      canonical leaf + recursive aggregate/array codec
       Workspace.hpp                  alignment and object lifetime
+    result/
+      ServiceResult.hpp              реалізований Stage 04 return wrapper
     model/
-      ServiceResult.hpp
       Field.hpp
       Command.hpp
       Service.hpp
@@ -1997,6 +2127,55 @@ compatibility aliases. Не дублюємо LICENSE чи `.pri` всереди�
 Не потрібно створювати окремий class/header для кожного допоміжного
 виразу; відповідальність і читабельність важливіші за кількість шарів.
 
+**Цільове дерево після Stage 20** (точні імена приватних файлів можуть
+уточнитися, але лишається одна public бібліотека та один wire v3):
+
+```text
+lib/
+  telemetry/
+    Telemetry.hpp
+    telemetry.pri
+    reflection/
+      Aggregate.hpp
+      Callable.hpp
+      Enum.hpp
+      detail/                       обраний backend; vendor API не виходить назовні
+    type/
+      Traits.hpp
+      Registry.hpp
+      Descriptor.hpp
+    codec/
+      Primitive.hpp                scalar leaf codec, не старий Scalar class
+      Codec.hpp
+      Workspace.hpp
+    field/
+      Field.hpp
+      FieldTable.hpp
+    command/
+      Command.hpp
+      CommandTable.hpp
+    service/
+      Service.hpp
+      ServiceResult.hpp
+      ServiceTable.hpp
+    model/
+      Catalogs.hpp
+      Model.hpp
+    slot/
+    abi/
+  resource/
+    telemetry/
+      v3/                         descriptor, values, Bind, Exchange
+```
+
+У фінальному tracked source немає окремої папки `telemetry_structured`,
+старого binary v2.1/JSON adapter чи compatibility `v2/`. `resource` core
+і generic protocol залишаються transport-neutral. Під час міграції
+тимчасово можуть існувати обидва дерева, але Stage 20 не проходить,
+доки старе дерево не видалене. `Primitive.hpp` є лише запропонованою
+назвою leaf codec; цей план не вимагає зайвого файлу, якщо `Codec.hpp`
+достатньо читабельний.
+
 ### 13.2. Напрям залежностей
 
 ```text
@@ -2023,7 +2202,7 @@ old telemetry core
     -> no telemetry_structured or PFR dependency
 ```
 
-Це напрям compile-time залежностей. Гілки backend альтернативні;
+Це напрям compile-time залежностей **до Stage 15**. Гілки backend альтернативні;
 споживачі facade не обходять його прямими vendor calls. Explicit enum
 specializations обробляються facade за §5.3. Scalar core зберігає свої
 наявні залежності; правило нового facade не запускає його рефактор.
@@ -2040,7 +2219,7 @@ specializations обробляються facade за §5.3. Scalar core збер
 
 ### 13.3. Підключення `.pri`
 
-Проєкт явно підключає залежності в одному місці:
+Під час етапів 00–15 проєкт явно підключає залежності в одному місці:
 
 ```qmake
 CONFIG += telemetry_no_json
@@ -2058,6 +2237,9 @@ include($$PWD/lib/resource/resource.pri)
 C++20 збірка не включає `<meta>` і не розбирає C++26 syntax; prototype
 не змінює production `.pri` або вимоги до CubeIDE toolchain.
 `resource.pri` умовно додає `resource/structured` при `resource_structured`.
+Після Stage 19 consumer підключає лише єдиний `lib/telemetry/telemetry.pri`
+і потрібний `resource.pri`; `structured.pri` та опція старого v2 adapter
+видаляються разом з останніми споживачами.
 Не підключає telemetry/structured `.pri` назад і не створює цикл.
 
 `resource_telemetry` лишається окремою незалежною опцією для v2.1.
@@ -2252,6 +2434,11 @@ experimental; поточна scalar-бібліотека придатна для
   -> 13 complete CI/codegen/stack
   -> 14 H7S
   -> 15 freeze
+  -> 16 unified API gate
+  -> 17 filesystem/namespace migration
+  -> 18 consumer migration
+  -> 19 legacy removal
+  -> 20 unified freeze
 ```
 
 Тести додаються на кожному кроці. Етап 13 збирає повну матрицю й
@@ -2729,9 +2916,119 @@ host або objdump не перейменовуються на «перевір�
 5. Перевірити exact-SHA remote CI після публікації implementation-коміту.
 6. Окремо назвати залишкові user lifetime/concurrency передумови.
 
-Завершено, коли виконано checklist розділу 18. Freeze означає
+Завершено, коли виконано checklist **18.1**. Це freeze нового typed core
+і wire v3, **не** закінчення об'єднання бібліотек. Freeze означає
 підтверджений контракт і тести, а не обіцянку відсутності будь-яких
 можливих дефектів у довільному зовнішньому застосуванні.
+
+<a id="unification-stages"></a>
+### Етапи 16–20. Об'єднання після freeze v3
+
+Ці етапи починаються **тільки після Stage 15**. До того старі файли,
+namespace і v2.1 adapter лишаються regression baseline; Stage 04–15 не
+ускладнюються одночасним перенесенням дерев, qmake та споживачів. Мета
+етапів 16–20 — одна кінцева бібліотека, а не довічний compatibility layer.
+
+#### Етап 16. Зафіксувати єдиний public API
+
+1. В одному тестовому consumer оголосити `FieldTable`, який одночасно
+   містить `bool`, integer, `float`/`double`, enum, `std::array` і struct,
+   включно зі struct R/W field. Перевірити виведення точних `T` і
+   `TypeKind` без legacy `Scalar`.
+2. На тих самих типах перевірити read-only/write Field, нульовий і
+   структурний Command, Service з Request/Response, late-bound slots,
+   локальний typed, глобальний typed і runtime encoded dispatch.
+3. Визначити публічні `field`, `command`, `service`, `FieldTable`,
+   `CommandTable`, `ServiceTable`, каталоги, `Model`, `Type<T>` і
+   `TypeRegistry` як один набір. Якщо бракує scalar поведінки для
+   переходу реальних споживачів, додати її до **нового typed core**
+   і протестувати до перейменування; не вставляти legacy `Scalar`
+   як прихований fallback.
+4. Зафіксувати source migration guide: old getter/setter, conversions,
+   limits/defaults, enum metadata, IDs/slots і віддалені операції
+   порівняти з новим контрактом. Service лишається тільки name+binding.
+
+Gate: mixed-table fixture, негативні перевірки типів і host/ARM codegen
+проходять; жоден новий table не залежить від старого Scalar/FieldType.
+Старі файли та consumers ще не переміщаються.
+
+#### Етап 17. Перенести новий core в `lib/telemetry`
+
+1. Зафіксувати baseline exact descriptor/wire bytes, розміри секцій,
+   stack і normalized instruction streams на підтримуваних ARM
+   конфігураціях. Тести Stage 16 лишаються незмінними по змісту.
+2. Перенести **нові** reflection/type/codec/field/command/service/model/slot/abi
+   файли з `telemetry_structured` у кінцеву структуру §13.1; змінити
+   includes, namespace `telemetry::structured` → `telemetry`, umbrella
+   header та `.pri`. `namespace ts = telemetry;` — користувацький
+   псевдонім, а не друга public library.
+3. Поки старі споживачі ще існують, ізолювати їх у **окремих binaries**
+   від нового core. Старий і новий `telemetry::FieldTable` не можуть
+   співіснувати в одному translation unit **або linked executable**:
+   це різні definitions одного імені й порушення ODR. Для міграції
+   застосовувати окремі build targets або короткий координований
+   перехід, а не спільне лінкування старих і нових object files.
+   Такий target не є кінцевим compatibility API і видаляється в Stage 19.
+4. Порівняти semantic tests, descriptor/wire goldens і ARM codegen з
+   baseline кроку 1. Зміна місця/імені файлу не повинна змінити wire,
+   приховано додати dispatch або збільшити stack.
+
+Gate: новий core збирається лише через кінцевий public include/namespace;
+перенесення саме по собі не змінило protocol чи поведінку. Відхилення
+codegen оцінюється за diff і виміром, не приховується перейменуванням.
+
+#### Етап 18. Перевести всіх споживачів
+
+1. Інвентаризувати tracked includes і використання старих `Scalar`,
+   `FieldType`, `FieldTable`, `CommandTable`, factories, `limits/arg`,
+   binary/JSON adapters і `telemetry_structured`. Окремо перелічити
+   app/demo, Qt, firmware, resource adapters, JS decoder і тести.
+2. Перенести definitions на один typed `FieldTable`/`CommandTable`/
+   `ServiceTable`; замінити `Scalar` value callback на native `T`.
+   Де стара metadata або numeric conversion була частиною поведінки,
+   зафіксувати явне рішення й тест для нового API, не міняти її мовчки.
+3. Перевести resource інтеграцію і клієнтів на v3 descriptor, values,
+   одноразовий Bind та Exchange. Узгоджувати fingerprint один раз
+   на сеанс, не на кожному packet. Перевірити reboot/reconnect.
+4. Зібрати кожний consumer з чистого дерева, перевірити host,
+   sanitizer, ARM/MCU і wire fixtures. Старий core видаляється лише
+   після останнього реально переведеного consumer.
+
+Gate: жоден production/demo/test consumer не потребує старого API або
+v2.1/JSON adapter; JS/Qt і MCU проходять свої наскрізні перевірки.
+
+#### Етап 19. Видалити legacy implementation
+
+1. Видалити старі `Scalar`, `FieldType`, `Field`, `FieldTable`, `Command`,
+   `CommandTable`, стару `limits/arg` модель, binary v2.1 та старий
+   telemetry JSON adapter разом із старими `.pri`, ABI guards і
+   tests, що перевіряли тільки видалені контракти. Не видаляти
+   спільні IDs/slots/results, які використовує новий core.
+2. Видалити тимчасовий migration target і всі compatibility aliases.
+   У `lib/telemetry` не лишається подвійного implementation чи v2 adapter.
+3. Знову запустити чисту повну збірку, санітайзери, ARM codegen/stack,
+   resource/protocol/decoder tests і MCU сценарії на остаточному дереві.
+
+Gate: пошук по tracked **production source, includes і build manifests**
+не знаходить залежностей від видалених символів/шляхів. Архівні review,
+release notes і цей план можуть згадувати їх як історію; такий текст
+не є причиною тримати код.
+
+#### Етап 20. Остаточно зафіксувати єдину telemetry
+
+1. Перевірити одну public namespace `telemetry` (`ts` лише alias), один
+   `Type<T>`/Registry/Model, один набір Field/Command/Service tables і
+   один production wire v3. Тест Stage 16 лишається публічним прикладом.
+2. Звірити binary goldens, формат, API docs, include/qmake examples,
+   license/vendor provenance, розміри Flash/RAM/stack і MCU цикли там,
+   де зміни могли вплинути на hot path. Докази прив'язати до exact SHA.
+3. Після зеленого CI для фінального SHA оновити README і migration
+   notes: C++20 вимога, supported types, native/encoded шляхи та
+   явна відсутність source/ABI/wire v2.1 сумісності.
+
+Gate: checklist **18.4** виконано; `telemetry_structured` не існує як
+окрема бібліотека, а старого scalar core та v2.1/JSON adapter немає
+у фінальному tracked source.
 
 <a id="verification"></a>
 ## 17. Матриця перевірок
@@ -2819,7 +3116,10 @@ samples та формулу підсумкового порівняння. Log �
 <a id="completion"></a>
 ## 18. Умови завершення та межі першої версії
 
-### 18.1. Definition of done
+### 18.1. Definition of done A: typed core і wire v3
+
+Цей checklist закриває **Stage 15**, коли старий baseline ще існує.
+Він не є фінальним Definition of Done бібліотеки після об'єднання.
 
 - [ ] Поточний scalar core/ABI/layout/v2.1 byte contract не змінено.
 - [ ] Новий consumer явно обирає C++20 structured module.
@@ -2854,7 +3154,10 @@ samples та формулу підсумкового порівняння. Log �
 
 ### 18.2. Що свідомо не входить
 
-- Рефактор/видалення поточних scalar limits або зміна scalar conversions.
+Нижче — межі **Stage 00–15**; видалення старого scalar core належить до
+Stage 19 і тому не суперечить першому пункту:
+
+- Рефактор/видалення поточних scalar limits або зміна scalar conversions до Stage 15.
 - Dynamic-length collections, strings у payload, pointers, arbitrary classes.
 - Optional request members, omitted arguments, wire defaults.
 - Nested field units overlays, constraints або validation annotations.
@@ -2878,7 +3181,7 @@ samples та формулу підсумкового порівняння. Log �
 | Версії/config PFR, magic_enum і compiler | Етап 01: member/enum name probes на всіх production toolchains |
 | Як будувати aggregate з DMI і великими arrays без зайвого stack | Етап 04: lifetime tests + ARM codegen/stack |
 | Return-by-value або output form для великих Response | Етап 04: обов'язкове рішення до freeze; wrapper не приховує target stack |
-| Storage ServiceResult | Етап 06: optional проти union, invariant tests і ARM ABI |
+| Storage ServiceResult | Stage 04 має перевірений union wrapper; Stage 06 повторно перевіряє його на реальних service bindings/ABI |
 | Packed descriptor bytes чи segment writer | Етап 09: однакові goldens, вимір Flash/stack/cycles |
 | Фізичний layout нових bindings/ops | Етапи 07/13/14: codegen і MCU, без зміни старого Field |
 | Конкретна capacity транспорту/workspace застосунку | Етапи 10/11: Model requirements проти фактичних buffers |
@@ -2886,6 +3189,25 @@ samples та формулу підсумкового порівняння. Log �
 Якщо будь-який із цих пунктів не закритий, не видаємо гіпотезу за
 виміряний результат. API не обростає параметрами «про всяк випадок»
 для компенсації невирішеної внутрішньої реалізації.
+
+### 18.4. Definition of done B: одна кінцева telemetry
+
+Цей checklist закриває **Stage 20**, після checklist 18.1 і міграції 16–19:
+
+- [ ] Один C++20 public `telemetry` (`ts` — тільки namespace alias), один
+  `Type<T>`/TypeRegistry і один набір FieldTable/CommandTable/ServiceTable/Model.
+- [ ] Одна таблиця приймає scalar, enum, array і struct definitions; typed
+  виклики несуть exact native `T`, encoded — canonical codec/Workspace.
+- [ ] Усі production/demo/Qt/firmware/resource/JS consumers перейшли на v3;
+  перехід включає перевірки old→new numeric/metadata behavior.
+- [ ] У tracked production source/build manifests немає старого `Scalar`,
+  `FieldType`, duplicate Field/Command tables, binary v2.1, JSON adapter,
+  `telemetry_structured` library або compatibility v2 target.
+- [ ] Чисті host, sanitizer, ARM, decoder та MCU перевірки пройшли на
+  фінальному SHA; wire goldens, codegen, Flash/RAM/stack і релевантні цикли
+  звірені та задокументовані.
+- [ ] Public docs/include/qmake приклади показують тільки кінцевий API,
+  а migration notes прямо говорять про відсутність сумісності v2.1.
 
 <a id="sources"></a>
 ## 19. Джерела й уточнення до вихідних пропозицій
@@ -2902,7 +3224,7 @@ samples та формулу підсумкового порівняння. Log �
 | Залишити optional units | Тільки root Field unit; nested overlays відкладаються |
 | Одна registry для Field/Command/Service | Так; не змішує type shape з endpoint metadata |
 | Дозволити unknown enum values | Для scoped enum з представимим underlying code |
-| Не ламати scalar реалізацію | Окремий C++20 модуль і wire v3.0 поруч із v2.1 |
+| Не ламати scalar реалізацію під час Stage 00–15 | Окремий C++20 staging-модуль і wire v3 поруч із v2.1 тільки до freeze; Stage 16–20 переводять споживачів і видаляють старий core/adapter |
 | Не ховати великі objects на stack | Явний Workspace і перевірки aggregate return на цільовому compiler |
 
 ### 19.2. Де вихідні формулювання були надто широкими
@@ -2974,11 +3296,17 @@ tag/commit та перевірені probes, а не поточний вміст
 | Explicit enum dictionary має пріоритет | Прийнято: заміна automatic словника, один exported name на код, duplicate explicit code відхиляється |
 | Додати C++26 parity | Прийнято як optional host experiment, без нового обов'язкового етапу або MCU dependency |
 | std::meta може бачити більше типів і metadata | Supported wire subset не розширюється автоматично; annotations і Service limits не додаються |
+| `telemetry_structured` як постійна друга бібліотека | Відхилено: це staging location до Stage 17; після Stage 20 є один `telemetry`/`ts` |
+| Legacy `Scalar` як контейнер у новому FieldTable | Відхилено: значення є native `T`, type metadata — `Type<T>`/Registry; Scalar лишається тільки тимчасовим baseline |
+| Тримати v2.1 adapter після об'єднання | Відхилено: Stage 19 видаляє v2.1 і старий JSON adapter після міграції всіх consumers |
+| Рефакторити зберігання старої scalar metadata після Stage 15 | Відхилено: попередній план скасовано; корисні ідеї оцінюються для нового Registry/descriptor |
 
-Ці зміни уточнюють план; жоден новий Service/codec/protocol ще не
-вважається реалізованим лише через наявність його опису в цьому документі.
+Ці рішення задають кінцеву ціль, але самі по собі не реалізують
+Field/Command/Service/Model, v3 protocol або міграцію. Стан кожного
+етапу підтверджують код і його перевірки, а не сам текст плану.
 
-Документ готовий для початку етапу 00, потім 01. Рішення з §18.3
-закриваються передбаченими compiler/ARM/MCU вимірами під час реалізації;
-їх не потрібно видавати за доведені на етапі документації. Після 00–15
-окремо виконується відкладений scalar metadata план.
+Поточний implementation status визначають код і перевірки для кожного
+етапу. Після checklist 18.1 виконується **міграція 16–20**, а не
+скасований scalar metadata plan. Рішення з §18.3 закриваються
+compiler/ARM/MCU вимірами до відповідного freeze; гіпотези не називаємо
+доведеними лише тому, що вони описані тут.

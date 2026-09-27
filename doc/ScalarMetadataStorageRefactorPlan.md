@@ -1,16 +1,23 @@
-# Відкладений рефактор scalar metadata: назви, одиниці та optional limits
+# СКАСОВАНИЙ план: рефактор metadata старого scalar core
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **план наступного етапу, без реалізації зараз**.
+Статус: **SUPERSEDED / CANCELLED. Не реалізовувати M0–M9.**
 
-Починати тільки після виконання всіх етапів 00–15 і checklist завершення
-[StructuredTelemetryV3ImplementationPlan.md](StructuredTelemetryV3ImplementationPlan.md).
-Це включає узгоджені host/CI/ARM/MCU перевірки, а не лише успішний build.
-Необов'язковий C++26 reflection prototype має окремий статус і не є
-умовою цього переходу; усі обов'язкові C++20/MCU перевірки залишаються.
-Цей документ не змінює scope поточної structured-реалізації й не дає
-причини паралельно перебудовувати scalar core.
+Раніше цей документ пропонував оптимізувати metadata старого C++17
+`Scalar`/`FieldType`/`FieldTable` після structured Stage 15. Кінцева ціль
+змінилася: [основний план](StructuredTelemetryV3ImplementationPlan.md)
+тепер задає Stage 16–20, які переводять споживачів на один C++20 typed
+core і **видаляють** стару scalar implementation разом із wire v2.1 та
+JSON adapter. Тому рефактор зберігання об'єктів, призначених для видалення,
+не є окремим етапом робіт.
+
+Решта цього тексту збережена **лише як архів інженерних ідей і вимірювальних
+критеріїв**. Його наказовий спосіб викладу, матриця тестів і Definition of
+Done нижче не мають чинної сили. Якщо compact optional metadata потрібна
+новому `TypeRegistry`/descriptor, її проектують і вимірюють для **нового**
+core без старого ABI, `Scalar` або runtime wrapper. Service при цьому
+залишається тільки name+binding, без limits/defaults/units.
 
 Мета: винести з гарячого descriptor ті metadata, які не потрібні під час
 виконання, і не створювати payload для відсутніх limits/defaults.
@@ -647,7 +654,7 @@ regression не приймається. «Усі тести зелені» не 
 adoption; відомий повільніший profile не можна списати як «майже те саме».
 
 <a id="steps"></a>
-## 9. Послідовність реалізації
+## 9. Скасована послідовність реалізації (архів)
 
 ### M0. Вхідний gate після structured v3
 
@@ -741,7 +748,7 @@ commit, перевірити exact-SHA remote CI, local/remote SHA та worktree
 Зафіксувати чесно, де виграно bytes/cycles і де залишилися costs.
 
 <a id="checks"></a>
-## 10. Перевірки та умови завершення
+## 10. Архівні перевірки та умови завершення (неактивні)
 
 ### 10.1. Обов'язкова матриця
 

@@ -4,6 +4,15 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. Own code: MIT.
 
 The new C++20 module follows the
 [structured v3 implementation plan](../../doc/StructuredTelemetryV3ImplementationPlan.md).
+`telemetry_structured` is its **temporary development location**, not a
+permanent second public telemetry library. Through Stage 15 the existing
+C++17 scalar core and wire v2.1 remain frozen for comparison. Stages 16–20
+move this typed core into `lib/telemetry`, migrate consumers, and remove the
+old `Scalar` core, v2.1 adapter, and legacy JSON adapter. The final library
+has one `telemetry` namespace (`ts` may be a user alias), one mixed
+Field/Command/Service model, and wire v3 only. This migration has **not**
+happened yet.
+
 Its current implementation includes the stable
 [reflection facade](reflection/Reflection.hpp),
 [fixed wire type traits](type/Traits.hpp), and the
