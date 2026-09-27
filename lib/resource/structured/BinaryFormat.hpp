@@ -14,6 +14,9 @@ namespace resource::structured {
 inline constexpr std::uint16_t binaryMajor = 3;
 inline constexpr std::uint16_t binaryMinor = 0;
 inline constexpr std::uint16_t descriptorHeaderBytes = 64;
+// Values carry the cached descriptor fingerprint, never a hash of live data.
+inline constexpr std::uint16_t valuesHeaderBytes = 24;
+enum class ValueStatus : std::uint8_t { Ok = 0, Unavailable = 1 };
 inline constexpr std::uint8_t recordVersion = 1;
 inline constexpr std::uint32_t recordHeaderBytes = 8;
 inline constexpr std::uint64_t fingerprintBasis = 0xcbf29ce484222325ULL;

@@ -1,11 +1,11 @@
-# Structural descriptor v3.0 (C++20)
+# Structured resource providers v3.0 (C++20)
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../LICENSE).
 
-Stage 09 implements the immutable descriptor of a structured `Model`.
-It does not introduce resource framing, Bind, Exchange or ValuesFile; their
-integration remains in the following stages. There is no separate `.pri`
-or telemetry dependency in the generic resource core.
+Stage 09 supplies the immutable descriptor of a structured `Model`;
+Stage 10 exposes it and live values through the existing resource protocol.
+Bind/Exchange remain Stage 11. There is no separate `.pri` here or telemetry
+dependency in the generic resource core.
 
 ```cpp
 #include <resource/structured/Descriptor.hpp>
@@ -76,8 +76,9 @@ less Flash and fewer cycles than on-demand emission. `packDescriptor` returns
 an ordinary constexpr `std::array<std::byte, N>`; it uses the same canonical
 emitter as streaming. Use one representation for a provider. The streaming
 form remains useful when names/catalog metadata are constructed at startup.
-No explicit `init()` phase is required. The resource provider wrapper for
-either representation belongs to Stage 10.
+No explicit `init()` phase is required. `DescriptorFile{descriptorBytes}`
+wraps packed storage; `DescriptorFile{descriptor}` wraps indexed streaming.
+Both borrow a stable immutable lvalue and reject temporary sources.
 
 ## Validation and limits
 
@@ -102,3 +103,107 @@ The independent host parser fixture checks header budgets before allocating
 record collections, validates every reference and recomputes wire sizes,
 depth and expanded nodes without expanding arrays. It is a test oracle;
 the application client is scheduled for Stage 12.
+
+## Values and integration
+
+```cpp
+#include <resource/structured/DescriptorFile.hpp>
+#include <resource/structured/ValuesFile.hpp>
+#include <resource/FileSystem.hpp>
+
+namespace ts = telemetry::structured;
+namespace rs = resource::structured;
+inline constexpr rs::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
+
+inline std::array<std::byte, model.maxFieldScratch()> storage;
+inline ts::Workspace workspace{storage};
+inline constexpr rs::ValuesFile values{descriptor, workspace};
+constinit auto files = resource::filesystem(
+    resource::file("/telemetry3/descriptor.bin", descriptorFile),
+    resource::file("/telemetry3/values.bin", values));
+```
+
+`ValuesFile` copies the descriptor's field index and cached fingerprint, then
+builds one 8-byte offset/packed-ID entry per field plus an EOF sentinel. It
+does not borrow the descriptor object itself. The underlying tables/names and
+Workspace must outlive all reads; metadata must stay immutable. Construction,
+`size()` and STAT never invoke a getter. For constexpr metadata the index and
+size are computed at compile time. Both providers are read-only.
+
+The values header is **24 bytes**, all integers little-endian:
+
+| Offset | Type | Meaning |
+| --- | --- | --- |
+| 0 | bytes[4] | `TVL3` |
+| 4 | u16 | major 3 |
+| 6 | u16 | minor 0 |
+| 8 | u32 | Field count |
+| 12 | u32 | Total bytes |
+| 16 | u64 | Cached descriptor fingerprint |
+
+The fingerprint identifies the required descriptor. The receiver compares it
+once when reading the file header, before interpreting values. It is not a
+checksum of changing payloads and is not copied into each resource chunk.
+No hash is computed by values READ. Offline exports need both descriptor and
+values files. Descriptor wire bytes from Stage 09 have not changed.
+
+Each field contributes `u8 status + wireSize<T> payload` in descriptor order.
+Status 0 is Ok; status 1 is Unavailable, with an all-zero payload that must not
+be decoded as a value. Other statuses are invalid. Empty structs/arrays still
+contribute their status byte. Total size is always `24 + sum(1 + wireSize<T>)`.
+
+READ checks whole-token capacity **before** reserving scratch or resolving a
+binding. A fitting token reads its getter once and encodes that snapshot using
+the existing typed Field thunk. There is no allocation or intermediate file
+copy. This is a snapshot of one returned T, not an atomic snapshot of all fields
+or synchronization with a concurrent writer.
+
+Valid cursors are byte positions inside the header, exact token starts and EOF.
+Interior payload offsets are rejected before touching getters/output. Resume
+uses binary search over offsets and O(1) packed-ID access; it does not replay
+earlier getters. A completed prefix is returned as Ok when the next token
+does not fit. With no completed bytes, READ returns BufferTooSmall and preserves
+the cursor. EOF gives Ok/zero bytes/eof=true without callbacks.
+
+`requiredWorkspace()` includes worst-case alignment margin;
+`maxTokenSize()` is the minimum payload capacity to make progress over every
+field. The generic protocol's u16 payload ceiling is 65535 bytes. A larger
+token returns BufferTooSmall; callers must report this capacity mismatch,
+not retry forever. Large-object fragmentation is outside this provider.
+
+Local/Workspace selection is the existing compile-time policy, default 32 B;
+it changes storage only, never validation or wire bytes. All-local files never
+access Workspace. If a file contains Workspace-backed fields, its output span
+must not overlap Workspace storage: InvalidData is returned before even a
+header prefix is written. Actual free scratch is checked before a large
+getter. Insufficient scratch gives InternalError, not a false Unavailable
+value. If earlier tokens were completed, that prefix is returned first;
+retrying its nextCursor reports the configuration error without replay.
+
+An invalid Descriptor produces a rejected ValuesFile (`size()==0`,
+`fingerprint()==0`, READ InvalidData). Providers are copyable; copies own their
+offset indexes but share the borrowed sources/Workspace. Parallel reads require
+external serialization or separate provider/Workspace instances. Leases keep
+the documented LIFO lifetime contract.
+
+## qmake
+
+Select optional dependencies explicitly, before including resource.pri:
+
+```qmake
+CONFIG += resource_structured
+include(path/to/lib/telemetry_structured/structured.pri)
+include(path/to/lib/resource/resource.pri)
+```
+
+For v2 adapters also select `resource_telemetry` and explicitly include
+`telemetry/telemetry.pri` first. `telemetry_no_json` remains supported. There are
+no reverse includes between these .pri files. Repeated structured/resource
+includes are guarded. The v3 compiled reader is `detail/Values.cpp`, avoiding
+an object-file basename collision with v2 `telemetry/ValuesFile.cpp` in qmake.
+Core-only builds have no PFR dependency. The
+[four-mode integration check](../../../tests/structured/resources/resources.pro)
+and [DeviceResources example](../../../tests/structured/resources/DeviceResources.cpp)
+exercise this composition and expose only `resource::FileSystemView` publicly.

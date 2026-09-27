@@ -4,6 +4,8 @@
 # The core and packet protocol need only C++20. For telemetry providers, include
 # lib/telemetry/telemetry.pri first and set CONFIG += resource_telemetry before
 # including this file. The adapter also supports CONFIG += telemetry_no_json.
+# For v3 providers, explicitly include telemetry_structured/structured.pri and
+# set CONFIG += resource_structured. Neither .pri includes the other.
 isEmpty(RESOURCE_PRI_INCLUDED) {
     RESOURCE_PRI_INCLUDED = 1
 
@@ -37,6 +39,12 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
             $$PWD/telemetry/SchemaFile.cpp \
             $$PWD/telemetry/CommandsFile.cpp \
             $$PWD/telemetry/ValuesFile.cpp
+    }
+
+    contains(CONFIG, resource_structured) {
+        HEADERS += $$files($$PWD/structured/*.hpp, true)
+        SOURCES += $$PWD/structured/detail/Values.cpp
+        DISTFILES += $$PWD/structured/README.md
     }
 
     DISTFILES += \

@@ -2,11 +2,12 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **специфікація поетапної реалізації**. Етапи 00–09 реалізовані;
+Статус: **специфікація поетапної реалізації**. Етапи 00–10 реалізовані;
 зріз 08 додає mixed FieldTable, Command і спільну Model; зріз 09 —
 descriptor v3.0, constexpr fingerprint, indexed streaming і packed bytes.
-Resource providers, Bind/Exchange та UI у наступних етапах і прикладах
-нижче ще є цільовим API. Поточний стан перевірок ведеться в
+Зріз 10 додає DescriptorFile/ValuesFile у наявний resource, з 24-byte
+Values header і cached fingerprint. Bind/Exchange та UI ще є цільовим API.
+Поточний стан перевірок ведеться в
 [tests/structured/README.md](../tests/structured/README.md).
 
 Перша версія structured-модуля позначається далі як **structured v1**, а її
@@ -23,8 +24,10 @@ steps, constraints, `arg(...)` або member overlays.**
 
 Уточнення після review: сумісність descriptor узгоджується **один раз
 на підключення/сеанс зв'язку**, а не в кожному packet. Fingerprint
-залишається в descriptor і запиті початкового узгодження; звичайні
-Exchange requests/responses і values.bin його не містять. Правила
+залишається в descriptor і запиті початкового узгодження. На вимогу
+користувача Stage 10 також копіює його у 24-byte header values.bin, щоб
+перевіряти відповідність схеми при читанні файла. Звичайні Exchange
+requests/responses його не містять. Правила
 reconnect/reboot описані в розділі 12. Це не змінює scalar wire v2.1.
 
 Підсумковий reflection-контракт після review: Registry, Codec, Model і
@@ -201,7 +204,7 @@ source/ABI/wire контракт.
                              ▼
                       Model / descriptor
                              │
-                  fingerprint at Bind only
+                  fingerprint: Bind + values file header
                              │
                             Ready
                              │
@@ -236,7 +239,7 @@ source/ABI/wire контракт.
   відбуваються під час роботи.
 - `Ready` належить конкретному connection/peer транспортного адаптера,
   а не Model або Field. Fingerprint зберігається в descriptor і
-  звіряється при Bind; ValuesFile та Exchange не містять packet hash.
+  звіряється при Bind; ValuesFile копіює його у file header, Exchange не містить packet hash.
 - Для offline читання зберігають пару `descriptor.bin + values.bin`.
   Сам `values.bin` не дозволяє відновити назви, типи чи прив'язану модель.
 
@@ -1678,8 +1681,9 @@ dictionary, порядок endpoint, request/response shape, Field capabilities
 значення, адреса owner, адреса callback і стан slot не входять.
 
 Fingerprint обчислюється один раз для незмінного Model. У wire v3.0
-він присутній **лише в descriptor header і Bind request при узгодженні**.
-Його немає у ValuesFile, звичайному Exchange request або response.
+він присутній у descriptor header, ValuesFile header та Bind request при
+узгодженні. ValuesFile лише копіює готовий fingerprint; не хешує live
+values. Його немає у звичайному Exchange request або response.
 Після успішного Bind обидві сторони користуються узгодженим Model до
 закриття підключення. Немає перерахунку descriptor hash або порівняння
 u64 fingerprint на кожний read/write/call.
@@ -1746,7 +1750,7 @@ UI будує великі arrays частинами; не створює N widg
 
 ### 11.1. Header і фіксований розмір
 
-Header `values.bin`, 16 bytes:
+Header `values.bin`, 24 bytes (уточнення Stage 10 за вимогою користувача):
 
 | Offset | Тип | Значення |
 | --- | --- | --- |
@@ -1755,6 +1759,7 @@ Header `values.bin`, 16 bytes:
 | 6 | u16 | minor = 0 |
 | 8 | u32 | fieldCount |
 | 12 | u32 | totalBytes |
+| 16 | u64 | descriptorFingerprint, готовий hash відповідного descriptor |
 
 Далі поля в тому самому category/group/entry order, що в descriptor:
 
@@ -1771,17 +1776,19 @@ ReadStatus v3.0: Ok=0, Unavailable=1. У першій версії getter пов
 нулем; decoder його не трактує як значення. Загальний розмір незмінний:
 
 ```text
-16 + sum(1 + wireSize<T_i>)
+24 + sum(1 + wireSize<T_i>)
 ```
 
 Повністю порожня FieldCatalogTable дає коректний файл лише з header.
 Struct із wireSize 0 усе одно має status byte.
 
-ValuesFile не містить fingerprint. Клієнт декодує його через descriptor,
-закріплений за поточним узгодженим підключенням. Окремий values.bin без
-цього контексту не є самоописним архівом. Якщо потрібний offline export,
-клієнт зберігає descriptor і values як один явно пов'язаний комплект;
-не намагається вгадати схему за збігом довжини або fieldCount.
+ValuesFile містить cached fingerprint відповідного descriptor, а не hash
+значень. Клієнт один раз звіряє його при прийманні header файла, перед
+декодуванням tokens. Продовження resource READ не повторюють hash і
+не перераховують його. Для offline export зберігаються обидва файли:
+fingerprint пов'язує їх, але сам values.bin не містить описів типів.
+Не можна вгадувати схему лише за довжиною або fieldCount.
+
 
 ### 11.2. Getter викликається після перевірки місця
 
@@ -1805,7 +1812,7 @@ token зберігаються; якщо жодного byte не видано �
 
 Cursor ValuesFile також представляє byte position, але допустимі лише:
 
-- позиції всередині 16-byte immutable header;
+- позиції всередині 24-byte immutable header;
 - початок кожного повного token;
 - кінець файла.
 
@@ -1821,27 +1828,40 @@ READ з EOF повертає 0 bytes і eof=true, не викликаючи call
 ### 11.4. Поєднання з resource
 
 ```cpp
-// Проєктований integration API; імена/model/workspace мають сталий lifetime.
-telemetry_structured_resource::DescriptorFile descriptor{model.view()};
+namespace ts = telemetry::structured;
+namespace rs = resource::structured;
+// model і його tables/names незмінні й мають сталий lifetime.
+inline constexpr rs::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
 
-alignas(ModelType::scratchAlignment)
-std::array<std::byte, ModelType::maxReadScratch> valueStorage;
-
-telemetry_structured_resource::ValuesFile values{
-    model.view(), ts::Workspace{valueStorage}
-};
+inline std::array<std::byte, model.maxFieldScratch()> valueStorage;
+inline ts::Workspace workspace{valueStorage};
+inline constexpr rs::ValuesFile values{descriptor, workspace};
 
 constinit auto files = resource::filesystem(
-    resource::file("/telemetry3/descriptor.bin", descriptor),
+    resource::file("/telemetry3/descriptor.bin", descriptorFile),
     resource::file("/telemetry3/values.bin", values)
 );
 ```
 
-`ModelType` тут — тип створеного `model` без cv. Provider API resource
-не має параметра scratch у `read`, тому ValuesFile явно запозичує
-workspace при конструюванні. Паралельні READ потребують зовнішньої
-серіалізації або окремих provider/workspace на кожний одночасний виклик.
-Це документується біля конструктора.
+`ValuesFile` копіює field index і fingerprint з одного Descriptor, тому
+не потребує окремого числового hash аргументу. Він не запозичує сам
+Descriptor, але tables/names мають лишатися незмінними й живими.
+Workspace — окремий стабільний lvalue; temporary/proxy не допускається.
+`requiredWorkspace()` містить worst-case alignment margin, як
+`model.maxFieldScratch()`. `maxTokenSize()` дає потрібний READ payload.
+
+Паралельні READ потребують зовнішньої серіалізації або окремих provider/
+workspace. Це стосується і копій одного provider, які запозичують той
+самий Workspace. Для файла з хоча б одним Workspace-backed field вихідний
+span не може перетинати Workspace: повертається InvalidData до запису
+header. Повністю local-storage файл Workspace взагалі не читає.
+
+Недостатній вільний Workspace — помилка конфігурації provider:
+InternalError, не Unavailable і не BufferTooSmall. Якщо попередні tokens
+уже видані, READ повертає цей завершений prefix зі статусом Ok; повторення
+від nextCursor поверне помилку на поточному token, без replay getters.
 
 Оскільки один token неподільний, максимальний resource READ payload
 транспорту має вміщати найбільший token. Перевірку сумісності виконують
@@ -1877,7 +1897,7 @@ stateDiagram-v2
     [*] --> Unbound
     Unbound --> Unbound: Discovery, descriptor або Bind mismatch
     Unbound --> Ready: Bind version і fingerprint збігаються
-    Ready --> Ready: Values / Exchange без packet fingerprint
+    Ready --> Ready: Exchange без packet fingerprint; Values з file fingerprint
     Ready --> Unbound: Reboot, disconnect або заміна Model
 ```
 
@@ -1919,7 +1939,7 @@ Bind response, 8 bytes:
 | 4 | u8 | Ready=0, SchemaMismatch=1, UnsupportedVersion=2, InvalidRequest=3 |
 | 5 | 3 bytes | reserved=0 |
 
-Після Ready жодний звичайний packet не повторює fingerprint. При
+Після Ready Exchange packet не повторює fingerprint. ValuesFile має один fingerprint у header файла. При
 SchemaMismatch клієнт показує помилку й не надсилає керуючих запитів.
 Можна перечитати descriptor та виконати новий Bind, але стару команду
 не повторюють автоматично вже з новими positional IDs. Повторний Bind
@@ -2910,6 +2930,11 @@ Stage 10 ще має підключити ці представлення до r
 
 ### Етап 10. Resource providers і dense values
 
+Реалізовано. Тести, ARM frames та H7S evidence:
+[Stage 10](../tests/structured/resources/README.md).
+Fingerprint додається один раз у header файла; resource protocol і
+старі v2.1 bytes не змінені.
+
 Робота:
 
 1. Додати DescriptorFile/ValuesFile в `lib/resource/structured`.
@@ -2925,7 +2950,7 @@ Stage 10 ще має підключити ці представлення до r
 - Всі legal cursors та representative invalid/middle-token cursors.
 - Full-file bytes дорівнюють chunked reconstruction.
 - `size()` не викликає getter і лишається сталим при зміні live values.
-- Values header має 16 bytes і не містить hash; decoder використовує
+- Values header має 24 bytes і cached descriptor fingerprint; decoder використовує
   Model поточного binding, а offline export зберігає descriptor поруч.
 - Resource-only/old-adapter-only/new-adapter-only/both qmake consumers.
 - Max token перевищує транспортну capacity: явна відмова без нескінченного loop.
@@ -2994,7 +3019,7 @@ Stage 10 ще має підключити ці представлення до r
   дозволяє перезаписати запит, а пізня відповідь після timeout не
   зіставляється з новим запитом, якому передчасно видали старий ID.
 - Bind mismatch показує помилку; звичайний response/value decode
-  користується прив'язаною схемою без packet fingerprint.
+  користується прив'язаною схемою; Values перевіряє file fingerprint, Exchange не має packet fingerprint.
 
 Завершено, коли новий користувач може задекларувати дві структури й
 метод, а клієнт сам будує форму та розбирає результат.
@@ -3461,7 +3486,7 @@ tag/commit та перевірені probes, а не поточний вміст
 
 | Пункт review / уточнення користувача | Рішення |
 | --- | --- |
-| Не передавати й не перевіряти fingerprint у кожному packet | Прийнято: descriptor + одноразовий Bind, data headers без hash |
+| Не перевіряти fingerprint у кожному packet | Descriptor + одноразовий Bind; ValuesFile має cached fingerprint у 24-byte file header, Exchange без hash |
 | Потрібний structured ABI guard | Прийнято: окрема revision і exact link tag для cross-TU views/ops |
 | Return-by-value може створити великий stack | Прийнято: обов'язковий ARM decision gate, output form за необхідності до freeze |
 | Reflected Unicode names не гарантують однакові bytes | Прийнято: automatic ASCII identifiers; explicit labels залишаються UTF-8 |

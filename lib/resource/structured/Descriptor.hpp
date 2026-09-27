@@ -211,6 +211,9 @@ public:
     [[nodiscard]] constexpr bool valid() const noexcept { return error_ == DescriptorError::None; }
     [[nodiscard]] constexpr std::uint32_t size() const noexcept { return valid() ? header_.totalBytes : 0; }
     [[nodiscard]] constexpr std::uint64_t fingerprint() const noexcept { return valid() ? header_.fingerprint : 0; }
+    // The tables belong to the application, not to this descriptor. A values
+    // provider copies this view and the cached fingerprint from the same source.
+    [[nodiscard]] constexpr ts::FieldIndex fieldIndex() const noexcept { return model_.fields; }
     [[nodiscard]] constexpr DescriptorView view() const& noexcept
     { return {model_, &header_, segments_, error_}; }
     DescriptorView view() const&& = delete;

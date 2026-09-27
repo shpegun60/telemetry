@@ -432,4 +432,25 @@ H7S same-image measurements favor packed bytes for constexpr metadata.
 The board was restored and verified. Exact byte fixtures, sizes, stack frames,
 cycles, reproduction commands and scope limits are in
 [descriptor/README.md](descriptor/README.md). Resource provider integration
-remains Stage 10; this slice does not start Bind/Exchange or UI work.
+was completed in Stage 10 below. This slice does not start Bind/Exchange or UI work.
+
+## Stage 10: resource providers and dense values
+
+`DescriptorFile` now wraps packed or streaming metadata and `ValuesFile`
+emits fixed-size native snapshots through existing resource READ. Following
+the user's Stage 10 decision, its 24-byte header includes the cached u64
+descriptor fingerprint. No live-value hashing or per-chunk fingerprint is
+added. `ValuesFile{descriptor, workspace}` obtains fields and identity from
+the same source; `size()` never invokes getters.
+
+The [provider suite](resources/README.md) covers 5700 cursor/capacity cases
+at each storage budget, whole-token getter counts, scratch capacity/lifetime,
+four qmake dependency selections, independent wire parsing, compile/link
+rejections, sanitizers and two ARM toolchains. Actual H7S checks passed at
+O2/Os and the original Flash was restored and read-back verified.
+
+The previous `c25c6fa` CI failed because the legacy resource header sweep
+included optional structured headers without their PFR dependency. Coverage
+is now split into core/v2 headers and the explicit structured suite. The
+unchanged v2 bytes/protocol tests remain enabled. Exact-SHA remote CI must
+still be checked for the commit that publishes this stage.

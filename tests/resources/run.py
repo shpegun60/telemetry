@@ -17,7 +17,10 @@ ADAPTERS = [f"lib/resource/telemetry/{name}.cpp" for name in ("SchemaFile", "Com
 PROTOCOL = ["lib/resource/protocol/Protocol.cpp"]
 DEVICE = ["app/resources/DeviceResources.cpp", "app/demo/DemoCatalog.cpp"]
 HEADERS = [str(p.relative_to(ROOT / "lib")).replace("\\", "/")
-           for p in sorted((ROOT / "lib/resource").rglob("*.hpp"))]
+           for p in sorted((ROOT / "lib/resource").rglob("*.hpp"))
+           if p.relative_to(ROOT / "lib/resource").parts[0] != "structured"]
+# The optional structured adapter has its own header checks with PFR include
+# paths in tests/structured/resources/run.py. Core/v2 consumers stay independent.
 
 
 def main():
