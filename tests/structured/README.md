@@ -265,7 +265,10 @@ registry storage was emitted into `.rodata` with no `.data` or `.bss`; its
 linked `.text/.rodata` was 144/964 B at `-O2` and 132/954 B at `-Os` on
 CubeIDE GCC 14.3.1. These sizes describe the small Stage 05 fixture, not
 the firmware or a complete descriptor serializer. No board cycles are
-claimed. Exact-SHA CI evidence should be recorded after this slice is pushed.
+claimed. Exact-SHA CI run
+[36308779553](https://github.com/shpegun60/telemetry/actions/runs/36308779553)
+completed successfully (9/9 jobs) for
+`4f159742e5d2e0806abe115c02da5a7f5a2cfb21`.
 
 The registry currently takes ordered root types as template arguments.
 Stage 08 will derive this sequence from Field, Command and Service tables;
@@ -273,3 +276,34 @@ users of the final Model will not maintain a second type list. Stage 05
 produces structural records and their checked sizes, not `descriptor.bin`
 bytes or a fingerprint. The type-record budget is checked here; the full
 descriptor budget still needs the catalogs and endpoints from later stages.
+
+## Stage 06: native Service binding
+
+[`service/run.py`](service/run.py) checks direct functions and methods,
+by-value and reference requests, raw and wrapped response/void returns, all
+Service statuses, runtime function pointers, capturing lvalues, all five slot
+families, empty slots with zero callbacks, rebinding, and one target snapshot
+per call. Twenty compile-fail cases cover invalid signatures, temporary or
+proxy owners, temporary stateful callables, extra metadata, and null NTTP
+targets. An ELF-only fixture checks absent weak declarations, weak bodies and
+strong overrides. The ARM fixture checks the real native Service wrapper with
+a 4 KiB response and inspects the direct-owner call for null branches in
+ordinary `-O2`/`-Os` builds.
+
+```text
+python tests/structured/service/run.py --cxx g++ --build-dir build/structured-service-gcc
+python tests/structured/service/run.py --cxx clang++-18 --sanitize --build-dir build/structured-service-sanitized
+python tests/structured/service/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-service-arm
+```
+
+The CubeIDE ARM GCC 14.3.1 checks passed at `-O2`, `-Os` and `-Og`, including
+`-fno-delete-null-pointer-checks`. For the real 4 KiB Service call, individual
+`call_big_raw` frames were 16/16/24 B and `call_big_wrapped` frames were
+16/16/8 B at O2/Os/Og. They are not whole-call-chain or board-cycle results.
+On ARM GCC 13.2.1 the 4 KiB `ServiceResult` layout was 4097 B, alignment 1;
+the direct free-function and direct-owner Service definitions were each 8 B,
+alignment 4. The runner reads these measurements from the ARM object itself.
+The ordinary direct-owner fixture has no null branch at O2/Os; null-check
+mode can retain a check for the target function address, separate from the
+owner address. Stage 07 still needs to establish the encoded dispatch stack
+bound and its preflight callback-count semantics.

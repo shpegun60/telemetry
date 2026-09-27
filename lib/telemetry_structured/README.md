@@ -18,12 +18,13 @@ Its current implementation includes the stable
 [fixed wire type traits](type/Traits.hpp), the
 [compile-time TypeRegistry](type/Registry.hpp), and the
 [canonical codec](codec/Codec.hpp) with caller-owned
-[Workspace](codec/Workspace.hpp). The facade supplies aggregate and callable
+[Workspace](codec/Workspace.hpp), and native
+[Service bindings](model/Service.hpp). The facade supplies aggregate and callable
 facts plus a normalized enum dictionary. The traits classify supported types
 and calculate wire size, nesting depth and expanded value nodes during
 compilation. The registry deduplicates exact C++ types, registers nested
-dependencies first, and exposes immutable structural descriptors. The model,
-endpoint bindings and complete wire protocol belong to later stages; this
+dependencies first, and exposes immutable structural descriptors. The Service
+table, full model and wire protocol belong to later stages; this
 codec is a low-level API, not a transport endpoint.
 
 ```cpp
@@ -51,6 +52,9 @@ Modules exchanging in-memory descriptor views call
 offsets of the view types; it does not run during typed value access. This
 explicit boundary call is not an automatic guarantee for every header-only
 translation unit.
+The tag detects revision, size and offset mismatches. A change in the meaning
+of a view with unchanged layout requires an explicit `structuredAbiRevision`
+bump; the linker cannot infer semantics from equal bytes.
 
 The payload has exact `wireSize<T>` bytes: scalar little-endian bytes, enum
 underlying code, arrays in element order, and aggregates in member order.
@@ -82,13 +86,30 @@ and Response may have separate simultaneous leases in one Workspace. Input,
 output, and workspace byte ranges must not overlap. The caller synchronizes
 access to a shared Workspace and owns the byte buffer for its entire lifetime.
 
-[ServiceResult<T>](result/ServiceResult.hpp) already supplies status and
-optional payload lifetime for the Stage 04 return-ABI check. For a large
+[ServiceResult<T>](result/ServiceResult.hpp) supplies status and optional
+payload lifetime for native Service calls. For a large
 response, use `successFrom([] { return responseValue(); })`: its prvalue is
 constructed in the result's destination storage. The convenience
 `success(value)` is limited to 256-byte payload objects, because accepting a
 4 KiB value by parameter produced an 8 KiB stack frame on the tested ARM
-compiler. Service endpoint factories and dispatch will be added later.
+compiler. Stage 06 rechecked the real Service wrapper with a 4 KiB response;
+its measured individual ARM frames are in the test README.
+
+`service<target>(name[, owner])` binds a known function or method;
+`service(name, callable)` accepts a native function pointer, a capture-free
+lambda, a stable capturing callable lvalue, or one of the existing slot
+families. The callback signature infers the aggregate Request and Response.
+There are no Service limits, units, argument labels or other semantic
+metadata. A raw `Response`/`void` return becomes `ServiceResult<Response>`;
+an exact `ServiceResult<Response>` passes through unchanged. A missing
+runtime function, empty slot or absent weak target returns `Unavailable`
+without invoking application code. A native callback may return the same
+status itself, so native callers do not distinguish those two sources.
+Borrowed owners, callables, slots, names and their transitive references must
+outlive the Service. Rebinding a slot requires external synchronization with
+calls. Direct owner bindings have no owner-null check; an `OwnerSlot` is
+checked before invocation. Encoded dispatch and its preflight rules belong
+to Stage 07.
 
 A type with default member initializers is constructed with every member
 explicitly supplied before decoding. This avoids running a DMI as a hidden
