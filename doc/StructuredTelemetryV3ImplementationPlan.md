@@ -511,8 +511,9 @@ inline constexpr ts::CommandTable motorCommands{
 };
 ```
 
-Канонічний **цільовий** приклад після Stage 16 — одна змішана таблиця.
-Це контракт майбутнього Field API, не твердження, що Stage 04 вже надає
+Канонічний приклад, який **повинен працювати вже на Stage 08 до freeze
+Stage 15**, — одна змішана таблиця. Це контракт майбутнього Field API,
+не твердження, що Stage 04 вже надає
 `FieldTable`:
 
 ```cpp
@@ -556,9 +557,9 @@ Getter повертає `T` за значенням. Setter приймає то�
 явним вибором користувача з тією самою вимогою перевіряти вартість копії.
 Structured v1 не вводить структурних перетворень між різними C++ типами.
 Під час етапів 00–15 перетворення довільних чисел старого scalar core
-залишаються його власним API. Етап 16 визначає контракт native scalar
-аргументів єдиної нової таблиці; не переносимо старий runtime `Scalar`
-як прихований шар.
+залишаються його власним API. **Stage 08** визначає контракт native scalar
+аргументів єдиної нової таблиці; Stage 15 заморожує вже перевірений
+контракт. Старий runtime `Scalar` не переносимо як прихований шар.
 
 ### 3.6. Одна форма декларації каталогів, три рівні виклику
 
@@ -1121,12 +1122,12 @@ enum class ServiceStatus : std::uint8_t {
 `ServiceResult<T>` має приватний status і storage для T. Інваріант:
 `Ok` означає наявний payload; будь-яка помилка означає відсутній payload.
 `ServiceResult<void>` не має storage T; `Ok` для нього не несе байтів.
-Це звичайний value type без heap. Public operations та інваріант
-фіксуються раніше, ніж фізичне storage: треба порівняти `optional<T>`
-із власним status+union за sizeof/alignment/triviality/return ABI/stack
-на цільових compilers. Наперед не вважаємо жоден варіант швидшим.
-Для union обов'язкові тести active member, construction, copy/move та
-destruction на всіх статусах; заощадження byte не виправдовує lifetime UB.
+Це звичайний value type без heap. На Stage 04 варіанти `optional<T>` і
+status+union порівняно за sizeof/alignment/return ABI/stack на цільовому
+ARM compiler; реалізовано приватний status+union. Тести active member,
+construction, copy/move та destruction покривають усі статуси. Stage 06
+перевіряє той самий тип у реальних Service bindings, без повторного вибору
+storage за відсутності конкретного дефекту або порушення budget.
 
 Публічні операції:
 
@@ -2166,10 +2167,14 @@ lib/
   resource/
     telemetry/
       v3/                         descriptor, values, Bind, Exchange
+web/
+  telemetry.js                    єдиний v3 decoder/client module
 ```
 
 У фінальному tracked source немає окремої папки `telemetry_structured`,
-старого binary v2.1/JSON adapter чи compatibility `v2/`. `resource` core
+старого binary v2.1/JSON adapter чи compatibility `v2/`. Публічний
+`CONFIG += resource_telemetry` тоді означає **лише v3 adapter**; тимчасовий
+`resource_structured` зникає. `resource` core
 і generic protocol залишаються transport-neutral. Під час міграції
 тимчасово можуть існувати обидва дерева, але Stage 20 не проходить,
 доки старе дерево не видалене. `Primitive.hpp` є лише запропонованою
@@ -2238,8 +2243,9 @@ C++20 збірка не включає `<meta>` і не розбирає C++26 s
 не змінює production `.pri` або вимоги до CubeIDE toolchain.
 `resource.pri` умовно додає `resource/structured` при `resource_structured`.
 Після Stage 19 consumer підключає лише єдиний `lib/telemetry/telemetry.pri`
-і потрібний `resource.pri`; `structured.pri` та опція старого v2 adapter
-видаляються разом з останніми споживачами.
+і потрібний `resource.pri`. `CONFIG += resource_telemetry` вмикає **тільки
+v3 adapter**. `structured.pri`, `resource_structured` і опція старого v2
+adapter видаляються разом з останніми споживачами.
 Не підключає telemetry/structured `.pri` назад і не створює цикл.
 
 `resource_telemetry` лишається окремою незалежною опцією для v2.1.
@@ -2424,7 +2430,7 @@ experimental; поточна scalar-бібліотека придатна для
   -> 03 wire type subset
   -> 04 codec/workspace
   -> 05 registry
-  -> 06 ServiceResult/bindings
+  -> 06 Service bindings/result integration
   -> 07 service tables/model/vertical slice
   -> 08 fields/commands
   -> 09 descriptor/fingerprint
@@ -2647,18 +2653,21 @@ explicit entry) на точні іменовані constexpr-діагности�
 Завершено, коли registry можна використати без створення живого Device
 і без читання жодного getter.
 
-### Етап 06. ServiceResult і всі прив'язки Service
+### Етап 06. Прив'язки Service та інтеграція ServiceResult
 
 Робота:
 
-1. Реалізувати інваріанти ServiceResult<T>/void і normalized return.
+1. Підключити реалізований у Stage 04 `ServiceResult<T>/void` до
+   normalized Service return path і перевірити його інваріанти в
+   реальних bindings.
 2. Реалізувати `service<target>(name[, owner])`.
 3. Реалізувати `service(name, callable)` для дозволених прямих форм.
 4. Підключити всі існуючі slot families із exact structured signature.
 5. Зберегти lifetime/null/weak behavior на основі чинних правил.
 6. Додати compile-time rejection будь-яких Service metadata arguments.
-7. Порівняти optional/union storage ServiceResult на ARM; зафіксувати
-   рішення за вимірами без зміни public result semantics.
+7. Повторно виміряти `sizeof`, alignment, return ABI і stack
+   `ServiceResult` у реальних Service bindings. Рішення Stage 04 про
+   storage не переглядати без відтвореного дефекту або порушення budget.
 
 Тести:
 
@@ -2721,6 +2730,9 @@ C++ Request/Response
 3. Додати local/global typed routing і encoded runtime adapters.
 4. Включити їх у спільний Model registry без дублювання shared types.
 5. Залишити необов'язкову unit тільки на рівні цілого Field.
+6. Реалізувати **один** `FieldTable`, який одночасно приймає bool,
+   integer, float/double, scoped enum, `std::array`, struct і struct R/W.
+   Scalar leaves використовують exact native `T`, не legacy `Scalar`.
 
 Тести:
 
@@ -2730,6 +2742,9 @@ C++ Request/Response
 - Одна MotorConfig у Field, Command, Service має один TypeId.
 - Старий `limits` не додає правила новому Service або TypeRegistry.
 - Typed native та encoded paths узгоджені; no Scalar symbols у новому typed probe.
+- Один mixed-table fixture проходить local/global typed і runtime encoded
+  шляхи для scalar, enum, array та struct; тип результату в native API
+  зберігається exact `T`.
 
 Завершено, коли три сімейства мають однаковий стиль декларації й окрему
 семантику результатів без перероблення старого scalar API.
@@ -2871,6 +2886,9 @@ C++ Request/Response
    перевіривши відсутність guard calls у hot dispatch.
 9. Окремо перевірити structured-only qmake з `telemetry_no_json`:
    старі JSON translation units не компілюються й не лінкуються.
+10. Прогнати Stage 08 mixed `FieldTable` на ARM O2/Os/Og: local/global
+    typed і encoded read/write, exact native T, linked size і stack;
+    порівняти direct native call без legacy Scalar адаптера.
 
 Завершено, коли всі заявлені конфігурації перевірені, unresolved
 відмінності описані конкретно й жоден gate не послаблено лише заради green.
@@ -2915,6 +2933,9 @@ host або objdump не перейменовуються на «перевір�
 4. Записати measured sizes/stack/cycles з compiler SHA/flags.
 5. Перевірити exact-SHA remote CI після публікації implementation-коміту.
 6. Окремо назвати залишкові user lifetime/concurrency передумови.
+7. Підтвердити, що Stage 08 mixed scalar/enum/array/struct FieldTable
+   та Stage 13 ARM/codegen gate вже пройдені. Без них typed core не
+   заморожений, навіть якщо окремий struct Service працює.
 
 Завершено, коли виконано checklist **18.1**. Це freeze нового typed core
 і wire v3, **не** закінчення об'єднання бібліотек. Freeze означає
@@ -2929,27 +2950,26 @@ namespace і v2.1 adapter лишаються regression baseline; Stage 04–15 
 ускладнюються одночасним перенесенням дерев, qmake та споживачів. Мета
 етапів 16–20 — одна кінцева бібліотека, а не довічний compatibility layer.
 
-#### Етап 16. Зафіксувати єдиний public API
+#### Етап 16. Підтвердити готовність єдиного API до міграції
 
-1. В одному тестовому consumer оголосити `FieldTable`, який одночасно
-   містить `bool`, integer, `float`/`double`, enum, `std::array` і struct,
-   включно зі struct R/W field. Перевірити виведення точних `T` і
-   `TypeKind` без legacy `Scalar`.
-2. На тих самих типах перевірити read-only/write Field, нульовий і
-   структурний Command, Service з Request/Response, late-bound slots,
-   локальний typed, глобальний typed і runtime encoded dispatch.
-3. Визначити публічні `field`, `command`, `service`, `FieldTable`,
-   `CommandTable`, `ServiceTable`, каталоги, `Model`, `Type<T>` і
-   `TypeRegistry` як один набір. Якщо бракує scalar поведінки для
-   переходу реальних споживачів, додати її до **нового typed core**
-   і протестувати до перейменування; не вставляти legacy `Scalar`
-   як прихований fallback.
+1. Повторно зібрати **вже реалізований Stage 08** mixed `FieldTable`
+   fixture з bool, integer, float/double, enum, array і struct R/W.
+   Звірити exact native `T`, TypeKind і відсутність legacy `Scalar`.
+2. Повторно перевірити frozen read-only/write Field, Command,
+   Service, slots та local/global/runtime paths як один public API;
+   Stage 16 не додає нової семантики до цього API.
+3. Якщо реальному consumer бракує поведінки frozen core, **Stage 15
+   відкривається знову**: зміну повертають у відповідний етап 04–14,
+   проводять повну матрицю й freeze повторюють до міграції. Не додають
+   legacy `Scalar` як прихований fallback і не розширюють core всередині
+   Stage 16.
 4. Зафіксувати source migration guide: old getter/setter, conversions,
    limits/defaults, enum metadata, IDs/slots і віддалені операції
    порівняти з новим контрактом. Service лишається тільки name+binding.
 
-Gate: mixed-table fixture, негативні перевірки типів і host/ARM codegen
-проходять; жоден новий table не залежить від старого Scalar/FieldType.
+Gate: frozen mixed-table fixture, негативні перевірки типів і host/ARM
+codegen повторно проходять; жоден новий table не залежить від старого
+Scalar/FieldType, а незакритих потреб міграції не лишилось.
 Старі файли та consumers ще не переміщаються.
 
 #### Етап 17. Перенести новий core в `lib/telemetry`
@@ -2957,23 +2977,37 @@ Gate: mixed-table fixture, негативні перевірки типів і h
 1. Зафіксувати baseline exact descriptor/wire bytes, розміри секцій,
    stack і normalized instruction streams на підтримуваних ARM
    конфігураціях. Тести Stage 16 лишаються незмінними по змісту.
-2. Перенести **нові** reflection/type/codec/field/command/service/model/slot/abi
+2. Перед видаленням legacy headers інвентаризувати спільні низькорівневі
+   контракти, потрібні новому core: `WriteResult`, `CommandResult`,
+   ID/`makeId`, slot families, callable/delegate traits і реально
+   повторно використані ABI helpers. Розмістити їх у нейтральних
+   кінцевих headers нового `telemetry`; новий core не повинен включати
+   legacy-only Field/Command headers лише заради status або trait.
+3. Перенести **нові** reflection/type/codec/field/command/service/model/slot/abi
    файли з `telemetry_structured` у кінцеву структуру §13.1; змінити
    includes, namespace `telemetry::structured` → `telemetry`, umbrella
    header та `.pri`. `namespace ts = telemetry;` — користувацький
    псевдонім, а не друга public library.
-3. Поки старі споживачі ще існують, ізолювати їх у **окремих binaries**
+4. Перенести новий `lib/resource/structured/` у
+   `lib/resource/telemetry/v3/`, а запланований `web/telemetryStructured.js`
+   у `web/telemetry.js`. У перехідний період `resource_telemetry_v3`
+   явно обирає новий adapter, а `resource_telemetry` ще означає v2;
+   Stage 19 прибирає v2 і робить `resource_telemetry` єдиною v3 опцією.
+   Немає одночасно двох різних adapter-ів під одним qmake flag.
+5. Поки старі споживачі ще існують, ізолювати їх у **окремих binaries**
    від нового core. Старий і новий `telemetry::FieldTable` не можуть
    співіснувати в одному translation unit **або linked executable**:
    це різні definitions одного імені й порушення ODR. Для міграції
    застосовувати окремі build targets або короткий координований
    перехід, а не спільне лінкування старих і нових object files.
    Такий target не є кінцевим compatibility API і видаляється в Stage 19.
-4. Порівняти semantic tests, descriptor/wire goldens і ARM codegen з
+6. Порівняти semantic tests, descriptor/wire goldens і ARM codegen з
    baseline кроку 1. Зміна місця/імені файлу не повинна змінити wire,
    приховано додати dispatch або збільшити stack.
 
 Gate: новий core збирається лише через кінцевий public include/namespace;
+tracked includes у ньому не посилаються на headers, заплановані до
+видалення на Stage 19; resource/JS/qmake імена мають однозначні v3 шляхи;
 перенесення саме по собі не змінило protocol чи поведінку. Відхилення
 codegen оцінюється за diff і виміром, не приховується перейменуванням.
 
@@ -2987,6 +3021,12 @@ codegen оцінюється за diff і виміром, не приховує�
    `ServiceTable`; замінити `Scalar` value callback на native `T`.
    Де стара metadata або numeric conversion була частиною поведінки,
    зафіксувати явне рішення й тест для нового API, не міняти її мовчки.
+   Обов'язкові migration cases: unscoped enum → scoped enum з явною
+   underlying width; неявні числові `Scalar` conversions → явна native
+   C++ conversion або exact typed API; limits/defaults → application
+   validation/UI policy або вилучення за рішенням власника, але не
+   `TypeRegistry`; enum default/`enumSpec` → explicit `EnumReflection`
+   лише якщо потрібен словник, без default semantics у типі.
 3. Перевести resource інтеграцію і клієнтів на v3 descriptor, values,
    одноразовий Bind та Exchange. Узгоджувати fingerprint один раз
    на сеанс, не на кожному packet. Перевірити reboot/reconnect.
@@ -3001,7 +3041,7 @@ v2.1/JSON adapter; JS/Qt і MCU проходять свої наскрізні �
 
 1. Видалити старі `Scalar`, `FieldType`, `Field`, `FieldTable`, `Command`,
    `CommandTable`, стару `limits/arg` модель, binary v2.1 та старий
-   telemetry JSON adapter разом із старими `.pri`, ABI guards і
+   telemetry JSON adapter і JS v2 decoder разом із старими `.pri`, ABI guards і
    tests, що перевіряли тільки видалені контракти. Не видаляти
    спільні IDs/slots/results, які використовує новий core.
 2. Видалити тимчасовий migration target і всі compatibility aliases.
@@ -3018,7 +3058,8 @@ release notes і цей план можуть згадувати їх як іс�
 
 1. Перевірити одну public namespace `telemetry` (`ts` лише alias), один
    `Type<T>`/Registry/Model, один набір Field/Command/Service tables і
-   один production wire v3. Тест Stage 16 лишається публічним прикладом.
+   один production wire v3. Mixed-table fixture Stage 08, повторно
+   перевірений на Stage 16, лишається публічним прикладом.
 2. Звірити binary goldens, формат, API docs, include/qmake examples,
    license/vendor provenance, розміри Flash/RAM/stack і MCU цикли там,
    де зміни могли вплинути на hot path. Докази прив'язати до exact SHA.
@@ -3032,6 +3073,11 @@ Gate: checklist **18.4** виконано; `telemetry_structured` не існу�
 
 <a id="verification"></a>
 ## 17. Матриця перевірок
+
+Рядки про старий scalar/v2.1 та змішані v2.1/v3 fixtures — migration і
+regression gates **тільки для Stage 00–18**. Після Stage 19 ці тести
+видаляються разом зі старим кодом і не входять у фінальну Stage 20 matrix.
+Перевірки нового typed core, wire v3, resource і клієнта залишаються.
 
 ### 17.1. Correctness і negative contracts
 
@@ -3124,6 +3170,8 @@ samples та формулу підсумкового порівняння. Log �
 - [ ] Поточний scalar core/ABI/layout/v2.1 byte contract не змінено.
 - [ ] Новий consumer явно обирає C++20 structured module.
 - [ ] Endpoint оголошується через один із `field`, `command`, `service`.
+- [ ] Один Stage 08 `FieldTable` містить scalar, enum, array і struct;
+  Stage 13 підтвердив його typed/encoded шляхи на ARM до freeze.
 - [ ] Service задає тільки name+binding; metadata overloads відсутні.
 - [ ] Request/Response types виводяться із callable, members — через reflection.
 - [ ] Callable Return/Arguments/qualifiers не губляться до validation.
@@ -3280,7 +3328,7 @@ tag/commit та перевірені probes, а не поточний вміст
 | Потрібний structured ABI guard | Прийнято: окрема revision і exact link tag для cross-TU views/ops |
 | Return-by-value може створити великий stack | Прийнято: обов'язковий ARM decision gate, output form за необхідності до freeze |
 | Reflected Unicode names не гарантують однакові bytes | Прийнято: automatic ASCII identifiers; explicit labels залишаються UTF-8 |
-| ServiceResult storage не слід наперед фіксувати як optional | Прийнято: виміряти optional/union, зберегти один public invariant |
+| ServiceResult storage не слід наперед фіксувати як optional | Прийнято: Stage 04 порівняв optional/union і реалізував status+union зі збереженим public invariant; Stage 06 інтегрує його з bindings |
 | Заборонити будь-який by-value Request | Не прийнято як blanket заборона: const reference рекомендована; explicit by-value і його вартість залишаються |
 | Struct setter краще приймає const reference | Прийнято як канонічний приклад, без видалення by-value форми |
 | Відрізняти відсутню ціль від application Unavailable | Прийнято для encoded dispatch; native ServiceResult свідомо простіший |
