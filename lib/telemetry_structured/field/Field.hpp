@@ -8,6 +8,7 @@
 #define TELEMETRY_STRUCTURED_FIELD_FIELD_HPP
 
 #include "../detail/Binding.hpp"
+#include "../detail/Name.hpp"
 #include <telemetry/field/TelemetrySetter.h>
 #include <cstdlib>
 #include <optional>
@@ -53,7 +54,7 @@ public:
     static constexpr bool writable = !std::is_same_v<Setter, field_detail::NoSetter>;
     static_assert(field_detail::checkSetter<Setter, Value>());
 
-    constexpr FieldDefinition(const char* name, Getter getter, Setter setter = {}) noexcept
+    constexpr FieldDefinition(detail::Name name, Getter getter, Setter setter = {}) noexcept
         : name_(name), getter_(getter), setter_(setter)
     {
         if (name == nullptr || name[0] == '\0') std::abort();
@@ -93,7 +94,7 @@ private:
 
 template <auto Get>
     requires detail::functionPointer<decltype(Get)>
-[[nodiscard]] constexpr auto field(const char* name) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name) noexcept
 {
     return FieldDefinition{name, detail::StaticFunction<Get>{}};
 }
@@ -101,7 +102,7 @@ template <auto Get>
 template <auto Get, auto Set>
     requires (detail::functionPointer<decltype(Get)> &&
               detail::functionPointer<decltype(Set)>)
-[[nodiscard]] constexpr auto field(const char* name) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name) noexcept
 {
     return FieldDefinition{name, detail::StaticFunction<Get>{},
                                 detail::StaticFunction<Set>{}};
@@ -113,7 +114,7 @@ template <auto Get, class... Explicit, class Owner>
     requires (sizeof...(Explicit) == 0 &&
               std::is_member_function_pointer_v<decltype(Get)> &&
               detail::StableOwner<Owner>)
-[[nodiscard]] constexpr auto field(const char* name, Owner&& owner) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name, Owner&& owner) noexcept
 {
     return FieldDefinition{name, detail::method<Get>(std::forward<Owner>(owner))};
 }
@@ -123,7 +124,7 @@ template <auto Get, auto Set, class... Explicit, class Owner>
               std::is_member_function_pointer_v<decltype(Get)> &&
               std::is_member_function_pointer_v<decltype(Set)> &&
               detail::StableOwner<Owner>)
-[[nodiscard]] constexpr auto field(const char* name, Owner&& owner) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name, Owner&& owner) noexcept
 {
     return FieldDefinition{name, detail::method<Get>(std::forward<Owner>(owner)),
                                 detail::method<Set>(std::forward<Owner>(owner))};
@@ -131,7 +132,7 @@ template <auto Get, auto Set, class... Explicit, class Owner>
 
 template <class... Explicit, class Getter>
     requires (sizeof...(Explicit) == 0 && detail::Bindable<Getter>)
-[[nodiscard]] constexpr auto field(const char* name, Getter&& getter) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name, Getter&& getter) noexcept
 {
     return FieldDefinition{name, detail::binding(std::forward<Getter>(getter))};
 }
@@ -139,7 +140,7 @@ template <class... Explicit, class Getter>
 template <class... Explicit, class Getter, class Setter>
     requires (sizeof...(Explicit) == 0 && detail::Bindable<Getter> &&
               detail::Bindable<Setter>)
-[[nodiscard]] constexpr auto field(const char* name, Getter&& getter, Setter&& setter) noexcept
+[[nodiscard]] constexpr auto field(detail::Name name, Getter&& getter, Setter&& setter) noexcept
 {
     return FieldDefinition{name, detail::binding(std::forward<Getter>(getter)),
                                 detail::binding(std::forward<Setter>(setter))};

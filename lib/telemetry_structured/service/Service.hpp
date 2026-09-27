@@ -10,6 +10,7 @@
 
 #include "../reflection/Callable.hpp"
 #include "../detail/Binding.hpp"
+#include "../detail/Name.hpp"
 #include "../result/ServiceResult.hpp"
 #include "../type/Traits.hpp"
 
@@ -64,7 +65,7 @@ public:
     using Response = typename Shape::Response;
     using Result = ServiceResult<Response>;
 
-    constexpr ServiceDefinition(const char* name, Binding binding) noexcept
+    constexpr ServiceDefinition(detail::Name name, Binding binding) noexcept
         : name_(name), binding_(binding)
     {
         if (name == nullptr || name[0] == '\0') std::abort();
@@ -105,7 +106,11 @@ private:
         return invokeSelected(selected, std::forward<Args>(args)...);
     }
 
-    template <class Selected, class... Args>
+    // Keep native and encoded instantiations separate. Otherwise GCC 13 -Os
+    // shares this wrapper with the erased thunk and leaves an out-of-line
+    // call even when the native owner/target are known. No forced inlining of
+    // the callback or encoded boundary is needed; both paths have one body.
+    template <bool Encoded = false, class Selected, class... Args>
     [[nodiscard]] static Result invokeSelected(Selected selected, Args&&... args) noexcept
     {
         if constexpr (Shape::wrapsServiceResult) {
@@ -127,14 +132,14 @@ private:
 // Template-target forms keep the exact function/method in the binding type.
 template <auto Target>
     requires detail::functionPointer<decltype(Target)>
-[[nodiscard]] constexpr auto service(const char* name) noexcept
+[[nodiscard]] constexpr auto service(detail::Name name) noexcept
 {
     return ServiceDefinition{name, detail::StaticFunction<Target>{}};
 }
 
 template <auto Target, class Owner>
     requires std::is_member_function_pointer_v<decltype(Target)>
-[[nodiscard]] constexpr auto service(const char* name, Owner& owner) noexcept
+[[nodiscard]] constexpr auto service(detail::Name name, Owner& owner) noexcept
 {
     return ServiceDefinition{name, detail::StaticMethod<Target, Owner>{
                                        std::addressof(owner)}};
@@ -163,7 +168,7 @@ void service(const char*, std::initializer_list<Argument>) = delete;
 
 template <auto Target, class Owner>
     requires std::is_member_function_pointer_v<decltype(Target)>
-[[nodiscard]] constexpr auto service(const char* name,
+[[nodiscard]] constexpr auto service(detail::Name name,
                                      std::reference_wrapper<Owner> owner) noexcept
 {
     return service<Target>(name, owner.get());
@@ -172,7 +177,7 @@ template <auto Target, class Owner>
 // A function pointer or stateless lambda is copied as an exact native pointer.
 template <class Callable>
     requires detail::DirectFunction<Callable>
-[[nodiscard]] constexpr auto service(const char* name, Callable callable) noexcept
+[[nodiscard]] constexpr auto service(detail::Name name, Callable callable) noexcept
 {
     using Function = decltype(+callable);
     static_assert(noexcept(+callable),
@@ -185,7 +190,7 @@ template <class Callable>
     requires (std::is_class_v<Callable> &&
               !detail::DirectFunction<Callable> &&
               !detail::ReferenceWrapper<std::remove_cv_t<Callable>>::value)
-[[nodiscard]] constexpr auto service(const char* name, Callable& callable) noexcept
+[[nodiscard]] constexpr auto service(detail::Name name, Callable& callable) noexcept
 {
     return ServiceDefinition{name, detail::borrow(callable)};
 }
@@ -198,7 +203,7 @@ template <class Callable>
 void service(const char*, Callable&&) = delete;
 
 template <class Callable>
-[[nodiscard]] constexpr auto service(const char* name,
+[[nodiscard]] constexpr auto service(detail::Name name,
                                      std::reference_wrapper<Callable> callable) noexcept
 {
     return ServiceDefinition{name, detail::borrow(callable.get())};

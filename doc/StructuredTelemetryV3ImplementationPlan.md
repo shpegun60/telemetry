@@ -2,10 +2,11 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **специфікація поетапної реалізації**. Етапи 00–08 реалізовані;
-зріз 08 додає mixed FieldTable, Command і спільну Model.
-Descriptor, transport та wire v3 у наступних етапах і прикладах нижче
-ще є цільовим API. Поточний стан перевірок ведеться в
+Статус: **специфікація поетапної реалізації**. Етапи 00–09 реалізовані;
+зріз 08 додає mixed FieldTable, Command і спільну Model; зріз 09 —
+descriptor v3.0, constexpr fingerprint, indexed streaming і packed bytes.
+Resource providers, Bind/Exchange та UI у наступних етапах і прикладах
+нижче ще є цільовим API. Поточний стан перевірок ведеться в
 [tests/structured/README.md](../tests/structured/README.md).
 
 Перша версія structured-модуля позначається далі як **structured v1**, а її
@@ -2863,6 +2864,16 @@ C++ Request/Response
 семантику результатів без перероблення старого scalar API.
 
 ### Етап 09. Descriptor v3.0 і fingerprint
+
+Реалізація: `lib/resource/structured/Descriptor.hpp`, `BinaryFormat.hpp`,
+`detail/Segments.hpp`. [Перевірки та H7S-виміри](../tests/structured/descriptor/README.md)
+закріплюють три повні golden fixtures, незалежний bounded parser, ARM
+representation/stack і однакові bytes для streaming/packed форми.
+Для constexpr Model за результатом порівняння рекомендовано готові bytes
+у Flash; streaming лишається для metadata, створеної під час запуску.
+Fingerprint рахується лише під час побудови, не на кожне читання.
+Назви перевіряються при оголошенні без зміни layout/hot path endpoint.
+Stage 10 ще має підключити ці представлення до resource providers.
 
 Робота:
 

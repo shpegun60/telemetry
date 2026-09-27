@@ -8,6 +8,7 @@
 #define TELEMETRY_STRUCTURED_MODEL_CATALOG_HPP
 
 #include "../type/Descriptor.hpp"
+#include "../detail/Name.hpp"
 #include <concepts>
 #include <cstdlib>
 #include <memory>
@@ -25,7 +26,7 @@ struct TableGroup {
 // The group borrows a stable local table. Its catalog position is its ID.
 template <class... Explicit, class Table>
     requires (sizeof...(Explicit) == 0)
-[[nodiscard]] constexpr auto group(const char* name, Table& table) noexcept
+[[nodiscard]] constexpr auto group(detail::Name name, Table& table) noexcept
 {
     if (name == nullptr || name[0] == '\0') std::abort();
     return TableGroup<std::remove_cv_t<Table>>{name, std::addressof(table)};

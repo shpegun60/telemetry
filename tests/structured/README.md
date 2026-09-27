@@ -409,3 +409,27 @@ Actual H7S runs cover correctness, natural/8/32 alignment, same-image legacy
 comparison and component costs. See [results and receipts](endpoints/h7s/README.md).
 The new encoded path is not claimed universally faster than the old scalar
 adapter. Stage 13 still owns full call-chain stack/no-heap linked evidence.
+
+## Stage 09: descriptor v3.0 and fingerprint
+
+Implemented immutable structural records, one constexpr FNV-1a fingerprint,
+indexed streaming reads and optional packed Flash bytes. Fields/Commands/
+Services remain name + binding; no semantic metadata was added.
+
+Three independently specified goldens pass host and ARM extraction, including
+UTF-8, empty shapes and one type shared across all endpoint categories.
+The independent parser enforces all resource ceilings and has 1729 checks;
+the C++ runner adds 22 diagnostic-specific negative cases, no-heap controls,
+every-offset/chunk reconstruction and cross-TU checks. Host sanitizers,
+null-check mode and both ARM GCC 13/14 toolchains pass locally.
+
+The prior `45652e7` CI's single ARM failure was traced to GCC 13 `-Os`
+sharing a native Service wrapper with erased dispatch. Separate instantiations
+of the same implementation restore the unchanged native byte-equality gate;
+no blanket forced inlining or relaxed assertion was introduced.
+
+H7S same-image measurements favor packed bytes for constexpr metadata.
+The board was restored and verified. Exact byte fixtures, sizes, stack frames,
+cycles, reproduction commands and scope limits are in
+[descriptor/README.md](descriptor/README.md). Resource provider integration
+remains Stage 10; this slice does not start Bind/Exchange or UI work.

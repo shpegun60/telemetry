@@ -8,6 +8,7 @@
 #define TELEMETRY_STRUCTURED_COMMAND_COMMAND_HPP
 
 #include "../detail/Binding.hpp"
+#include "../detail/Name.hpp"
 #include <telemetry/command/TelemetryCommand.h>
 #include <cstdlib>
 
@@ -26,7 +27,7 @@ public:
     static_assert(std::is_void_v<Request> || Type<Request>::kind == TypeKind::Struct,
                   "Command request must be an aggregate struct or void");
 
-    constexpr CommandDefinition(const char* name, Binding binding) noexcept
+    constexpr CommandDefinition(detail::Name name, Binding binding) noexcept
         : name_(name), binding_(binding)
     {
         if (name == nullptr || name[0] == '\0') std::abort();
@@ -67,7 +68,7 @@ private:
 
 template <auto Target>
     requires detail::functionPointer<decltype(Target)>
-[[nodiscard]] constexpr auto command(const char* name) noexcept
+[[nodiscard]] constexpr auto command(detail::Name name) noexcept
 {
     return CommandDefinition{name, detail::StaticFunction<Target>{}};
 }
@@ -76,14 +77,14 @@ template <auto Target, class... Explicit, class Owner>
     requires (sizeof...(Explicit) == 0 &&
               std::is_member_function_pointer_v<decltype(Target)> &&
               detail::StableOwner<Owner>)
-[[nodiscard]] constexpr auto command(const char* name, Owner&& owner) noexcept
+[[nodiscard]] constexpr auto command(detail::Name name, Owner&& owner) noexcept
 {
     return CommandDefinition{name, detail::method<Target>(std::forward<Owner>(owner))};
 }
 
 template <class... Explicit, class Callable>
     requires (sizeof...(Explicit) == 0 && detail::Bindable<Callable>)
-[[nodiscard]] constexpr auto command(const char* name, Callable&& callable) noexcept
+[[nodiscard]] constexpr auto command(detail::Name name, Callable&& callable) noexcept
 {
     return CommandDefinition{name, detail::binding(std::forward<Callable>(callable))};
 }

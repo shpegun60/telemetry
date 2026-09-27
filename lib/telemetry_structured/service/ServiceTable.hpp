@@ -178,17 +178,17 @@ private:
         if constexpr (std::is_void_v<Response>) {
             Result result = [&]() -> Result {
                 if constexpr (std::is_void_v<typename Definition::Request>)
-                    return Definition::invokeSelected(selected);
+                    return Definition::template invokeSelected<true>(selected);
                 else
-                    return Definition::invokeSelected(selected, *request);
+                    return Definition::template invokeSelected<true>(selected, *request);
             }();
             return {DispatchStatus::Ok, result.status(), 0};
         } else if constexpr (Storage<Definition>::resultLocal) {
             const Result result = [&]() -> Result {
                 if constexpr (std::is_void_v<typename Definition::Request>)
-                    return Definition::invokeSelected(selected);
+                    return Definition::template invokeSelected<true>(selected);
                 else
-                    return Definition::invokeSelected(selected, *request);
+                    return Definition::template invokeSelected<true>(selected, *request);
             }();
             return encodeResult<Definition>(result, output);
         } else {
@@ -197,9 +197,9 @@ private:
                 return {DispatchStatus::WorkspaceTooSmall, ServiceStatus::Ok, 0};
             Result* result = resultLease.constructFrom([&]() -> Result {
                 if constexpr (std::is_void_v<typename Definition::Request>)
-                    return Definition::invokeSelected(selected);
+                    return Definition::template invokeSelected<true>(selected);
                 else
-                    return Definition::invokeSelected(selected, *request);
+                    return Definition::template invokeSelected<true>(selected, *request);
             });
             if (result == nullptr)
                 return {DispatchStatus::InternalError, ServiceStatus::Ok, 0};

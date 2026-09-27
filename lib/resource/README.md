@@ -14,6 +14,7 @@ resource/
   resource.pri
   protocol/    Protocol.hpp, Protocol.cpp
   telemetry/   SchemaFile, CommandsFile, ValuesFile
+  structured/  descriptor v3.0 encoding (Stage 09; providers follow later)
 ```
 
 One `resource.pri` connects the library to qmake. By default it adds the core
