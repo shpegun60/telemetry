@@ -5,10 +5,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_MODEL_DISPATCH_HPP
-#define TELEMETRY_STRUCTURED_MODEL_DISPATCH_HPP
+#ifndef TELEMETRY_STRUCTURED_RESULT_DISPATCH_HPP
+#define TELEMETRY_STRUCTURED_RESULT_DISPATCH_HPP
 
-#include "../result/ServiceResult.hpp"
+#include "ServiceResult.hpp"
 
 #include <cstdint>
 

@@ -1,16 +1,16 @@
 /*
- * @file Tables.hpp
+ * @file ServiceTable.hpp
  * @brief Positional native Service table and its bounded encoded fallback.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_MODEL_TABLES_HPP
-#define TELEMETRY_STRUCTURED_MODEL_TABLES_HPP
+#ifndef TELEMETRY_STRUCTURED_SERVICE_SERVICE_TABLE_HPP
+#define TELEMETRY_STRUCTURED_SERVICE_SERVICE_TABLE_HPP
 
-#include "Dispatch.hpp"
+#include "../result/Dispatch.hpp"
 #include "Service.hpp"
-#include "../codec/Codec.hpp"
+#include "../detail/Encoded.hpp"
 #include "../type/Registry.hpp"
 
 #include <telemetry/core/TelemetryId.h>
@@ -31,18 +31,40 @@ struct ServiceTypePair {
     TypeId responseTypeId;
 };
 
-// Only this erased view is needed by runtime dispatch. Its target points into
-// its owning ServiceTable, which must outlive every catalog/index using it.
+// Only this erased view is needed by runtime dispatch. Its context borrows
+// the owner/slot or table-owned binding; both must outlive the view.
 struct ServiceEntry {
-    using Invoke = EncodedCallResult (*)(const void*, std::span<const std::byte>,
-                                        std::span<std::byte>, Workspace&) noexcept;
+    // Call callEncoded for checked access. The internal thunk consumes exact
+    // wire buffers, whose compile-time extents are supplied by its own type.
+    using Invoke = EncodedCallResult (*)(const void*, const std::byte*,
+                                        std::byte*, Workspace&) noexcept;
 
-    const void* definition;
+    const void* context;
     Invoke invoke;
     const char* name;
     std::uint32_t requestWireBytes;
     std::uint32_t responseWireBytes;
     std::uint32_t scratchBytes;
+
+    [[nodiscard]] EncodedCallResult callEncoded(std::span<const std::byte> input,
+                                                std::span<std::byte> output,
+                                                Workspace& workspace) const noexcept
+    {
+        if (input.size() != requestWireBytes)
+            return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
+        if (output.size() < responseWireBytes)
+            return {DispatchStatus::BufferTooSmall, ServiceStatus::Ok, 0};
+        // Request decoding finishes before the first response byte is written.
+        // Input and output may therefore share storage, including partial overlap.
+        if (scratchBytes != 0) {
+            if (buffersOverlap(input, workspace.storage()) || buffersOverlap(output, workspace.storage()))
+                return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
+            if (workspace.used() > workspace.storage().size() ||
+                workspace.storage().size() - workspace.used() < scratchBytes)
+                return {DispatchStatus::WorkspaceTooSmall, ServiceStatus::Ok, 0};
+        }
+        return invoke(context, input.data(), output.data(), workspace);
+    }
 };
 
 template <class... Definitions>
@@ -64,8 +86,8 @@ public:
         : definitions_(definitions...), entries_(makeEntries(std::index_sequence_for<Definitions...>{}))
     {}
 
-    // Entries point into definitions_. A copied or moved table would retain
-    // pointers to the old object, so those operations are intentionally absent.
+    // Runtime functions and custom bindings can retain pointers into definitions_.
+    // Moving/copying a table would invalidate those contexts.
     ServiceTable(const ServiceTable&) = delete;
     ServiceTable& operator=(const ServiceTable&) = delete;
     ServiceTable(ServiceTable&&) = delete;
@@ -97,17 +119,24 @@ public:
 
 private:
     template <class Definition>
+    using Storage = detail::ServiceStorage<typename Definition::Request,
+        std::conditional_t<std::is_void_v<typename Definition::Response>,
+                           void, typename Definition::Result>>;
+
+    template <class Definition>
     [[nodiscard]] static consteval std::uint32_t requiredScratch() noexcept
     {
         constexpr std::uint64_t requestBytes = [] {
-            if constexpr (!std::is_void_v<typename Definition::Request>)
+            if constexpr (!std::is_void_v<typename Definition::Request> &&
+                          !Storage<Definition>::requestLocal)
                 return static_cast<std::uint64_t>(
                     scratchBytes<typename Definition::Request>);
             else
                 return std::uint64_t{0};
         }();
         constexpr std::uint64_t resultBytes = [] {
-            if constexpr (!std::is_void_v<typename Definition::Response>)
+            if constexpr (!std::is_void_v<typename Definition::Response> &&
+                          !Storage<Definition>::resultLocal)
                 return static_cast<std::uint64_t>(
                     scratchBytes<typename Definition::Result>);
             else
@@ -119,8 +148,20 @@ private:
         return static_cast<std::uint32_t>(requestBytes + resultBytes);
     }
 
+    template <class Definition>
+    [[nodiscard]] static EncodedCallResult encodeResult(
+        const typename Definition::Result& result, std::span<std::byte> output) noexcept
+    {
+        if (!result.hasValue()) return {DispatchStatus::Ok, result.status(), 0};
+        constexpr auto bytes = wireSize<typename Definition::Response>;
+        // The entry boundary checked output capacity and any Workspace overlap.
+        // The response lives either there or in this call's local object.
+        detail::encodeEndpoint(*result.valueOrNull(), output.first(bytes));
+        return {DispatchStatus::Ok, ServiceStatus::Ok, bytes};
+    }
+
     template <class Definition, class RequestPointer>
-    [[nodiscard]] static EncodedCallResult invokeReady(const Definition& definition,
+    [[nodiscard]] static EncodedCallResult invokeReady(const void* context,
                                                         RequestPointer request,
                                                         std::span<std::byte> output,
                                                         Workspace& workspace) noexcept
@@ -130,7 +171,7 @@ private:
         using Result = typename Definition::Result;
 
         // Keep one snapshot for both the availability check and the call.
-        auto selected = definition.binding_.snapshot();
+        auto selected = detail::ErasedBinding<Binding>::snapshot(context);
         if (!Binding::available(selected))
             return {DispatchStatus::Unavailable, ServiceStatus::Ok, 0};
 
@@ -142,6 +183,14 @@ private:
                     return Definition::invokeSelected(selected, *request);
             }();
             return {DispatchStatus::Ok, result.status(), 0};
+        } else if constexpr (Storage<Definition>::resultLocal) {
+            const Result result = [&]() -> Result {
+                if constexpr (std::is_void_v<typename Definition::Request>)
+                    return Definition::invokeSelected(selected);
+                else
+                    return Definition::invokeSelected(selected, *request);
+            }();
+            return encodeResult<Definition>(result, output);
         } else {
             auto resultLease = workspace.reserve<Result>();
             if (!resultLease.valid())
@@ -154,53 +203,39 @@ private:
             });
             if (result == nullptr)
                 return {DispatchStatus::InternalError, ServiceStatus::Ok, 0};
-            if (!result->hasValue())
-                return {DispatchStatus::Ok, result->status(), 0};
-
-            constexpr std::uint32_t bytes = wireSize<Response>;
-            const auto status = encode(*result->valueOrNull(), output.first(bytes));
-            if (status != CodecStatus::Ok)
-                return {DispatchStatus::InternalError, ServiceStatus::Ok, 0};
-            return {DispatchStatus::Ok, ServiceStatus::Ok, bytes};
+            return encodeResult<Definition>(*result, output);
         }
     }
 
     template <class Definition>
     [[nodiscard]] static EncodedCallResult invokeOne(const void* raw,
-                                                      std::span<const std::byte> input,
-                                                      std::span<std::byte> output,
+                                                      const std::byte* inputBytes,
+                                                      std::byte* outputBytes,
                                                       Workspace& workspace) noexcept
     {
         using Request = typename Definition::Request;
         using Response = typename Definition::Response;
 
-        // All caller-controlled sizes and overlap are checked before a target
-        // is resolved. A malformed bool is rejected by decode before callback.
-        if (input.size() != wireSize<Request>)
-            return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
-        if (output.size() < wireSize<Response>)
-            return {DispatchStatus::BufferTooSmall, ServiceStatus::Ok, 0};
-        if (!buffersDisjoint(input, output, workspace.storage()))
-            return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
-        constexpr std::uint32_t required = requiredScratch<Definition>();
-        if (workspace.used() > workspace.storage().size() ||
-            workspace.storage().size() - workspace.used() < required)
-            return {DispatchStatus::WorkspaceTooSmall, ServiceStatus::Ok, 0};
+        // Length/overlap preflight is complete. Bool representation is still
+        // checked by this typed decoder before resolving the callback target.
+        const std::span<const std::byte> input{inputBytes, wireSize<Request>};
+        const std::span<std::byte> output{outputBytes, wireSize<Response>};
 
-        const auto& definition = *static_cast<const Definition*>(raw);
         if constexpr (std::is_void_v<Request>) {
-            return invokeReady(definition, static_cast<const void*>(nullptr), output, workspace);
+            return invokeReady<Definition>(raw, static_cast<const void*>(nullptr), output, workspace);
+        } else if constexpr (Storage<Definition>::requestLocal) {
+            if (!detail::validEndpoint<Request>(input))
+                return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
+            const Request request = detail::decodeLocalEndpoint<Request>(input);
+            return invokeReady<Definition>(raw, &request, output, workspace);
         } else {
             auto requestLease = workspace.reserve<Request>();
             if (!requestLease.valid())
                 return {DispatchStatus::WorkspaceTooSmall, ServiceStatus::Ok, 0};
-            Request* request = nullptr;
-            const auto status = decode(input, requestLease, request);
-            if (status == CodecStatus::InvalidValue)
+            Request* request = detail::decodeEndpoint<Request>(input, requestLease);
+            if (request == nullptr)
                 return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
-            if (status != CodecStatus::Ok || request == nullptr)
-                return {DispatchStatus::InternalError, ServiceStatus::Ok, 0};
-            return invokeReady(definition, request, output, workspace);
+            return invokeReady<Definition>(raw, request, output, workspace);
         }
     }
 
@@ -209,7 +244,8 @@ private:
     makeEntries(std::index_sequence<I...>) noexcept
     {
         return {{ServiceEntry{
-            &std::get<I>(definitions_),
+            detail::ErasedBinding<typename std::tuple_element_t<I, std::tuple<Definitions...>>::BindingType>::context(
+                std::get<I>(definitions_).binding_),
             &invokeOne<std::tuple_element_t<I, std::tuple<Definitions...>>>,
             std::get<I>(definitions_).name(),
             wireSize<typename std::tuple_element_t<I, std::tuple<Definitions...>>::Request>,

@@ -341,4 +341,71 @@ The CI ARM GCC 13.2.1 toolchain also produced identical native call bytes
 104/104 B and 80/80 B at `-O2`/`-Os`/`-Og`.
 
 Stage 07 exposes a working Service without a descriptor file or UI. The
-Field/Command families and shared mixed catalog are Stage 08 work.
+Field/Command families and the shared mixed catalog were added in Stage 08 below.
+
+## Stage 08: mixed Field, Command and Model
+
+[`endpoints/run.py`](endpoints/run.py) checks one table with bool, u16, float,
+double, enum, array, struct and read/write struct, all retaining exact native
+types. The same MotorConfig in Field, Command and Service has one TypeId.
+Tests cover typed/encoded parity, every status, read-only and unavailable
+bindings, all five slot families, one snapshot, u32 routing, short/overlapping
+buffers, nested leases, 4 KiB no-heap endpoints, DMI suppression and malformed
+bool rejection before callbacks. LeafStorage covers every scalar width and
+enum with local/Workspace storage selected at compile time.
+CodecParity checks skewed buffers, NaN payloads and unknown enum codes.
+ErasedBoundary checks direct contexts (including different read/write objects,
+const/derived owners and OwnerSlot rebinding), checked entry methods, and
+Service input/output sharing. Complete and partial overlap in either direction
+is exercised for local, mixed and Workspace request/result storage. Invalid
+lengths/bools do not call the endpoint, and failed Services leave output intact.
+
+[`endpoints/storage.py`](endpoints/storage.py) tests budgets 0/16/32/64,
+exact and one-byte-over boundaries, 4 KiB objects, aligned DTOs with skewed
+Workspace spans, mixed local/Workspace Service request/result placement,
+wrapper-inclusive size accounting, short scratch, DMI and nested leases.
+It also compiles a real caller with budget 0 against adapter/ABI TUs with
+budget 16 and requires the exact adapter symbol to fail linking.
+Host: 60 successful commands and two expected rejections. ARM: 88 successful
+commands and two expected rejections, across O2/Os/Og. These are generated
+runner totals; sanitizer host executes the same storage matrix.
+
+Forty compile-fail cases check signatures, semantic-metadata rejection,
+temporary owners/views, local/global positions and explicit-template bypasses.
+Cases 37–40 specifically reject temporary groups/catalogs hidden by explicit
+types or braces; all four compiled against the pre-guard snapshot. These
+guards change construction validity, not runtime dispatch instructions.
+Three exact-ABI mutations must fail to link against real compiled adapters.
+Counts are computed by the runner: Linux host has 19 successful commands and
+43 expected failures; ARM has 110 successful commands and 43 expected failures
+without null-check mode (which intentionally skips native byte equality).
+
+```text
+python tests/structured/endpoints/run.py --cxx g++ --build-dir build/structured-endpoints
+python tests/structured/endpoints/run.py --cxx clang++-18 --sanitize --build-dir build/structured-endpoints-sanitized
+python tests/structured/endpoints/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-endpoints-arm
+```
+
+Locally verified with Clang 18 ASan/UBSan, GCC null-check mode and CubeIDE
+ARM GCC 14.3.1 at O2/Os/Og. The eleven direct/local/global native comparisons
+are byte-identical at O2/Os. Tables stay in read-only storage without startup
+constructors. ARM runtime entries are 28/20/24 B for Field/Command/Service,
+alignment 4. The current 4 KiB read/write/command thunk frames are 24/12/12 B at O2,
+24/16/16 B at Os and 80/72/72 B at Og; these are individual frames,
+not complete call-chain peaks.
+The local CI-toolchain replay with ARM GCC 13.2.1 also retained all eleven
+native byte-equality checks. Its large endpoint frames were 24/12/12 B at O2,
+48/48/48 B at Os and 80/72/72 B at Og; compiler-specific frame figures are
+not interchangeable with the CubeIDE measurements.
+
+The shared codec optimization was also checked with the unchanged Stage 04
+and Stage 07 probes. Service native instructions are unchanged. Its 4 KiB
+encoded frames after the storage/preflight changes are 32/32 B at O2,
+40/40 B at Os and 64/64 B at Og on CubeIDE 14.3.1. Both raw and wrapped
+4 KiB responses remain in Workspace. The one-byte Request fits the local
+budget; the full call-chain bound is still separate from these thunk frames.
+
+Actual H7S runs cover correctness, natural/8/32 alignment, same-image legacy
+comparison and component costs. See [results and receipts](endpoints/h7s/README.md).
+The new encoded path is not claimed universally faster than the old scalar
+adapter. Stage 13 still owns full call-chain stack/no-heap linked evidence.

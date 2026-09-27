@@ -2,9 +2,11 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **специфікація поетапної реалізації**. Етапи 00–04 частково або
-повністю реалізовані; Field/Command/Service, Model і wire v3 у прикладах нижче
-ще є цільовим API, а не описом готової бібліотеки.
+Статус: **специфікація поетапної реалізації**. Етапи 00–08 реалізовані;
+зріз 08 додає mixed FieldTable, Command і спільну Model.
+Descriptor, transport та wire v3 у наступних етапах і прикладах нижче
+ще є цільовим API. Поточний стан перевірок ведеться в
+[tests/structured/README.md](../tests/structured/README.md).
 
 Перша версія structured-модуля позначається далі як **structured v1**, а її
 мережевий формат — **v3.0**. Це різні номери: версія нового модуля і версія
@@ -294,7 +296,7 @@ flowchart TB
     subgraph encoded [Запит через транспорт]
         packet["Повний request packet"] --> ready["Transport dispatcher: Ready цього peer"]
         ready --> exchange["Exchange: header, endpoint, sizes, workspace"]
-        exchange --> decode["Decode Request у caller-owned workspace"]
+        exchange --> decode["Decode Request: local object або Workspace за compile-time бюджетом"]
         decode --> resolve["Resolve target один раз"]
         resolve --> invoke["Та сама C++ ціль: один виклик"]
         invoke --> response["Status і canonical Response bytes"]
@@ -1268,7 +1270,56 @@ storage або помилку. Перевірки додавання адрес/
 обраного C++20 алгоритму lifetime primitive. Для отримання адреси після
 placement construction використовуємо повернений T*, а не старий pointer.
 
-Якщо Request і Response мають жити одночасно, requirement — їхній сумарний
+Уточнення Stage 08, погоджене після MCU-порівняння: storage policy задає
+compile-time константа `TELEMETRY_STRUCTURED_LOCAL_BYTES`, типово 32 bytes.
+Field Value і Command Request з `sizeof(T)` не більше цього порога живуть
+локально; більші objects — у caller-owned Workspace. Поріг 0 примусово
+використовує Workspace, також для Scalar/Enum. Це політика місця зберігання,
+не нова категорія Type і не інший codec. Runtime-гілки вибору немає.
+
+Для Service спочатку розміщується Request: якщо він вміщається, його розмір
+віднімається від локального бюджету. Реальний `ServiceResult<Response>`
+може бути локальним лише в залишку. Тому одночасно живі локальні payload
+objects не обходять бюджет удвох; Request/Result можуть мати різне storage.
+Model scratch requirements включають лише Workspace objects із запасом
+alignment. `scratchBytes<T>` залишається верхньою межею прямого `reserve<T>()`.
+Void status без response не потребує payload allocation.
+
+Поріг однаковий у всіх TU й входить у structured ABI tag. Це **не** межа
+всього task stack: збережені регістри, alignment padding, codec frames і
+код callback-а рахуються окремо. H7S-порівняння 0/16/32/64 bytes, старої
+scalar бібліотеки та решти витрат наведене в
+[Storage results](../tests/structured/endpoints/h7s/STORAGE_RESULTS.md).
+
+Тривіально конструйований object перед decode не обнуляється: усі його
+semantic members заповнюються до читання. Для DMI лишається neutral
+construction без виконання прикладних ініціалізаторів. Canonical bytes,
+bool validation та lifetime вимоги від storage policy не змінюються.
+Поріг змінює **тільки storage**: supported type rules, exact-length і
+representation validation, wire semantics від нього не залежать. Малий struct
+лишається struct із тими самими вимогами до типу й DMI-neutral construction;
+він не стає unchecked scalar. Змінюються потреба в scratch та пов'язані
+WorkspaceTooSmall/overlap перевірки, коли Workspace реально використовується.
+
+Standalone Codec зберігає повну перевірку lengths/aliasing/lifetime.
+Внутрішні Field/Command/Service adapters після власного preflight використовують
+спільні codec primitives без повторної перевірки тих самих spans. Перевірка
+bool representation залишається до callback. Canonical little-endian bytes
+не змінюються: на little-endian host scalar leaf копіюється через `memcpy`,
+що не створює невирівняного `T&`; на інших byte orders лишається побайтове
+кодування. Array/Struct не копіюються як сирий C++ object.
+
+Якщо всі payload objects endpoint-а локальні, Workspace взагалі не читається:
+ані capacity/used, ані storage pointer, ані overlap. Якщо хоча б один object
+використовує Workspace, input/output мають бути окремими від його storage.
+Service input та output можуть перекриватись між собою: весь Request уже
+декодований у незалежний native object до запису першого байта Response.
+Довжини й required scratch перевіряє одна boundary після O(1) доступу до
+entry; внутрішній typed thunk отримує byte pointers, а точні wire extents
+знає з типів. Для methods/callables/slots erased context указує прямо на
+owner/callable/slot, без додаткового переходу через definition.
+
+Якщо Request і Response мають жити одночасно у Workspace, requirement — їхній сумарний
 storage з потрібним alignment. `max(sizeof(Request), sizeof(Response))`
 недостатньо. Враховується також wrapper, якщо callback повертає
 `ServiceResult<Response>`, а не голий Response.
@@ -2009,7 +2060,8 @@ written=0. Він не читає відсутній requestId й не вига�
 5. Знайти endpoint; перевірити capabilities FieldWrite.
 6. Звірити payloadBytes із request wireSize цього endpoint.
 7. Перевірити output на header + максимальну успішну відповідь.
-8. Перевірити workspace, alignment і неперекриття input/output/workspace.
+8. Для objects у Workspace перевірити capacity/alignment і відсутність
+   перекриття wire buffers із Workspace; для повністю локальних не читати його.
 9. Повністю декодувати request; помилка означає callback count 0.
 10. Resolve target один раз; його відсутність повертає dispatch Unavailable.
 11. Викликати callback один раз із native Request.
@@ -2021,8 +2073,11 @@ written=0. Він не читає відсутній requestId й не вига�
 відсутність можливості запису; при цьому ціль не викликається. Інші
 endpoint дотримуються структурної валідації перед availability check.
 
-Input/output/workspace v1 не перекриваються. Це перевіряється на межі
-encoded API, а не використовується як недокументований `restrict`.
+Service input/output можуть перекриватись: відповідь пишеться лише після
+повного decode запиту. Exchange так само повинен зчитати routing header і
+request payload до запису response header/payload у спільний буфер.
+Overlap wire buffers із Workspace відхиляється лише коли endpoint використовує
+Workspace. Це перевіряється на межі encoded API, а не припускається через `restrict`.
 Перевірка overlap не повинна робити невизначене relational comparison
 pointer-ів різних C++ об'єктів; реалізація використовує документований
 для цільових платформ адресний helper з перевіркою переповнення.
@@ -2097,13 +2152,26 @@ lib/
       Workspace.hpp                  alignment and object lifetime
     result/
       ServiceResult.hpp              реалізований Stage 04 return wrapper
-    model/
+      Dispatch.hpp                   dispatch status і результат Service
+      EndpointResults.hpp            результати encoded Field/Command
+    detail/
+      Binding.hpp                    спільні helper-и побудови bindings
+    field/
       Field.hpp
+      FieldTable.hpp
+      FieldCatalogs.hpp
+    command/
       Command.hpp
+      CommandTable.hpp
+      CommandCatalogs.hpp
+    service/
       Service.hpp
-      Tables.hpp                     local typed tables
-      Catalogs.hpp                   group/entry routing
+      ServiceTable.hpp
+      ServiceCatalogs.hpp
+    model/
+      Catalog.hpp                    спільна group declaration
       Model.hpp                      registry + runtime views
+      Adapter.hpp/.cpp               compiled encoded entry points
   resource/
     resource.pri                     existing single resource entry point
     protocol/                        existing generic protocol
@@ -2634,7 +2702,9 @@ explicit entry) на точні іменовані constexpr-діагности�
 - Roundtrip не є єдиним доказом: encoder і decoder можуть мати ту саму помилку.
 - Truncate на кожному byte, extra trailing byte, bool=2/255.
 - Перекошена адреса workspace, рівно достатній buffer, на byte менший.
-- Input/output/workspace overlap відхиляється без callback.
+- Standalone Codec відхиляє overlap wire bytes/native object. Encoded endpoints
+  відхиляють wire/Workspace overlap без callback лише за використання scratch;
+  Service input/output overlap дозволений після повного decode запиту.
 - FP bit patterns, integer extremes і unknown scoped enum codes.
 - DMI side-effect counter залишається 0 при explicit full-member decode.
 - ASan/UBSan, no heap, ARM `.su` для 4 KiB array.

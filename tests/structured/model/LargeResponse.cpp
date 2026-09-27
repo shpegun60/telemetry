@@ -46,8 +46,8 @@ inline constexpr ts::ServiceCatalogTable catalogs{ts::group("large", table)};
 inline constexpr ts::Model model{ts::emptyFields, ts::emptyCommands, catalogs};
 
 static_assert(model.maxServiceResponseWireSize() == 4096);
-static_assert(model.maxServiceScratch() >=
-              ts::scratchBytes<Request> + ts::scratchBytes<ts::ServiceResult<Response>>);
+static_assert(model.maxServiceScratch() == ts::scratchBytes<ts::ServiceResult<Response>> +
+              (sizeof(Request) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<Request>));
 
 } // namespace large
 

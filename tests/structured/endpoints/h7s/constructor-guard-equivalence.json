@@ -1,0 +1,15 @@
+{
+  "note": "Post-measurement compile-time constructor guards; no new board run. Full natural Flash bytes match final-receipt.json.",
+  "images": [
+    {
+      "optimization": "O2",
+      "measured_binary_sha256": "b40508c6f384a40e0f101e84023354c5975bbff050eb7fd2d07014aa52d4eb12",
+      "rechecked_binary_sha256": "b40508c6f384a40e0f101e84023354c5975bbff050eb7fd2d07014aa52d4eb12"
+    },
+    {
+      "optimization": "Os",
+      "measured_binary_sha256": "9b16572ba2396eba18c8c368956a3bb4aaf79ba514de457333e74227a7e7631e",
+      "rechecked_binary_sha256": "9b16572ba2396eba18c8c368956a3bb4aaf79ba514de457333e74227a7e7631e"
+    }
+  ]
+}

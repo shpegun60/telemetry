@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/model/Service.hpp>
+#include <telemetry_structured/service/Service.hpp>
 
 #include <cstdint>
 

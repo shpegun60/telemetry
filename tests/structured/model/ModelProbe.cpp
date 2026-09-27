@@ -100,9 +100,11 @@ int main()
         output != priorOutput || workspace.used() != 0) return 5;
     std::array<std::byte, 1> tiny{};
     ts::Workspace small{tiny};
-    if (index.callEncoded(id, input, output, small).dispatch !=
-        ts::DispatchStatus::WorkspaceTooSmall || probe::calls != before ||
-        output != priorOutput) return 6;
+    if constexpr (probe::model.maxServiceScratch() > 1) {
+        if (index.callEncoded(id, input, output, small).dispatch !=
+            ts::DispatchStatus::WorkspaceTooSmall || probe::calls != before ||
+            output != priorOutput) return 6;
+    }
 
     input.back() = std::byte{2};
     if (index.callEncoded(id, input, output, workspace).dispatch !=

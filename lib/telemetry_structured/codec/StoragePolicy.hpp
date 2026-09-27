@@ -1,0 +1,54 @@
+/*
+ * @file StoragePolicy.hpp
+ * @brief Compile-time budget for local encoded endpoint objects.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * SPDX-License-Identifier: MIT
+ */
+#ifndef TELEMETRY_STRUCTURED_CODEC_STORAGE_POLICY_HPP
+#define TELEMETRY_STRUCTURED_CODEC_STORAGE_POLICY_HPP
+
+#include <cstddef>
+#include <type_traits>
+
+// One setting for every translation unit in an executable. Zero forces all
+// value/request/result payload objects through caller-owned Workspace.
+// This is a payload-object budget, not the total call-chain stack bound.
+#ifndef TELEMETRY_STRUCTURED_LOCAL_BYTES
+#define TELEMETRY_STRUCTURED_LOCAL_BYTES 32
+#endif
+
+namespace telemetry::structured {
+
+static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES >= 0,
+              "Local endpoint object budget cannot be negative");
+inline constexpr std::size_t maxLocalObjectBytes = TELEMETRY_STRUCTURED_LOCAL_BYTES;
+
+namespace detail {
+
+template <class T>
+inline constexpr std::size_t objectBytes = [] {
+    if constexpr (std::is_void_v<T>) return std::size_t{0};
+    else return sizeof(T);
+}();
+
+template <class T, std::size_t Budget = maxLocalObjectBytes>
+inline constexpr bool localObject = !std::is_void_v<T> && objectBytes<T> <= Budget;
+
+// Request and result can be alive together. Give the request first use of
+// the budget, then decide the actual result wrapper against the remainder.
+// Compiler frame padding/register spills and nested user calls are measured
+// separately; sizeof(payload) cannot promise the total stack frame size.
+template <class Request, class Result>
+struct ServiceStorage {
+    static constexpr bool requestLocal = localObject<Request>;
+    static constexpr std::size_t requestBytes = requestLocal ? objectBytes<Request> : 0;
+    static constexpr bool resultLocal = localObject<Result, maxLocalObjectBytes - requestBytes>;
+    static constexpr std::size_t localBytes = requestBytes +
+        (resultLocal ? objectBytes<Result> : 0);
+    static_assert(localBytes <= maxLocalObjectBytes);
+};
+
+} // namespace detail
+} // namespace telemetry::structured
+
+#endif

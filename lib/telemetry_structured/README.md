@@ -19,14 +19,16 @@ Its current implementation includes the stable
 [compile-time TypeRegistry](type/Registry.hpp), and the
 [canonical codec](codec/Codec.hpp) with caller-owned
 [Workspace](codec/Workspace.hpp), native
-[Service bindings](model/Service.hpp), and the Stage 07
-[ServiceTable and Model](model/Model.hpp). The facade supplies aggregate and callable
+[Field](field/Field.hpp), [Command](command/Command.hpp) and
+[Service](service/Service.hpp) bindings, and the Stage 08 mixed
+[Model](model/Model.hpp). The facade supplies aggregate and callable
 facts plus a normalized enum dictionary. The traits classify supported types
 and calculate wire size, nesting depth and expanded value nodes during
 compilation. The registry deduplicates exact C++ types, registers nested
 dependencies first, and exposes immutable structural descriptors. The
-Service-only Model now offers local/global native calls and a bounded encoded
-call. Fields, Commands, descriptor bytes and transport remain later stages.
+Model offers local/global native operations and bounded encoded runtime
+operations for all three families. Descriptor bytes and transport remain
+later stages.
 
 ```cpp
 struct Reading { float volts; std::uint16_t status; };
@@ -39,8 +41,9 @@ constexpr auto types = Types::view();
 
 The standalone TypeRegistry example lists roots explicitly. A Model instead
 derives them from its tables in Field, Command, then Service order, with each
-Service request preceding its response. Stage 07 uses empty Field/Command
-catalog placeholders until Stage 08. `TypeRegistryView::find(id)` checks
+Service request preceding its response. Empty catalog tables are valid;
+`emptyFields`/`emptyCommands` also remain available for Service-only models.
+`TypeRegistryView::find(id)` checks
 bounds; `TypeRegistry::descriptor<Id>()` requires a known valid ID at compile
 time. `recordsBytes` counts type records only, including their record headers;
 the Model will check the size of the entire descriptor. Member and enum names
@@ -87,8 +90,11 @@ if (result == telemetry::structured::CodecStatus::Ok) {
 
 An unaligned caller buffer can use `scratchBytes<T>` as a sufficient
 single-object bound. Live leases must be destroyed in reverse order; Request
-and Response may have separate simultaneous leases in one Workspace. Input,
-output, and workspace byte ranges must not overlap. The caller synchronizes
+and Response may have separate simultaneous leases in one Workspace. The
+standalone codec rejects overlap between its wire bytes and native object.
+Encoded endpoints require wire buffers to be disjoint from Workspace only
+when the endpoint actually uses scratch. Service input and output may share
+bytes: decoding completes before response encoding starts. The caller synchronizes
 access to a shared Workspace and owns the byte buffer for its entire lifetime.
 
 [ServiceResult<T>](result/ServiceResult.hpp) supplies status and optional
@@ -151,14 +157,161 @@ returned by an invoked Service. Thus a missing target yields dispatch
 `Unavailable`, while an application-returned `ServiceStatus::Unavailable`
 yields dispatch `Ok`. The response payload is written only for a successful
 endpoint result. Before any callback, the runtime route checks the ID, exact
-request length, capacity for the full successful response, disjoint buffers,
-caller-owned scratch capacity and every encoded bool. It snapshots a slot
-once. `model.maxServiceScratch()` includes simultaneously live Request and
-`ServiceResult<Response>` storage plus alignment margin;
+request length, capacity for the full successful response, any required
+scratch capacity/aliasing and every encoded bool. It snapshots a slot
+once. `model.maxServiceScratch()` includes the simultaneously live Request and
+`ServiceResult<Response>` objects assigned to Workspace, plus alignment margin;
 `model.maxServiceResponseWireSize()` reports the largest response payload.
 These are sufficient bounds, so an already aligned buffer can sometimes work
 with fewer bytes. The Service names and borrowed bindings must outlive every
 table/catalog/model view.
+
+## Mixed fields and commands
+
+`field<getter[, setter]>(name[, owner])` binds known targets. The parameter
+form is `field(name, getter[, setter])`. As with Service, it accepts ordinary
+functions, capture-free lambdas, stable capturing callable lvalues and slots.
+Keep both callbacks in the template form or both in the parameter form.
+`command<target>(name[, owner])` and `command(name, callable)` use the same
+binding rules. Shared storage/snapshot rules live in
+[`detail/Binding.hpp`](detail/Binding.hpp); each family owns its signature
+validation, native results, table and catalog headers in its own directory.
+
+A Field getter returns an unqualified supported native `T` by value. Its
+setter takes exactly `T` or `const T&` and returns `telemetry::WriteResult`.
+A Command takes zero arguments or one aggregate Request, by value or const
+reference, and returns exactly `telemetry::CommandResult`. All callbacks
+must be `noexcept`. Field scalar types remain native scalar types: there is
+no `Scalar` construction, declared-type conversion or numeric coercion in
+this API. Validation of application values belongs to the setter/command.
+There are no units, limits, defaults or argument annotations.
+
+```cpp
+namespace ts = telemetry::structured;
+struct Config { float target; std::uint16_t rpm; bool enabled; };
+
+// Assume device supplies the shown noexcept getters/methods.
+inline constexpr ts::FieldTable localFields{
+    ts::field<&Device::readRpm>("RPM", device),              // uint16_t
+    ts::field<&Device::readConfig, &Device::writeConfig>("Config", device)
+};
+inline constexpr ts::CommandTable localCommands{
+    ts::command<&Device::configure>("Configure", device)   // CommandResult(const Config&)
+};
+inline constexpr ts::FieldCatalogTable fields{ts::group("motor", localFields)};
+inline constexpr ts::CommandCatalogTable commands{ts::group("motor", localCommands)};
+inline constexpr ts::ServiceCatalogTable services{};
+inline constexpr ts::Model model{fields, commands, services};
+
+auto rpm = localFields.read<0>();                         // optional<uint16_t>
+auto config = fields.read<telemetry::makeId<0, 1>()>();    // optional<Config>
+auto changed = localFields.write<1>(Config{230.f, 1500, true});
+auto result = commands.call<telemetry::makeId<0, 0>()>(Config{250.f, 1800, true});
+
+std::array<std::byte, model.maxScratch()> storage{};
+ts::Workspace workspace{storage};
+auto read = ts::readFieldEncoded(model.view(), fieldId, outputBytes, workspace);
+auto write = ts::writeFieldEncoded(model.view(), fieldId, inputBytes, workspace);
+auto call = ts::executeCommandEncoded(model.view(), commandId, inputBytes, workspace);
+```
+
+Local template positions accept integers or enums. Global IDs are packed
+`u32` group/position pairs in separate Field, Command and Service spaces.
+All families share one Registry; the exact same `Config` used by all three
+has one TypeId. `model.view().fieldTypeId(id)`, `commandTypeId(id)` and
+`serviceTypeIds(id)` expose those references. `maxScratch()` is the largest
+single-operation bound across the three categories; it is not a budget for
+nested or concurrent operations. Such operations need separate scratch or
+enough remaining space for every live lease.
+
+Native Field reads return `optional<T>`; absent targets return `nullopt`.
+An absent setter capability returns `WriteResult::ReadOnly`; an empty bound
+setter returns `WriteResult::Unavailable`. Encoded results separate dispatch
+failures from application status, exactly as Service does. **Read
+`endpointStatus` only when `dispatch == Ok`.** Unknown application status
+codes become `InternalError` at the encoded boundary. `Accepted` is simply
+returned; the library does not create a queue or retain the decoded request.
+
+Encoded writes/commands validate exact payload length, scratch aliasing
+and bool representations before resolving the target. The compile-time
+`TELEMETRY_STRUCTURED_LOCAL_BYTES` budget defaults to **32 bytes**. A Field's
+native value or a Command's request uses a local object when its `sizeof(T)`
+fits that budget; larger objects use caller-owned Workspace. Zero forces
+Workspace for all payload objects, including scalar Fields. There is no
+runtime size branch and no change to codec bytes or the native typed API.
+The threshold is **only a storage policy**. It never changes supported-type
+rules, exact-length/representation validation or wire semantics. A small
+aggregate still follows the aggregate contract, including alignment requirements
+and DMI-neutral construction; it is not treated as an unchecked scalar.
+Only the scratch requirement and the resulting WorkspaceTooSmall/alias checks
+depend on whether the selected endpoint actually uses Workspace.
+
+Service gives its Request first use of this budget. The actual
+`ServiceResult<Response>` wrapper is local only if it fits the remainder.
+Request and Result may therefore use different storage. Only objects assigned
+to Workspace contribute to the Model's scratch requirements. The void-status
+result remains an ordinary status, without a response payload allocation.
+
+Define the budget identically in all translation units, for example
+`-DTELEMETRY_STRUCTURED_LOCAL_BYTES=64`. It is part of the compiled adapter's
+exact ABI tag; a caller and adapter compiled with different budgets fail to
+link. This is a budget for live **payload object sizes**, not a total stack
+limit: alignment, saved registers, codec helpers and user callbacks also
+consume stack. The measured 0/16/32/64 trade-offs are recorded in the
+[storage report](../../tests/structured/endpoints/h7s/STORAGE_RESULTS.md).
+
+For a fully local endpoint, Workspace is not accessed, including its buffer
+address, capacity or used count. A caller may therefore use an empty Workspace
+or let its storage overlap wire bytes. When scratch is required, wire buffers
+must remain disjoint from the full Workspace span, including active outer leases.
+Service input/output may overlap each other with either storage policy. Its
+Request is fully decoded into independent native storage before the callback
+and before any response byte is written. An application failure writes no payload.
+
+The checked runtime boundary is also available on a resolved entry as
+`FieldEntry::readEncoded/writeEncoded`, `CommandEntry::executeEncoded` and
+`ServiceEntry::callEncoded`. Index dispatch calls these after O(1) bounds-checked
+array access. Their internal function pointers require prevalidated byte
+buffers; they take raw pointers, with exact extents known by the generated thunk.
+This is not an additional unchecked public routing API.
+Method/callable/slot entries point directly to their binding state. Runtime
+function pointers and custom bindings retain a table-owned binding object;
+function pointers are never converted to object pointers. A Field stores
+separate read/write contexts because they may refer to different objects.
+
+Trivially default-constructible decoded objects are default-initialized
+without zeroing; the decoder fills every semantic member before use. Types
+with DMI use the same neutral construction as Workspace decoding, without
+executing application initializers. Padding is never serialized.
+Encoded reads check output capacity and any required scratch first, then call
+the getter once. Every operation releases its acquired scratch leases. A
+read-only Field is identified before payload checks and returns
+`{Ok, ReadOnly}`. Buffer and dispatch failures do not invoke application
+callbacks. Getters construct large values directly in Workspace; setters and
+commands with `const T&` consume the decoded object there. Choosing a by-value
+large request can still incur the copy required by that C++ signature.
+
+Endpoint preflight avoids repeating the standalone codec's same span checks;
+it does not bypass bool validation or object construction. Integer leaf
+encoding uses `memcpy` on little-endian targets and byte assembly otherwise.
+No packed-object reference or raw aggregate copy is used. Normal target flags
+govern whether the compiler may use unaligned load/store instructions.
+
+Tables borrow owners, callables, slots and names. They own their definition
+objects and runtime entries, so they cannot be moved/copied after their
+self-references are formed. Catalogs borrow stable tables. Typed routing
+bypasses erased entries when the compiler knows the target; runtime encoded
+routing uses direct bounds-checked array indexing, then the compact entries.
+`id >> 16` selects the catalog and `id & 0xffff` selects its entry; there is
+no traversal, name comparison or hash lookup. On ARM these entries occupy
+28/20/24 bytes for Field/Command/Service, with natural alignment. These are
+**not total per-endpoint storage sizes**: definitions and structural Registry
+metadata also occupy storage. The
+[earlier H7S alignment measurements](../../tests/structured/endpoints/h7s/README.md)
+did not justify uniform cache-line alignment for the former 24-byte Field
+entry. The current 28-byte direct-context layout retains natural alignment;
+its [dispatch measurements](../../tests/structured/endpoints/h7s/DISPATCH_RESULTS.md)
+do not repeat the 8/32-byte alignment comparison.
 
 A type with default member initializers is constructed with every member
 explicitly supplied before decoding. This avoids running a DMI as a hidden

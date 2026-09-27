@@ -15,6 +15,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+#include <telemetry/core/TelemetryCompiler.h>
 
 namespace telemetry::structured {
 
@@ -47,7 +48,10 @@ public:
                       "Workspace lease requires a mutable object type");
         static_assert(std::is_nothrow_destructible_v<T>,
                       "Workspace lease requires a noexcept destructor");
-        explicit Lease(Workspace& workspace) noexcept
+        // Keep the reservation beside the fresh-lease state. At -Os an
+        // outlined constructor hides that state and retains redundant object
+        // checks and stack stores in every encoded operation.
+        TELEMETRY_FORCE_INLINE explicit Lease(Workspace& workspace) noexcept
             : workspace_(workspace), previous_(workspace.used_)
         {
             if (previous_ > workspace.storage_.size()) return;
@@ -111,7 +115,7 @@ public:
     };
 
     template <class T>
-    [[nodiscard]] Lease<T> reserve() noexcept
+    [[nodiscard]] TELEMETRY_FORCE_INLINE Lease<T> reserve() noexcept
     {
         return Lease<T>{*this};
     }

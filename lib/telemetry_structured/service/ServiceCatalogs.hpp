@@ -1,14 +1,15 @@
 /*
- * @file Catalogs.hpp
+ * @file ServiceCatalogs.hpp
  * @brief Borrowed Service groups, compile-time routing and O(1) ID lookup.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_MODEL_CATALOGS_HPP
-#define TELEMETRY_STRUCTURED_MODEL_CATALOGS_HPP
+#ifndef TELEMETRY_STRUCTURED_SERVICE_SERVICE_CATALOGS_HPP
+#define TELEMETRY_STRUCTURED_SERVICE_SERVICE_CATALOGS_HPP
 
-#include "Tables.hpp"
+#include "ServiceTable.hpp"
+#include "../model/Catalog.hpp"
 
 #include <array>
 #include <concepts>
@@ -23,13 +24,6 @@
 
 namespace telemetry::structured {
 
-template <class Table>
-struct ServiceGroup {
-    using TableType = Table;
-    const char* name;
-    const Table* table;
-};
-
 namespace model_detail {
 
 template <class Table>
@@ -39,14 +33,6 @@ template <class... Definitions>
 struct IsServiceTable<ServiceTable<Definitions...>> : std::true_type {};
 
 } // namespace model_detail
-
-// A group borrows a stable local table. Its position in the catalog is its ID.
-template <class Table>
-[[nodiscard]] constexpr auto group(const char* name, Table& table) noexcept
-{
-    if (name == nullptr || name[0] == '\0') std::abort();
-    return ServiceGroup<std::remove_cv_t<Table>>{name, std::addressof(table)};
-}
 
 struct ServiceCatalog {
     const char* name;
@@ -93,7 +79,7 @@ public:
     {
         const ServiceEntry* entry = find(id);
         if (entry == nullptr) return {DispatchStatus::NotFound, ServiceStatus::Ok, 0};
-        return entry->invoke(entry->definition, input, output, workspace);
+        return entry->callEncoded(input, output, workspace);
     }
 
 public:

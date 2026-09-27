@@ -76,8 +76,10 @@ inline constexpr ts::Model model{ts::emptyFields, ts::emptyCommands, catalogs};
 static_assert(model.typeId<void>() == 0);
 static_assert(model.types().count == 14);
 static_assert(model.maxServiceResponseWireSize() == 4);
-static_assert(model.maxServiceScratch() >= ts::scratchBytes<Request> +
+static_assert(model.maxServiceScratch() <= ts::scratchBytes<Request> +
               ts::scratchBytes<ts::ServiceResult<Response>>);
+static_assert(ts::maxLocalObjectBytes < sizeof(Request) + sizeof(ts::ServiceResult<Response>) ||
+              model.maxServiceScratch() == 0);
 
 } // namespace edge
 
@@ -148,14 +150,18 @@ int main()
 
     std::array<std::byte, 64> shared{};
     ts::Workspace overlappedWorkspace{shared};
+    const auto expectedAlias = index.find(answerId)->scratchBytes == 0
+        ? ts::DispatchStatus::Ok : ts::DispatchStatus::InvalidPayload;
     if (index.callEncoded(answerId, std::span{request},
                           std::span{shared}.first(4), overlappedWorkspace).dispatch !=
-        ts::DispatchStatus::InvalidPayload) return 14;
+        expectedAlias) return 14;
 
     std::array<std::byte, 8> aliasedBuffers{};
+    aliasedBuffers[0] = std::byte{5};
+    // The native Request is independent of the byte buffer before encoding.
     if (index.callEncoded(answerId, std::span{aliasedBuffers}.first(1),
                           std::span{aliasedBuffers}.first(4), workspace).dispatch !=
-        ts::DispatchStatus::InvalidPayload) return 16;
+        ts::DispatchStatus::Ok || aliasedBuffers[0] != std::byte{105}) return 16;
 
     return 0;
 }

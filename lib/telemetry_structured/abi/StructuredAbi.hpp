@@ -18,7 +18,7 @@
 namespace telemetry::structured {
 
 // This describes the C++ in-memory ABI, not the version of descriptor.bin.
-inline constexpr std::uint32_t structuredAbiRevision = 2;
+inline constexpr std::uint32_t structuredAbiRevision = 5;
 
 static_assert(std::is_standard_layout_v<MemberDescriptor> &&
               std::is_standard_layout_v<EnumEntryDescriptor> &&
@@ -43,6 +43,18 @@ static_assert(std::is_standard_layout_v<MemberDescriptor> &&
               std::is_trivially_copyable_v<ModelView> &&
               std::is_trivially_copyable_v<EncodedCallResult>,
               "Structured ABI views must be standard-layout and trivially copyable");
+
+static_assert(std::is_standard_layout_v<FieldEntry> && std::is_trivially_copyable_v<FieldEntry> &&
+              std::is_standard_layout_v<CommandEntry> && std::is_trivially_copyable_v<CommandEntry> &&
+              std::is_standard_layout_v<FieldCatalog> && std::is_trivially_copyable_v<FieldCatalog> &&
+              std::is_standard_layout_v<CommandCatalog> && std::is_trivially_copyable_v<CommandCatalog> &&
+              std::is_standard_layout_v<FieldIndex> && std::is_trivially_copyable_v<FieldIndex> &&
+              std::is_standard_layout_v<CommandIndex> && std::is_trivially_copyable_v<CommandIndex> &&
+              std::is_standard_layout_v<ValueTypeCatalog> && std::is_trivially_copyable_v<ValueTypeCatalog> &&
+              std::is_standard_layout_v<EncodedReadResult> && std::is_trivially_copyable_v<EncodedReadResult> &&
+              std::is_standard_layout_v<EncodedWriteResult> && std::is_trivially_copyable_v<EncodedWriteResult> &&
+              std::is_standard_layout_v<EncodedCommandResult> && std::is_trivially_copyable_v<EncodedCommandResult>,
+              "Field/Command views must be standard-layout and trivially copyable");
 
 namespace detail {
 
@@ -70,7 +82,7 @@ using CurrentStructuredAbiTag = StructuredAbiTag<
     offsetof(TypeRegistryView, data), offsetof(TypeRegistryView, count),
     offsetof(TypeRegistryView, recordsBytes),
     sizeof(ServiceEntry), alignof(ServiceEntry),
-    offsetof(ServiceEntry, definition), offsetof(ServiceEntry, invoke),
+    offsetof(ServiceEntry, context), offsetof(ServiceEntry, invoke),
     offsetof(ServiceEntry, name), offsetof(ServiceEntry, requestWireBytes),
     offsetof(ServiceEntry, responseWireBytes), offsetof(ServiceEntry, scratchBytes),
     sizeof(ServiceCatalog), alignof(ServiceCatalog),
@@ -90,7 +102,31 @@ using CurrentStructuredAbiTag = StructuredAbiTag<
     offsetof(EncodedCallResult, written),
     sizeof(std::span<const std::byte>), alignof(std::span<const std::byte>),
     sizeof(std::span<std::byte>), alignof(std::span<std::byte>),
-    sizeof(Workspace), alignof(Workspace)>;
+    sizeof(Workspace), alignof(Workspace),
+    sizeof(FieldEntry), alignof(FieldEntry),
+    offsetof(FieldEntry, readContext), offsetof(FieldEntry, read), offsetof(FieldEntry, write),
+    offsetof(FieldEntry, name), offsetof(FieldEntry, wireBytes), offsetof(FieldEntry, scratchBytes),
+    sizeof(CommandEntry), alignof(CommandEntry),
+    offsetof(CommandEntry, context), offsetof(CommandEntry, invoke),
+    offsetof(CommandEntry, name), offsetof(CommandEntry, requestWireBytes), offsetof(CommandEntry, scratchBytes),
+    sizeof(FieldCatalog), alignof(FieldCatalog),
+    offsetof(FieldCatalog, name), offsetof(FieldCatalog, entries), offsetof(FieldCatalog, count),
+    sizeof(CommandCatalog), alignof(CommandCatalog),
+    offsetof(CommandCatalog, name), offsetof(CommandCatalog, entries), offsetof(CommandCatalog, count),
+    sizeof(FieldIndex), alignof(FieldIndex), offsetof(FieldIndex, catalogs_), offsetof(FieldIndex, count_),
+    sizeof(CommandIndex), alignof(CommandIndex), offsetof(CommandIndex, catalogs_), offsetof(CommandIndex, count_),
+    sizeof(ValueTypeCatalog), alignof(ValueTypeCatalog),
+    offsetof(ValueTypeCatalog, entries), offsetof(ValueTypeCatalog, count),
+    offsetof(ModelView, fields), offsetof(ModelView, commands),
+    offsetof(ModelView, fieldTypes), offsetof(ModelView, fieldCatalogCount),
+    offsetof(ModelView, commandTypes), offsetof(ModelView, commandCatalogCount),
+    sizeof(EncodedReadResult), alignof(EncodedReadResult),
+    offsetof(EncodedReadResult, dispatch), offsetof(EncodedReadResult, written),
+    sizeof(EncodedWriteResult), alignof(EncodedWriteResult),
+    offsetof(EncodedWriteResult, dispatch), offsetof(EncodedWriteResult, endpointStatus),
+    sizeof(EncodedCommandResult), alignof(EncodedCommandResult),
+    offsetof(EncodedCommandResult, dispatch), offsetof(EncodedCommandResult, endpointStatus),
+    maxLocalObjectBytes, offsetof(FieldEntry, writeContext)>;
 
 // Only the exact current specialization is defined in StructuredAbi.cpp.
 template <class Tag>

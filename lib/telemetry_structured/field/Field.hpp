@@ -1,0 +1,160 @@
+/*
+ * @file Field.hpp
+ * @brief Exact native values and optional setters for structured fields.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * SPDX-License-Identifier: MIT
+ */
+#ifndef TELEMETRY_STRUCTURED_FIELD_FIELD_HPP
+#define TELEMETRY_STRUCTURED_FIELD_FIELD_HPP
+
+#include "../detail/Binding.hpp"
+#include <telemetry/field/TelemetrySetter.h>
+#include <cstdlib>
+#include <optional>
+
+namespace telemetry::structured {
+
+template <class... Definitions> class FieldTable;
+
+namespace field_detail {
+struct NoSetter {};
+
+template <class Binding>
+struct GetterShape : reflection::EndpointTraits<reflection::EndpointKind::Field,
+                                                 typename Binding::Signature> {
+    using Facts = reflection::Function<typename Binding::Signature>;
+    using Value = typename Facts::Result;
+    static_assert(Facts::arity == 0, "Field getter must take no arguments");
+    static_assert(!std::is_void_v<Value> && std::is_same_v<Value, std::remove_cvref_t<Value>>,
+                  "Field getter must return an unqualified native value");
+    static_assert(Type<Value>::kind != TypeKind::Void, "Field value cannot be void");
+};
+
+template <class Binding, class Value>
+consteval bool checkSetter()
+{
+    if constexpr (!std::is_same_v<Binding, NoSetter>) {
+        using Shape = reflection::EndpointTraits<reflection::EndpointKind::Field,
+                                                  typename Binding::Signature>;
+        static_assert(std::is_same_v<typename Shape::Result, telemetry::WriteResult>,
+                      "Field setter must return telemetry::WriteResult");
+        static_assert(Shape::Callable::arity == 1 &&
+                      std::is_same_v<typename Shape::Request, Value>,
+                      "Field setter must accept the exact getter type by value or const reference");
+    }
+    return true;
+}
+} // namespace field_detail
+
+template <class Getter, class Setter = field_detail::NoSetter>
+class FieldDefinition {
+public:
+    using Value = typename field_detail::GetterShape<Getter>::Value;
+    static constexpr bool writable = !std::is_same_v<Setter, field_detail::NoSetter>;
+    static_assert(field_detail::checkSetter<Setter, Value>());
+
+    constexpr FieldDefinition(const char* name, Getter getter, Setter setter = {}) noexcept
+        : name_(name), getter_(getter), setter_(setter)
+    {
+        if (name == nullptr || name[0] == '\0') std::abort();
+    }
+
+    [[nodiscard]] constexpr const char* name() const noexcept { return name_; }
+
+    [[nodiscard]] std::optional<Value> read() const noexcept
+    {
+        auto selected = getter_.snapshot();
+        if (!Getter::available(selected)) return std::nullopt;
+        return Getter::invoke(selected);
+    }
+
+    template <class Argument>
+        requires (std::is_same_v<std::remove_cvref_t<Argument>, Value> &&
+                  !std::is_volatile_v<std::remove_reference_t<Argument>>)
+    [[nodiscard]] telemetry::WriteResult write(Argument&& value) const noexcept
+    {
+        if constexpr (!writable) {
+            return telemetry::WriteResult::ReadOnly;
+        } else {
+            auto selected = setter_.snapshot();
+            if (!Setter::available(selected)) return telemetry::WriteResult::Unavailable;
+            return Setter::invoke(selected, std::forward<Argument>(value));
+        }
+    }
+
+private:
+    template <class... Definitions> friend class FieldTable;
+    using GetterBinding = Getter;
+    using SetterBinding = Setter;
+    const char* name_;
+    Getter getter_;
+    [[no_unique_address]] Setter setter_;
+};
+
+template <auto Get>
+    requires detail::functionPointer<decltype(Get)>
+[[nodiscard]] constexpr auto field(const char* name) noexcept
+{
+    return FieldDefinition{name, detail::StaticFunction<Get>{}};
+}
+
+template <auto Get, auto Set>
+    requires (detail::functionPointer<decltype(Get)> &&
+              detail::functionPointer<decltype(Set)>)
+[[nodiscard]] constexpr auto field(const char* name) noexcept
+{
+    return FieldDefinition{name, detail::StaticFunction<Get>{},
+                                detail::StaticFunction<Set>{}};
+}
+
+// Explicit owner type arguments are deliberately not accepted: deduction
+// preserves the actual object's category, including braced-temporary cases.
+template <auto Get, class... Explicit, class Owner>
+    requires (sizeof...(Explicit) == 0 &&
+              std::is_member_function_pointer_v<decltype(Get)> &&
+              detail::StableOwner<Owner>)
+[[nodiscard]] constexpr auto field(const char* name, Owner&& owner) noexcept
+{
+    return FieldDefinition{name, detail::method<Get>(std::forward<Owner>(owner))};
+}
+
+template <auto Get, auto Set, class... Explicit, class Owner>
+    requires (sizeof...(Explicit) == 0 &&
+              std::is_member_function_pointer_v<decltype(Get)> &&
+              std::is_member_function_pointer_v<decltype(Set)> &&
+              detail::StableOwner<Owner>)
+[[nodiscard]] constexpr auto field(const char* name, Owner&& owner) noexcept
+{
+    return FieldDefinition{name, detail::method<Get>(std::forward<Owner>(owner)),
+                                detail::method<Set>(std::forward<Owner>(owner))};
+}
+
+template <class... Explicit, class Getter>
+    requires (sizeof...(Explicit) == 0 && detail::Bindable<Getter>)
+[[nodiscard]] constexpr auto field(const char* name, Getter&& getter) noexcept
+{
+    return FieldDefinition{name, detail::binding(std::forward<Getter>(getter))};
+}
+
+template <class... Explicit, class Getter, class Setter>
+    requires (sizeof...(Explicit) == 0 && detail::Bindable<Getter> &&
+              detail::Bindable<Setter>)
+[[nodiscard]] constexpr auto field(const char* name, Getter&& getter, Setter&& setter) noexcept
+{
+    return FieldDefinition{name, detail::binding(std::forward<Getter>(getter)),
+                                detail::binding(std::forward<Setter>(setter))};
+}
+
+// Explain legacy declaration mistakes at the factory boundary. These
+// overloads store nothing and can never form a usable definition.
+template <class Getter, class Setter>
+    requires (!detail::callable<Getter> || !detail::callable<Setter>)
+constexpr void field(const char*, Getter&&, Setter&&) noexcept
+{
+    static_assert(detail::callable<Getter> && detail::callable<Setter>,
+                  "Structured field accepts name and bindings only; semantic metadata is not supported");
+}
+
+} // namespace telemetry::structured
+
+#endif

@@ -15,6 +15,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <span>
 #include <type_traits>
@@ -37,7 +38,7 @@ inline constexpr std::uint32_t maxNeutralConstructionNodes = 1024;
 
 // std::less supplies a total pointer order even for unrelated objects.
 // Empty ranges have no bytes and therefore cannot overlap.
-[[nodiscard]] inline bool buffersOverlap(std::span<const std::byte> a,
+[[nodiscard]] TELEMETRY_FORCE_INLINE bool buffersOverlap(std::span<const std::byte> a,
                                          std::span<const std::byte> b) noexcept
 {
     if (a.empty() || b.empty()) return false;
@@ -65,6 +66,14 @@ struct Reader {
     [[nodiscard]] U integer() noexcept
     {
         static_assert(std::is_unsigned_v<U> && !std::is_same_v<U, bool>);
+        if constexpr (std::endian::native == std::endian::little) {
+            // memcpy permits an unaligned byte source without creating a U&.
+            // This is only a leaf copy: aggregate padding never reaches wire.
+            U result;
+            std::memcpy(&result, bytes.data() + cursor, sizeof(U));
+            cursor += sizeof(U);
+            return result;
+        }
         using Shift = std::conditional_t<(sizeof(U) < sizeof(unsigned int)), unsigned int, U>;
         U result = 0;
         for (std::size_t i = 0; i < sizeof(U); ++i) {
@@ -84,6 +93,11 @@ struct Writer {
     void integer(U value) noexcept
     {
         static_assert(std::is_unsigned_v<U> && !std::is_same_v<U, bool>);
+        if constexpr (std::endian::native == std::endian::little) {
+            std::memcpy(bytes.data() + cursor, &value, sizeof(U));
+            cursor += sizeof(U);
+            return;
+        }
         for (std::size_t i = 0; i < sizeof(U); ++i) {
             bytes[cursor++] = std::byte(static_cast<std::uint8_t>(value >> (8 * i)));
         }

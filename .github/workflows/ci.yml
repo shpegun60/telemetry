@@ -114,6 +114,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/model/run.py --build-dir build/structured-model "${flags[@]}"
+      - name: C++20 structured mixed Field and Command endpoints
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/endpoints/run.py --build-dir build/structured-endpoints "${flags[@]}"
+          python3 tests/structured/endpoints/storage.py --build-dir build/structured-storage "${flags[@]}"
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
         run: |
@@ -131,6 +142,10 @@ jobs:
           python3 tests/regression/h7s/verify.py --self-test
           python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/followup-receipt.json --self-test
           python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/current-receipt.json --self-test --current-code
+          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/final-receipt.json --self-test
+          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/storage-receipt.json --self-test
+          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/dispatch-receipt.json --self-test
+          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/dispatch-inline-rejected-receipt.json --self-test
 
   arm:
     name: Cortex-M7 compile and link
@@ -163,6 +178,11 @@ jobs:
         run: |
           python3 tests/structured/model/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-model
           python3 tests/structured/model/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-model-nullchecks
+      - name: C++20 structured mixed endpoints Cortex-M7 checks
+        run: |
+          python3 tests/structured/endpoints/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-endpoints
+          python3 tests/structured/endpoints/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-endpoints-nullchecks
+          python3 tests/structured/endpoints/storage.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-storage
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -186,6 +206,14 @@ jobs:
             build/arm-structured-model/*.su
             build/arm-structured-model-nullchecks/*.log
             build/arm-structured-model-nullchecks/*.su
+            build/arm-structured-endpoints/*.log
+            build/arm-structured-endpoints/*.su
+            build/arm-structured-endpoints/*.json
+            build/arm-structured-endpoints-nullchecks/*.log
+            build/arm-structured-endpoints-nullchecks/*.su
+            build/arm-structured-storage/*.log
+            build/arm-structured-storage/*.su
+            build/arm-structured-storage/*.json
           if-no-files-found: ignore
 
   qt:
