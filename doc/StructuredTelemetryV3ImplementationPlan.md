@@ -13,9 +13,10 @@
 Базовий scalar-код: `5a289a8f12a85f68219275abcde7b58d925076ac`.
 Документ об'єднує пропозицію окремого C++20 structured-модуля і три доповнення
 про тип повернення callable, розділення Command/Service та місце limits.
-Останнє уточнення користувача має пріоритет: **Service має лише назву і
-прив'язку до callable; опис request/response виводиться зі структур.
-Жодних limits, defaults, units або прикладних політик у Service.**
+Останнє уточнення користувача має пріоритет: **Field, Command і Service
+мають лише назву та callable/binding; форму даних виводимо з C++ типів.
+Structured v1 не має semantic metadata: жодних units, limits, defaults,
+steps, constraints, `arg(...)` або member overlays.**
 
 Уточнення після review: сумісність descriptor узгоджується **один раз
 на підключення/сеанс зв'язку**, а не в кожному packet. Fingerprint
@@ -51,7 +52,7 @@ v2 у фінальному стані **не лишається**.
 [Попередній план рефактору scalar metadata](ScalarMetadataStorageRefactorPlan.md)
 скасовано: він оптимізував би реалізацію, яку етап 19 видаляє. Корисні ідеї
 про компактне зберігання можна окремо застосувати до нового Registry або
-descriptor після вимірів, без додавання limits/defaults до Service.
+descriptor після вимірів, без додавання semantic metadata до нового core.
 
 ## Навігація
 
@@ -97,24 +98,37 @@ Command не змінює значення свого результату. `Acc
 «власник прийняв дію», а не «дію завершено». Service має власний набір
 статусів і не використовує `CommandResult` як універсальний статус RPC.
 
-### 1.2. Три різні види інформації
+### 1.2. Identity, форма даних і прикладна перевірка
 
 | Інформація | Де живе у structured v1 | Приклад |
 | --- | --- | --- |
 | Форма даних | `TypeRegistry` | `channel: U8`, вкладена структура, масив із 16 елементів |
 | Назва endpoint | Опис Field/Command/Service | `ReadCalibration` |
-| Одиниця цілого поля | Необов'язковий рядок тільки в описі Field | `V` |
 | Прикладна перевірка | Метод користувача | Канал існує, стан дозволяє запис, температура прийнятна |
-| Limits/default/constraints | **Не реалізовуються в structured v1** | Немає автоматичного `0..500` або initial value |
+
+**Telemetry v1 описує identity endpoint-а, structural shape його native
+C++ даних і технічні capabilities виклику.** Field Readable/Writable
+виводяться з binding, а не є semantic overlay. Semantic metadata для
+Field, Command і Service немає:
+`unit`, `min`, `max`, `default`, `step`, `constraints`, `arg(...)` та member
+overlays не належать ні public API, ні `TypeRegistry`, ні wire v3.0.
+Технічні resource ceilings на розмір descriptor, глибину типів і місткість
+workspace — це захист реалізації, а не допустимий діапазон значень.
 
 `TypeDescriptor` ніколи не містить `min`, `max`, `default`, `unit`,
 `Persistent`, правил доступу або callback перевірки. Той самий C++ тип
 має один структурний опис незалежно від того, хто ним користується.
 
-У Service немає навіть необов'язкового semantic overlay. Не додаємо туди
-`arg`, `limits`, `metadata`, `constraints`, units або FieldFlags. Наявність
-імен членів, типів, довжини масиву чи словника enum — це опис форми даних,
-а не прикладні обмеження сервісу.
+У всіх трьох фабрик є лише `name` і `binding`. Форму Field визначає
+getter/setter, форму Command/Service request і Service response —
+сигнатура callable. Імена членів, типи, довжини масивів та словники enum
+описують дані, а не прикладні обмеження. Прикладний діапазон перевіряє
+власник даних; DMI C++ struct не стає default у descriptor.
+
+У майбутньому versioned extension можна окремо спроектувати спільний
+semantic-metadata facade для member annotations і endpoint overlays.
+Точний API, підтримка toolchain та новий wire contract потребуватимуть
+окремого рішення; v1 не резервує напівготового root-unit винятку.
 
 ### 1.3. Межа з поточною бібліотекою
 
@@ -213,7 +227,7 @@ source/ABI/wire контракт.
   граф цих типів. Користувач не створює registry перед кожним endpoint.
 - Registry описує форму даних; definitions зберігають прив'язки до цілей.
   Model об'єднує їх, а `descriptor.bin` публікує опис для клієнта.
-  Жодних Service limits/defaults/units тут немає.
+  Жоден Field/Command/Service не має semantic limits/defaults/units.
 - Верхня частина, включно з графом типів, wire sizes і descriptor
   metadata, будується на етапі компіляції. Bind і читання живих значень
   відбуваються під час роботи.
@@ -502,8 +516,8 @@ struct ResetRequest {
 // telemetry::CommandResult reset(const ResetRequest&) noexcept;
 
 inline constexpr ts::FieldTable motorFields{
-    ts::field<&Device::state>("State", "", device),
-    ts::field<&Device::config, &Device::setConfig>("Config", "", device)
+    ts::field<&Device::state>("State", device),
+    ts::field<&Device::config, &Device::setConfig>("Config", device)
 };
 
 inline constexpr ts::CommandTable motorCommands{
@@ -529,13 +543,13 @@ struct Spectrum {
 // Device::config() -> MotorConfig;
 // Device::setConfig(const MotorConfig&) -> telemetry::WriteResult.
 inline constexpr ts::FieldTable mixedFields{
-    ts::field<&Device::temperature>("Temperature", "C", device),
-    ts::field<&Device::rpm>("RPM", "rpm", device),
-    ts::field<&Device::mode>("Mode", "", device),
-    ts::field<&Device::samples>("Samples", "", device),
-    ts::field<&Device::state>("State", "", device),
-    ts::field<&Device::spectrum>("Spectrum", "", device),
-    ts::field<&Device::config, &Device::setConfig>("Config", "", device)
+    ts::field<&Device::temperature>("Temperature", device),
+    ts::field<&Device::rpm>("RPM", device),
+    ts::field<&Device::mode>("Mode", device),
+    ts::field<&Device::samples>("Samples", device),
+    ts::field<&Device::state>("State", device),
+    ts::field<&Device::spectrum>("Spectrum", device),
+    ts::field<&Device::config, &Device::setConfig>("Config", device)
 };
 ```
 
@@ -547,9 +561,8 @@ inline constexpr ts::FieldTable mixedFields{
 шлях використовує `Codec<T>` і caller-owned `Workspace`, без обгортки у
 старий `telemetry::Scalar`.
 
-Для Field зберігається один порядок аргументів: `name, unit, binding`.
-Відсутня одиниця — `""`; не додаємо паралельний набір `makeField`.
-Для Command і Service: `name, binding`, без `unit`.
+Для Field, Command і Service один порядок аргументів: `name, binding`.
+Не додаємо паралельний набір `makeField` або необов'язковий `unit`.
 
 Getter повертає `T` за значенням. Setter приймає той самий нормалізований
 `T` за значенням або `const T&` і повертає `telemetry::WriteResult`.
@@ -761,7 +774,7 @@ PFR member names залежать від підтримки конкретним
 ASCII identifier `[A-Za-z_][A-Za-z0-9_]*`. Перевіряємо отримані backend-ом
 bytes, а не обіцяємо однакове подання Unicode identifier у різних
 compiler signatures. Невідповідність — зрозуміла compile-time помилка.
-Явні endpoint/group names, Field unit та імена в `enumEntry` залишаються
+Явні endpoint/group names та імена в `enumEntry` залишаються
 UTF-8: їх задає користувач, а не compiler parser. Це різні джерела імен
 і різні правила. Валідність рядків і межі довжини визначені у §10.
 
@@ -1459,8 +1472,8 @@ layout, зміну вносимо сюди й у goldens одним окреми
 - Pointer, `size_t`, C++ enum object layout і struct padding не експортуються.
 - Counts/offsets відносяться до конкретного descriptor й перевіряються decoder-ом.
 - Nonzero reserved bits, невідомі record flags/version у v3.0 відхиляються.
-- Імена endpoint/group мають бути непорожніми; unit може бути порожнім.
-  Embedded NUL, некоректний UTF-8 та перевищення format size відхиляються.
+- Імена endpoint/group мають бути непорожніми. Embedded NUL, некоректний
+  UTF-8 та перевищення format size відхиляються.
 - Імена endpoint у межах одного catalog і назви catalog у межах категорії
   унікальні. Імена з різних категорій можуть збігатися.
 
@@ -1560,8 +1573,12 @@ u32 valueTypeId
 u8  capabilities // Readable=1, Writable=2
 u8  reserved[3]  // zero
 string name
-string unit      // empty permitted
 ```
+
+Це 12-byte fixed prefix і одна length-prefixed назва. Вилучення
+`unit` string скорочує кожний Field record проти попереднього ескізу
+на `4 + unitUtf8Bytes` bytes; Stage 09 закріплює нові повні offsets/sizes
+golden fixtures. Навіть порожній unit більше не займає 4-byte length.
 
 Command payload:
 
@@ -1580,10 +1597,11 @@ u32 responseTypeId
 string name
 ```
 
-**Service record на цьому закінчується.** Немає хвоста units/limits/
-default/constraints/flags-policy. Request/Response members розкладаються
-лише через TypeRegistry. Доступність late-bound slot не входить у
-descriptor: rebind/reset не змінює fingerprint і не видаляє Service.
+**Кожен endpoint record закінчується після `name`.** Немає хвоста
+unit/limits/default/constraints/flags-policy у Field, Command або Service.
+Request/Response members розкладаються лише через TypeRegistry.
+Доступність late-bound slot не входить у descriptor: rebind/reset не
+змінює fingerprint і не видаляє Service.
 
 Structured v1 не вводить reserved placeholder endpoints. Порожня
 таблиця дозволена; дірки між entry ні. Якщо згодом потрібні placeholders,
@@ -1601,13 +1619,10 @@ Command/Service.
 не авторизація й не доказ відсутності колізій. Framing/checksum та
 контроль доступу залишаються відповідальністю застосунку/транспорту.
 
-Тут свідомо один wire fingerprint. TypeRegistry залишається незалежним
-від unit, але зміна unit Field змінює **повний** descriptor і його hash.
-Фраза «зміна unit не змінює структуру типу» не означає «весь descriptor
-повинен мати старий fingerprint».
-
-Імена, enum dictionary, порядок endpoint, request/response shape,
-field capabilities, units та version входять у fingerprint. Поточні
+Тут свідомо один wire fingerprint. Імена catalog/endpoint/member, enum
+dictionary, порядок endpoint, request/response shape, Field capabilities
+та version входять у fingerprint. Unit та інша semantic metadata у v1
+відсутні й не мають bytes для хешування. Поточні
 значення, адреса owner, адреса callback і стан slot не входять.
 
 Fingerprint обчислюється один раз для незмінного Model. У wire v3.0
@@ -1637,8 +1652,8 @@ Flash/stack/cycles; це внутрішня заміна зі строго од�
 ### 10.8. Межі ресурсів Model і parser
 
 Це обмеження пам'яті та роботи parser/компілятора, **не limits значень
-Service**. Вони не додаються до Service record і не перевіряють, наприклад,
-прикладний діапазон напруги.
+Field/Command/Service**. Вони не додаються до endpoint records і не
+перевіряють, наприклад, прикладний діапазон напруги.
 
 Початковий профіль, який implementation може явно перевизначити:
 
@@ -1693,7 +1708,7 @@ Header `values.bin`, 16 bytes:
 
 ```text
 u8 readStatus
-wireSize<FieldType> payload bytes
+wireSize<T> payload bytes  // точний C++ тип відповідного Field
 ```
 
 ReadStatus v3.0: Ok=0, Unavailable=1. У першій версії getter повертає
@@ -2344,8 +2359,8 @@ references, count/offset/size arithmetic та один раз його fingerpri
 | Array | Рівно N елементів |
 | Void | Немає форми request/response |
 
-Service UI **не вигадує** unit/min/max/default і не бере їх із Field,
-який використовує той самий TypeId. Межі native integer у редакторі
+UI не вигадує unit/min/max/default для жодного Field, Command чи Service:
+їх немає в descriptor. Межі native integer у редакторі
 означають місткість представлення, а не application limit Service.
 Якщо UI заповнює нову форму нулями, це локальна дія UI, не default зі схеми;
 запит усе одно має містити кожен член.
@@ -2555,7 +2570,7 @@ compiler; наявність цієї можливості в CubeIDE не пр�
   визначення одного template в один executable. Відмінності не ховаються
   оновленням golden лише для experimental build.
 - `CallableEntity`, annotations і розширення supported wire types сюди
-  не додаються. Результат probe не змінює Service API.
+  не додаються. Результат probe не змінює public endpoint API.
 
 ### Етап 03. Fixed wire types і enum reflection
 
@@ -2629,6 +2644,27 @@ explicit entry) на точні іменовані constexpr-діагности�
 Якщо DMI або return ABI заважають цьому, спочатку вирішуємо це тут;
 не переносимо непомітне обмеження на етап інтеграції клієнта.
 
+#### Що слід пам'ятати після Stage 04
+
+- `Workspace` належить викликачеві. Його `Lease` звільняються у зворотному
+  порядку створення (LIFO); runtime-перевірки цього порядку немає. Цей
+  контракт потрібно зберегти при побудові endpoint thunk у Stage 06–08.
+- Golden bytes, перевірки lifetime та host-проба із забороненим
+  `operator new` підтверджують Stage 04. Остаточну відсутність heap у
+  зв'язаному ARM-образі треба окремо перевірити за symbols/map у Stage 13.
+- Файли `.su` показують стек окремих функцій, а не максимум усього ланцюга
+  викликів. Stage 13 має врахувати caller, endpoint thunk, codec, вкладені
+  виклики та повернення великого об'єкта. Малі frames Stage 04 не є
+  доказом малого сумарного стека.
+- CI для опублікованого зрізу `a328c88` пройшов 9/9 jobs, включно з ARM
+  GCC 13.2.1. CubeIDE ARM GCC 14.3.1 (`-O2`, `-Os`, `-Og`) перевірено
+  локально й записано в [structured tests](../tests/structured/README.md);
+  цей локальний прогін не слід називати результатом GitHub CI. Цикли на
+  платі в Stage 04 не вимірювалися.
+- Codec, `Workspace` і `ServiceResult` не створюють Field/Command/Service
+  descriptors. Видалення semantic metadata зі structured v1 не вимагає
+  змін у Stage 04. Stage 05 будує лише структурну форму типів.
+
 ### Етап 05. Compile-time TypeRegistry
 
 Робота:
@@ -2648,7 +2684,7 @@ explicit entry) на точні іменовані constexpr-діагности�
 - `T/const T&` дають той самий TypeId після перевірки сигнатури.
 - A/B однакової форми залишаються різними.
 - Повторна компіляція однакових декларацій дає однаковий порядок bytes.
-- Shape registry не містить Field units/default/limits або owner addresses.
+- Shape registry не містить semantic metadata або owner addresses.
 - Порядок deterministic між підтримуваними compiler-ами для fixture.
 - У пустій model є лише зафіксований набір Void/builtins.
 
@@ -2731,7 +2767,8 @@ C++ Request/Response
 2. Реалізувати Command з нульовим або одним request struct і CommandResult.
 3. Додати local/global typed routing і encoded runtime adapters.
 4. Включити їх у спільний Model registry без дублювання shared types.
-5. Залишити необов'язкову unit тільки на рівні цілого Field.
+5. Field factory приймає лише `name` і `binding`; unit/min/max/default/
+   constraints відсутні, так само як у Command і Service.
 6. Реалізувати **один** `FieldTable`, який одночасно приймає bool,
    integer, float/double, scoped enum, `std::array`, struct і struct R/W.
    Scalar leaves використовують exact native `T`, не legacy `Scalar`.
@@ -2742,8 +2779,10 @@ C++ Request/Response
 - Writable і read-only field, missing getter/setter slot.
 - Усі CommandResult, включно з Accepted без прихованої черги.
 - Одна MotorConfig у Field, Command, Service має один TypeId.
-- Старий `limits` не додає правила новому Service або TypeRegistry.
+- Старий `limits` не додає правила жодному новому endpoint або TypeRegistry.
 - Typed native та encoded paths узгоджені; no Scalar symbols у новому typed probe.
+- `field("name", binding)` компілюється; форми з unit/limits/default/
+  `arg(...)` для нових endpoint factories відхиляються з точною причиною.
 - Один mixed-table fixture проходить local/global typed і runtime encoded
   шляхи для scalar, enum, array та struct; тип результату в native API
   зберігається exact `T`.
@@ -2766,11 +2805,15 @@ C++ Request/Response
 Тести:
 
 - Exact bytes, counts, section offsets, header/record reserved bytes.
+- Field record містить лише одну name string; empty або непорожній
+  legacy unit не додається до v3.0, sizes/offsets зафіксовані goldens.
 - Перехресні references, wireSize sums, заборона циклів/невідомих type codes.
 - Зміна owner address/slot state не змінює fingerprint.
-- Зміна member name/enum name/unit змінює повний fingerprint.
-- Зміна Field unit не змінює Type record або Service record цього типу.
-- Service payload закінчується name: metadata хвіст не допускається.
+- Зміна member, enum, catalog або endpoint name змінює повний fingerprint.
+- Зміна Field endpoint name не змінює Type record чи Service record
+  спільного типу, але змінює повний descriptor fingerprint.
+- Усі Field/Command/Service payloads закінчуються `name`; semantic
+  metadata хвіст не допускається.
 - Fingerprint незалежно перерахований за bytes із нульовим hash field.
 - ASCII reflected names дають однакові bytes у toolchain matrix;
   explicit UTF-8 names проходять окремі encoding tests.
@@ -2859,7 +2902,8 @@ C++ Request/Response
 - C++ golden packets читаються JS, JS requests читаються C++.
 - U64/S64 extremes через BigInt, negative enum, F32 roundtrip.
 - Descriptor mutations/count overflows/depth bounds у decoder.
-- Немає unit/default/limits у Service editor або запозичення їх із Field.
+- Немає unit/default/limits у редакторі жодного endpoint; UI не бере їх
+  з іншого Field, який використовує той самий TypeId.
 - Enum unknown code можна показати й передати без вигаданого default.
 - Timeout не запускає automatic repeat side-effect request.
 - Wrap `requestId` через `0xFFFFFFFF → 0` пропускає outstanding ID;
@@ -3091,7 +3135,7 @@ legacy-only тести, і вони не входять у фінальну Stag
 | Reflection | Exact member names/types/order | Base, union, bit-field, C array, ref/const member |
 | Reflection boundary | Споживачі використовують тільки facade | Прямі vendor calls/includes поза adapters і backend probes |
 | Callable | Result/Request deduction | Throwing/variadic/ambiguous overload, mutable reference |
-| Service metadata | Лише name+binding | Додаткові unit/arg/limits/default/flags не компілюються |
+| Endpoint metadata | Field/Command/Service: лише name+binding | Unit/arg/limits/default/constraints overloads не компілюються |
 | Enum | Named і unknown representable codes | Unscoped enum, duplicate explicit code, missing name |
 | Explicit enum | Code/name override, sparse codes, empty dictionary | Mixed enum types, temporary/invalid names, automatic доповнення explicit списку |
 | Scalars | Всі крайні values, FP bit patterns | Bool=2/255; unsupported widths |
@@ -3178,7 +3222,8 @@ samples та формулу підсумкового порівняння. Log �
 - [ ] Endpoint оголошується через один із `field`, `command`, `service`.
 - [ ] Один Stage 08 `FieldTable` містить scalar, enum, array і struct;
   Stage 13 підтвердив його typed/encoded шляхи на ARM до freeze.
-- [ ] Service задає тільки name+binding; metadata overloads відсутні.
+- [ ] Field/Command/Service задають тільки name+binding; semantic
+  metadata overloads відсутні, Field record не містить unit string.
 - [ ] Request/Response types виводяться із callable, members — через reflection.
 - [ ] Callable Return/Arguments/qualifiers не губляться до validation.
 - [ ] Registry/Codec/Model/Descriptor використовують тільки reflection facade.
@@ -3187,7 +3232,8 @@ samples та формулу підсумкового порівняння. Log �
 - [ ] Enum codes і exact code/name entries мають явний пріоритет та negative tests.
 - [ ] Explicit empty dictionary, aliases і unknown enum codes мають описану поведінку.
 - [ ] TypeRegistry спільний, shape-only, deterministic, deduplicates exact C++ types.
-- [ ] Сервіс не отримує limits/units/default від Field із таким самим типом.
+- [ ] Field/Command/Service не експортують units/limits/defaults;
+  TypeRegistry зберігає лише structural shape та enum dictionary.
 - [ ] Codec є member-wise canonical LE, без C++ padding/heap/Scalar.
 - [ ] Новий cross-TU ABI має exact link guard без hot-path перевірки.
 - [ ] Невірний запит не викликає target; preflight output виконується до callback.
@@ -3214,8 +3260,9 @@ Stage 19 і тому не суперечить першому пункту:
 - Рефактор/видалення поточних scalar limits або зміна scalar conversions до Stage 15.
 - Dynamic-length collections, strings у payload, pointers, arbitrary classes.
 - Optional request members, omitted arguments, wire defaults.
-- Nested field units overlays, constraints або validation annotations.
-- Будь-які semantic metadata для Service.
+- Semantic units/min/max/default/step/constraints для будь-якого endpoint
+  або reflected member. Майбутній annotation/overlay API потребує
+  окремого versioned extension, не додається частково у v1.
 - Async RPC, дедуплікація, automatic retries або persistence транзакцій.
 - Розбиття одного live value token на різночасові chunks.
 - Автоматичне відновлення C++ type/method names через PFR.
@@ -3273,9 +3320,9 @@ Stage 19 і тому не суперечить першому пункту:
 | Додати тип повернення в загальний опис callable | `Result` уже є в core; новий facade зберігає його та додає повні qualifier facts |
 | Розділити Command і Service | Окремі public factories, results та descriptor records |
 | Request/Response визначати із сигнатури | Так; не просимо користувача повторювати типи або members |
-| У Service тільки назва і структура | Так; навіть optional semantic overlays для Service не вводяться |
+| У Service тільки назва і структура | Поширено на Field і Command: усі три endpoint-и мають лише name+binding, форма даних походить із C++ типів |
 | Винести limits із TypeDescriptor | Так; structured v1 узагалі не має constraints/defaults |
-| Залишити optional units | Тільки root Field unit; nested overlays відкладаються |
+| Залишити optional units | Відхилено для v1: Field/Command/Service мають тільки name+binding; unit не входить у public API чи wire v3 |
 | Одна registry для Field/Command/Service | Так; не змішує type shape з endpoint metadata |
 | Дозволити unknown enum values | Для scoped enum з представимим underlying code |
 | Не ламати scalar реалізацію під час Stage 00–15 | Окремий C++20 staging-модуль і wire v3 поруч із v2.1 тільки до freeze; Stage 16–20 переводять споживачів і видаляють старий core/adapter |
@@ -3286,8 +3333,9 @@ Stage 19 і тому не суперечить першому пункту:
 1. PFR не дає готового універсального IDL для довільного класу. Потрібні
    підтримуваний aggregate subset, власний facade і compiler probes.
 2. PFR не дає стабільної C++ назви типу. У v3.0 вона не є обов'язковою.
-3. «Type hash не змінюється від unit» стосується shape. Повний descriptor
-   fingerprint змінюється, якщо змінюється будь-який його byte.
+3. Початкове формулювання про «Type hash і unit» втратило сенс для v1:
+   unit не серіалізується. Type shape лишається окремим від повного
+   descriptor fingerprint, який змінюється з його фактичними bytes.
 4. «Будь-який enum code» потребує fixed underlying semantics. Не можна
    без перевірки поширити це на всі unscoped enum.
 5. `constexpr`/`constinit` не замінюють перевірку реального розміщення в ELF.
@@ -3349,7 +3397,7 @@ tag/commit та перевірені probes, а не поточний вміст
 | EnumCodes не зберігає spelling alias | Прийнято: value selection; enumEntries/enumEntry задають точні код і назву |
 | Explicit enum dictionary має пріоритет | Прийнято: заміна automatic словника, один exported name на код, duplicate explicit code відхиляється |
 | Додати C++26 parity | Прийнято як optional host experiment, без нового обов'язкового етапу або MCU dependency |
-| std::meta може бачити більше типів і metadata | Supported wire subset не розширюється автоматично; annotations і Service limits не додаються |
+| std::meta може бачити більше типів і metadata | Supported wire subset не розширюється автоматично; annotations і semantic metadata Field/Command/Service не додаються |
 | `telemetry_structured` як постійна друга бібліотека | Відхилено: це staging location до Stage 17; після Stage 20 є один `telemetry`/`ts` |
 | Legacy `Scalar` як контейнер у новому FieldTable | Відхилено: значення є native `T`, type metadata — `Type<T>`/Registry; Scalar лишається тільки тимчасовим baseline |
 | Тримати v2.1 adapter після об'єднання | Відхилено: Stage 19 видаляє v2.1 і старий JSON adapter після міграції всіх consumers |
