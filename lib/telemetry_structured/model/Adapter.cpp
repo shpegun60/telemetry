@@ -9,7 +9,7 @@
 
 namespace telemetry::structured {
 
-EncodedCallResult callServiceEncoded(ModelView model, std::uint64_t id,
+EncodedCallResult callServiceEncoded(ModelView model, telemetry::PackedId id,
                                      std::span<const std::byte> input,
                                      std::span<std::byte> output,
                                      Workspace& workspace,

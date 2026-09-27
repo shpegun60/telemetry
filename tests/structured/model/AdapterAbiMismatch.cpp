@@ -41,7 +41,7 @@ using Wrong = typename Mutate<ts::detail::CurrentStructuredAbiTag, 60>::type;
 #endif
 
 namespace telemetry::structured {
-EncodedCallResult callServiceEncoded(ModelView, std::uint64_t,
+EncodedCallResult callServiceEncoded(ModelView, telemetry::PackedId,
                                      std::span<const std::byte>,
                                      std::span<std::byte>, Workspace&, Wrong) noexcept;
 }

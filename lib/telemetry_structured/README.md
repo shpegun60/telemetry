@@ -137,7 +137,12 @@ auto native = local.call<0>(ReadCalibrationRequest{1});
 auto global = services.call<telemetry::makeId<0, 0>()>(ReadCalibrationRequest{1});
 auto encoded = model.serviceIndex().callEncoded(
     telemetry::makeId<0, 0>(), inputBytes, outputBytes, workspace);
+auto viaAdapter = telemetry::structured::callServiceEncoded(
+    model.view(), telemetry::makeId<0, 0>(), inputBytes, outputBytes, workspace);
 ```
+
+The compiled adapter takes a 32-bit `PackedId`, the same ID type used by the
+telemetry catalogs. Decode an incoming wire ID as `u32` before calling it.
 
 The native calls retain the exact request/response types. The encoded call
 returns `EncodedCallResult`: `dispatch` reports lookup, payload, buffer,

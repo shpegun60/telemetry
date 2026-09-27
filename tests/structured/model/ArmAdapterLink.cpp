@@ -12,6 +12,7 @@ int main()
     namespace ts = telemetry::structured;
     ts::Workspace workspace{std::span<std::byte>{}};
     ts::ModelView view{ts::TypeRegistryView{}, ts::ServiceIndex{nullptr, 0}, nullptr, 0};
-    const auto result = ts::callServiceEncoded(view, 0, {}, {}, workspace);
+    const auto result = ts::callServiceEncoded(view, telemetry::PackedId{0},
+                                               {}, {}, workspace);
     return result.dispatch == ts::DispatchStatus::NotFound ? 0 : 1;
 }

@@ -10,7 +10,6 @@
 
 #include "../abi/StructuredAbi.hpp"
 
-#include <cstdint>
 #include <span>
 
 namespace telemetry::structured {
@@ -18,12 +17,12 @@ namespace telemetry::structured {
 // The compiled symbol includes the full layout tag. An application and a
 // separately built adapter with different view layouts cannot link together.
 [[nodiscard]] EncodedCallResult callServiceEncoded(
-    ModelView model, std::uint64_t id, std::span<const std::byte> input,
+    ModelView model, telemetry::PackedId id, std::span<const std::byte> input,
     std::span<std::byte> output, Workspace& workspace,
     detail::CurrentStructuredAbiTag) noexcept;
 
 [[nodiscard]] inline EncodedCallResult callServiceEncoded(
-    ModelView model, std::uint64_t id, std::span<const std::byte> input,
+    ModelView model, telemetry::PackedId id, std::span<const std::byte> input,
     std::span<std::byte> output, Workspace& workspace) noexcept
 {
     return callServiceEncoded(model, id, input, output, workspace,
