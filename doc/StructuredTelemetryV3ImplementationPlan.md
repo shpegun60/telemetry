@@ -2248,9 +2248,11 @@ v3 adapter**. `structured.pri`, `resource_structured` і опція старог
 adapter видаляються разом з останніми споживачами.
 Не підключає telemetry/structured `.pri` назад і не створює цикл.
 
-`resource_telemetry` лишається окремою незалежною опцією для v2.1.
-Обидва адаптери можуть працювати в одному executable. Мінімальна
-resource-only програма не повинна почати вимагати PFR/telemetry.
+До Stage 17 `resource_telemetry` лишається окремою опцією для v2.1,
+і обидва адаптери можуть працювати в одному executable. Після
+namespace migration вони збираються лише в окремих binaries.
+Мінімальна resource-only програма не повинна почати вимагати
+PFR/telemetry.
 Scalar-only consumer і надалі збирається у C++17.
 
 `telemetry_no_json` стоїть **до** telemetry.pri: structured-only consumer
@@ -3074,10 +3076,13 @@ Gate: checklist **18.4** виконано; `telemetry_structured` не існу�
 <a id="verification"></a>
 ## 17. Матриця перевірок
 
-Рядки про старий scalar/v2.1 та змішані v2.1/v3 fixtures — migration і
-regression gates **тільки для Stage 00–18**. Після Stage 19 ці тести
-видаляються разом зі старим кодом і не входять у фінальну Stage 20 matrix.
-Перевірки нового typed core, wire v3, resource і клієнта залишаються.
+Рядки про старий scalar/v2.1 — migration і regression gates **тільки для
+Stage 00–18**; після Stage 17 вони збираються окремими binaries. Змішаний
+v2.1/v3 fixture в **одному executable** потрібен лише до Stage 17:
+після перенесення нових таблиць у namespace `telemetry` він створив би
+ODR-конфлікт зі старими одноіменними таблицями. Stage 19 видаляє всі
+legacy-only тести, і вони не входять у фінальну Stage 20 matrix. Перевірки
+нового typed core, wire v3, resource і клієнта залишаються.
 
 ### 17.1. Correctness і negative contracts
 
@@ -3152,7 +3157,8 @@ regression gates **тільки для Stage 00–18**. Після Stage 19 ці
 6. Та сама кількість endpoint із різними типами для виміру registry growth.
 7. Direct owner, OwnerSlot, FunctionSlot, ContextFunctionSlot,
    DelegateRefSlot та DelegateSlot.
-8. Змішаний v2.1/v3 consumer для виявлення випадкових залежностей.
+8. Змішаний v2.1/v3 consumer **до Stage 17** для виявлення випадкових
+   залежностей; після namespace migration старі/нові тести — окремі binaries.
 
 Звіт містить baseline/current SHAs, compiler/flags, linked та object
 sizes окремо, пояснення section GC, stack frames і виклики, DWT raw
