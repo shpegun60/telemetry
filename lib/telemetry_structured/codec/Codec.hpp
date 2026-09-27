@@ -65,9 +65,12 @@ struct Reader {
     [[nodiscard]] U integer() noexcept
     {
         static_assert(std::is_unsigned_v<U> && !std::is_same_v<U, bool>);
+        using Shift = std::conditional_t<(sizeof(U) < sizeof(unsigned int)), unsigned int, U>;
         U result = 0;
         for (std::size_t i = 0; i < sizeof(U); ++i) {
-            result |= static_cast<U>(std::to_integer<std::uint8_t>(bytes[cursor++])) << (8 * i);
+            const auto part = static_cast<Shift>(
+                std::to_integer<std::uint8_t>(bytes[cursor++])) << (8 * i);
+            result = static_cast<U>(static_cast<Shift>(result) | part);
         }
         return result;
     }
