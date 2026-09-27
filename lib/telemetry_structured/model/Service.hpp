@@ -30,6 +30,9 @@
 #include <utility>
 
 namespace telemetry::structured {
+template <class... Definitions>
+class ServiceTable;
+
 namespace service_detail {
 
 template <class Signature>
@@ -144,7 +147,17 @@ struct StaticMethod {
     template <class Pointer, class... Args>
     static decltype(auto) invoke(Pointer selected, Args&&... args) noexcept
     {
-        return std::invoke(Target, *selected, std::forward<Args>(args)...);
+        // Convert a derived owner to the declaring base subobject first.
+        // GCC otherwise warns about a member-pointer access through the
+        // derived pointer under strict aliasing. For an exact owner this cast
+        // is a no-op, preserving the direct-call codegen at -Os.
+        using Declaring = typename reflection::Function<Signature>::Owner;
+        using MaybeConst = std::conditional_t<std::is_const_v<Object>,
+                                              const Declaring, Declaring>;
+        using Base = std::conditional_t<std::is_volatile_v<Object>,
+                                        volatile MaybeConst, MaybeConst>;
+        auto* base = static_cast<Base*>(selected);
+        return (base->*Target)(std::forward<Args>(args)...);
     }
 };
 
@@ -249,6 +262,11 @@ public:
     }
 
 private:
+    template <class... Definitions>
+    friend class ServiceTable;
+
+    using BindingType = Binding;
+
     template <class... Args>
     [[nodiscard]] Result callResolved(Args&&... args) const noexcept
     {
@@ -258,6 +276,12 @@ private:
         if (!Binding::available(selected))
             return Result::failure(ServiceStatus::Unavailable);
 
+        return invokeSelected(selected, std::forward<Args>(args)...);
+    }
+
+    template <class Selected, class... Args>
+    [[nodiscard]] static Result invokeSelected(Selected selected, Args&&... args) noexcept
+    {
         if constexpr (Shape::wrapsServiceResult) {
             return Binding::invoke(selected, std::forward<Args>(args)...);
         } else if constexpr (std::is_void_v<Response>) {

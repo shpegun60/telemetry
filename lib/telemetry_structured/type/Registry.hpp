@@ -25,6 +25,22 @@ struct TypeList {
     static constexpr std::size_t size = sizeof...(T);
 };
 
+template <class... Lists>
+struct ConcatLists;
+
+template <>
+struct ConcatLists<> { using type = TypeList<>; };
+
+template <class... First, class... Rest, class... Tail>
+struct ConcatLists<TypeList<First...>, TypeList<Rest...>, Tail...>
+    : ConcatLists<TypeList<First..., Rest...>, Tail...> {};
+
+template <class... T>
+struct ConcatLists<TypeList<T...>> { using type = TypeList<T...>; };
+
+template <class List>
+struct RegistryFromList;
+
 template <class List, class T>
 struct Contains;
 
@@ -288,6 +304,15 @@ public:
             return descriptors_[0]; // Unreachable after the assertion.
     }
 };
+
+namespace detail {
+
+template <class... T>
+struct RegistryFromList<TypeList<T...>> {
+    using type = TypeRegistry<T...>;
+};
+
+} // namespace detail
 
 } // namespace telemetry::structured
 

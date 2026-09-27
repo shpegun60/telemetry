@@ -82,6 +82,8 @@ struct Device {
 };
 
 struct DerivedDevice : Device {};
+struct Prefix { std::uint32_t marker = 0x12345678u; };
+struct OffsetDerivedDevice : Prefix, Device {};
 
 Result readContext(void* raw, const Request& request) noexcept
 {
@@ -166,6 +168,11 @@ int main()
     probe::DerivedDevice derivedDevice{};
     auto inherited = ts::service<&probe::Device::read>("Inherited", derivedDevice);
     if (inherited.call(Request{4}).value().count != 104) return 43;
+    probe::OffsetDerivedDevice offsetDerived{};
+    if (static_cast<const void*>(static_cast<probe::Device*>(&offsetDerived)) ==
+        static_cast<const void*>(&offsetDerived)) return 44;
+    auto offsetOwner = ts::service<&probe::Device::read>("OffsetOwner", offsetDerived);
+    if (offsetOwner.call(Request{4}).value().count != 104) return 45;
     auto wrappedOwner = ts::service<&probe::Device::read>("WrappedOwner", std::cref(device));
     if (wrappedOwner.call(Request{4}).value().count != 104) return 22;
 

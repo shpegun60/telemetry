@@ -305,5 +305,40 @@ the direct free-function and direct-owner Service definitions were each 8 B,
 alignment 4. The runner reads these measurements from the ARM object itself.
 The ordinary direct-owner fixture has no null branch at O2/Os; null-check
 mode can retain a check for the target function address, separate from the
-owner address. Stage 07 still needs to establish the encoded dispatch stack
-bound and its preflight callback-count semantics.
+owner address.
+
+## Stage 07: Service tables and first encoded Model path
+
+[`model/run.py`](model/run.py) builds one `ReadCalibration` service through
+local typed, global typed and encoded routes. Additional probes cover two
+catalog groups, enum local positions, wide runtime IDs, application versus
+dispatch `Unavailable`, void request/response, all five late-bound slot families,
+one target snapshot, overlapping
+buffers and zero callbacks on short output, short workspace or malformed
+input. The 4 KiB response fixture checks that encoded dispatch places the
+result in caller-owned Workspace. Thirteen compile-fail cases cover invalid
+positions, copying a self-referential table, temporary table/model views and
+explicit ID-template bypasses. Three mutations of the exact ABI tag fail to
+link against the real compiled encoded adapter on host and ARM; compatible
+adapters link on ARM at `-O2` and `-Os`.
+
+```text
+python tests/structured/model/run.py --cxx g++ --build-dir build/structured-model-gcc
+python tests/structured/model/run.py --cxx clang++-18 --sanitize --build-dir build/structured-model-sanitized
+python tests/structured/model/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-model-arm
+```
+
+On CubeIDE ARM GCC 14.3.1 at `-O2` and `-Os`, the direct owner, local table and
+global catalog typed probes have identical machine bytes: 24 B and 20 B per
+function, respectively. Their stack frames are 0 B. The encoded entry
+wrapper uses 48 B. The 4 KiB encoded thunks use 48/48 B at `-O2`, 104/112 B
+at `-Os`, and 80/80 B at `-Og`. These are individual frames from `.su`, not
+whole-call-chain peaks or board-cycle measurements. An early `-Os` probe had
+an extra method call through `std::invoke`; direct member invocation removed
+it without changing the public API.
+The CI ARM GCC 13.2.1 toolchain also produced identical native call bytes
+(24 B at `-O2`, 20 B at `-Os`); its 4 KiB encoded thunk frames were 80/80 B,
+104/104 B and 80/80 B at `-O2`/`-Os`/`-Og`.
+
+Stage 07 exposes a working Service without a descriptor file or UI. The
+Field/Command families and shared mixed catalog are Stage 08 work.

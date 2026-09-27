@@ -18,14 +18,15 @@ Its current implementation includes the stable
 [fixed wire type traits](type/Traits.hpp), the
 [compile-time TypeRegistry](type/Registry.hpp), and the
 [canonical codec](codec/Codec.hpp) with caller-owned
-[Workspace](codec/Workspace.hpp), and native
-[Service bindings](model/Service.hpp). The facade supplies aggregate and callable
+[Workspace](codec/Workspace.hpp), native
+[Service bindings](model/Service.hpp), and the Stage 07
+[ServiceTable and Model](model/Model.hpp). The facade supplies aggregate and callable
 facts plus a normalized enum dictionary. The traits classify supported types
 and calculate wire size, nesting depth and expanded value nodes during
 compilation. The registry deduplicates exact C++ types, registers nested
-dependencies first, and exposes immutable structural descriptors. The Service
-table, full model and wire protocol belong to later stages; this
-codec is a low-level API, not a transport endpoint.
+dependencies first, and exposes immutable structural descriptors. The
+Service-only Model now offers local/global native calls and a bounded encoded
+call. Fields, Commands, descriptor bytes and transport remain later stages.
 
 ```cpp
 struct Reading { float volts; std::uint16_t status; };
@@ -36,9 +37,10 @@ static_assert(Types::typeId<Reading>() == 12); // First user type.
 constexpr auto types = Types::view();
 ```
 
-Root types are listed explicitly only at this implementation checkpoint.
-The future Model will derive them from typed Field, Command and Service
-definitions in their documented order. `TypeRegistryView::find(id)` checks
+The standalone TypeRegistry example lists roots explicitly. A Model instead
+derives them from its tables in Field, Command, then Service order, with each
+Service request preceding its response. Stage 07 uses empty Field/Command
+catalog placeholders until Stage 08. `TypeRegistryView::find(id)` checks
 bounds; `TypeRegistry::descriptor<Id>()` requires a known valid ID at compile
 time. `recordsBytes` counts type records only, including their record headers;
 the Model will check the size of the entire descriptor. Member and enum names
@@ -46,12 +48,15 @@ are borrowed immutable metadata, so their backing storage must outlive the
 registry view. There are no units, limits, defaults, owner addresses or live
 values in these descriptors. Stage 09 will encode the final `descriptor.bin`.
 
-Modules exchanging in-memory descriptor views call
+Modules exchanging in-memory descriptor views can call
 [`requireStructuredAbi()`](abi/StructuredAbi.hpp) at their boundary and link
-`abi/StructuredAbi.cpp`. Its exact link tag includes the revision, sizes and
-offsets of the view types; it does not run during typed value access. This
-explicit boundary call is not an automatic guarantee for every header-only
-translation unit.
+`abi/StructuredAbi.cpp`. The compiled
+[`callServiceEncoded()`](model/Adapter.hpp) carries the same exact layout tag
+in its symbol, so that adapter boundary checks it automatically at link time.
+Neither mechanism runs during typed value access. Other header-only module
+boundaries still need an explicit ABI dependency.
+Applications using the compiled adapter link `model/Adapter.cpp` and
+`abi/StructuredAbi.cpp` once; local/global native calls need neither object.
 The tag detects revision, size and offset mismatches. A change in the meaning
 of a view with unchanged layout requires an explicit `structuredAbiRevision`
 bump; the linker cannot infer semantics from equal bytes.
@@ -108,8 +113,47 @@ status itself, so native callers do not distinguish those two sources.
 Borrowed owners, callables, slots, names and their transitive references must
 outlive the Service. Rebinding a slot requires external synchronization with
 calls. Direct owner bindings have no owner-null check; an `OwnerSlot` is
-checked before invocation. Encoded dispatch and its preflight rules belong
-to Stage 07.
+checked before invocation. The table stores its definitions and erased runtime
+entries together, so it cannot be copied or moved; catalogs borrow stable
+table addresses and likewise cannot be copied or moved.
+
+```cpp
+struct ReadCalibrationRequest { std::uint16_t channel; };
+struct ReadCalibrationResponse { std::uint32_t scale; };
+
+inline Device device;
+inline constexpr telemetry::structured::ServiceTable local{
+    telemetry::structured::service<&Device::readCalibration>("ReadCalibration", device)
+};
+inline constexpr telemetry::structured::ServiceCatalogTable services{
+    telemetry::structured::group("device", local)
+};
+inline constexpr telemetry::structured::Model model{
+    telemetry::structured::emptyFields,
+    telemetry::structured::emptyCommands, services
+};
+
+auto native = local.call<0>(ReadCalibrationRequest{1});
+auto global = services.call<telemetry::makeId<0, 0>()>(ReadCalibrationRequest{1});
+auto encoded = model.serviceIndex().callEncoded(
+    telemetry::makeId<0, 0>(), inputBytes, outputBytes, workspace);
+```
+
+The native calls retain the exact request/response types. The encoded call
+returns `EncodedCallResult`: `dispatch` reports lookup, payload, buffer,
+workspace and missing-target failures; `endpointStatus` reports the status
+returned by an invoked Service. Thus a missing target yields dispatch
+`Unavailable`, while an application-returned `ServiceStatus::Unavailable`
+yields dispatch `Ok`. The response payload is written only for a successful
+endpoint result. Before any callback, the runtime route checks the ID, exact
+request length, capacity for the full successful response, disjoint buffers,
+caller-owned scratch capacity and every encoded bool. It snapshots a slot
+once. `model.maxServiceScratch()` includes simultaneously live Request and
+`ServiceResult<Response>` storage plus alignment margin;
+`model.maxServiceResponseWireSize()` reports the largest response payload.
+These are sufficient bounds, so an already aligned buffer can sometimes work
+with fewer bytes. The Service names and borrowed bindings must outlive every
+table/catalog/model view.
 
 A type with default member initializers is constructed with every member
 explicitly supplied before decoding. This avoids running a DMI as a hidden
