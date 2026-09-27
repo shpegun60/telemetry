@@ -454,3 +454,22 @@ included optional structured headers without their PFR dependency. Coverage
 is now split into core/v2 headers and the explicit structured suite. The
 unchanged v2 bytes/protocol tests remain enabled. Exact-SHA remote CI must
 still be checked for the commit that publishes this stage.
+
+## Stage 11: one-time Bind and bounded Exchange
+
+`resource::structured::Binding`, `Bind::process` and `Exchange::process`
+connect a transport-owned peer to the existing immutable model. Data requests
+carry 24-byte headers without fingerprints or session IDs. Field writes,
+Commands and Services use the existing encoded entries and their validation.
+Core endpoint definitions, ABI and descriptor/value wire formats are unchanged.
+
+The [Stage 11 suite](exchange/README.md) covers malformed packet/capacity
+matrices, all named endpoint statuses, native payload validation, aliases,
+scratch lifetime, late binding, repeated requests, bounded peer admission,
+disconnect/reboot/old queues and client correlation. Separate compile/link
+controls retain both new compiled boundaries under GC and LTO. Independent
+goldens fix the wire format; the full client remains Stage 12.
+
+H7S passed 4300 checks in each of O2/Os and recorded paired encoded/Exchange
+cycle windows. Those are different layers; packet dispatch is not claimed to
+have the cycle cost of a local index call. Flash restoration was verified.

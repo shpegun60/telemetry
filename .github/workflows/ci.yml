@@ -146,6 +146,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/resources/run.py --build-dir build/structured-resources "${flags[@]}"
+      - name: C++20 structured Bind and Exchange
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/exchange/run.py --build-dir build/structured-exchange "${flags[@]}"
       - name: Retain structured descriptor logs
         if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
         uses: actions/upload-artifact@v4
@@ -158,6 +169,9 @@ jobs:
             build/structured-resources/*.log
             build/structured-resources/*.json
             build/structured-resources/*.bin
+            build/structured-exchange/*.log
+            build/structured-exchange/*.json
+            build/structured-exchange/*.bin
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -182,6 +196,7 @@ jobs:
           python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/dispatch-inline-rejected-receipt.json --self-test
           python3 tests/structured/descriptor/h7s/verify.py --self-test
           python3 tests/structured/resources/h7s/verify.py --self-test
+          python3 tests/structured/exchange/h7s/verify.py --self-test
 
   arm:
     name: Cortex-M7 compile and link
@@ -225,6 +240,8 @@ jobs:
           python3 tests/structured/descriptor/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor-nullchecks
       - name: C++20 structured resource Cortex-M7 checks
         run: python3 tests/structured/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-resources
+      - name: C++20 structured Bind and Exchange Cortex-M7 checks
+        run: python3 tests/structured/exchange/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-exchange
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -267,6 +284,9 @@ jobs:
             build/arm-structured-resources/*.log
             build/arm-structured-resources/*.json
             build/arm-structured-resources/*.su
+            build/arm-structured-exchange/*.log
+            build/arm-structured-exchange/*.json
+            build/arm-structured-exchange/*.su
           if-no-files-found: ignore
 
   qt:

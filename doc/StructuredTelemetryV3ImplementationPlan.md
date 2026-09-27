@@ -2099,6 +2099,9 @@ Service input/output можуть перекриватись: відповідь
 request payload до запису response header/payload у спільний буфер.
 Overlap wire buffers із Workspace відхиляється лише коли endpoint використовує
 Workspace. Це перевіряється на межі encoded API, а не припускається через `restrict`.
+Якщо при такій відмові навіть response header перекриває Workspace,
+Exchange повертає локальний InvalidPayload із written=0: запис повідомлення
+про помилку не має пошкодити вже живий scratch object користувача.
 Перевірка overlap не повинна робити невизначене relational comparison
 pointer-ів різних C++ об'єктів; реалізація використовує документований
 для цільових платформ адресний helper з перевіркою переповнення.
@@ -2960,6 +2963,11 @@ Fingerprint додається один раз у header файла; resource pr
 
 ### Етап 11. Одноразовий Bind і Exchange для write/command/service
 
+Локальну реалізацію і докази зібрано в
+[tests/structured/exchange/README.md](../tests/structured/exchange/README.md).
+Binding належить transport peer; Model, Descriptor, ValuesFile та encoded
+endpoint ABI не змінюються. Публікація зрізу потребує перевірки CI саме його SHA.
+
 Робота:
 
 1. Реалізувати Bind request/response та явний transport-owned binding.
@@ -3349,7 +3357,7 @@ samples та формулу підсумкового порівняння. Log �
 - [ ] Великі struct-и не створюють прихованого великого stack frame бібліотеки.
 - [ ] Local/global typed path проходить codegen перевірку.
 - [ ] Descriptor v3.0, dense values і Exchange мають незалежні golden fixtures.
-- [ ] Fingerprint звіряється у Bind; ordinary requests/responses/values його не містять.
+- [ ] Fingerprint звіряється у Bind; ordinary Exchange requests/responses його не містять. ValuesFile має один cached fingerprint у header файла, без hash у кожному chunk.
 - [ ] Reboot/reconnect закриває binding; старі frames не переходять у нове Ready.
 - [ ] Peer contexts і pending requests мають явну bounded capacity.
 - [ ] RequestId wrap не створює колізії з outstanding або пізньою відповіддю.

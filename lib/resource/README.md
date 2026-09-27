@@ -14,7 +14,7 @@ resource/
   resource.pri
   protocol/    Protocol.hpp, Protocol.cpp
   telemetry/   SchemaFile, CommandsFile, ValuesFile
-  structured/  v3.0 DescriptorFile and ValuesFile (optional C++20 adapter)
+  structured/  v3.0 DescriptorFile, ValuesFile, Bind, Exchange (optional C++20 adapter)
 ```
 
 One `resource.pri` connects the library to qmake. By default it adds the core

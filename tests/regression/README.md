@@ -109,19 +109,19 @@ The [original receipt](h7s/receipt.json),
 library and fixture inputs, both O2/Os reports, and identical backup/readback
 hashes. CI checks its shape and 11 deliberately invalid mutations. This is
 archived measurement evidence, not a claim that CI has a connected board.
-For the current receipt, CI also compares all 164 captured library C++ and qmake input
+For the current receipt, CI also compares all 170 captured library C++ and qmake input
 hashes with the checkout after normalizing line endings. The raw hashes remain
 in the board receipt; the normalized hashes let a Linux checkout verify the
 same code tested from Windows. Code changes require a new board run before
 this evidence can describe the updated library.
 
-The current receipt was refreshed on 2026-09-27 at 17:30 UTC against
-`a3eb7dc`. Stage 10 had changed the optional adapter selection in
-`lib/resource/resource.pri`; the strict current-input check correctly rejected
-the older receipt. Both O2/Os images again executed all 3328 legacy checks
-with no failures, and the original Flash was restored and verified. The
-verifier and CI gate were not relaxed. The runner now derives normalized
-hashes automatically from the captured, raw-hash-verified build inputs.
+The current receipt was refreshed on 2026-09-27 at 18:08 UTC against the
+local Stage 11 snapshot based on `2b66bef`. Both O2/Os images executed all
+3328 legacy checks with no failures, and the original Flash was restored
+and verified. The verifier and CI gate were not relaxed. The runner derives
+normalized hashes automatically from the captured, raw-hash-verified build
+inputs. This fixes the stale-input class exposed by the earlier Stage 10
+`resource.pri` change and records the six new Bind/Exchange source/header files.
 
 The expanded input inventory includes structured headers and dependencies;
 it records what was captured, not a claim that this legacy fixture exercises
