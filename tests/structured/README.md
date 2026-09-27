@@ -240,3 +240,36 @@ loop path without that preliminary fill.
 
 This stage does not yet claim an encoded Field/Command/Service dispatch path;
 those endpoints and the model are later stages.
+
+## Stage 05: compile-time TypeRegistry
+
+[`registry/run.py`](registry/run.py) verifies the fixed TypeIds for Void and
+eleven scalars, dependency-first registration, exact C++ type identity,
+deduplication across twenty uses, struct member names/types, enum code bits,
+checked runtime lookup, and independently expected type-record lengths. A
+second translation unit checks the same order and names. Two negative cases
+reject an absent type and an out-of-range compile-time ID. Three link controls
+change the structured ABI revision, a descriptor size, and an offset; all
+must fail to resolve the exact ABI tag.
+
+```text
+python tests/structured/registry/run.py --cxx g++ --build-dir build/structured-registry-gcc
+python tests/structured/registry/run.py --cxx clang++-18 --sanitize --build-dir build/structured-registry-sanitized
+python tests/structured/registry/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-registry-arm
+```
+
+Locally, Qt MinGW GCC 13.1 and sanitized Ubuntu Clang 18.1 passed. CubeIDE
+ARM GCC 14.3.1 and Ubuntu ARM GCC 13.2.1 compiled and linked at `-O2`,
+`-Os`, and `-Og`, including all ABI rejection controls. The ARM fixture's
+registry storage was emitted into `.rodata` with no `.data` or `.bss`; its
+linked `.text/.rodata` was 144/964 B at `-O2` and 132/954 B at `-Os` on
+CubeIDE GCC 14.3.1. These sizes describe the small Stage 05 fixture, not
+the firmware or a complete descriptor serializer. No board cycles are
+claimed. Exact-SHA CI evidence should be recorded after this slice is pushed.
+
+The registry currently takes ordered root types as template arguments.
+Stage 08 will derive this sequence from Field, Command and Service tables;
+users of the final Model will not maintain a second type list. Stage 05
+produces structural records and their checked sizes, not `descriptor.bin`
+bytes or a fingerprint. The type-record budget is checked here; the full
+descriptor budget still needs the catalogs and endpoints from later stages.

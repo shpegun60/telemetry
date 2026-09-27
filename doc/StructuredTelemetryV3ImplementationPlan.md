@@ -2683,7 +2683,9 @@ explicit entry) на точні іменовані constexpr-діагности�
 - Один тип у 20 endpoint описано один раз.
 - `T/const T&` дають той самий TypeId після перевірки сигнатури.
 - A/B однакової форми залишаються різними.
-- Повторна компіляція однакових декларацій дає однаковий порядок bytes.
+- Повторна компіляція однакових декларацій дає ті самі TypeId, порядок
+  структурних entries, імена та розміри records. Побайтові golden для
+  готового `descriptor.bin` належать Stage 09, коли з'явиться serializer.
 - Shape registry не містить semantic metadata або owner addresses.
 - Порядок deterministic між підтримуваними compiler-ами для fixture.
 - У пустій model є лише зафіксований набір Void/builtins.

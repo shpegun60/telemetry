@@ -15,13 +15,42 @@ happened yet.
 
 Its current implementation includes the stable
 [reflection facade](reflection/Reflection.hpp),
-[fixed wire type traits](type/Traits.hpp), and the
+[fixed wire type traits](type/Traits.hpp), the
+[compile-time TypeRegistry](type/Registry.hpp), and the
 [canonical codec](codec/Codec.hpp) with caller-owned
 [Workspace](codec/Workspace.hpp). The facade supplies aggregate and callable
 facts plus a normalized enum dictionary. The traits classify supported types
 and calculate wire size, nesting depth and expanded value nodes during
-compilation. The model, endpoint bindings and complete wire protocol belong
-to later stages; this codec is a low-level API, not a transport endpoint.
+compilation. The registry deduplicates exact C++ types, registers nested
+dependencies first, and exposes immutable structural descriptors. The model,
+endpoint bindings and complete wire protocol belong to later stages; this
+codec is a low-level API, not a transport endpoint.
+
+```cpp
+struct Reading { float volts; std::uint16_t status; };
+using Types = telemetry::structured::TypeRegistry<Reading>;
+
+static_assert(Types::typeId<float>() == 10);   // Fixed built-in TypeId.
+static_assert(Types::typeId<Reading>() == 12); // First user type.
+constexpr auto types = Types::view();
+```
+
+Root types are listed explicitly only at this implementation checkpoint.
+The future Model will derive them from typed Field, Command and Service
+definitions in their documented order. `TypeRegistryView::find(id)` checks
+bounds; `TypeRegistry::descriptor<Id>()` requires a known valid ID at compile
+time. `recordsBytes` counts type records only, including their record headers;
+the Model will check the size of the entire descriptor. Member and enum names
+are borrowed immutable metadata, so their backing storage must outlive the
+registry view. There are no units, limits, defaults, owner addresses or live
+values in these descriptors. Stage 09 will encode the final `descriptor.bin`.
+
+Modules exchanging in-memory descriptor views call
+[`requireStructuredAbi()`](abi/StructuredAbi.hpp) at their boundary and link
+`abi/StructuredAbi.cpp`. Its exact link tag includes the revision, sizes and
+offsets of the view types; it does not run during typed value access. This
+explicit boundary call is not an automatic guarantee for every header-only
+translation unit.
 
 The payload has exact `wireSize<T>` bytes: scalar little-endian bytes, enum
 underlying code, arrays in element order, and aggregates in member order.
@@ -32,7 +61,6 @@ valid values of the underlying type. A malformed payload never yields an
 object to the caller.
 
 ```cpp
-struct Reading { float volts; std::uint16_t status; };
 Reading reading{230.0f, 1};
 
 std::array<std::byte, telemetry::structured::wireSize<Reading>> wire{};
