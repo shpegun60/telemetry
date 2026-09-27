@@ -6,15 +6,35 @@ Only --run touches the selected board. A copied Cube scaffold is required.
 """
 import argparse
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import runpy
+import subprocess
 import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 HARNESS = runpy.run_path(str(ROOT / "tests/field_layout/h7s/run.py"))
 run, sha = HARNESS["run"], HARNESS["sha"]
+
+
+def normalized_code_hashes(images, output):
+    """Derive portable hashes from the captured build inputs, not live sources."""
+    sources = images[0]["library_sources"]
+    if any(image["library_sources"] != sources for image in images):
+        raise RuntimeError("Libraries differ between measured images")
+    result = {}
+    for name, expected in sources.items():
+        relative = Path(name.replace("\\", "/"))
+        if relative.suffix not in {".h", ".hpp", ".cpp", ".c", ".pri"}:
+            continue
+        captured = output / "Current" / relative
+        data = captured.read_bytes()
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise RuntimeError("Captured library changed after building: " + name)
+        result[name] = hashlib.sha256(data.replace(b"\r\n", b"\n")).hexdigest()
+    return result
 
 
 def measure(args, images):
@@ -27,6 +47,9 @@ def measure(args, images):
                    completed=False, restored_and_verified=False, images=images, runs={})
     receipt["compiler"] = (output / "common/compiler.log").read_text().splitlines()[0]
     receipt["build_inputs"] = json.loads((output / "build-inputs.json").read_text())
+    receipt["library_code_lf_sha256"] = normalized_code_hashes(images, output)
+    receipt["source_head"] = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
 
     def save():
         (output / "session.json").write_text(json.dumps(receipt, indent=2) + "\n")
@@ -90,6 +113,7 @@ def measure(args, images):
             receipt["restore_error"] = str(error)
             raise
         finally:
+            receipt["finished"] = datetime.now(timezone.utc).isoformat()
             save()
 
 

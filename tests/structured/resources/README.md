@@ -72,6 +72,13 @@ jobs; the Qt job exercises four independent adapter selections.
   `FileSystemView`. The compiled reader is named `detail/Values.cpp` so it
   does not collide with v2 `ValuesFile.cpp` in qmake's flat object directory.
 
+The first Stage 10 CI run on `a3eb7dc` exposed a stale **legacy** board receipt:
+the optional qmake changes made its recorded `resource.pri` hash differ. A
+fresh [legacy H7S run](../../regression/README.md#h7s-execution) passed
+all 3328 checks at O2/Os and refreshed the current-input evidence without
+loosening the verifier. This is separate from the Stage 10 measurements below;
+neither the provider implementation nor its wire bytes changed for that fix.
+
 ## Local results, 2026-09-27
 
 MinGW GCC 13.1, Linux GCC 13.3 with null checks, and Clang 18 with ASan/UBSan
