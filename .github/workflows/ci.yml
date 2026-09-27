@@ -74,6 +74,16 @@ jobs:
         env:
           CXX: ${{ matrix.cxx }}
         run: python3 tests/structured/types/run.py --sanitize --build-dir build/structured-types-sanitized
+      - name: C++20 structured codec and workspace
+        if: matrix.standard == 'c++20' && matrix.mode == 'release'
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: python3 tests/structured/codec/run.py --build-dir build/structured-codec
+      - name: C++20 structured codec and workspace sanitized
+        if: matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: python3 tests/structured/codec/run.py --sanitize --build-dir build/structured-codec-sanitized
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
         run: |
@@ -111,6 +121,8 @@ jobs:
         run: python3 tests/structured/facade/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-facade
       - name: C++20 structured wire types Cortex-M7 checks
         run: python3 tests/structured/types/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-types
+      - name: C++20 structured codec Cortex-M7 checks
+        run: python3 tests/structured/codec/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-codec
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -123,6 +135,8 @@ jobs:
             build/arm-structured-reflection/*.log
             build/arm-structured-facade/*.log
             build/arm-structured-types/*.log
+            build/arm-structured-codec/*.log
+            build/arm-structured-codec/*.su
           if-no-files-found: ignore
 
   qt:

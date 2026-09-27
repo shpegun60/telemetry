@@ -721,6 +721,13 @@ Host prototype і його parity job необов'язкові для випу�
 Типи класифікуються в порядку scalar → enum → `std::array` → aggregate.
 `std::array` не можна випадково розкласти через внутрішні члени реалізації STL.
 
+У wire-facing DTO варто прямо записувати ширину в C++ source:
+`std::uint32_t id`, `std::int16_t value`,
+`enum class Mode : std::uint8_t { Off, On };`. `int`, `long` і enum без
+явного underlying type можуть мати іншу ширину на іншій платформі; codec
+працює з реальною шириною типу, але явний запис прибирає приховану
+залежність контракту від ABI.
+
 `wireSize<Struct>` — сума розмірів членів; `wireSize<Array>` — перевірений
 добуток N на розмір елемента. Усі додавання, множення, offsets, counts
 перевіряються до звуження до `u32`. Переповнення — compile-time помилка
@@ -754,6 +761,13 @@ standard-layout, trivially copyable і trivially destructible.
 `uint32_t& ref = packet.value` із `cannot bind packed field`. PFR facade
 надає саме доступ до членів за посиланням, тож пряме читання packed поля
 поза facade не доводить безпечності такого типу для telemetry.
+
+Навіть якщо Cortex-M7 виконає окреме невирівняне `LDR`, це не робить
+невирівняний доступ універсальним: результат залежить від інструкції,
+області пам'яті та налаштування `SCB->CCR.UNALIGN_TRP`. Контракт facade —
+звичайне коректне C++ посилання на член. Зовнішній packed payload спочатку
+копіюють або декодують у звичайний вирівняний DTO, після чого його можна
+передавати reflection/codec.
 
 Default member initializers на кшталт `float gain = 1.0f` не є metadata:
 їх не експортуємо, не використовуємо для пропущених байтів і не називаємо
@@ -989,6 +1003,7 @@ destruction на всіх статусах; заощадження byte не в�
 
 ```cpp
 ServiceResult<Response>::success(Response{...});
+ServiceResult<LargeResponse>::successFrom([] { return makeLargeResponse(); });
 ServiceResult<Response>::failure(ServiceStatus::Busy);
 ServiceResult<void>::success();
 ServiceResult<void>::failure(ServiceStatus::InvalidArgument);
@@ -998,6 +1013,11 @@ result.hasValue();
 result.value();       // documented precondition: successful non-void result
 result.valueOrNull(); // pointer or nullptr, no exception path
 ```
+
+У реалізації Stage 04 `success(value)` обмежено 256 байтами payload object:
+передавання великого `T` через параметр приховувало в ARM-пробі додатковий
+стек. `successFrom(factory)` конструює точний `T` prvalue безпосередньо у
+сховищі результату; великий raw `Response` також можна повертати prvalue.
 
 Не залишати aggregate з публічними полями, де можна створити
 `{Ok, empty}`. `failure(Ok)` і невідомий status — порушення API-контракту:
@@ -1164,6 +1184,14 @@ codec має допускати компактний цикл. Безпечни�
 construction лише тому, що його wire members прості. Якщо optimization
 потребує вужчих traits, вона вмикається `if constexpr` тільки для них,
 а загальний правильний шлях лишається доступним.
+
+У C++20-реалізації нетривіальна DMI-конструкція явно задає кожен член,
+потім codec заповнює створений об'єкт. Для вкладеного тривіального масиву
+це дає компактний цикл декодування, хоча на цьому рідкісному шляху масив
+спочатку заповнюється нулями. Нетривіальний масив потребує розгортання
+ініціалізаторів; codec відхиляє на етапі компіляції понад 1024 вузли такої
+конструкції. Це явна межа C++20 backend, а не обмеження wireSize для
+звичайних великих масивів.
 
 ### 8.5. Concurrency і запозичення
 
@@ -2384,6 +2412,11 @@ compiler; наявність цієї можливості в CubeIDE не пр�
    на CubeIDE O2/Os/Og, включно з forwarding helper/construct_at cases.
 8. Зафіксувати рішення: прийнятний return ABI або output-form зміна API
    до freeze. Не позначати цей крок завершеним лише host roundtrip тестом.
+
+Окремий backlog якості Stage 03: замінити загальний diagnostic regex `abort`
+у негативних тестах enum (неправильний UTF-8, вбудований NUL, повторний
+explicit entry) на точні іменовані constexpr-діагностики. Це посилює тести,
+але не змінює production type model чи wire-контракт Stage 04.
 
 Тести:
 

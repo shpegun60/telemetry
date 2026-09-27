@@ -188,3 +188,55 @@ member-level packed forms. Packed C++ aggregates remain outside the contract;
 no C++20/PFR trait proves the absence of every packing attribute, especially
 with nontrivial default member initialization. The ordinary aggregate wire
 size is already padding-free.
+
+## Stage 04: codec, Workspace and object lifetime
+
+[`codec/run.py`](codec/run.py) runs independently specified golden byte
+vectors for all scalar widths, signed minima, FP bit patterns, unknown enum
+codes, nested aggregates and arrays. It rejects every truncated length, a
+trailing byte, invalid `bool` codes 2/255, and overlapping buffers. Separate
+probes cover skewed and exact-size Workspace buffers, RAII destruction,
+unchanged DMI side-effect counts, and a 4 KiB value with allocation disabled.
+The negative compile check rejects `ServiceResult<Big>::success(Big{})` and
+points callers at the bounded-stack factory form. Another negative check
+rejects a DMI array that would expand more than 1024 initializer nodes.
+
+```text
+python tests/structured/codec/run.py --cxx g++ --build-dir build/structured-codec-gcc
+python tests/structured/codec/run.py --cxx clang++-18 --sanitize --build-dir build/structured-codec-sanitized
+python tests/structured/codec/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/structured-codec-arm
+```
+
+The local correctness checks passed on Qt MinGW GCC 13.1 and Ubuntu Clang 18.1
+with address/undefined-behavior sanitizers. CubeIDE ARM GCC 14.3.1 compiled
+the fixtures with `-O2`, `-Os`, and `-Og`; this is a compiler/codegen check,
+not an MCU cycle or board measurement. The `.su` figures below are individual
+stack frames, not a whole call-chain bound:
+
+| CubeIDE ARM frame | `-O2` | `-Os` | `-Og` |
+| --- | ---: | ---: | ---: |
+| 4 KiB `encode_big` | 16 B | 24 B | 16 B |
+| 4 KiB `decode_big` | 32 B | 40 B | 48 B |
+| `make_actual_service` via `successFrom` | 8 B | 8 B | 16 B |
+| Placement of returned `ServiceResult<Big>` | 8 B | 8 B | 8 B |
+| `std::construct_at(storage, make_raw())` comparison | 4104 B | 4104 B | 4112 B |
+| `std::optional<Big>{make_raw()}` comparison | 4112 B | 4112 B | 4120 B |
+
+The production code uses direct placement construction from a prvalue, not
+`construct_at` or an optional payload. `ServiceResult` has private status and
+active payload storage. `success(value)` is restricted to objects of at most
+256 bytes; `successFrom(factory)` is the large-response form. This is an
+explicit API choice based on return ABI evidence, and Stage 06 must rerun the
+same gate on the final service thunk.
+
+For the 4 KiB homogeneous array, the looped fixture's entire `.text` is
+680/662 B at O2/Os; the template-expanded comparison is 26,524/10,238 B.
+The DMI aggregate containing a 4 KiB array also keeps a small stack frame
+(48/56/48 B at O2/Os/Og) and uses a loop after explicitly constructing all
+members. This path currently initializes its large array to zero before
+overwriting it, a correctness/code-size tradeoff for nontrivial default
+construction. Ordinary trivially default-constructible arrays take the direct
+loop path without that preliminary fill.
+
+This stage does not yet claim an encoded Field/Command/Service dispatch path;
+those endpoints and the model are later stages.
