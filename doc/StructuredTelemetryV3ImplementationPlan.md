@@ -2931,6 +2931,12 @@ values і runtime вибір серед 128 різних targets. Ті самі 
 визначає підключені плати. Цикли та сумарний стек реального MCU лишаються
 не виміряними цим suite.
 
+Для offline зрізу `f67a5f9` [CI 37130246477](https://github.com/shpegun60/telemetry/actions/runs/37130246477)
+завершився успішно: 9/9 jobs, включно з новими host/ARM probes.
+Подальше посилення гейтів додає real-newlib negative ELF і
+[локальний receipt](../tests/structured/mcu/local-receipt.json) семи запусків;
+це evidence локальних software/codegen перевірок, а не новий hardware run.
+
 За рішенням користувача 2026-10-03 новий hardware run відкладено;
 software/codegen перевірки продовжуються без очікування плати. Чужа
 підключена плата не використовується. Це не перетворює offline evidence

@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 QUALIFICATION = HERE.parent / 'qualification'
 sys.path.insert(0, str(QUALIFICATION))
-from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols
+from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols, linked_control
 
 EXPECTED_PROBE_CHECKS = {'Mixed': 12230, 'Scale': 2831}
 LIBRARY = [ROOT / name for name in (
@@ -193,6 +193,9 @@ def main():
     elif 'clang' in version.lower():
         link += ['-fuse-ld=lld']
     report['flags'] = list(map(str, flags))
+    if args.arm:
+        report['linked_symbol_control'] = linked_control(
+            flags, out, run, compiler.with_name('arm-none-eabi-nm' + compiler.suffix))
 
     for family in ('Mixed', 'Scale'):
         sources = [HERE / 'Host.cpp', HERE / (family + '.cpp')]

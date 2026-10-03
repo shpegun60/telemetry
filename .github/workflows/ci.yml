@@ -307,6 +307,8 @@ jobs:
         run: |
           python3 tests/structured/mcu/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu
           python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
+      - name: Verify retained offline qualification receipt
+        run: python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -357,15 +359,19 @@ jobs:
             build/arm-structured-qualification/*.log
             build/arm-structured-qualification/*.json
             build/arm-structured-qualification/*.su
+            build/arm-structured-qualification/symbol-control.elf
             build/arm-structured-qualification-nullchecks/*.log
             build/arm-structured-qualification-nullchecks/*.json
             build/arm-structured-qualification-nullchecks/*.su
+            build/arm-structured-qualification-nullchecks/symbol-control.elf
             build/arm-structured-mcu/*.log
             build/arm-structured-mcu/*.json
             build/arm-structured-mcu/*.su
+            build/arm-structured-mcu/symbol-control.elf
             build/arm-structured-mcu-nullchecks/*.log
             build/arm-structured-mcu-nullchecks/*.json
             build/arm-structured-mcu-nullchecks/*.su
+            build/arm-structured-mcu-nullchecks/symbol-control.elf
             build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 

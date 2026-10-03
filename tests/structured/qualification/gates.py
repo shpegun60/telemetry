@@ -5,20 +5,22 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 Controls deliberately remove checks and retain representative newlib symbols;
 they run before each qualification build, independently of C++ check totals.
 """
+import hashlib
 import json
+from pathlib import Path
 import re
 
 EXPECTED_CONSUMER_CHECKS = 97
 
 ALLOCATORS = frozenset((
     'malloc', 'calloc', 'realloc', 'reallocf', 'free', 'memalign',
-    'aligned_alloc', 'posix_memalign', 'valloc', 'pvalloc',
+    'aligned_alloc', 'posix_memalign', 'valloc', 'pvalloc', 'sbrk',
 ))
 FORMATTERS = frozenset((
     'printf', 'vprintf', 'fprintf', 'vfprintf', 'sprintf', 'vsprintf',
     'snprintf', 'vsnprintf', 'dprintf', 'vdprintf', 'asprintf', 'vasprintf',
     'iprintf', 'viprintf', 'fiprintf', 'vfiprintf', 'siprintf', 'vsiprintf',
-    'sniprintf', 'vsniprintf',
+    'sniprintf', 'vsniprintf', 'svfprintf', 'svfiprintf', 'sfvwrite', 'sprint',
 ))
 
 
@@ -56,6 +58,30 @@ def forbidden_symbols(nm_output, *, legacy=False):
         if allocation or formatting or (legacy and 'Scalar::' in name):
             rejected.append(name)
     return rejected
+
+
+def linked_control(flags, out, run, nm):
+    """Retain real newlib functions, run real nm, and require rejection.
+
+    The negative image has its own libc/libnosys link group; normal probe
+    images keep their original link flags. Neither ARM image is executed.
+    `run(command, label)` returns stdout and saves the command/result log.
+    """
+    source = Path(__file__).with_name('SymbolControl.cpp')
+    obj, image = out / 'symbol-control.o', out / 'symbol-control.elf'
+    run(flags + ['-O2', '-c', source, '-o', obj], 'symbol-control-build')
+    run(flags + ['-O2', obj, '-nostdlib', '-Wl,-e,main', '-Wl,--gc-sections',
+                 '-Wl,--start-group', '-lc', '-lgcc', '-lnosys', '-Wl,--end-group',
+                 '-o', image], 'symbol-control-link')
+    symbols = run([nm, '-C', image], 'symbol-control-nm')
+    for name in ('_malloc_r', '_printf_r'):
+        if not re.search(r'^[0-9a-fA-F]+\s+T\s+' + name + r'$', symbols, re.M):
+            raise RuntimeError('Negative control did not retain a defined ' + name)
+    rejected = forbidden_symbols(symbols)
+    if not {'_malloc_r', '_printf_r'}.issubset(rejected):
+        raise RuntimeError('Real newlib negative image was accepted')
+    return dict(execution='nm only', required=['_malloc_r', '_printf_r'], rejected_symbols=rejected,
+                elf_sha256=hashlib.sha256(image.read_bytes()).hexdigest())
 
 
 def controls():

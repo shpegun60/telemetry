@@ -16,7 +16,7 @@ import struct
 import subprocess
 import time
 
-from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols
+from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols, linked_control
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -119,6 +119,9 @@ def main():
     if args.arm:
         def tool(name):
             return compiler.with_name('arm-none-eabi-' + name + suffix)
+
+        report['linked_symbol_control'] = linked_control(
+            flags, out, lambda command, label: run(command, label)[0], tool('nm'))
 
         def inspect(objects, program, mode, include_frames=True):
             symbols, _ = run([tool('nm'), '-C', program], 'symbols-' + mode)

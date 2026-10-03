@@ -41,6 +41,12 @@ the C++ program's actual checks. Generated files stay in the selected directory.
   families, including `_printf_r/_snprintf_r`. The symbol gate parses demangled
   `nm -C` names instead of looking for bare word fragments. Its mutation
   controls run before every suite and have separate counters in the report.
+- ARM also links a separate [negative ELF](SymbolControl.cpp) with real
+  newlib `_malloc_r/_printf_r` definitions, retained through volatile pointer
+  references and section GC. Actual `nm -C` output must be rejected, and both
+  required names must be defined `T` symbols. Internal `svfprintf/svfiprintf`,
+  `sfvwrite/sprint` families and `sbrk` are refused too. libc/libnosys linkage
+  belongs only to this deliberately rejected control, which is not executed.
 - Each of four encoded boundaries has a separately linked positive control
   and an exact mismatch control: a 32-byte caller versus a zero-budget Adapter.
   Linux/ARM exercise GC, LTO, PIC and PIE: **16 link rejections**. Windows PE

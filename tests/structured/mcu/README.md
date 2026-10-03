@@ -70,6 +70,12 @@ The shared [symbol/count gates](../qualification/gates.py) include newlib
 controls. Mixed must execute exactly 12,230 conditions, including the separately
 reported 97-check consumer; Scale must execute exactly 2,831. A smaller positive
 count fails the run. Gate controls are reported separately from C++ conditions.
+ARM links a separate negative ELF against real newlib and runs real `nm` on
+it. `_malloc_r` and `_printf_r` must both be retained definitions and refused.
+Internal `svfprintf/svfiprintf/sfvwrite/sprint` and `sbrk` families are included.
+The negative ELF's hash and rejected names are saved; CI retains its ELF and
+command/nm logs. That control has its own libc/libnosys link group and is not
+an endpoint image or an executed program.
 An explicit ABI check belongs in main; no such call may enter the probe TU.
 New structured frames remain at most 256 B, except the unchanged qualification
 roots with their 512 B O2/Os and 768 B Og budgets. These are **individual
@@ -85,7 +91,7 @@ GC and linked inspection. Host executable sizes are not presented as MCU Flash.
 
 ## Local results, 2026-10-03
 
-All final runner inputs matched their captured hashes: **185 files**. The
+All final runner inputs matched their captured hashes: **187 files**. The
 runtime counts below are actual C++ conditions, including repeated profiles;
 they are not counts of compiler invocations or distinct test scenarios.
 
@@ -94,16 +100,34 @@ they are not counts of compiler invocations or distinct test scenarios.
 | MinGW GCC 13.1, O2/Os/Og | 58 | 45,183 | 0 |
 | Linux GCC 13.3, null-check mode, O2/Os/Og | 58 | 45,183 | 0 |
 | Clang 18.1.3, ASan/UBSan, O2/Os/Og | 58 | 45,183 | 0 |
-| CubeIDE ARM GCC 14.3.1, O2/Os/Og | 70 | not executed | — |
-| CubeIDE ARM GCC 14.3.1, null-check mode | 70 | not executed | — |
-| ARM GCC 13.2.1, O2/Os/Og | 70 | not executed | — |
-| ARM GCC 13.2.1, null-check mode | 70 | not executed | — |
+| CubeIDE ARM GCC 14.3.1, O2/Os/Og | 73 | not executed | — |
+| CubeIDE ARM GCC 14.3.1, null-check mode | 73 | not executed | — |
+| ARM GCC 13.2.1, O2/Os/Og | 73 | not executed | — |
+| ARM GCC 13.2.1, null-check mode | 73 | not executed | — |
 
 Mixed executes 12,230 conditions per optimization; Scale executes 2,831.
 The parser's two positive/five negative controls are counted separately.
 The freestanding fixture gives abort a deterministic trap implementation;
 it does not link newlib's process/signal path to implement failed contracts.
 The linked allocation-symbol check remains in force.
+
+The tracked [local receipt](local-receipt.json) records seven local runs:
+actual compiler/flags, the shared LF input digests, raw report hashes, results,
+selected individual frames, native comparisons and real-symbol controls.
+`source_head` identifies the pre-publication checkout; `source_dirty` describes
+the captured source set, including new files, rather than unrelated review work.
+It is a durable local record, not an independent CI or hardware execution.
+Raw reports remain in the chosen build directories; their hashes allow later
+comparison but do not reconstruct missing report/log content.
+
+```sh
+python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
+python3 tests/structured/mcu/receipt.py capture --report NAME=build/mcu-host/report.json --report ARM=build/mcu-arm/report.json --output build/local-receipt.json
+```
+
+Capture requires complete O2/Os/Og reports with exactly matching current inputs.
+Verification compares the recorded input set with current sources; mutation
+controls refuse changed scope, counts, hashes, controls and large probe frames.
 
 CubeIDE 14.3.1 normal O2/Os direct/local/global probes have identical normalized
 bodies: **three instructions for u32**, **six for Config Field/Service**,
@@ -148,8 +172,11 @@ are inspected offline and are not images to program into a board.
 
 Stage 13 exact-SHA [CI 37122588689](https://github.com/shpegun60/telemetry/actions/runs/37122588689)
 completed successfully for `7266a93`: 9/9 jobs. This new probe suite is an
-additional slice; its own publication CI is verified separately. Prior H7S
-receipts do not prove execution of these new probe bodies.
+additional slice. Its [CI 37130246477](https://github.com/shpegun60/telemetry/actions/runs/37130246477)
+completed successfully for `f67a5f9`: 9/9 jobs, including all selected host MCU
+steps and the ARM MCU step. The subsequent real-symbol controls and local
+receipt have their own publication CI. Prior H7S receipts do not prove
+execution of these new probe bodies.
 No host watermark is presented as ARM stack evidence. Large encoded Field and
 Service paths use caller-owned Workspace; a separate native `readAs<Big>`
 stack/cycle comparison and actual call-chain watermarks remain in Stage 14's
