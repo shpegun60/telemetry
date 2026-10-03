@@ -19,7 +19,7 @@ class Transport {
         rs::Binding binding;
         std::array<std::byte, model.maxScratch()> storage{};
         ts::Workspace workspace{storage};
-        rs::ValuesFile<std::remove_cv_t<decltype(fields)>> values{descriptor, workspace};
+        resource::structured::ValuesFile<std::remove_cv_t<decltype(fields)>> values{descriptor, workspace};
     };
     std::array<Peer, 2> peers_{};
     struct Queued {

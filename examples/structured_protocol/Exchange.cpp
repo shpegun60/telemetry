@@ -5,13 +5,12 @@
  * SPDX-License-Identifier: MIT
  */
 #include "Exchange.hpp"
-#include "BinaryFormat.hpp"
 #include "detail/ExchangeWire.hpp"
 
-namespace resource::structured {
+namespace example::structured_protocol {
 namespace {
 namespace ts = telemetry::structured;
-using D = ts::DispatchStatus;
+using D = PacketStatus;
 
 struct Route {
     std::uint32_t requestId;
@@ -24,8 +23,8 @@ PacketResult finish(Output response, Route route, D status,
 {
     if (status != D::Ok) { endpoint = 0; bytes = 0; }
     detail::magic(response, "TSRP");
-    detail::store(response, 4, binaryMajor);
-    detail::store(response, 6, binaryMinor);
+    detail::store(response, 4, protocolMajor);
+    detail::store(response, 6, protocolMinor);
     detail::store(response, 8, route.requestId);
     detail::store(response, 12, route.endpointId);
     detail::store(response, 16, bytes);
@@ -66,8 +65,8 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
     const Route route{detail::load<std::uint32_t>(request, 8),
                       detail::load<std::uint32_t>(request, 12),
                       std::to_integer<std::uint8_t>(request[20])};
-    if (detail::load<std::uint16_t>(request, 4) != binaryMajor ||
-        detail::load<std::uint16_t>(request, 6) != binaryMinor)
+    if (detail::load<std::uint16_t>(request, 4) != protocolMajor ||
+        detail::load<std::uint16_t>(request, 6) != protocolMinor)
         return finish(response, route, D::UnsupportedVersion);
     if (request[21] != std::byte{0} || request[22] != std::byte{0} || request[23] != std::byte{0} ||
         route.operation < 1 || route.operation > 3)
@@ -88,7 +87,7 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
         if (overlapsScratch(entry->scratchBytes, request, response.first(exchangeHeaderBytes), workspace))
             return rejectOverlap(response, route, workspace);
         const auto result = entry->writeEncoded(payload, workspace);
-        auto status = result.dispatch;
+        auto status = detail::packetStatus(result.dispatch);
         if (status == D::Ok && !detail::wireStatus(result.endpointStatus, endpoint)) status = D::InternalError;
         return finish(response, route, status, endpoint);
     }
@@ -99,7 +98,7 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
         if (overlapsScratch(entry->scratchBytes, request, response.first(exchangeHeaderBytes), workspace))
             return rejectOverlap(response, route, workspace);
         const auto result = entry->executeEncoded(payload, workspace);
-        auto status = result.dispatch;
+        auto status = detail::packetStatus(result.dispatch);
         if (status == D::Ok && !detail::wireStatus(result.endpointStatus, endpoint)) status = D::InternalError;
         return finish(response, route, status, endpoint);
     }
@@ -114,7 +113,7 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
         if (overlapsScratch(entry->scratchBytes, request, usedOutput, workspace))
             return rejectOverlap(response, route, workspace);
         const auto result = entry->callEncoded(payload, usedOutput.subspan(exchangeHeaderBytes), workspace);
-        auto status = result.dispatch;
+        auto status = detail::packetStatus(result.dispatch);
         if (status == D::Ok && (!detail::wireStatus(result.endpointStatus, endpoint) ||
             result.written != (result.endpointStatus == ts::ServiceStatus::Ok ? entry->responseWireBytes : 0)))
             status = D::InternalError;
@@ -124,4 +123,4 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
     return finish(response, route, D::InternalError);
 }
 
-} // namespace resource::structured
+} // namespace example::structured_protocol

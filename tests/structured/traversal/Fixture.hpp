@@ -1,0 +1,83 @@
+/* Typed traversal fixtures. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
+#pragma once
+#include <telemetry_structured/Structured.hpp>
+#include <array>
+
+namespace fixture {
+namespace ts = telemetry::structured;
+using W = telemetry::WriteResult;
+using C = telemetry::CommandResult;
+enum class Mode : std::int16_t { Off = -1, On = 2 };
+enum class Position : std::uint8_t { Boolean, U16, Float, S64, U64, Mode, Array, Config, Big, Slot };
+struct Config { std::uint32_t code; bool enabled; };
+struct Big { std::array<std::uint32_t, 1024> words; };
+
+struct Device {
+    unsigned reads = 0, writes = 0, commands = 0, services = 0;
+    bool boolean = true;
+    std::uint16_t integer = 65535;
+    double real = 12.75;
+    std::int64_t signedValue = INT64_MIN;
+    std::uint64_t unsignedValue = UINT64_MAX;
+    Mode modeValue = Mode::On;
+    Config config{42, true};
+
+    bool readBool() noexcept { ++reads; return boolean; }
+    std::uint16_t readU16() noexcept { ++reads; return integer; }
+    double readFloat() noexcept { ++reads; return real; }
+    std::int64_t readS64() noexcept { ++reads; return signedValue; }
+    std::uint64_t readU64() noexcept { ++reads; return unsignedValue; }
+    Mode readMode() noexcept { ++reads; return modeValue; }
+    std::array<std::uint16_t, 2> readArray() noexcept { ++reads; return {1, 65535}; }
+    Config readConfig() noexcept { ++reads; return config; }
+    Big readBig() noexcept { ++reads; return Big{{1, 2, 3}}; }
+    W setBool(bool value) noexcept { ++writes; boolean = value; return W::Applied; }
+    W setU16(std::uint16_t value) noexcept { ++writes; integer = value; return W::Applied; }
+    W setFloat(double value) noexcept { ++writes; real = value; return W::Applied; }
+    W setS64(std::int64_t value) noexcept { ++writes; signedValue = value; return W::Applied; }
+    W setU64(std::uint64_t value) noexcept { ++writes; unsignedValue = value; return W::Applied; }
+    W setMode(Mode value) noexcept { ++writes; modeValue = value; return W::Applied; }
+    W setConfig(const Config& value) noexcept { ++writes; config = value; return W::Applied; }
+    W setBig(const Big&) noexcept { ++writes; return W::Applied; }
+    C configure(const Config& value) noexcept { ++commands; config = value; return C::Executed; }
+    C reset() noexcept { ++commands; return C::Executed; }
+    Config echo(const Config& value) noexcept { ++services; return value; }
+    void ping() noexcept { ++services; }
+    Big large() noexcept { ++services; return Big{{1, 2, 3}}; }
+};
+inline Device device;
+inline telemetry::OwnerSlot<Device> slot;
+inline constexpr ts::FieldTable localFields{
+    ts::field<&Device::readBool, &Device::setBool>("Bool", device),
+    ts::field<&Device::readU16, &Device::setU16>("U16", device),
+    ts::field<&Device::readFloat, &Device::setFloat>("Float", device),
+    ts::field<&Device::readS64, &Device::setS64>("S64", device),
+    ts::field<&Device::readU64, &Device::setU64>("U64", device),
+    ts::field<&Device::readMode, &Device::setMode>("Mode", device),
+    ts::field<&Device::readArray>("Array", device),
+    ts::field<&Device::readConfig, &Device::setConfig>("Config", device),
+    ts::field<&Device::readBig, &Device::setBig>("Big", device),
+    ts::field<&Device::readConfig, &Device::setConfig>("Slot", slot)};
+inline constexpr ts::CommandTable localCommands{
+    ts::command<&Device::configure>("Configure", device),
+    ts::command<&Device::reset>("Reset", device),
+    ts::command<&Device::configure>("Slot", slot)};
+inline constexpr ts::ServiceTable localServices{
+    ts::service<&Device::echo>("Echo", device),
+    ts::service<&Device::ping>("Ping", device),
+    ts::service<&Device::large>("Big", device),
+    ts::service<&Device::echo>("Slot", slot)};
+inline constexpr ts::FieldTable<> noFields{};
+inline constexpr ts::CommandTable<> noCommands{};
+inline constexpr ts::ServiceTable<> noServices{};
+inline constexpr ts::FieldCatalogTable<> noFieldCatalogs{};
+inline constexpr ts::CommandCatalogTable<> noCommandCatalogs{};
+inline constexpr ts::ServiceCatalogTable<> noServiceCatalogs{};
+inline constexpr ts::FieldCatalogTable fields{
+    ts::group("first", localFields), ts::group("empty", noFields), ts::group("repeat", localFields)};
+inline constexpr ts::CommandCatalogTable commands{
+    ts::group("first", localCommands), ts::group("empty", noCommands), ts::group("repeat", localCommands)};
+inline constexpr ts::ServiceCatalogTable services{
+    ts::group("first", localServices), ts::group("empty", noServices), ts::group("repeat", localServices)};
+inline constexpr ts::Model model{fields, commands, services};
+}

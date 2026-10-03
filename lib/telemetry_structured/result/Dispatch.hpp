@@ -15,12 +15,10 @@
 namespace telemetry::structured {
 
 // Routing/codec failures are separate from a ServiceStatus returned by the
-// application. These values are reserved for the eventual exchange envelope.
+// application. Connections, packet versions and agreement state belong to
+// the caller's protocol. Existing endpoint codes keep their numeric values.
 enum class DispatchStatus : std::uint8_t {
     Ok = 0,
-    InvalidRequest = 1,
-    UnsupportedVersion = 2,
-    NotReady = 3,
     NotFound = 4,
     InvalidPayload = 5,
     BufferTooSmall = 6,

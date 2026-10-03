@@ -4,13 +4,28 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef RESOURCE_STRUCTURED_BINDING_HPP
-#define RESOURCE_STRUCTURED_BINDING_HPP
+#ifndef EXAMPLE_STRUCTURED_PROTOCOL_BINDING_HPP
+#define EXAMPLE_STRUCTURED_PROTOCOL_BINDING_HPP
 
-#include "../Types.hpp"
+#include <cstddef>
+#include <cstdint>
+#include <span>
 #include <telemetry_structured/abi/StructuredAbi.hpp>
 
-namespace resource::structured {
+namespace example::structured_protocol {
+
+using Input = std::span<const std::byte>;
+using Output = std::span<std::byte>;
+inline constexpr std::uint16_t protocolMajor = 3;
+inline constexpr std::uint16_t protocolMinor = 0;
+
+// This example owns packet/session errors. Telemetry's DispatchStatus covers
+// endpoint operations only; it has no Ready, connection or version state.
+enum class PacketStatus : std::uint8_t {
+    Ok = 0, InvalidRequest = 1, UnsupportedVersion = 2, NotReady = 3,
+    NotFound = 4, InvalidPayload = 5, BufferTooSmall = 6,
+    WorkspaceTooSmall = 7, InternalError = 8, Unavailable = 9
+};
 
 class Bind;
 class Exchange;
@@ -39,9 +54,9 @@ private:
 // status lives in the response envelope, distinct from routing/preflight errors.
 struct PacketResult {
     std::uint32_t written = 0;
-    telemetry::structured::DispatchStatus dispatch = telemetry::structured::DispatchStatus::InternalError;
+    PacketStatus dispatch = PacketStatus::InternalError;
 
-    constexpr PacketResult(telemetry::structured::DispatchStatus status,
+    constexpr PacketResult(PacketStatus status,
                            std::uint32_t bytes = 0) noexcept : written(bytes), dispatch(status) {}
 };
 
@@ -54,5 +69,5 @@ using CurrentExchangeAbiTag = ExchangeAbiTag<telemetry::structured::detail::Curr
     offsetof(PacketResult, written), offsetof(PacketResult, dispatch)>;
 } // namespace detail
 
-} // namespace resource::structured
+} // namespace example::structured_protocol
 #endif

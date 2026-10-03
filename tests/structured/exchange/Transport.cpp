@@ -61,7 +61,7 @@ int main()
     static constexpr ts::FieldCatalogTable shiftedFields{ts::group("device", shiftedRows)};
     static constexpr ts::Model shiftedModel{shiftedFields, commands, services};
     static constexpr auto shiftedView = shiftedModel.view();
-    static constexpr rs::Descriptor shiftedDescriptor{shiftedModel};
+    static constexpr resource::structured::Descriptor shiftedDescriptor{shiftedModel};
     static_assert(shiftedDescriptor.fingerprint() != descriptor.fingerprint());
     rs::Binding changed;
     const auto callbacks = callbackCount();

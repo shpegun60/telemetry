@@ -3,10 +3,10 @@
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
 Статус: **специфікація поетапної реалізації**. Етапи 00–10 реалізовані;
-зріз 08 додає mixed FieldTable, Command і спільну Model; зріз 09 —
-descriptor v3.0, constexpr fingerprint, indexed streaming і packed bytes.
-Зріз 10 додає DescriptorFile/ValuesFile у наявний resource, з 24-byte
-Values header і cached fingerprint. Bind/Exchange та UI ще є цільовим API.
+Stage 11 реалізував приклад control protocol. Уточнення 2026-10-03 перед
+Stage 12 відокремлює цей приклад від core та додає typed traversal і native
+runtime access. Stage 12 — decoder/UI; його реалізація ще попереду.
+Descriptor і ValuesFile зберігають cached fingerprint.
 Поточний стан перевірок ведеться в
 [tests/structured/README.md](../tests/structured/README.md).
 
@@ -22,13 +22,14 @@ Values header і cached fingerprint. Bind/Exchange та UI ще є цільов�
 Structured v1 не має semantic metadata: жодних units, limits, defaults,
 steps, constraints, `arg(...)` або member overlays.**
 
-Уточнення після review: сумісність descriptor узгоджується **один раз
-на підключення/сеанс зв'язку**, а не в кожному packet. Fingerprint
-залишається в descriptor і запиті початкового узгодження. На вимогу
-користувача Stage 10 також копіює його у 24-byte header values.bin, щоб
-перевіряти відповідність схеми при читанні файла. Звичайні Exchange
-requests/responses його не містять. Правила
-reconnect/reboot описані в розділі 12. Це не змінює scalar wire v2.1.
+Уточнення 2026-10-03 має пріоритет над попереднім Stage 11 дизайном:
+**telemetry не знає про connection, peer, session, Ready, requestId чи
+маршрутизацію пакетів.** Core отримує endpoint ID, native values або payload
+bytes і caller-owned Workspace. Fingerprint лишається в descriptor та
+24-byte header values.bin. Коли його порівнювати, вирішує верхній застосунок.
+Bind/Binding/Exchange зберігаються лише як явно підключений приклад у
+`examples/structured_protocol`; жодний `.pri` бібліотеки його не підключає.
+Це не змінює scalar wire v2.1 або canonical descriptor/values bytes.
 
 Підсумковий reflection-контракт після review: Registry, Codec, Model і
 Descriptor використовують власний facade. C++20 backend на PFR,
@@ -178,41 +179,32 @@ source/ABI/wire контракт.
 #### 1.5.1. Схема розробки до Stage 15
 
 ```text
-                         C++ types
-                             │
-                             ▼
-                     Reflection facade
-                             │
-               ┌─────────────┴─────────────┐
-               ▼                           ▼
-        C++20 production             C++26 experimental
-        PFR + magic_enum                  std::meta
-        callable traits                  host only
-               │                           │
-               └─────────────┬─────────────┘
-                             ▼
-              Normalized facade result (§4.4)
-                             │
-                             ▼
-                        TypeRegistry
-                             │
-           ┌─────────────────┼─────────────────┐
-           ▼                 ▼                 ▼
-       Field<T>        Command<Request>   Service<Req,Resp>
-           │                 │                 │
-           └─────────────────┼─────────────────┘
-                             ▼
-                      Model / descriptor
-                             │
-                  fingerprint: Bind + values file header
-                             │
-                            Ready
-                             │
-                    ┌────────┴────────┐
-                    ▼                 ▼
-               ValuesFile          Exchange
-               no hash             no hash
+ C++ values / signatures
+          |
+   Reflection facade  <---- C++20: PFR / magic_enum / callable traits
+          |            <---- optional C++26 backend (same normalized contract)
+          v
+   Type<T> / one TypeRegistry
+          |
+ FieldTable / CommandTable / ServiceTable
+          |
+ Catalog tables / immutable Model
+          |
+          +-- exact native read/write/call
+          +-- get / forEach / runtime visit
+          +-- native readAs<T>(id) / writeAs(id, value)
+          +-- encoded indexes: id + bytes + Workspace
+          |
+ resource/structured (one-way adapter)
+          +-- DescriptorFile: canonical bytes + fingerprint
+          +-- ValuesFile: fixed tokens + descriptor fingerprint
+
+ Application / transport (outside both libraries)
+          +-- framing, routes, connections, retry/correlation policy
+          +-- chooses when to compare descriptor fingerprints
+          +-- may explicitly select examples/structured_protocol
 ```
+
 
 Паралельно з цією схемою існує заморожений старий scalar core. Він не є
 частиною нового `TypeRegistry` і не стане другою постійною гілкою системи.
@@ -235,11 +227,11 @@ source/ABI/wire контракт.
   Model об'єднує їх, а `descriptor.bin` публікує опис для клієнта.
   Жоден Field/Command/Service не має semantic limits/defaults/units.
 - Верхня частина, включно з графом типів, wire sizes і descriptor
-  metadata, будується на етапі компіляції. Bind і читання живих значень
+  metadata, будується на етапі компіляції. Операції над живими значеннями
   відбуваються під час роботи.
-- `Ready` належить конкретному connection/peer транспортного адаптера,
-  а не Model або Field. Fingerprint зберігається в descriptor і
-  звіряється при Bind; ValuesFile копіює його у file header, Exchange не містить packet hash.
+- Telemetry/resource не містять Ready або session state. Fingerprint
+  зберігається в descriptor; ValuesFile копіює його у file header.
+  Перевірка відповідності схеми — політика верхнього застосунку.
 - Для offline читання зберігають пару `descriptor.bin + values.bin`.
   Сам `values.bin` не дозволяє відновити назви, типи чи прив'язану модель.
 
@@ -291,34 +283,31 @@ facts. У фінальній схемі немає legacy `Scalar` як конт
 
 ```mermaid
 flowchart TB
-    subgraph native [Прямий C++ виклик]
-        cpp["Native C++ arguments"] --> typed["Local або global compile-time API"]
-        typed --> direct["Конкретний getter / setter / command / service"]
-        direct --> result["Native C++ result"]
-    end
-
-    subgraph encoded [Запит через транспорт]
-        packet["Повний request packet"] --> ready["Transport dispatcher: Ready цього peer"]
-        ready --> exchange["Exchange: header, endpoint, sizes, workspace"]
-        exchange --> decode["Decode Request: local object або Workspace за compile-time бюджетом"]
-        decode --> resolve["Resolve target один раз"]
-        resolve --> invoke["Та сама C++ ціль: один виклик"]
-        invoke --> response["Status і canonical Response bytes"]
-    end
+    native["Native C++ arguments"] --> exact["Compile-time read / write / call / get"]
+    exact --> invoke["Concrete C++ target"]
+    rid["Runtime u32 endpoint ID"] --> visit["O(1) typed visit / native As dispatch"]
+    visit --> invoke
+    caller["Upper application: packet framing / routing / agreement policy"]
+    caller --> encoded["Encoded index: ID + payload bytes + Workspace"]
+    encoded --> preflight["Lengths / capacity / representation validation"]
+    preflight --> decode["Native object: local or Workspace by compile-time budget"]
+    decode --> invoke
+    invoke --> result["Native result or canonical response bytes"]
+    model["Immutable Model"] --> descriptor["DescriptorFile + fingerprint"]
+    model --> values["ValuesFile + descriptor fingerprint"]
+    descriptor --> caller
+    values --> caller
 ```
 
-Typed-шлях не проходить через Bind, wire descriptor, codec або `Scalar`.
-Його прив'язки й повернені типи відомі компілятору; перевірки доступності
-late-bound target зберігаються там, де вони потрібні.
+Typed API не проходить через wire descriptor або codec. `visit` вибирає
+точний definition runtime-індексом; callback працює з його native типами.
+`readAs/writeAs` явно виконують checked numeric conversion або доступ до
+точного structural type, без Scalar. Вони не конструюють універсальний variant.
 
-Друга частина показує успішний Exchange; повний порядок перевірок і
-відмов визначений у §12.4. Неуспішний preflight не викликає ціль.
-Локальний encoded API також можна викликати без транспорту й Bind:
-викликач сам надає runtime view потрібного Model.
-
-Вимоги до розміру й вирівнювання workspace обчислює бібліотека, але
-пам'ять надає викликач. Reflection не створює прихованого heap або
-спільного scratch для одночасних викликів.
+Encoded API доступний незалежно від транспорту: викликач передає Model view,
+ID, bytes і Workspace. Бібліотека не перевіряє connected/bound стан.
+Preflight не викликає ціль при невірних bytes або недостатньому storage.
+Пам'ять і синхронізацію Workspace забезпечує викликач.
 
 #### 1.5.4. Що залишається користувачеві
 
@@ -634,6 +623,63 @@ identity; enum-константа не створює незалежного с�
 Локальний runtime typed dispatch можна додати поверх тієї самої таблиці,
 якщо він потрібний застосунку. Він не є умовою першого релізу: обов'язкові
 саме три рівні вище. Це не причина стирати типи в `call<I>()`.
+
+### 3.7. Чотири режими доступу й явні native conversions
+
+```cpp
+// A. Exact native target, compile-time position або packed ID.
+localFields.read<0>();
+fields.write<telemetry::makeId<0, 1>()>(Config{...});
+commands.call<telemetry::makeId<0, 0>()>(Request{...});
+services.call<telemetry::makeId<0, 0>()>(Request{...});
+
+// B. Exact definition або compile-time typed traversal.
+const auto& endpoint = localFields.get<0>();
+localFields.forEach([]<std::size_t I>(const auto& endpoint) { /* exact type */ });
+fields.forEach([]<std::size_t Group, std::size_t Entry>(
+    std::string_view groupName, const auto& endpoint) { /* exact type */ });
+
+// C. Runtime selection, native types. No codec or Workspace is used.
+fields.visit(fieldId, [](const auto& endpoint) { /* exact type in each branch */ });
+auto rpm = fields.readAs<float>(fieldId); // optional<float>, checked numeric cast
+fields.writeAs(fieldId, 1500.5);         // checked cast into selected native Value
+
+// Same conversion policy with a compile-time known target.
+localFields.readAs<double, 0>();
+fields.writeAs<telemetry::makeId<0, 0>()>(1500.5);
+
+// D. Runtime ID + canonical bytes, caller-owned scratch.
+fieldIndex.readEncoded(fieldId, output, workspace);
+commandIndex.executeEncoded(commandId, input, workspace);
+serviceIndex.callEncoded(serviceId, input, output, workspace);
+```
+
+Local runtime API приймає position; global — packed ID. Перевіряється повна
+ширина до cast: негативний або завеликий ID не звертається до іншого рядка.
+`readAs` повертає nullopt при NotFound, empty target, type mismatch або
+нерепрезентованому numeric conversion. `writeAs` повертає WriteResult:
+NotFound, ReadOnly, Unavailable, InvalidValue або статус setter-а.
+ReadOnly визначається до conversion; невдалий conversion не викликає setter.
+
+Float→integer truncates toward zero із checked bounds; integer bounds
+перевіряються без floating intermediate. Float target допускає NaN/Inf;
+finite→bool використовує zero/nonzero. Float narrowing може округляти,
+але finite overflow відхиляється. Enum працює через underlying numeric type;
+unknown representable code дозволений, як у codec. Struct/array — exact type
+без structural conversion. Runtime mismatch не викликає getter/setter.
+Static mismatch дає compile-time diagnostic.
+
+`get` повертає borrowed const reference. `forEach/visit` передають такий самий
+reference й не читають live Value самостійно. Erased begin/end/operator[]
+працюють з homogeneous entries/catalogs; operator[] має звичайний unchecked
+container contract. Borrowing/traversal від тимчасових таблиць заборонений.
+Runtime callback result ігнорується; visit bool означає, що endpoint обраний.
+
+Native readAs<T> повертає explicitly requested optional<T>, як exact read.
+Великі native T залишаються відповідальністю C++ caller/ABI; для bounded
+large-object storage слід використати encoded endpoint + Workspace. Visitor
+або As infrastructure не створює universal owning value container. Budget
+32 B стосується storage encoded endpoints, а не native return ABI.
 
 <a id="reflection"></a>
 ## 4. Reflection і типи callable
@@ -1185,7 +1231,8 @@ result.valueOrNull(); // pointer or nullptr, no exception path
 У encoded response `dispatch=Unavailable` відрізняється від
 `dispatch=Ok, endpointStatus=ServiceStatus::Unavailable`: у другому
 випадку callable був викликаний і сам повідомив недоступність.
-SchemaMismatch є результатом початкового узгодження, не звичайного виклику.
+SchemaMismatch у необов'язковому protocol example є результатом початкового
+узгодження. Core encoded API не має fingerprint/session перевірок.
 
 Local typed API лишається простим `ServiceResult<T>`: тут порожній slot і
 повернений власником Unavailable мають свідомо однаковий зовнішній status.
@@ -1681,12 +1728,10 @@ dictionary, порядок endpoint, request/response shape, Field capabilities
 значення, адреса owner, адреса callback і стан slot не входять.
 
 Fingerprint обчислюється один раз для незмінного Model. У wire v3.0
-він присутній у descriptor header, ValuesFile header та Bind request при
-узгодженні. ValuesFile лише копіює готовий fingerprint; не хешує live
-values. Його немає у звичайному Exchange request або response.
-Після успішного Bind обидві сторони користуються узгодженим Model до
-закриття підключення. Немає перерахунку descriptor hash або порівняння
-u64 fingerprint на кожний read/write/call.
+він присутній у descriptor header та ValuesFile header. Застосунок вирішує,
+коли порівняти його зі своїм descriptor: при завантаженні файла, початковому
+узгодженні чи зміні моделі. Core не повторює hash/compare у read/write/call.
+Fingerprint не є session state, authorization чи CRC живих значень.
 
 ### 10.7. Як віддавати descriptor порціями
 
@@ -1729,7 +1774,7 @@ Field/Command/Service**. Вони не додаються до endpoint records 
 
 Wire widths залишаються u32 і packed ID, а ці ceilings — профіль
 реалізації. Клієнт може мати нижчі межі й відхилити завеликий descriptor
-з явною помилкою до Bind. За це не змінюється сам descriptor fingerprint.
+з явною помилкою до використання descriptor. За це не змінюється сам descriptor fingerprint.
 Розширення ceiling не скасовує перевірки integer overflow і capacity.
 
 Expanded nodes: scalar/enum=1, Void=0, Struct=1+сума member nodes,
@@ -1871,273 +1916,67 @@ v1 повертає BufferTooSmall; не можна обіцяти переда�
 таких об'єктів є окремою функціональністю.
 
 <a id="exchange"></a>
-## 12. Запис, команди та RPC через транспорт
+## 12. Межа telemetry та верхнього протоколу
 
-### 12.1. Межа з resource protocol
+### 12.1. Core не володіє підключеннями
 
-Resource READ доставляє descriptor і values. Для запиту з відповіддю
-потрібен окремий bounded `Exchange::process` у structured-адаптері.
-Він працює з одним повним request span та response span і не залежить
-від UART/TCP/COBS. Transport dispatcher вибирає resource protocol або
-structured exchange за власним channel/message kind.
+Telemetry знає endpoints, native types, packed u32 IDs, codecs і Workspace.
+Resource знає flat file index, opaque cursor і file operations. Жодна з цих
+бібліотек не знає connection, peer, session, readiness, requestId, packet type,
+framing, глобальну маршрутизацію, retry/dedupe чи політику узгодження схем.
 
-Не додаємо mailbox-файл, чергу відповідей або lifecycle `init` до Model.
-Узгодженість підключення явно належить transport dispatcher, як описано
-нижче; це не прихований стан усередині кожного Field/Service або provider.
-Resource core і чинні Op List/Stat/Read/Write не змінюються.
-Використання `resource::Input/Output` не означає, що resource WRITE
-автоматично є RPC.
+Верхній застосунок уже вирішив, чи це resource READ, Field write, Command
+або Service. Він може відразу викликати:
 
-### 12.1.1. Узгодити descriptor один раз
-
-Кожне прийняте підключення/peer має власний стан:
-
-```mermaid
-stateDiagram-v2
-    [*] --> Unbound
-    Unbound --> Unbound: Discovery, descriptor або Bind mismatch
-    Unbound --> Ready: Bind version і fingerprint збігаються
-    Ready --> Ready: Exchange без packet fingerprint; Values з file fingerprint
-    Ready --> Unbound: Reboot, disconnect або заміна Model
+```cpp
+fieldIndex.readEncoded(fieldId, output, workspace);
+fieldIndex.writeEncoded(fieldId, input, workspace);
+commandIndex.executeEncoded(commandId, input, workspace);
+serviceIndex.callEncoded(serviceId, input, output, workspace);
 ```
 
-Після disconnect стан видаляється; новий peer знову починає з Unbound.
-Читання descriptor або наявність cached descriptor самі по собі не
-переводять connection у Ready: потрібна успішна відповідь Bind.
+Це самодостатня boundary, без Bind. O(1) lookup лишається перевіреним доступом
+`catalogs[id >> 16].entries[id & 0xffff]`. Length, bool representation,
+capability, target availability і потрібна scratch capacity перевіряються
+перед callback. Зовнішній протокол відокремлює dispatch від endpoint status.
+Валідація bytes не залежить від того, чи існує session у застосунку.
 
-Фактично «один раз на старті» означає один раз на старті **взаємодії цієї
-пари клієнт/пристрій**. Сам пристрій до появи клієнта не знає його схему.
-Якщо клієнт один і зв'язок живе весь час роботи пристрою, це і є один
-Bind на запуск. Нове підключення іншого клієнта узгоджується окремо.
+### 12.2. Необов'язковий приклад протоколу
 
-До Ready дозволені discovery, LIST/STAT, читання descriptor і Bind.
-Потік values та керуючі виклики відкриває transport dispatcher після
-успішного Bind. Model/таблиці не стають «неініціалізованими»: прямий
-локальний typed API та локальний encoded API працюють за своїм звичайним
-контрактом і не знають про підключення.
+Попередній Stage 11 код перенесений у
+[examples/structured_protocol](../examples/structured_protocol/README.md).
+Приклад містить `Bind`, `Binding`, `Exchange`, TSBN/TSBA і TSRQ/TSRP;
+володіє PacketStatus, correlation і Ready policy. Його явно підключають
+окремим `protocol.pri`. `resource.pri` та `structured.pri` його не включають.
 
-`Exchange::process` отримує прив'язаний до незмінного Model runtime view.
-Transport зберігає цей binding для конкретного peer/connection. Звичайна
-маршрутизація Unbound/Ready може використовувати вже наявний стан або
-handler підключення; окремий fingerprint compare в hot path відсутній.
-Не вводимо sessionId у кожний telemetry packet замість вилученого hash.
+Приклад зберігає свої 16/8-byte handshake і 24-byte envelopes та окремі
+wire/ABI/correctness tests. Це один можливий upper protocol, а не необхідна
+частина моделі telemetry. Власний TCP/UART/COBS dispatcher може не
+використовувати цей приклад узагалі. Core DispatchStatus не має session
+або packet-version errors; example переводить endpoint statuses у свої wire codes.
 
-Мінімальний Bind request, 16 bytes:
+### 12.3. Fingerprint і політика клієнта
 
-| Offset | Тип | Значення |
-| --- | --- | --- |
-| 0 | 4 bytes | ASCII `TSBN` |
-| 4 | u16 | major=3 |
-| 6 | u16 | minor=0 |
-| 8 | u64 | Fingerprint descriptor, яким користується клієнт |
+Descriptor fingerprint рахується з canonical descriptor bytes із нульовим
+fingerprint slot. ValuesFile копіює його в свій header. Це встановлює, якій
+схемі відповідають values. Формат цих файлів і algorithm не змінюються.
 
-Bind response, 8 bytes:
+Коли клієнт погоджує схему, як переживає reconnect, очищає pending requests
+і співвідносить відповіді, визначає його application/protocol. Не додаємо
+fingerprint у кожний endpoint packet. Core не має mandatory connection state
+і не виконує повторних hash checks на кожну операцію.
 
-| Offset | Тип | Значення |
-| --- | --- | --- |
-| 0 | 4 bytes | ASCII `TSBA` |
-| 4 | u8 | Ready=0, SchemaMismatch=1, UnsupportedVersion=2, InvalidRequest=3 |
-| 5 | 3 bytes | reserved=0 |
+### 12.4. Storage та повторення операцій
 
-Після Ready Exchange packet не повторює fingerprint. ValuesFile має один fingerprint у header файла. При
-SchemaMismatch клієнт показує помилку й не надсилає керуючих запитів.
-Можна перечитати descriptor та виконати новий Bind, але стару команду
-не повторюють автоматично вже з новими positional IDs. Повторний Bind
-є новим узгодженням і не виконується паралельно з активними запитами.
+Workspace caller-owned, без heap. Compile-time local budget 32 B впливає
+лише на storage placement encoded endpoints. Service input/output overlap
+дозволений: Request декодовано до першого response write. Workspace overlap
+перевіряється лише для endpoint, що справді використовує scratch.
 
-### 12.1.2. Reboot, reconnect і черги
-
-- Device reboot скидає binding; дані до нового Bind не викликають target.
-- Disconnect клієнта скидає його binding; інший peer не успадковує Ready.
-- Model незмінний протягом підключення. Його заміна закриває всі bindings
-  і потребує нового узгодження до роботи з іншою таблицею.
-- Клієнт скидає pending requests і прив'язаний decoder на втраті зв'язку.
-- Транспорт має не переносити накопичені старі data frames у нове Ready.
-  На UART це явна межа restart/framing/reset RX queues; TCP забезпечує
-  межі різних connections. Саме мовчання каналу не доводить reboot.
-- Для безсеансового/reordering транспорту, де старі datagrams можуть
-  з'явитися після нового Bind, потрібний його власний механізм розділення
-  поколінь. Без цього одноразове узгодження не дає гарантії проти старих
-  packets. Цей транспортний механізм не дублюється в кожному telemetry
-  endpoint і не називається fingerprint-перевіркою.
-
-Жоден одноразовий handshake не може розпізнати довільний старий packet,
-якщо нижчий транспорт не розрізняє сеанси. Для v1 це явна передумова
-інтеграції, а не причина повернути hash у кожний request.
-
-### 12.1.3. Обмежена кількість підключень
-
-Transport adapter задає явну місткість контекстів, наприклад
-`maxConnections`, а за потреби окрему межу Ready bindings
-`maxBoundPeers`. Назви тут позначають integration contract, а не нові
-поля wire descriptor або параметри `service()`.
-
-- Місткість охоплює також Unbound peers: незавершений Bind не повинен
-  створювати необмежену таблицю станів. Зберігання — заздалегідь
-  виділений масив/pool або вже обмежені контексти самого транспорту.
-- Для одного UART peer достатньо одного контексту. TCP чи інший
-  багатоклієнтський адаптер явно задає свою кількість; універсальної
-  прихованої capacity в Model немає.
-- Ключ контексту визначає транспорт: connection або peer/session key.
-  У безсеансовому транспорті він також має забезпечувати розділення
-  поколінь, описане в §12.1.2.
-- Коли місця немає, транспорт відхиляє або відкладає приймання нового
-  peer своїм штатним механізмом. Не позичає йому Ready іншого клієнта
-  й не витісняє активний binding мовчки. Новий wire status не потрібний.
-- Контекст повторно використовується після завершення його активного
-  обробника та очищення старих черг. Межі concurrent handlers/workspaces
-  залишаються явними; capacity peers не замінює контракт scratch memory.
-
-Ці межі задаються при інтеграції та перевіряються fake transport тестами.
-Вони не додають fingerprint compare у звичайний request.
-
-### 12.2. Проєктована request envelope: 24 bytes
-
-| Offset | Тип | Значення |
-| --- | --- | --- |
-| 0 | 4 bytes | ASCII `TSRQ` |
-| 4 | u16 | major=3 |
-| 6 | u16 | minor=0 |
-| 8 | u32 | requestId для зіставлення запиту/відповіді |
-| 12 | u32 | packed endpointId |
-| 16 | u32 | payloadBytes |
-| 20 | u8 | operation: FieldWrite=1, Command=2, Service=3 |
-| 21 | u8 | flags=0 |
-| 22 | u16 | reserved=0 |
-| 24 | bytes | Рівно payloadBytes canonical bytes |
-
-Запит не містить TypeId кожного аргументу або fingerprint. У вже
-узгодженій моделі operation+endpointId задають тип і wireSize request.
-Запити з іншим розміром або trailing bytes відхиляються.
-Field read у цьому milestone забезпечує ValuesFile; окрема read-one
-операція може бути додана пізніше без зміни local typed API.
-
-### 12.3. Проєктована response envelope: 24 bytes
-
-| Offset | Тип | Значення |
-| --- | --- | --- |
-| 0 | 4 bytes | ASCII `TSRP` |
-| 4 | u16 | major=3 |
-| 6 | u16 | minor=0 |
-| 8 | u32 | requestId |
-| 12 | u32 | endpointId |
-| 16 | u32 | response payloadBytes |
-| 20 | u8 | operation |
-| 21 | u8 | dispatchStatus |
-| 22 | u8 | endpointStatus; 0 при dispatch failure |
-| 23 | u8 | flags=0 |
-| 24 | bytes | Payload лише успішного Service з non-void Response |
-
-DispatchStatus v3.0:
-
-| Код | Назва | Значення |
-| --- | --- | --- |
-| 0 | Ok | Запит structurally valid, endpoint result має зміст |
-| 1 | InvalidRequest | Некоректний envelope/operation/reserved field |
-| 2 | UnsupportedVersion | Непідтримувана версія |
-| 3 | NotReady | Transport dispatcher ще не має узгодженого binding |
-| 4 | NotFound | Немає endpoint відповідної категорії/ID |
-| 5 | InvalidPayload | Length/bool/struct representation некоректні |
-| 6 | BufferTooSmall | Не вистачає response capacity |
-| 7 | WorkspaceTooSmall | Немає достатнього вирівняного scratch |
-| 8 | InternalError | Порушена внутрішня передумова адаптера |
-| 9 | Unavailable | Target/slot відсутній; application callback не викликався |
-
-При dispatch=Ok endpointStatus означає:
-
-- FieldWrite: явне wire-відображення `WriteResult`;
-- Command: явне wire-відображення `CommandResult`;
-- Service: `ServiceStatus` із розділу 7.
-
-Для FieldWrite початкові wire-коди: Applied=0, NotFound=1, ReadOnly=2,
-InvalidValue=3, Busy=4, Unavailable=5. Для Command: Executed=0,
-Accepted=1, NotFound=2, Unavailable=3, ArgumentCountMismatch=4,
-InvalidValue=5, Busy=6, Failed=7. Ці таблиці треба закріпити тестами,
-не використовувати raw enum bytes без явного mapping.
-
-Якщо callback повернув enum status, для якого mapping не визначений,
-адаптер повертає InternalError без payload. Це стосується також
-WriteResult/CommandResult; невідомий byte не випускається на дріт.
-
-NotFound від lookup — dispatch failure; однойменний status, повернений
-самим application callback, залишається endpoint result. Command з
-одним request struct не породжує ArgumentCountMismatch у codec, але
-чинний `CommandResult` не обрізається й може бути повернений власником.
-
-Якщо не вміщається навіть response header або request коротший за
-header/не має впізнаваного magic, process повертає локальний status і
-written=0. Він не читає відсутній requestId й не вигадує кореляцію.
-Якщо header впізнаний і його поля доступні, protocol errors можуть
-бути повернені у звичайному header з payloadBytes=0.
-
-### 12.4. Порядок обробки одного запиту
-
-1. Перевірити minimum input/output header sizes та magic.
-2. Без невирівняних loads прочитати header; перевірити version, flags,
-   reserved bytes і operation.
-3. Перевірити exact envelope length з overflow-safe arithmetic.
-4. Використати Model, уже закріплений за Ready-підключенням. Transport
-   не направляє Unbound traffic у цей dispatcher; hash тут не звіряється.
-5. Знайти endpoint; перевірити capabilities FieldWrite.
-6. Звірити payloadBytes із request wireSize цього endpoint.
-7. Перевірити output на header + максимальну успішну відповідь.
-8. Для objects у Workspace перевірити capacity/alignment і відсутність
-   перекриття wire buffers із Workspace; для повністю локальних не читати його.
-9. Повністю декодувати request; помилка означає callback count 0.
-10. Resolve target один раз; його відсутність повертає dispatch Unavailable.
-11. Викликати callback один раз із native Request.
-12. Перевірити інваріант ServiceResult; записати status.
-13. У разі Service Ok закодувати Response повністю; інакше payloadBytes=0.
-14. Завершити lifetime scratch objects і повернути written bytes.
-
-Для read-only Field результат ReadOnly визначається до decode, як явна
-відсутність можливості запису; при цьому ціль не викликається. Інші
-endpoint дотримуються структурної валідації перед availability check.
-
-Service input/output можуть перекриватись: відповідь пишеться лише після
-повного decode запиту. Exchange так само повинен зчитати routing header і
-request payload до запису response header/payload у спільний буфер.
-Overlap wire buffers із Workspace відхиляється лише коли endpoint використовує
-Workspace. Це перевіряється на межі encoded API, а не припускається через `restrict`.
-Якщо при такій відмові навіть response header перекриває Workspace,
-Exchange повертає локальний InvalidPayload із written=0: запис повідомлення
-про помилку не має пошкодити вже живий scratch object користувача.
-Перевірка overlap не повинна робити невизначене relational comparison
-pointer-ів різних C++ об'єктів; реалізація використовує документований
-для цільових платформ адресний helper з перевіркою переповнення.
-
-### 12.5. Повторення, атомарність і великі запити
-
-RequestId — correlation, а не deduplication key. Повторений пакет
-виконується повторно. Немає автоматичного retry side-effect operation,
-exactly-once delivery або rollback змін Device, якщо зник транспорт.
-Після успішної локальної обробки втрата response не скасовує callback.
-
-`requestId` — `u32`; перехід `0xFFFFFFFF → 0` дозволений, нуль не
-зарезервований. Клієнт зобов'язаний забезпечити унікальність ID серед
-усіх outstanding requests **одного binding**. Scope кореляції —
-`(binding, requestId)`; operation та endpointId відповіді додатково
-мають збігатися з очікуваним запитом. Інший peer може використовувати
-той самий ID незалежно.
-
-Генератор ID після wrap пропускає зайняті значення. Клієнт має обмежену
-таблицю pending requests; заповнення таблиці відкладає або відхиляє
-новий запит локально, а не перезаписує незавершений. Це клієнтський
-resource limit, а не дедуплікація на пристрої.
-
-Timeout не доводить, що відповідь уже не прийде. Не можна відразу
-віддати цей ID іншому запиту, доки транспорт допускає пізню відповідь
-попереднього запиту. Якщо адаптер не може встановити таку межу, перед
-повторним використанням потрібне закриття binding з очищенням старих
-frames за §12.1.2. Немає вимоги зберігати необмежену історію ID.
-
-Encoded API приймає повний packet. Транспорт або надає достатній frame,
-або збирає його у власному буфері до process. Callback не отримує частину
-запиту через серію resource WRITE. Максимальні request/response sizes
-відомі Model і звіряються з реальною capacity транспорту при інтеграції.
-
-Команда, яка повертає Accepted, сама керує чергою. Сервіс v1 синхронний;
-немає promise/future, implicit continuation або background response.
+Кожний виклик encoded operation — нова операція. Telemetry не запам'ятовує
+requestId, не повторює callback автоматично й не дає exactly-once гарантії.
+Accepted Command керує своєю прикладною чергою; encoded request після
+повернення не зберігається бібліотекою.
 
 <a id="files"></a>
 ## 13. Файли, залежності й qmake
@@ -2204,8 +2043,6 @@ lib/
       BinaryFormat.hpp
       DescriptorFile.hpp/.cpp
       ValuesFile.hpp/.cpp
-      Bind.hpp/.cpp                  one-time descriptor agreement
-      Exchange.hpp/.cpp
       README.md
   boost_pfr/
     LICENSE_1_0.txt
@@ -2273,7 +2110,7 @@ lib/
     abi/
   resource/
     telemetry/
-      v3/                         descriptor, values, Bind, Exchange
+      v3/                         descriptor і values; protocol example окремо
 web/
   telemetry.js                    єдиний v3 decoder/client module
 ```
@@ -2287,6 +2124,18 @@ web/
 доки старе дерево не видалене. `Primitive.hpp` є лише запропонованою
 назвою leaf codec; цей план не вимагає зайвого файлу, якщо `Codec.hpp`
 достатньо читабельний.
+
+??????? ????????? ????????? ????? ??????:
+
+```text
+examples/structured_protocol/
+  Binding.hpp                 optional peer agreement state
+  Bind.hpp/.cpp               example handshake
+  Exchange.hpp/.cpp           example packet routing
+  detail/ExchangeWire.hpp     explicit packet codecs/status mapping
+  protocol.pri                only explicit selection
+  README.md
+```
 
 ### 13.2. Напрям залежностей
 
@@ -2430,12 +2279,12 @@ serviceCatalogs / services[id]
 
 Клієнт завантажує descriptor, перевіряє resource ceilings, header, records,
 references, count/offset/size arithmetic та один раз його fingerprint.
-Після успішного Bind закріплює цей decoder за підключенням. Потім:
+Клієнт зберігає перевірену модель; зв’язок із підключенням — політика застосунку. Потім:
 
 1. Генерує request editor рекурсивно за typeId.
 2. Encoder пише поля в descriptor order у fixed-size payload.
-3. Exchange response зіставляється в межах binding за requestId,
-   endpointId і operation; wrap і pending capacity підкоряються §12.5.
+3. Upper protocol зіставляє response з request. Payload codec не
+   нав’язує envelope, requestId чи session lifecycle.
 4. Response декодується через вже узгоджену модель; перевіряються status
    і точна довжина, але fingerprint у packet відсутній.
 5. Struct/array response відображається через той самий TypeRegistry.
@@ -2465,11 +2314,10 @@ bytes, якщо треба побітовий NaN roundtrip. Назви не є 
 неперевірені імена у прототипні властивості звичайного object.
 
 UI має явний результат InvalidArgument/Busy/Unavailable/Failed.
-Немає automatic retry запису або сервісу після timeout. SchemaMismatch
-при Bind означає помилку узгодження й відсутність Ready. Старий
-positional ID не повторюється мовчки після завантаження нового descriptor
-без повторного вибору endpoint. Reconnect/reboot скидає pending requests
-і decoder binding; наступна взаємодія починається з нового Bind.
+Немає automatic retry запису або сервісу після timeout. Невідповідність
+fingerprint показується як помилка схеми. Старий positional ID не повторюється
+мовчки після завантаження іншого descriptor. Lifecycle підключення, pending
+requests і correlation залишаються в application/protocol adapter, не в codec.
 
 Qt smoke перевіряє підключення C++20/PFR, моделі й обмін із fake Device.
 Повний редактор і спеціалізовані графіки не є умовою завершення ядра.
@@ -2491,7 +2339,7 @@ Qt smoke перевіряє підключення C++20/PFR, моделі й о
 Runtime лишаються input bytes, дані owner, перевірка доступності slot,
 перевірка packet boundary/status, dynamic ID bounds та
 прикладна логіка. «Без limits» не означає «без перевірки пам'яті».
-Fingerprint compare належить початковому Bind, а structured ABI guard —
+Fingerprint compare належить upper application, а structured ABI guard —
 лінкуванню; обидва відсутні в гарячому read/write/service dispatch.
 
 ### 15.2. Що вимірюємо
@@ -2544,7 +2392,7 @@ experimental; поточна scalar-бібліотека придатна для
   -> 08 fields/commands
   -> 09 descriptor/fingerprint
   -> 10 values/resource
-  -> 11 one-time Bind + exchange
+  -> 11 optional protocol example + API correction
   -> 12 client
   -> 13 complete CI/codegen/stack
   -> 14 H7S
@@ -2961,47 +2809,37 @@ Fingerprint додається один раз у header файла; resource pr
 Завершено, коли реальний existing resource READ може отримати v3 файли,
 а current v2.1 golden bytes і protocol tests лишаються незмінними.
 
-### Етап 11. Одноразовий Bind і Exchange для write/command/service
+### Етап 11. Необов'язковий control protocol example
 
-Локальну реалізацію і докази зібрано в
-[tests/structured/exchange/README.md](../tests/structured/exchange/README.md).
-Binding належить transport peer; Model, Descriptor, ValuesFile та encoded
-endpoint ABI не змінюються. Публікація зрізу потребує перевірки CI саме його SHA.
+Приклад Bind/Exchange реалізований і має окремий
+[regression/evidence suite](../tests/structured/exchange/README.md).
+Уточнення 2026-10-03 переносить його з `lib/resource/structured` у
+`examples/structured_protocol`. Model, Descriptor/Values bytes і encoded
+endpoint ABI зберігаються. Це optional upper integration, не core dependency.
+
+### Корекційний зріз перед Stage 12. Єдиний зручний native API
 
 Робота:
 
-1. Реалізувати Bind request/response та явний transport-owned binding.
-2. Реалізувати 24-byte data envelopes без fingerprint і без memcpy wire struct.
-3. Реалізувати statuses mapping і порядок preflight перевірок.
-4. З'єднати encoded indexes із операціями 1/2/3 для bound Model.
-5. Додати приклад transport dispatcher для resource/structured channel
-   із переходами Unbound/Ready та скиданням на reboot/disconnect.
-6. Задокументувати повторення пакета, correlation, межі сеансів і
-   відсутність dedupe. Телеметричний packet не отримує новий sessionId.
-7. Задати обмежену місткість peer contexts разом із Unbound станами;
-   перевірити відмову при заповненні та безпечне повторне використання.
+1. Прибрати session/protocol API та packet-only statuses з core.
+2. Додати typed `get<Position>()` локально і `get<PackedId>()` глобально.
+3. Додати compile-time `forEach`: `<I>` локально, `<Group, Entry>` і name глобально.
+4. Додати O(1) runtime `visit`: exact definition const reference, без value storage.
+5. Додати `empty/begin/end/operator[]` по erased entries/catalogs із rvalue guards.
+6. Додати native `readAs<T>(id)` / `writeAs(id, value)` без visitor у користувача.
+   Числа/enum — checked conversion; array/struct — лише exact native type.
+   Static `readAs<T, Id>()` / `writeAs<Id>(value)` лишають target compiler-у.
+7. Зберегти exact read/write/call і encoded indexes. Не додаємо model-wide variant,
+   heap, semantic metadata або додатковий стан ініціалізації.
+8. Перевірити borrowing, empty tables, full-width IDs, numeric edges, slots,
+   4 KiB metadata visits, ARM O2/Os/Og codegen, stack та visitor table code size.
+9. Оновити README/CI. Повну cycles/Flash qualification завершити в Stage 13/14.
 
-Тести:
-
-- Запит → відповідь із matching requestId/operation/endpointId.
-- Stale fingerprint відхиляється під час Bind; data traffic до Ready
-  не доходить до callbacks. Reorder Model закриває старі bindings.
-- Після Ready серія звичайних запитів не виконує hash/compare повторно;
-  це перевіряється лічильником і disassembly.
-- Reboot/reconnect, два клієнти та очищення старої RX черги перевірені
-  окремо; один peer не успадковує Ready іншого.
-- Заповнення всіх peer contexts не створює додаткового storage й не
-  витісняє активний binding; звільнений контекст починає з Unbound.
-- Unknown ID/operation/version/flags, truncated header/payload, extra bytes.
-- Output/workspace на byte менший: callback count 0.
-- Response error не містить uninitialized payload bytes.
-- Target absent дає dispatch Unavailable, application Unavailable
-  дає dispatch Ok + endpoint status; у першому випадку callback count 0.
-- Repeated valid request виконує callback повторно за явним контрактом.
-- Змінюючий стан Service із великим Response не викликається без capacity.
-
-Завершено, коли fake transport читає descriptor/values, записує Field,
-виконує Command і отримує Service response без ручних serializers.
+Точні контракти та counted tests:
+[tests/structured/traversal](../tests/structured/traversal/README.md).
+Callback result `forEach/visit` ігнорується; `visit` повертає bool selection.
+Generic callback отримує const definition reference. Exceptions callback-а,
+якщо ввімкнені, проходять назовні; visitor не копіюється й не зберігається.
 
 ### Етап 12. Клієнт і демонстрація
 
@@ -3009,7 +2847,8 @@ endpoint ABI не змінюються. Публікація зрізу потр
 
 1. Реалізувати strict descriptor/types/values decoder у JavaScript.
 2. Реалізувати request encoder і response decoder за registry.
-3. Додати Bind/cache-model lifecycle та мінімальний generic Service UI.
+3. Додати cache перевіреного descriptor та мінімальний generic Service UI;
+   connection/protocol policy лишити окремо від decoder.
 4. Додати Qt C++20 smoke і один простий приклад інтеграції.
 5. Оновити README з одним канонічним прикладом, без кількох паралельних API.
 
@@ -3022,12 +2861,12 @@ endpoint ABI не змінюються. Публікація зрізу потр
   з іншого Field, який використовує той самий TypeId.
 - Enum unknown code можна показати й передати без вигаданого default.
 - Timeout не запускає automatic repeat side-effect request.
-- Wrap `requestId` через `0xFFFFFFFF → 0` пропускає outstanding ID;
+- Для optional protocol example: wrap `requestId` через `0xFFFFFFFF → 0` пропускає outstanding ID;
   однакові ID різних bindings не змішуються. Pending capacity не
   дозволяє перезаписати запит, а пізня відповідь після timeout не
   зіставляється з новим запитом, якому передчасно видали старий ID.
-- Bind mismatch показує помилку; звичайний response/value decode
-  користується прив'язаною схемою; Values перевіряє file fingerprint, Exchange не має packet fingerprint.
+- Fingerprint mismatch показує помилку; Values перевіряє file fingerprint.
+  Payload codec не потребує Bind. Optional protocol example перевіряється окремо.
 
 Завершено, коли новий користувач може задекларувати дві структури й
 метод, а клієнт сам будує форму та розбирає результат.
@@ -3077,7 +2916,7 @@ Expected compile failure звіряє потрібну причину, а не �
 
 Профілі: direct owner/slot, same endpoint/sequential/random IDs,
 малий/великий request, Flash metadata/RAM workspace, O2/Os.
-Bind вимірюється окремо від серії звичайних викликів; його одноразову
+Optional protocol example вимірюється окремо від core dispatch; його одноразову
 вартість не додаємо до кожного packet у performance звіті.
 Показувати розкид/median, не лише найкращий одиничний результат.
 
@@ -3190,8 +3029,8 @@ codegen оцінюється за diff і виміром, не приховує�
    `TypeRegistry`; enum default/`enumSpec` → explicit `EnumReflection`
    лише якщо потрібен словник, без default semantics у типі.
 3. Перевести resource інтеграцію і клієнтів на v3 descriptor, values,
-   одноразовий Bind та Exchange. Узгоджувати fingerprint один раз
-   на сеанс, не на кожному packet. Перевірити reboot/reconnect.
+   encoded endpoint operations і upper protocol кожного застосунку. Політику
+   fingerprint/reconnect перевірити на application boundary, не в core.
 4. Зібрати кожний consumer з чистого дерева, перевірити host,
    sanitizer, ARM/MCU і wire fixtures. Старий core видаляється лише
    після останнього реально переведеного consumer.
@@ -3267,10 +3106,10 @@ legacy-only тести, і вони не входять у фінальну Stag
 | Descriptor | Counts/offsets/fingerprint | Bad references, flags/version, cycles, duplicate IDs |
 | Parser budgets | Bounds до allocation/recursion | Count/depth/string/node ceilings, zero-size nested arrays |
 | Values | Full bytes = chunked bytes | Middle-token cursor, short output, unavailable target |
-| Bind | Одноразове узгодження схеми | Stale fingerprint, reconnect/reboot, traffic до Ready |
-| Peer capacity | Окремий стан кожного peer | Повний pool, Unbound peers, reuse після очищення черг |
+| Optional example: Bind | Одноразове узгодження схеми | Stale fingerprint, reconnect/reboot, traffic до Ready |
+| Optional example: peer capacity | Окремий стан кожного peer | Повний pool, Unbound peers, reuse після очищення черг |
 | Request correlation | ID унікальний серед outstanding одного binding | Wrap, pending capacity, late response після timeout |
-| Exchange | Correlation без packet hash | Malformed envelope, output shortage, unavailable target |
+| Optional example: Exchange | Correlation без packet hash | Malformed envelope, output shortage, unavailable target |
 | Structured ABI | Однакові layouts лінкуються | Revision/offset mismatch при LTO/GC/PIC |
 | Client | C++ ↔ JS golden exchange | BigInt narrowing, malformed descriptor |
 | Integration | Scalar-only і mixed | Нова залежність у resource-only/C++17 consumer |
@@ -3356,11 +3195,14 @@ samples та формулу підсумкового порівняння. Log �
 - [ ] Workspace size/alignment/lifetime і concurrent use контракт явні.
 - [ ] Великі struct-и не створюють прихованого великого stack frame бібліотеки.
 - [ ] Local/global typed path проходить codegen перевірку.
-- [ ] Descriptor v3.0, dense values і Exchange мають незалежні golden fixtures.
-- [ ] Fingerprint звіряється у Bind; ordinary Exchange requests/responses його не містять. ValuesFile має один cached fingerprint у header файла, без hash у кожному chunk.
-- [ ] Reboot/reconnect закриває binding; старі frames не переходять у нове Ready.
-- [ ] Peer contexts і pending requests мають явну bounded capacity.
-- [ ] RequestId wrap не створює колізії з outstanding або пізньою відповіддю.
+- [ ] Descriptor v3.0 і dense values мають незалежні golden fixtures;
+  optional protocol example має власні packet fixtures.
+- [ ] Fingerprint у Descriptor/Values збережений, а policy compare — поза core.
+- [ ] Core не має connections, readiness, peers, packet routing або requestId.
+- [ ] Усі три families мають get/forEach/visit і erased container iteration.
+- [ ] Field readAs/writeAs мають static/runtime forms без Scalar/variant.
+- [ ] Runtime visitor та As dispatch O(1); великий тип не створює owning container
+  для metadata traversal. Lifetime, IDs, conversions і code-size tests є в CI.
 - [ ] Parser/model ceilings і ASCII automatic names перевірені явно.
 - [ ] Large return ABI decision gate закритий вимірами до freeze API.
 - [ ] JS/Qt приклад працює без ручних serializers для кожної структури.
@@ -3494,7 +3336,7 @@ tag/commit та перевірені probes, а не поточний вміст
 
 | Пункт review / уточнення користувача | Рішення |
 | --- | --- |
-| Не перевіряти fingerprint у кожному packet | Descriptor + одноразовий Bind; ValuesFile має cached fingerprint у 24-byte file header, Exchange без hash |
+| Не перевіряти fingerprint у кожному packet | Descriptor/Values fingerprint; compare policy upper application, encoded core без hash |
 | Потрібний structured ABI guard | Прийнято: окрема revision і exact link tag для cross-TU views/ops |
 | Return-by-value може створити великий stack | Прийнято: обов'язковий ARM decision gate, output form за необхідності до freeze |
 | Reflected Unicode names не гарантують однакові bytes | Прийнято: automatic ASCII identifiers; explicit labels залишаються UTF-8 |
@@ -3507,7 +3349,7 @@ tag/commit та перевірені probes, а не поточний вміст
 | PFR subset, enum unknown codes, цілі values tokens, RequestId без dedupe | Залишено за початковим контрактом |
 | Архітектурна схема з review | Додана в §1.5 разом із розділенням typed/encoded шляхів; binding lifecycle у §12.1.1 |
 | RequestId wrap і повторне використання | Прийнято: унікальність серед outstanding одного binding, обробка late response і bounded pending table |
-| Обмежити кількість bindings/peers | Прийнято: capacity транспортного адаптера, включно з Unbound; не metadata Service і не wire field |
+| Обмежити кількість bindings/peers | Прийнято: поза telemetry/resource core; optional protocol example має власну bounded capacity |
 | PFR/magic_enum є backend, а не архітектурою | Прийнято: stable facade, compile-time вибір і перевірка прямих залежностей |
 | Function signature не містить імен параметрів | Прийнято: Function лише для type facts; CallableEntity поза v1 |
 | EnumCodes не зберігає spelling alias | Прийнято: value selection; enumEntries/enumEntry задають точні код і назву |

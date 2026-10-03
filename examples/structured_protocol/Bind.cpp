@@ -5,15 +5,14 @@
  * SPDX-License-Identifier: MIT
  */
 #include "Bind.hpp"
-#include "BinaryFormat.hpp"
 #include "detail/ExchangeWire.hpp"
 
-namespace resource::structured {
+namespace example::structured_protocol {
 
 PacketResult Bind::processImpl(Binding& peer, const telemetry::structured::ModelView& model,
     std::uint64_t fingerprint, Input request, Output response, detail::CurrentExchangeAbiTag) noexcept
 {
-    using D = telemetry::structured::DispatchStatus;
+    using D = PacketStatus;
     // Every attempt is a new agreement. Failure must not preserve a previous
     // Ready, and the transport serializes Bind against active requests.
     peer.reset();
@@ -22,8 +21,8 @@ PacketResult Bind::processImpl(Binding& peer, const telemetry::structured::Model
     auto status = BindStatus::InvalidRequest;
     auto dispatch = D::InvalidRequest;
     if (request.size() == bindRequestBytes && detail::magic(request, "TSBN")) {
-        if (detail::load<std::uint16_t>(request, 4) != binaryMajor ||
-            detail::load<std::uint16_t>(request, 6) != binaryMinor) {
+        if (detail::load<std::uint16_t>(request, 4) != protocolMajor ||
+            detail::load<std::uint16_t>(request, 6) != protocolMinor) {
             status = BindStatus::UnsupportedVersion;
             dispatch = D::UnsupportedVersion;
         } else if (detail::load<std::uint64_t>(request, 8) != fingerprint) {
@@ -43,4 +42,4 @@ PacketResult Bind::processImpl(Binding& peer, const telemetry::structured::Model
     return {dispatch, bindResponseBytes};
 }
 
-} // namespace resource::structured
+} // namespace example::structured_protocol

@@ -45,13 +45,16 @@ def main():
     def prepare(destination, variants):
         for variant in variants:
             shutil.copytree(ROOT / 'lib', destination / variant / 'lib')
+            shutil.copytree(ROOT / 'examples/structured_protocol', destination / variant / 'examples/structured_protocol')
 
     H7['BASE']['prepare'] = prepare
     H7['BASE']['includes'] = lambda directory: ['-I' + str(directory / path) for path in
-        ('lib', 'lib/boost_pfr/include', 'lib/magic_enum')]
+        ('lib', 'examples', 'lib/boost_pfr/include', 'lib/magic_enum')]
     build_args = SimpleNamespace(cube=scaffold, arm_cxx=args.arm_cxx, variants=['Current'], optimizations=['O2', 'Os'])
     images = H7['build'](build_args, output, cxx_standard='c++20', fixture_sources=[HERE / 'Probe.cpp', HERE / 'Benchmark.cpp'],
-        fixture_inputs=[Path(__file__), HERE.parent / 'Fixture.hpp'])
+        fixture_inputs=[Path(__file__), HERE.parent / 'Fixture.hpp',
+            *sorted(p for p in (ROOT / 'examples/structured_protocol').rglob('*')
+                    if p.is_file() and p.suffix in ('.hpp', '.cpp', '.pri'))])
     if not args.run:
         return
     import serial

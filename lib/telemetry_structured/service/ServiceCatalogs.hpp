@@ -123,6 +123,58 @@ public:
     const ServiceCatalog* data() const&& = delete;
     [[nodiscard]] constexpr std::size_t size() const noexcept { return staticSize; }
 
+    [[nodiscard]] constexpr bool empty() const noexcept { return staticSize == 0; }
+    [[nodiscard]] constexpr const ServiceCatalog* begin() const& noexcept { return catalogs_.data(); }
+    const ServiceCatalog* begin() const&& = delete;
+    [[nodiscard]] constexpr const ServiceCatalog* end() const& noexcept
+    {
+        // std::array may expose checked iterators on other standard libraries.
+        // Our view uses pointers and never adds zero to a possibly null data().
+        if constexpr (staticSize == 0) return catalogs_.data();
+        else return catalogs_.data() + staticSize;
+    }
+    const ServiceCatalog* end() const&& = delete;
+    [[nodiscard]] constexpr const ServiceCatalog& operator[](std::size_t i) const& noexcept { return catalogs_[i]; }
+    const ServiceCatalog& operator[](std::size_t) const&& = delete;
+
+    // Global typed access uses a packed ID, not a local position enum.
+    template <auto Id>
+    [[nodiscard]] constexpr decltype(auto) get() const& noexcept
+    {
+        constexpr auto packed = telemetry::detail::packedIdValue<Id>();
+        constexpr auto group = packed >> 16;
+        constexpr auto entry = packed & 0xffffu;
+        static_assert(group < staticSize, "Service group is outside this catalog");
+        if constexpr (group < staticSize)
+            return std::get<group>(groups_).table->template get<entry>();
+    }
+    template <auto Id>
+    void get() const&& = delete;
+
+    template <class Visitor>
+    constexpr void forEach(Visitor&& visitor) const&
+    {
+        detail::forEachGroup(groups_, visitor, std::index_sequence_for<Groups...>{});
+    }
+    template <class Visitor>
+    void forEach(Visitor&&) const&& = delete;
+
+    template <class... Explicit, std::integral Id, class Visitor>
+        requires (sizeof...(Explicit) == 0)
+    [[nodiscard]] bool visit(Id id, Visitor&& visitor) const&
+    {
+        if (!telemetry::detail::indexFits<PackedId>(id)) return false;
+        const auto packed = static_cast<PackedId>(id);
+        const auto group = packed >> 16;
+        if (group >= staticSize) return false;
+        using Dispatch = detail::GroupDispatch<std::tuple<Groups...>,
+                                               std::remove_reference_t<Visitor>>;
+        return Dispatch::entries[group](groups_, packed & 0xffffu, visitor);
+    }
+    template <class... Explicit, std::integral Id, class Visitor>
+        requires (sizeof...(Explicit) == 0)
+    bool visit(Id, Visitor&&) const&& = delete;
+
     template <auto Id, class... Args>
     [[nodiscard]] decltype(auto) call(Args&&... args) const noexcept
     {

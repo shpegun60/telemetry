@@ -1,7 +1,7 @@
 /* Stage 11 native model and canonical packet fixtures. MIT. */
 #pragma once
-#include <resource/structured/Bind.hpp>
-#include <resource/structured/Exchange.hpp>
+#include <structured_protocol/Bind.hpp>
+#include <structured_protocol/Exchange.hpp>
 #include <resource/structured/DescriptorFile.hpp>
 #include <resource/structured/ValuesFile.hpp>
 #include <resource/FileSystem.hpp>
@@ -11,8 +11,8 @@
 
 namespace fixture {
 namespace ts = telemetry::structured;
-namespace rs = resource::structured;
-using D = ts::DispatchStatus;
+namespace rs = example::structured_protocol;
+using D = rs::PacketStatus;
 using W = telemetry::WriteResult;
 using C = telemetry::CommandResult;
 using S = ts::ServiceStatus;
@@ -78,9 +78,9 @@ inline constexpr ts::CommandCatalogTable commands{ts::group("device", localComma
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", localServices)};
 inline constexpr ts::Model model{fields, commands, services};
 inline constexpr auto view = model.view();
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto packed = rs::packDescriptor<descriptor>();
-inline constexpr rs::DescriptorFile descriptorFile{packed};
+inline constexpr resource::structured::Descriptor descriptor{model};
+inline constexpr auto packed = resource::structured::packDescriptor<descriptor>();
+inline constexpr resource::structured::DescriptorFile descriptorFile{packed};
 
 // Test helpers deliberately do not use the protocol implementation's helpers.
 template <class U>

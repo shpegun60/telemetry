@@ -146,7 +146,18 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/resources/run.py --build-dir build/structured-resources "${flags[@]}"
-      - name: C++20 structured Bind and Exchange
+      - name: C++20 structured typed traversal and native As access
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/traversal/run.py --build-dir build/structured-traversal "${flags[@]}"
+      - name: C++20 optional structured protocol example
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
           CXX: ${{ matrix.cxx }}
@@ -172,6 +183,8 @@ jobs:
             build/structured-exchange/*.log
             build/structured-exchange/*.json
             build/structured-exchange/*.bin
+            build/structured-traversal/*.log
+            build/structured-traversal/*.json
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -240,7 +253,11 @@ jobs:
           python3 tests/structured/descriptor/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor-nullchecks
       - name: C++20 structured resource Cortex-M7 checks
         run: python3 tests/structured/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-resources
-      - name: C++20 structured Bind and Exchange Cortex-M7 checks
+      - name: C++20 structured typed traversal Cortex-M7 checks
+        run: |
+          python3 tests/structured/traversal/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-traversal
+          python3 tests/structured/traversal/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-traversal-nullchecks
+      - name: C++20 optional structured protocol Cortex-M7 checks
         run: python3 tests/structured/exchange/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-exchange
       - name: Retain compiler and object inspection logs
         if: always()
@@ -287,6 +304,9 @@ jobs:
             build/arm-structured-exchange/*.log
             build/arm-structured-exchange/*.json
             build/arm-structured-exchange/*.su
+            build/arm-structured-traversal/*.log
+            build/arm-structured-traversal/*.json
+            build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 
   qt:
@@ -313,3 +333,10 @@ jobs:
           ./resource_no_json
       - name: Independent resource qmake configurations
         run: python3 tests/structured/resources/run_qmake.py --qmake qmake6 --build-dir build/resource-qmake
+      - name: Explicit structured protocol example qmake
+        run: |
+          mkdir -p build/example-qmake
+          cd build/example-qmake
+          qmake6 ../../tests/structured/exchange/qmake.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror QMAKE_CXXFLAGS+=-UNDEBUG
+          make -j2
+          ./structured_protocol_example

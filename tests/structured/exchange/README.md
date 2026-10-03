@@ -1,4 +1,12 @@
-# Stage 11: Bind and Exchange
+# Optional structured protocol example (original Stage 11)
+
+The API correction of 2026-10-03 moved the implementation to
+`examples/structured_protocol` and namespace `example::structured_protocol`.
+This suite still exercises the same packet contract. Telemetry/resource core
+and their `.pri` files do not select or require this protocol. Packet-only
+statuses are owned by the example; endpoint statuses remain in telemetry.
+The hardware figures/receipt below were refreshed on 2026-10-03 against
+the relocated sources. Older measurements remain in the preceding Git revision.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../../lib/resource/LICENSE).
 
@@ -6,7 +14,7 @@ This slice adds transport-owned agreement and complete request dispatch over
 the existing encoded indexes. The model, endpoint ABI, descriptor and values
 formats are unchanged. The 24-byte data envelopes do not carry a fingerprint
 or a session ID. Public integration contracts are in the
-[adapter README](../../../lib/resource/structured/README.md#bind-and-exchange).
+[example README](../../../examples/structured_protocol/README.md).
 
 ## Reproduce
 
@@ -21,8 +29,9 @@ python3 tests/structured/exchange/run.py --arm --cxx arm-none-eabi-g++ --build-d
 has its own log. The runner counts successful commands and expected rejections;
 these are not counts of individual C++ assertions. CI runs the full default
 runner, including host/sanitized/null-check jobs, ARM and retained board evidence.
-The existing four-mode qmake test now calls both new compiled handlers, so a
-missing optional source fails to link rather than going unnoticed.
+The four-mode qmake provider test excludes example sources. The separate
+`qmake.pro` selects the example twice to check idempotent inclusion and calls
+both compiled handlers; an omitted source therefore fails to link.
 
 ## Coverage
 
@@ -53,9 +62,10 @@ missing optional source fails to link rather than going unnoticed.
   reachable; the first test draft accidentally let host optimizers delete Bind.
   The test was corrected, rather than loosening the link diagnostic.
 
-The Stage 10 runner continues to cover every standalone optional header, now
-including Bind/Exchange headers, and its complete values/oracle matrix remains
-enabled. Existing native endpoint instruction-equality tests are unchanged.
+The Stage 10 runner covers resource headers and its complete values/oracle
+matrix remains enabled. This example suite compiles its own standalone
+headers with protocol sources selected explicitly. Existing native endpoint
+instruction-equality tests are unchanged.
 
 Local validation uses MinGW GCC 13.1, WSL GCC 13.3 with null checks, Clang 18
 ASan/UBSan, ARM GCC 13.2.1 and CubeIDE ARM GCC 14.3.1. The negative controls
@@ -65,11 +75,13 @@ The host matrix uses dynamic test containers; the MCU fixture uses fixed arrays.
 
 ## ARM evidence
 
-Linked `Arm.cpp` fixture, including its native callbacks and model:
+Linked `Arm.cpp` fixture, including its native callbacks and model. The
+current CubeIDE row is from the API correction; the ARM GCC row is the
+original Stage 11 measurement:
 
 | Compiler | O2 .text | Os .text | Og .text |
 | --- | ---: | ---: | ---: |
-| CubeIDE GCC 14.3.1 | 3612 B | 3436 B | 7088 B |
+| CubeIDE GCC 14.3.1 | 3620 B | 3432 B | 7128 B |
 | ARM GCC 13.2.1 | 3596 B | 3672 B | 7276 B |
 
 Exchange's own frame is 112/112/136 B at O2/Os/Og on both compilers.
@@ -93,25 +105,27 @@ during each timed window:
 
 | Layer / operation | O2 | Os |
 | --- | ---: | ---: |
-| Native encoded index: Field write, 5-byte Config | 40.014 | 88.009 |
-| Full Exchange: same Field write | 219.014 | 372.009 |
-| Native encoded index: Command, 5-byte Config | 38.014 | 87.009 |
-| Full Exchange: same Command | 228.013 | 308.009 |
-| Native encoded index: Service echo, 5-byte Config | 44.014 | 128.009 |
-| Full Exchange: same Service | 247.012 | 507.008 |
-| Full Exchange: 4 KiB Service response | 12221.254 | 11914.137 |
-| Bind: version/fingerprint agreement | 148.014 | 172.009 |
+| Native encoded index: Field write, 5-byte Config | 40.011 | 88.014 |
+| Full Exchange: same Field write | 229.009 | 368.014 |
+| Native encoded index: Command, 5-byte Config | 38.011 | 87.018 |
+| Full Exchange: same Command | 235.009 | 380.014 |
+| Native encoded index: Service echo, 5-byte Config | 44.010 | 128.014 |
+| Full Exchange: same Service | 250.009 | 437.014 |
+| Full Exchange: 4 KiB Service response | 12292.109 | 11960.219 |
+| Bind: version/fingerprint agreement | 148.011 | 172.014 |
 
 Exchange timings include envelope validation, Ready, index access, checked
 native dispatch, status mapping and response header generation. The local
 index timings do not. These are repeated calls in one small model, not the
 Stage 08 random-RAM1024 experiment, and cannot be used as a like-for-like
-old/new library speed ranking. Callback and envelope checksums are verified;
+old/new library speed ranking. The moved example has different generated
+code placement; these fresh values do not establish cycle equivalence to
+its original image. Callback and envelope checksums are verified;
 the loop and checksum overhead are not subtracted.
 
 The recorded [receipt](h7s/receipt.json) identifies the exact captured code and
-objects. `source_head=2b66bef`, `source_dirty=true` honestly records a local
-Stage 11 snapshot before its publication commit, rather than inventing a new
+objects. `source_head=8aa49144`, `source_dirty=true` records the local
+API correction snapshot before its publication commit, rather than inventing a new
 Git SHA for the measurement. The receipt verifier checks coverage/provenance
 structure and 16 mutations; it is an offline check, not a fresh board run.
 
@@ -130,5 +144,5 @@ is rerun separately for the repository's current-code receipt.
 
 Remaining scope is deliberate: no real UART/TCP transport implementation,
 authentication, client UI, retries or deduplication is added by this slice.
-Stage 12 consumes these packets; Stage 13 consolidates final whole-program
+Stage 12 may use this example separately from its payload codec; Stage 13 consolidates final whole-program
 measurements. Concurrent model owners still need application synchronization.

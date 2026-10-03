@@ -27,8 +27,12 @@ and calculate wire size, nesting depth and expanded value nodes during
 compilation. The registry deduplicates exact C++ types, registers nested
 dependencies first, and exposes immutable structural descriptors. The
 Model offers local/global native operations and bounded encoded runtime
-operations for all three families. Descriptor bytes and transport remain
-later stages.
+operations for all three families. Canonical descriptor/values files are in
+[`resource/structured`](../resource/structured/README.md). Connections, peers,
+session state, packet framing, correlation and agreement policy belong to
+the application. The optional
+[protocol example](../../examples/structured_protocol/README.md) is selected
+explicitly; neither library includes it.
 
 ```cpp
 struct Reading { float volts; std::uint16_t status; };
@@ -49,7 +53,8 @@ time. `recordsBytes` counts type records only, including their record headers;
 the Model will check the size of the entire descriptor. Member and enum names
 are borrowed immutable metadata, so their backing storage must outlive the
 registry view. There are no units, limits, defaults, owner addresses or live
-values in these descriptors. Stage 09 will encode the final `descriptor.bin`.
+values in these descriptors. Stage 09 encodes `descriptor.bin` and its cached
+fingerprint; Stage 10 copies that fingerprint into the values file header.
 
 Modules exchanging in-memory descriptor views can call
 [`requireStructuredAbi()`](abi/StructuredAbi.hpp) at their boundary and link
@@ -182,8 +187,9 @@ setter takes exactly `T` or `const T&` and returns `telemetry::WriteResult`.
 A Command takes zero arguments or one aggregate Request, by value or const
 reference, and returns exactly `telemetry::CommandResult`. All callbacks
 must be `noexcept`. Field scalar types remain native scalar types: there is
-no `Scalar` construction, declared-type conversion or numeric coercion in
-this API. Validation of application values belongs to the setter/command.
+no `Scalar` construction or implicit numeric coercion in ordinary exact
+`read/write`. Explicit `readAs/writeAs` add checked native numeric conversion
+without Scalar. Validation of application values belongs to the setter/command.
 There are no units, limits, defaults or argument annotations.
 
 ```cpp
@@ -319,6 +325,102 @@ fallback. Because C++20 aggregate initialization must name each nontrivial
 array element, the codec caps that compile-time expansion at 1024 nodes and
 diagnoses larger cases. Large arrays of trivially default-constructible
 elements still decode through a compact loop, including the 4 KiB probe.
+
+## Exact types and convenient runtime access
+
+All three families use the same four access modes:
+
+| Mode | Local table | Global catalog table |
+| --- | --- | --- |
+| Compile-time exact operation | `read<I>()`, `write<I>(value)`, `call<I>(request)` | Same operations with packed ID |
+| Typed definition / traversal | `get<I>()`, `forEach(visitor)` | `get<Id>()`, grouped `forEach(visitor)` |
+| Runtime native selection | `visit(position, visitor)` | `visit(id, visitor)` |
+| Runtime wire operation | Checked methods on erased entries | `index().readEncoded/writeEncoded/executeEncoded/callEncoded` |
+
+`get` returns the original **const definition reference**, not an erased
+entry or a copied value. Local template positions may be scoped enums;
+global IDs must be integers packed with `makeId`. Typed traversal preserves
+declaration order and skips empty groups:
+
+```cpp
+localFields.forEach([]<std::size_t I>(const auto& endpoint) {
+    using Value = typename std::remove_cvref_t<decltype(endpoint)>::Value;
+    // I is local; no getter has been called by traversal.
+});
+fields.forEach([]<std::size_t Group, std::size_t Entry>(
+    std::string_view groupName, const auto& endpoint) {
+    // Group/Entry are compile-time positions; groupName is borrowed metadata.
+});
+commands.forEach([]<std::size_t Group, std::size_t Entry>(
+    std::string_view groupName, const auto& endpoint) {
+    using Request = typename std::remove_cvref_t<decltype(endpoint)>::Request;
+});
+services.visit(serviceId, [](const auto& endpoint) {
+    using Service = std::remove_cvref_t<decltype(endpoint)>;
+    using Request = typename Service::Request;
+    using Response = typename Service::Response;
+    // Only the selected exact definition is passed here.
+});
+```
+
+A local `forEach` also accepts an ordinary generic callback without `<I>`;
+a global callback without indices takes `(groupName, endpoint)`. Visitors
+are invoked as lvalues, never copied, stored or called asynchronously.
+Callback results are ignored; `forEach` visits every entry. `visit` returns
+true for one selected endpoint and false for an invalid ID, without invoking
+the callback. This bool is **not** target availability or application status.
+Inspect the endpoint's native result for that. Callback exceptions propagate
+when exceptions are enabled; library callbacks themselves remain noexcept.
+
+Runtime visitors use a static dispatch table specialized for the visitor
+type. Global dispatch selects group, then row: O(1) indexed selection with
+bounds checked at the original ID width. No linear scan, variant, live Value
+construction or wire encoding is involved. Each used visitor specialization
+has a code/Flash cost; the [ARM measurements](../../tests/structured/traversal/README.md)
+record it rather than treating this native convenience as free runtime dispatch.
+
+Fields also provide direct native runtime access without a user visitor:
+
+```cpp
+auto rpm = fields.readAs<float>(fieldId);       // optional<float>
+auto status = fields.writeAs(fieldId, 1500.5);  // WriteResult
+
+// Local runtime forms use local position, never a packed global ID.
+auto local = localFields.readAs<double>(position);
+localFields.writeAs(position, value);
+
+// Compile-time forms keep the endpoint known to the compiler.
+auto precise = fields.readAs<double, telemetry::makeId<0, 0>()>();
+fields.writeAs<telemetry::makeId<0, 0>()>(value);
+localFields.get<0>().readAs<double>();
+```
+
+`readAs` returns nullopt for NotFound, an unavailable getter, an incompatible
+structural type or an unrepresentable numeric conversion. `writeAs` returns
+NotFound for an invalid position, ReadOnly before conversion when no setter
+exists, InvalidValue for mismatch/conversion failure, or the native setter
+status (including Unavailable). Failed conversion never calls the setter;
+structural mismatch never calls the getter. No hidden encode/decode occurs.
+
+Conversion shares the existing native checked-number policy: float to integer
+truncates toward zero with checked bounds; integer bounds use integer arithmetic.
+Floating targets accept NaN/Inf and may round; finite narrowing overflow fails.
+Bool uses finite zero/nonzero. Enum conversion uses the underlying integer;
+unknown representable codes are accepted, matching the codec. Structs and arrays
+require the exact C++ type. Static structural mismatch is a compile-time error;
+runtime mismatch is nullopt/InvalidValue. Ordinary read/write remain exact.
+
+`readAs<T>` explicitly returns an owning optional<T>, just like native read.
+A caller asking for a 4 KiB T owns that large result and its native return ABI.
+For bounded large-object storage use encoded access with caller-owned Workspace.
+Traversal itself does not read, copy or allocate that 4 KiB object. The 32-byte
+storage budget affects encoded endpoints only, not native value returns.
+
+All tables/catalogs also have `empty/begin/end/operator[]`. Range iteration
+borrows homogeneous entries/catalogs; `operator[]` has the usual unchecked
+container contract. `get`, iteration, traversal and As access reject rvalue
+tables/catalogs so borrowed addresses cannot escape a temporary. Owners,
+slots, names and definitions must still outlive their borrowers.
 
 For an ordinary scoped enum, names and codes are inferred automatically:
 

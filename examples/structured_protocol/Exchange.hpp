@@ -4,12 +4,12 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef RESOURCE_STRUCTURED_EXCHANGE_HPP
-#define RESOURCE_STRUCTURED_EXCHANGE_HPP
+#ifndef EXAMPLE_STRUCTURED_PROTOCOL_EXCHANGE_HPP
+#define EXAMPLE_STRUCTURED_PROTOCOL_EXCHANGE_HPP
 
 #include "Binding.hpp"
 
-namespace resource::structured {
+namespace example::structured_protocol {
 
 inline constexpr std::uint32_t exchangeHeaderBytes = 24;
 enum class Operation : std::uint8_t { FieldWrite = 1, Command = 2, Service = 3 };
@@ -30,5 +30,5 @@ private:
         telemetry::structured::Workspace&, detail::CurrentExchangeAbiTag) noexcept;
 };
 
-} // namespace resource::structured
+} // namespace example::structured_protocol
 #endif

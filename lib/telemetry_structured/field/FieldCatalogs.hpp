@@ -92,6 +92,58 @@ public:
     const FieldCatalog* data() const&& = delete;
     [[nodiscard]] constexpr std::size_t size() const noexcept { return staticSize; }
 
+    [[nodiscard]] constexpr bool empty() const noexcept { return staticSize == 0; }
+    [[nodiscard]] constexpr const FieldCatalog* begin() const& noexcept { return catalogs_.data(); }
+    const FieldCatalog* begin() const&& = delete;
+    [[nodiscard]] constexpr const FieldCatalog* end() const& noexcept
+    {
+        // std::array may expose checked iterators on other standard libraries.
+        // Our view uses pointers and never adds zero to a possibly null data().
+        if constexpr (staticSize == 0) return catalogs_.data();
+        else return catalogs_.data() + staticSize;
+    }
+    const FieldCatalog* end() const&& = delete;
+    [[nodiscard]] constexpr const FieldCatalog& operator[](std::size_t i) const& noexcept { return catalogs_[i]; }
+    const FieldCatalog& operator[](std::size_t) const&& = delete;
+
+    // Global typed access uses a packed ID, not a local position enum.
+    template <auto Id>
+    [[nodiscard]] constexpr decltype(auto) get() const& noexcept
+    {
+        constexpr auto packed = telemetry::detail::packedIdValue<Id>();
+        constexpr auto group = packed >> 16;
+        constexpr auto entry = packed & 0xffffu;
+        static_assert(group < staticSize, "Field group is outside this catalog");
+        if constexpr (group < staticSize)
+            return std::get<group>(groups_).table->template get<entry>();
+    }
+    template <auto Id>
+    void get() const&& = delete;
+
+    template <class Visitor>
+    constexpr void forEach(Visitor&& visitor) const&
+    {
+        detail::forEachGroup(groups_, visitor, std::index_sequence_for<Groups...>{});
+    }
+    template <class Visitor>
+    void forEach(Visitor&&) const&& = delete;
+
+    template <class... Explicit, std::integral Id, class Visitor>
+        requires (sizeof...(Explicit) == 0)
+    [[nodiscard]] bool visit(Id id, Visitor&& visitor) const&
+    {
+        if (!telemetry::detail::indexFits<PackedId>(id)) return false;
+        const auto packed = static_cast<PackedId>(id);
+        const auto group = packed >> 16;
+        if (group >= staticSize) return false;
+        using Dispatch = detail::GroupDispatch<std::tuple<Groups...>,
+                                               std::remove_reference_t<Visitor>>;
+        return Dispatch::entries[group](groups_, packed & 0xffffu, visitor);
+    }
+    template <class... Explicit, std::integral Id, class Visitor>
+        requires (sizeof...(Explicit) == 0)
+    bool visit(Id, Visitor&&) const&& = delete;
+
     template <auto Id>
     [[nodiscard]] auto read() const noexcept
     {
@@ -112,6 +164,55 @@ public:
         if constexpr (group < staticSize)
             return std::get<group>(groups_).table->template write<entry>(std::forward<Argument>(value));
     }
+
+    template <class To, auto Id>
+        requires std::is_same_v<To, std::remove_cvref_t<To>>
+    [[nodiscard]] std::optional<To> readAs() const& noexcept
+    { return get<Id>().template readAs<To>(); }
+    template <class To, auto Id>
+    void readAs() const&& = delete;
+
+    template <auto Id, class From>
+        requires (!std::is_volatile_v<From>)
+    [[nodiscard]] telemetry::WriteResult writeAs(const From& value) const& noexcept
+    { return get<Id>().writeAs(value); }
+    template <auto Id, class From>
+    void writeAs(const From&) const&& = delete;
+
+    // Packed runtime IDs are checked at their original width, as in index().
+    // A structural mismatch returns nullopt/InvalidValue without a callback.
+    template <class To, class... Explicit, std::integral Id>
+        requires (sizeof...(Explicit) == 0 &&
+                  std::is_same_v<To, std::remove_cvref_t<To>>)
+    [[nodiscard]] std::optional<To> readAs(Id id) const& noexcept
+    {
+        static_assert(Type<To>::kind != TypeKind::Void, "Field readAs requires a native value type");
+        if (!telemetry::detail::indexFits<PackedId>(id)) return std::nullopt;
+        const auto packed = static_cast<PackedId>(id);
+        const auto group = packed >> 16;
+        if (group >= staticSize) return std::nullopt;
+        return detail::FieldGroupAccessDispatch<std::tuple<Groups...>, To>::reads[group](
+            groups_, packed & 0xffffu);
+    }
+    template <class To, class... Explicit, std::integral Id>
+        requires (sizeof...(Explicit) == 0)
+    void readAs(Id) const&& = delete;
+
+    template <class... Explicit, std::integral Id, class From>
+        requires (sizeof...(Explicit) == 0 && !std::is_volatile_v<From>)
+    [[nodiscard]] telemetry::WriteResult writeAs(Id id, const From& value) const& noexcept
+    {
+        static_assert(Type<From>::kind != TypeKind::Void, "Field writeAs requires a native value type");
+        if (!telemetry::detail::indexFits<PackedId>(id)) return telemetry::WriteResult::NotFound;
+        const auto packed = static_cast<PackedId>(id);
+        const auto group = packed >> 16;
+        if (group >= staticSize) return telemetry::WriteResult::NotFound;
+        return detail::FieldGroupAccessDispatch<std::tuple<Groups...>, From>::writes[group](
+            groups_, packed & 0xffffu, value);
+    }
+    template <class... Explicit, std::integral Id, class From>
+        requires (sizeof...(Explicit) == 0)
+    void writeAs(Id, const From&) const&& = delete;
 
     template <class Registry>
     struct TypeStorage {

@@ -455,9 +455,9 @@ is now split into core/v2 headers and the explicit structured suite. The
 unchanged v2 bytes/protocol tests remain enabled. Exact-SHA remote CI must
 still be checked for the commit that publishes this stage.
 
-## Stage 11: one-time Bind and bounded Exchange
+## Stage 11: optional upper protocol example
 
-`resource::structured::Binding`, `Bind::process` and `Exchange::process`
+`example::structured_protocol::Binding`, `Bind::process` and `Exchange::process`
 connect a transport-owned peer to the existing immutable model. Data requests
 carry 24-byte headers without fingerprints or session IDs. Field writes,
 Commands and Services use the existing encoded entries and their validation.
@@ -473,3 +473,20 @@ goldens fix the wire format; the full client remains Stage 12.
 H7S passed 4300 checks in each of O2/Os and recorded paired encoded/Exchange
 cycle windows. Those are different layers; packet dispatch is not claimed to
 have the cycle cost of a local index call. Flash restoration was verified.
+
+## API correction before Stage 12
+
+The [protocol example](../../examples/structured_protocol/README.md) now lives
+outside telemetry/resource. Libraries do not expose packet/session state and
+neither `.pri` links Bind/Exchange. Core endpoint DispatchStatus retains its
+existing operation codes; packet-only statuses belong to the example.
+Descriptor/ValuesFile bytes and fingerprints remain unchanged. Their strict
+independent parsers/oracles stay enabled.
+
+Every endpoint family now has typed `get`, ordered `forEach`, O(1) runtime
+native `visit` and erased `empty/begin/end/operator[]` iteration. Fields also
+have static/runtime `readAs/writeAs`, with checked numeric conversion and
+exact structural types, without Scalar or a model-wide owning variant.
+The [traversal suite](traversal/README.md) records the 64 compile-fail contracts,
+sanitizers, allocation controls, ARM direct-call comparisons, visitor frames
+and 32/128-row code-size costs. Stage 12 client work has not started here.

@@ -43,10 +43,7 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
 
     contains(CONFIG, resource_structured) {
         HEADERS += $$files($$PWD/structured/*.hpp, true)
-        SOURCES += \
-            $$PWD/structured/detail/Values.cpp \
-            $$PWD/structured/Bind.cpp \
-            $$PWD/structured/Exchange.cpp
+        SOURCES += $$PWD/structured/detail/Values.cpp
         DISTFILES += $$PWD/structured/README.md
     }
 

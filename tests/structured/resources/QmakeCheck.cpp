@@ -3,8 +3,6 @@
 #include <cassert>
 #include <array>
 #ifdef WITH_V3
-#include <resource/structured/Bind.hpp>
-#include <resource/structured/Exchange.hpp>
 #include "Fixture.hpp"
 #endif
 int main()
@@ -20,13 +18,6 @@ int main()
 #ifdef WITH_V3
     assert(files.read(position++, 0, bytes).eof && bytes[4] == std::byte{3});
     assert(files.read(position++, 0, bytes).eof && bytes[0] == std::byte{'T'} && bytes[1] == std::byte{'V'});
-    resource::structured::Binding peer;
-    // Refer to both optional compiled handlers: missing .pri sources must fail
-    // to link even when the example does not carry a transport implementation.
-    const auto view = fixture::model.view();
-    assert(resource::structured::Bind::process(peer, view, fixture::descriptor.fingerprint(), {}, bytes).written == 8);
-    assert(resource::structured::Exchange::process(peer, {}, bytes, fixture::workspace).written == 0);
-    peer.reset();
 #endif
     assert(position == files.fileCount());
     (void)bytes;

@@ -10,6 +10,7 @@
 #include "Field.hpp"
 #include "../result/EndpointResults.hpp"
 #include "../detail/Encoded.hpp"
+#include "../detail/Traversal.hpp"
 #include "../type/Registry.hpp"
 #include <telemetry/core/TelemetryId.h>
 #include <array>
@@ -72,6 +73,59 @@ public:
     const FieldEntry* data() const&& = delete;
     [[nodiscard]] constexpr std::size_t size() const noexcept { return staticSize; }
 
+    // Erased iteration borrows this table; typed traversal below borrows its
+    // exact definitions. Neither interface stores or materializes a value.
+    [[nodiscard]] constexpr bool empty() const noexcept { return staticSize == 0; }
+    [[nodiscard]] constexpr const FieldEntry* begin() const& noexcept { return entries_.data(); }
+    const FieldEntry* begin() const&& = delete;
+    [[nodiscard]] constexpr const FieldEntry* end() const& noexcept
+    {
+        // std::array may expose checked iterators on other standard libraries.
+        // Our view uses pointers and never adds zero to a possibly null data().
+        if constexpr (staticSize == 0) return entries_.data();
+        else return entries_.data() + staticSize;
+    }
+    const FieldEntry* end() const&& = delete;
+    [[nodiscard]] constexpr const FieldEntry& operator[](std::size_t i) const& noexcept { return entries_[i]; }
+    const FieldEntry& operator[](std::size_t) const&& = delete;
+
+    template <auto Position>
+    [[nodiscard]] constexpr decltype(auto) get() const& noexcept
+    {
+        constexpr auto i = telemetry::detail::positionValue<Position>();
+        static_assert(i < staticSize, "Field position is outside this table");
+        if constexpr (i < staticSize) return std::get<static_cast<std::size_t>(i)>(definitions_);
+    }
+    template <auto Position>
+    void get() const&& = delete;
+
+    template <class Visitor>
+    constexpr void forEach(Visitor&& visitor) const&
+    {
+        detail::forEachDefinition(definitions_, visitor, std::index_sequence_for<Definitions...>{});
+    }
+    template <class Visitor>
+    void forEach(Visitor&&) const&& = delete;
+
+    // A local position may be an integer or scoped position enum. Invalid
+    // positions return false without invoking the visitor. Callback returns
+    // are ignored; the bool reports selection, not the endpoint's status.
+    template <class... Explicit, class Position, class Visitor>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    [[nodiscard]] bool visit(Position position, Visitor&& visitor) const&
+    {
+        if (!telemetry::detail::indexFits<std::uint32_t>(position)) return false;
+        const auto i = static_cast<std::uint32_t>(position);
+        if (i >= staticSize) return false;
+        using Dispatch = detail::DefinitionDispatch<std::tuple<Definitions...>,
+                                                    std::remove_reference_t<Visitor>>;
+        Dispatch::entries[i](definitions_, visitor);
+        return true;
+    }
+    template <class... Explicit, class Position, class Visitor>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    bool visit(Position, Visitor&&) const&& = delete;
+
     template <auto Position>
     [[nodiscard]] auto read() const noexcept
     {
@@ -88,6 +142,52 @@ public:
         if constexpr (i < staticSize)
             return std::get<static_cast<std::size_t>(i)>(definitions_).write(std::forward<Argument>(value));
     }
+
+    // Static forms retain the concrete target. Runtime forms specialize an
+    // indexed dispatch table for To/From and never construct legacy Scalar.
+    template <class To, auto Position>
+        requires std::is_same_v<To, std::remove_cvref_t<To>>
+    [[nodiscard]] std::optional<To> readAs() const& noexcept
+    { return get<Position>().template readAs<To>(); }
+    template <class To, auto Position>
+    void readAs() const&& = delete;
+
+    template <auto Position, class From>
+        requires (!std::is_volatile_v<From>)
+    [[nodiscard]] telemetry::WriteResult writeAs(const From& value) const& noexcept
+    { return get<Position>().writeAs(value); }
+    template <auto Position, class From>
+    void writeAs(const From&) const&& = delete;
+
+    template <class To, class... Explicit, class Position>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+                  std::is_same_v<To, std::remove_cvref_t<To>>)
+    [[nodiscard]] std::optional<To> readAs(Position position) const& noexcept
+    {
+        static_assert(Type<To>::kind != TypeKind::Void, "Field readAs requires a native value type");
+        if (!telemetry::detail::indexFits<std::uint32_t>(position)) return std::nullopt;
+        const auto i = static_cast<std::uint32_t>(position);
+        if (i >= staticSize) return std::nullopt;
+        return detail::FieldAccessDispatch<std::tuple<Definitions...>, To>::reads[i](definitions_);
+    }
+    template <class To, class... Explicit, class Position>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    void readAs(Position) const&& = delete;
+
+    template <class... Explicit, class Position, class From>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+                  !std::is_volatile_v<From>)
+    [[nodiscard]] telemetry::WriteResult writeAs(Position position, const From& value) const& noexcept
+    {
+        static_assert(Type<From>::kind != TypeKind::Void, "Field writeAs requires a native value type");
+        if (!telemetry::detail::indexFits<std::uint32_t>(position)) return telemetry::WriteResult::NotFound;
+        const auto i = static_cast<std::uint32_t>(position);
+        if (i >= staticSize) return telemetry::WriteResult::NotFound;
+        return detail::FieldAccessDispatch<std::tuple<Definitions...>, From>::writes[i](definitions_, value);
+    }
+    template <class... Explicit, class Position, class From>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    void writeAs(Position, const From&) const&& = delete;
 
     template <class Registry>
     struct TypeStorage {

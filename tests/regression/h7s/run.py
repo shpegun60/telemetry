@@ -50,6 +50,9 @@ def measure(args, images):
     receipt["library_code_lf_sha256"] = normalized_code_hashes(images, output)
     receipt["source_head"] = subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    receipt["source_dirty"] = bool(subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=no"],
+        cwd=ROOT, text=True).strip())
 
     def save():
         (output / "session.json").write_text(json.dumps(receipt, indent=2) + "\n")

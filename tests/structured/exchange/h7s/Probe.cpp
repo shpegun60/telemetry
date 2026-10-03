@@ -1,3 +1,3 @@
 /* Compile handlers against the captured library snapshot used by this image. MIT. */
-#include <resource/structured/Bind.cpp>
-#include <resource/structured/Exchange.cpp>
+#include <structured_protocol/Bind.cpp>
+#include <structured_protocol/Exchange.cpp>

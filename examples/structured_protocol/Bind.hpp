@@ -4,12 +4,12 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef RESOURCE_STRUCTURED_BIND_HPP
-#define RESOURCE_STRUCTURED_BIND_HPP
+#ifndef EXAMPLE_STRUCTURED_PROTOCOL_BIND_HPP
+#define EXAMPLE_STRUCTURED_PROTOCOL_BIND_HPP
 
 #include "Binding.hpp"
 
-namespace resource::structured {
+namespace example::structured_protocol {
 
 inline constexpr std::uint32_t bindRequestBytes = 16;
 inline constexpr std::uint32_t bindResponseBytes = 8;
@@ -38,5 +38,5 @@ private:
         std::uint64_t, Input, Output, detail::CurrentExchangeAbiTag) noexcept;
 };
 
-} // namespace resource::structured
+} // namespace example::structured_protocol
 #endif

@@ -8,6 +8,7 @@
 #define TELEMETRY_STRUCTURED_FIELD_FIELD_HPP
 
 #include "../detail/Binding.hpp"
+#include "../detail/FieldAccess.hpp"
 #include "../detail/Name.hpp"
 #include <telemetry/field/TelemetrySetter.h>
 #include <cstdlib>
@@ -62,7 +63,10 @@ public:
 
     [[nodiscard]] constexpr const char* name() const noexcept { return name_; }
 
-    [[nodiscard]] std::optional<Value> read() const noexcept
+    // Keep this tiny binding adapter visible at a known call site. Runtime
+    // As dispatch can otherwise make -Os outline it for unrelated callers,
+    // hiding the direct owner's address and adding an optional return roundtrip.
+    [[nodiscard]] TELEMETRY_FORCE_INLINE std::optional<Value> read() const noexcept
     {
         auto selected = getter_.snapshot();
         if (!Getter::available(selected)) return std::nullopt;
@@ -81,6 +85,28 @@ public:
             if (!Setter::available(selected)) return telemetry::WriteResult::Unavailable;
             return Setter::invoke(selected, std::forward<Argument>(value));
         }
+    }
+
+    template <class To>
+        requires std::is_same_v<To, std::remove_cvref_t<To>>
+    [[nodiscard]] TELEMETRY_FORCE_INLINE std::optional<To> readAs() const noexcept
+    {
+        static_assert(Type<To>::kind != TypeKind::Void, "Field readAs requires a native value type");
+        static_assert(std::is_same_v<To, Value> ||
+                      (detail::nativeNumber<To> && detail::nativeNumber<Value>),
+                      "Field readAs permits numeric conversion or the exact structural type");
+        return detail::readFieldAs<To>(*this);
+    }
+
+    template <class From>
+        requires (!std::is_volatile_v<From>)
+    [[nodiscard]] telemetry::WriteResult writeAs(const From& value) const noexcept
+    {
+        static_assert(Type<From>::kind != TypeKind::Void, "Field writeAs requires a native value type");
+        static_assert(std::is_same_v<From, Value> ||
+                      (detail::nativeNumber<From> && detail::nativeNumber<Value>),
+                      "Field writeAs permits numeric conversion or the exact structural type");
+        return detail::writeFieldAs(*this, value);
     }
 
 private:

@@ -27,6 +27,8 @@ def main():
         program = next(p for p in candidates if p.is_file())
         subprocess.run([str(program)], cwd=out, check=True, timeout=30)
         makefiles = '\n'.join(p.read_text(errors='replace') for p in out.glob('Makefile*'))
+        assert 'structured_protocol' not in makefiles
+        assert 'Bind.cpp' not in makefiles and 'Exchange.cpp' not in makefiles
         if mode in ('core', 'v2'):
             # qmake's dependency scanner also lists includes in inactive #ifdef
             # branches. Check actual compiler paths and linked objects instead.

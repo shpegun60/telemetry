@@ -282,7 +282,7 @@ void scratch()
 }
 
 ts::EncodedCallResult invalidResult(const void*, const std::byte*, std::byte*, ts::Workspace&) noexcept
-{ return {D::Ok, static_cast<S>(255), 0}; }
+{ return {ts::DispatchStatus::Ok, static_cast<S>(255), 0}; }
 
 void damagedAdapter()
 {

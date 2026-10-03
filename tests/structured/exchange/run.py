@@ -12,8 +12,8 @@ from oracle import check
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-BIND = ROOT / 'lib/resource/structured/Bind.cpp'
-EXCHANGE = ROOT / 'lib/resource/structured/Exchange.cpp'
+BIND = ROOT / 'examples/structured_protocol/Bind.cpp'
+EXCHANGE = ROOT / 'examples/structured_protocol/Exchange.cpp'
 VALUES = ROOT / 'lib/resource/structured/detail/Values.cpp'
 PROTOCOL = ROOT / 'lib/resource/protocol/Protocol.cpp'
 
@@ -49,7 +49,7 @@ def main():
 
     run([args.cxx, '--version'], 'compiler')
     flags = [args.cxx, '-std=c++20', '-Wall', '-Wextra', '-Werror', '-pedantic-errors',
-             '-fdiagnostics-color=never', '-Ilib', '-Ilib/boost_pfr/include', '-Ilib/magic_enum']
+             '-fdiagnostics-color=never', '-Ilib', '-Iexamples', '-Ilib/boost_pfr/include', '-Ilib/magic_enum']
     if args.null_checks: flags += ['-fno-delete-null-pointer-checks']
     if args.sanitize: flags += ['-fsanitize=address,undefined', '-fno-omit-frame-pointer']
     if args.arm:

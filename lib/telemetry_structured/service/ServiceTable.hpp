@@ -11,6 +11,7 @@
 #include "../result/Dispatch.hpp"
 #include "Service.hpp"
 #include "../detail/Encoded.hpp"
+#include "../detail/Traversal.hpp"
 #include "../type/Registry.hpp"
 
 #include <telemetry/core/TelemetryId.h>
@@ -99,6 +100,59 @@ public:
     }
     const ServiceEntry* data() const&& = delete;
     [[nodiscard]] constexpr std::size_t size() const noexcept { return staticSize; }
+
+    // Erased iteration borrows this table; typed traversal below borrows its
+    // exact definitions. Neither interface stores or materializes a value.
+    [[nodiscard]] constexpr bool empty() const noexcept { return staticSize == 0; }
+    [[nodiscard]] constexpr const ServiceEntry* begin() const& noexcept { return entries_.data(); }
+    const ServiceEntry* begin() const&& = delete;
+    [[nodiscard]] constexpr const ServiceEntry* end() const& noexcept
+    {
+        // std::array may expose checked iterators on other standard libraries.
+        // Our view uses pointers and never adds zero to a possibly null data().
+        if constexpr (staticSize == 0) return entries_.data();
+        else return entries_.data() + staticSize;
+    }
+    const ServiceEntry* end() const&& = delete;
+    [[nodiscard]] constexpr const ServiceEntry& operator[](std::size_t i) const& noexcept { return entries_[i]; }
+    const ServiceEntry& operator[](std::size_t) const&& = delete;
+
+    template <auto Position>
+    [[nodiscard]] constexpr decltype(auto) get() const& noexcept
+    {
+        constexpr auto i = telemetry::detail::positionValue<Position>();
+        static_assert(i < staticSize, "Service position is outside this table");
+        if constexpr (i < staticSize) return std::get<static_cast<std::size_t>(i)>(definitions_);
+    }
+    template <auto Position>
+    void get() const&& = delete;
+
+    template <class Visitor>
+    constexpr void forEach(Visitor&& visitor) const&
+    {
+        detail::forEachDefinition(definitions_, visitor, std::index_sequence_for<Definitions...>{});
+    }
+    template <class Visitor>
+    void forEach(Visitor&&) const&& = delete;
+
+    // A local position may be an integer or scoped position enum. Invalid
+    // positions return false without invoking the visitor. Callback returns
+    // are ignored; the bool reports selection, not the endpoint's status.
+    template <class... Explicit, class Position, class Visitor>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    [[nodiscard]] bool visit(Position position, Visitor&& visitor) const&
+    {
+        if (!telemetry::detail::indexFits<std::uint32_t>(position)) return false;
+        const auto i = static_cast<std::uint32_t>(position);
+        if (i >= staticSize) return false;
+        using Dispatch = detail::DefinitionDispatch<std::tuple<Definitions...>,
+                                                    std::remove_reference_t<Visitor>>;
+        Dispatch::entries[i](definitions_, visitor);
+        return true;
+    }
+    template <class... Explicit, class Position, class Visitor>
+        requires (sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+    bool visit(Position, Visitor&&) const&& = delete;
 
     template <auto Position, class... Args>
     [[nodiscard]] decltype(auto) call(Args&&... args) const noexcept

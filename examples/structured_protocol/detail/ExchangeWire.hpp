@@ -4,15 +4,15 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef RESOURCE_STRUCTURED_DETAIL_EXCHANGE_WIRE_HPP
-#define RESOURCE_STRUCTURED_DETAIL_EXCHANGE_WIRE_HPP
+#ifndef EXAMPLE_STRUCTURED_PROTOCOL_DETAIL_EXCHANGE_WIRE_HPP
+#define EXAMPLE_STRUCTURED_PROTOCOL_DETAIL_EXCHANGE_WIRE_HPP
 
-#include "../../Types.hpp"
+#include "../Binding.hpp"
 #include <telemetry_structured/result/EndpointResults.hpp>
 #include <concepts>
 #include <type_traits>
 
-namespace resource::structured::detail {
+namespace example::structured_protocol::detail {
 
 // Only used after validating the complete fixed header. Byte operations work
 // with unaligned transport storage and never reinterpret a packet as a struct.
@@ -88,9 +88,24 @@ inline bool wireStatus(telemetry::structured::ServiceStatus status, std::uint8_t
     return false;
 }
 
-inline std::uint8_t wireStatus(telemetry::structured::DispatchStatus status) noexcept
+inline PacketStatus packetStatus(telemetry::structured::DispatchStatus status) noexcept
 {
     using S = telemetry::structured::DispatchStatus;
+    switch (status) {
+    case S::Ok: return PacketStatus::Ok;
+    case S::NotFound: return PacketStatus::NotFound;
+    case S::InvalidPayload: return PacketStatus::InvalidPayload;
+    case S::BufferTooSmall: return PacketStatus::BufferTooSmall;
+    case S::WorkspaceTooSmall: return PacketStatus::WorkspaceTooSmall;
+    case S::InternalError: return PacketStatus::InternalError;
+    case S::Unavailable: return PacketStatus::Unavailable;
+    }
+    return PacketStatus::InternalError;
+}
+
+inline std::uint8_t wireStatus(PacketStatus status) noexcept
+{
+    using S = PacketStatus;
     switch (status) {
     case S::Ok: return 0;
     case S::InvalidRequest: return 1;
@@ -106,5 +121,5 @@ inline std::uint8_t wireStatus(telemetry::structured::DispatchStatus status) noe
     return 8;
 }
 
-} // namespace resource::structured::detail
+} // namespace example::structured_protocol::detail
 #endif
