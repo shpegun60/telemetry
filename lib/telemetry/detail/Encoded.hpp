@@ -10,6 +10,7 @@
 #include "../codec/Codec.hpp"
 #include "../codec/StoragePolicy.hpp"
 #include <telemetry/core/Compiler.hpp>
+#include <memory>
 
 namespace telemetry::detail {
 
@@ -74,6 +75,19 @@ TELEMETRY_FORCE_INLINE void encodeEndpoint(const T& value, std::span<std::byte> 
 {
     codec_detail::Writer writer{output};
     codec_detail::encodeValue(value, writer);
+}
+
+// Owning storage is already disjoint from output at the checked boundary.
+// A borrowed object's address becomes known only after its getter/callback;
+// reject overlap with all its native bytes (including padding) before writing.
+template <class T>
+[[nodiscard]] bool encodeBorrowedEndpoint(const T& value,
+                                          std::span<std::byte> output) noexcept
+{
+    if (buffersOverlap(std::as_bytes(std::span<const T>{std::addressof(value), 1}), output))
+        return false;
+    encodeEndpoint(value, output);
+    return true;
 }
 
 } // namespace telemetry::detail

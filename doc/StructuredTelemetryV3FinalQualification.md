@@ -9,9 +9,11 @@ Stage 16–20 закрито на `8c56a5e54b79ef3c5bb1111c9769af103b663eec`:
 CI; успіх цього baseline не підміняє статус наступного коміту.
 
 Код, який виконувала H7S:
-`01fd180ff3678d7c47066f8a728dc1e02f0f3973`. Наступний evidence-коміт
-публікує результати й документацію; бібліотеку та captured build inputs
-після цих вимірювань не змінюємо.
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973`. Цей документ описує закритий
+Stage 20 baseline. Його [receipts і validators](evidence/pre-borrowed/README.md)
+збережено точними Git blob копіями перед окремим
+[borrowed-result slice](BorrowedNativeValues.md). Оновлені current receipts
+цього slice мають власні captured inputs і не замінюють історичні вимірювання.
 
 ## Кінцевий результат міграції
 
@@ -58,7 +60,7 @@ legacy-only тести мають [154 Git blob identities](evidence/StructuredL
 global codegen пройшов свої gates. Порівняння інструкцій не підміняє
 вимірювання циклів, а individual frame не є full-chain stack bound.
 
-Фінальний [offline receipt](../tests/structured/mcu/local-receipt.json)
+Фінальний [offline receipt baseline](evidence/pre-borrowed/offline/local-receipt.json)
 зафіксував HEAD `01fd180` і `source_dirty=false` лише для свого captured
 input set. Раніші локальні records чесно зберігають їхні тодішні HEAD та
 dirty state; їх не перепозначено як виконання нового published SHA.
@@ -69,12 +71,12 @@ NUCLEO-H7S3L8, ST-LINK `002A001F3033510135393935`, COM6; Cortex-M7
 600 MHz, caches enabled, CubeIDE ARM GCC14.3.1. Чотири suites послідовно
 виконали десять O2/Os образів:
 
-| Suite | Образи | Current evidence |
+| Suite | Образи | Stage 20 baseline evidence |
 | --- | ---: | --- |
-| Mixed + Scale | 4 | [Results](../tests/structured/mcu/h7s/RESULTS.md), [receipt](../tests/structured/mcu/h7s/receipt.json) |
-| Descriptor | 2 | [Receipt та контракт](../tests/structured/descriptor/h7s/README.md) |
-| Values/resource consumers | 2 | [Receipt та контракт](../tests/structured/resources/h7s/README.md) |
-| Bind/Exchange | 2 | [Receipt та контракт](../tests/structured/exchange/h7s/README.md) |
+| Mixed + Scale | 4 | [Results](../tests/structured/mcu/h7s/RESULTS.md), [historical receipt](evidence/pre-borrowed/h7s/mcu/receipt.json) |
+| Descriptor | 2 | [Historical receipt](evidence/pre-borrowed/h7s/descriptor/receipt.json) |
+| Values/resource consumers | 2 | [Historical receipt](evidence/pre-borrowed/h7s/resources/receipt.json) |
+| Bind/Exchange | 2 | [Historical receipt](evidence/pre-borrowed/h7s/exchange/receipt.json) |
 
 Mixed/Scale: **29098 умов, нуль failures**, 784 DWT-вікна та 696 stack
 observations. Descriptor, Values і Bind/Exchange пройшли власні повні

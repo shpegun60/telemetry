@@ -12,11 +12,13 @@ state, synchronization and request correlation.
 
 ## Native API
 
-A Field getter returns an unqualified supported `T` by value. Its optional
+A Field getter returns an unqualified supported `T` by value or borrows `const T&`. Its optional
 setter takes exactly `T` or `const T&` and returns `WriteResult`. A Command
 takes no argument or one aggregate request and returns `CommandResult`.
 A Service takes no argument or one aggregate request and returns an aggregate response,
-`void`, or the corresponding `ServiceResult<T>`. Callbacks are `noexcept`.
+`void`, `ServiceResult<T>`, `const T&`, or `BorrowedServiceResult<T>` for an existing
+aggregate response with an application status.
+Callbacks are `noexcept`.
 Known functions and methods use `field<getter, setter>`, `command<target>`
 and `service<target>`; parameter forms accept native function pointers,
 capture-free lambdas, stable callable lvalues and slots.
@@ -114,11 +116,67 @@ setter. A runtime structural mismatch does not invoke a getter.
 
 Local positions may be integers or enums. A global `PackedId` is a `u32`
 group/position pair made by `makeId<Group, Position>()`; Field, Command and
-Service IDs occupy separate spaces. Native Field reads return an owning
+Service IDs occupy separate spaces. By-value Field reads return an owning
 `optional<T>`. `readAs<Big>` likewise owns `Big`, so a large native return may
 use a large stack frame according to the compiler's return ABI.
 `ServiceResult<T>` owns its optional response; use `successFrom(factory)` for
 large responses. `success(value)` is restricted to objects of at most 256 bytes.
+
+### Reading existing objects by const reference
+
+A getter or Service that returns exactly `const T&` selects a borrowed result:
+
+```cpp
+struct CachedDevice {
+    Config config{230.f, 1500, true};
+    const Config& readConfig() const noexcept { return config; }
+};
+inline CachedDevice cached;
+inline constexpr telemetry::FieldTable cachedFields{
+    telemetry::field<&CachedDevice::readConfig>("Config", cached)
+};
+inline constexpr telemetry::ServiceTable cachedServices{
+    telemetry::service<&CachedDevice::readConfig>("Config", cached)
+};
+
+// Both results refer directly to cached.config. Neither contains a Config.
+auto view = cachedFields.read<0>();     // BorrowedValue<Config>
+auto reply = cachedServices.call<0>();  // BorrowedServiceResult<Config>
+if (view && reply.hasValue()) {
+    auto target = view->target;
+    const Config& same = reply.value();
+    (void)target;
+    (void)same;
+}
+auto snapshot = cachedFields.readAs<Config, 0>(); // owning optional<Config>
+```
+
+`BorrowedValue<T>` contains one pointer; an empty target produces an empty view.
+`BorrowedServiceResult<T>` contains status and a view; an empty target returns
+`ServiceStatus::Unavailable`. Access is const through `value()`, `*`, `->` or
+`valueOrNull()`. Mutable/volatile references, rvalue references and pointer
+returns remain unsupported. A Service response still must be an aggregate;
+Field values may also be scalars, enums and arrays. The usual setter accepts
+canonical `T` or `const T&`, independently of the getter's ownership mode.
+For a fallible borrowed Service, return `BorrowedServiceResult<T>` by value:
+`success(existingObject)` or `failure(ServiceStatus::Busy)`. Failed responses
+encode no payload. Result wrappers are unwrapped only for Services and never
+become descriptor types; Field getters return only `T` or `const T&`.
+
+The application keeps the referenced object alive and stable for the entire
+encoding operation, and for every later use of a native result. A view does
+not extend lifetime or capture a snapshot. Returning a local object or a
+by-value callback parameter cannot satisfy that contract. A native response
+that refers into a caller's Request cannot outlive that Request. Slot reset or
+rebind does not keep the previously referenced object alive.
+
+Encoded borrowed reads/responses serialize directly from the referenced object,
+without a native payload copy or a response Workspace lease. They reject overlap
+between the complete native object (including padding) and the output prefix
+they write. This check occurs after the callback supplies the address, so it
+does not undo callback side effects. TypeIds, descriptor/fingerprint and wire
+bytes depend on canonical `T`, not ownership. See the
+[borrowed value contract](../../doc/BorrowedNativeValues.md) for storage and qualification details.
 
 `get<I>()` returns a const definition reference; `forEach` traverses exact
 definitions in declaration order, and `visit(position, visitor)` selects one
@@ -147,11 +205,15 @@ belongs to the callback. `Accepted` reports the callback's status without
 creating a queue or retaining its request.
 
 `TELEMETRY_STRUCTURED_LOCAL_BYTES` defaults to **32 bytes** and controls only
-encoded payload storage. A Field value or Command request that fits uses a
+encoded payload storage. An owning Field value or Command request that fits uses a
 local object; larger objects use caller-owned `Workspace`. For a Service, the
 Request consumes this budget first, then `ServiceResult<Response>` fits only
-if its complete wrapper fits the remainder. Zero selects Workspace for all
-payload objects. This policy is selected at compile time and does not change
+if its complete wrapper fits the remainder. A borrowed Service budgets only
+its Request: its status/view is control data, and its existing Response is
+never copied into local or Workspace storage. A borrowed Field read needs no
+payload scratch; a writable definition still advertises its setter's decode
+requirement separately as `writeScratchBytes`. Values uses only `readScratchBytes`.
+Zero selects Workspace for all owning/decoded payload objects. This policy is selected at compile time and does not change
 native returns, supported types or wire bytes. It is a budget for live payload
 object sizes, not a bound on total stack use or callback stack use.
 
@@ -217,6 +279,11 @@ revision, size and offset mismatches at link time; header-only boundaries need
 their own explicit ABI dependency. Equal layouts with changed semantics require
 an explicit `structuredAbiRevision` change. None of these boundary checks runs
 during a native typed value call.
+
+ABI revision **6** splits Field read/write scratch requirements. In the
+qualified Cortex-M7 layout, FieldEntry is 32 bytes/alignment 4; CommandEntry
+and ServiceEntry remain 20/4 and 24/4. This in-memory change does not alter
+wire v3.0 or its existing descriptor/values fixtures.
 
 The [frozen contract](../../doc/StructuredTelemetryV3FreezeQualification.md)
 records wire constants and dependency pins. The

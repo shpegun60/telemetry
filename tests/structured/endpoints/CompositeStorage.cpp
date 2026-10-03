@@ -24,9 +24,11 @@ inline constexpr ts::FieldCatalogTable catalogs{ts::group("p", fields)};
 inline constexpr ts::CommandCatalogTable actions{ts::group("p", commands)};
 inline constexpr ts::ServiceTable replies{ts::service<&service>("Echo")};
 inline constexpr ts::ServiceCatalogTable replyCatalogs{ts::group("p", replies)};
-static_assert(fields.data()[0].scratchBytes == (sizeof(Value) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<Value>));
-static_assert(fields.data()[1].scratchBytes == (sizeof(Nine) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<Nine>));
-static_assert(commands.data()[0].scratchBytes == fields.data()[0].scratchBytes);
+static_assert(fields.data()[0].readScratchBytes == (sizeof(Value) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<Value>));
+static_assert(fields.data()[0].writeScratchBytes == fields.data()[0].readScratchBytes);
+static_assert(fields.data()[1].readScratchBytes == (sizeof(Nine) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<Nine>));
+static_assert(fields.data()[1].writeScratchBytes == 0);
+static_assert(commands.data()[0].scratchBytes == fields.data()[0].readScratchBytes);
 }
 int main()
 {

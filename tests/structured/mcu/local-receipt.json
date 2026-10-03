@@ -1,9 +1,9 @@
 {
   "format_version": 1,
   "scope": "offline host execution and ARM compile/link inspection",
-  "captured_at_utc": "2026-10-03T21:05:13.747584+00:00",
-  "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
-  "source_dirty": false,
+  "captured_at_utc": "2026-10-03T23:43:41.008612+00:00",
+  "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+  "source_dirty": true,
   "input_lf_sha256": {
     "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
     "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -65,11 +65,11 @@
     "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
     "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
     "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
-    "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+    "lib/resource/telemetry/v3/ValuesFile.hpp": "d11434b75e730ade139524733fa7b729a6dbcc824962af4d5da44959064079ff",
     "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
     "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
-    "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
-    "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+    "lib/telemetry/abi/StructuredAbi.hpp": "e66fa5be6c6d9e923bc36353912e82770469c235ec33eeef79e2f1dbc4dd7899",
+    "lib/telemetry/codec/Codec.hpp": "113c723eadb0bcfa5f47311899220ba0dc8e6f23f0ed782121ca3d1adeebdcc9",
     "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
     "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
     "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
@@ -78,51 +78,53 @@
     "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
     "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
     "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
-    "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
-    "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+    "lib/telemetry/detail/Encoded.hpp": "2af199634c334925d656487b309165980af4170e571d6e666f9216e25e1970b5",
+    "lib/telemetry/detail/FieldAccess.hpp": "d6a11bb04be43893bcb73ec9cbdd40802314ba7e1ef2cacfaf8d12ea8a33a0ad",
     "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
     "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
     "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
     "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
     "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
     "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
-    "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+    "lib/telemetry/field/Field.hpp": "455f8f43884fc7db390fcea47237915700eed6fcd53da97abcca8c4e04314901",
     "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
-    "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+    "lib/telemetry/field/FieldTable.hpp": "80bb872d7ee54a42754ee66301f36d8e1bc0914c832627204505c288f88820f2",
     "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
     "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
     "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
-    "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
+    "lib/telemetry/model/Model.hpp": "a8a7085afe3a039bb73669dff0b1f2afa200a6fa55ce021e5bc2f63d95ce9a32",
     "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
-    "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+    "lib/telemetry/reflection/Callable.hpp": "d54939b0c31e597efadcba80ad9ab7245f8e66e9e89761aa6beb9a7a88247fed",
     "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
     "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
     "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
     "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
     "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+    "lib/telemetry/result/BorrowedServiceResult.hpp": "a37c5131977f20aeb408dcfe05f1c8eaeeb82a95202ccab3f382c91176776dbe",
+    "lib/telemetry/result/BorrowedValue.hpp": "da7bf993d9de65b32ccec6ecd3c6e69909cf9ed58d54ab564335f6840514bfd1",
     "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
     "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
     "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
-    "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
-    "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+    "lib/telemetry/result/ServiceResult.hpp": "881015154bbd0e8ac9de217f7c8ddf2eee357b4d5eab25f0ea89d6031d4cd640",
+    "lib/telemetry/service/Service.hpp": "2f834970c2959db32478b46790a5512b23b84d5caa95bcb3a0e2994acd20e2ce",
     "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
-    "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+    "lib/telemetry/service/ServiceTable.hpp": "088cdb031a0bf83f4063f959d6ae4f8027aa2eda492b6a05d3385be417bd4217",
     "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
     "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
     "lib/telemetry/slot/TelemetryDelegateSlot.h": "75a458b1177a83e0e43995d72cfeb4bdbcb6343bf52c89f0e2c51a8118a9d649",
     "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
     "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
     "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-    "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+    "lib/telemetry/Telemetry.hpp": "c798bb7c4d6dc633d34a52d5a7f2f0e834c2b5981fc19fce6e28f589fbe651ad",
     "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
     "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
     "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
-    "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
+    "lib/telemetry/type/Traits.hpp": "20aa0c5bc3c2a168b18d0913478109383de18cd821666d11660e86a40648cfe2",
     "tests/structured/mcu/Fixture.hpp": "5622e698ae803ef93e87e4a4b71b717cce10c179c2c3418c2bb59d260d056da0",
     "tests/structured/mcu/h7s/Benchmark.cpp": "e7f866ef7d1c3f97f51f81daf2a041377adf02940314f09c811899ef457804bb",
     "tests/structured/mcu/h7s/Probe.cpp": "a51014c61225fa47f74f66903ce32440aa08cb25e80b9cdfc7613783c9f3323f",
     "tests/structured/mcu/h7s/run.py": "87485c36ebf28b824599ec7dc18b98c292ddd917b0d2cb427f45de91464e0b5f",
-    "tests/structured/mcu/h7s/verify.py": "b0a228480ae84237f99f91c99b0c22ac09fd1b6a0107c9910b98d79cde12db36",
+    "tests/structured/mcu/h7s/verify.py": "72455390baee172e75df3445ed2c4cdffa8853d3986c5a52c56a7f345dbc4b02",
     "tests/structured/mcu/Host.cpp": "f2112662e2a7d10569661253df30ec09de4d015627055ef830d070f780249f7f",
     "tests/structured/mcu/Mixed.cpp": "25915bf74f7b56d53d995a8c5b06aabc5bd9126647424ac94023fa44ece314d0",
     "tests/structured/mcu/receipt.py": "87b9380a3c6c9b499a51cba86c5dd7f06e9b356c985a428558b5fd9102748cc0",
@@ -173,7 +175,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "03b41207a104bf2d9c67db4c91ee87cc19d0de8a605ba4a767cd97632b232ab1",
+      "report_sha256": "968b6c10ae227d71e6e21c5281badf8048507ca01530325d4c1745e4b51c236f",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -248,7 +250,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "1aa8fbac129a909487a6417676849c2c213829320ce0daf24012b1660fcefc15",
+      "report_sha256": "e13813a262778253dd9a358222fa6a655dbfbfd84f2b5ed0ddc38ea8b1bb912a",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -324,7 +326,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "2382c6cccb0fdaeef9fdaa17720d5e954e08611d061863ee0b6fdfb5b2351e07",
+      "report_sha256": "58fd3db11ae8ab6d32ebb05d9e4f14c870873c27637730de703b99b5977fcaa0",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -395,7 +397,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "fced3e218581b3c400e40fd46713a155d381dcd4eb99069697cddfff161208f6",
+      "report_sha256": "1f486bef7396ffd7242d4432ad7ee7cbb393f08280797e645b5ee38a0567ec33",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -422,7 +424,7 @@
         "Mixed-O2": {
           "sections": {
             "text": 17304,
-            "rodata": 6792,
+            "rodata": 6832,
             "data": 76,
             "bss": 57920
           },
@@ -521,7 +523,7 @@
         "Mixed-Os": {
           "sections": {
             "text": 14464,
-            "rodata": 6928,
+            "rodata": 6968,
             "data": 76,
             "bss": 57920
           },
@@ -619,8 +621,8 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 24896,
-            "rodata": 7080,
+            "text": 24832,
+            "rodata": 7120,
             "data": 76,
             "bss": 57920
           },
@@ -771,7 +773,7 @@
         "Scale-O2": {
           "sections": {
             "text": 10556,
-            "rodata": 7048,
+            "rodata": 7560,
             "data": 0,
             "bss": 1032
           },
@@ -818,7 +820,7 @@
         "Scale-Os": {
           "sections": {
             "text": 8002,
-            "rodata": 7036,
+            "rodata": 7548,
             "data": 0,
             "bss": 1032
           },
@@ -864,8 +866,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 19282,
-            "rodata": 7076,
+            "text": 19274,
+            "rodata": 7588,
             "data": 0,
             "bss": 1032
           },
@@ -959,7 +961,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "750b24ce17feb70a3b7f136e0993db9bcc45288b0b35f62f54d95f6ff6dab47d",
+      "report_sha256": "5a08770e92f53ad5aa45ada363cfce8e3df83636b7faa280f0733a9aa4fe7f32",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -986,7 +988,7 @@
         "Mixed-O2": {
           "sections": {
             "text": 18392,
-            "rodata": 6792,
+            "rodata": 6832,
             "data": 76,
             "bss": 57920
           },
@@ -1103,7 +1105,7 @@
         "Mixed-Os": {
           "sections": {
             "text": 15872,
-            "rodata": 6928,
+            "rodata": 6968,
             "data": 76,
             "bss": 57920
           },
@@ -1216,7 +1218,7 @@
         "Mixed-Og": {
           "sections": {
             "text": 28160,
-            "rodata": 7080,
+            "rodata": 7120,
             "data": 76,
             "bss": 57920
           },
@@ -1351,7 +1353,7 @@
         "Scale-O2": {
           "sections": {
             "text": 10556,
-            "rodata": 7048,
+            "rodata": 7560,
             "data": 0,
             "bss": 1032
           },
@@ -1398,7 +1400,7 @@
         "Scale-Os": {
           "sections": {
             "text": 8002,
-            "rodata": 7036,
+            "rodata": 7548,
             "data": 0,
             "bss": 1032
           },
@@ -1444,8 +1446,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 19282,
-            "rodata": 7076,
+            "text": 19274,
+            "rodata": 7588,
             "data": 0,
             "bss": 1032
           },
@@ -1538,7 +1540,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "12a8c7e268301068adc0e261aa7f8b24a5a89027fd9c005048a6d9bc565acf4a",
+      "report_sha256": "64a74390d249c0e8db3ac904917a902d91f700d52feff1978a9016e0488c0941",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1568,8 +1570,8 @@
       "configurations": {
         "Mixed-O2": {
           "sections": {
-            "text": 17520,
-            "rodata": 6792,
+            "text": 17456,
+            "rodata": 6832,
             "data": 76,
             "bss": 57920
           },
@@ -1668,7 +1670,7 @@
         "Mixed-Os": {
           "sections": {
             "text": 14648,
-            "rodata": 6920,
+            "rodata": 6960,
             "data": 76,
             "bss": 57920
           },
@@ -1767,7 +1769,7 @@
         "Mixed-Og": {
           "sections": {
             "text": 25848,
-            "rodata": 7080,
+            "rodata": 7120,
             "data": 76,
             "bss": 57920
           },
@@ -1912,7 +1914,7 @@
         "Scale-O2": {
           "sections": {
             "text": 10584,
-            "rodata": 7048,
+            "rodata": 7560,
             "data": 0,
             "bss": 1032
           },
@@ -1959,7 +1961,7 @@
         "Scale-Os": {
           "sections": {
             "text": 10574,
-            "rodata": 7036,
+            "rodata": 7548,
             "data": 0,
             "bss": 1032
           },
@@ -2005,8 +2007,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 30198,
-            "rodata": 7076,
+            "text": 30190,
+            "rodata": 7588,
             "data": 0,
             "bss": 1032
           },
@@ -2108,7 +2110,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "2be0d95fd930bf45c868d7c89aaa15e530c0605d5203a0bb64f36c0a7dc571b8",
+      "report_sha256": "613d0be278cd1149ef7cdc5a4bcd60c933f1ec8b08a9fe2f67445a19374e40cb",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -2139,7 +2141,7 @@
         "Mixed-O2": {
           "sections": {
             "text": 18544,
-            "rodata": 6792,
+            "rodata": 6832,
             "data": 76,
             "bss": 57920
           },
@@ -2256,7 +2258,7 @@
         "Mixed-Os": {
           "sections": {
             "text": 16056,
-            "rodata": 6920,
+            "rodata": 6960,
             "data": 76,
             "bss": 57920
           },
@@ -2370,8 +2372,8 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 28984,
-            "rodata": 7080,
+            "text": 28920,
+            "rodata": 7120,
             "data": 76,
             "bss": 57920
           },
@@ -2504,7 +2506,7 @@
         "Scale-O2": {
           "sections": {
             "text": 10584,
-            "rodata": 7048,
+            "rodata": 7560,
             "data": 0,
             "bss": 1032
           },
@@ -2551,7 +2553,7 @@
         "Scale-Os": {
           "sections": {
             "text": 10574,
-            "rodata": 7036,
+            "rodata": 7548,
             "data": 0,
             "bss": 1032
           },
@@ -2597,8 +2599,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 30198,
-            "rodata": 7076,
+            "text": 30190,
+            "rodata": 7588,
             "data": 0,
             "bss": 1032
           },

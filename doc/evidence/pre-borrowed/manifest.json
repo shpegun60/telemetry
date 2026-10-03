@@ -1,0 +1,104 @@
+{
+  "format_version": 1,
+  "scope": "Exact tracked Stage20 receipt/validator blobs before borrowed ABI changes",
+  "archive_source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+  "files": [
+    {
+      "source_path": "tests/structured/mcu/local-receipt.json",
+      "archive_path": "offline/local-receipt.json",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "ea08284b77ba4f857656a2ac790e5b105a6843bb",
+      "bytes": 103863,
+      "sha256": "58c2456a7f3501d2991606c3b0eb49557367b3ad8ad9a70414bddb48d97d10c0",
+      "measured_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "scope": "offline host execution and ARM compile/link inspection",
+      "input_files": 138
+    },
+    {
+      "source_path": "tests/structured/mcu/receipt.py",
+      "archive_path": "offline/receipt.py",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "f09064b7764c087b5b6c494510401ce0c47877c1",
+      "bytes": 12275,
+      "sha256": "87b9380a3c6c9b499a51cba86c5dd7f06e9b356c985a428558b5fd9102748cc0"
+    },
+    {
+      "source_path": "tests/structured/descriptor/h7s/receipt.json",
+      "archive_path": "h7s/descriptor/receipt.json",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "691dea55ac8bde8f1cfff190ae1cf01dbf61e06e",
+      "bytes": 103771,
+      "sha256": "f35673275a091b270c2b20d749440a5f8226249a4d6df65793764e64bf590fcf",
+      "measured_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "scope": null,
+      "input_files": 0
+    },
+    {
+      "source_path": "tests/structured/descriptor/h7s/verify.py",
+      "archive_path": "h7s/descriptor/verify.py",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "dc23a0068ff68bd14efa509056e4a760bd7e0652",
+      "bytes": 4436,
+      "sha256": "83e926822582b79646bbd683a80b46d473d6e48b1ec54d095ddb9d6f5819a607"
+    },
+    {
+      "source_path": "tests/structured/resources/h7s/receipt.json",
+      "archive_path": "h7s/resources/receipt.json",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "df19370797f8f9aec6ef9aa8bad4fb612e11ab5f",
+      "bytes": 92495,
+      "sha256": "1e307e35d6f78c5a22bbdbf06f66bcc76a9b3e16bc59d99ce3871dbd58a29daf",
+      "measured_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "scope": null,
+      "input_files": 0
+    },
+    {
+      "source_path": "tests/structured/resources/h7s/verify.py",
+      "archive_path": "h7s/resources/verify.py",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "b2fc0f6a7cfce078d251890124a034f55f72166b",
+      "bytes": 3619,
+      "sha256": "b21609e43a217c96228cc0fc94a4d4f04fcad5ced0994cb290990c37be40a9d5"
+    },
+    {
+      "source_path": "tests/structured/exchange/h7s/receipt.json",
+      "archive_path": "h7s/exchange/receipt.json",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "26ca91d371411dc034fd1a4d8863d3acd2f18f0a",
+      "bytes": 101653,
+      "sha256": "496f376d797ec34bc8a547fa226a1c1366410306e93a965d49d0cdb7e28e7e99",
+      "measured_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "scope": null,
+      "input_files": 0
+    },
+    {
+      "source_path": "tests/structured/exchange/h7s/verify.py",
+      "archive_path": "h7s/exchange/verify.py",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "5719fcec3a26425df967bd33b65511c35dbab21f",
+      "bytes": 3648,
+      "sha256": "ca0976f7ff6c861a4688ef6a61b7b1cc48da46feb9ba271cd86b2173c5ae3de7"
+    },
+    {
+      "source_path": "tests/structured/mcu/h7s/receipt.json",
+      "archive_path": "h7s/mcu/receipt.json",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "2cfb4b924f2350d3c413a3841cdc8a9f388540f0",
+      "bytes": 496589,
+      "sha256": "f1641c1409423abcee7d9dc242e08c2fd620a8d624107230bc8f1dc5a1c88b9b",
+      "measured_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "scope": "H7S execution and DWT/PSP measurements",
+      "input_files": 140
+    },
+    {
+      "source_path": "tests/structured/mcu/h7s/verify.py",
+      "archive_path": "h7s/mcu/verify.py",
+      "source_commit": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "git_blob": "3dde758074a6dd40518e1fb5cba6538c5f130a49",
+      "bytes": 36555,
+      "sha256": "b0a228480ae84237f99f91c99b0c22ac09fd1b6a0107c9910b98d79cde12db36"
+    }
+  ],
+  "byte_identical_to_git_blobs": true,
+  "execution": "archive only; no tests or devices executed"
+}

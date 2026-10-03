@@ -28,13 +28,16 @@ struct FieldEntry {
     Write write; // nullptr denotes a read-only definition, not a temporarily empty slot.
     const char* name;
     std::uint32_t wireBytes;
-    std::uint32_t scratchBytes;
+    // A const-reference getter needs no value storage. Its setter can still
+    // need a decoded object, so these operation requirements are independent.
+    std::uint32_t readScratchBytes;
+    std::uint32_t writeScratchBytes;
 
     [[nodiscard]] EncodedReadResult readEncoded(std::span<std::byte> output,
                                                  Workspace& workspace) const noexcept
     {
         if (output.size() < wireBytes) return {DispatchStatus::BufferTooSmall, 0};
-        if (scratchBytes != 0 && buffersOverlap(output, workspace.storage()))
+        if (readScratchBytes != 0 && buffersOverlap(output, workspace.storage()))
             return {DispatchStatus::InvalidPayload, 0};
         return read(readContext, output.data(), workspace);
     }
@@ -44,7 +47,7 @@ struct FieldEntry {
     {
         if (write == nullptr) return {DispatchStatus::Ok, telemetry::WriteResult::ReadOnly};
         if (input.size() != wireBytes) return {DispatchStatus::InvalidPayload};
-        if (scratchBytes != 0 && buffersOverlap(input, workspace.storage()))
+        if (writeScratchBytes != 0 && buffersOverlap(input, workspace.storage()))
             return {DispatchStatus::InvalidPayload};
         return write(writeContext, input.data(), workspace);
     }
@@ -205,13 +208,28 @@ private:
     }();
 
     template <class Definition>
+    static constexpr std::uint32_t requiredReadScratch =
+        Definition::borrowsValue ? 0 : requiredScratch<Definition>;
+
+    template <class Definition>
+    static constexpr std::uint32_t requiredWriteScratch =
+        Definition::writable ? requiredScratch<Definition> : 0;
+
+    template <class Definition>
     static EncodedReadResult readOne(const void* raw, std::byte* bytes,
                                       Workspace& workspace) noexcept
     {
         using Value = typename Definition::Value;
         using Getter = typename Definition::GetterBinding;
         const std::span<std::byte> output{bytes, wireSize<Value>};
-        if constexpr (detail::localObject<Value>) {
+        if constexpr (Definition::borrowsValue) {
+            auto selected = detail::ErasedBinding<Getter>::snapshot(raw);
+            if (!Getter::available(selected)) return {DispatchStatus::Unavailable, 0};
+            const Value& value = Getter::invoke(selected);
+            if (!detail::encodeBorrowedEndpoint(value, output))
+                return {DispatchStatus::InvalidPayload, 0};
+            return {DispatchStatus::Ok, wireSize<Value>};
+        } else if constexpr (detail::localObject<Value>) {
             auto selected = detail::ErasedBinding<Getter>::snapshot(raw);
             if (!Getter::available(selected)) return {DispatchStatus::Unavailable, 0};
             const Value value = Getter::invoke(selected);
@@ -284,7 +302,7 @@ private:
             detail::ErasedBinding<typename Definitions::GetterBinding>::context(std::get<I>(definitions_).getter_),
             &readOne<Definitions>, writeContext(std::get<I>(definitions_)), writer<Definitions>(),
             std::get<I>(definitions_).name(), wireSize<typename Definitions::Value>,
-            requiredScratch<Definitions>}...}};
+            requiredReadScratch<Definitions>, requiredWriteScratch<Definitions>}...}};
     }
 
     std::tuple<Definitions...> definitions_;

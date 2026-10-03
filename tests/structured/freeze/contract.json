@@ -16,7 +16,7 @@
     "type_kinds": {"Void": 0, "Scalar": 1, "Enum": 2, "Struct": 3, "Array": 4},
     "scalar_codes": {"Bool": 1, "U8": 2, "S8": 3, "U16": 4, "S16": 5, "U32": 6, "S32": 7, "U64": 8, "S64": 9, "F32": 10, "F64": 11}
   },
-  "structured_abi_revision": 5,
+  "structured_abi_revision": 6,
   "default_local_object_bytes": 32,
   "limits": {
     "maxTypeDepth": 32,

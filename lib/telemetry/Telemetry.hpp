@@ -13,6 +13,8 @@
 #include "model/Model.hpp"
 #include "reflection/Reflection.hpp"
 #include "result/ServiceResult.hpp"
+#include "result/BorrowedServiceResult.hpp"
+#include "result/BorrowedValue.hpp"
 #include "type/Registry.hpp"
 
 #endif

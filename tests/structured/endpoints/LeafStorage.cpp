@@ -28,7 +28,8 @@ inline constexpr ts::FieldCatalogTable catalogs{ts::group("test", rows<T>)};
 template <class T>
 bool check(T value)
 {
-    static_assert(rows<T>.data()[0].scratchBytes == (sizeof(T) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<T>));
+    static_assert(rows<T>.data()[0].readScratchBytes == (sizeof(T) <= ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<T>));
+    static_assert(rows<T>.data()[0].writeScratchBytes == rows<T>.data()[0].readScratchBytes);
     std::array<std::byte, ts::wireSize<T> + 2> input{}, output{};
     auto bytes = std::span{input}.subspan(1, ts::wireSize<T>);
     auto encoded = std::span{output}.subspan(1, ts::wireSize<T>);
@@ -56,8 +57,9 @@ std::array<std::uint8_t, 1> getArray() noexcept { return {1}; }
 inline constexpr ts::FieldTable composites{
     ts::field<&getOne>("one"), ts::field<&getArray>("array")};
 inline constexpr ts::FieldCatalogTable compositeCatalogs{ts::group("test", composites)};
-static_assert(composites.data()[0].scratchBytes == (ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<One>));
-static_assert(composites.data()[1].scratchBytes == composites.data()[0].scratchBytes);
+static_assert(composites.data()[0].readScratchBytes == (ts::maxLocalObjectBytes ? 0 : ts::scratchBytes<One>));
+static_assert(composites.data()[1].readScratchBytes == composites.data()[0].readScratchBytes);
+static_assert(composites.data()[0].writeScratchBytes == 0 && composites.data()[1].writeScratchBytes == 0);
 }
 
 int main()

@@ -12,6 +12,7 @@
 #include "../detail/Binding.hpp"
 #include "../detail/Name.hpp"
 #include "../result/ServiceResult.hpp"
+#include "../result/BorrowedServiceResult.hpp"
 #include "../type/Traits.hpp"
 
 #include <telemetry/detail/Owner.hpp>
@@ -43,15 +44,25 @@ struct Shape : reflection::EndpointTraits<reflection::EndpointKind::Service, Sig
     using Request = typename Base::Request;
     using Response = typename Base::Response;
     using Result = typename Base::Result;
+    using WrappedResult = std::conditional_t<Base::wrapsBorrowedServiceResult,
+        BorrowedServiceResult<Response>, ServiceResult<Response>>;
 
+    // A result wrapper can occur as an incomplete return type in a declaration.
+    // Validate its payload here, rather than waiting for wrapper construction.
+    static_assert(std::is_same_v<Response, std::remove_cvref_t<Response>>,
+                  "Service response payload must be an unqualified native type");
+    static_assert(!Base::wrapsBorrowedServiceResult || !std::is_void_v<Response>,
+                  "Borrowed Service response must be a non-void aggregate");
     static_assert(std::is_void_v<Request> || Type<Request>::kind == TypeKind::Struct,
                   "Service request must be an aggregate struct or void");
     static_assert(std::is_void_v<Response> || Type<Response>::kind == TypeKind::Struct,
                   "Service response must be an aggregate struct or void");
     static_assert(Base::wrapsServiceResult
-                      ? std::is_same_v<Result, ServiceResult<Response>>
+                      ? std::is_same_v<Result, WrappedResult>
+                      : Base::borrowsResponse
+                      ? std::is_same_v<Result, std::add_lvalue_reference_t<std::add_const_t<Response>>>
                       : std::is_same_v<Result, Response>,
-                  "Service must return Response, void or the exact ServiceResult<Response>");
+                  "Service must return Response, void or the exact ServiceResult<Response>, BorrowedServiceResult<Response>, or const Response&");
 };
 
 } // namespace service_detail
@@ -63,7 +74,9 @@ class ServiceDefinition {
 public:
     using Request = typename Shape::Request;
     using Response = typename Shape::Response;
-    using Result = ServiceResult<Response>;
+    static constexpr bool borrowsResponse = Shape::borrowsResponse;
+    using Result = std::conditional_t<borrowsResponse,
+        BorrowedServiceResult<Response>, ServiceResult<Response>>;
 
     constexpr ServiceDefinition(detail::Name name, Binding binding) noexcept
         : name_(name), binding_(binding)
@@ -112,7 +125,10 @@ private:
     [[nodiscard]] static Result invokeSelected(Selected selected, Args&&... args) noexcept
     {
         if constexpr (Shape::wrapsServiceResult) {
+            // Preserve application statuses for both owning and borrowed results.
             return Binding::invoke(selected, std::forward<Args>(args)...);
+        } else if constexpr (borrowsResponse) {
+            return Result::success(Binding::invoke(selected, std::forward<Args>(args)...));
         } else if constexpr (std::is_void_v<Response>) {
             Binding::invoke(selected, std::forward<Args>(args)...);
             return Result::success();

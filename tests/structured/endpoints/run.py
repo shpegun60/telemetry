@@ -162,7 +162,8 @@ def main():
             raise RuntimeError('Tables gained startup constructors')
     # A retained real adapter reference rejects a mismatched caller.
     link = ['-nostdlib', '-Wl,-e,main', '-Wl,--gc-sections', '-lc', '-lgcc'] if args.arm else []
-    for case, symbol in enumerate(('readFieldEncoded', 'writeFieldEncoded', 'executeCommandEncoded'), 1):
+    for case, symbol in enumerate(('readFieldEncoded', 'writeFieldEncoded', 'executeCommandEncoded',
+                                   'readFieldEncoded', 'writeFieldEncoded'), 1):
         run(flags + ['-O2', f'-DCASE={case}', HERE/'AbiMismatch.cpp', ADAPTER, ABI,
             *link, '-o', output/f'mismatch-{case}'], f'abi-mismatch-{case}',
             r'undefined (?:reference|symbol).*'+symbol)

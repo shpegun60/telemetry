@@ -35,7 +35,7 @@ using Invalid = refl::EndpointTraits<Kind::Service, int(int, ...) noexcept>;
 #elif CASE == 5
 using Invalid = refl::EndpointTraits<Kind::Service, int(Request&) noexcept>;
 #elif CASE == 6
-using Invalid = refl::EndpointTraits<Kind::Service, const Request&() noexcept>;
+using Invalid = refl::EndpointTraits<Kind::Service, Request&() noexcept>;
 #elif CASE == 7
 using Invalid = refl::EndpointTraits<Kind::Service, Request*() noexcept>;
 #elif CASE == 8

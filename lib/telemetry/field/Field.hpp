@@ -11,6 +11,7 @@
 #include "../detail/FieldAccess.hpp"
 #include "../detail/Name.hpp"
 #include <telemetry/result/EndpointStatus.hpp>
+#include "../result/BorrowedValue.hpp"
 #include <cstdlib>
 #include <optional>
 
@@ -24,11 +25,15 @@ struct NoSetter {};
 template <class Binding>
 struct GetterShape : reflection::EndpointTraits<reflection::EndpointKind::Field,
                                                  typename Binding::Signature> {
+    using Base = reflection::EndpointTraits<reflection::EndpointKind::Field,
+                                            typename Binding::Signature>;
     using Facts = reflection::Function<typename Binding::Signature>;
-    using Value = typename Facts::Result;
+    using RawResult = typename Facts::Result;
+    using Value = std::remove_cvref_t<RawResult>;
     static_assert(Facts::arity == 0, "Field getter must take no arguments");
-    static_assert(!std::is_void_v<Value> && std::is_same_v<Value, std::remove_cvref_t<Value>>,
-                  "Field getter must return an unqualified native value");
+    static_assert(!std::is_void_v<Value> &&
+                  (std::is_same_v<RawResult, Value> || Base::borrowsResult),
+                  "Field getter must return an unqualified native value or an exact const lvalue reference");
     static_assert(Type<Value>::kind != TypeKind::Void, "Field value cannot be void");
 };
 
@@ -52,6 +57,8 @@ template <class Getter, class Setter = field_detail::NoSetter>
 class FieldDefinition {
 public:
     using Value = typename field_detail::GetterShape<Getter>::Value;
+    static constexpr bool borrowsValue = field_detail::GetterShape<Getter>::borrowsResult;
+    using ReadResult = std::conditional_t<borrowsValue, BorrowedValue<Value>, std::optional<Value>>;
     static constexpr bool writable = !std::is_same_v<Setter, field_detail::NoSetter>;
     static_assert(field_detail::checkSetter<Setter, Value>());
 
@@ -64,11 +71,14 @@ public:
     // Keep this tiny binding adapter visible at a known call site. Runtime
     // As dispatch can otherwise make -Os outline it for unrelated callers,
     // hiding the direct owner's address and adding an optional return roundtrip.
-    [[nodiscard]] TELEMETRY_FORCE_INLINE std::optional<Value> read() const noexcept
+    [[nodiscard]] TELEMETRY_FORCE_INLINE ReadResult read() const noexcept
     {
         auto selected = getter_.snapshot();
-        if (!Getter::available(selected)) return std::nullopt;
-        return Getter::invoke(selected);
+        if (!Getter::available(selected)) return {};
+        if constexpr (borrowsValue)
+            return ReadResult::from(Getter::invoke(selected));
+        else
+            return Getter::invoke(selected);
     }
 
     template <class Argument>

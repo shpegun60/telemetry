@@ -84,7 +84,7 @@ PacketResult Exchange::processImpl(const Binding& peer, Input request, Output re
         if (entry == nullptr) return finish(response, route, D::NotFound);
         if (entry->write == nullptr) return finish(response, route, D::Ok, 2); // ReadOnly, before decoding.
         if (payload.size() != entry->wireBytes) return finish(response, route, D::InvalidPayload);
-        if (overlapsScratch(entry->scratchBytes, request, response.first(exchangeHeaderBytes), workspace))
+        if (overlapsScratch(entry->writeScratchBytes, request, response.first(exchangeHeaderBytes), workspace))
             return rejectOverlap(response, route, workspace);
         const auto result = entry->writeEncoded(payload, workspace);
         auto status = detail::packetStatus(result.dispatch);

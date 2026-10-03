@@ -47,7 +47,15 @@ template <class To, class Definition>
     if constexpr (std::is_same_v<To, From>) {
         // Return directly: explicitly asking for a large native T does not
         // create an intermediate universal value container or another copy.
-        return definition.read();
+        if constexpr (Definition::borrowsValue) {
+            // readAs explicitly asks for an owning value, even when read()
+            // exposes a view. Construct directly from the referenced object.
+            const auto value = definition.read();
+            if (!value) return std::nullopt;
+            return std::optional<To>{*value};
+        } else {
+            return definition.read();
+        }
     } else if constexpr (nativeNumber<To> && nativeNumber<From>) {
         const auto value = definition.read();
         if (!value) return std::nullopt;

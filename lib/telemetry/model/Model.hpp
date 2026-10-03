@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <type_traits>
 
@@ -99,7 +100,8 @@ public:
                   std::is_same_v<std::remove_cvref_t<C>, std::remove_cv_t<Commands>> &&
                   std::is_same_v<std::remove_cvref_t<S>, std::remove_cv_t<Services>>)
     constexpr Model(F&& fields, C&& commands, S&& services) noexcept
-        : fields_(&fields), commands_(&commands), services_(&services)
+        : fields_(std::addressof(fields)), commands_(std::addressof(commands)),
+          services_(std::addressof(services))
     {}
 
     template <class F, class C, class S>
@@ -155,7 +157,19 @@ public:
     }
 
     [[nodiscard]] constexpr std::uint32_t maxFieldScratch() const noexcept
-    { return scratchFor(fieldIndex()); }
+    {
+        std::uint32_t result = 0;
+        const auto index = fieldIndex();
+        for (std::uint32_t group = 0; group < index.count(); ++group) {
+            const auto& catalog = index.catalogs()[group];
+            for (std::uint32_t entry = 0; entry < catalog.count; ++entry) {
+                const auto& field = catalog.entries[entry];
+                if (field.readScratchBytes > result) result = field.readScratchBytes;
+                if (field.writeScratchBytes > result) result = field.writeScratchBytes;
+            }
+        }
+        return result;
+    }
 
     [[nodiscard]] constexpr std::uint32_t maxCommandScratch() const noexcept
     { return scratchFor(commandIndex()); }

@@ -173,7 +173,9 @@ earlier getters. A completed prefix is returned as Ok when the next token
 does not fit. With no completed bytes, READ returns BufferTooSmall and preserves
 the cursor. EOF gives Ok/zero bytes/eof=true without callbacks.
 
-`requiredWorkspace()` includes worst-case alignment margin;
+`requiredWorkspace()` considers only Field `readScratchBytes`, including
+worst-case alignment margin. A const-reference getter contributes zero, even
+when that Field's setter needs a large decoded object;
 `maxTokenSize()` is the minimum payload capacity to make progress over every
 field. The generic protocol's u16 payload ceiling is 65535 bytes. A larger
 token returns BufferTooSmall; callers must report this capacity mismatch,
@@ -193,6 +195,15 @@ An invalid Descriptor produces a rejected ValuesFile (`size()==0`,
 offset indexes but share the borrowed sources/Workspace. Parallel reads require
 external serialization or separate provider/Workspace instances. Leases keep
 the documented LIFO lifetime contract.
+
+A const-reference getter is encoded from its existing native object, without
+copying that payload or reserving read scratch. The complete Values READ output
+span must be disjoint from live application objects: the file writes its header
+and token status as well as the endpoint payload. The endpoint's payload guard
+does not establish disjointness for those surrounding bytes. Getters keep their
+objects alive and stable throughout encoding; the provider retains no returned
+reference between READ calls. Ownership does not change the descriptor
+fingerprint or Values wire layout.
 
 ## Core boundary
 

@@ -21,6 +21,7 @@ later source tree.
 | registry | Compile-time deduplication and structural type identity |
 | service, model | Native bindings, local/global/encoded routing and ABI controls |
 | endpoints | Mixed scalar/enum/array/struct Fields and Commands, storage budgets and codegen |
+| borrowed | Const-reference Field/Service outputs, view lifetime, slots, overlap, wire parity and ARM codegen |
 | descriptor | Independent binary parser, golden bytes and fingerprint |
 | resources | Streaming/packed DescriptorFile, ValuesFile and application resource facade |
 | traversal | Ordered metadata access, visit/container and runtime readAs/writeAs |
@@ -52,6 +53,9 @@ backs up/restores all 64 KiB with a fresh readback. The current
 from the [pre-unification proof](../../doc/evidence/pre-unification/README.md).
 The independent PSP experiment measures observed stack writes across the
 complete probe chain; it is not an unconditional maximum stack bound.
+The separate [borrowed result suite](borrowed/README.md) and
+[H7S comparison](borrowed/h7s/README.md) qualify const-reference outputs.
+Their results remain distinct from the owning Stage 20 baseline.
 
 Legacy Scalar/v2 executable tests were retired after the baseline was
 captured. Relevant ID/numeric/lifetime/slot/compiler controls remain in

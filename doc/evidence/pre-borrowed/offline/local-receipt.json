@@ -1,0 +1,2666 @@
+{
+  "format_version": 1,
+  "scope": "offline host execution and ARM compile/link inspection",
+  "captured_at_utc": "2026-10-03T21:05:13.747584+00:00",
+  "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+  "source_dirty": false,
+  "input_lf_sha256": {
+    "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
+    "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
+    "lib/boost_pfr/include/boost/pfr/core_name.hpp": "fcf91dde2849a12c6f1fc1ea330959677b95e5b7266a35947d4a327eb5ceaf28",
+    "lib/boost_pfr/include/boost/pfr/detail/config.hpp": "10e20426d95ca544acf013ac6d8df61caf7b354fe92958ad9b62b792d52ad80c",
+    "lib/boost_pfr/include/boost/pfr/detail/core.hpp": "c1c7c2a633844697ff1f91dc0fc1cad43a44325fa7eb097e828fd89253078b25",
+    "lib/boost_pfr/include/boost/pfr/detail/core14_classic.hpp": "7083f69e3e2fe6859979efc65a4a5c8335ae348acaab7963fb960c904b1fb426",
+    "lib/boost_pfr/include/boost/pfr/detail/core14_loophole.hpp": "6ca6eb541a90a780ef3020c0c6f58bafe6259f9688337aca7ce5dd2adebcebb9",
+    "lib/boost_pfr/include/boost/pfr/detail/core17.hpp": "700cbe805be53e049981b9d279916b42b6c8e2e583a5dc8d0693382ecf497910",
+    "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp": "07903414f0798758fe140eea5e0048123878fd4204ce34baf502f72da866e9dd",
+    "lib/boost_pfr/include/boost/pfr/detail/core26.hpp": "5297b0557d614e48a7475ba8d717697839966894350412f924f90de716f15eca",
+    "lib/boost_pfr/include/boost/pfr/detail/core26_reflection.hpp": "5addeb8579d39ae470426b84b25a266fa9edc68a4bd1a19085e6bb4e4dfbe483",
+    "lib/boost_pfr/include/boost/pfr/detail/core_name.hpp": "9c838ff1156cdd2acaf911aa59739c4e602e66410f21f53f5209cbbf784de4fe",
+    "lib/boost_pfr/include/boost/pfr/detail/core_name14_disabled.hpp": "a4d65ef53fa5d05b0edc48f81c78aa9f17fde4c7c573c7fa41b8496b92be2a73",
+    "lib/boost_pfr/include/boost/pfr/detail/core_name20_static.hpp": "738061339251d85be02901dff9ad723d776967511fb6645d119d0893ab8ad7f4",
+    "lib/boost_pfr/include/boost/pfr/detail/core_name26_reflection.hpp": "5bb8954b4b91087755bb6683156fe7b4768150b5ddf2a2f133dfda4e14e8d884",
+    "lib/boost_pfr/include/boost/pfr/detail/detectors.hpp": "40cac68c7a01af7307eec4725de71783ac7ad72db158463ed63eb049385f6242",
+    "lib/boost_pfr/include/boost/pfr/detail/fake_object.hpp": "48ed22e2c7d63e8030ef919c9ff0c64f95a660043064025b1584861038104320",
+    "lib/boost_pfr/include/boost/pfr/detail/fields_count.hpp": "2ad090e16de6857b65580fc757f2ff908a2dcc1e8dfd4df5be7899b8edad8891",
+    "lib/boost_pfr/include/boost/pfr/detail/for_each_field.hpp": "6f49900af1ad7fd4094ae0b4901c18d08bd80dc2176626069aca4d6670bdad80",
+    "lib/boost_pfr/include/boost/pfr/detail/for_each_field_impl.hpp": "b9d4dc8b4470a7d62a0e34f25e253e8e983c2f7fb356808c0724990df91a75dd",
+    "lib/boost_pfr/include/boost/pfr/detail/functional.hpp": "6acbac4eea43b28d5c01f592756753b42d6d3be2820f3dab9f31d2c12d54a35a",
+    "lib/boost_pfr/include/boost/pfr/detail/io.hpp": "63370759c7d28ae670b3dd78ddd5e91778f81da8f06ddbcb252ff755c592f63b",
+    "lib/boost_pfr/include/boost/pfr/detail/make_flat_tuple_of_references.hpp": "2aad27e108445944e7cbf2b1e6a3326bb5cd1c2edaae04735f018cd898576e79",
+    "lib/boost_pfr/include/boost/pfr/detail/make_integer_sequence.hpp": "7de6fd4a8e0385da613d60d19a1d33536a9764ae0060a18a6bc643f1d9ee5add",
+    "lib/boost_pfr/include/boost/pfr/detail/offset_based_getter.hpp": "2ffb10662802fcb329b0c4da5119bc24058219862546dc9a38b226fa32a83c0e",
+    "lib/boost_pfr/include/boost/pfr/detail/possible_reflectable.hpp": "74125e2b26a16e07e40236ccb7f24b2e7539963cadbaea9f04f5af295f1b3286",
+    "lib/boost_pfr/include/boost/pfr/detail/rvalue_t.hpp": "4125eb1e522c042648a0c473d1a34372f9d2004eb92598eee7ab35b1c576dbb5",
+    "lib/boost_pfr/include/boost/pfr/detail/sequence_tuple.hpp": "793d632854dbf755442629cd5713a2196dff6498912c3b7971dce7836a5c853d",
+    "lib/boost_pfr/include/boost/pfr/detail/size_array.hpp": "9efcc3a3bfe24896d23ee0f8fd9a6e7ab5f55a87776bd7bcde89656e9e9d1d46",
+    "lib/boost_pfr/include/boost/pfr/detail/size_t_.hpp": "d6b90bfaf92b8ec264d2fd4d2f72e42f7268c06632b76a66e79211c125e9b173",
+    "lib/boost_pfr/include/boost/pfr/detail/stdarray.hpp": "8f4aa7cd432f5118a94353abf93e36b0e12724bde1ad0eab55ad0e40e154bec0",
+    "lib/boost_pfr/include/boost/pfr/detail/stdtuple.hpp": "9b14e3ecf131d8ccbfbfafa6e2e9c0abf61c178ce549486ad2907cfd8f3c9045",
+    "lib/boost_pfr/include/boost/pfr/detail/tie_from_structure_tuple.hpp": "4d5d4fe37f233c89b6224d5a446a4399d6e1dab5ecc8288235523b42f0b2348f",
+    "lib/boost_pfr/include/boost/pfr/detail/unsafe_declval.hpp": "a833b833a0febd16f68ea90835df287dee1ea03b2f3a8ce40ad35f6c18338752",
+    "lib/boost_pfr/include/boost/pfr/functions_for.hpp": "76d131adf7981b395e4ac164382e25cce18842abd428f30ba3f4a0196b248d21",
+    "lib/boost_pfr/include/boost/pfr/functors.hpp": "e3a921e058c73d08c116b8620bd35f839c5fa7aa935c85c8647e736b06793479",
+    "lib/boost_pfr/include/boost/pfr/io.hpp": "3d9ed56e1c5a192a773c7ecd05745512bdd1e9b7940997e6ae0300c158a9c822",
+    "lib/boost_pfr/include/boost/pfr/io_fields.hpp": "c80e394cc3578deaf4b0b7576aa7f87cb6348034144009133ee1d897cae13778",
+    "lib/boost_pfr/include/boost/pfr/ops.hpp": "dfd8233a5c1041cd9971d85dc28175ade6b6439f9aff4bd99e65b117c9dc791f",
+    "lib/boost_pfr/include/boost/pfr/ops_fields.hpp": "4e3caefc635ba685aa4c5f6855bbcdc0c00f622023f9c4079c09576b9ce4e833",
+    "lib/boost_pfr/include/boost/pfr/traits.hpp": "00dfb9158b0971f500fa864394a185fd02b56b9b529232ba3ff4cc333d60f55e",
+    "lib/boost_pfr/include/boost/pfr/traits_fwd.hpp": "dc75f37c001d33707110eaaee90b1dff8b6d4efe1719142b677d5c4c4b21af54",
+    "lib/boost_pfr/include/boost/pfr/tuple_size.hpp": "b4e65002af093af2749490d26dd171757162474454384188dd7aec78eb04540e",
+    "lib/boost_pfr/include/boost/pfr.hpp": "4649852228196a1857e209f6ad84ffe95eb42ba3d53fff2b91802eb4be474fcd",
+    "lib/delegate/delegate.pri": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+    "lib/delegate/tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+    "lib/magic_enum/magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+    "lib/magic_enum/magic_enum.pri": "2223ceb1ae85ef1533be06fb0f360445314af620e992e7be63c6366f90822374",
+    "lib/resource/ChunkWriter.hpp": "0835f6605dc5271bbd8838be25cb13fc0064d4cbaf884677cba53a81e3daeff7",
+    "lib/resource/File.hpp": "1b548219b873662cdd4a6cf388ecc6c8f05f1ba40a7d5e59212a35e5c389bea2",
+    "lib/resource/FileSystem.hpp": "ff93b73b5e636df64a38a0f7b2c141675a10f425c9444502d4f40e7e290ecd8d",
+    "lib/resource/protocol/Protocol.cpp": "b4733084674d4fc11b2a738a93a71871cf2bfbe3fb804beae580f801da37a508",
+    "lib/resource/protocol/Protocol.hpp": "a7a8fb46ac2982bffc9f537b03034b4fa983615c3214504ccfc6227cca39f89c",
+    "lib/resource/resource.pri": "24dc1040fc413c02a9c6828e888cdbab0ae7d6d31dfc9a33e1f07aff2d942299",
+    "lib/resource/telemetry/v3/BinaryFormat.hpp": "9aba7d6442169531161d72278e65c90cb3f969fddd1917d24ab16d76e0c337b8",
+    "lib/resource/telemetry/v3/Descriptor.hpp": "3e5affc79ca8b055db44c7ef5104dd373505360830dba0152c976faa6fa8e4bf",
+    "lib/resource/telemetry/v3/DescriptorFile.hpp": "ad33c6c5997408a77f3a0cdfea83b584110fd991a05e5426bdc894003d26624a",
+    "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
+    "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
+    "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
+    "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+    "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
+    "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
+    "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
+    "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+    "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
+    "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
+    "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
+    "lib/telemetry/command/CommandCatalogs.hpp": "3a288737569c642f721787e6b9da2f436178ecb9db5ad7733e373c5857a80f38",
+    "lib/telemetry/command/CommandTable.hpp": "511e14a1aeb9eeb9d20389ffa898a08bf37d9c73fe03575721b6b023af44414f",
+    "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
+    "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
+    "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
+    "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
+    "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+    "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
+    "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
+    "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
+    "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
+    "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
+    "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
+    "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+    "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
+    "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+    "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
+    "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
+    "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
+    "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
+    "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
+    "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+    "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
+    "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
+    "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
+    "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
+    "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+    "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
+    "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
+    "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
+    "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
+    "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+    "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
+    "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+    "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
+    "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
+    "lib/telemetry/slot/TelemetryDelegateSlot.h": "75a458b1177a83e0e43995d72cfeb4bdbcb6343bf52c89f0e2c51a8118a9d649",
+    "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
+    "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
+    "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
+    "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+    "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
+    "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
+    "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
+    "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
+    "tests/structured/mcu/Fixture.hpp": "5622e698ae803ef93e87e4a4b71b717cce10c179c2c3418c2bb59d260d056da0",
+    "tests/structured/mcu/h7s/Benchmark.cpp": "e7f866ef7d1c3f97f51f81daf2a041377adf02940314f09c811899ef457804bb",
+    "tests/structured/mcu/h7s/Probe.cpp": "a51014c61225fa47f74f66903ce32440aa08cb25e80b9cdfc7613783c9f3323f",
+    "tests/structured/mcu/h7s/run.py": "87485c36ebf28b824599ec7dc18b98c292ddd917b0d2cb427f45de91464e0b5f",
+    "tests/structured/mcu/h7s/verify.py": "b0a228480ae84237f99f91c99b0c22ac09fd1b6a0107c9910b98d79cde12db36",
+    "tests/structured/mcu/Host.cpp": "f2112662e2a7d10569661253df30ec09de4d015627055ef830d070f780249f7f",
+    "tests/structured/mcu/Mixed.cpp": "25915bf74f7b56d53d995a8c5b06aabc5bd9126647424ac94023fa44ece314d0",
+    "tests/structured/mcu/receipt.py": "87b9380a3c6c9b499a51cba86c5dd7f06e9b356c985a428558b5fd9102748cc0",
+    "tests/structured/mcu/run.py": "c5b5bdea16231d7a382cb9cb6b3f8d593b1aed69b39d16883e23599984130cfb",
+    "tests/structured/mcu/Scale.cpp": "4d90e2dddb66d163a6c30e5e84a24a9407e21f1d59fd3d93ac4ca3a57b21d71b",
+    "tests/structured/qualification/AbiClient.cpp": "e6a7f12cd387b6818d4c04c67d347bb8d6048f1aed29748c02d281d64f9f8c29",
+    "tests/structured/qualification/Check.cpp": "dd73a7baa476bb216ece707e2d66c394f968021c9e6189983356839a7d321419",
+    "tests/structured/qualification/Depth.cpp": "93e2e143fdc053e31353ba7000b147f33893f80d6ab2baffd705b23f8c8e9d55",
+    "tests/structured/qualification/Encoded.cpp": "8ee43cc1af545ff2ebb32ab99b9eef5524d7c4948f1af87f6d8a47b014b90fd0",
+    "tests/structured/qualification/Fixture.hpp": "916ca1a4f3a66ccabcd5ccd21d5e4b16e1ea35ae1fb7289a8ed7254a0efa92a4",
+    "tests/structured/qualification/gates.py": "5982658801aaa77c272dc60a801f81b6c31ea0dd7a62dd8e23613db16d0fc62b",
+    "tests/structured/qualification/LeafCodegen.cpp": "ec971db860c7973464caae8459fae656d7d5e637c9c2847dc21a6330fca9e6db",
+    "tests/structured/qualification/NameNegative.cpp": "96d81a18ba9485cb2035572a2fb3b08947abe452d1387b29e222a683dfc0308f",
+    "tests/structured/qualification/Names.cpp": "7fef0039b92fc62e745a7b2e3018372db477a4728a31464ea9228baccbcd87fa",
+    "tests/structured/qualification/Provider.cpp": "c92a6645e6e328bee28489daeb250430734150f7ab550dbe8f65031623b91d8a",
+    "tests/structured/qualification/run.py": "11b0010280a60daca627f2654dcd692e3bde3622a6239c39960ab4ab93afa4a8",
+    "tests/structured/qualification/Scale.cpp": "cc0d9d1533fea4ad2a7b5b1e742866e010cacb89d7ff8e448fe146cc446d9e2f",
+    "tests/structured/qualification/SymbolControl.cpp": "1acb67b6bca72faec53020913528beff404bf6a1cc7b0679370721c010f90c9b",
+    "tests/structured/qualification/Typed.cpp": "a4e22f2cd636323e1c610ecacd1e7487c36a7e71f250715da43195e4cc49278f",
+    "tests/structured/traversal/Fixture.hpp": "d56e258423ae1260adce0ceb665cefe0fd925a24b082ef1f468ae143864f3591"
+  },
+  "runs": {
+    "mingw13": {
+      "compiler": "g++.exe (x86_64-posix-seh-rev1, Built by MinGW-Builds project) 13.1.0",
+      "flags": [
+        "C:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage"
+      ],
+      "commands": 52,
+      "checks": 43638,
+      "execution": "host",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "03b41207a104bf2d9c67db4c91ee87cc19d0de8a605ba4a767cd97632b232ab1",
+      "configurations": {
+        "Mixed-O2": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 320,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 288,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 288
+          }
+        },
+        "Mixed-Os": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 336,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 304,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 304
+          }
+        },
+        "Mixed-Og": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 368,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 336,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 336
+          }
+        },
+        "Scale-O2": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "gcc13-null": {
+      "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "flags": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-fno-delete-null-pointer-checks"
+      ],
+      "commands": 52,
+      "checks": 43638,
+      "execution": "host",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "1aa8fbac129a909487a6417676849c2c213829320ce0daf24012b1660fcefc15",
+      "configurations": {
+        "Mixed-O2": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 240
+          }
+        },
+        "Mixed-Os": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 240
+          }
+        },
+        "Mixed-Og": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 240,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 240
+          }
+        },
+        "Scale-O2": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "clang18-sanitized": {
+      "compiler": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "flags": [
+        "/usr/bin/clang++-18",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer"
+      ],
+      "commands": 52,
+      "checks": 43638,
+      "execution": "host",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "2382c6cccb0fdaeef9fdaa17720d5e954e08611d061863ee0b6fdfb5b2351e07",
+      "configurations": {
+        "Mixed-O2": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {}
+        },
+        "Mixed-Os": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {}
+        },
+        "Mixed-Og": {
+          "checks": 12230,
+          "consumer_checks": 97,
+          "big_probe_frames": {}
+        },
+        "Scale-O2": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "checks": 2316,
+          "consumer_checks": 0,
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "cubeide14": {
+      "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+      "flags": [
+        "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-DQUALIFICATION_ARM"
+      ],
+      "commands": 67,
+      "checks": 0,
+      "execution": "compile/link only",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "fced3e218581b3c400e40fd46713a155d381dcd4eb99069697cddfff161208f6",
+      "linked_symbol_control": {
+        "execution": "nm only",
+        "required": [
+          "_malloc_r",
+          "_printf_r"
+        ],
+        "rejected_symbols": [
+          "__sfvwrite_r",
+          "__sprint_r",
+          "_calloc_r",
+          "_free_r",
+          "_malloc_r",
+          "_printf_r",
+          "_realloc_r",
+          "_sbrk",
+          "_sbrk_r",
+          "_vfiprintf_r",
+          "_vfprintf_r",
+          "fiprintf"
+        ],
+        "elf_sha256": "fb30f1bff6c6b769f0d5818b6520030fb2e677b9bb14ca71993b6f04a61164c4"
+      },
+      "configurations": {
+        "Mixed-O2": {
+          "sections": {
+            "text": 17304,
+            "rodata": 6792,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 216,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 176,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 192
+          }
+        },
+        "Mixed-Os": {
+          "sections": {
+            "text": 14464,
+            "rodata": 6928,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Mixed-Og": {
+          "sections": {
+            "text": 24896,
+            "rodata": 7080,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "adds\tr2, #1",
+                  "str.w\tr2, [r3], #52",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "add\tr3, sp, #8",
+                  "stmdb\tr3, {r0, r1}",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "sub\tsp, #24",
+                  "ldr\tr3, [pc, #36]\t@ (28 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "adds\tr2, #1",
+                  "str.w\tr2, [r3], #52",
+                  "add\tr2, sp, #16",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "add\tr3, sp, #4",
+                  "stmia.w\tr3, {r0, r1}",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #12]",
+                  "add\tsp, #24",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "pop\t{pc}",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "sub\tsp, #16",
+                  "ldr\tr2, [pc, #32]\t@ (24 <target>)",
+                  "add\tr3, sp, #8",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr1, [pc, #24]\t@ (28 <target>)",
+                  "ldr\tr2, [r1, #12]",
+                  "adds\tr2, #1",
+                  "str\tr2, [r1, #12]",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "strd\tr0, r1, [sp]",
+                  "movs\tr0, #17",
+                  "add\tsp, #16",
+                  "bx\tlr"
+                ],
+                "serviceLocal": [
+                  "sub\tsp, #32",
+                  "ldr\tr2, [pc, #52]\t@ (38 <target>)",
+                  "add\tr3, sp, #16",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr2, [pc, #44]\t@ (3c <target>)",
+                  "str\tr2, [sp, #0]",
+                  "str.w\tsp, [sp, #24]",
+                  "str\tr3, [sp, #28]",
+                  "movs\tr1, #0",
+                  "strb.w\tr1, [sp, #4]",
+                  "strb.w\tr1, [sp, #8]",
+                  "ldr\tr1, [r2, #12]",
+                  "adds\tr1, #1",
+                  "str\tr1, [r2, #12]",
+                  "add\tr2, sp, #8",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #32",
+                  "bx\tlr"
+                ],
+                "serviceGlobal": [
+                  "sub\tsp, #32",
+                  "ldr\tr2, [pc, #52]\t@ (38 <target>)",
+                  "add\tr3, sp, #16",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr2, [pc, #44]\t@ (3c <target>)",
+                  "str\tr2, [sp, #0]",
+                  "str.w\tsp, [sp, #24]",
+                  "str\tr3, [sp, #28]",
+                  "movs\tr1, #0",
+                  "strb.w\tr1, [sp, #4]",
+                  "strb.w\tr1, [sp, #8]",
+                  "ldr\tr1, [r2, #12]",
+                  "adds\tr1, #1",
+                  "str\tr1, [r2, #12]",
+                  "add\tr2, sp, #8",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #32",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Scale-O2": {
+          "sections": {
+            "text": 10556,
+            "rodata": 7048,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "sections": {
+            "text": 8002,
+            "rodata": 7036,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "sections": {
+            "text": 19282,
+            "rodata": 7076,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "str\tr0, [sp, #0]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #4]",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "str\tr0, [sp, #0]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #4]",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "cubeide14-null": {
+      "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+      "flags": [
+        "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-fno-delete-null-pointer-checks",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-DQUALIFICATION_ARM"
+      ],
+      "commands": 67,
+      "checks": 0,
+      "execution": "compile/link only",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "750b24ce17feb70a3b7f136e0993db9bcc45288b0b35f62f54d95f6ff6dab47d",
+      "linked_symbol_control": {
+        "execution": "nm only",
+        "required": [
+          "_malloc_r",
+          "_printf_r"
+        ],
+        "rejected_symbols": [
+          "__sfvwrite_r",
+          "__sprint_r",
+          "_calloc_r",
+          "_free_r",
+          "_malloc_r",
+          "_printf_r",
+          "_realloc_r",
+          "_sbrk",
+          "_sbrk_r",
+          "_vfiprintf_r",
+          "_vfprintf_r",
+          "fiprintf"
+        ],
+        "elf_sha256": "fb30f1bff6c6b769f0d5818b6520030fb2e677b9bb14ca71993b6f04a61164c4"
+      },
+      "configurations": {
+        "Mixed-O2": {
+          "sections": {
+            "text": 18392,
+            "rodata": 6792,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr3, [pc, #16]\t@ (18 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  "movs\tr0, #0",
+                  "bx\tlr"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr3, [pc, #16]\t@ (18 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  "movs\tr0, #0",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr2, [pc, #24]\t@ (20 <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  "sub\tsp, #16",
+                  "strb.w\tr3, [sp, #8]",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #16",
+                  "bx\tlr"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr2, [pc, #24]\t@ (20 <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  "sub\tsp, #16",
+                  "strb.w\tr3, [sp, #8]",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #16",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 216,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 176,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 192
+          }
+        },
+        "Mixed-Os": {
+          "sections": {
+            "text": 15872,
+            "rodata": 6928,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #12]\t@ (10 <target>)",
+                  "cbz\tr3, e <target>",
+                  "ldr\tr3, [pc, #12]\t@ (14 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #12]\t@ (10 <target>)",
+                  "cbz\tr3, e <target>",
+                  "ldr\tr3, [pc, #12]\t@ (14 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "push\t{r0, r1, r2, r3, r4, r5, r6, lr}",
+                  "movs\tr3, #17",
+                  "add\tr0, sp, #12",
+                  "add\tr2, sp, #4",
+                  "ldr\tr1, [pc, #16]\t@ (1c <target>)",
+                  "str\tr3, [sp, #4]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #8]",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #16]",
+                  "add\tsp, #28",
+                  "pop\t{pc}",
+                  ".word\t0x00000018"
+                ],
+                "serviceGlobal": [
+                  "push\t{r0, r1, r2, r3, r4, r5, r6, lr}",
+                  "movs\tr3, #17",
+                  "add\tr0, sp, #12",
+                  "add\tr2, sp, #4",
+                  "ldr\tr1, [pc, #16]\t@ (1c <target>)",
+                  "str\tr3, [sp, #4]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #8]",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #16]",
+                  "add\tsp, #28",
+                  "pop\t{pc}",
+                  ".word\t0x00000018"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Mixed-Og": {
+          "sections": {
+            "text": 28160,
+            "rodata": 7080,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "adds\tr2, #1",
+                  "str.w\tr2, [r3], #52",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "add\tr3, sp, #8",
+                  "stmdb\tr3, {r0, r1}",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "pop\t{pc}",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "pop\t{pc}",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "sub\tsp, #16",
+                  "add\tr3, sp, #8",
+                  "ldr\tr2, [pc, #28]\t@ (24 <target>)",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr1, [pc, #24]\t@ (28 <target>)",
+                  "ldr\tr2, [r1, #12]",
+                  "adds\tr2, #1",
+                  "str\tr2, [r1, #12]",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "strd\tr0, r1, [sp]",
+                  "movs\tr0, #17",
+                  "add\tsp, #16",
+                  "bx\tlr",
+                  ".word\t0x00000004",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "push\t{lr}",
+                  "sub\tsp, #28",
+                  "add\tr2, sp, #16",
+                  "ldr\tr3, [pc, #24]\t@ (20 <target>)",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #28",
+                  "pop\t{pc}",
+                  "nop",
+                  ".word\t0x00000004",
+                  ".word\t0x00000018"
+                ],
+                "serviceGlobal": [
+                  "push\t{lr}",
+                  "sub\tsp, #28",
+                  "add\tr2, sp, #16",
+                  "ldr\tr3, [pc, #24]\t@ (20 <target>)",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #28",
+                  "pop\t{pc}",
+                  "nop",
+                  ".word\t0x00000004",
+                  ".word\t0x00000018"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "C:/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Scale-O2": {
+          "sections": {
+            "text": 10556,
+            "rodata": 7048,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "sections": {
+            "text": 8002,
+            "rodata": 7036,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "sections": {
+            "text": 19282,
+            "rodata": 7076,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "str\tr0, [sp, #0]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #4]",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "str\tr0, [sp, #0]",
+                  "movs\tr3, #1",
+                  "strb.w\tr3, [sp, #4]",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "arm13": {
+      "compiler": "arm-none-eabi-g++ (15:13.2.rel1-2) 13.2.1 20231009",
+      "flags": [
+        "/usr/bin/arm-none-eabi-g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-DQUALIFICATION_ARM"
+      ],
+      "commands": 67,
+      "checks": 0,
+      "execution": "compile/link only",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "12a8c7e268301068adc0e261aa7f8b24a5a89027fd9c005048a6d9bc565acf4a",
+      "linked_symbol_control": {
+        "execution": "nm only",
+        "required": [
+          "_malloc_r",
+          "_printf_r"
+        ],
+        "rejected_symbols": [
+          "__sfvwrite_r",
+          "__sprint_r",
+          "_calloc_r",
+          "_fiprintf_r",
+          "_free_r",
+          "_malloc_r",
+          "_printf_r",
+          "_realloc_r",
+          "_sbrk",
+          "_sbrk_r",
+          "_vfiprintf_r",
+          "_vfprintf_r",
+          "fiprintf",
+          "printf",
+          "vfiprintf",
+          "vfprintf"
+        ],
+        "elf_sha256": "ed34b1411b34925db1188463938b4939364e715a062ae7a2431813f39c01a5a9"
+      },
+      "configurations": {
+        "Mixed-O2": {
+          "sections": {
+            "text": 17520,
+            "rodata": 6792,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 216,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 176,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 192
+          }
+        },
+        "Mixed-Os": {
+          "sections": {
+            "text": 14648,
+            "rodata": 6920,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": true,
+                "global": true
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": true,
+                "serviceGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Mixed-Og": {
+          "sections": {
+            "text": 25848,
+            "rodata": 7080,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "adds\tr2, #1",
+                  "str.w\tr2, [r3], #52",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "add\tr3, sp, #8",
+                  "stmdb\tr3, {r0, r1}",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "sub\tsp, #16",
+                  "ldr\tr2, [pc, #36]\t@ (28 <target>)",
+                  "add\tr3, sp, #8",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr1, [pc, #28]\t@ (2c <target>)",
+                  "ldr\tr2, [r1, #12]",
+                  "adds\tr2, #1",
+                  "str\tr2, [r1, #12]",
+                  "mov\tr2, sp",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #16",
+                  "bx\tlr",
+                  "nop"
+                ],
+                "serviceLocal": [
+                  "sub\tsp, #32",
+                  "ldr\tr2, [pc, #52]\t@ (38 <target>)",
+                  "add\tr3, sp, #16",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr2, [pc, #44]\t@ (3c <target>)",
+                  "str\tr2, [sp, #0]",
+                  "str.w\tsp, [sp, #24]",
+                  "str\tr3, [sp, #28]",
+                  "movs\tr1, #0",
+                  "strb.w\tr1, [sp, #4]",
+                  "strb.w\tr1, [sp, #8]",
+                  "ldr\tr1, [r2, #12]",
+                  "adds\tr1, #1",
+                  "str\tr1, [r2, #12]",
+                  "add\tr2, sp, #8",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #32",
+                  "bx\tlr"
+                ],
+                "serviceGlobal": [
+                  "sub\tsp, #32",
+                  "ldr\tr2, [pc, #52]\t@ (38 <target>)",
+                  "add\tr3, sp, #16",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr2, [pc, #44]\t@ (3c <target>)",
+                  "str\tr2, [sp, #0]",
+                  "str.w\tsp, [sp, #24]",
+                  "str\tr3, [sp, #28]",
+                  "movs\tr1, #0",
+                  "strb.w\tr1, [sp, #4]",
+                  "strb.w\tr1, [sp, #8]",
+                  "ldr\tr1, [r2, #12]",
+                  "adds\tr1, #1",
+                  "str\tr1, [r2, #12]",
+                  "add\tr2, sp, #8",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #32",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Scale-O2": {
+          "sections": {
+            "text": 10584,
+            "rodata": 7048,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "sections": {
+            "text": 10574,
+            "rodata": 7036,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "b.w\t0 <target>"
+                ]
+              },
+              "tail_forwards": {
+                "typedGlobal": [
+                  "mcu::(anonymous namespace)::typedLocal(unsigned long)"
+                ]
+              },
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "sections": {
+            "text": 30198,
+            "rodata": 7076,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "push\t{lr}",
+                  "sub\tsp, #12",
+                  "ldr\tr1, [pc, #24]\t@ (20 <target>)",
+                  "mov\tr0, sp",
+                  "bl\t0 <target>",
+                  "ldrb.w\tr3, [sp, #4]",
+                  "cbz\tr3, 1a <target>",
+                  "ldr\tr0, [sp, #0]",
+                  "add\tsp, #12",
+                  "ldr.w\tpc, [sp], #4",
+                  "movs\tr0, #0",
+                  "b.n\t14 <target>",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "push\t{lr}",
+                  "sub\tsp, #12",
+                  "ldr\tr1, [pc, #24]\t@ (20 <target>)",
+                  "mov\tr0, sp",
+                  "bl\t0 <target>",
+                  "ldrb.w\tr3, [sp, #4]",
+                  "cbz\tr3, 1a <target>",
+                  "ldr\tr0, [sp, #0]",
+                  "add\tsp, #12",
+                  "ldr.w\tpc, [sp], #4",
+                  "movs\tr0, #0",
+                  "b.n\t14 <target>",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        }
+      }
+    },
+    "arm13-null": {
+      "compiler": "arm-none-eabi-g++ (15:13.2.rel1-2) 13.2.1 20231009",
+      "flags": [
+        "/usr/bin/arm-none-eabi-g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fstack-usage",
+        "-fno-delete-null-pointer-checks",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-DQUALIFICATION_ARM"
+      ],
+      "commands": 67,
+      "checks": 0,
+      "execution": "compile/link only",
+      "gate_controls": {
+        "count_positives": 2,
+        "count_rejections": 6,
+        "symbol_positives": 2,
+        "symbol_rejections": 79
+      },
+      "codegen_controls": {
+        "positive": 2,
+        "rejected_mutations": 5
+      },
+      "report_sha256": "2be0d95fd930bf45c868d7c89aaa15e530c0605d5203a0bb64f36c0a7dc571b8",
+      "linked_symbol_control": {
+        "execution": "nm only",
+        "required": [
+          "_malloc_r",
+          "_printf_r"
+        ],
+        "rejected_symbols": [
+          "__sfvwrite_r",
+          "__sprint_r",
+          "_calloc_r",
+          "_fiprintf_r",
+          "_free_r",
+          "_malloc_r",
+          "_printf_r",
+          "_realloc_r",
+          "_sbrk",
+          "_sbrk_r",
+          "_vfiprintf_r",
+          "_vfprintf_r",
+          "fiprintf",
+          "printf",
+          "vfiprintf",
+          "vfprintf"
+        ],
+        "elf_sha256": "ed34b1411b34925db1188463938b4939364e715a062ae7a2431813f39c01a5a9"
+      },
+      "configurations": {
+        "Mixed-O2": {
+          "sections": {
+            "text": 18544,
+            "rodata": 6792,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr3, [pc, #16]\t@ (18 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  "movs\tr0, #0",
+                  "bx\tlr"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #16]\t@ (14 <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr3, [pc, #16]\t@ (18 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  "movs\tr0, #0",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr2, [pc, #24]\t@ (20 <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  "sub\tsp, #16",
+                  "strb.w\tr3, [sp, #8]",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #16",
+                  "bx\tlr"
+                ],
+                "serviceGlobal": [
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "cbz\tr3, 10 <target>",
+                  "ldr\tr2, [pc, #24]\t@ (20 <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  "sub\tsp, #16",
+                  "strb.w\tr3, [sp, #8]",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #16",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 216,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 176,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 192
+          }
+        },
+        "Mixed-Os": {
+          "sections": {
+            "text": 16056,
+            "rodata": 6920,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "ldr\tr3, [pc, #8]\t@ (c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "ldr\tr3, [pc, #12]\t@ (10 <target>)",
+                  "cbz\tr3, e <target>",
+                  "ldr\tr3, [pc, #12]\t@ (14 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr"
+                ],
+                "global": [
+                  "ldr\tr3, [pc, #12]\t@ (10 <target>)",
+                  "cbz\tr3, e <target>",
+                  "ldr\tr3, [pc, #12]\t@ (14 <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "ldr\tr0, [r3, #52]\t@ 0x34",
+                  "adds\tr2, #1",
+                  "str\tr2, [r3, #0]",
+                  "bx\tlr"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "ldr\tr2, [pc, #8]\t@ (c <target>)",
+                  "movs\tr0, #17",
+                  "ldr\tr3, [r2, #12]",
+                  "adds\tr3, #1",
+                  "str\tr3, [r2, #12]",
+                  "bx\tlr",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "push\t{r0, r1, r2, r3, r4, r5, r6, lr}",
+                  "ldr\tr3, [pc, #28]\t@ (20 <target>)",
+                  "add\tr2, sp, #4",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "add\tr0, sp, #12",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #16]",
+                  "add\tsp, #28",
+                  "ldr.w\tpc, [sp], #4",
+                  "nop",
+                  ".word\t0x00000000",
+                  ".word\t0x00000018"
+                ],
+                "serviceGlobal": [
+                  "push\t{r0, r1, r2, r3, r4, r5, r6, lr}",
+                  "ldr\tr3, [pc, #28]\t@ (20 <target>)",
+                  "add\tr2, sp, #4",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "add\tr0, sp, #12",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #16]",
+                  "add\tsp, #28",
+                  "ldr.w\tpc, [sp], #4",
+                  "nop",
+                  ".word\t0x00000000",
+                  ".word\t0x00000018"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Mixed-Og": {
+          "sections": {
+            "text": 28984,
+            "rodata": 7080,
+            "data": 76,
+            "bss": 57920
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "direct": [
+                  "sub\tsp, #8",
+                  "ldr\tr3, [pc, #24]\t@ (1c <target>)",
+                  "ldr\tr2, [r3, #0]",
+                  "adds\tr2, #1",
+                  "str.w\tr2, [r3], #52",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "add\tr3, sp, #8",
+                  "stmdb\tr3, {r0, r1}",
+                  "add\tsp, #8",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "local": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000000"
+                ],
+                "global": [
+                  "push\t{lr}",
+                  "sub\tsp, #20",
+                  "ldr\tr1, [pc, #12]\t@ (14 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #4]",
+                  "add\tsp, #20",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              },
+              "effective_direct_equivalent": {
+                "direct": true,
+                "local": false,
+                "global": false
+              }
+            },
+            {
+              "bodies": {
+                "serviceDirect": [
+                  "sub\tsp, #16",
+                  "add\tr3, sp, #8",
+                  "ldr\tr2, [pc, #32]\t@ (28 <target>)",
+                  "ldmia.w\tr2, {r0, r1}",
+                  "stmia.w\tr3, {r0, r1}",
+                  "ldr\tr1, [pc, #28]\t@ (2c <target>)",
+                  "ldr\tr2, [r1, #12]",
+                  "adds\tr2, #1",
+                  "str\tr2, [r1, #12]",
+                  "mov\tr2, sp",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "movs\tr0, #17",
+                  "add\tsp, #16",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000004",
+                  ".word\t0x00000000"
+                ],
+                "serviceLocal": [
+                  "push\t{lr}",
+                  "sub\tsp, #28",
+                  "add\tr2, sp, #16",
+                  "ldr\tr3, [pc, #24]\t@ (20 <target>)",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #28",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000004",
+                  ".word\t0x00000018"
+                ],
+                "serviceGlobal": [
+                  "push\t{lr}",
+                  "sub\tsp, #28",
+                  "add\tr2, sp, #16",
+                  "ldr\tr3, [pc, #24]\t@ (20 <target>)",
+                  "ldmia.w\tr3, {r0, r1}",
+                  "stmia.w\tr2, {r0, r1}",
+                  "ldr\tr1, [pc, #16]\t@ (24 <target>)",
+                  "add\tr0, sp, #4",
+                  "bl\t0 <target>",
+                  "ldr\tr0, [sp, #8]",
+                  "add\tsp, #28",
+                  "ldr.w\tpc, [sp], #4",
+                  ".word\t0x00000004",
+                  ".word\t0x00000018"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "serviceDirect": true,
+                "serviceLocal": false,
+                "serviceGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:130:15:uint32_t mcu::{anonymous}::bigService(uint32_t)": 192,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:124:15:uint32_t mcu::{anonymous}::bigCommand(uint32_t)": 152,
+            "/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/tests/structured/mcu/Mixed.cpp:116:15:uint32_t mcu::{anonymous}::bigRead(uint32_t)": 168
+          }
+        },
+        "Scale-O2": {
+          "sections": {
+            "text": 10584,
+            "rodata": 7048,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Os": {
+          "sections": {
+            "text": 10574,
+            "rodata": 7036,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "b.w\t0 <target>"
+                ]
+              },
+              "tail_forwards": {
+                "typedGlobal": [
+                  "mcu::(anonymous namespace)::typedLocal(unsigned long)"
+                ]
+              },
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": true,
+                "typedGlobal": true
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        },
+        "Scale-Og": {
+          "sections": {
+            "text": 30198,
+            "rodata": 7076,
+            "data": 0,
+            "bss": 1032
+          },
+          "native_codegen": [
+            {
+              "bodies": {
+                "directKnown": [
+                  "ldr\tr3, [pc, #4]\t@ (8 <target>)",
+                  "ldr\tr0, [r3, #0]",
+                  "bx\tlr",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedLocal": [
+                  "push\t{lr}",
+                  "sub\tsp, #12",
+                  "ldr\tr1, [pc, #24]\t@ (20 <target>)",
+                  "mov\tr0, sp",
+                  "bl\t0 <target>",
+                  "ldrb.w\tr3, [sp, #4]",
+                  "cbz\tr3, 1a <target>",
+                  "ldr\tr0, [sp, #0]",
+                  "add\tsp, #12",
+                  "ldr.w\tpc, [sp], #4",
+                  "movs\tr0, #0",
+                  "b.n\t14 <target>",
+                  "nop",
+                  ".word\t0x00000000"
+                ],
+                "typedGlobal": [
+                  "push\t{lr}",
+                  "sub\tsp, #12",
+                  "ldr\tr1, [pc, #24]\t@ (20 <target>)",
+                  "mov\tr0, sp",
+                  "bl\t0 <target>",
+                  "ldrb.w\tr3, [sp, #4]",
+                  "cbz\tr3, 1a <target>",
+                  "ldr\tr0, [sp, #0]",
+                  "add\tsp, #12",
+                  "ldr.w\tpc, [sp], #4",
+                  "movs\tr0, #0",
+                  "b.n\t14 <target>",
+                  "nop",
+                  ".word\t0x00000000"
+                ]
+              },
+              "tail_forwards": {},
+              "raw_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              },
+              "effective_direct_equivalent": {
+                "directKnown": true,
+                "typedLocal": false,
+                "typedGlobal": false
+              }
+            }
+          ],
+          "big_probe_frames": {}
+        }
+      }
+    }
+  }
+}

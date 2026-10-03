@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -313,7 +314,7 @@ template <class T>
     static_assert(Type<T>::kind != TypeKind::Void, "Void has no encoded object");
     static_assert(!std::is_volatile_v<T>, "Volatile objects require an application snapshot");
     if (output.size() != wireSize<T>) return CodecStatus::LengthMismatch;
-    if (buffersOverlap(std::as_bytes(std::span<const T>{&value, 1}), output))
+    if (buffersOverlap(std::as_bytes(std::span<const T>{std::addressof(value), 1}), output))
         return CodecStatus::Overlap;
 
     codec_detail::Writer writer{output};

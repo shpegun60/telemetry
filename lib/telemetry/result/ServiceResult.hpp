@@ -77,25 +77,26 @@ public:
     ServiceResult(const ServiceResult& other)
         : status_(other.status_)
     {
-        if (other.hasValue()) ::new (static_cast<void*>(&payload_.value)) T(other.payload_.value);
+        if (other.hasValue())
+            ::new (static_cast<void*>(std::addressof(payload_.value))) T(other.payload_.value);
     }
 
     ServiceResult(ServiceResult&& other) noexcept(std::is_nothrow_move_constructible_v<T>)
         : status_(other.status_)
     {
         if (other.hasValue())
-            ::new (static_cast<void*>(&payload_.value)) T(std::move(other.payload_.value));
+            ::new (static_cast<void*>(std::addressof(payload_.value))) T(std::move(other.payload_.value));
     }
 
     ServiceResult& operator=(const ServiceResult& other)
     {
-        if (this == &other) return *this;
+        if (this == std::addressof(other)) return *this;
         if (hasValue() && other.hasValue()) {
             payload_.value = other.payload_.value;
         } else if (hasValue()) {
-            std::destroy_at(&payload_.value);
+            std::destroy_at(std::addressof(payload_.value));
         } else if (other.hasValue()) {
-            ::new (static_cast<void*>(&payload_.value)) T(other.payload_.value);
+            ::new (static_cast<void*>(std::addressof(payload_.value))) T(other.payload_.value);
         }
         status_ = other.status_;
         return *this;
@@ -105,13 +106,13 @@ public:
         noexcept(std::is_nothrow_move_constructible_v<T> &&
                  std::is_nothrow_move_assignable_v<T>)
     {
-        if (this == &other) return *this;
+        if (this == std::addressof(other)) return *this;
         if (hasValue() && other.hasValue()) {
             payload_.value = std::move(other.payload_.value);
         } else if (hasValue()) {
-            std::destroy_at(&payload_.value);
+            std::destroy_at(std::addressof(payload_.value));
         } else if (other.hasValue()) {
-            ::new (static_cast<void*>(&payload_.value)) T(std::move(other.payload_.value));
+            ::new (static_cast<void*>(std::addressof(payload_.value))) T(std::move(other.payload_.value));
         }
         status_ = other.status_;
         return *this;
@@ -119,7 +120,7 @@ public:
 
     ~ServiceResult()
     {
-        if (hasValue()) std::destroy_at(&payload_.value);
+        if (hasValue()) std::destroy_at(std::addressof(payload_.value));
     }
 
     [[nodiscard]] ServiceStatus status() const noexcept { return status_; }
@@ -129,10 +130,13 @@ public:
     [[nodiscard]] T& value() & noexcept { return payload_.value; }
     [[nodiscard]] const T& value() const& noexcept { return payload_.value; }
     [[nodiscard]] T&& value() && noexcept { return std::move(payload_.value); }
-    [[nodiscard]] T* valueOrNull() noexcept { return hasValue() ? &payload_.value : nullptr; }
+    [[nodiscard]] T* valueOrNull() noexcept
+    {
+        return hasValue() ? std::addressof(payload_.value) : nullptr;
+    }
     [[nodiscard]] const T* valueOrNull() const noexcept
     {
-        return hasValue() ? &payload_.value : nullptr;
+        return hasValue() ? std::addressof(payload_.value) : nullptr;
     }
 
 private:
@@ -150,7 +154,7 @@ private:
     ServiceResult(SuccessTag, Factory&& factory)
         : status_(ServiceStatus::Ok)
     {
-        ::new (static_cast<void*>(&payload_.value)) T(std::forward<Factory>(factory)());
+        ::new (static_cast<void*>(std::addressof(payload_.value))) T(std::forward<Factory>(factory)());
     }
 
     ServiceStatus status_;

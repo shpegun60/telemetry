@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -174,7 +175,8 @@ public:
 private:
     template <class Definition>
     using Storage = detail::ServiceStorage<typename Definition::Request,
-        std::conditional_t<std::is_void_v<typename Definition::Response>,
+        std::conditional_t<std::is_void_v<typename Definition::Response> ||
+                           Definition::borrowsResponse,
                            void, typename Definition::Result>>;
 
     template <class Definition>
@@ -190,6 +192,7 @@ private:
         }();
         constexpr std::uint64_t resultBytes = [] {
             if constexpr (!std::is_void_v<typename Definition::Response> &&
+                          !Definition::borrowsResponse &&
                           !Storage<Definition>::resultLocal)
                 return static_cast<std::uint64_t>(
                     scratchBytes<typename Definition::Result>);
@@ -208,9 +211,15 @@ private:
     {
         if (!result.hasValue()) return {DispatchStatus::Ok, result.status(), 0};
         constexpr auto bytes = wireSize<typename Definition::Response>;
-        // The entry boundary checked output capacity and any Workspace overlap.
-        // The response lives either there or in this call's local object.
-        detail::encodeEndpoint(*result.valueOrNull(), output.first(bytes));
+        // Owning response storage is already disjoint. A borrowed response
+        // remains in the application (or the decoded Request); no result lease
+        // or native Response copy is made, even with a zero local budget.
+        if constexpr (Definition::borrowsResponse) {
+            if (!detail::encodeBorrowedEndpoint(*result.valueOrNull(), output.first(bytes)))
+                return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
+        } else {
+            detail::encodeEndpoint(*result.valueOrNull(), output.first(bytes));
+        }
         return {DispatchStatus::Ok, ServiceStatus::Ok, bytes};
     }
 
@@ -237,7 +246,7 @@ private:
                     return Definition::template invokeSelected<true>(selected, *request);
             }();
             return {DispatchStatus::Ok, result.status(), 0};
-        } else if constexpr (Storage<Definition>::resultLocal) {
+        } else if constexpr (Definition::borrowsResponse || Storage<Definition>::resultLocal) {
             const Result result = [&]() -> Result {
                 if constexpr (std::is_void_v<typename Definition::Request>)
                     return Definition::template invokeSelected<true>(selected);
@@ -281,7 +290,7 @@ private:
             if (!detail::validEndpoint<Request>(input))
                 return {DispatchStatus::InvalidPayload, ServiceStatus::Ok, 0};
             const Request request = detail::decodeLocalEndpoint<Request>(input);
-            return invokeReady<Definition>(raw, &request, output, workspace);
+            return invokeReady<Definition>(raw, std::addressof(request), output, workspace);
         } else {
             auto requestLease = workspace.reserve<Request>();
             if (!requestLease.valid())

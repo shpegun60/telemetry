@@ -92,6 +92,11 @@ with `written=0`, preserving a caller's live scratch object. Successful calls
 restore the incoming Workspace mark. These are individual operation guarantees,
 not synchronization of application owners or of concurrent readers/writers.
 
+The complete response buffer, including its packet header, must be disjoint
+from live application objects returned by const-reference callbacks. The
+endpoint checks its payload prefix against the returned object, but cannot
+preflight the header against an address supplied only by that callback.
+
 The transport owns a bounded context for **every** admitted peer, including
 Unbound peers. Bind/Exchange/reset on one context must be serialized. A context
 and its Workspace cannot be reused while a handler is active. At capacity,

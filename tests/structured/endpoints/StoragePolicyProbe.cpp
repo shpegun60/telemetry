@@ -39,7 +39,8 @@ int checkValue()
     ts::Model model{fieldCatalogs, commandCatalogs, services};
     constexpr bool local = Bytes <= ts::maxLocalObjectBytes;
     constexpr auto expectedScratch = local ? 0 : ts::scratchBytes<Value>;
-    if (fields.data()[0].scratchBytes != expectedScratch ||
+    if (fields.data()[0].readScratchBytes != expectedScratch ||
+        fields.data()[0].writeScratchBytes != expectedScratch ||
         commands.data()[0].scratchBytes != expectedScratch) return 1;
 
     std::array<std::byte, Bytes> input{};

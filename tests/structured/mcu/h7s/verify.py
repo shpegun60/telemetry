@@ -299,7 +299,7 @@ def verify_image(image):
     require(0x20000000 <= ids and ids + 512 <= 0x20010000 and ids % 32 == 0 and
             (ids + 512 <= stack or stack + 16640 <= ids), 'ID sequence overlaps stack or leaves DTCM')
     require(0x08000000 <= probe < 0x08010000 and probe & 1, 'Probe code is not internal Flash Thumb code')
-    require(memory[3:] == [60, 28, 20, 24, 4096], 'Compiled descriptor/native layout changed')
+    require(memory[3:] == [60, 32, 20, 24, 4096], 'Compiled descriptor/native layout changed')
     correct = numbers('CORRECT', 5)
     expected_correct = [12230, 0, 97, 3, 0] if family == 'Mixed' else [2316, 0, 0, 0, 0]
     require(correct == expected_correct, 'Target correctness counts/failures changed')

@@ -16,7 +16,7 @@ using fixture::Position;
 static_assert(std::same_as<telemetry::PackedId, std::uint32_t>);
 static_assert(std::same_as<ts::TypeId, std::uint32_t>);
 static_assert(telemetry::makeId(2u, 7u) == 0x00020007u);
-static_assert(ts::structuredAbiRevision == 5);
+static_assert(ts::structuredAbiRevision == 6);
 static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES == 32);
 static_assert(rs::binaryMajor == 3 && rs::binaryMinor == 0);
 static_assert(rs::descriptorHeaderBytes == 64 && rs::valuesHeaderBytes == 24);

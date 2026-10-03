@@ -23,7 +23,7 @@ struct ValueMetadata { float initial, minimum, maximum; };
 #if CASE == 1
 auto invalid = ts::field("bad", [](int) noexcept { return 1; });
 #elif CASE == 2
-auto invalid = ts::field("bad", []() noexcept -> const MotorConfig& { return device.current; });
+auto invalid = ts::field("bad", []() noexcept -> MotorConfig& { return device.current; });
 #elif CASE == 3
 auto invalid = ts::field("bad", []() { return 1; });
 #elif CASE == 4

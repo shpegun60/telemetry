@@ -11,11 +11,12 @@ analyzer firmware checkout is required to use the library.
 
 ## Three endpoint families, one Model
 
-- Field: a getter returns native `T`; an optional setter takes that exact
+- Field: a getter returns native `T` or `const T&`; an optional setter takes that exact
   `T` or `const T&` and returns `WriteResult`.
 - Command: no request or one aggregate request, returning `CommandResult`.
 - Service: no request or one aggregate request, returning an aggregate
-  response, `void`, or `ServiceResult<Response>`.
+  response by value or `const Response&`, `void`, `ServiceResult<Response>`
+  or `BorrowedServiceResult<Response>`.
 
 Callbacks are `noexcept`. Declarations contain a name and a binding.
 Units, application limits, initial values and validation belong to the
@@ -92,6 +93,10 @@ Encoded object storage is chosen at compile time. The default local budget
 is 32 bytes (`TELEMETRY_STRUCTURED_LOCAL_BYTES`); larger objects use
 caller-owned Workspace. Service counts its request and actual result object
 together. The budget changes storage only, never validation or wire bytes.
+Const-reference outputs return small const views and encode directly from the
+application object; they do not materialize that result in Workspace. The
+application keeps it alive and stable. See the
+[borrowed output contract](doc/BorrowedNativeValues.md).
 An owning native return of a large object can use a large application stack;
 the encoded Workspace path is available for those values.
 

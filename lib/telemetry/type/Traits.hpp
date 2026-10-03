@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -244,7 +245,7 @@ struct TypeInfo<T, TypeClass::Struct> {
                           std::is_trivially_default_constructible_v<T>) {
                 T object;
                 return __builtin_is_aligned(
-                    &telemetry::reflection::get<I>(object), alignof(Native));
+                    std::addressof(telemetry::reflection::get<I>(object)), alignof(Native));
             } else {
                 return true;
             }

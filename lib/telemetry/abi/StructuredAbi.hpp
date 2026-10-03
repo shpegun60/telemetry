@@ -18,7 +18,7 @@
 namespace telemetry {
 
 // This describes the C++ in-memory ABI, not the version of descriptor.bin.
-inline constexpr std::uint32_t structuredAbiRevision = 5;
+inline constexpr std::uint32_t structuredAbiRevision = 6;
 
 static_assert(std::is_standard_layout_v<MemberDescriptor> &&
               std::is_standard_layout_v<EnumEntryDescriptor> &&
@@ -105,7 +105,7 @@ using CurrentStructuredAbiTag = StructuredAbiTag<
     sizeof(Workspace), alignof(Workspace),
     sizeof(FieldEntry), alignof(FieldEntry),
     offsetof(FieldEntry, readContext), offsetof(FieldEntry, read), offsetof(FieldEntry, write),
-    offsetof(FieldEntry, name), offsetof(FieldEntry, wireBytes), offsetof(FieldEntry, scratchBytes),
+    offsetof(FieldEntry, name), offsetof(FieldEntry, wireBytes), offsetof(FieldEntry, readScratchBytes),
     sizeof(CommandEntry), alignof(CommandEntry),
     offsetof(CommandEntry, context), offsetof(CommandEntry, invoke),
     offsetof(CommandEntry, name), offsetof(CommandEntry, requestWireBytes), offsetof(CommandEntry, scratchBytes),
@@ -126,7 +126,7 @@ using CurrentStructuredAbiTag = StructuredAbiTag<
     offsetof(EncodedWriteResult, dispatch), offsetof(EncodedWriteResult, endpointStatus),
     sizeof(EncodedCommandResult), alignof(EncodedCommandResult),
     offsetof(EncodedCommandResult, dispatch), offsetof(EncodedCommandResult, endpointStatus),
-    maxLocalObjectBytes, offsetof(FieldEntry, writeContext)>;
+    maxLocalObjectBytes, offsetof(FieldEntry, writeContext), offsetof(FieldEntry, writeScratchBytes)>;
 
 // Only the exact current specialization is defined in StructuredAbi.cpp.
 template <class Tag>

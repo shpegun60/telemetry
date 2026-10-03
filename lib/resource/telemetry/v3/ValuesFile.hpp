@@ -48,7 +48,7 @@ public:
                     return;
                 }
                 if (token > maxToken_) maxToken_ = static_cast<std::uint32_t>(token);
-                if (field.scratchBytes > view_.maxScratch) view_.maxScratch = field.scratchBytes;
+                if (field.readScratchBytes > view_.maxScratch) view_.maxScratch = field.readScratchBytes;
             }
         }
         tokens_[count] = {static_cast<std::uint32_t>(next), 0};
