@@ -27,12 +27,20 @@ the C++ program's actual checks. Generated files stay in the selected directory.
   get/traversal/readAs/writeAs, shared TypeIds, slot reset/rebind, scalar and
   structural encoded calls, short buffers, invalid bool, unavailable targets,
   4 KiB responses, in-place Service payloads, descriptor identity and values.
-  Failed checks report their source location on the host.
+  Failed checks report their source location on the host. The runner requires
+  exactly 97 checks in every mixed consumer execution; a reduced positive
+  count is a failure. ABI clients require one check, scaling requires
+  `rows * max(1, visitors) + 2`. These counts are independent of tool commands.
 - Every C++ allocation form used by the consumers terminates. ARM linked
   images additionally reject retained allocation, formatting and legacy Scalar
   symbols under O2/Os/Og, GC, LTO and PIC/PIE. Metadata must have no startup
   constructor section. The explicit ABI module check occurs in main; consumer
   assembly must contain no call to that check.
+- Shared [gate controls](gates.py) reject reduced/increased check counts and
+  retained newlib `_malloc_r/_calloc_r/_realloc_r/_free_r` and formatting
+  families, including `_printf_r/_snprintf_r`. The symbol gate parses demangled
+  `nm -C` names instead of looking for bare word fragments. Its mutation
+  controls run before every suite and have separate counters in the report.
 - Each of four encoded boundaries has a separately linked positive control
   and an exact mismatch control: a 32-byte caller versus a zero-budget Adapter.
   Linux/ARM exercise GC, LTO, PIC and PIE: **16 link rejections**. Windows PE

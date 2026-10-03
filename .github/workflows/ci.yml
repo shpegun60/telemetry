@@ -190,6 +190,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/qualification/run.py --build-dir build/structured-qualification "${flags[@]}"
+      - name: C++20 MCU probe bodies on host
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/mcu/run.py --build-dir build/structured-mcu "${flags[@]}"
       - name: Retain structured descriptor logs
         if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
         uses: actions/upload-artifact@v4
@@ -211,6 +222,9 @@ jobs:
             build/structured-client/summary.json
             build/structured-qualification/*.log
             build/structured-qualification/summary.json
+            build/structured-mcu/*.log
+            build/structured-mcu/*.json
+            build/structured-mcu/*.su
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -289,6 +303,10 @@ jobs:
         run: |
           python3 tests/structured/qualification/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-qualification
           python3 tests/structured/qualification/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-qualification-nullchecks
+      - name: C++20 MCU probe offline Cortex-M7 codegen
+        run: |
+          python3 tests/structured/mcu/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu
+          python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -342,6 +360,12 @@ jobs:
             build/arm-structured-qualification-nullchecks/*.log
             build/arm-structured-qualification-nullchecks/*.json
             build/arm-structured-qualification-nullchecks/*.su
+            build/arm-structured-mcu/*.log
+            build/arm-structured-mcu/*.json
+            build/arm-structured-mcu/*.su
+            build/arm-structured-mcu-nullchecks/*.log
+            build/arm-structured-mcu-nullchecks/*.json
+            build/arm-structured-mcu-nullchecks/*.su
             build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 

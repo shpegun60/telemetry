@@ -2892,6 +2892,8 @@ captured input hashes. Вартість 1/2/4 visitor types і named reuse ви�
 не називається виконанням цього consumer на платі. Максимум `.su` frames
 не є максимумом сумарного call-chain stack — це залишається Stage 14.
 Exact-SHA publication CI перевіряється окремо після implementation-коміту.
+Для `7266a93` [CI 37122588689](https://github.com/shpegun60/telemetry/actions/runs/37122588689)
+завершився успішно: 9/9 jobs, включно із sanitizer і Cortex-M7.
 
 Робота:
 
@@ -2920,6 +2922,19 @@ Exact-SHA publication CI перевіряється окремо після impl
 Expected compile failure звіряє потрібну причину, а не довільне слово `error`.
 
 ### Етап 14. Реальний MCU
+
+Підготовлено [offline probe suite](../tests/structured/mcu/README.md):
+mixed native/encoded consumer, 4 KiB request/response, descriptor slices,
+values і runtime вибір серед 128 різних targets. Ті самі probe bodies
+виконуються на host; ARM build перевіряє instructions, linked symbols і
+окремі stack frames. Runner не має доступу до serial/programmer і не
+визначає підключені плати. Цикли та сумарний стек реального MCU лишаються
+не виміряними цим suite.
+
+За рішенням користувача 2026-10-03 новий hardware run відкладено;
+software/codegen перевірки продовжуються без очікування плати. Чужа
+підключена плата не використовується. Це не перетворює offline evidence
+на завершений апаратний етап.
 
 Порядок спирається на наявні
 [resource H7S інструкції](../tests/resources/h7s/README.md).

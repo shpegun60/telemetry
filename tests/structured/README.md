@@ -7,6 +7,12 @@ The implementation contract is
 This directory records evidence as each stage is implemented. The structured
 library is not present at the Stage 00 checkpoint.
 
+The latest [Stage 13 qualification](qualification/README.md) was published as
+`7266a93` and passed exact-SHA CI 37122588689, all 9/9 jobs.
+[Stage 14 probe preparation](mcu/README.md) continues host execution and ARM
+disassembly without a board. The user deferred new hardware measurements;
+this preparation does not close the MCU execution gate.
+
 ## Stage 00: scalar baseline
 
 Tracked scalar source: `5a289a8f12a85f68219275abcde7b58d925076ac`,

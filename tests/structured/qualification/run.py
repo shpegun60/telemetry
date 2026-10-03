@@ -16,6 +16,8 @@ import struct
 import subprocess
 import time
 
+from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 LIBRARY = [ROOT / name for name in (
@@ -42,6 +44,7 @@ def main():
     env['PATH'] = str(compiler.parent) + os.pathsep + env.get('PATH', '')
     report = dict(commands=0, checks=0, link_rejections=0, compile_rejections=0,
                   frames={}, linked_sections={}, scaling=[], depth=[])
+    report['gate_controls'] = controls()
     inputs = sorted(path for directory in (ROOT / 'lib', HERE)
                     for path in directory.rglob('*')
                     if path.is_file() and path.suffix in ('.h', '.hpp', '.cpp', '.c', '.pri', '.py', '.pro'))
@@ -74,13 +77,11 @@ def main():
         print(f'{label}: pass ({seconds:.2f}s)', flush=True)
         return result.stdout, seconds
 
-    def execute(program, label):
+    def execute(program, label, expected):
         text, _ = run([program], label)
-        counted = json.loads(text)
-        if counted['failures'] != 0 or counted['checks'] <= 0:
-            raise RuntimeError(label + ': no successful counted checks')
-        report['checks'] += counted['checks']
-        return counted['checks']
+        count = counted_checks(text, label, expected)
+        report['checks'] += count
+        return count
 
     version, _ = run([compiler, '--version'], 'compiler')
     report['compiler'] = version.splitlines()[0]
@@ -121,9 +122,9 @@ def main():
 
         def inspect(objects, program, mode, include_frames=True):
             symbols, _ = run([tool('nm'), '-C', program], 'symbols-' + mode)
-            forbidden = r'\b(?:malloc|calloc|realloc|free|operator new|operator delete|printf|to_chars|Scalar::)\b'
-            if re.search(forbidden, symbols):
-                raise RuntimeError(mode + ': allocation/formatting/legacy symbol retained')
+            rejected = forbidden_symbols(symbols, legacy=True)
+            if rejected:
+                raise RuntimeError(mode + ': allocation/formatting/legacy symbols retained: ' + str(rejected))
             sections, _ = run([tool('size'), '-A', program], 'sections-' + mode)
             parsed = {name: int(size) for name, size in re.findall(r'^(\S+)\s+(\d+)\s+\d+\s*$', sections, re.M)}
             report['linked_sections'][mode] = {kind: sum(size for name, size in parsed.items()
@@ -164,7 +165,7 @@ def main():
         if args.arm:
             inspect(objects, program, opt)
         else:
-            execute(program, 'execute-' + opt)
+            execute(program, 'execute-' + opt, EXPECTED_CONSUMER_CHECKS)
 
     # All categories remain live under LTO/GC. A real policy mismatch in the
     # separately built Adapter must fail at each of its four compiled symbols.
@@ -177,7 +178,7 @@ def main():
         program = out / (mode + ('.elf' if args.arm else suffix))
         run(flags + ['-O2', *objects, *linker, *link, '-o', program], 'link-' + mode)
         if not args.arm:
-            execute(program, 'execute-' + mode)
+            execute(program, 'execute-' + mode, EXPECTED_CONSUMER_CHECKS)
         else:
             inspect(objects, program, mode, include_frames=False)
         bad = out / (mode + '-bad-adapter.o')
@@ -194,7 +195,7 @@ def main():
             run(flags + ['-O2', app, *supporting, good, *linker, *link, '-o', valid],
                 f'matching-{mode}-{case}')
             if not args.arm:
-                execute(valid, f'execute-matching-{mode}-{case}')
+                execute(valid, f'execute-matching-{mode}-{case}', 1)
             run(flags + ['-O2', app, *supporting, bad, *linker, *link,
                          '-o', out / f'{mode}-mismatch-{case}.elf'], f'mismatch-{mode}-{case}',
                 r'undefined (?:reference|symbol).*' + symbol)
@@ -226,7 +227,7 @@ def main():
                     record['sections'] = {kind: sum(size for name, size in parsed.items()
                         if name.startswith('.' + kind)) for kind in ('text', 'rodata', 'data', 'bss')}
                 else:
-                    record['checks'] = execute(program, label + '-execute')
+                    record['checks'] = execute(program, label + '-execute', rows * max(1, visitors) + 2)
                 report['scaling'].append(record)
         for depth in (4, 8, 16):
             label = f'depth-{opt}-{depth}'
