@@ -325,6 +325,8 @@ jobs:
           python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
       - name: Verify retained offline qualification receipt
         run: python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
+      - name: Verify retained H7S qualification evidence
+        run: python3 tests/structured/mcu/h7s/verify.py --self-test
       - name: C++20 structured API and wire freeze Cortex-M7 contract
         run: |
           python3 tests/structured/freeze/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze

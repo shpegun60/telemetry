@@ -5,16 +5,17 @@
 Цей документ фіксує програмну частину Stage 15 за
 [implementation plan](StructuredTelemetryV3ImplementationPlan.md).
 Контракт C++20 structured v1 та wire v3.0 зафіксовано як кандидат на freeze.
-Повний Definition of Done Stage 15 залишається відкритим: нові Stage 14
-probes ще не виконані на потрібній H7S. Апаратні результати можуть повторно
-відкрити контракт, якщо потребуватимуть зміни API або wire.
+Stage 14 probes виконано на потрібній H7S без зміни runtime бібліотеки.
+Повний Definition of Done Stage 15 очікує exact-SHA CI публікації receipt
+та оновленої offline матриці. Нових API/wire blockers апаратний прогін не
+виявив; це не обіцянка відсутності всіх можливих дефектів.
 
 | Частина | Статус | Доказ |
 | --- | --- | --- |
 | Контракт API/wire | Зафіксований кандидат; локальні gates пройдено | Новий freeze suite, незмінні goldens, попередні semantic suites |
 | Повна програмна матриця CI | Перевіряється для SHA публікації цього зрізу | Нові host/ARM steps і збережені artifacts |
-| Stage 14 hardware qualification | OPEN / deferred | Потрібна первісна H7S; нових MCU циклів або watermarks немає |
-| Повний Stage 15 DoD | OPEN | Вимогу реального MCU receipt із §18.1 не вилучено |
+| Stage 14 hardware qualification | PASS | [Results](../tests/structured/mcu/h7s/RESULTS.md), 30128 conditions, restore, cycles та PSP observations |
+| Повний Stage 15 DoD | Очікує exact-SHA CI receipt зрізу | Вимогу MCU receipt із §18.1 виконано |
 | Міграція 16–20 | Ще не розпочата | Старий scalar/v2.1 baseline збережено |
 
 ## Межі зафіксованого API
@@ -100,7 +101,7 @@ std::meta не є залежністю MCU. Factory/shape rules не розши�
 | Traversal, As conversion, runtime bounds, borrowed lifetime | [traversal](../tests/structured/traversal/README.md), новий [freeze contract](../tests/structured/freeze/README.md) |
 | JS/Qt client без ручного serializer для кожного DTO, optional packet layer поза core | [client](../tests/structured/client/README.md), [examples](../examples/structured_client/README.md), [exchange](../tests/structured/exchange/README.md) |
 | Public API/wire/dependency pins, чисті `.pri` consumers | [freeze suite](../tests/structured/freeze/README.md), qmake qualification/client та чотири resource selections |
-| Реальний MCU receipt нових probes, whole-call-chain stack/cycles | Відкладено до Stage 14 на потрібній H7S |
+| Реальний MCU receipt нових probes, whole-call-chain stack/cycles | [H7S results](../tests/structured/mcu/h7s/RESULTS.md), [195-input receipt](../tests/structured/mcu/h7s/receipt.json) |
 
 Локальна нова матриця: MinGW 13.1, GCC 13.3 з null checks, Clang 18.1
 ASan/UBSan, CubeIDE ARM 14.3.1 normal/null, ARM 13.2.1 normal/null;
@@ -121,8 +122,17 @@ hashes вже наведено в [MCU evidence](../tests/structured/mcu/README.
 Для 4 KiB Field/Command/Service CubeIDE frames O2 становлять 192/176/216 B,
 Os — 168/152/192 B. Це окремі compiler frames; їх не перейменовуємо на
 максимальний live stack усього call chain. У цих прогонах немає MCU циклів.
-Старі H7S receipts підтверджують свої попередні образи та restore;
-вони не доводять виконання нових Stage 14 або Stage 15 probes.
+Старі H7S receipts підтверджують свої попередні образи та restore.
+Новий Stage 14 receipt доводить виконання captured sources `37bc857`:
+195 inputs збігаються з Git blobs цього SHA, а `source_dirty=true` чесно
+зберігає наявність 92 untracked review files поза build inputs. 840 DWT
+windows і 744 PSP observations пройшли незалежну перевірку; 70 mutations
+receipt відхилено. Flash backup/readback по 65536 B збігаються.
+4 KiB encoded roots показали 244–360 B observed full-chain stack;
+owning runtime `readAs<Big>` — 8256/8264 B. Ці watermarks не враховують
+untouched reserved slots, caller MSP та interrupts і не є універсальною
+worst-case межею. Однакові native instruction streams у різних адресах
+образу дали різні цикли; instruction equivalence не означає cycle equivalence.
 
 ## Lifetime, concurrency і storage
 
@@ -147,7 +157,7 @@ Os — 168/152/192 B. Це окремі compiler frames; їх не перейм�
   зберігає. Compiled adapters мають exact tag у символах. Однаковий ABI
   у всіх TU одного executable залишається вимогою application build.
 
-Після exact-SHA CI програмний контракт лишається frozen candidate.
-Для повного закриття Stage 15 потрібні новий Stage 14 MCU receipt,
-backup/restore і actual call-chain stack/cycle evidence. Міграція 16–20
-не запускається під виглядом цієї програмної кваліфікації.
+Новий Stage 14 MCU receipt, backup/restore і actual call-chain stack/cycle
+evidence отримано. Після зеленого exact-SHA CI receipt публікації Stage 15
+можна закрити та розпочати міграцію 16–20. До цього migration guide є
+підготовкою, а source trees і namespace не переміщуються.

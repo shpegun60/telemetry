@@ -2941,10 +2941,15 @@ values і runtime вибір серед 128 різних targets. Ті самі 
 [локальний receipt](../tests/structured/mcu/local-receipt.json) семи запусків;
 це evidence локальних software/codegen перевірок, а не новий hardware run.
 
-За рішенням користувача 2026-10-03 новий hardware run відкладено;
-software/codegen перевірки продовжуються без очікування плати. Чужа
-підключена плата не використовується. Це не перетворює offline evidence
-на завершений апаратний етап.
+Раніше користувач відклав hardware run і попросив не використовувати
+чужу підключену плату. Після повернення початкової NUCLEO-H7S3L8
+2026-10-03 окремий [Stage 14 run](../tests/structured/mcu/h7s/RESULTS.md)
+завершено на `37bc857`: 30128 conditions, 0 failures, 840 DWT windows і
+744 PSP observations. [Receipt](../tests/structured/mcu/h7s/receipt.json)
+містить 195 captured input hashes, raw UART, образи та повне відновлення
+64 KiB Flash з однаковими backup/readback SHA. Спостережувані stack writes
+не названо універсальною worst-case межею. Owning `readAs<Big>` реально
+показав 8256/8264 B full-chain stack; encoded 4 KiB шляхи — 244–360 B.
 
 Порядок спирається на наявні
 [resource H7S інструкції](../tests/resources/h7s/README.md).
@@ -2977,8 +2982,9 @@ host або objdump не перейменовуються на «перевір�
 Програмний contract candidate та карта доказів зафіксовані в
 [Stage 15 qualification](StructuredTelemetryV3FreezeQualification.md).
 Контракт API/wire та hardware qualification мають окремі статуси:
-контрактний кандидат можна зафіксувати після програмних gates, але повний
-Stage 15 DoD лишається відкритим до реального Stage 14 MCU receipt.
+контрактний кандидат можна зафіксувати після програмних gates. Stage 14
+MCU receipt уже отримано; повний Stage 15 DoD очікує exact-SHA CI зрізу,
+який публікує цей receipt та оновлену offline матрицю.
 Це не вилучає апаратної вимоги з §18.1; findings на MCU можуть повторно
 відкрити API/wire контракт. Міграція 16–20 до повного freeze не починається.
 

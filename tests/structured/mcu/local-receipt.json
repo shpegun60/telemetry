@@ -1,9 +1,9 @@
 {
   "format_version": 1,
   "scope": "offline host execution and ARM compile/link inspection",
-  "captured_at_utc": "2026-10-03T16:21:10.946886+00:00",
-  "source_head": "4f942a74967a511498b51268b4ec71296c44fa68",
-  "source_dirty": true,
+  "captured_at_utc": "2026-10-03T18:35:39.206731+00:00",
+  "source_head": "37bc85771cbbd8597e01835f1e8b187f7b7f32b3",
+  "source_dirty": false,
   "input_lf_sha256": {
     "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
     "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -172,6 +172,10 @@
     "lib/telemetry_structured/type/Registry.hpp": "79f037508e194689ef05bb97c048c3b12327f7c9d5a1d270baa27ce80499536b",
     "lib/telemetry_structured/type/Traits.hpp": "2b0904f91d0164d5de07c3ca716301096fc98370eea9870ba3f8fc8890ab5d1a",
     "tests/structured/mcu/Fixture.hpp": "97cfb5b593a52d58b8953d244abd3f2cc3821d64d2d4700d2b55e28d4810fb2b",
+    "tests/structured/mcu/h7s/Benchmark.cpp": "28d5fd16f59635d8f7917f816e55fda0407be037c43664fcbee701ca5a4729f9",
+    "tests/structured/mcu/h7s/Probe.cpp": "a51014c61225fa47f74f66903ce32440aa08cb25e80b9cdfc7613783c9f3323f",
+    "tests/structured/mcu/h7s/run.py": "26674bab1dbf21d1de6812bbe5b9fb10868ddba5e3347330fd5857140808b4b1",
+    "tests/structured/mcu/h7s/verify.py": "8dfea221a134021f1dd9219bcdfa922127314fbad20bf61af309c40c49407129",
     "tests/structured/mcu/Host.cpp": "01830aba7de525d3926471f26915409003eb3f5a48fc050cedbdae36134b4db3",
     "tests/structured/mcu/Mixed.cpp": "218589399698e297e87be1d82f226b6c71729f0909432ad3d683c4b7aa971aad",
     "tests/structured/mcu/receipt.py": "6dc1969bd574e50f8dd9cedcda28ac403151d65b21c92462357ff51de235e6c3",
@@ -222,7 +226,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "14ffcdaa54e0e3f59887ddb1e67cef02fa3ba1f0e4355b885fda66ad6c52ca7c",
+      "report_sha256": "0b3cb5a120095272ff1a84618a372c213e4f9ac4243ffdc0841e86633e7f08b3",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -297,7 +301,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "654c4db99e46ce75e8f7bbd7b5d7c18b8207dc9bcae060b5b37279fb93648346",
+      "report_sha256": "1457704bf0a811c6042252f93436683885eec30f0ae3ca399ac473ed1a54615b",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -373,7 +377,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "8d3c643dceb6ef9486170ddd5d93991e3d135f23b5c55e93a295bb75f437f8d6",
+      "report_sha256": "ac64d73989097ff5a2c0bdc65b1517ba3d8590bd230b8644b5708b6d48cd5d7d",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -444,7 +448,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "63c530c5466308c73733f384e944e0030d6e5f05ebc245c2531f2bdba87c87e1",
+      "report_sha256": "67f112d7f5fa0dce79af298bd372d5a652c61d7a645486c33e6e58b7d217e0da",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1008,7 +1012,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "ad96f777655130af70ec6bde74f0d90e0531be3d3f096435c89fdd8d5eaa4130",
+      "report_sha256": "82c3215039f35686a1ee9626e4e39f6bdfd1df9f700bbfa7f29517e4bcbf3432",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1587,7 +1591,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "441edaeff7563ee21c2f86322b1157fcdc009916a50f3bc4c35c103d6c8a1e13",
+      "report_sha256": "4c75ce15ee8743272bec0d69aca0e9cced63fa924df6591362750efa28c8a639",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -2157,7 +2161,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "9d089f25a0fb59435e245f408e5568ebe0eabe5506aadb7665ed4c38290dfb9d",
+      "report_sha256": "1feee38439d330b83aad4755b6ef47f429fc2603d2f64cb220ae981206c4bdb1",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [

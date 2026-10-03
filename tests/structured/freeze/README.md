@@ -3,7 +3,8 @@
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 This suite fixes the current C++20 public contract and wire v3.0 candidate.
-It does not complete the deferred Stage 14 execution on the original H7S.
+This suite does not execute hardware. The separate
+[Stage 14 H7S results](../mcu/h7s/RESULTS.md) record that execution.
 The [qualification decision](../../../doc/StructuredTelemetryV3FreezeQualification.md)
 keeps software contract and hardware qualification as separate statuses.
 

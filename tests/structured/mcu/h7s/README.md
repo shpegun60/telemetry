@@ -2,6 +2,9 @@
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
+The actual 2026-10-03 run passed all four images and restored internal Flash.
+See [measured results](RESULTS.md) and [retained receipt](receipt.json).
+
 This separate runner builds and, only with `--run`, executes the existing
 [MCU probe bodies](../README.md) on a NUCLEO-H7S3L8. The adjacent
 [`mcu/run.py`](../run.py) remains an offline host/ARM runner. Build mode imports

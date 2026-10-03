@@ -1,13 +1,14 @@
-# Stage 14 probe preparation: host and ARM codegen
+# Stage 14 probes: offline host/ARM and separate H7S execution
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-The user deferred the new hardware run on 2026-10-03. This suite executes
-prospective MCU probe bodies on a host and compiles/links them for Cortex-M7.
+This offline suite executes the MCU probe bodies on a host and
+compiles/links them for Cortex-M7.
 Its runner has **no serial, programmer or device-discovery integration**.
-The attached board is not used. DWT cycles and whole-call-chain stack
-watermarks are not established by these results; Stage 14 hardware evidence
-remains a separate task.
+Its results establish no DWT cycles or whole-call-chain stack watermarks.
+The separate [H7S runner](h7s/README.md) executed the same bodies after the
+original board returned. Its [actual results](h7s/RESULTS.md) and
+[receipt](h7s/receipt.json) establish the hardware evidence separately.
 
 ## Reproduce without hardware
 
@@ -91,7 +92,8 @@ GC and linked inspection. Host executable sizes are not presented as MCU Flash.
 
 ## Local results, 2026-10-03
 
-All final runner inputs matched their captured hashes: **187 files**. The
+All final runner inputs matched their captured hashes: **191 files** after
+adding the four H7S source/runner/verifier files. The
 runtime counts below are actual C++ conditions, including repeated profiles;
 they are not counts of compiler invocations or distinct test scenarios.
 
@@ -192,5 +194,7 @@ receipt have their own publication CI. Prior H7S receipts do not prove
 execution of these new probe bodies.
 No host watermark is presented as ARM stack evidence. Large encoded Field and
 Service paths use caller-owned Workspace; a separate native `readAs<Big>`
-stack/cycle comparison and actual call-chain watermarks remain in Stage 14's
-execution qualification, rather than being inferred from these `.su` frames.
+stack/cycle comparison and actual call-chain watermarks are now recorded in
+the separate [Stage 14 execution results](h7s/RESULTS.md), rather than being
+inferred from these `.su` frames. The offline seven-role receipt was refreshed
+against the 191-input set; all roles passed, with 32 receipt mutation controls.
