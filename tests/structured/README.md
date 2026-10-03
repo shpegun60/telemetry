@@ -489,4 +489,26 @@ have static/runtime `readAs/writeAs`, with checked numeric conversion and
 exact structural types, without Scalar or a model-wide owning variant.
 The [traversal suite](traversal/README.md) records the 64 compile-fail contracts,
 sanitizers, allocation controls, ARM direct-call comparisons, visitor frames
-and 32/128-row code-size costs. Stage 12 client work has not started here.
+and 32/128-row code-size costs. Client work had not started at this checkpoint.
+
+## Stage 12: client codec and desktop examples
+
+The separate [JS client](../../web/telemetryStructured.js) parses immutable
+structural models, validates descriptor fingerprints and decodes dense values.
+It encodes Field writes and Command/Service requests and decodes exact native
+responses, preserving U64/S64 as BigInt. The original v2 decoder is unchanged.
+No transport, Bind, requestId or connection state is imported into the codec.
+
+The [client suite](client/README.md) has 3057 counted checks, independent frozen
+fixtures, semantic descriptor mutations, depth/expansion bounds and a valid
+model reaching packed ID `0xffffffff`. JS/C++ byte exchange covers all three
+endpoint families and exact callback/status behavior. Local MinGW, GCC null
+checks and Clang ASan/UBSan passed. A real browser passed 20 checks including
+timeout without retry, literal reflected names and precise integer64 display.
+
+The [desktop example](../../examples/structured_client/README.md) supplies a
+recursive Service form and a separate localhost HTTP fake. Qt C++20 smoke
+uses the same Model/Workspace and preserves the exact 41-byte response.
+This is desktop evidence, not new MCU cycles. Native library source hashes
+still match the API-correction H7S receipt. Whole-program qualification and
+final migration remain subsequent stages; publication CI is checked per SHA.

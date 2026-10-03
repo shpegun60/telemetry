@@ -168,6 +168,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/exchange/run.py --build-dir build/structured-exchange "${flags[@]}"
+      - name: C++20 structured JS client interoperability
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/client/run.py --build-dir build/structured-client "${flags[@]}"
       - name: Retain structured descriptor logs
         if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
         uses: actions/upload-artifact@v4
@@ -185,6 +196,8 @@ jobs:
             build/structured-exchange/*.bin
             build/structured-traversal/*.log
             build/structured-traversal/*.json
+            build/structured-client/*.log
+            build/structured-client/summary.json
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -314,6 +327,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Install Qt
         run: sudo apt-get update && sudo apt-get install -y qt6-base-dev
       - name: Build
@@ -340,3 +356,26 @@ jobs:
           qmake6 ../../tests/structured/exchange/qmake.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror QMAKE_CXXFLAGS+=-UNDEBUG
           make -j2
           ./structured_protocol_example
+      - name: Structured client Qt C++20 smoke
+        run: |
+          mkdir -p build/client-qt
+          cd build/client-qt
+          qmake6 ../../examples/structured_client/qt.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
+          make -j2
+          ./structured_client_qt
+      - name: Structured client browser and fake Device
+        run: |
+          python3 -m venv build/client-venv
+          build/client-venv/bin/pip install playwright==1.63.0
+          build/client-venv/bin/python -m playwright install --with-deps chromium
+          build/client-venv/bin/python tests/structured/client/run.py --browser --build-dir build/client-browser
+      - name: Retain client browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structured-client-browser
+          path: |
+            build/client-browser/*.log
+            build/client-browser/summary.json
+            build/client-browser/*.png
+          if-no-files-found: ignore

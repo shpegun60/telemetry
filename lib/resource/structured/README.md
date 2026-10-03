@@ -107,7 +107,8 @@ records existing behavior; Stage 11 does not change profile validation.
 The independent host parser fixture checks header budgets before allocating
 record collections, validates every reference and recomputes wire sizes,
 depth and expanded nodes without expanding arrays. It is a test oracle;
-the application client is scheduled for Stage 12.
+the [Stage 12 client](../../../tests/structured/client/README.md) consumes the
+same descriptor and values bytes independently of any control protocol.
 
 ## Values and integration
 

@@ -34,6 +34,11 @@ the application. The optional
 [protocol example](../../examples/structured_protocol/README.md) is selected
 explicitly; neither library includes it.
 
+The Stage 12 [JS payload codec](../../web/telemetryStructured.js) and
+[browser/Qt example](../../examples/structured_client/README.md) use this
+model's structural descriptor. Their application HTTP adapter remains outside
+the codec and both MCU libraries. Integer64 client values use BigInt.
+
 ```cpp
 struct Reading { float volts; std::uint16_t status; };
 using Types = telemetry::structured::TypeRegistry<Reading>;

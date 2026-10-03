@@ -2,10 +2,11 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **специфікація поетапної реалізації**. Етапи 00–10 реалізовані;
+Статус: **специфікація поетапної реалізації**. Етапи 00–12 реалізовані;
 Stage 11 реалізував приклад control protocol. Уточнення 2026-10-03 перед
 Stage 12 відокремлює цей приклад від core та додає typed traversal і native
-runtime access. Stage 12 — decoder/UI; його реалізація ще попереду.
+runtime access. Stage 12 додає окремий payload decoder/encoder, browser example
+і Qt smoke. Exact-SHA CI та evidence кожного зрізу ведемо окремо нижче.
 Descriptor і ValuesFile зберігають cached fingerprint.
 Поточний стан перевірок ведеться в
 [tests/structured/README.md](../tests/structured/README.md).
@@ -2267,6 +2268,10 @@ anchor і його retention перевіряється codegen/sections окр�
 
 Decoder v3 — окремий модуль; не змінює поведінку поточного
 [telemetryBinary.js](../web/telemetryBinary.js).
+Реалізація: [telemetryStructured.js](../web/telemetryStructured.js),
+[desktop example](../examples/structured_client/README.md) та
+[client tests](../tests/structured/client/README.md). HTTP fake adapter
+прикладу не є telemetry transport contract.
 
 Його модель:
 
@@ -2843,6 +2848,12 @@ Generic callback отримує const definition reference. Exceptions callback-
 
 ### Етап 12. Клієнт і демонстрація
 
+Реалізовано окремий JS payload codec, immutable validated model/cache,
+recursive Service editor, native C++ fake Device та Qt C++20 smoke.
+Host і реальний browser мають counted assertions у
+[tests/structured/client](../tests/structured/client/README.md).
+Native library sources, endpoint ABI і binary formats у цьому зрізі не змінені.
+
 Робота:
 
 1. Реалізувати strict descriptor/types/values decoder у JavaScript.
@@ -2883,6 +2894,9 @@ Generic callback отримує const definition reference. Exceptions callback-
    big object scratch і no-heap linked symbols.
 6. Зібрати mixed multi-TU/LTO/section-GC consumers.
 7. Виміряти compile time для зростання кількості endpoint і type depth.
+   Для runtime-native API порівняти один, два та чотири visitor/value
+   specializations у реальному consumer: named visitor reuse проти різних
+   lambda types. Вартість одного visitor не видавати за сумарну Flash вартість.
 8. Прогнати structured ABI link mismatch controls, LTO/GC/PIC/PIE,
    перевіривши відсутність guard calls у hot dispatch.
 9. Окремо перевірити structured-only qmake з `telemetry_no_json`:
