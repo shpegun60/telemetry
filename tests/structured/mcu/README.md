@@ -119,15 +119,28 @@ the captured source set, including new files, rather than unrelated review work.
 It is a durable local record, not an independent CI or hardware execution.
 Raw reports remain in the chosen build directories; their hashes allow later
 comparison but do not reconstruct missing report/log content.
+The verifier requires all seven exact roles, their pinned compiler/driver
+identities, Cortex-M7 ABI flags, sanitizer mode and null-check modes. Removing
+one run or replacing a role with another compiler's valid report is refused.
 
 ```sh
 python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
-python3 tests/structured/mcu/receipt.py capture --report NAME=build/mcu-host/report.json --report ARM=build/mcu-arm/report.json --output build/local-receipt.json
+python3 tests/structured/mcu/receipt.py capture \
+  --report mingw13=build/mcu-mingw/report.json \
+  --report gcc13-null=build/mcu-gcc-null/report.json \
+  --report clang18-sanitized=build/mcu-clang-san/report.json \
+  --report cubeide14=build/mcu-cubeide/report.json \
+  --report cubeide14-null=build/mcu-cubeide-null/report.json \
+  --report arm13=build/mcu-arm13/report.json \
+  --report arm13-null=build/mcu-arm13-null/report.json \
+  --output build/local-receipt.json
 ```
 
 Capture requires complete O2/Os/Og reports with exactly matching current inputs.
 Verification compares the recorded input set with current sources; mutation
 controls refuse changed scope, counts, hashes, controls and large probe frames.
+They also remove each of the seven roles, keep only one host/ARM pair, add an
+extra role, substitute reports, remove required mode flags and alter the ARM ABI.
 
 CubeIDE 14.3.1 normal O2/Os direct/local/global probes have identical normalized
 bodies: **three instructions for u32**, **six for Config Field/Service**,

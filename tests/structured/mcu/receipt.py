@@ -20,6 +20,27 @@ EXPECTED = {'Mixed': 12230, 'Scale': 2831}
 CONFIGURATIONS = {family + '-' + opt for family in EXPECTED for opt in ('O2', 'Os', 'Og')}
 BIG_PROBES = ('bigRead', 'bigCommand', 'bigService')
 SCOPE = 'offline host execution and ARM compile/link inspection'
+NULL_CHECKS = '-fno-delete-null-pointer-checks'
+SANITIZERS = '-fsanitize=address,undefined'
+ARM_FLAGS = frozenset(('-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
+                       '-fno-exceptions', '-fno-rtti', '-ffunction-sections', '-fdata-sections'))
+
+# These are evidence roles, not arbitrary display labels. Changing a pinned
+# compiler or dropping one mode requires an explicit matrix/receipt update.
+EXPECTED_RUNS = {
+    'mingw13': ('host', r'^g\+\+\.exe .*MinGW.* 13\.1\.0$', 'g++.exe', frozenset()),
+    'gcc13-null': ('host', r'^g\+\+ \(Ubuntu.*\) 13\.3\.0$', 'g++', frozenset((NULL_CHECKS,))),
+    'clang18-sanitized': ('host', r'^Ubuntu clang version 18\.1\.3(?:\s|$)', 'clang++-18',
+                          frozenset((SANITIZERS,))),
+    'cubeide14': ('compile/link only', r'^arm-none-eabi-g\+\+\.exe .* 14\.3\.1(?:\s|$)',
+                  'arm-none-eabi-g++.exe', frozenset()),
+    'cubeide14-null': ('compile/link only', r'^arm-none-eabi-g\+\+\.exe .* 14\.3\.1(?:\s|$)',
+                       'arm-none-eabi-g++.exe', frozenset((NULL_CHECKS,))),
+    'arm13': ('compile/link only', r'^arm-none-eabi-g\+\+ .* 13\.2\.1(?:\s|$)',
+               'arm-none-eabi-g++', frozenset()),
+    'arm13-null': ('compile/link only', r'^arm-none-eabi-g\+\+ .* 13\.2\.1(?:\s|$)',
+                    'arm-none-eabi-g++', frozenset((NULL_CHECKS,))),
+}
 
 
 def inputs():
@@ -48,9 +69,20 @@ def verify(receipt, *, current=True):
             'Invalid input digests')
     if current:
         require(hashes == inputs(), 'Receipt inputs differ from the current source tree')
-    require(receipt['runs'], 'Receipt has no runs')
+    require(set(receipt['runs']) == set(EXPECTED_RUNS), 'Receipt seven-run matrix changed')
     for name, run in receipt['runs'].items():
         require(run['compiler'] and '-std=c++20' in run['flags'], name + ': missing compiler/flags')
+        execution, compiler_pattern, driver, modes = EXPECTED_RUNS[name]
+        require(run['execution'] == execution and re.search(compiler_pattern, run['compiler']) is not None,
+                name + ': wrong compiler or execution role')
+        require(run['flags'][0].replace('\\', '/').rsplit('/', 1)[-1] == driver,
+                name + ': wrong compiler driver')
+        actual_modes = {flag for flag in run['flags'] if flag == NULL_CHECKS or flag.startswith('-fsanitize=')}
+        require(actual_modes == modes, name + ': wrong sanitizer/null-check mode')
+        if execution == 'compile/link only':
+            require(ARM_FLAGS.issubset(run['flags']), name + ': missing Cortex-M7 ABI flags')
+        if SANITIZERS in modes:
+            require('-fno-omit-frame-pointer' in run['flags'], name + ': missing sanitizer frame-pointer flag')
         require(re.fullmatch(r'[0-9a-f]{64}', run['report_sha256']) is not None,
                 name + ': missing raw report digest')
         require(set(run['configurations']) == CONFIGURATIONS, name + ': incomplete O2/Os/Og matrix')
@@ -118,8 +150,7 @@ def capture(reports):
 
 def self_test(receipt):
     """Changes to source identity, counts, scope and required controls fail."""
-    host = next(name for name, run in receipt['runs'].items() if run['execution'] == 'host')
-    arm = next(name for name, run in receipt['runs'].items() if run['execution'] == 'compile/link only')
+    host, arm = 'mingw13', 'cubeide14'
     cases = []
     for field, value in (('format_version', 2), ('scope', 'hardware'), ('source_head', 'invalid')):
         changed = deepcopy(receipt)
@@ -143,6 +174,34 @@ def self_test(receipt):
     changed = deepcopy(receipt)
     frames = changed['runs'][arm]['configurations']['Mixed-O2']['big_probe_frames']
     frames[next(iter(frames))] = 4096
+    cases.append(changed)
+    # A valid remaining host/ARM pair is insufficient: every named role stays
+    # required, including each compiler's null-check/sanitizer counterpart.
+    for name in EXPECTED_RUNS:
+        changed = deepcopy(receipt)
+        del changed['runs'][name]
+        cases.append(changed)
+    changed = deepcopy(receipt)
+    changed['runs'] = {name: changed['runs'][name] for name in (host, arm)}
+    cases.append(changed)
+    changed = deepcopy(receipt)
+    changed['runs']['extra'] = deepcopy(changed['runs'][host])
+    cases.append(changed)
+    for name in EXPECTED_RUNS:
+        if name == host:
+            continue
+        changed = deepcopy(receipt)
+        changed['runs'][name] = deepcopy(changed['runs'][host])
+        cases.append(changed)
+    for name, (_, _, _, modes) in EXPECTED_RUNS.items():
+        changed = deepcopy(receipt)
+        if modes:
+            changed['runs'][name]['flags'] = [flag for flag in changed['runs'][name]['flags'] if flag not in modes]
+        else:
+            changed['runs'][name]['flags'].append(NULL_CHECKS)
+        cases.append(changed)
+    changed = deepcopy(receipt)
+    changed['runs'][arm]['flags'].remove('-mfloat-abi=hard')
     cases.append(changed)
     for changed in cases:
         try:

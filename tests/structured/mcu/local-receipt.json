@@ -1,8 +1,8 @@
 {
   "format_version": 1,
   "scope": "offline host execution and ARM compile/link inspection",
-  "captured_at_utc": "2026-10-03T15:38:13.050480+00:00",
-  "source_head": "f67a5f97806f835515ac9f87ac6cdfeba0af217d",
+  "captured_at_utc": "2026-10-03T16:21:10.946886+00:00",
+  "source_head": "4f942a74967a511498b51268b4ec71296c44fa68",
   "source_dirty": true,
   "input_lf_sha256": {
     "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
@@ -174,7 +174,7 @@
     "tests/structured/mcu/Fixture.hpp": "97cfb5b593a52d58b8953d244abd3f2cc3821d64d2d4700d2b55e28d4810fb2b",
     "tests/structured/mcu/Host.cpp": "01830aba7de525d3926471f26915409003eb3f5a48fc050cedbdae36134b4db3",
     "tests/structured/mcu/Mixed.cpp": "218589399698e297e87be1d82f226b6c71729f0909432ad3d683c4b7aa971aad",
-    "tests/structured/mcu/receipt.py": "f19161786395bdde1ee0a7d4cfb017ae81cdad20169575e447c2df9c27ae1086",
+    "tests/structured/mcu/receipt.py": "6dc1969bd574e50f8dd9cedcda28ac403151d65b21c92462357ff51de235e6c3",
     "tests/structured/mcu/run.py": "94862f86369b1a8c78bc6eb71864b032acb594e1b5134fd8ec669bdf8be1061f",
     "tests/structured/mcu/Scale.cpp": "5750616ca858f8c53e8df646b9c68602e8204285bcd27a480f3f9398b437c47b",
     "tests/structured/qualification/AbiClient.cpp": "7e452f171b6f27106e8c615d43c179cdb665d44e6afaced6618584898404dab4",
@@ -222,7 +222,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "cfb873011bf8658805d3ca42b84bc3d3926e2d55b480d42f068ce96c03da2366",
+      "report_sha256": "14ffcdaa54e0e3f59887ddb1e67cef02fa3ba1f0e4355b885fda66ad6c52ca7c",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -297,7 +297,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "3277ff432447ec6a7225577ed21892cc18df87927dbb83831775c6964350854c",
+      "report_sha256": "654c4db99e46ce75e8f7bbd7b5d7c18b8207dc9bcae060b5b37279fb93648346",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -373,7 +373,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "db1c6d15448f6e34ae7b72f6c1fc11c594d52818fe1c93981d79c3b83bd55a45",
+      "report_sha256": "8d3c643dceb6ef9486170ddd5d93991e3d135f23b5c55e93a295bb75f437f8d6",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -444,7 +444,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "cd5db172057982cbb34b501d097cc16931096b1139d357e7447d4c4228aa2b6c",
+      "report_sha256": "63c530c5466308c73733f384e944e0030d6e5f05ebc245c2531f2bdba87c87e1",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1008,7 +1008,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "f9434316d9aa21578bb6794223a6451d47617aca02a2376bbfd25383332c769f",
+      "report_sha256": "ad96f777655130af70ec6bde74f0d90e0531be3d3f096435c89fdd8d5eaa4130",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1587,7 +1587,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "a7d580065da3bc31b78732cb5e884505af93207c4e3a62b49e3b485986ff3e7b",
+      "report_sha256": "441edaeff7563ee21c2f86322b1157fcdc009916a50f3bc4c35c103d6c8a1e13",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -2157,7 +2157,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "c2df54a9601ae35a0569217c96b57aa202742a3ab27e5f86bdcef5ae9746e4b6",
+      "report_sha256": "9d089f25a0fb59435e245f408e5568ebe0eabe5506aadb7665ed4c38290dfb9d",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
