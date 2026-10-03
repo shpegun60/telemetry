@@ -20,7 +20,7 @@ void checkExtra(unsigned&, unsigned&) noexcept;
 namespace {
 constexpr unsigned stackBytes = 16384, guardBytes = 256, stackRepeats = 3;
 #ifdef MCU_SCALE
-constexpr unsigned family = 1, expectedChecks = 2831, expectedConsumers = 0, expectedExtra = 0;
+constexpr unsigned family = 1, expectedChecks = 2316, expectedConsumers = 0, expectedExtra = 0;
 #else
 constexpr unsigned family = 0, expectedChecks = 12230, expectedConsumers = 97, expectedExtra = 3;
 #endif

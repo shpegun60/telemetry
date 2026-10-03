@@ -11,8 +11,10 @@ from pathlib import Path
 
 ALIGNMENTS = {'Natural': None, 'Aligned8': 8, 'Aligned32': 32}
 LOCAL_BUDGETS = {'Local' + str(size): size for size in (0, 16, 32, 64)}
+ALIGNMENTS.update({name: None for name in LOCAL_BUDGETS})
 DISPATCH_SNAPSHOTS = ('Before', 'Local', 'Pointer', 'Boundary')
 DISPATCH_VARIANTS = (*DISPATCH_SNAPSHOTS, 'Context')
+ALIGNMENTS.update({name: None for name in DISPATCH_VARIANTS})
 LAYOUTS = {'Natural': [24, 4, 20, 4, 24, 4], 'Aligned8': [24, 8, 24, 8, 24, 8], 'Aligned32': [32, 32, 32, 32, 32, 32]}
 LAYOUTS.update({name: LAYOUTS['Natural'] for name in LOCAL_BUDGETS})
 LAYOUTS.update({name: LAYOUTS['Natural'] for name in DISPATCH_VARIANTS})
