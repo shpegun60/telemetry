@@ -2,7 +2,7 @@
 
 Дата: 2026-09-26. Автори: Ruslan Kovtun (shpegun60), codexAi.
 
-Статус: **специфікація поетапної реалізації**. Етапи 00–12 реалізовані;
+Статус: **специфікація поетапної реалізації**. Етапи 00–13 реалізовані;
 Stage 11 реалізував приклад control protocol. Уточнення 2026-10-03 перед
 Stage 12 відокремлює цей приклад від core та додає typed traversal і native
 runtime access. Stage 12 додає окремий payload decoder/encoder, browser example
@@ -2883,6 +2883,15 @@ Native library sources, endpoint ABI і binary formats у цьому зрізі 
 метод, а клієнт сам будує форму та розбирає результат.
 
 ### Етап 13. Повна CI, codegen і memory перевірка
+
+Реалізація: [qualification](../tests/structured/qualification/README.md).
+Окремий multi-TU consumer поєднує native/encoded API і 4 KiB DTOs;
+GC/LTO/PIC/PIE мають парні ABI контроли, linked no-heap перевірку та
+captured input hashes. Вартість 1/2/4 visitor types і named reuse виміряна
+окремо. Host/ARM/Qt виконують свої реальні перевірки; ARM compilation
+не називається виконанням цього consumer на платі. Максимум `.su` frames
+не є максимумом сумарного call-chain stack — це залишається Stage 14.
+Exact-SHA publication CI перевіряється окремо після implementation-коміту.
 
 Робота:
 

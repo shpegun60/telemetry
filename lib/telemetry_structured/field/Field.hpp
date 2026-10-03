@@ -57,9 +57,7 @@ public:
 
     constexpr FieldDefinition(detail::Name name, Getter getter, Setter setter = {}) noexcept
         : name_(name), getter_(getter), setter_(setter)
-    {
-        if (name == nullptr || name[0] == '\0') std::abort();
-    }
+    {} // detail::Name already validated the borrowed metadata.
 
     [[nodiscard]] constexpr const char* name() const noexcept { return name_; }
 

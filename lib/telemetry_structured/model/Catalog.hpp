@@ -28,7 +28,6 @@ template <class... Explicit, class Table>
     requires (sizeof...(Explicit) == 0)
 [[nodiscard]] constexpr auto group(detail::Name name, Table& table) noexcept
 {
-    if (name == nullptr || name[0] == '\0') std::abort();
     return TableGroup<std::remove_cv_t<Table>>{name, std::addressof(table)};
 }
 

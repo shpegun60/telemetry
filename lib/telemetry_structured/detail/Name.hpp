@@ -8,6 +8,7 @@
 #define TELEMETRY_STRUCTURED_DETAIL_NAME_HPP
 
 #include "../type/Traits.hpp"
+#include <telemetry/detail/TelemetryTarget.h>
 #include <cstdlib>
 #include <string_view>
 #include <type_traits>
@@ -17,6 +18,8 @@ namespace telemetry::structured::detail {
 [[noreturn]] inline void invalidEndpointName() noexcept { std::abort(); }
 
 // Factories accept this implicit argument wrapper but store only its pointer.
+// Successful construction guarantees a non-null, nonempty, valid UTF-8 name;
+// endpoint/group constructors need not repeat address comparisons.
 // Arrays retain their extent long enough to reject embedded NUL; pointer
 // arguments denote a conventional NUL-terminated string. Neither is owned.
 class Name {
@@ -44,7 +47,10 @@ public:
                   std::is_same_v<std::remove_cvref_t<Pointer>, char*>)
     constexpr Name(Pointer&& text) noexcept : data_(text)
     {
-        if (data_ == nullptr) invalidEndpointName();
+        // GCC null-check modes may not fold an address comparison during
+        // constant evaluation. The shared helper preserves runtime checks;
+        // the following byte scan also requires a real constexpr object.
+        if (!telemetry::detail::pointerPresent(data_)) invalidEndpointName();
         std::size_t size = 0;
         while (size <= Limits::maxStringBytes && data_[size] != '\0') ++size;
         if (size > Limits::maxStringBytes || !reflection::detail::validUtf8({data_, size}))

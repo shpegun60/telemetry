@@ -67,9 +67,7 @@ public:
 
     constexpr ServiceDefinition(detail::Name name, Binding binding) noexcept
         : name_(name), binding_(binding)
-    {
-        if (name == nullptr || name[0] == '\0') std::abort();
-    }
+    {} // detail::Name already validated the borrowed metadata.
 
     [[nodiscard]] constexpr const char* name() const noexcept { return name_; }
 

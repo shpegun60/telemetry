@@ -179,6 +179,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/client/run.py --build-dir build/structured-client "${flags[@]}"
+      - name: C++20 structured multi-TU qualification
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/qualification/run.py --build-dir build/structured-qualification "${flags[@]}"
       - name: Retain structured descriptor logs
         if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
         uses: actions/upload-artifact@v4
@@ -198,6 +209,8 @@ jobs:
             build/structured-traversal/*.json
             build/structured-client/*.log
             build/structured-client/summary.json
+            build/structured-qualification/*.log
+            build/structured-qualification/summary.json
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -272,6 +285,10 @@ jobs:
           python3 tests/structured/traversal/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-traversal-nullchecks
       - name: C++20 optional structured protocol Cortex-M7 checks
         run: python3 tests/structured/exchange/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-exchange
+      - name: C++20 structured multi-TU Cortex-M7 qualification
+        run: |
+          python3 tests/structured/qualification/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-qualification
+          python3 tests/structured/qualification/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-qualification-nullchecks
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -319,6 +336,12 @@ jobs:
             build/arm-structured-exchange/*.su
             build/arm-structured-traversal/*.log
             build/arm-structured-traversal/*.json
+            build/arm-structured-qualification/*.log
+            build/arm-structured-qualification/*.json
+            build/arm-structured-qualification/*.su
+            build/arm-structured-qualification-nullchecks/*.log
+            build/arm-structured-qualification-nullchecks/*.json
+            build/arm-structured-qualification-nullchecks/*.su
             build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 
@@ -363,6 +386,14 @@ jobs:
           qmake6 ../../examples/structured_client/qt.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
           make -j2
           ./structured_client_qt
+      - name: Structured-only multi-TU qmake consumer
+        run: |
+          mkdir -p build/qualification-qt
+          cd build/qualification-qt
+          qmake6 ../../tests/structured/qualification/qmake.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
+          make -j2
+          ./structured_qualification
+          if grep -E 'TelemetryJson.cpp|resource/telemetry/(Schema|Commands|Values)File.cpp|structured_protocol/(Bind|Exchange).cpp' Makefile; then exit 1; fi
       - name: Structured client browser and fake Device
         run: |
           python3 -m venv build/client-venv

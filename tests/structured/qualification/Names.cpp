@@ -1,0 +1,19 @@
+/* All metadata factories accept constexpr array-element pointer names.
+ * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
+#include <telemetry_structured/Structured.hpp>
+namespace ts = telemetry::structured;
+inline constexpr std::array<std::array<char, 6>, 4> names{{
+    {'F', 'i', 'e', 'l', 'd', '\0'}, {'C', 'm', 'd', '\0'},
+    {'S', 'v', 'c', '\0'}, {'G', 'r', 'o', 'u', 'p', '\0'}}};
+std::uint32_t readValue() noexcept { return 1; }
+telemetry::CommandResult commandCall() noexcept { return telemetry::CommandResult::Executed; }
+void serviceCall() noexcept {}
+inline constexpr ts::FieldTable fields{ts::field<&readValue>(names[0].data())};
+inline constexpr ts::CommandTable commands{ts::command<&commandCall>(names[1].data())};
+inline constexpr ts::ServiceTable services{ts::service<&serviceCall>(names[2].data())};
+inline constexpr ts::FieldCatalogTable fieldCatalogs{ts::group(names[3].data(), fields)};
+inline constexpr ts::CommandCatalogTable commandCatalogs{ts::group(names[3].data(), commands)};
+inline constexpr ts::ServiceCatalogTable serviceCatalogs{ts::group(names[3].data(), services)};
+inline constexpr ts::Model model{fieldCatalogs, commandCatalogs, serviceCatalogs};
+static_assert(fields.get<0>().name()[0] == 'F' && commands.get<0>().name()[0] == 'C' &&
+              services.get<0>().name()[0] == 'S');

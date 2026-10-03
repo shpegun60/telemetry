@@ -512,3 +512,31 @@ uses the same Model/Workspace and preserves the exact 41-byte response.
 This is desktop evidence, not new MCU cycles. Native library source hashes
 still match the API-correction H7S receipt. Whole-program qualification and
 final migration remain subsequent stages; publication CI is checked per SHA.
+
+## Stage 13: integrated qualification
+
+The [multi-TU suite](qualification/README.md) combines native and encoded
+Field/Command/Service access, immutable resources and 4 KiB DTOs. It runs 97
+counted conditions per mixed consumer executable; repeated optimization,
+GC/LTO/PIC/PIE and scaling runs total 2433 checks on MinGW and 2635 on Linux.
+Compile rejections, link rejections and runtime checks have separate counters.
+CubeIDE GCC 14.3.1 and ARM GCC 13.2.1 inspect O2/Os/Og linked sections, frames,
+no-heap symbols and known-position u32 direct-call bytes. Null-check modes
+include constexpr array-element pointer names across all endpoint families.
+
+The suite reproduced a constructor-only GCC null-check gap on `cd8b636`.
+Name now performs the shared pointer/UTF-8 validation once; endpoint/group
+constructors consume that validated wrapper. No hot invocation, wire format,
+descriptor layout, local budget or endpoint result contract changed. Original
+Stage 07/08 native direct/local/global gates remain intact and pass.
+
+For 128 rows at O2, four lambda visitor types have 11852 B text / 7296 B rodata;
+four sites sharing one named type have 5952 / 5760 B. These are object sections,
+not MCU cycles or a universal application-size estimate. Root `.su` frames are
+also individual frames, not a whole-call-chain peak. New MCU consumer timing
+and actual call-chain/stack qualification remain Stage 14.
+
+The legacy and optional protocol H7S receipts were refreshed after the name
+fix: 3328 and 4300 checks per O2/Os image, with verified full 64 KiB restoration.
+The current-code receipt again covers 166 library C++/qmake inputs. Both receipts
+retain truthful prepublication HEAD/dirty markers and captured image hashes.
