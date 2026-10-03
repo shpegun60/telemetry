@@ -9,7 +9,7 @@ import re
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from run_arm_checks import check_slot_comparisons, function_body, normalized_instructions, slot_instructions
+from run_arm_checks import check_slot_comparisons, comparable_slot_instructions, function_body, normalized_instructions, slot_instructions
 
 # Captured ARM13.2.1 Os function pair from CI run 37155083161. Only the
 # direct route has the unreachable alignment nop that caused that gate failure.
@@ -73,6 +73,29 @@ def gate_controls(assembly):
     after = slot_instructions(original, name)
     if before[-2:] != [('b', '2c <slot_function_direct+0xa>'), ('nop', '')] or after != before[:-1]:
         raise RuntimeError('Captured CI padding or terminal transfer control changed')
+    positives = []
+    # Re-address the whole direct function, including its local targets and
+    # literal/relocation sites. The branch instruction ordinals stay the same.
+    shifted = re.sub(r'^(\s*)([0-9a-f]+):',
+        lambda m: m[1] + format(int(m[2], 16) + 0x100, 'x') + ':', body, flags=re.M)
+    shifted = re.sub(r'\b([0-9a-f]+) (<slot_function_direct(?:\+0x[0-9a-f]+)?>)',
+        lambda m: format(int(m[1], 16) + 0x100, 'x') + ' ' + m[2], shifted)
+    shifted_assembly = replace_body(original, name, shifted).replace(
+        '00000022 <slot_function_direct>:', '00000122 <slot_function_direct>:', 1)
+    check_slot_comparisons(shifted_assembly, 'Os')
+    positives.append(dict(control='equivalent-function-start-offset', passed=True))
+    table = function_body(original, 'slot_function_table')
+    padded = table.replace('4b05 ldr r3, [pc, #20]', '4b06 ldr r3, [pc, #24]', 1)
+    padded, count = re.subn(r'^(\s*)58:', r'\g<1>5c:', padded, flags=re.M)
+    if count != 2:
+        raise RuntimeError('Captured CI literal/relocation padding sites changed')
+    padded = padded.replace('  5c: 00000000', '  58: bf00 nop\n  5a: bf00 nop\n  5c: 00000000', 1)
+    check_slot_comparisons(replace_body(original, 'slot_function_table', padded), 'Os')
+    positives.append(dict(control='equivalent-trailing-padding', passed=True))
+    relocated = '00000000 <probe>:\n0: f7ff fffe bl 0 <probe>\n0: R_ARM_THM_CALL targetFunction\n4: 4770 bx lr\n'
+    if comparable_slot_instructions(relocated, 'probe') != [('bl', '<relocation:THM_CALL targetFunction>'), ('bx', 'lr')]:
+        raise RuntimeError('Relocated instruction-zero call was treated as a local branch')
+    positives.append(dict(control='relocated-call-at-instruction-zero', passed=True))
     # Insert a reachable nop after the first ldr, consuming the old alignment
     # nop. Code/branch addresses shift by two bytes; the literal stays at 0x3c.
     reachable = []
@@ -96,6 +119,8 @@ def gate_controls(assembly):
     mutations = (
         ('reachable-nop', ''.join(reachable)),
         ('changed-opcode', changed(r'(24:\s*)681b(\s+)ldr', r'\g<1>601b\g<2>str')),
+        ('changed-local-branch-target', changed(r'(2a:\s*)b913(\s+cbnz r3, )32 <slot_function_direct\+0x10>',
+            r'\g<1>b91b\g<2>34 <slot_function_direct+0x12>')),
         ('branch-targeted-padding-nop', changed(r'(38:\s*)e7f8(\s+b.n\s+)2c <slot_function_direct\+0xa>',
             r'\g<1>e7ff\g<2>3a <slot_function_direct+0x18>')),
         ('changed-literal', changed(r'(\.word\s+)0x00000000', r'\g<1>0x00000001')),
@@ -126,7 +151,7 @@ def gate_controls(assembly):
         if slot_instructions('00000000 <probe>:\n' + code, 'probe') != expected:
             raise RuntimeError('Padding helper failed ' + label)
         helpers.append(dict(control=label, passed=True))
-    return dict(real_ci_positive=True, negative_controls=negatives, helper_controls=helpers)
+    return dict(real_ci_positive=True, positive_controls=positives, negative_controls=negatives, helper_controls=helpers)
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -144,7 +169,7 @@ def main():
             controls = gate_controls(assembly)
     counts = dict(assemblies=len(assemblies), slot_comparisons=sum(len(x['comparisons']) for x in assemblies),
         real_ci_positive=int(controls['real_ci_positive']), rejected_mutations=len(controls['negative_controls']),
-        helper_controls=len(controls['helper_controls']))
+        positive_controls=len(controls['positive_controls']), helper_controls=len(controls['helper_controls']))
     record = dict(started_utc=started, completed_utc=datetime.now(timezone.utc).isoformat(), counts=counts,
         source_sha256={str(Path(__file__).resolve()): sha(Path(__file__).resolve()),
             str(Path(__file__).resolve().parent.parent / 'run_arm_checks.py'):

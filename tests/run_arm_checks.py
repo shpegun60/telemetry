@@ -53,6 +53,38 @@ def slot_instructions(disassembly, name):
                 return instructions
     return instructions[:end]
 
+def comparable_slot_instructions(disassembly, name):
+    body = function_body(disassembly, name)
+    instructions = slot_instructions(disassembly, name)
+    start = int(re.search(rf'^([0-9a-fA-F]+) <{re.escape(name)}>:', disassembly, re.M)[1], 16)
+    addresses = [int(match[1], 16) for line in body.splitlines()
+        if (match := re.match(r'\s*([0-9a-fA-F]+):\s+(?:[0-9a-fA-F]{4}\s+)+[a-z][a-z0-9.]*\s*', line))]
+    ordinals = {address: index for index, address in enumerate(addresses[:len(instructions)])}
+    relocations = {int(match[1], 16): (match[2], match[3]) for match in re.finditer(
+        r'^\s*([0-9a-fA-F]+):\s+R_ARM_(THM_CALL|THM_JUMP24)\s+([^\n]+)', body, re.M)}
+    result = []
+    for address, (operation, operands) in zip(addresses, instructions):
+        target = re.search(r'\b([0-9a-fA-F]+) <(.+)>$', operands)
+        if target and (operation.startswith('b') or operation in ('cbz', 'cbnz')):
+            # Relocatable call placeholders may spell this function's own
+            # instruction zero. A relocation at the call site takes precedence.
+            if address in relocations:
+                kind, symbol = relocations[address]
+                normalized = '<relocation:' + kind + ' ' + symbol + '>'
+            else:
+                local = re.fullmatch(re.escape(name) + r'(?:\+0x([0-9a-fA-F]+))?', target[2])
+                if local:
+                    destination = int(target[1], 16)
+                    if destination != start + int(local[1] or '0', 16) or destination not in ordinals:
+                        raise RuntimeError(name + ': local branch target is not a matching instruction address')
+                    normalized = '<instruction:' + str(ordinals[destination]) + '>'
+                else:
+                    normalized = '<external:' + target[2] + '>'
+            operands = operands[:target.start()] + normalized
+        operands = re.sub(r'\[pc, #\d+\]', '[pc, #literal]', operands)
+        result.append((operation, operands))
+    return result
+
 def check_slot_comparisons(disassembly, optimization):
     current = {}
     for kind in ('function', 'context', 'borrowed', 'owned', 'owner'):
@@ -66,19 +98,13 @@ def check_slot_comparisons(disassembly, optimization):
             return sorted(words), sorted(relocations)
         if references(direct_body) != references(table_body):
             raise RuntimeError(optimization + ': native ' + kind + ' dispatch changed literal or relocation targets')
-        def comparable(instructions):
-            result = []
-            for op, operands in instructions:
-                operands = re.sub(r'\b[0-9a-f]+ <[^>]+>', '<target>', operands)
-                operands = re.sub(r'\[pc, #\d+\]', '[pc, #literal]', operands)
-                result.append((op, operands))
-            return result
         if kind == 'owner':
             direct_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', direct_body)
             table_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', table_body)
             if len(table) > len(direct) or direct_calls != table_calls or direct_calls != ['Owner::read() const']:
                 raise RuntimeError(optimization + ': owner table gained work or changed its direct method call')
-        elif comparable(direct) != comparable(table):
+        elif comparable_slot_instructions(disassembly, 'slot_' + kind + '_direct') != comparable_slot_instructions(
+                disassembly, 'slot_' + kind + '_table'):
             raise RuntimeError(optimization + ': native ' + kind + ' table dispatch differs from selected-target call')
         current[kind] = dict(direct_instructions=len(direct), table_instructions=len(table),
             gate='no added instructions and same method relocation' if kind == 'owner' else 'identical normalized instructions')

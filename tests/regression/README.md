@@ -38,8 +38,13 @@ identical normalized instructions. Owner routing requires no added instruction
 count and the same direct method relocation; register allocation and optional
 empty-result paths can differ. Only trailing alignment nops after an
 unconditional terminal transfer are omitted, and explicit branch targets keep
-those nops in the comparison. Reachable nops, literals and relocation targets
-remain checked. These are offline compiler comparisons, not MCU cycle measurements.
+those nops in the comparison. Local branch targets match the function symbol,
+offset and actual instruction address, then compare by instruction ordinal.
+Relocations at call sites take precedence over local-looking address placeholders;
+external call symbols and relocation targets remain checked. Reachable nops and
+literals remain checked. [ArmSlotGateCheck.py](ArmSlotGateCheck.py) replays existing
+O2/Os assembly logs and exercises padding, local-target and reference controls.
+These are offline compiler comparisons, not MCU cycle measurements.
 
 Runtime conditions and commands are counted by the executed fixtures and runner.
 Per-command arguments, exit status and output are retained in the build logs.

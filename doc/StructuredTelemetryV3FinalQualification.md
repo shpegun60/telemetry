@@ -2,10 +2,11 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
 
-Stage 16–19 реалізовано. Локальні host, sanitizer, ARM, Qt, browser та
-апаратні перевірки кінцевого дерева пройшли. Публікаційний gate — повний
-зелений CI для SHA коміту з цією міграцією та evidence. До його завершення
-цей документ не проголошує exact-SHA CI успішним.
+Stage 16–20 закрито на `8c56a5e54b79ef3c5bb1111c9769af103b663eec`:
+локальні host, sanitizer, ARM, Qt, browser та апаратні перевірки пройшли,
+а [exact-SHA CI](https://github.com/shpegun60/telemetry/actions/runs/37156796379)
+завершився успішно — **6/6 jobs**. Подальший test-only hardening має власний
+CI; успіх цього baseline не підміняє статус наступного коміту.
 
 Код, який виконувала H7S:
 `01fd180ff3678d7c47066f8a728dc1e02f0f3973`. Наступний evidence-коміт
@@ -125,3 +126,14 @@ branch. [Follow-up](evidence/StructuredArmSlotGateFollowup.json) виправл�
 перевіреними. Обидва повні ARM13 normal/null runs пройшли по 329 команд;
 tracked control запускає п'ять mutations і дев'ять helper cases також у CI.
 Код бібліотеки й усі captured hardware inputs цим виправленням не змінено.
+
+Наступний [branch-target контроль](evidence/StructuredArmBranchGateHardening.json)
+зберігає локальний перехід як номер цільової інструкції. Зміна `cbnz` на
+інший існуючий блок проходила попередній parser, а тепер відхиляється.
+П'ять повторних parser runs перевірили десять фактичних O2/Os assemblies
+ARM13/14 normal/null та CI ARM13: 50 slot comparisons, по шість negative,
+три positive та дев'ять helper controls. Нові reports лежать у versioned
+build directory. Перші повторні запуски перезаписали п'ять старих локальних
+control JSON; їхні старі hashes лишилися історичними, без відновлюваних
+payload bytes. Compiler summaries, assembly logs і hardware artifacts
+збережено незмінними. Цей контроль також не змінює production-код.

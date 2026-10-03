@@ -1,0 +1,233 @@
+{
+  "scope": "Parser-only local-target gate follow-up; local targets use own symbol+offset+instruction address then ordinal; call-site relocations take precedence; owner count+Owner::read relocation gate unchanged; no compilation, library/device/DemoCatalog changes",
+  "baseline_ci": {
+    "source_head": "8c56a5e54b79ef3c5bb1111c9769af103b663eec",
+    "run": 37156796379,
+    "conclusion": "success",
+    "checks": [
+      {
+        "name": "clang++-18 c++20 sanitized",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726550"
+      },
+      {
+        "name": "clang++-18 c++20 release",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726544"
+      },
+      {
+        "name": "g++ c++20 release",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726527"
+      },
+      {
+        "name": "g++ c++20 nullchecks",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726518"
+      },
+      {
+        "name": "Qt playground",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726516"
+      },
+      {
+        "name": "Cortex-M7 compile and link",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/shpegun60/telemetry/actions/runs/37156796379/job/111301726416"
+      }
+    ]
+  },
+  "before_and_after_control": {
+    "head": "8c56a5e54b79ef3c5bb1111c9769af103b663eec",
+    "path": "tests/run_arm_checks.py",
+    "git_blob_sha256": "7e5b08a5523140916de74c6569395810660d36c0d2a19eda5b5a84eda5456ce4",
+    "mutation_accepted": true,
+    "mutation": "cbnz existing block target0x32->0x34, b913->b91b",
+    "result": {
+      "function": {
+        "direct_instructions": 12,
+        "table_instructions": 12,
+        "gate": "identical normalized instructions"
+      },
+      "context": {
+        "direct_instructions": 12,
+        "table_instructions": 12,
+        "gate": "identical normalized instructions"
+      },
+      "borrowed": {
+        "direct_instructions": 13,
+        "table_instructions": 13,
+        "gate": "identical normalized instructions"
+      },
+      "owned": {
+        "direct_instructions": 13,
+        "table_instructions": 13,
+        "gate": "identical normalized instructions"
+      },
+      "owner": {
+        "direct_instructions": 13,
+        "table_instructions": 13,
+        "gate": "no added instructions and same method relocation"
+      }
+    },
+    "after_fix_mutation_refused": true,
+    "after_fix_reason": "Os: native function table dispatch differs from selected-target call"
+  },
+  "local_replay_record": {
+    "path": "build/stage20/branch-target-gate/record.json",
+    "sha256": "1d6c8b52f9d0ef757f17e374be339f4256a5f350d3d7c5fca1805b0410222af8"
+  },
+  "replays": [
+    {
+      "path": "build/stage20/branch-target-gate/arm14/arm-slot-gate-controls.json",
+      "sha256": "9d33ede0ee27f19b7371a55b86b437ca4e5f911ea10f05cbae56125ab88ee38c",
+      "exit_code": 0,
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 6,
+        "positive_controls": 3,
+        "helper_controls": 9
+      }
+    },
+    {
+      "path": "build/stage20/branch-target-gate/arm14-null/arm-slot-gate-controls.json",
+      "sha256": "46f42231104b6e3011fca12e15ffba7e1880a68a84998a5a343e3328f3c80db2",
+      "exit_code": 0,
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 6,
+        "positive_controls": 3,
+        "helper_controls": 9
+      }
+    },
+    {
+      "path": "build/stage20/branch-target-gate/arm13/arm-slot-gate-controls.json",
+      "sha256": "c2d954b193937b7c816ff2860dc49a21c393caaac69e9de78edbf75c338c1ddf",
+      "exit_code": 0,
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 6,
+        "positive_controls": 3,
+        "helper_controls": 9
+      }
+    },
+    {
+      "path": "build/stage20/branch-target-gate/arm13-null/arm-slot-gate-controls.json",
+      "sha256": "d7fb0f4df7ca637fe8ae4ae146217e1ab701e574115574cba7fad09f6673025f",
+      "exit_code": 0,
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 6,
+        "positive_controls": 3,
+        "helper_controls": 9
+      }
+    },
+    {
+      "path": "build/stage20/branch-target-gate/ci-arm13/arm-slot-gate-controls.json",
+      "sha256": "f3cb3ae5b4433da6cfe8cb3f9c6944175e97828f78c393cc5ecd26646495a7b3",
+      "exit_code": 0,
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 6,
+        "positive_controls": 3,
+        "helper_controls": 9
+      }
+    }
+  ],
+  "source_sha256": {
+    "tests/run_arm_checks.py": "45a755b5968f66ff45167bf64135ffd4db255cbb242e87a0900ac8e24c009e0c",
+    "tests/regression/ArmSlotGateCheck.py": "221a0ed48d1da24dd6f85c5ede95f4de6f66d00eb47ff45a1f04e591f4a94362",
+    "tests/regression/README.md": "c90d1621b883d38bc2618a29f70e19c4d7aca52aa8721225770a988b3198bfd2"
+  },
+  "historical_replaced_control_reports": [
+    {
+      "path": "build/stage20/shared-arm13-final/arm-slot-gate-controls.json",
+      "historical_sha256": "6e950e7e82d688e89d6706e00ee39eeb6cb264adece741d00b468aa889dc172b",
+      "historical_counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      },
+      "hash_source": "doc/evidence/StructuredArmSlotGateFollowup.json",
+      "current_sha256": "cf884e2fa86833510933ec2e313f19eb3606660efc4dfde6e331c6170dff8ff2",
+      "status": "prior report bytes unavailable/replaced by initial new-control replay; do not reconstruct timestamps or claim old digest is retrievable"
+    },
+    {
+      "path": "build/stage20/shared-arm13-null-final/arm-slot-gate-controls.json",
+      "historical_sha256": "8eece31af8ebd056c804e3672f5f4f5de578104cdbc485e0c1d35a5af9604e6a",
+      "historical_counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      },
+      "hash_source": "doc/evidence/StructuredArmSlotGateFollowup.json",
+      "current_sha256": "ce06b305bf2a0cca7e8c7f1d03a4252cb1dc6dae0874d8f9fcc54179e4b01450",
+      "status": "prior report bytes unavailable/replaced by initial new-control replay; do not reconstruct timestamps or claim old digest is retrievable"
+    },
+    {
+      "path": "build/stage20/shared-arm14/arm-slot-gate-controls.json",
+      "historical_sha256": "5844e4e05816f90b6043d7460fc0e1dd55afaf407cb2d1c0236556a8118a241e",
+      "historical_counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      },
+      "hash_source": "build/stage20/ci-padding-followup/tracked-control-record.json",
+      "current_sha256": "83e3bccd46623e687770229cf70e69ba454e3de21945e6a4d6a60914761b06d2",
+      "status": "prior report bytes unavailable/replaced by initial new-control replay; do not reconstruct timestamps or claim old digest is retrievable"
+    },
+    {
+      "path": "build/stage20/shared-arm14-null/arm-slot-gate-controls.json",
+      "historical_sha256": "4f4804b62942fb16436378b0e0bea7ac84a1c9c7b2a8fb152bf2ef3b2baae7a9",
+      "historical_counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      },
+      "hash_source": "build/stage20/ci-padding-followup/tracked-control-record.json",
+      "current_sha256": "da9a9b22d5acd821b9b3f53bb42c04c327d7e09ecf4e1e2c118baf281282d802",
+      "status": "prior report bytes unavailable/replaced by initial new-control replay; do not reconstruct timestamps or claim old digest is retrievable"
+    },
+    {
+      "path": "build/stage20/ci-arm-df7/arm/arm-slot-gate-controls.json",
+      "historical_sha256": "e4bd8e00819410195650aa672b33ed7e469afe9b50c28d5174d9ca4c4f77165e",
+      "historical_counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      },
+      "hash_source": "build/stage20/ci-padding-followup/tracked-control-record.json",
+      "current_sha256": "9f17690e6abc29478c1ca43b098c231d851b89abb85932d3de29e1f7abbf4db4",
+      "status": "prior report bytes unavailable/replaced by initial new-control replay; do not reconstruct timestamps or claim old digest is retrievable"
+    }
+  ],
+  "original_assembly_logs_and_compile_summaries_unchanged": true,
+  "library_and_hardware_build_inputs_unchanged": true,
+  "artifact_location": "Local ignored build/stage20/branch-target-gate; hashes do not promise permanent artifact availability"
+}
