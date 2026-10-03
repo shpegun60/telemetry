@@ -10,14 +10,20 @@ Stage 14 probes виконано на потрібній H7S без зміни r
 для `389c995083b4dc0a39cd8775b211ef765494240f` завершився success, 9/9 jobs.
 Нових API/wire blockers апаратний прогін не
 виявив; це не обіцянка відсутності всіх можливих дефектів.
+Це історичний Stage 15 gate. Stage 16–19 реалізовано, а Stage 20
+local/software/hardware qualification кінцевого дерева завершено.
+Чотири current H7S receipts зафіксували code HEAD
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973`; publication exact-SHA CI
+ще очікується. Поточні результати й межі публікації наведено у
+[final qualification](StructuredTelemetryV3FinalQualification.md).
 
 | Частина | Статус | Доказ |
 | --- | --- | --- |
 | Контракт API/wire | Freeze прийнято | Freeze suite, незмінні goldens, semantic suites |
 | Повна програмна матриця CI | PASS, exact `389c995`, 9/9 jobs | CI 37145176280, host/ARM artifacts |
-| Stage 14 hardware qualification | PASS | [Results](../tests/structured/mcu/h7s/RESULTS.md), 30128 conditions, restore, cycles та PSP observations |
+| Історична Stage 14 hardware qualification | PASS для captured `37bc857` | [Archived results](evidence/pre-unification/stage14/RESULTS.md), 30128 conditions, restore, cycles та PSP observations |
 | Повний Stage 15 DoD | PASS | MCU receipt із §18.1 та exact-SHA CI |
-| Міграція 16–20 | Stage 16–19 виконано; Stage 20 qualification триває | Baseline й історичні receipts збережено окремо |
+| Міграція 16–20 | Stage 16–19 виконано; Stage 20 local qualification завершено, publication CI pending | [Final qualification](StructuredTelemetryV3FinalQualification.md); baseline та current receipts розділено |
 
 ## Межі зафіксованого API
 
@@ -74,7 +80,8 @@ Legacy Scalar не є fallback нового native чи encoded шляху.
   Це fingerprint моделі, а не хеш мінливих значень або поле кожного пакета.
 - Independent descriptor edge/empty/mixed та dense values goldens.
 - Structured ABI revision 5; default local object budget 32 B.
-- Усі 11 default technical ceilings із `telemetry::structured::Limits`.
+- Усі 11 default technical ceilings із `telemetry::Limits`
+  (до Stage 17 — `telemetry::structured::Limits`).
   Вони належать до зафіксованого v1 acceptance contract: зміна навіть одного
   значення потребує явного перегляду сумісності та оновлення контракту.
   Це не semantic min/max/default значень endpoint-ів. Явні application
@@ -101,10 +108,11 @@ std::meta не є залежністю MCU. Factory/shape rules не розши�
 | Descriptor/fingerprint/values byte contract і одноразове читання live token | [descriptor](../tests/structured/descriptor/README.md), [resources](../tests/structured/resources/README.md) |
 | Traversal, As conversion, runtime bounds, borrowed lifetime | [traversal](../tests/structured/traversal/README.md), новий [freeze contract](../tests/structured/freeze/README.md) |
 | JS/Qt client без ручного serializer для кожного DTO, optional packet layer поза core | [client](../tests/structured/client/README.md), [examples](../examples/structured_client/README.md), [exchange](../tests/structured/exchange/README.md) |
-| Public API/wire/dependency pins, чисті `.pri` consumers | [freeze suite](../tests/structured/freeze/README.md), qmake qualification/client та чотири resource selections |
-| Реальний MCU receipt нових probes, whole-call-chain stack/cycles | [H7S results](../tests/structured/mcu/h7s/RESULTS.md), [195-input receipt](../tests/structured/mcu/h7s/receipt.json) |
+| Public API/wire/dependency pins, чисті `.pri` consumers | [freeze suite](../tests/structured/freeze/README.md), qmake qualification/client та core-only/v3 resource selections |
+| Історичний Stage 15 MCU gate, whole-call-chain stack/cycles | [Archived H7S results](evidence/pre-unification/stage14/RESULTS.md), [195-input receipt](evidence/pre-unification/stage14/receipt.json) |
+| Current final-source MCU/Descriptor/Values/Bind-Exchange qualification | [Final qualification](StructuredTelemetryV3FinalQualification.md), [current H7S results](../tests/structured/mcu/h7s/RESULTS.md) |
 
-Локальна нова матриця: MinGW 13.1, GCC 13.3 з null checks, Clang 18.1
+Історична freeze-матриця Stage 15: MinGW 13.1, GCC 13.3 з null checks, Clang 18.1
 ASan/UBSan, CubeIDE ARM 14.3.1 normal/null, ARM 13.2.1 normal/null;
 усі O2/Os/Og. Host виконує 29 conditions на optimization, разом 87 на run.
 ARM лише компілює, лінкує й читає nm/objdump/size/.su: його runtime count
@@ -112,19 +120,22 @@ ARM лише компілює, лінкує й читає nm/objdump/size/.su: �
 діагностикою та 11 незалежних змін expected ceilings. Лічильники цих двох
 груп відмов окремі від runtime checks. Це contract gates, а не нові runtime findings.
 
-Чисті нові build directories із Qt 6.10.1 / MinGW 13.1 перевіряють
+На Stage 15 чисті build directories із Qt 6.10.1 / MinGW 13.1 перевіряли
 multi-TU consumer (97 conditions), Qt client (exact 41-byte response),
-core-only/v2-only/v3-only/both resource selections. Makefile нового consumer
+тодішні core-only/v2-only/v3-only/both resource selections. Makefile нового consumer
 не містить legacy JSON/v2 providers або optional Bind/Exchange.
 Окремі examples і browser interoperability також залишаються в CI.
+Після Stage 19 legacy v2 і combined selections видалено; кінцевий qmake
+runner перевіряє core-only і v3 selections. Повторну програмну матрицю
+кінцевого дерева зафіксовано у [final qualification](StructuredTelemetryV3FinalQualification.md).
 
-Виміряні linked sections та individual ARM frames з compiler/flags/input
-hashes вже наведено в [MCU evidence](../tests/structured/mcu/README.md).
+Історичні linked sections та individual ARM frames з compiler/flags/input
+hashes збережено в [Stage 14 offline evidence](evidence/pre-unification/stage14/mcu-offline-README.md).
 Для 4 KiB Field/Command/Service CubeIDE frames O2 становлять 192/176/216 B,
 Os — 168/152/192 B. Це окремі compiler frames; їх не перейменовуємо на
 максимальний live stack усього call chain. У цих прогонах немає MCU циклів.
 Старі H7S receipts підтверджують свої попередні образи та restore.
-Новий Stage 14 receipt доводить виконання captured sources `37bc857`:
+Історичний Stage 14 receipt доводить виконання captured sources `37bc857`:
 195 inputs збігаються з Git blobs цього SHA, а `source_dirty=true` чесно
 зберігає наявність 92 untracked review files поза build inputs. 840 DWT
 windows і 744 PSP observations пройшли незалежну перевірку; 70 mutations
@@ -134,6 +145,20 @@ owning runtime `readAs<Big>` — 8256/8264 B. Ці watermarks не врахов�
 untouched reserved slots, caller MSP та interrupts і не є універсальною
 worst-case межею. Однакові native instruction streams у різних адресах
 образу дали різні цикли; instruction equivalence не означає cycle equivalence.
+
+Current final-source receipts окремі від цих baseline measurements:
+[MCU](../tests/structured/mcu/h7s/receipt.json),
+[Descriptor](../tests/structured/descriptor/h7s/receipt.json),
+[Values/resources](../tests/structured/resources/h7s/receipt.json) і
+[Bind/Exchange](../tests/structured/exchange/h7s/receipt.json).
+Усі чотири завершені з повним restore/readback 65536 B. Їхні captured LF
+inputs — відповідно 140/133/133/140 — збігаються з Git blobs code HEAD
+`01fd180`; captured code після вимірювань не змінювався.
+Глобальний `source_dirty=true` збережено через unrelated untracked review
+tree; це не clean-tree claim. Fresh MCU run виконав 29098 conditions,
+784 DWT windows і 696 stack observations. Current cycles і observed
+full-chain stack наведено в [H7S results](../tests/structured/mcu/h7s/RESULTS.md);
+історичні 30128 conditions і prior H7S cycles не перепозначено як нові.
 
 ## Lifetime, concurrency і storage
 
@@ -158,6 +183,7 @@ worst-case межею. Однакові native instruction streams у різни
   зберігає. Compiled adapters мають exact tag у символах. Однаковий ABI
   у всіх TU одного executable залишається вимогою application build.
 
-Новий Stage 14 MCU receipt, backup/restore і actual call-chain stack/cycle
-evidence отримано; exact-SHA CI публікації зелений. Stage 15 завершено.
-Міграція 16–20 використовує цей frozen contract і збережені baseline artifacts.
+Stage 15 завершено з історичним exact `389c995` CI 9/9 і його MCU receipt.
+Міграція 16–19 реалізована зі збереженням frozen contract; Stage 20
+local/software/hardware qualification завершено. Publication exact-SHA CI
+кінцевого evidence-коміту ще очікується; попередній зелений CI його не замінює.

@@ -46,8 +46,9 @@ sections and disassembly and executes zero conditions.
 
 The [local receipt](local-receipt.json) records seven actual compiler/mode
 roles with exactly 138 shared LF inputs and 42 configurations.
-These migration runs observed HEAD `389c995` with changed captured sources;
-`source_dirty=true` is preserved. They are not a clean-SHA or hardware claim.
+These final runs observed HEAD `01fd180` with unchanged captured build inputs;
+the receipt's scoped `source_dirty=false` applies to that input set. It does
+not claim the entire working tree was clean, and it is not a hardware run.
 Each host executes 43,638 conditions, for 130,914 across three host roles.
 
 | Role | Successful tool commands | Executed conditions |
@@ -64,7 +65,7 @@ The independent verifier requires every role, pinned compiler driver,
 Cortex-M7 hard-float ABI flags, normal/null/sanitized mode, all configurations,
 counts, source/report hashes and real-symbol controls. Its 32 mutations
 include omitted/substituted roles and changed counts/flags/frames.
-Raw reports stay in `build/stage20/offline-<role>`; their recorded digests
+Raw reports stay in `build/stage20/offline-final-<role>`; their recorded digests
 allow comparison with retained files but do not recreate missing artifacts.
 
 Each final library frame is checked, including files under `lib/telemetry`.

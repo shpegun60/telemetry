@@ -125,7 +125,8 @@ The runner builds both images before touching hardware, saves the full 64 KiB
 internal Flash, restores in `finally` and verifies read-back. No option bytes
 or external Flash are written. This run's original and restored SHA-256:
 `a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
-Raw windows and image/source hashes are retained in [h7s/receipt.json](h7s/receipt.json).
+Raw windows and image/source hashes are retained in the
+[historical receipt](../../../doc/evidence/pre-unification/stage09/receipt.json).
 It records `source_head=45652e7db79debb54d851e6d4c5208bc16379c97` and completion
 on 2026-09-27. That historical receipt does not contain a `source_dirty` field;
 its captured input hashes identify the measured local build, not HEAD alone.
@@ -146,3 +147,15 @@ execution has no serial/port defaults: `--run` requires explicit `--programmer`,
 `--serial` and `--port`. Without `--run`, only both images are built. Existing output directories
 are refused. A power or host interruption still requires manual restoration
 from the retained `before.bin`.
+
+## Final-source H7S verification, 2026-10-03
+
+The [current hardware evidence](h7s/README.md) and
+[receipt](h7s/receipt.json) record both O2/Os images after source unification,
+with `source_head=01fd180ff3678d7c47066f8a728dc1e02f0f3973` and
+`source_dirty=true`. Both complete correctness/timing plans passed, and all
+65536 internal Flash bytes were restored and verified. Captured input and
+image hashes identify this build; the earlier table remains historical.
+The [mixed MCU qualification](../mcu/h7s/RESULTS.md) separately records
+endpoint cycles and observed full call-chain stack. Offline receipt
+verification does not constitute another device execution.

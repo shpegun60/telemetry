@@ -101,7 +101,7 @@ qmake provider builds exclude example sources; `exchange/qmake.pro` selects
 the example explicitly and exercises both handlers.
 
 The protocol-relocation snapshot was measured on 2026-10-03: its
-[historical protocol receipt](../exchange/h7s/receipt.json) records 4300 checks
+[historical protocol receipt](../../../doc/evidence/pre-unification/stage11/receipt.json) records 4300 checks
 per O2/Os image, original 64 KiB Flash restoration,
 `source_head=cd8b636bc8a518fcc1a3021659f109281d47107e`, and `source_dirty=true`.
 It does not establish visitor cycles for the final namespace migration. The
@@ -109,3 +109,14 @@ former 3328-check scalar receipt is historical and its runner is retired.
 Current mixed/scale qualification is documented in the separate
 [MCU suite](../mcu/README.md); captured manifests retain their own source
 identity rather than being relabelled with later commits.
+
+## Final-source H7S verification, 2026-10-03
+
+The [current MCU results](../mcu/h7s/RESULTS.md) and
+[receipt](../mcu/h7s/receipt.json) include final-path typed, visitor, native As
+and encoded operations at O2/Os. The captured source is
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973`, with `source_dirty=true` retained.
+All 29098 Mixed/Scale conditions passed and full internal Flash restoration
+was verified. Results distinguish measured cycles/observed call-chain stack
+from instruction equality and individual compiler frames. The original
+traversal section sizes above remain historical measurements.

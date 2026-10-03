@@ -1,7 +1,7 @@
 {
   "scope": "actual local final-tree host execution and offline ARM/Qt qualification; not hardware or exact published-SHA CI",
-  "captured_at_utc": "2026-10-03T20:51:54.108266+00:00",
-  "source_head": "389c995083b4dc0a39cd8775b211ef765494240f",
+  "captured_at_utc": "2026-10-03T21:14:42.246902+00:00",
+  "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
   "source_dirty": true,
   "records": [
     {
@@ -307,9 +307,9 @@
       ]
     },
     {
-      "path": "build/stage20/offline-matrix.json",
-      "sha256": "11d43482cddb053391ebd310540f830b791c5b1b6514975b036ecb1b22caa0d8",
-      "bytes": 2873,
+      "path": "build/stage20/offline-final-matrix.json",
+      "sha256": "dc2fa105f92505dfc38819e5d7bc6cee3d0b6d9848e8d4fa80a61a3c95b5bb29",
+      "bytes": 2914,
       "runs": [
         {
           "role": "mingw13",
@@ -319,10 +319,10 @@
             "--cxx",
             "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
             "--build-dir",
-            "build/stage20/offline-mingw13"
+            "build/stage20/offline-final-mingw13"
           ],
           "exit": 0,
-          "seconds": 45.53
+          "seconds": 41.87
         },
         {
           "role": "gcc13-null",
@@ -337,10 +337,10 @@
             "g++",
             "--null-checks",
             "--build-dir",
-            "build/stage20/offline-gcc13-null"
+            "build/stage20/offline-final-gcc13-null"
           ],
           "exit": 0,
-          "seconds": 57.76
+          "seconds": 62.7
         },
         {
           "role": "clang18-sanitized",
@@ -355,10 +355,10 @@
             "clang++-18",
             "--sanitize",
             "--build-dir",
-            "build/stage20/offline-clang18-sanitized"
+            "build/stage20/offline-final-clang18-sanitized"
           ],
           "exit": 0,
-          "seconds": 70.72
+          "seconds": 66.3
         },
         {
           "role": "cubeide14",
@@ -369,10 +369,10 @@
             "C:/ST/STM32CubeIDE_2.0.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740/tools/bin/arm-none-eabi-g++.exe",
             "--arm",
             "--build-dir",
-            "build/stage20/offline-cubeide14"
+            "build/stage20/offline-final-cubeide14"
           ],
           "exit": 0,
-          "seconds": 65.3
+          "seconds": 59.2
         },
         {
           "role": "cubeide14-null",
@@ -384,10 +384,10 @@
             "--arm",
             "--null-checks",
             "--build-dir",
-            "build/stage20/offline-cubeide14-null"
+            "build/stage20/offline-final-cubeide14-null"
           ],
           "exit": 0,
-          "seconds": 67.17
+          "seconds": 59.17
         },
         {
           "role": "arm13",
@@ -402,10 +402,10 @@
             "arm-none-eabi-g++",
             "--arm",
             "--build-dir",
-            "build/stage20/offline-arm13"
+            "build/stage20/offline-final-arm13"
           ],
           "exit": 0,
-          "seconds": 67.62
+          "seconds": 63.15
         },
         {
           "role": "arm13-null",
@@ -421,10 +421,10 @@
             "--arm",
             "--null-checks",
             "--build-dir",
-            "build/stage20/offline-arm13-null"
+            "build/stage20/offline-final-arm13-null"
           ],
           "exit": 0,
-          "seconds": 58.2
+          "seconds": 60.41
         }
       ]
     },
@@ -467,13 +467,13 @@
     },
     {
       "path": "tests/structured/mcu/local-receipt.json",
-      "sha256": "6b50a00afd616a2e7eaf2806b14c21fe1c330bc0d3b6e41bca5e3774993a56f8",
-      "bytes": 106528,
+      "sha256": "a21f918544cfdf051f1ff7257bf634136b211a5e50de42ce161e67fd063b6b1e",
+      "bytes": 106529,
       "roles": 7,
       "input_count": 138,
       "scope": "offline host execution and ARM compile/link inspection",
-      "observed_source_head": "389c995083b4dc0a39cd8775b211ef765494240f",
-      "observed_source_dirty": true
+      "observed_source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+      "observed_source_dirty": false
     },
     {
       "path": "build/stage20/qt-playground/summary.json",
@@ -553,6 +553,6 @@
     }
   ],
   "artifact_location": "local ignored build/stage20; recorded hashes do not promise permanent retrievability",
-  "followups": "NumericEdges whitespace-only correction; exact runtime-count parser controls; generic C++ driver spelling corrected and sanitizer suite rerun",
+  "followups": "NumericEdges whitespace-only correction; exact runtime-count parser controls; generic C++ driver spelling corrected and sanitizer suite rerun; final seven-role offline matrix repeated after the H7S expected-count guard correction",
   "failures_in_final_runs": 0
 }

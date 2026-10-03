@@ -332,14 +332,14 @@ binding — у §12.1.1. Вони не додають нового `init()` до
 
 | Наявна частина | Що використовуємо | Чого не робимо |
 | --- | --- | --- |
-| [CallableTraits](../lib/telemetry/detail/TelemetryCallable.h) | Уже є `Result`, `Arguments`, arity, відмінність method/free function | Не стверджуємо, що Result треба винаходити з нуля |
-| [FieldTable](../lib/telemetry/field/TelemetryFieldTable.h) | Модель збереження типів definition і прямий typed-шлях | Не додаємо struct ops у старий `Field` |
-| [CommandTable](../lib/telemetry/command/TelemetryCommandTable.h) | Модель local/global/runtime і metadata з відомим lifetime | Не розширюємо старий `Scalar[]` контракт структурами |
-| [CommandResult](../lib/telemetry/command/TelemetryCommand.h) | Статуси дії для нового structured Command | Не трактуємо їх як статуси Service |
+| [CallableTraits](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryCallable.h) | Уже є `Result`, `Arguments`, arity, відмінність method/free function | Не стверджуємо, що Result треба винаходити з нуля |
+| [FieldTable](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/field/TelemetryFieldTable.h) | Модель збереження типів definition і прямий typed-шлях | Не додаємо struct ops у старий `Field` |
+| [CommandTable](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/command/TelemetryCommandTable.h) | Модель local/global/runtime і metadata з відомим lifetime | Не розширюємо старий `Scalar[]` контракт структурами |
+| [CommandResult](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/command/TelemetryCommand.h) | Статуси дії для нового structured Command | Не трактуємо їх як статуси Service |
 | [Slots](../lib/telemetry/slot/README.md) | Наявні види пізньої прив'язки і snapshot target | Не додаємо перевірку null для коректного прямого owner-reference |
 | [resource](../lib/resource/README.md) | Плоский FileIndex, `u64` cursor, span, stat/read/write | Не вбудовуємо знання про telemetry у resource core |
 | [resource protocol](../lib/resource/protocol/Protocol.hpp) | Наявні LIST/STAT/READ/WRITE для файлів | Не видаємо WRITE за готовий RPC request/response |
-| [Binary v2.1](../lib/resource/telemetry/BinaryFormat.hpp) | Окремий незмінний формат scalar-модуля | Не підміняємо payload v2.1 структурним |
+| [Binary v2.1](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/resource/telemetry/BinaryFormat.hpp) | Окремий незмінний формат scalar-модуля | Не підміняємо payload v2.1 структурним |
 
 Перед першою зміною коду потрібно знову записати фактичний HEAD, compiler
 версії, конфігурації, стан дерева та результати baseline. Якщо HEAD уже
@@ -349,10 +349,10 @@ binding — у §12.1.1. Вони не додають нового `init()` до
 Посилання на базові перевірки:
 [host runner](../tests/run_checks.py),
 [ARM runner](../tests/run_arm_checks.py),
-[FieldTable codegen](../tests/FieldTableCodegen.cpp),
-[CommandTable codegen](../tests/CommandTableCodegen.cpp),
-[runtime index codegen](../tests/IndexCodegen.cpp),
-[поточний H7S receipt](../tests/regression/h7s/current-receipt.json),
+[FieldTable codegen](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/FieldTableCodegen.cpp),
+[CommandTable codegen](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/CommandTableCodegen.cpp),
+[runtime index codegen](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/IndexCodegen.cpp),
+[поточний H7S receipt](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/regression/h7s/current-receipt.json),
 [CI](../.github/workflows/ci.yml).
 
 <a id="public-api"></a>
@@ -1341,7 +1341,7 @@ Void status без response не потребує payload allocation.
 всього task stack: збережені регістри, alignment padding, codec frames і
 код callback-а рахуються окремо. H7S-порівняння 0/16/32/64 bytes, старої
 scalar бібліотеки та решти витрат наведене в
-[Storage results](../tests/structured/endpoints/h7s/STORAGE_RESULTS.md).
+[Storage results](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/structured/endpoints/h7s/STORAGE_RESULTS.md).
 
 Тривіально конструйований object перед decode не обнуляється: усі його
 semantic members заповнюються до читання. Для DMI лишається neutral
@@ -2245,7 +2245,7 @@ Vendor PFR лишається під Boost Software License; його автор
   які реально перетинають header/`.cpp` boundary;
 - pointer width і compile-time configuration, що змінює ці layouts.
 
-Як у [поточному ABI guard](../lib/telemetry/abi/TelemetryAbi.h), символ
+Як у [поточному ABI guard](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/abi/TelemetryAbi.h), символ
 лінкування ідентифікується повним tuple параметрів, не коротким hash.
 У views віддаємо перевагу standard-layout типам із явними callback
 signatures. ServiceResult storage лишається всередині typed thunk,
@@ -2271,8 +2271,8 @@ anchor і його retention перевіряється codegen/sections окр�
 ## 14. Клієнт JavaScript/Qt
 
 Decoder v3 — окремий модуль; не змінює поведінку поточного
-[telemetryBinary.js](../web/telemetryBinary.js).
-Реалізація: [telemetryStructured.js](../web/telemetryStructured.js),
+[telemetryBinary.js](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/web/telemetryBinary.js).
+Реалізація: [telemetryStructured.js](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/web/telemetryStructured.js),
 [desktop example](../examples/structured_client/README.md) та
 [client tests](../tests/structured/client/README.md). HTTP fake adapter
 прикладу не є telemetry transport contract.
@@ -2952,7 +2952,7 @@ values і runtime вибір серед 128 різних targets. Ті самі 
 показав 8256/8264 B full-chain stack; encoded 4 KiB шляхи — 244–360 B.
 
 Порядок спирається на наявні
-[resource H7S інструкції](../tests/resources/h7s/README.md).
+[resource H7S інструкції](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/resources/h7s/README.md).
 
 Робота:
 
@@ -3445,8 +3445,11 @@ Stage 16 retained the baseline. Stages 17–19 are implemented in one C++20
 resource providers. Legacy Scalar/v2 executable sources are retired; historical
 review and measurement evidence remains separately identified.
 
-Stage 20 final-source host/sanitizer/ARM/Qt validation is being completed.
-Its final MCU receipt and exact published-SHA CI are required before closure.
+Stage 20 final-source host/sanitizer/ARM/Qt and actual H7S qualification passed.
+Four fresh hardware suites record ten O2/Os images of code commit `01fd180`;
+their captured inputs and full Flash restoration were independently verified.
+The [final qualification](StructuredTelemetryV3FinalQualification.md) separates
+these results from the remaining exact published-SHA CI publication gate.
 The [migration guide](StructuredTelemetryV3MigrationGuide.md) records the
 actual file/API transition and the evidence boundaries. No frozen wire,
 ceiling, type, endpoint semantics or default 32-B storage policy was redesigned.

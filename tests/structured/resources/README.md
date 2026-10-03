@@ -118,7 +118,7 @@ grew by 8 B. No behavior/storage-policy change accompanied that adjustment.
 
 ## Historical NUCLEO-H7S3L8 measurement
 
-The [receipt](h7s/receipt.json) records
+The [historical receipt](../../../doc/evidence/pre-unification/stage10/receipt.json) records
 `source_head=c25c6fa00f91a7b6baac9ac23299c2ff29396f62`, CubeIDE GCC 14.3.1,
 a 600 MHz Cortex-M7,
 caches enabled, both built images and their library/object digests. The board
@@ -164,3 +164,15 @@ The output directory must not exist. With `--run`, explicit `--programmer`,
 `--serial` and `--port` are required; they have no device defaults. Without
 `--run`, the runner only builds both images. The helper verifies the expected board,
 backs up Flash, runs the checks, and restores/verifies the backup in `finally`.
+
+## Final-source H7S verification, 2026-10-03
+
+The [current provider evidence](h7s/README.md) and
+[receipt](h7s/receipt.json) record both O2/Os images after source unification:
+`source_head=01fd180ff3678d7c47066f8a728dc1e02f0f3973`,
+`source_dirty=true`. The complete correctness/timing plans passed and all
+65536 internal Flash bytes were restored and verified. Their captured hashes
+identify the final-path build; the preceding cycle table remains historical.
+The [mixed MCU qualification](../mcu/h7s/RESULTS.md) supplies separate
+endpoint and large-object call-chain evidence. Offline verification checks
+the receipts, not another device run.

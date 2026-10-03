@@ -126,7 +126,7 @@ Field/Command/Service entry size/alignment is 28/4, 20/4 and 24/4 B; legacy
 Field is 96/32 B and legacy Command is 20/4 B. Scalar native read is 16 B;
 write is 16 B at O2 and 12 B at Os. These are codegen facts, not cycle results.
 
-The [historical optional protocol run](../exchange/h7s/receipt.json) on
+The [historical optional protocol run](../../../doc/evidence/pre-unification/stage11/receipt.json) on
 2026-10-03 passed 4300 checks per O2/Os image and restored the original 64 KiB
 Flash. It records `source_head=cd8b636bc8a518fcc1a3021659f109281d47107e` and
 `source_dirty=true`; it does not run this 97-check consumer or establish
@@ -134,3 +134,16 @@ native visitor timing. The former 3328-check scalar run belongs to its
 archived source snapshot and is not an active final-API suite.
 [Stage 14 MCU qualification](../mcu/h7s/README.md) separately retains the
 Mixed/Scale consumer, full call-chain and cycle-distribution evidence.
+
+## Final-source H7S verification, 2026-10-03
+
+The [current MCU results](../mcu/h7s/RESULTS.md) and
+[receipt](../mcu/h7s/receipt.json) record both O2/Os Mixed and Scale images
+after source unification. Each Mixed image includes this suite's original
+97-condition multi-TU consumer. All 29098 conditions passed, with zero
+failures and verified restoration of all 65536 internal Flash bytes.
+The recorded source is `01fd180ff3678d7c47066f8a728dc1e02f0f3973`;
+`source_dirty=true` and captured hashes are retained. These are new hardware
+results, separate from the historical compiler-frame tables above. The
+[optional protocol run](../exchange/h7s/README.md) is also refreshed for the
+final source but remains a separate suite.

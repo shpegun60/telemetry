@@ -116,6 +116,8 @@ frames. [Migration evidence](doc/StructuredTelemetryV3MigrationGuide.md)
 records the transition to this single API; old review reports and
 [historical measurements](doc/evidence/pre-unification/README.md) retain
 their original source identity.
+The [final qualification](doc/StructuredTelemetryV3FinalQualification.md)
+collects final-source software and H7S results with their publication gate.
 
 The final C++20 API intentionally has no source/ABI or wire compatibility
 adapter for the retired Scalar/v2.1 implementation. Existing consumers

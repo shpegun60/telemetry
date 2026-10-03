@@ -108,3 +108,15 @@ ABI. The final migration uses `<telemetry/Telemetry.hpp>`, namespace
 `telemetry`, and `resource/telemetry/v3` providers; it keeps the same native
 DTOs and canonical bytes. Whole-program stack and MCU cycle evidence is
 retained separately in [Stage 14 qualification](../mcu/h7s/README.md).
+
+## Final-source hardware evidence, 2026-10-03
+
+The [current MCU results](../mcu/h7s/RESULTS.md),
+[descriptor run](../descriptor/h7s/README.md) and
+[values-provider run](../resources/h7s/README.md) record the final native API
+and v3 provider paths at source
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973`, with `source_dirty=true` retained
+and captured input/image hashes. Both O2/Os profiles completed and full
+internal Flash restoration was verified. This verifies the MCU producers;
+it is separate from the browser/Qt interoperability checks above and does
+not measure browser rendering or network throughput.

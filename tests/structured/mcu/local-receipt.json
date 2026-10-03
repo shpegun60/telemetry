@@ -1,9 +1,9 @@
 {
   "format_version": 1,
   "scope": "offline host execution and ARM compile/link inspection",
-  "captured_at_utc": "2026-10-03T20:33:42.840684+00:00",
-  "source_head": "389c995083b4dc0a39cd8775b211ef765494240f",
-  "source_dirty": true,
+  "captured_at_utc": "2026-10-03T21:05:13.747584+00:00",
+  "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+  "source_dirty": false,
   "input_lf_sha256": {
     "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
     "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -119,7 +119,7 @@
     "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
     "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
     "tests/structured/mcu/Fixture.hpp": "5622e698ae803ef93e87e4a4b71b717cce10c179c2c3418c2bb59d260d056da0",
-    "tests/structured/mcu/h7s/Benchmark.cpp": "0c196cf7c974e9111e6035f143c8f1ae6d1d1db74f28d91cb0c0d72ac26db217",
+    "tests/structured/mcu/h7s/Benchmark.cpp": "e7f866ef7d1c3f97f51f81daf2a041377adf02940314f09c811899ef457804bb",
     "tests/structured/mcu/h7s/Probe.cpp": "a51014c61225fa47f74f66903ce32440aa08cb25e80b9cdfc7613783c9f3323f",
     "tests/structured/mcu/h7s/run.py": "87485c36ebf28b824599ec7dc18b98c292ddd917b0d2cb427f45de91464e0b5f",
     "tests/structured/mcu/h7s/verify.py": "b0a228480ae84237f99f91c99b0c22ac09fd1b6a0107c9910b98d79cde12db36",
@@ -173,7 +173,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "46eccfe3b2a762ec0b9c2945dbde4200ba24d62cfcb4cfa073f07cefd3c17eea",
+      "report_sha256": "03b41207a104bf2d9c67db4c91ee87cc19d0de8a605ba4a767cd97632b232ab1",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -248,7 +248,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "38055539988c624e801445582ca22a9ad409e176e0653a66513bfc079544cb45",
+      "report_sha256": "1aa8fbac129a909487a6417676849c2c213829320ce0daf24012b1660fcefc15",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -324,7 +324,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "c773f006779ead83aa94e9ea463f52ddd19b97bdb2849b58c109870ab674892e",
+      "report_sha256": "2382c6cccb0fdaeef9fdaa17720d5e954e08611d061863ee0b6fdfb5b2351e07",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -395,7 +395,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "26bb4330527ce7d714ecd9a04d6e497007689b490c238464494f383aceb8f245",
+      "report_sha256": "fced3e218581b3c400e40fd46713a155d381dcd4eb99069697cddfff161208f6",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -959,7 +959,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "dc5468af5f2fbd5ab5fe757f083ac2a9ebc46dd9308b03777b96d3c69e95eeca",
+      "report_sha256": "750b24ce17feb70a3b7f136e0993db9bcc45288b0b35f62f54d95f6ff6dab47d",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1538,7 +1538,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "8488cf70bff31942273f3fdfb21b8f6453142929a4832217a5e8a2b45bc0789f",
+      "report_sha256": "12a8c7e268301068adc0e261aa7f8b24a5a89027fd9c005048a6d9bc565acf4a",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -2108,7 +2108,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "e752d86269f8d87dcbbfc7da5b22dd583c2849fe909a7ca088bf59404e23568d",
+      "report_sha256": "2be0d95fd930bf45c868d7c89aaa15e530c0605d5203a0bb64f36c0a7dc571b8",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [

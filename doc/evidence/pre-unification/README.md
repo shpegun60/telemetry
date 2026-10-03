@@ -17,6 +17,12 @@ standalone archived validator retains the original `verify` rules and its
 mutation controls, extracted from the old runner. It has no compiler,
 programmer or serial integration and does not import removed test helpers.
 
+`stage09/`, `stage10/` and `stage11/` preserve the original Descriptor,
+Values and Bind/Exchange H7S receipts byte for byte from that Git checkpoint.
+Their recorded source identities, dirty states and input/image hashes are
+historical. The matching final-source receipts live next to the active tests;
+retaining both does not turn the earlier runs into final-source evidence.
+
 ```sh
 python doc/evidence/pre-unification/stage14/verify.py --allow-stale-inputs --self-test
 python doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/final-receipt.json --self-test

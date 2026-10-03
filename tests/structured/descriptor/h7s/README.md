@@ -1,36 +1,26 @@
-# H7S descriptor bench and retained evidence
+# Final-source descriptor H7S evidence
 
-The [receipt](receipt.json) records the 2026-09-27 descriptor measurement,
-with `source_head=45652e7db79debb54d851e6d4c5208bc16379c97`. It does not record
-`source_dirty`; a clean captured source state is not established by that field.
-Its original input and image hashes remain unchanged. The measurements in the
-[parent README](../README.md) belong to that recorded source snapshot, rather
-than the current library paths and namespace.
+Authors: Ruslan Kovtun (shpegun60), codexAi. Date: 2026-10-03.
 
-`verify.py --self-test` checks the retained receipt's internal coverage and
-checksum rules offline. It neither rebuilds the captured image nor runs the
-current firmware. The bench compares streaming and packed reads of the same
-1486-byte descriptor: three fixed random-offset chunk sizes and two complete
-file transfers, five warmed DWT windows each, at O2 and Os. Its every-offset
-byte-equivalence controls remain intact.
+The [receipt](receipt.json) records actual execution of `01fd180ff3678d7c47066f8a728dc1e02f0f3973`
+on NUCLEO-H7S3L8, selected ST-LINK `002A001F3033510135393935`, COM6.
+CubeIDE ARM GCC 14.3.1; 600 MHz Cortex-M7 with caches enabled.
+`source_dirty=true` is retained; captured input hashes identify the build.
+This run follows the namespace/source unification and is distinct from
+the [historical receipt](../../../../doc/evidence/pre-unification/stage09/receipt.json).
 
-The current `run.py` uses [neutral build support](../../../h7s_support/README.md)
-and the current parent fixture. Without `--run`, it only builds both images:
+Both O2/Os images passed their full correctness and timing plans. All
+loadable sections were bounded to internal Flash before device access.
+Every write was verified; all 65536 Flash bytes were restored and freshly
+read back with matching SHA-256:
 
-```text
-python tests/structured/descriptor/h7s/run.py --cube COPIED_CUBE_SCAFFOLD --arm-cxx CUBEIDE_ARM_GXX --output FRESH_ARTIFACT_DIRECTORY
-```
+`a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`
 
-Device execution additionally requires explicit `--run --programmer PATH
---serial SERIAL --port PORT`. Before any device access, both complete images
-must fit the 64 KiB internal Flash range and match their captured hashes. The
-session identifies the requested NUCLEO-H7S3L8, makes a fresh 65536-byte backup,
-restores in `finally`, verifies the full read-back hash and leaves the original
-image running. Option bytes and external memory are outside the session.
+The original image was reset and left running. Option bytes/external
+memory were not changed. Local retained images, sources, logs and backup/
+readback are under `build/stage20/h7s-qualified-descriptor`. This path is not
+a permanent artifact archive. The neutral build/helper contract is in
+[h7s_support](../../../h7s_support/README.md).
 
-The current bench retains the established GFXMMU Device/no-access MPU region
-before enabling caches. No current-source board measurement is established by
-the retained receipt or a successful compile. New generated code placement
-can change cycle measurements. Fresh results belong in the fresh artifact
-directory, with captured LF inputs, actual HEAD/dirty state, compiler identity,
-flags, scaffold and image hashes, raw UART rows, maps and stack reports.
+The adjacent `verify.py --self-test` performs offline receipt/mutation
+validation. It does not operate the device or establish a fresh run.

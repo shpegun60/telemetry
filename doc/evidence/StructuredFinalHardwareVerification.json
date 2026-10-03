@@ -1,0 +1,700 @@
+{
+  "source_commit": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+  "source_dirty": true,
+  "dirty_source_note": "The main receipt recorded exactly 92 untracked review files; auxiliary receipts captured the dirty boolean without a separate raw status inventory.",
+  "contract_audit": {
+    "Mixed": {
+      "operations": 20,
+      "conditions": 12230,
+      "operation_profiles": 38,
+      "timing_rows_per_image": 266,
+      "stack_rows_per_image": 234
+    },
+    "Scale": {
+      "operations": 8,
+      "conditions": 2316,
+      "operation_profiles": 18,
+      "timing_rows_per_image": 126,
+      "stack_rows_per_image": 114
+    }
+  },
+  "unique_commit_input_blobs": 178,
+  "groups": {
+    "mcu": {
+      "verifier_exit": 0,
+      "source_inputs": 140,
+      "source_inputs_match_commit": true,
+      "receipt_sha256": "7f1e81db1aca9eb70f522c2254bdaab055071e4651347bda9d14588fdf8e36d7",
+      "backup_bytes": 65536,
+      "restored_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "images": [
+        {
+          "image": "Mixed/O2",
+          "flash_bytes": 43328,
+          "elf_sha256": "4b283b465293d047a80df3985b8c4cb1cdc9f14662047e525d77f22aa5db9aae",
+          "binary_sha256": "971ad7f272f905424cb27884c246a1306cecb7a7f31ef6a6fe4996fcdc2bd1d9",
+          "correct": [
+            12230,
+            0,
+            97,
+            3,
+            0
+          ],
+          "timing_rows": 266,
+          "stack_rows": 234,
+          "samples": {
+            "direct_config/0": {
+              "median_cycles": 9.00830078125,
+              "stack_observed_max": 24
+            },
+            "local_config/0": {
+              "median_cycles": 9.00927734375,
+              "stack_observed_max": 24
+            },
+            "global_config/0": {
+              "median_cycles": 18.008056640625,
+              "stack_observed_max": 24
+            },
+            "slot_config/0": {
+              "median_cycles": 11.00927734375,
+              "stack_observed_max": 24
+            },
+            "visit_config/0": {
+              "median_cycles": 46.008056640625,
+              "stack_observed_max": 56
+            },
+            "visit_config/1": {
+              "median_cycles": 51.008056640625,
+              "stack_observed_max": 56
+            },
+            "visit_config/2": {
+              "median_cycles": 48.742431640625,
+              "stack_observed_max": 56
+            },
+            "readAs_config/0": {
+              "median_cycles": 51.009033203125,
+              "stack_observed_max": 60
+            },
+            "readAs_config/1": {
+              "median_cycles": 55.009033203125,
+              "stack_observed_max": 60
+            },
+            "readAs_config/2": {
+              "median_cycles": 53.196533203125,
+              "stack_observed_max": 60
+            },
+            "encoded_read/0": {
+              "median_cycles": 158.008056640625,
+              "stack_observed_max": 280
+            },
+            "encoded_read/1": {
+              "median_cycles": 158.008056640625,
+              "stack_observed_max": 280
+            },
+            "encoded_read/2": {
+              "median_cycles": 158.008056640625,
+              "stack_observed_max": 280
+            },
+            "encoded_write/0": {
+              "median_cycles": 148.0078125,
+              "stack_observed_max": 240
+            },
+            "encoded_write/1": {
+              "median_cycles": 148.0078125,
+              "stack_observed_max": 240
+            },
+            "encoded_write/2": {
+              "median_cycles": 148.0078125,
+              "stack_observed_max": 240
+            },
+            "encoded_command/0": {
+              "median_cycles": 144.007080078125,
+              "stack_observed_max": 240
+            },
+            "encoded_command/1": {
+              "median_cycles": 144.007080078125,
+              "stack_observed_max": 240
+            },
+            "encoded_command/2": {
+              "median_cycles": 144.007080078125,
+              "stack_observed_max": 240
+            },
+            "direct_service/0": {
+              "median_cycles": 9.009033203125,
+              "stack_observed_max": 24
+            },
+            "local_service/0": {
+              "median_cycles": 17.008056640625,
+              "stack_observed_max": 24
+            },
+            "global_service/0": {
+              "median_cycles": 18.009033203125,
+              "stack_observed_max": 24
+            },
+            "encoded_service/0": {
+              "median_cycles": 172.00830078125,
+              "stack_observed_max": 308
+            },
+            "encoded_service/1": {
+              "median_cycles": 173.00830078125,
+              "stack_observed_max": 308
+            },
+            "encoded_service/2": {
+              "median_cycles": 172.00830078125,
+              "stack_observed_max": 308
+            },
+            "big_read/0": {
+              "median_cycles": 11980.296875,
+              "stack_observed_max": 288
+            },
+            "big_command/0": {
+              "median_cycles": 3240.2734375,
+              "stack_observed_max": 244
+            },
+            "big_service/0": {
+              "median_cycles": 19204.3046875,
+              "stack_observed_max": 352
+            },
+            "descriptor_chunk/0": {
+              "median_cycles": 2395.048828125,
+              "stack_observed_max": 116
+            },
+            "descriptor_chunk/1": {
+              "median_cycles": 2613.392578125,
+              "stack_observed_max": 116
+            },
+            "descriptor_chunk/2": {
+              "median_cycles": 2656.994140625,
+              "stack_observed_max": 116
+            },
+            "packed_chunk/0": {
+              "median_cycles": 457.064453125,
+              "stack_observed_max": 48
+            },
+            "packed_chunk/1": {
+              "median_cycles": 458.064453125,
+              "stack_observed_max": 48
+            },
+            "packed_chunk/2": {
+              "median_cycles": 457.064453125,
+              "stack_observed_max": 48
+            },
+            "values/0": {
+              "median_cycles": 27784.265625,
+              "stack_observed_max": 200
+            },
+            "native_big/0": {
+              "median_cycles": 20562.296875,
+              "stack_observed_max": 8256
+            },
+            "native_big/1": {
+              "median_cycles": 20574.3046875,
+              "stack_observed_max": 8256
+            },
+            "native_big/2": {
+              "median_cycles": 20568.859375,
+              "stack_observed_max": 8256
+            }
+          }
+        },
+        {
+          "image": "Mixed/Os",
+          "flash_bytes": 39608,
+          "elf_sha256": "73a9188d4046b2ab6d4def0dca17d85c8fce551c7fb1eb90633bdfac20772911",
+          "binary_sha256": "90637f78c43b7dc94dfba5f798e8c841d5017e52d78cc1e963897d3878ffaf00",
+          "correct": [
+            12230,
+            0,
+            97,
+            3,
+            0
+          ],
+          "timing_rows": 266,
+          "stack_rows": 234,
+          "samples": {
+            "direct_config/0": {
+              "median_cycles": 10.026611328125,
+              "stack_observed_max": 24
+            },
+            "local_config/0": {
+              "median_cycles": 10.018310546875,
+              "stack_observed_max": 24
+            },
+            "global_config/0": {
+              "median_cycles": 10.026611328125,
+              "stack_observed_max": 24
+            },
+            "slot_config/0": {
+              "median_cycles": 12.018310546875,
+              "stack_observed_max": 24
+            },
+            "visit_config/0": {
+              "median_cycles": 44.0263671875,
+              "stack_observed_max": 48
+            },
+            "visit_config/1": {
+              "median_cycles": 51.026123046875,
+              "stack_observed_max": 48
+            },
+            "visit_config/2": {
+              "median_cycles": 47.854248046875,
+              "stack_observed_max": 48
+            },
+            "readAs_config/0": {
+              "median_cycles": 38.518310546875,
+              "stack_observed_max": 56
+            },
+            "readAs_config/1": {
+              "median_cycles": 44.01806640625,
+              "stack_observed_max": 56
+            },
+            "readAs_config/2": {
+              "median_cycles": 41.299560546875,
+              "stack_observed_max": 56
+            },
+            "encoded_read/0": {
+              "median_cycles": 146.0263671875,
+              "stack_observed_max": 232
+            },
+            "encoded_read/1": {
+              "median_cycles": 146.0263671875,
+              "stack_observed_max": 232
+            },
+            "encoded_read/2": {
+              "median_cycles": 146.0263671875,
+              "stack_observed_max": 232
+            },
+            "encoded_write/0": {
+              "median_cycles": 140.017822265625,
+              "stack_observed_max": 216
+            },
+            "encoded_write/1": {
+              "median_cycles": 140.017822265625,
+              "stack_observed_max": 216
+            },
+            "encoded_write/2": {
+              "median_cycles": 140.017822265625,
+              "stack_observed_max": 216
+            },
+            "encoded_command/0": {
+              "median_cycles": 169.026123046875,
+              "stack_observed_max": 276
+            },
+            "encoded_command/1": {
+              "median_cycles": 169.026123046875,
+              "stack_observed_max": 276
+            },
+            "encoded_command/2": {
+              "median_cycles": 169.026123046875,
+              "stack_observed_max": 276
+            },
+            "direct_service/0": {
+              "median_cycles": 9.0185546875,
+              "stack_observed_max": 24
+            },
+            "local_service/0": {
+              "median_cycles": 19.026123046875,
+              "stack_observed_max": 24
+            },
+            "global_service/0": {
+              "median_cycles": 19.01806640625,
+              "stack_observed_max": 24
+            },
+            "encoded_service/0": {
+              "median_cycles": 219.026611328125,
+              "stack_observed_max": 340
+            },
+            "encoded_service/1": {
+              "median_cycles": 219.026611328125,
+              "stack_observed_max": 340
+            },
+            "encoded_service/2": {
+              "median_cycles": 219.026611328125,
+              "stack_observed_max": 340
+            },
+            "big_read/0": {
+              "median_cycles": 10931.5859375,
+              "stack_observed_max": 248
+            },
+            "big_command/0": {
+              "median_cycles": 9381.8515625,
+              "stack_observed_max": 280
+            },
+            "big_service/0": {
+              "median_cycles": 31512.578125,
+              "stack_observed_max": 360
+            },
+            "descriptor_chunk/0": {
+              "median_cycles": 3135.201171875,
+              "stack_observed_max": 260
+            },
+            "descriptor_chunk/1": {
+              "median_cycles": 3787.427734375,
+              "stack_observed_max": 260
+            },
+            "descriptor_chunk/2": {
+              "median_cycles": 3787.724609375,
+              "stack_observed_max": 260
+            },
+            "packed_chunk/0": {
+              "median_cycles": 460.13671875,
+              "stack_observed_max": 56
+            },
+            "packed_chunk/1": {
+              "median_cycles": 460.134765625,
+              "stack_observed_max": 56
+            },
+            "packed_chunk/2": {
+              "median_cycles": 460.134765625,
+              "stack_observed_max": 56
+            },
+            "values/0": {
+              "median_cycles": 25264.96875,
+              "stack_observed_max": 192
+            },
+            "native_big/0": {
+              "median_cycles": 20564.5859375,
+              "stack_observed_max": 8264
+            },
+            "native_big/1": {
+              "median_cycles": 20576.5859375,
+              "stack_observed_max": 8264
+            },
+            "native_big/2": {
+              "median_cycles": 20570.6875,
+              "stack_observed_max": 8264
+            }
+          }
+        },
+        {
+          "image": "Scale/O2",
+          "flash_bytes": 36592,
+          "elf_sha256": "4b0f6ca36ad2159cdf4a4c43257d73e3ddf08b57111cb59111fee562f3a42903",
+          "binary_sha256": "7d6cbc6b8f8597d7f7965adb140a51873ede33b52e75155d49520bbc568b31c4",
+          "correct": [
+            2316,
+            0,
+            0,
+            0,
+            0
+          ],
+          "timing_rows": 126,
+          "stack_rows": 114,
+          "samples": {
+            "direct_index/0": {
+              "median_cycles": 7.011962890625,
+              "stack_observed_max": 24
+            },
+            "direct_index/1": {
+              "median_cycles": 7.011962890625,
+              "stack_observed_max": 24
+            },
+            "direct_index/2": {
+              "median_cycles": 7.011962890625,
+              "stack_observed_max": 24
+            },
+            "local_u32/0": {
+              "median_cycles": 20.011962890625,
+              "stack_observed_max": 24
+            },
+            "global_u32/0": {
+              "median_cycles": 16.011962890625,
+              "stack_observed_max": 24
+            },
+            "named_visitor/0": {
+              "median_cycles": 42.011962890625,
+              "stack_observed_max": 40
+            },
+            "named_visitor/1": {
+              "median_cycles": 41.4072265625,
+              "stack_observed_max": 40
+            },
+            "named_visitor/2": {
+              "median_cycles": 41.386962890625,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/0": {
+              "median_cycles": 41.482666015625,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/1": {
+              "median_cycles": 41.363525390625,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/2": {
+              "median_cycles": 41.384033203125,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/0": {
+              "median_cycles": 38.011962890625,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/1": {
+              "median_cycles": 44.281494140625,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/2": {
+              "median_cycles": 44.277099609375,
+              "stack_observed_max": 40
+            },
+            "encoded_u32/0": {
+              "median_cycles": 62.011962890625,
+              "stack_observed_max": 68
+            },
+            "encoded_u32/1": {
+              "median_cycles": 61.136474609375,
+              "stack_observed_max": 68
+            },
+            "encoded_u32/2": {
+              "median_cycles": 61.136962890625,
+              "stack_observed_max": 68
+            },
+            "direct_known_u32/0": {
+              "median_cycles": 7.011962890625,
+              "stack_observed_max": 24
+            }
+          }
+        },
+        {
+          "image": "Scale/Os",
+          "flash_bytes": 33476,
+          "elf_sha256": "b2051b9049a1371e72e9f47f842cd255fe02cf9ba9234fc79daf52a2a11b5979",
+          "binary_sha256": "38c217605139b5cf8fe9cc88d67076b308b62bfef08e77350d457c909a95ca78",
+          "correct": [
+            2316,
+            0,
+            0,
+            0,
+            0
+          ],
+          "timing_rows": 126,
+          "stack_rows": 114,
+          "samples": {
+            "direct_index/0": {
+              "median_cycles": 8.015869140625,
+              "stack_observed_max": 24
+            },
+            "direct_index/1": {
+              "median_cycles": 8.015869140625,
+              "stack_observed_max": 24
+            },
+            "direct_index/2": {
+              "median_cycles": 8.015869140625,
+              "stack_observed_max": 24
+            },
+            "local_u32/0": {
+              "median_cycles": 17.010986328125,
+              "stack_observed_max": 24
+            },
+            "global_u32/0": {
+              "median_cycles": 18.015625,
+              "stack_observed_max": 24
+            },
+            "named_visitor/0": {
+              "median_cycles": 44.010986328125,
+              "stack_observed_max": 40
+            },
+            "named_visitor/1": {
+              "median_cycles": 44.3525390625,
+              "stack_observed_max": 40
+            },
+            "named_visitor/2": {
+              "median_cycles": 44.351318359375,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/0": {
+              "median_cycles": 41.015625,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/1": {
+              "median_cycles": 44.31298828125,
+              "stack_observed_max": 40
+            },
+            "lambda_visitor/2": {
+              "median_cycles": 44.31298828125,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/0": {
+              "median_cycles": 40.010986328125,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/1": {
+              "median_cycles": 44.626220703125,
+              "stack_observed_max": 40
+            },
+            "readAs_u32/2": {
+              "median_cycles": 44.626220703125,
+              "stack_observed_max": 40
+            },
+            "encoded_u32/0": {
+              "median_cycles": 50.015869140625,
+              "stack_observed_max": 56
+            },
+            "encoded_u32/1": {
+              "median_cycles": 50.02734375,
+              "stack_observed_max": 56
+            },
+            "encoded_u32/2": {
+              "median_cycles": 50.0029296875,
+              "stack_observed_max": 56
+            },
+            "direct_known_u32/0": {
+              "median_cycles": 8.01123046875,
+              "stack_observed_max": 24
+            }
+          }
+        }
+      ],
+      "raw_status_available": true
+    },
+    "descriptor": {
+      "verifier_exit": 0,
+      "source_inputs": 133,
+      "source_inputs_match_commit": true,
+      "receipt_sha256": "c652c7ab04abca92049dec9b3c833ac5f2e4243fbd4eaba6f4b7da9e55881b2f",
+      "backup_bytes": 65536,
+      "restored_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "images": [
+        {
+          "image": "descriptor/O2",
+          "flash_bytes": 29376,
+          "elf_sha256": "c97b06cd0d6f94ec38a44598bcfdcefd31bdbd0dff3d7172f5b01d68b36627bc",
+          "binary_sha256": "506b36f4be47889085aa5c89dfb14eba4aa5132c0dd92af5a3fe4c86342a4262",
+          "timing_rows": 50,
+          "samples": {
+            "0/0": 812.726806640625,
+            "1/0": 82.94384765625,
+            "0/1": 1578.6181640625,
+            "1/1": 175.5771484375,
+            "0/2": 4298.624267578125,
+            "1/2": 518.92919921875,
+            "0/3": 36415.8671875,
+            "1/3": 4134.375,
+            "0/4": 26790.1015625,
+            "1/4": 3270.390625
+          }
+        },
+        {
+          "image": "descriptor/Os",
+          "flash_bytes": 24788,
+          "elf_sha256": "e53c2e26f46bad02659791aa4bf73aa5baa2e2ea3a524c7c5b973d2a2ad30df4",
+          "binary_sha256": "fbfae717364d2d18ae2fdffec5184e8bb9bf4f4bca365a1d4268a7442748ac24",
+          "timing_rows": 50,
+          "samples": {
+            "0/0": 1049.450927734375,
+            "1/0": 97.84765625,
+            "0/1": 2158.34814453125,
+            "1/1": 236.82666015625,
+            "0/2": 6264.004150390625,
+            "1/2": 751.86376953125,
+            "0/3": 49835.359375,
+            "1/3": 5550.3828125,
+            "0/4": 39064.7421875,
+            "1/4": 4740.390625
+          }
+        }
+      ],
+      "raw_status_available": false
+    },
+    "resources": {
+      "verifier_exit": 0,
+      "source_inputs": 133,
+      "source_inputs_match_commit": true,
+      "receipt_sha256": "67637325ca0964405275da305aab8f3f8f64daea7fd4378339a9e31f1f4aee15",
+      "backup_bytes": 65536,
+      "restored_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "images": [
+        {
+          "image": "resources/O2",
+          "flash_bytes": 20428,
+          "elf_sha256": "c28b9ad85bf80f3f3cd8229daa2cdb87777cd6450c8996529a02ee1f5fcf0e2e",
+          "binary_sha256": "6d797c530ff1a277777c11c50188264992ce32b4fd0a6a543b121833344da241",
+          "timing_rows": 15,
+          "samples": {
+            "0": 898.01904296875,
+            "1": 202.0087890625,
+            "2": 18795.34765625
+          }
+        },
+        {
+          "image": "resources/Os",
+          "flash_bytes": 20036,
+          "elf_sha256": "0292a49d2f506a2a3651ba54e5d5734ccb23e304d06caa40a6832e83a031e3f3",
+          "binary_sha256": "dae12507167a7d645511252f8dc36459a7547bf16caee3cc4628e484285d34c0",
+          "timing_rows": 15,
+          "samples": {
+            "0": 878.01220703125,
+            "1": 229.015625,
+            "2": 17255.2421875
+          }
+        }
+      ],
+      "raw_status_available": false
+    },
+    "exchange": {
+      "verifier_exit": 0,
+      "source_inputs": 140,
+      "source_inputs_match_commit": true,
+      "receipt_sha256": "61a004bed50315a9aed6e0fb751eaf78d9a62a748b8a4c6d9f635deb8244a33e",
+      "backup_bytes": 65536,
+      "restored_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "images": [
+        {
+          "image": "exchange/O2",
+          "flash_bytes": 27476,
+          "elf_sha256": "a2cb368a6373feb9567db2f9a3d6da92c3fcfcb6b427507877189de6ec0ef350",
+          "binary_sha256": "3370f13d9018f02cf7cc6e42557477ceb951160216d9ea7c1b21d32d6602e11f",
+          "timing_rows": 40,
+          "samples": {
+            "0": 40.0107421875,
+            "1": 228.00927734375,
+            "2": 38.0107421875,
+            "3": 236.00927734375,
+            "4": 44.010498046875,
+            "5": 250.00927734375,
+            "6": 12291.109375,
+            "7": 148.0107421875
+          }
+        },
+        {
+          "image": "exchange/Os",
+          "flash_bytes": 27140,
+          "elf_sha256": "99c98b3c89181a96d3e6f7cb42afd73d6b69fae3e01090faf80fcafd4897b2ff",
+          "binary_sha256": "6d6de04f7af925d69e802b180e7c81d3a13dda2863546a3a41e88a237e7804b4",
+          "timing_rows": 40,
+          "samples": {
+            "0": 88.0126953125,
+            "1": 369.011962890625,
+            "2": 87.0126953125,
+            "3": 380.011962890625,
+            "4": 128.0126953125,
+            "5": 447.011962890625,
+            "6": 11956.19140625,
+            "7": 172.0126953125
+          }
+        }
+      ],
+      "raw_status_available": false
+    }
+  },
+  "board_access_by_this_check": false,
+  "limitation": "Stack watermark reports observed writes, not guaranteed worst-case unused stack reservation; compiler codegen equality applies to the inspected probes.",
+  "scope": "Independent file-only validation of retained actual H7S runs; this check did not access the device",
+  "artifact_location": "Local ignored build/stage20/h7s-qualified-*; hashes do not promise permanent artifact availability",
+  "mutation_controls": {
+    "main": 71,
+    "auxiliary": [
+      16,
+      16,
+      16
+    ]
+  }
+}

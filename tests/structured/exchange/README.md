@@ -9,7 +9,8 @@ The hardware figures/receipt below were refreshed on 2026-10-03 against
 the protocol-relocation snapshot. They predate the final `telemetry` namespace
 and `resource/telemetry/v3` path migration; they are historical measurements.
 Current C++ declarations use `<telemetry/Telemetry.hpp>` and namespace
-`telemetry`. Older measurements remain in the preceding Git revision.
+`telemetry`. The original receipt is preserved in the
+[Stage 11 archive](../../../doc/evidence/pre-unification/stage11/receipt.json).
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../../lib/resource/LICENSE).
 
@@ -97,7 +98,7 @@ library allocation. No startup constructors, allocation, formatting or Scalar
 conversion symbols are retained. Exchange's object has no Bind/descriptor/hash
 dependency; its only peer state is the bound ModelView pointer.
 
-## H7S measurements
+## Historical H7S measurements, protocol-relocation snapshot
 
 Actual NUCLEO-H7S3L8, Cortex-M7 600 MHz, I/D cache enabled, CubeIDE GCC 14.3.1,
 default local budget 32 B. Both images passed **4300 checks**. The runner saved
@@ -127,7 +128,8 @@ code placement; these fresh values do not establish cycle equivalence to
 its original image. Callback and envelope checksums are verified;
 the loop and checksum overhead are not subtracted.
 
-The recorded [receipt](h7s/receipt.json) identifies the exact captured code and
+The recorded [historical receipt](../../../doc/evidence/pre-unification/stage11/receipt.json)
+identifies the exact captured code and
 objects. `source_head=cd8b636bc8a518fcc1a3021659f109281d47107e` and
 `source_dirty=true` identify the local protocol-relocation snapshot; completion
 was `2026-10-03T11:45:47.235580+00:00`. Captured hashes identify its complete
@@ -152,6 +154,19 @@ or external Flash. The former 3328-check scalar board suite is retired; the
 [current structured MCU qualification](../mcu/h7s/README.md) supplies separate
 Mixed/Scale evidence. Neither that evidence nor offline receipt verification
 is a new execution of this optional protocol bench.
+
+## Final-source H7S verification, 2026-10-03
+
+The [current protocol evidence](h7s/README.md) and
+[receipt](h7s/receipt.json) record the unified source tree at
+`source_head=01fd180ff3678d7c47066f8a728dc1e02f0f3973` with
+`source_dirty=true`. Both O2/Os images passed 4300 conditions and every timing
+window; all 65536 internal Flash bytes were restored and verified. Captured
+input/image hashes distinguish this run from the archived relocation build.
+The earlier cycle table retains its original identity. The
+[MCU qualification](../mcu/h7s/RESULTS.md) covers core Mixed/Scale operations
+and observed call-chain stack separately. Offline validators check retained
+evidence without operating hardware.
 
 Remaining scope is deliberate: no real UART/TCP transport implementation,
 authentication, client UI, retries or deduplication is added by this slice.

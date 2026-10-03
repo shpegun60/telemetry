@@ -1,120 +1,89 @@
-# Stage 14: H7S correctness, cycles and observed stack
+# Final telemetry H7S correctness, cycles and observed stack
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. Date: 2026-10-03.
 
-The [retained receipt](receipt.json) records execution of source commit
-`37bc85771cbbd8597e01835f1e8b187f7b7f32b3` on NUCLEO-H7S3L8,
-ST-LINK `002A001F3033510135393935`, COM6. All 195 captured LF-normalized
-source inputs were independently compared with that commit's Git blobs.
-They match. The recorded `source_dirty=true` is preserved: the working tree
-also contains 92 untracked review files outside these build inputs.
+The [receipt](receipt.json) records actual execution of source commit
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973` after source unification. CubeIDE ARM GCC14.3.1,
+NUCLEO-H7S3L8, selected ST-LINK `002A001F3033510135393935`, COM6.
+All 140 captured LF build inputs match that commit's Git blobs.
+`source_dirty=true` is retained: the working tree also had the user's
+unrelated 92-file untracked review tree. This is not a clean-tree claim.
 
-CubeIDE ARM GCC 14.3.1 built four independent Mixed/Scale images at O2/Os.
-The MCU ran at 600 MHz with 64 KiB D-cache and I-cache enabled. Code and
-immutable metadata occupy internal Flash; endpoint storage and Workspace
-occupy AXI SRAM; the ID sequence and isolated probe stack occupy DTCM.
-See the [measurement contract](README.md#measurement-contract) for warmup,
+The MCU ran at 600MHz with 64KiB D-cache and I-cache enabled. Code and
+immutable metadata were in internal Flash, endpoint scratch/Workspace in
+AXI SRAM, and the ID sequence/isolated PSP probe stack in DTCM.
+The [measurement contract](README.md#measurement-contract) defines warmup,
 interrupt masking, the common loop and the independent PSP trampoline.
 
 ## Correctness and restoration
 
-| Image | Conditions | Additional owning-return conditions | DWT windows | Stack observations |
+| Image | Conditions | Owning-return extra conditions | DWT windows | Stack observations |
 | --- | ---: | ---: | ---: | ---: |
 | Mixed O2 | 12230 | 3 | 266 | 234 |
 | Mixed Os | 12230 | 3 | 266 | 234 |
-| Scale O2 | 2831 | 0 | 154 | 138 |
-| Scale Os | 2831 | 0 | 154 | 138 |
+| Scale O2 | 2316 | 0 | 126 | 114 |
+| Scale Os | 2316 | 0 | 126 | 114 |
 
-All **30128 conditions passed with zero failures**. Each Mixed count includes
-the existing 97 multi-TU consumer conditions. Each image completed its full
-operation/profile/repetition plan. The independent verifier checked raw UART
-coverage, source-derived checksums, all descriptor bytes/FNV, captured input
-and artifact hashes, and 70 receipt mutations. Compiler frames were checked
-against the authenticated `.su` files separately.
+All **29098 conditions passed, zero failures**. Mixed includes the existing
+97-condition multi-TU consumer. Scale contains eight final-library operations;
+only the two legacy-only controls were retired. Each image completed its
+entire operation/profile/repetition plan. Raw UART bytes, independent
+checksums, descriptor structure/bytes/FNV and full restore are validated.
 
-The test runner saved and restored all 65536 bytes of internal Flash.
-Fresh readback equals the backup byte for byte; both SHA-256 values are:
+All 65536 bytes of internal Flash were backed up, restored and freshly read
+back. Both SHA-256 values equal:
 
-```text
-a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456
-```
+`a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`
 
-Option bytes and external memory were not changed. The restored image was
-reset and left running. Raw UART, images, captured sources, Cube scaffold,
-maps, disassembly and `.su` files remain in the local artifact directory
-`build/stage14/h7s-live1`. Their identities are in the receipt; this local
-path does not promise a permanent downloadable artifact archive.
+The original image was reset and left running. Option bytes/external memory
+were unchanged. Retained artifacts are in `build/stage20/h7s-qualified-mcu`;
+their recorded hashes do not promise a permanent downloadable archive.
+All loadable ELF sections were checked against the complete backup range.
 
-## 128-target runtime read comparison
+## 128-target shuffled runtime read
 
-These are medians in cycles per call for deterministic shuffled IDs. Each
-value includes the common indirect probe call, ID sequence selection, loop
-and checksum. Seven complete windows were measured. The legacy Scalar read
-returns a native u32 through its existing erased API; the new encoded read
-also writes canonical LE wire bytes, so they perform different final work.
+Cycles include the common indirect probe call, ID sequence selection,
+loop and checksum, with seven windows and no baseline subtraction.
 
-| Operation | O2 cycles | Os cycles | O2 / Os observed stack, B |
+| Operation | O2 cycles/call | Os cycles/call | O2 / Os observed stack, B |
 | --- | ---: | ---: | ---: |
-| Direct indexed owner control | 7.01 | 8.03 | 24 / 24 |
-| New named visitor | 41.38 | 44.33 | 40 / 40 |
-| New runtime `readAs<u32>` | 42.28 | 45.53 | 40 / 40 |
-| New encoded u32 read | 61.22 | 50.01 | 68 / 56 |
-| Legacy Scalar u32 read | 34.61 | 89.29 | 48 / 76 |
+| direct_index | 7.01 | 8.02 | 24 / 24 |
+| named_visitor | 41.39 | 44.35 | 40 / 40 |
+| readAs_u32 | 44.28 | 44.63 | 40 / 40 |
+| encoded_u32 | 61.14 | 50.00 | 68 / 56 |
 
-There is no universal speed win: the legacy runtime read is faster at O2;
-the new native and encoded reads are faster at Os in this fixture. These
-results are for 128 Flash-backed targets and this compiler/image layout,
-not a replacement for the earlier RAM1024 measurements.
+The old Scalar/library comparison remains in the
+[historical report](../../../../doc/evidence/pre-unification/stage14/RESULTS.md).
+Its values are not relabelled as measurements of this final library. Different
+linked function addresses can change cycles despite equal instruction bytes;
+neither instruction identity nor these data establish a universal speed win.
 
-Fixed-position wrapper timings also expose a limit of instruction comparison. At O2 the
-Scale direct-known u32 control measures 7.01 cycles, while new local/global
-and legacy local wrappers measure 17.01/16.01/17.01. Mixed direct/local
-Config reads measure 9.01/9.01, but global Config measures 18.01. Existing
-standalone direct/local/global instruction-equivalence gates still pass.
-Independent inspection of these actual linked benchmark bodies also finds
-the same three u32 instructions and the same six Config instructions, with
-the same owner data literals. No extra calls or result-packaging instructions
-explain the timing differences. Function addresses/alignment differ; their
-interaction with branch/cache/layout behavior is a possible explanation,
-not an established cause. Equal instruction streams do not establish equal
-cycles at different addresses in a linked image.
+## Large objects and resources, same-ID profile
 
-## Large objects and resource paths
-
-Same-ID medians include the same common probe overhead. Service requests
-are decoded completely before writing responses; the correctness body also
-checks the large in-place response against every input byte.
-
-| Operation | O2 cycles | Os cycles | O2 / Os observed stack, B |
+| Operation | O2 cycles/call | Os cycles/call | O2 / Os observed stack, B |
 | --- | ---: | ---: | ---: |
-| Encoded 4 KiB Field read | 11980.30 | 10931.59 | 288 / 248 |
-| Encoded 4 KiB Command | 3240.27 | 9381.85 | 244 / 280 |
-| Encoded 4 KiB Service | 19204.30 | 31512.58 | 352 / 360 |
-| Owning runtime `readAs<Big>` | 20562.30 | 20564.59 | 8256 / 8264 |
-| Streaming descriptor, 128-byte slice | 2395.05 | 3135.20 | 116 / 260 |
-| Packed descriptor, 128-byte copy | 457.06 | 460.14 | 48 / 56 |
-| Whole 8322-byte Values file | 27784.27 | 25264.97 | 200 / 192 |
+| big_read | 11980.30 | 10931.59 | 288 / 248 |
+| big_command | 3240.27 | 9381.85 | 244 / 280 |
+| big_service | 19204.30 | 31512.58 | 352 / 360 |
+| native_big | 20562.30 | 20564.59 | 8256 / 8264 |
+| descriptor_chunk | 2395.05 | 3135.20 | 116 / 260 |
+| packed_chunk | 457.06 | 460.14 | 48 / 56 |
+| values | 27784.27 | 25264.97 | 200 / 192 |
 
-The owning native return really consumes approximately **8 KiB in the full
-probe chain**, although the `nativeBig` root's individual `.su` frame is
-4112 B. The nested owning-return work adds another large frame. For large
-runtime values the encoded API uses caller-owned Workspace and bounds the
-measured stack to hundreds of bytes. Returning a large owning C++ value is
-not a zero-stack operation.
+Large encoded paths use caller-owned Workspace. The owning native Big return
+uses approximately 8KiB in the full application/probe chain; it is not a
+zero-stack operation. The default local-object budget stays 32B, chosen at
+compile time, with the same validation/wire semantics.
 
-Packed descriptors trade precomputed immutable storage for lower read cost.
-The 1775-byte descriptor and 8322-byte Values size are independently verified
-from the fixture shape. The descriptor fingerprint is `25b585918d944874`.
-This is a model fingerprint, not a hash of changing values.
+The stack figures are observed writes including nested calls, measured with
+two fill patterns, three repeats and a volatile 512B positive control. They
+exclude formatting/UART, the caller's MSP frame and interrupts. They do not
+measure untouched reserved stack slots or prove an unconditional worst case.
+Encoded large-object observations remain below the 1024B full-probe ceiling;
+individual `.su` frame gates are checked separately.
 
-Two fill patterns, three repeats and a 512-byte positive control make these
-**observed stack writes including nested calls**. They exclude formatting,
-UART, the caller's MSP frame and interrupts. They do not detect untouched
-reserved stack slots or prove a worst-case bound for arbitrary callbacks.
-All observed encoded large-object roots remain below the separate 1024-byte
-full-probe qualification ceiling; the existing individual-frame gates are
-unchanged.
-
-No runtime library code was changed for this measurement. Namespace moves
-and consumer migration remain subsequent work and require new final-source
-qualification evidence.
+Descriptor/Values bytes and fingerprint remain the frozen mixed fixture:
+1775B descriptor, 8322B Values, fingerprint `25b585918d944874`.
+Separate fresh Descriptor/Values/Bind-Exchange H7S receipts cover those
+consumer suites at the same code commit. Exact published-SHA CI is a separate
+publication gate.
