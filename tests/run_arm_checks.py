@@ -29,6 +29,61 @@ def normalized_instructions(disassembly, name):
         result.append((operation, operands))
     return result
 
+def slot_instructions(disassembly, name):
+    instructions = normalized_instructions(disassembly, name)
+    end = len(instructions)
+    while end and instructions[end - 1][0] == 'nop':
+        end -= 1
+    if end == len(instructions) or not end:
+        return instructions
+    operation, operands = instructions[end - 1]
+    terminal = operation == 'b' or (operation == 'bx' and operands == 'lr') or (
+        operation == 'pop' and re.search(r'\bpc\b', operands) is not None)
+    if not terminal:
+        return instructions
+    addresses = [int(match[1], 16) for line in function_body(disassembly, name).splitlines()
+        if (match := re.match(r'\s*([0-9a-fA-F]+):\s+(?:[0-9a-fA-F]{4}\s+)+[a-z][a-z0-9.]*\s*', line))]
+    padding = set(addresses[end:])
+    # A suffix after a terminal transfer has no fallthrough. Keep it if any
+    # explicit branch/call in this body targets one of those nop addresses.
+    for operation, operands in instructions:
+        if operation.startswith('b') or operation in ('cbz', 'cbnz'):
+            target = re.search(r'\b([0-9a-fA-F]+) <', operands)
+            if target and int(target[1], 16) in padding:
+                return instructions
+    return instructions[:end]
+
+def check_slot_comparisons(disassembly, optimization):
+    current = {}
+    for kind in ('function', 'context', 'borrowed', 'owned', 'owner'):
+        direct = slot_instructions(disassembly, 'slot_' + kind + '_direct')
+        table = slot_instructions(disassembly, 'slot_' + kind + '_table')
+        direct_body = function_body(disassembly, 'slot_' + kind + '_direct')
+        table_body = function_body(disassembly, 'slot_' + kind + '_table')
+        def references(body):
+            words = re.findall(r'\.word\s+(0x[0-9a-fA-F]+)', body)
+            relocations = re.findall(r'R_ARM_(?:ABS32|REL32|THM_CALL|THM_JUMP24)\s+([^\n]+)', body)
+            return sorted(words), sorted(relocations)
+        if references(direct_body) != references(table_body):
+            raise RuntimeError(optimization + ': native ' + kind + ' dispatch changed literal or relocation targets')
+        def comparable(instructions):
+            result = []
+            for op, operands in instructions:
+                operands = re.sub(r'\b[0-9a-f]+ <[^>]+>', '<target>', operands)
+                operands = re.sub(r'\[pc, #\d+\]', '[pc, #literal]', operands)
+                result.append((op, operands))
+            return result
+        if kind == 'owner':
+            direct_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', direct_body)
+            table_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', table_body)
+            if len(table) > len(direct) or direct_calls != table_calls or direct_calls != ['Owner::read() const']:
+                raise RuntimeError(optimization + ': owner table gained work or changed its direct method call')
+        elif comparable(direct) != comparable(table):
+            raise RuntimeError(optimization + ': native ' + kind + ' table dispatch differs from selected-target call')
+        current[kind] = dict(direct_instructions=len(direct), table_instructions=len(table),
+            gate='no added instructions and same method relocation' if kind == 'owner' else 'identical normalized instructions')
+    return current
+
 def check_id_boundaries(disassembly):
     for operation in ('local', 'field', 'command', 'group', 'index'):
         name = 'id_boundary_' + operation + '_u64'
@@ -90,38 +145,7 @@ def main():
         slot_obj = output / ('SlotCodegen-' + optimization + '.o')
         runner.run([*flags, '-' + optimization, '-fno-ipa-icf', '-c', HERE / 'regression/SlotCodegen.cpp', '-o', slot_obj], 'slot-codegen-' + optimization)
         slot_asm = runner.run([objdump, '-drC', slot_obj], 'slot-assembly-' + optimization)
-        current = {}
-        for kind in ('function', 'context', 'borrowed', 'owned', 'owner'):
-            direct = normalized_instructions(slot_asm, 'slot_' + kind + '_direct')
-            table = normalized_instructions(slot_asm, 'slot_' + kind + '_table')
-            direct_body = function_body(slot_asm, 'slot_' + kind + '_direct')
-            table_body = function_body(slot_asm, 'slot_' + kind + '_table')
-            def references(body):
-                words = re.findall(r'\.word\s+(0x[0-9a-fA-F]+)', body)
-                relocations = re.findall(r'R_ARM_(?:ABS32|REL32|THM_CALL|THM_JUMP24)\s+([^\n]+)', body)
-                return sorted(words), sorted(relocations)
-            if references(direct_body) != references(table_body):
-                raise RuntimeError(optimization + ': native ' + kind + ' dispatch changed literal or relocation targets')
-            # Relocation addresses and symbol display names do not change the
-            # instruction stream. Branch labels are normalized separately.
-            def comparable(instructions):
-                result = []
-                for op, operands in instructions:
-                    operands = re.sub(r'\b[0-9a-f]+ <[^>]+>', '<target>', operands)
-                    operands = re.sub(r'\[pc, #\d+\]', '[pc, #literal]', operands)
-                    result.append((op, operands))
-                return result
-            if kind == 'owner':
-                direct_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', function_body(slot_asm, 'slot_owner_direct'))
-                table_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', function_body(slot_asm, 'slot_owner_table'))
-                if len([op for op, args in table if op != 'nop']) > len([op for op, args in direct if op != 'nop']) or direct_calls != table_calls or direct_calls != ['Owner::read() const']:
-                    raise RuntimeError(optimization + ': owner table gained work or changed its direct method call')
-            elif comparable(direct) != comparable(table):
-                raise RuntimeError(optimization + ': native ' + kind + ' table dispatch differs from selected-target call')
-            current[kind] = dict(direct_instructions=len([op for op, args in direct if op != 'nop']),
-                table_instructions=len([op for op, args in table if op != 'nop']),
-                gate='no added instructions and same method relocation' if kind == 'owner' else 'identical normalized instructions')
-        slot_comparisons[optimization] = current
+        slot_comparisons[optimization] = check_slot_comparisons(slot_asm, optimization)
     runner.run([*flags, '-Og', '-c', HERE / 'regression/DebugLevelCheck.cpp', '-o', output / 'DebugLevelCheck-Og.o'], 'debug-Og-compile')
     syntax_contracts(flags, runner.run, HERE)
     for case in range(1, 5):

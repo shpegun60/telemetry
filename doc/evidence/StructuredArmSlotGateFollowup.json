@@ -1,0 +1,60 @@
+{
+  "scope": "Actual ARM13 offline compilation and parser-only controls; no library or device changes",
+  "initial_ci": {
+    "run": 37155083161,
+    "source_head": "df7d959435c37c4520bdf792d158998759b1118c",
+    "successful_jobs": 5,
+    "failure": "ARM slot comparison counted an unreachable alignment nop"
+  },
+  "correction": "Only unreachable trailing alignment nop after terminal transfer is omitted; explicit branch targets and reachable instructions stay checked",
+  "records": [
+    {
+      "path": "build/stage20/shared-arm13-final/summary.json",
+      "sha256": "753065dc91536e2be130766b291a0f13341f8e2834a54a8fdc157dd3415f876e",
+      "counts": {
+        "commands": 329,
+        "passed": 107,
+        "rejected": 222,
+        "runtime_executions": 0,
+        "runtime_checks": 0,
+        "intentional_aborts": 0
+      }
+    },
+    {
+      "path": "build/stage20/shared-arm13-final/arm-slot-gate-controls.json",
+      "sha256": "6e950e7e82d688e89d6706e00ee39eeb6cb264adece741d00b468aa889dc172b",
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      }
+    },
+    {
+      "path": "build/stage20/shared-arm13-null-final/summary.json",
+      "sha256": "f3e0b1901d9132a6a1987772423d69ccd932c51d2c8465b974ccece36c3b9b74",
+      "counts": {
+        "commands": 329,
+        "passed": 107,
+        "rejected": 222,
+        "runtime_executions": 0,
+        "runtime_checks": 0,
+        "intentional_aborts": 0
+      }
+    },
+    {
+      "path": "build/stage20/shared-arm13-null-final/arm-slot-gate-controls.json",
+      "sha256": "8eece31af8ebd056c804e3672f5f4f5de578104cdbc485e0c1d35a5af9604e6a",
+      "counts": {
+        "assemblies": 2,
+        "slot_comparisons": 10,
+        "real_ci_positive": 1,
+        "rejected_mutations": 5,
+        "helper_controls": 9
+      }
+    }
+  ],
+  "hardware_captured_inputs_unchanged": true,
+  "artifact_location": "Local ignored build/stage20; hashes do not promise permanent artifact availability"
+}

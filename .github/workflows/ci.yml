@@ -271,6 +271,8 @@ jobs:
           python3 tests/h7s_support/check.py
           python3 tests/run_arm_checks.py --build-dir build/arm
           python3 tests/run_arm_checks.py --null-checks --build-dir build/arm-null
+          python3 tests/regression/ArmSlotGateCheck.py --build-dir build/arm
+          python3 tests/regression/ArmSlotGateCheck.py --build-dir build/arm-null
       - name: C++20 resource Cortex-M7 checks
         run: python3 tests/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-resources
       - name: C++20 structured reflection Cortex-M7 checks

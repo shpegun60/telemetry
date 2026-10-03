@@ -117,3 +117,11 @@ LIFO Workspace leases лишаються явними контрактами к�
 sanitizers, Cortex-M7 та Qt — **шість jobs**. Поточний результат публікації
 перевіряється за exact pushed SHA у [GitHub Actions](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml).
 Попередній CI `389c995` 9/9 є baseline evidence і не замінює цей gate.
+
+Перший publication CI `df7d959` пройшов усі п'ять host/Qt jobs. ARM job
+виявив у тестовому порівнянні unreachable alignment `nop` після terminal
+branch. [Follow-up](evidence/StructuredArmSlotGateFollowup.json) виправляє
+лише parser: reachable instructions і literal/relocation targets лишаються
+перевіреними. Обидва повні ARM13 normal/null runs пройшли по 329 команд;
+tracked control запускає п'ять mutations і дев'ять helper cases також у CI.
+Код бібліотеки й усі captured hardware inputs цим виправленням не змінено.

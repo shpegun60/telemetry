@@ -36,8 +36,10 @@ flags as well as fast-math and finite-only modes.
 explicit selected-target calls. Function/context/borrowed/owned routes require
 identical normalized instructions. Owner routing requires no added instruction
 count and the same direct method relocation; register allocation and optional
-empty-result paths can differ. These are offline compiler comparisons, not MCU
-cycle measurements.
+empty-result paths can differ. Only trailing alignment nops after an
+unconditional terminal transfer are omitted, and explicit branch targets keep
+those nops in the comparison. Reachable nops, literals and relocation targets
+remain checked. These are offline compiler comparisons, not MCU cycle measurements.
 
 Runtime conditions and commands are counted by the executed fixtures and runner.
 Per-command arguments, exit status and output are retained in the build logs.
