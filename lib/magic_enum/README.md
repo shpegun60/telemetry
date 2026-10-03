@@ -9,7 +9,9 @@ Header SHA-256:
 Git preserves its original bytes. The `.pri` exposes the files in Qt Creator;
 no separate compilation or Qt dependency is required.
 
-Only `TelemetryEnum.h` includes this header, via the sibling directory. Numeric
+The legacy `TelemetryEnum.h` and the structured reflection backend include
+this header. The structured Registry/Codec/Model consume the normalized
+reflection facade rather than calling magic_enum directly. Legacy numeric
 catalogs do not include reflection code. The upstream default scan range is
 `-128..127`; specialize `magic_enum::customize::enum_range<E>` in the shared
 enum definition header for another range, or use telemetry's explicit enum

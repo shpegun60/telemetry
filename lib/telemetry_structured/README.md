@@ -13,6 +13,11 @@ has one `telemetry` namespace (`ts` may be a user alias), one mixed
 Field/Command/Service model, and wire v3 only. This migration has **not**
 happened yet.
 
+The [Stage 15 contract candidate](../../doc/StructuredTelemetryV3FreezeQualification.md)
+locks the current API/wire constants, independent goldens and dependency pins.
+Its software gates are separate from the deferred Stage 14 H7S execution.
+The full Stage 15 Definition of Done and migration gate remain open.
+
 Its current implementation includes the stable
 [reflection facade](reflection/Reflection.hpp),
 [fixed wire type traits](type/Traits.hpp), the

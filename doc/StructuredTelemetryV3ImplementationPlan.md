@@ -2970,6 +2970,14 @@ host або objdump не перейменовуються на «перевір�
 
 ### Етап 15. Freeze structured v1 / wire v3.0
 
+Програмний contract candidate та карта доказів зафіксовані в
+[Stage 15 qualification](StructuredTelemetryV3FreezeQualification.md).
+Контракт API/wire та hardware qualification мають окремі статуси:
+контрактний кандидат можна зафіксувати після програмних gates, але повний
+Stage 15 DoD лишається відкритим до реального Stage 14 MCU receipt.
+Це не вилучає апаратної вимоги з §18.1; findings на MCU можуть повторно
+відкрити API/wire контракт. Міграція 16–20 до повного freeze не починається.
+
 Робота:
 
 1. Зіставити реалізований public API із цим документом.

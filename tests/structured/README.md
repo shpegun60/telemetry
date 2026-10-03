@@ -546,3 +546,22 @@ The legacy and optional protocol H7S receipts were refreshed after the name
 fix: 3328 and 4300 checks per O2/Os image, with verified full 64 KiB restoration.
 The current-code receipt again covers 166 library C++/qmake inputs. Both receipts
 retain truthful prepublication HEAD/dirty markers and captured image hashes.
+
+## Stage 15: software contract candidate
+
+The [freeze suite](freeze/README.md) locks current public API return types,
+mixed exact native values, traversal/As access and unsupported declarations.
+It fixes wire 3.0 headers/codes/capabilities, LE/FNV constants, ABI revision,
+the 32-B default storage budget, dependency blob pins and four independent
+descriptor/values goldens. Each host O2/Os/Og run executes 29 counted
+conditions; each runner invocation also requires 10 compile rejections.
+ARM executes zero conditions and inspects linked symbols, sections,
+disassembly and individual frames. Existing semantic/codegen suites remain.
+
+The [Stage 15 decision](../../doc/StructuredTelemetryV3FreezeQualification.md)
+maps the DoD to its owning evidence and records lifetime/concurrency limits.
+Clean Qt 6.10.1 / MinGW 13.1 consumers passed: qualification's 97 checks,
+the exact 41-byte client response and all four resource selections.
+API/wire are a frozen contract candidate; full Stage 15 stays open on the
+deferred Stage 14 execution of new probes on the original H7S. Neither host
+checks nor archived board receipts substitute for that requirement.

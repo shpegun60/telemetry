@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "status": "software qualification; Stage 14 hardware execution deferred",
+  "api": "C++20 structured v1",
+  "wire": {
+    "major": 3, "minor": 0, "descriptor_header_bytes": 64, "values_header_bytes": 24,
+    "record_header_bytes": 8, "record_version": 1, "packed_id_bits": 32,
+    "group_bits": 16, "entry_bits": 16, "fingerprint_bits": 64,
+    "byte_order": "little-endian",
+    "descriptor_magic": "TDS3", "values_magic": "TVL3",
+    "fingerprint": {"algorithm": "FNV-1a-64", "basis": "cbf29ce484222325", "prime": "00000100000001b3"},
+    "record_kinds": {"Type": 1, "Catalog": 2, "Field": 3, "Command": 4, "Service": 5},
+    "categories": {"Field": 1, "Command": 2, "Service": 3},
+    "capabilities": {"Readable": 1, "Writable": 2},
+    "value_status": {"Ok": 0, "Unavailable": 1},
+    "type_kinds": {"Void": 0, "Scalar": 1, "Enum": 2, "Struct": 3, "Array": 4},
+    "scalar_codes": {"Bool": 1, "U8": 2, "S8": 3, "U16": 4, "S16": 5, "U32": 6, "S32": 7, "U64": 8, "S64": 9, "F32": 10, "F64": 11}
+  },
+  "structured_abi_revision": 5,
+  "default_local_object_bytes": 32,
+  "dependencies": {
+    "boost_pfr": {"tag": "boost-1.92.0", "commit": "401385c240027423acbb1eb6dea2abe0043db5aa", "headers": 44, "tree_sha256": "4c9837f5af31e83ef9e4d1c84a57588dcd7128ecfcc18a2445b24f82b246cfaf", "license_sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"},
+    "magic_enum": {"version": "0.9.8", "commit": "1384769c66bd16ec9bb1353f45fe8ec8ccc12dbd", "header_sha256": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d", "automatic_range": [-128, 127]}
+  },
+  "goldens": {
+    "tests/structured/descriptor/edge.hex": {"bytes": 1486, "sha256": "f42605fb1be3cc9a64064e2a2438939677c6462bd7aa1e775c586e6e0fa6a4c4"},
+    "tests/structured/descriptor/empty.hex": {"bytes": 348, "sha256": "b1f3646ce3155305ca10a4312226fa1e92a3e39f3a0c2795b600a08b85b070e6"},
+    "tests/structured/descriptor/mixed.hex": {"bytes": 968, "sha256": "939ba312e6ad5ce9339a15f3544bca4f924b86bab980fe97bffe258797634b38"},
+    "tests/structured/resources/values.hex": {"bytes": 73, "sha256": "e3e4137f0226251b5a0dbd4725987aaa0642d080e40c9d11d08051026db56ca6"}
+  }
+}

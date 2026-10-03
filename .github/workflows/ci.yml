@@ -201,6 +201,17 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/mcu/run.py --build-dir build/structured-mcu "${flags[@]}"
+      - name: C++20 structured API and wire freeze contract
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/freeze/run.py --build-dir build/structured-freeze "${flags[@]}"
       - name: Retain structured descriptor logs
         if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
         uses: actions/upload-artifact@v4
@@ -225,6 +236,8 @@ jobs:
             build/structured-mcu/*.log
             build/structured-mcu/*.json
             build/structured-mcu/*.su
+            build/structured-freeze/*.log
+            build/structured-freeze/summary.json
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -309,6 +322,10 @@ jobs:
           python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
       - name: Verify retained offline qualification receipt
         run: python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
+      - name: C++20 structured API and wire freeze Cortex-M7 contract
+        run: |
+          python3 tests/structured/freeze/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze
+          python3 tests/structured/freeze/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze-nullchecks
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -372,6 +389,12 @@ jobs:
             build/arm-structured-mcu-nullchecks/*.json
             build/arm-structured-mcu-nullchecks/*.su
             build/arm-structured-mcu-nullchecks/symbol-control.elf
+            build/arm-structured-freeze/*.log
+            build/arm-structured-freeze/summary.json
+            build/arm-structured-freeze/*.su
+            build/arm-structured-freeze-nullchecks/*.log
+            build/arm-structured-freeze-nullchecks/summary.json
+            build/arm-structured-freeze-nullchecks/*.su
             build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 
