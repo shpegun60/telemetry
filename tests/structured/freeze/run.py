@@ -161,7 +161,8 @@ def main():
     env = os.environ.copy()
     env['PATH'] = str(compiler.parent) + os.pathsep + env.get('PATH', '')
     report = dict(execution='offline compile/link/inspect' if args.arm else 'host execution',
-                  checks=0, commands=0, compile_rejections=0, ceiling_rejections=0, frames={}, sections={})
+                  checks=0, commands=0, compile_rejections=0, ceiling_rejections=0,
+                  frames={}, sections={}, images={})
 
     def run(command, label, diagnostic=None):
         command = list(map(str, command))
@@ -227,6 +228,10 @@ def main():
         image = out / (opt + ('.elf' if args.arm else suffix))
         run(flags + ['-' + opt, '-include', manifest_header, '-c', HERE / 'Contract.cpp', '-o', obj], 'compile-' + opt)
         run(flags + ['-' + opt, obj, *link, '-o', image], 'link-' + opt)
+        # Record the actual linked artifact in host and ARM roles. Compiler
+        # provenance alone does not identify the executable that was checked.
+        report['images'][opt] = dict(path=image.name, bytes=image.stat().st_size,
+                                   sha256=digest(image.read_bytes()))
         if not args.arm:
             output = run([image], 'execute-' + opt)
             report['checks'] += counted_checks(output, opt, EXPECTED_CHECKS)
@@ -270,6 +275,9 @@ def main():
             'ceiling-' + name, r'static assertion failed.*\b' + name + r'\b')
     if input_hashes() != before:
         raise RuntimeError('Qualification inputs changed during the run')
+    for image in report['images'].values():
+        if digest((out / image['path']).read_bytes()) != image['sha256']:
+            raise RuntimeError('Linked artifact changed during qualification: ' + image['path'])
     report['input_hashes'] = before
     (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print('Stage 15 software contract passed:',

@@ -238,6 +238,9 @@ jobs:
             build/structured-mcu/*.su
             build/structured-freeze/*.log
             build/structured-freeze/summary.json
+            build/structured-freeze/O2
+            build/structured-freeze/Os
+            build/structured-freeze/Og
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
@@ -392,9 +395,11 @@ jobs:
             build/arm-structured-freeze/*.log
             build/arm-structured-freeze/summary.json
             build/arm-structured-freeze/*.su
+            build/arm-structured-freeze/*.elf
             build/arm-structured-freeze-nullchecks/*.log
             build/arm-structured-freeze-nullchecks/summary.json
             build/arm-structured-freeze-nullchecks/*.su
+            build/arm-structured-freeze-nullchecks/*.elf
             build/arm-structured-traversal/*.su
           if-no-files-found: ignore
 

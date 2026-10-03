@@ -78,6 +78,16 @@ prior green runs do not qualify newly added tests.
 
 The ceiling/license follow-up passed the same seven local compiler roles.
 Host condition counts remain 87; declaration and ceiling rejections are 11
-each. All twelve ARM O2/Os/Og ELF images (both compilers, normal/null modes)
-are byte-identical to the corresponding pre-follow-up contract images.
-This is offline binary evidence, not new MCU execution or cycle timing.
+each. The retained [ELF comparison](elf-comparison.json) measures twelve
+ARM O2/Os/Og pairs across ARM 13.2.1 and CubeIDE 14.3.1, normal/null modes:
+**12/12 byte-identical, zero differing pairs**. It records each file's actual
+size and SHA-256, raw summary/link-log digests, compiler/flags and a canonical
+input-manifest digest. The before summaries record source HEAD
+`f77ea0fbba28971c2192a11c70f547fb54fec18d`; the ceiling-follow-up summaries
+record `ce630a7c6d255d537af5350937e6b315cd627805`. They have no source-dirty
+field or linked-image digests, so this later file comparison does not establish
+clean-source builds or cryptographically bind those old summaries to ELF
+bytes. Local ignored build paths do not establish archived artifact
+retrievability; no stable archive locator is established in this record.
+This is offline binary evidence, not current-HEAD images, new MCU execution
+or cycle timing. New runner summaries record linked-image digests directly.
