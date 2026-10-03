@@ -22,6 +22,14 @@ sys.path.insert(0, str(HERE.parent / 'qualification'))
 from gates import counted_checks, forbidden_symbols  # noqa: E402
 
 EXPECTED_CHECKS = 29  # 12 original + 13 traversal + 4 conversion conditions.
+# Exact keys prevent deleting a ceiling from the manifest from silently
+# deleting its compile-time check. The values remain in contract.json.
+LIMIT_NAMES = (
+    'maxTypeDepth', 'maxTypeCount', 'maxStructMembers', 'maxArrayElements',
+    'maxDescriptorBytes', 'maxStringBytes', 'maxEnumEntriesTotal',
+    'maxCatalogCountTotal', 'maxEndpointCountTotal', 'maxValueWireBytes',
+    'maxExpandedValueNodes',
+)
 DIAGNOSTICS = (
     'Structured field accepts name and bindings only; semantic metadata is not supported',
     'Command must return telemetry::CommandResult',
@@ -33,6 +41,7 @@ DIAGNOSTICS = (
     'Field readAs permits numeric conversion or the exact structural type',
     r'(?:no type named .Scalar.|.Scalar. .*does not name a type)',
     r'no matching function for call to .*service',
+    r'no matching function for call to .*field',
 )
 
 
@@ -53,6 +62,11 @@ def verify_fixtures():
     contract = json.loads((HERE / 'contract.json').read_text(encoding='utf-8'))
     if contract['format_version'] != 1:
         raise RuntimeError('Unsupported contract manifest version')
+    if set(contract['limits']) != set(LIMIT_NAMES):
+        raise RuntimeError('The default v1 profile must specify all eleven ceilings')
+    if any(type(contract['limits'][name]) is not int or contract['limits'][name] <= 0
+           for name in LIMIT_NAMES):
+        raise RuntimeError('Ceilings must be positive integers')
     wire = contract['wire']
     if wire['byte_order'] != 'little-endian' or wire['fingerprint']['algorithm'] != 'FNV-1a-64':
         raise RuntimeError('Unsupported canonical byte order or fingerprint contract')
@@ -76,6 +90,8 @@ def verify_fixtures():
     magic = contract['dependencies']['magic_enum']
     if digest(git_blob('lib/magic_enum/magic_enum.hpp')) != magic['header_sha256']:
         raise RuntimeError('magic_enum header pin changed')
+    if digest(git_blob('lib/magic_enum/LICENSE')) != magic['license_sha256']:
+        raise RuntimeError('magic_enum license pin changed')
     version = (ROOT / 'lib/magic_enum/README.md').read_text(encoding='utf-8')
     if magic['version'] not in version or magic['commit'] not in version:
         raise RuntimeError('magic_enum provenance document differs from the pin')
@@ -111,6 +127,8 @@ def manifest_assertions(contract):
         lines.append(f'static_assert(resource::structured::{name} == {value}ULL);')
     lines += [f'static_assert(telemetry::structured::structuredAbiRevision == {int(contract["structured_abi_revision"])});',
               f'static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES == {int(contract["default_local_object_bytes"])});']
+    for name in LIMIT_NAMES:
+        lines.append(f'static_assert(telemetry::structured::Limits::{name} == {int(contract["limits"][name])});')
     for key, name in (('packed_id_bits', 'telemetry::PackedId'),
                       ('group_bits', 'telemetry::GroupId'), ('entry_bits', 'telemetry::EntryOffset'),
                       ('fingerprint_bits', 'std::uint64_t')):
@@ -143,7 +161,7 @@ def main():
     env = os.environ.copy()
     env['PATH'] = str(compiler.parent) + os.pathsep + env.get('PATH', '')
     report = dict(execution='offline compile/link/inspect' if args.arm else 'host execution',
-                  checks=0, commands=0, compile_rejections=0, frames={}, sections={})
+                  checks=0, commands=0, compile_rejections=0, ceiling_rejections=0, frames={}, sections={})
 
     def run(command, label, diagnostic=None):
         command = list(map(str, command))
@@ -158,7 +176,7 @@ def main():
         if diagnostic is not None:
             if result.returncode == 0 or not re.search(diagnostic, result.stdout, re.S):
                 raise RuntimeError(label + ': expected factory diagnostic missing\n' + result.stdout)
-            report['compile_rejections'] += 1
+            report['ceiling_rejections' if label.startswith('ceiling-') else 'compile_rejections'] += 1
         elif result.returncode:
             raise RuntimeError(label + ': command failed\n' + result.stdout)
         else:
@@ -174,6 +192,8 @@ def main():
                     if path.is_file() and path.suffix in ('.h', '.hpp', '.cpp', '.pri', '.py', '.json'))
     inputs += [HERE.parent / 'traversal/Fixture.hpp', HERE.parent / 'qualification/gates.py']
     inputs += [ROOT / name for name in report['contract']['goldens']]
+    inputs += [ROOT / name for name in ('lib/boost_pfr/LICENSE_1_0.txt',
+               'lib/boost_pfr/VERSION.md', 'lib/magic_enum/LICENSE', 'lib/magic_enum/README.md')]
 
     def input_hashes():
         return {path.relative_to(ROOT).as_posix(): digest(path.read_bytes().replace(b'\r\n', b'\n'))
@@ -236,12 +256,24 @@ def main():
         syntax = [flag for flag in flags if flag != '-fstack-usage']
         run(syntax + ['-O2', '-fsyntax-only', '-DCASE=' + str(case), HERE / 'Negative.cpp'],
             'negative-' + str(case), diagnostic)
+    # Change each expected ceiling independently. A static-assert failure
+    # naming that exact member proves the corresponding guard is compiled.
+    # No production header or tracked manifest is modified by these controls.
+    control_source = out / 'LimitControl.cpp'
+    control_source.write_text('// Compile-time ceiling controls.\n', encoding='utf-8')
+    for name in LIMIT_NAMES:
+        changed = {**report['contract'], 'limits': dict(report['contract']['limits'])}
+        changed['limits'][name] += 1
+        header = out / ('Ceiling-' + name + '.hpp')
+        header.write_text(manifest_assertions(changed), encoding='utf-8')
+        run(syntax + ['-O2', '-fsyntax-only', '-include', header, control_source],
+            'ceiling-' + name, r'static assertion failed.*\b' + name + r'\b')
     if input_hashes() != before:
         raise RuntimeError('Qualification inputs changed during the run')
     report['input_hashes'] = before
     (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print('Stage 15 software contract passed:',
-          {key: report[key] for key in ('commands', 'checks', 'compile_rejections')}, flush=True)
+          {key: report[key] for key in ('commands', 'checks', 'compile_rejections', 'ceiling_rejections')}, flush=True)
 
 
 if __name__ == '__main__':

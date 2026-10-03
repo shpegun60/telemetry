@@ -17,26 +17,38 @@ conversion, structural mismatch, ID bounds and invalid bool rejection before
 the setter. O2/Os/Og therefore execute **87 conditions per host invocation**.
 Static assertions and compile rejections are separate from that count.
 
-Ten compile-fail cases require the intended factory/type diagnostic: unit
+Eleven compile-fail cases require the intended factory/type diagnostic: unit
 metadata, wrong Command status, scalar Command request, scalar Service
 response, throwing target, pointer request, Command metadata, a different
-struct with identical members, structured Scalar fallback and Service
-metadata. They preserve rejection contracts; they are not ten new defects.
+struct with identical members, structured Scalar fallback, Service metadata
+and limits/default-like Field metadata. They preserve rejection contracts;
+they are not eleven new defects. Positive compile-time controls also verify
+the step/constraints/limits/defaults clauses in the metadata detector.
 
 The readable [contract.json](contract.json) records header widths, LE,
 record/type/scalar/status/capability codes, FNV-1a-64 constants, u32 packed
-identity, ABI revision, the default 32-byte storage budget, exact dependency
+identity, ABI revision, the default 32-byte storage budget, all eleven default
+`ts::Limits` resource ceilings, exact dependency
 pins and four independent descriptor/values goldens. Generated compile-time
 assertions tie its numeric constants to the implementation. Golden hashes
 are over decoded bytes, independent of `.hex` whitespace. Existing
 descriptor/resource/client suites still compare emitted bytes with their
 independent oracles; this suite adds a lock on those expected bytes.
 
+The default v1 ceilings are part of the acceptance contract, not an unpinned
+implementation setting or application value limits. Changing one requires an
+explicit compatibility review and contract update even if wire bytes stay
+unchanged. Removing a ceiling from the manifest is refused. Eleven separate
+compile controls change one expected value each and require a static-assert
+failure naming that exact ceiling; these have their own rejection counter.
+Explicit application profiles supported by existing interfaces are separate
+from this frozen default profile and do not change the wire fingerprint.
+
 Boost.PFR is checked against canonical tracked Git blob bytes, as described
 in [VERSION.md](../../../lib/boost_pfr/VERSION.md), with all 44 headers and
 the license. The working tree must match those blobs after LF normalization;
 unstaged vendor changes cannot pass by reading an older HEAD. magic_enum's
-original tracked header bytes and provenance pin are checked as well.
+original tracked header and license bytes and provenance pin are checked as well.
 These checks need a Git checkout; they do not download dependencies.
 
 ```sh
@@ -63,3 +75,9 @@ ASan/UBSan, CubeIDE ARM 14.3.1 normal/null and ARM 13.2.1 normal/null. CI runs
 the new suite in selected C++20 host modes, Clang sanitizers and both ARM
 null-check modes. Publication is qualified by CI for the resulting SHA;
 prior green runs do not qualify newly added tests.
+
+The ceiling/license follow-up passed the same seven local compiler roles.
+Host condition counts remain 87; declaration and ceiling rejections are 11
+each. All twelve ARM O2/Os/Og ELF images (both compilers, normal/null modes)
+are byte-identical to the corresponding pre-follow-up contract images.
+This is offline binary evidence, not new MCU execution or cycle timing.

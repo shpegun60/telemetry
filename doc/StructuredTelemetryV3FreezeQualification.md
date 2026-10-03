@@ -72,8 +72,15 @@ Legacy Scalar не є fallback нового native чи encoded шляху.
   Це fingerprint моделі, а не хеш мінливих значень або поле кожного пакета.
 - Independent descriptor edge/empty/mixed та dense values goldens.
 - Structured ABI revision 5; default local object budget 32 B.
+- Усі 11 default technical ceilings із `telemetry::structured::Limits`.
+  Вони належать до зафіксованого v1 acceptance contract: зміна навіть одного
+  значення потребує явного перегляду сумісності та оновлення контракту.
+  Це не semantic min/max/default значень endpoint-ів. Явні application
+  profiles в інтерфейсах, які вже їх підтримують, залишаються окремими від
+  default profile; нижчі межі клієнта можуть явно відхиляти завеликі моделі.
+  Значення ceilings не додаються у wire або fingerprint.
 - Boost.PFR boost-1.92.0, exact commit/header tree/license digests;
-  magic_enum 0.9.8, exact commit/header digest, default scan -128..127.
+  magic_enum 0.9.8, exact commit/header/license digests, default scan -128..127.
 
 Нова числова таблиця wire потребує явної зміни контракту й goldens,
 а не тихого оновлення очікувань тестів. TypeRegistry/Codec/Model/Descriptor
@@ -99,8 +106,9 @@ std::meta не є залежністю MCU. Factory/shape rules не розши�
 ASan/UBSan, CubeIDE ARM 14.3.1 normal/null, ARM 13.2.1 normal/null;
 усі O2/Os/Og. Host виконує 29 conditions на optimization, разом 87 на run.
 ARM лише компілює, лінкує й читає nm/objdump/size/.su: його runtime count
-дорівнює нулю. Кожен run також відкидає 10 invalid declarations з потрібною
-діагностикою. Це contract gates, а не десять нових runtime findings.
+дорівнює нулю. Кожен run також відкидає 11 invalid declarations з потрібною
+діагностикою та 11 незалежних змін expected ceilings. Лічильники цих двох
+груп відмов окремі від runtime checks. Це contract gates, а не нові runtime findings.
 
 Чисті нові build directories із Qt 6.10.1 / MinGW 13.1 перевіряють
 multi-TU consumer (97 conditions), Qt client (exact 41-byte response),

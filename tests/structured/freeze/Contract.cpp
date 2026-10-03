@@ -103,7 +103,23 @@ template <class T>
 concept SemanticMetadata = requires(T value) { value.unit; } ||
                            requires(T value) { value.min; } ||
                            requires(T value) { value.max; } ||
-                           requires(T value) { value.defaultValue; };
+                           requires(T value) { value.defaultValue; } ||
+                           requires(T value) { value.limits; } ||
+                           requires(T value) { value.defaults; } ||
+                           requires(T value) { value.step; } ||
+                           requires(T value) { value.constraints; } ||
+                           requires(T value) { value.argumentMetadata; } ||
+                           requires(T value) { value.memberMetadata; };
+// Positive controls make the new clauses meaningful even while production
+// descriptors correctly contain none of these members.
+struct StepMetadata { float step; };
+struct ConstraintsMetadata { unsigned constraints; };
+struct LimitsMetadata { unsigned limits; };
+struct DefaultsMetadata { unsigned defaults; };
+static_assert(SemanticMetadata<StepMetadata>);
+static_assert(SemanticMetadata<ConstraintsMetadata>);
+static_assert(SemanticMetadata<LimitsMetadata>);
+static_assert(SemanticMetadata<DefaultsMetadata>);
 static_assert(!SemanticMetadata<ts::TypeDescriptor>);
 static_assert(!SemanticMetadata<ts::FieldEntry>);
 static_assert(!SemanticMetadata<ts::CommandEntry>);

@@ -18,9 +18,22 @@
   },
   "structured_abi_revision": 5,
   "default_local_object_bytes": 32,
+  "limits": {
+    "maxTypeDepth": 32,
+    "maxTypeCount": 4096,
+    "maxStructMembers": 256,
+    "maxArrayElements": 65536,
+    "maxDescriptorBytes": 4194304,
+    "maxStringBytes": 4096,
+    "maxEnumEntriesTotal": 65536,
+    "maxCatalogCountTotal": 65536,
+    "maxEndpointCountTotal": 65536,
+    "maxValueWireBytes": 1048576,
+    "maxExpandedValueNodes": 262144
+  },
   "dependencies": {
     "boost_pfr": {"tag": "boost-1.92.0", "commit": "401385c240027423acbb1eb6dea2abe0043db5aa", "headers": 44, "tree_sha256": "4c9837f5af31e83ef9e4d1c84a57588dcd7128ecfcc18a2445b24f82b246cfaf", "license_sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"},
-    "magic_enum": {"version": "0.9.8", "commit": "1384769c66bd16ec9bb1353f45fe8ec8ccc12dbd", "header_sha256": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d", "automatic_range": [-128, 127]}
+    "magic_enum": {"version": "0.9.8", "commit": "1384769c66bd16ec9bb1353f45fe8ec8ccc12dbd", "header_sha256": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d", "license_sha256": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3", "automatic_range": [-128, 127]}
   },
   "goldens": {
     "tests/structured/descriptor/edge.hex": {"bytes": 1486, "sha256": "f42605fb1be3cc9a64064e2a2438939677c6462bd7aa1e775c586e6e0fa6a4c4"},

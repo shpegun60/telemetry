@@ -6,6 +6,8 @@ commit `1384769c66bd16ec9bb1353f45fe8ec8ccc12dbd`.
 
 Header SHA-256:
 `5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d`.
+License SHA-256 (canonical tracked Git blob bytes):
+`bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3`.
 Git preserves its original bytes. The `.pri` exposes the files in Qt Creator;
 no separate compilation or Qt dependency is required.
 

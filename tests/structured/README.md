@@ -552,9 +552,11 @@ retain truthful prepublication HEAD/dirty markers and captured image hashes.
 The [freeze suite](freeze/README.md) locks current public API return types,
 mixed exact native values, traversal/As access and unsupported declarations.
 It fixes wire 3.0 headers/codes/capabilities, LE/FNV constants, ABI revision,
-the 32-B default storage budget, dependency blob pins and four independent
+the 32-B default storage budget, all eleven default resource ceilings,
+dependency header/license blob pins and four independent
 descriptor/values goldens. Each host O2/Os/Og run executes 29 counted
-conditions; each runner invocation also requires 10 compile rejections.
+conditions; each runner invocation also requires 11 declaration rejections
+and 11 separate ceiling mutation rejections.
 ARM executes zero conditions and inspects linked symbols, sections,
 disassembly and individual frames. Existing semantic/codegen suites remain.
 

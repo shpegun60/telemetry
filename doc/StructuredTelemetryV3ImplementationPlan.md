@@ -1757,7 +1757,11 @@ Flash/stack/cycles; це внутрішня заміна зі строго од�
 Field/Command/Service**. Вони не додаються до endpoint records і не
 перевіряють, наприклад, прикладний діапазон напруги.
 
-Початковий профіль, який implementation може явно перевизначити:
+Default v1 профіль, зафіксований у Stage 15 contract manifest. Усі 11
+значень належать до acceptance contract; їхня зміна потребує явного
+перегляду сумісності та оновлення контракту, навіть якщо wire bytes
+залишаються тими самими. Явні application profiles через наявні profile
+інтерфейси не змінюють цей default contract:
 
 | Величина | Default ceiling | Що обмежує |
 | --- | --- | --- |

@@ -31,4 +31,13 @@ using Invalid = ts::Scalar;
 #elif CASE == 10
 Request response() noexcept { return {}; }
 auto invalid = ts::service("Metadata", &response, "unit");
+#elif CASE == 11
+struct ValueMetadata {
+    float minimum;
+    float maximum;
+    float defaultValue;
+};
+float readValue() noexcept { return 5.0f; }
+telemetry::WriteResult writeValue(float) noexcept { return telemetry::WriteResult::Applied; }
+auto invalid = ts::field("Value", &readValue, &writeValue, ValueMetadata{1.0f, 10.0f, 5.0f});
 #endif
