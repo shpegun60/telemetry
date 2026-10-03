@@ -9,7 +9,7 @@
 
 namespace example::structured_protocol {
 
-PacketResult Bind::processImpl(Binding& peer, const telemetry::structured::ModelView& model,
+PacketResult Bind::processImpl(Binding& peer, const telemetry::ModelView& model,
     std::uint64_t fingerprint, Input request, Output response, detail::CurrentExchangeAbiTag) noexcept
 {
     using D = PacketStatus;

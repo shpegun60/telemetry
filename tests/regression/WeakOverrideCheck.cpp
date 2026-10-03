@@ -1,7 +1,8 @@
 // Verify that a strong definition overrides a weak default used as a
 // compile-time telemetry target across translation units (MIT).
 // Authors: Ruslan Kovtun (shpegun60), codexAi.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
+#include "SharedSupport.hpp"
 
 #if defined(__ELF__) && (defined(__GNUC__) || defined(__clang__))
 
@@ -31,15 +32,16 @@ extern "C" telemetry::CommandResult overrideCommand() noexcept
 
 #else
 constexpr telemetry::FieldTable fields{
-    telemetry::field<&overrideRead, &overrideWrite>("Override", "")};
+    telemetry::field<&overrideRead, &overrideWrite>("Override")};
 constexpr telemetry::CommandTable commands{
     telemetry::command<&overrideCommand>("Override")};
 
 int main()
 {
-    return fields.read<0>() == 42.f
-        && fields.write<0>(1.f) == telemetry::WriteResult::Applied
-        && commands.call<0>() == telemetry::CommandResult::Executed ? 0 : 1;
+    CHECK(fields.read<0>() == 42.f);
+    CHECK(fields.write<0>(1.f) == telemetry::WriteResult::Applied);
+    CHECK(commands.call<0>() == telemetry::CommandResult::Executed);
+    reportChecks(); return 0;
 }
 #endif
 

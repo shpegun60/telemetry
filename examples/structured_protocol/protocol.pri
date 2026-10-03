@@ -1,6 +1,6 @@
 # Explicit example protocol selection. MIT; repository LICENSE applies.
-# Include lib/telemetry_structured/structured.pri independently first.
-# Neither structured.pri nor resource.pri includes this example.
+# Include lib/telemetry/telemetry.pri independently first.
+# Neither telemetry.pri nor resource.pri includes this example.
 isEmpty(STRUCTURED_PROTOCOL_EXAMPLE_PRI_INCLUDED) {
     STRUCTURED_PROTOCOL_EXAMPLE_PRI_INCLUDED = 1
     CONFIG -= c++11 c++14 c++17

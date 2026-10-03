@@ -9,8 +9,8 @@
 #include <span>
 
 namespace mcu {
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 
 inline constexpr unsigned rows = 128;
 inline constexpr unsigned repeats = 7;

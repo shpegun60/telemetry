@@ -2979,12 +2979,12 @@ host або objdump не перейменовуються на «перевір�
 
 ### Етап 15. Freeze structured v1 / wire v3.0
 
-Програмний contract candidate та карта доказів зафіксовані в
+Заморожений контракт та карта доказів зафіксовані в
 [Stage 15 qualification](StructuredTelemetryV3FreezeQualification.md).
 Контракт API/wire та hardware qualification мають окремі статуси:
 контрактний кандидат можна зафіксувати після програмних gates. Stage 14
-MCU receipt уже отримано; повний Stage 15 DoD очікує exact-SHA CI зрізу,
-який публікує цей receipt та оновлену offline матрицю.
+MCU receipt отримано; Stage 15 DoD закрито success 9/9 jobs для
+`389c995083b4dc0a39cd8775b211ef765494240f`, CI 37145176280.
 Це не вилучає апаратної вимоги з §18.1; findings на MCU можуть повторно
 відкрити API/wire контракт. Міграція 16–20 до повного freeze не починається.
 
@@ -3014,6 +3014,9 @@ namespace і v2.1 adapter лишаються regression baseline; Stage 04–15 
 етапів 16–20 — одна кінцева бібліотека, а не довічний compatibility layer.
 
 #### Етап 16. Підтвердити готовність єдиного API до міграції
+
+Статус: baseline повторено на `389c995`, gate пройдено. Дані й карта
+споживачів — у [migration guide](StructuredTelemetryV3MigrationGuide.md).
 
 1. Повторно зібрати **вже реалізований Stage 08** mixed `FieldTable`
    fixture з bool, integer, float/double, enum, array і struct R/W.
@@ -3432,3 +3435,18 @@ Field/Command/Service/Model, v3 protocol або міграцію. Стан ко�
 скасований scalar metadata plan. Рішення з §18.3 закриваються
 compiler/ARM/MCU вимірами до відповідного freeze; гіпотези не називаємо
 доведеними лише тому, що вони описані тут.
+
+
+## Implementation checkpoint: source unification, 2026-10-03
+
+Stage 15 was closed by actual H7S qualification and exact-SHA CI for `389c995`.
+Stage 16 retained the baseline. Stages 17–19 are implemented in one C++20
+`telemetry` core, final consumers, shared regression suites and selected v3
+resource providers. Legacy Scalar/v2 executable sources are retired; historical
+review and measurement evidence remains separately identified.
+
+Stage 20 final-source host/sanitizer/ARM/Qt validation is being completed.
+Its final MCU receipt and exact published-SHA CI are required before closure.
+The [migration guide](StructuredTelemetryV3MigrationGuide.md) records the
+actual file/API transition and the evidence boundaries. No frozen wire,
+ceiling, type, endpoint semantics or default 32-B storage policy was redesigned.

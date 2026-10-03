@@ -21,9 +21,9 @@ from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 LIBRARY = [ROOT / name for name in (
-    'lib/telemetry_structured/model/Adapter.cpp',
-    'lib/telemetry_structured/abi/StructuredAbi.cpp',
-    'lib/resource/structured/detail/Values.cpp')]
+    'lib/telemetry/model/Adapter.cpp',
+    'lib/telemetry/abi/StructuredAbi.cpp',
+    'lib/resource/telemetry/v3/detail/Values.cpp')]
 CONSUMER = [HERE / (name + '.cpp') for name in ('Check', 'Provider', 'Typed', 'Encoded')]
 
 
@@ -48,7 +48,7 @@ def main():
     inputs = sorted(path for directory in (ROOT / 'lib', HERE)
                     for path in directory.rglob('*')
                     if path.is_file() and path.suffix in ('.h', '.hpp', '.cpp', '.c', '.pri', '.py', '.pro'))
-    inputs += [HERE.parent / 'traversal/Fixture.hpp', HERE.parent / 'endpoints/h7s/Fixture.hpp']
+    inputs += [HERE.parent / 'traversal/Fixture.hpp']
 
     def input_hashes():
         return {str(path.relative_to(ROOT)).replace('\\', '/'):
@@ -125,7 +125,7 @@ def main():
 
         def inspect(objects, program, mode, include_frames=True):
             symbols, _ = run([tool('nm'), '-C', program], 'symbols-' + mode)
-            rejected = forbidden_symbols(symbols, legacy=True)
+            rejected = forbidden_symbols(symbols)
             if rejected:
                 raise RuntimeError(mode + ': allocation/formatting/legacy symbols retained: ' + str(rejected))
             sections, _ = run([tool('size'), '-A', program], 'sections-' + mode)
@@ -239,26 +239,26 @@ def main():
             report['depth'].append(dict(optimization=opt, depth=depth, seconds=seconds, object_bytes=obj.stat().st_size))
 
     if args.arm:
-        report['scalar_baseline'] = {}
+        report['leaf_codegen'] = {}
         for opt in opts:
             obj = out / (opt + '-scalar.o')
-            run(flags + ['-' + opt, '-fno-ipa-icf', '-c', HERE / 'ScalarComparison.cpp', '-o', obj], 'scalar-' + opt)
+            run(flags + ['-' + opt, '-fno-ipa-icf', '-c', HERE / 'LeafCodegen.cpp', '-o', obj], 'scalar-' + opt)
             asm, _ = run([tool('objdump'), '-drC', obj], 'scalar-' + opt + '-assembly')
             result = dict(body_bytes={})
-            for symbol in ('scalar_direct', 'scalar_new', 'scalar_old', 'write_direct', 'write_new', 'write_old'):
+            for symbol in ('leaf_direct', 'leaf_native', 'write_direct', 'write_native'):
                 path = out / (opt + '-' + symbol + '.bin')
                 run([tool('objcopy'), '--dump-section', f'.text.{symbol}={path}', obj], 'scalar-' + opt + '-' + symbol)
                 result['body_bytes'][symbol] = len(path.read_bytes())
             if opt != 'Og' and not args.null_checks:
-                for operation in ('scalar', 'write'):
+                for operation in ('leaf', 'write'):
                     direct = (out / f'{opt}-{operation}_direct.bin').read_bytes()
-                    native = (out / f'{opt}-{operation}_new.bin').read_bytes()
+                    native = (out / f'{opt}-{operation}_native.bin').read_bytes()
                     if not direct or direct != native:
                         raise RuntimeError(opt + ': new scalar native path differs from direct')
             layout = out / (opt + '-layout.bin')
             run([tool('objcopy'), '--dump-section', f'.rodata.qualification_layout={layout}', obj], 'layout-' + opt)
-            result['layout'] = list(struct.unpack('<10I', layout.read_bytes()))
-            report['scalar_baseline'][opt] = result
+            result['layout'] = list(struct.unpack('<6I', layout.read_bytes()))
+            report['leaf_codegen'][opt] = result
 
     if input_hashes() != before:
         raise RuntimeError('Build inputs changed during qualification; rerun from a stable tree')

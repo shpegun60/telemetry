@@ -56,7 +56,7 @@ def main():
 
     for header in ('Traversal', 'FieldAccess'):
         source = out / (header + '-standalone.cpp')
-        source.write_text(f'#include <telemetry_structured/detail/{header}.hpp>\n')
+        source.write_text(f'#include <telemetry/detail/{header}.hpp>\n')
         run([flag for flag in flags if flag != '-fstack-usage'] + ['-fsyntax-only', source],
             'header-' + header)
 

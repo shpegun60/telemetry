@@ -15,7 +15,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 SOURCES = Path(__file__).resolve().parent
-ABI_SOURCE = ROOT / "lib/telemetry_structured/abi/StructuredAbi.cpp"
+ABI_SOURCE = ROOT / "lib/telemetry/abi/StructuredAbi.cpp"
 
 
 def main() -> None:

@@ -1,737 +1,139 @@
 #!/usr/bin/env python3
-"""Compile Cortex-M7 checks, verify constant storage and link a newlib-nano consumer."""
+"""Compile final C++20 shared Cortex-M7 contracts and inspect ID boundaries (MIT)."""
 import argparse
-from collections import Counter
-import json
-import os
 from pathlib import Path
+import os
 import re
 import shutil
-import subprocess
 import sys
-from audit.compare_arm_probes import encodings
-
+from regression.checks import Commands, POSITIVES, syntax_contracts, header_and_fp_checks
 
 ROOT = Path(__file__).resolve().parent.parent
-FLAGS = ["-std=c++17", "-mcpu=cortex-m7", "-mthumb", "-mfpu=fpv5-d16",
-         "-mfloat-abi=hard", "-fno-exceptions", "-fno-rtti", "-Wall", "-Wextra",
-         "-Werror", "-pedantic-errors", "-fdiagnostics-color=never",
-         "-Ilib/telemetry", "-Ilib/delegate"]
-
+HERE = Path(__file__).resolve().parent
 
 def function_body(disassembly, name):
-    match = re.search(rf"^[0-9a-fA-F]+ <{re.escape(name)}>:\n(.*?)"
-                      r"(?=^[0-9a-fA-F]+ <|^Disassembly of section |\Z)",
-                      disassembly, re.MULTILINE | re.DOTALL)
+    match = re.search(rf'^[0-9a-fA-F]+ <{re.escape(name)}>:\n(.*?)(?=^[0-9a-fA-F]+ <|^Disassembly of section |\Z)',
+        disassembly, re.M | re.S)
     if match is None:
-        raise RuntimeError(f"ARM codegen: missing disassembly for {name}")
-    return match.group(1)
-
+        raise RuntimeError('Missing ARM probe: ' + name)
+    return match[1]
 
 def normalized_instructions(disassembly, name):
-    """Instruction stream with addresses and self-relative labels removed."""
     result = []
     for line in function_body(disassembly, name).splitlines():
-        parts = line.split("\t")
-        if len(parts) < 3 or not parts[0].strip().endswith(":"):
+        match = re.match(r'\s*[0-9a-fA-F]+:\s+(?:[0-9a-fA-F]{4}\s+)+([a-z][a-z0-9.]*)\s*(.*)', line)
+        if not match:
             continue
-        opcode = parts[2].strip()
-        if not opcode:
-            continue
-        operands = parts[3].strip() if len(parts) > 3 else ""
-        operands = re.sub(r"\b[0-9a-fA-F]+ <[^>]+\+0x([0-9a-fA-F]+)>",
-                          r"<self+0x\1>", operands)
-        result.append((opcode, operands))
+        operation = match[1].removesuffix('.w').removesuffix('.n')
+        operands = re.split(r'\s*[;@]', match[2], maxsplit=1)[0].strip()
+        result.append((operation, operands))
     return result
 
-
-def check_static_field_dispatch(disassembly):
-    direct_native = "telemetry_probe_field_read_native"
-    native = ("telemetry_probe_read_inferred_known",
-              "telemetry_probe_static_read_native")
-    direct_converted = "telemetry_probe_field_read_converted"
-    converted = "telemetry_probe_static_read_converted"
-    for name in (*native, converted):
-        body = function_body(disassembly, name)
-        if re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body) or "Scalar" in body:
-            raise RuntimeError(f"IndexCodegen: {name} retained lookup/type-erased dispatch")
-        if any(symbol in body for symbol in (
-                "telemetry_probe_index", "telemetry_probe_catalogs",
-                "telemetry_probe_group0_fields", "telemetry_probe_group1_fields")):
-            raise RuntimeError(f"IndexCodegen: {name} retained catalog metadata access")
-    if normalized_instructions(disassembly, native[0]) != normalized_instructions(
-            disassembly, native[1]):
-        raise RuntimeError("IndexCodegen: inferred and explicit static native reads diverged")
-
-    # A compiler may preserve the same direct getter tail call as Field::read,
-    # or inline it further. The static-ID API must never be worse: if its body
-    # differs, it must have removed calls and stack work completely.
-    for direct, static in ((direct_native, native[1]),
-                           (direct_converted, converted)):
-        if normalized_instructions(disassembly, direct) != normalized_instructions(
-                disassembly, static):
-            body = function_body(disassembly, static)
-            if (re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body)
-                    or re.search(r"\bbl\b", body)
-                    or "R_ARM_THM_CALL" in body or "R_ARM_THM_JUMP24" in body):
-                raise RuntimeError(
-                    f"IndexCodegen: {static} differs from direct Field read and adds work")
-    native_body = function_body(disassembly, native[1])
-    if (normalized_instructions(disassembly, direct_native)
-            != normalized_instructions(disassembly, native[1])
-            and "vldr" not in native_body):
-        raise RuntimeError("IndexCodegen: optimized static F32 read lost its native load")
-    if "vcvt.u32.f32" not in function_body(disassembly, converted):
-        raise RuntimeError("IndexCodegen: static converted read lost its required checked cast")
-
-    # Static-ID writes must add no instructions to the same known Field call.
-    for direct, static in (
-            ("telemetry_probe_field_write_float", "telemetry_probe_static_write_float"),
-            ("telemetry_probe_field_write_u16", "telemetry_probe_static_write_u16"),
-            ("telemetry_probe_field_write_readonly", "telemetry_probe_static_write_readonly")):
-        if normalized_instructions(disassembly, direct) != normalized_instructions(
-                disassembly, static):
-            raise RuntimeError(f"IndexCodegen: {static} differs from direct Field write")
-
-
-def check_command_dispatch(disassembly):
-    target = "CommandProbeDevice::configure(float, CommandProbeMode)"
-    for name in ("command_table_call_known", "command_table_call_runtime"):
-        body = function_body(disassembly, name)
-        if target not in body:
-            raise RuntimeError(f"CommandTableCodegen: {name} lost its direct target")
-        if re.search(r"\bblx\b", body) or "Scalar" in body:
-            raise RuntimeError(f"CommandTableCodegen: {name} reintroduced type erasure")
-        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
-            raise RuntimeError(f"CommandTableCodegen: {name} unexpectedly uses stack storage")
-    local = normalized_instructions(disassembly, "command_table_call_known")
-    global_ = normalized_instructions(disassembly, "command_table_call_global")
-    if global_ != local:
-        # -Os may coalesce identical bodies with a tail branch to the local wrapper.
-        real = [i for i in global_ if i[0] != "nop"]
-        if not (len(real) == 1 and real[0][0] in ("b", "b.w", "b.n")
-                and "<command_table_call_known>" in real[0][1]):
-            raise RuntimeError("CommandTableCodegen: global routing adds work to the local call")
-    erased = function_body(disassembly, "command_table_execute_erased")
-    if not re.search(r"\bblx\b|\bbx\s+(?:ip|r(?:1[0-2]|[0-9]))\b", erased):
-        raise RuntimeError("CommandTableCodegen: erased path lost its indirect dispatch probe")
-
-
-def check_native_field_tables(disassembly):
-    def resolved(name, seen=()):
-        if name in seen:
-            raise RuntimeError("FieldTableCodegen: cyclic alias")
-        instructions = normalized_instructions(disassembly, name)
-        real = [entry for entry in instructions if entry[0] != "nop"]
-        # GCC -Os merges identical exported wrappers using one tail branch.
-        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
-            alias = re.search(r"<((?:table_direct|table_local|table_global)_\w+)>", real[0][1])
-            if alias:
-                return resolved(alias.group(1), (*seen, name))
-        return instructions
-
-    for operation in ("read", "converted", "write", "int", "u16", "enum"):
-        direct, local, global_ = ("table_" + route + "_" + operation
-                                  for route in ("direct", "local", "global"))
-        if resolved(direct) != resolved(local) or resolved(local) != resolved(global_):
-            raise RuntimeError(f"FieldTableCodegen: {operation} direct/local/global instructions differ")
-        for name in (local, global_):
-            body = function_body(disassembly, name)
-            if "Scalar" in body or re.search(r"\bblx\b", body):
-                raise RuntimeError(f"FieldTableCodegen: {name} contains erased dispatch")
-
-
-def check_native_command_conversions(disassembly):
-    def resolved(name, seen=()):
-        if name in seen:
-            raise RuntimeError("Native command conversion: cyclic alias")
-        instructions = normalized_instructions(disassembly, name)
-        real = [entry for entry in instructions if entry[0] != "nop"]
-        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
-            alias = re.search(r"<(command_conversion_\w+)>", real[0][1])
-            if alias:
-                return resolved(alias.group(1), (*seen, name))
-        return instructions
-
-    direct = resolved("command_conversion_direct")
-    local = resolved("command_conversion_local")
-    if resolved("command_conversion_global") != local:
-        raise RuntimeError("Native command conversion: global routing changes the local instruction stream")
-    if local != direct:
-        # GCC 13 can put the direct success block AFTER the error return and
-        # invert its final bhi/bls. GCC 14 emits identical streams. Check the
-        # operation multiset (and literal values) here, not branch placement:
-        # this gate establishes no extra operations, not equal board cycles.
-        def operations(instructions):
-            complements = {"bls": "bhi", "bcs": "bcc", "beq": "bne",
-                           "bge": "blt", "bgt": "ble", "bpl": "bmi", "bvs": "bvc"}
-            result = []
-            for opcode, operands in instructions:
-                if opcode.startswith("nop"):
-                    continue
-                bare = opcode.split(".")[0]
-                if bare in complements or bare in complements.values():
-                    result.append((complements.get(bare, bare), "conditional branch"))
-                else:
-                    # PC displacements and objdump address comments depend on
-                    # block placement. Other operands and literal values stay.
-                    operands = operands.split("@")[0].strip()
-                    operands = re.sub(r"\[pc, #[0-9]+\]", "[pc, literal]", operands)
-                    result.append((opcode, operands))
-            return Counter(result)
-        if operations(local) != operations(direct):
-            raise RuntimeError("Native command conversion: differs from direct checked-call operations")
-    for route in ("direct", "local", "global", "runtime"):
-        body = function_body(disassembly, "command_conversion_" + route)
-        if "Scalar" in body or re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body):
-            raise RuntimeError(f"Native command conversion: {route} reintroduced erased dispatch")
-        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
-            raise RuntimeError(f"Native command conversion: {route} introduced stack storage")
-    runtime = function_body(disassembly, "command_conversion_runtime")
-    if "CommandProbeDevice::configure(float, CommandProbeMode)" not in runtime:
-        raise RuntimeError("Native command conversion: runtime route lost its direct target")
-
-
-def check_command_scaling(disassembly):
-    expected = {
-        "command_scale_10": {1},
-        "command_scale_32": {1, 17},
-        "command_scale_100": {1, 17, 33, 49, 65, 81, 97},
-    }
-    for name, targets in expected.items():
-        body = function_body(disassembly, name)
-        table_size = int(name.rsplit("_", 1)[1])
-        actual = {int(value) for value in re.findall(
-            r"CommandScaleOwner::matching<(\d+)u>", body)}
-        if actual != targets:
-            raise RuntimeError(
-                f"CommandDispatchScalingCodegen: {name} emitted targets {sorted(actual)}, "
-                f"expected {sorted(targets)}")
-        if ("CommandScaleOwner::other" in body or "Scalar" in body
-                or re.search(r"\bblx\b|\bbx\s+(?!lr\b)", body)):
-            raise RuntimeError(
-                f"CommandDispatchScalingCodegen: {name} emitted a mismatched or erased target")
-        if re.search(r"\b(?:push|vpush)\b|\bsub(?:\.w)?\s+sp\b", body):
-            raise RuntimeError(
-                f"CommandDispatchScalingCodegen: {name} unexpectedly uses stack storage")
-        # One comparison rejects an out-of-range position; every remaining
-        # index comparison belongs to one definition with matching arity only.
-        index_compares = len(re.findall(r"\bcmp(?:\.w)?\s+r0,", body))
-        if index_compares != len(targets) + 1:
-            raise RuntimeError(
-                f"CommandDispatchScalingCodegen: {name} emitted {index_compares} index "
-                f"comparisons for {len(targets)} matching definitions")
-        if not re.search(
-                rf"\bcmp(?:\.w)?\s+r0,\s*#{table_size - 1}(?:\D|$)", body):
-            raise RuntimeError(
-                f"CommandDispatchScalingCodegen: {name} lost its range comparison")
-
-
-def check_owner_slots(disassembly):
-    def equivalent_register_allocation(manual, actual, operation, manual_name, actual_name):
-        # GCC 13 can keep the checked owner in r0 directly, omitting the
-        # manual wrapper's mov r0,r3 and padding nop. This is strictly shorter
-        # than the hand-written check, with the same load, branch and result.
-        # Pin both the null branch destination and owner relocation: matching
-        # mnemonics alone could still dereference the wrong object or branch
-        # into the direct call with a null owner.
-        if operation not in ("write", "call"):
-            return False
-        m = [entry for entry in manual if entry[0] not in ("nop", ".word")]
-        a = [entry for entry in actual if entry[0] not in ("nop", ".word")]
-        return (len(m) == 8 and len(a) == 7
-                and m[0][0] == a[0][0] == "ldr"
-                and re.fullmatch(r"r3, \[pc, #\d+\]", m[0][1])
-                and re.fullmatch(r"r3, \[pc, #\d+\]", a[0][1])
-                and m[1] == a[1] == ("mov", "r1, r0")
-                and m[2] == ("ldr", "r3, [r3, #0]")
-                and a[2] == ("ldr", "r0, [r3, #0]")
-                and m[3] == ("cbz", "r3, <self+0xe>")
-                and a[3] == ("cbz", "r0, <self+0xc>")
-                and m[4] == ("mov", "r0, r3")
-                and m[5] == a[4] == ("b.w", f"0 <SlotProbeOwner::{operation}(unsigned short)>")
-                and m[6] == a[5] and m[6][0] == "movs"
-                and m[7] == a[6] == ("bx", "lr")
-                and manual[-1] == actual[-1] == (".word", "0x00000000")
-                and re.findall(r"R_ARM_ABS32\s+(\w+)", function_body(disassembly, manual_name))
-                    == ["slotProbeOwner"]
-                and re.findall(r"R_ARM_ABS32\s+(\w+)", function_body(disassembly, actual_name))
-                    == ["slotProbeOwner"])
-
-    def resolved(name, seen=()):
-        if name in seen:
-            raise RuntimeError("OwnerSlotCodegen: cyclic wrapper alias")
-        instructions = normalized_instructions(disassembly, name)
-        real = [entry for entry in instructions if entry[0] != "nop"]
-        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
-            alias = re.search(r"<(slot_\w+)>", real[0][1])
-            if alias:
-                return resolved(alias.group(1), (*seen, name))
-        return instructions
-
-    for operation in ("read", "write", "call"):
-        manual = resolved("slot_manual_" + operation)
-        for route in ("local", "global"):
-            name = "slot_" + route + "_" + operation
-            actual = resolved(name)
-            if actual != manual and not equivalent_register_allocation(
-                    manual, actual, operation, "slot_manual_" + operation, name):
-                raise RuntimeError(f"OwnerSlotCodegen: {name} differs from explicit pointer check")
-            body = function_body(disassembly, name)
-            if "Scalar" in body or re.search(r"\bblx\b", body):
-                raise RuntimeError(f"OwnerSlotCodegen: {name} retained erased dispatch")
-        for kind in ("direct", "free"):
-            name = "slot_" + kind + "_table_" + operation
-            if resolved(name) != resolved("slot_" + kind + "_manual_" + operation):
-                raise RuntimeError(f"OwnerSlotCodegen: {name} added work to an ordinary binding")
-            body = function_body(disassembly, name)
-            if "slotProbeOwner" in body or re.search(r"\b(?:cmp|cbz|cbnz|blx)\b", body):
-                raise RuntimeError(f"OwnerSlotCodegen: {name} added a slot or presence check")
-
-
-def check_function_slots(disassembly, prefix="function_slot_", operations=("read", "write", "call", "convert"),
-                         allow_tail_padding=False):
-    def resolved(name, seen=()):
-        if name in seen:
-            raise RuntimeError("FunctionSlotCodegen: cyclic wrapper alias")
-        instructions = normalized_instructions(disassembly, name)
-        real = [entry for entry in instructions if entry[0] != "nop"]
-        if len(real) == 1 and real[0][0] in ("b", "b.w", "b.n"):
-            alias = re.search(r"<(" + re.escape(prefix) + r"\w+)>", real[0][1])
-            if alias:
-                return resolved(alias.group(1), (*seen, name))
-        if allow_tail_padding:
-            # GCC 13 -Os may align a literal pool after a terminal tail branch.
-            # That nop is unreachable; keep every executable nop and instruction.
-            filtered = []
-            for entry in instructions:
-                if (entry[0] == "nop" and filtered
-                        and filtered[-1][0] in ("b", "b.w", "b.n", "bx")
-                        and (filtered[-1][1] == "lr"
-                             or ("<" in filtered[-1][1] and name not in filtered[-1][1]))):
-                    continue
-                filtered.append(entry)
-            return filtered
-        return instructions
-
-    for operation in operations:
-        manual = resolved(prefix + "manual_" + operation)
-        for route in ("local", "global"):
-            name = prefix + route + "_" + operation
-            if resolved(name) != manual:
-                raise RuntimeError(f"FunctionSlotCodegen: {name} differs from explicit function check")
-            body = function_body(disassembly, name)
-            if any(symbol in body for symbol in ("Scalar", "functionProbeFields", "functionProbeCommands", "lateProbeFields", "lateProbeCommands")):
-                raise RuntimeError(f"FunctionSlotCodegen: {name} retained erased dispatch or table lookup")
-
-
 def check_id_boundaries(disassembly):
-    """Require the high-word test that a 64-bit host cannot prove for ARM32."""
-    for operation in ("local", "field", "command", "group", "index"):
-        name = "id_boundary_" + operation + "_u64"
+    for operation in ('local', 'field', 'command', 'group', 'index'):
+        name = 'id_boundary_' + operation + '_u64'
         body = function_body(disassembly, name)
-        high_word = re.search(r"\bcbn?z\s+r1,", body)
+        high_word = re.search(r'\bcbn?z\s+r1,', body)
         if not high_word:
-            raise RuntimeError(f"IdBoundaryCodegen: {name} lost its high-word rejection")
-        prefix = body[:high_word.start()]
-        if re.search(r"\b(?:ldr|ldrd|lsrs|uxth|bl|blx)\b", prefix):
-            raise RuntimeError(f"IdBoundaryCodegen: {name} uses the ID before checking its width")
-    # These native-width operations need only extraction and return. Do not
-    # trade a runtime check on wide inputs for overhead on ordinary packed IDs.
-    for operation, extraction in (("group", "lsrs"), ("index", "uxth")):
-        name = "id_boundary_" + operation + "_u32"
-        instructions = [(op, args) for op, args in normalized_instructions(disassembly, name)
-                        if op != "nop"]
-        if len(instructions) != 2 or instructions[0][0] != extraction or instructions[1] != ("bx", "lr"):
-            raise RuntimeError(f"IdBoundaryCodegen: {name} gained extra work")
+            raise RuntimeError(name + ': missing high-word rejection')
+        if re.search(r'\b(?:ldr|ldrd|lsrs|uxth|bl|blx)\b', body[:high_word.start()]):
+            raise RuntimeError(name + ': ID used before width check')
+    for operation, extraction in (('group', 'lsrs'), ('index', 'uxth')):
+        name = 'id_boundary_' + operation + '_u32'
+        instructions = [(op, args) for op, args in normalized_instructions(disassembly, name) if op != 'nop']
+        if len(instructions) != 2 or instructions[0][0] != extraction or instructions[1] != ('bx', 'lr'):
+            raise RuntimeError(name + ': native extraction gained work')
 
-
-def check_bound_setters(disassembly, optimization, compiler_major):
-    """Inspect emitted adapters; typed wrapper equality cannot see these costs."""
-    # GCC 13 at -Os still outlines std::get_if, even in an O2-attributed thunk.
-    # Pin that measured exception separately from the stackless CubeIDE 14 path.
-    outlined = optimization == "-Os" and compiler_major == 13
-    limits = {"float": 9, "integer": 14 if outlined else 9, "free": 7,
-              "borrowed": 14 if outlined else 9, "owner": 17 if outlined else 13,
-              "function": 17 if outlined else 12, "context": 21 if outlined else 14,
-              "reference": 19 if outlined else 14, "owned": 19 if outlined else 14}
-    thunks = re.findall(r"^[0-9a-fA-F]+ <(telemetry::WriteResult telemetry::Setter::"
-                        r"invoke(?:Context|Static)_[^\n]+)>:", disassembly, re.MULTILINE)
-    found = set()
-    for thunk in thunks:
-        if "invokeStatic_" in thunk:
-            kind = "free"
-        elif "readFloat()" in thunk:
-            kind = "float"
-        elif "OwnerSlot<" in thunk:
-            kind = "owner"
-        elif "FieldBinding<&" in thunk:
-            kind = "integer"
-        elif "ContextFunctionSlot<" in thunk:
-            kind = "context"
-        elif "FunctionSlot<" in thunk:
-            kind = "function"
-        elif "DelegateRefSlot<" in thunk:
-            kind = "reference"
-        elif "DelegateSlot<" in thunk:
-            kind = "owned"
-        else:
-            kind = "borrowed"
-        if kind in found:
-            raise RuntimeError("BoundSetterCodegen: duplicate binding category " + kind)
-        found.add(kind)
-        body = function_body(disassembly, thunk)
-        instructions = [(op, args) for op, args in normalized_instructions(disassembly, thunk)
-                        if op != "nop" and not op.startswith(".")]
-        if len(instructions) > limits[kind]:
-            raise RuntimeError(f"BoundSetterCodegen: {kind} thunk grew beyond {limits[kind]} instructions")
-        # The uncommon numeric conversion must stay behind a tail branch.
-        if "invokeConvertedFactoryValue" not in body or re.search(
-                r"R_ARM_THM_CALL[^\n]*(?:invokeConverted|extractConverted)FactoryValue", body):
-            raise RuntimeError("BoundSetterCodegen: conversion lost its separate tail path")
-        calls = [op for op, _ in instructions if op.split(".")[0] in ("bl", "blx")]
-        saved = [args for op, args in instructions if op.split(".")[0] == "push"]
-        allow_outline = outlined and kind not in ("free", "float")
-        if allow_outline:
-            saved_words = 0
-            for group in saved:
-                for register in group.strip("{}").split(","):
-                    register = register.strip()
-                    span = re.fullmatch(r"r(\d+)-r(\d+)", register)
-                    if span:
-                        saved_words += int(span[2]) - int(span[1]) + 1
-                    elif re.fullmatch(r"r\d+|lr|ip|pc", register):
-                        saved_words += 1
-                    else:
-                        raise RuntimeError("BoundSetterCodegen: unrecognized saved register")
-            if (len(calls) > 1 or (calls and not re.search(r"R_ARM_THM_CALL[^\n]*std::get_if<", body))
-                    or len(saved) > 1 or saved_words > 4):
-                raise RuntimeError("BoundSetterCodegen: GCC 13 Os exceeded its get_if/frame allowance")
-            if any(re.search(r"\bsp\b", args) and op.split(".")[0] != "ldmia"
-                   or op in ("vpush", "vpop") for op, args in instructions):
-                raise RuntimeError("BoundSetterCodegen: exact thunk reserved conversion storage")
-        elif calls or any(re.search(r"\b(?:push|pop|vpush|vpop|sp)\b", op + " " + args)
-                          for op, args in instructions):
-            raise RuntimeError("BoundSetterCodegen: matching type gained stack work or a call")
-    if found != limits.keys():
-        raise RuntimeError("BoundSetterCodegen: missing native binding instantiations")
-
-
-def check_probe(name, headers, symbols, disassembly):
-    if "file format elf32-littlearm" not in headers:
-        raise RuntimeError(f"{name}: expected a little-endian ARM object")
-    sections = re.findall(r"^\s*\d+\s+(\S+)\s+([0-9a-fA-F]+)\s", headers, re.MULTILINE)
-    if not sections:
-        raise RuntimeError(f"{name}: no object sections found")
-    for section, size in sections:
-        if int(size, 16) == 0:
-            continue
-        if section.startswith((".init_array", ".preinit_array", ".ctors")):
-            raise RuntimeError(f"{name}: startup initialization in {section}")
-        # Probe sources deliberately keep mutable owners external, so every
-        # defined object here must be read-only. Include section suffixes.
-        if section.startswith((".data", ".bss", ".sdata", ".sbss")):
-            raise RuntimeError(f"{name}: unexpected writable storage in {section}")
-    if "_GLOBAL__sub_I" in symbols:
-        raise RuntimeError(f"{name}: dynamic initialization function found")
-    if "scalarFinite" in symbols:
-        raise RuntimeError(f"{name}: finite-value check was outlined instead of inlined")
-    expected = {}
-    if name == "IndexCodegen":
-        expected = {"telemetry_probe_index": 8, "telemetry_probe_catalogs": 24,
-                    "telemetry_probe_group0_fields": 4 * 96,
-                    "telemetry_probe_group1_fields": 3 * 96}
-        check_static_field_dispatch(disassembly)
-    elif name == "BorrowedFieldCodegen":
-        expected = {"telemetry_probe_borrowed_field": 96}
-    elif name == "BoundSetterCodegen":
-        expected = {"boundSetterRows": 9 * 96}
-    elif name == "NativeSetterCodegen":
-        expected = {"nativeSetterRows": 5 * 96}
-        thunks = re.findall(r"^[0-9a-fA-F]+ <([^\n]*Setter::invokeNative_<[^\n]*)>:",
-                            disassembly, re.MULTILINE)
-        if len(thunks) != 4:
-            raise RuntimeError("NativeSetterCodegen: missing native pointer setter instantiations")
-        for thunk in thunks:
-            body = function_body(disassembly, thunk)
-            tail = re.search(r"\bbx\s+(?:r\d+|ip)\b", body)
-            if not tail:
-                raise RuntimeError("NativeSetterCodegen: exact type lost its tail dispatch")
-            exact_path = body[:tail.start()]
-            if re.search(r"\b(?:push|pop|vpush|vpop|sp|bl|blx)\b", exact_path):
-                raise RuntimeError("NativeSetterCodegen: matching type gained a stack frame or call")
-            if len(normalized_instructions(disassembly, thunk)) > 12:
-                raise RuntimeError("NativeSetterCodegen: conversion grew into the exact-type thunk")
-    elif name == "IdBoundaryCodegen":
-        check_id_boundaries(disassembly)
-        # A deliberately wrong register must fail this gate. This catches the
-        # reported mutation where narrowing drops the input's high word.
-        changed, count = re.subn(r"(\bcbn?z\s+)r1,", r"\g<1>r0,", disassembly, count=1)
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--cxx', default=os.environ.get('ARM_CXX', 'arm-none-eabi-g++'))
+    parser.add_argument('--objdump')
+    parser.add_argument('--source-root', type=Path, default=ROOT)
+    parser.add_argument('--build-dir', type=Path, required=True)
+    parser.add_argument('--null-checks', action='store_true')
+    args = parser.parse_args()
+    compiler = shutil.which(args.cxx)
+    if compiler is None:
+        raise RuntimeError('ARM compiler not found: ' + args.cxx)
+    objdump = args.objdump or str(Path(compiler).with_name('arm-none-eabi-objdump' + ('.exe' if os.name == 'nt' else '')))
+    root, output = args.source_root.resolve(), args.build_dir.resolve()
+    runner = Commands(root, output)
+    flags = [compiler, '-std=c++20', '-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
+        '-fno-exceptions', '-fno-rtti', '-Wall', '-Wextra', '-Werror', '-pedantic-errors', '-fdiagnostics-color=never',
+        '-I' + str(root / 'lib'), '-I' + str(root / 'lib/boost_pfr/include'), '-I' + str(root / 'lib/magic_enum')]
+    if args.null_checks:
+        flags.append('-fno-delete-null-pointer-checks')
+    version = runner.run([compiler, '--version'], 'compiler-version')
+    target = runner.run([compiler, '-dumpmachine'], 'compiler-target').strip()
+    if target != 'arm-none-eabi':
+        raise RuntimeError('Unexpected compiler target: ' + target)
+    probes = 0
+    slot_comparisons = {}
+    for optimization in ('O2', 'Os'):
+        for suite in (*POSITIVES, 'DebugLevelCheck'):
+            runner.run([*flags, '-' + optimization, '-fstack-usage', '-c', HERE / 'regression' / (suite + '.cpp'),
+                '-o', output / (suite + '-' + optimization + '.o')], suite + '-' + optimization + '-compile')
+        obj = output / ('IdBoundaryCodegen-' + optimization + '.o')
+        runner.run([*flags, '-' + optimization, '-c', HERE / 'regression/IdBoundaryCodegen.cpp', '-o', obj], 'id-codegen-' + optimization)
+        assembly = runner.run([objdump, '-drC', obj], 'id-assembly-' + optimization)
+        check_id_boundaries(assembly)
+        changed, count = re.subn(r'(\bcbn?z\s+)r1,', r'\g<1>r0,', assembly, count=1)
         if count != 1:
-            raise RuntimeError("IdBoundaryCodegen: missing mutation control")
+            raise RuntimeError('Missing ID gate mutation control')
         try:
             check_id_boundaries(changed)
         except RuntimeError:
             pass
         else:
-            raise RuntimeError("IdBoundaryCodegen: gate accepted a removed high-word check")
-    elif name == "CommandTableCodegen":
-        expected = {"telemetry_probe_command_table": 4,
-                    "telemetry_probe_command_count": 4}
-        check_command_dispatch(disassembly)
-    elif name == "CommandDispatchScalingCodegen":
-        check_command_scaling(disassembly)
-    elif name == "FieldTableCodegen":
-        expected = {"field_table_probe": 3 * 96}
-        check_native_field_tables(disassembly)
-    elif name == "OwnerSlotCodegen":
-        check_owner_slots(disassembly)
-    elif name == "FunctionSlotCodegen":
-        expected = {"functionProbeFields": 2 * 96}
-        check_function_slots(disassembly)
-    elif name == "LateBoundCodegen":
-        expected = {"lateProbeFields": 6 * 96}
-        # Reuse the native callback comparison for each fixed slot strategy.
-        # No runtime switch chooses a strategy in the generated wrappers.
-        for kind in ("context", "ref", "owned"):
-            check_function_slots(disassembly, "late_" + kind + "_", ("read", "write", "call"))
-            for route in ("manual", "local", "global"):
-                for operation in ("read", "write", "call"):
-                    label = f"late_{kind}_{route}_{operation}"
-                    body = function_body(disassembly, label)
-                    if re.search(r"\b(?:push|pop|vpush|vpop|sp|bl|blx)\b", body):
-                        raise RuntimeError(f"LateBoundCodegen: {label} created a stack frame or non-tail call")
-    elif name == "TraversalCodegen":
-        expected = {"traversalFlagFields": 96}
-        check_function_slots(disassembly, "flags_", ("read", "write"), allow_tail_padding=True)
-    if expected:
-        entries = [line.split() for line in symbols.splitlines()]
-        for symbol, size in expected.items():
-            matches = [entry for entry in entries if entry and entry[-1] == symbol]
-            if len(matches) != 1:
-                raise RuntimeError(f"{name}: missing or ambiguous symbol {symbol}")
-            entry = matches[0]
-            if (len(entry) < 6 or entry[-4] != "O" or not entry[-3].startswith(".rodata")
-                    or int(entry[-2], 16) != size):
-                raise RuntimeError(f"{name}: {symbol} changed size or left read-only storage")
+            raise RuntimeError('ID gate accepted changed high-word register')
+        probes += 1
+        slot_obj = output / ('SlotCodegen-' + optimization + '.o')
+        runner.run([*flags, '-' + optimization, '-fno-ipa-icf', '-c', HERE / 'regression/SlotCodegen.cpp', '-o', slot_obj], 'slot-codegen-' + optimization)
+        slot_asm = runner.run([objdump, '-drC', slot_obj], 'slot-assembly-' + optimization)
+        current = {}
+        for kind in ('function', 'context', 'borrowed', 'owned', 'owner'):
+            direct = normalized_instructions(slot_asm, 'slot_' + kind + '_direct')
+            table = normalized_instructions(slot_asm, 'slot_' + kind + '_table')
+            direct_body = function_body(slot_asm, 'slot_' + kind + '_direct')
+            table_body = function_body(slot_asm, 'slot_' + kind + '_table')
+            def references(body):
+                words = re.findall(r'\.word\s+(0x[0-9a-fA-F]+)', body)
+                relocations = re.findall(r'R_ARM_(?:ABS32|REL32|THM_CALL|THM_JUMP24)\s+([^\n]+)', body)
+                return sorted(words), sorted(relocations)
+            if references(direct_body) != references(table_body):
+                raise RuntimeError(optimization + ': native ' + kind + ' dispatch changed literal or relocation targets')
+            # Relocation addresses and symbol display names do not change the
+            # instruction stream. Branch labels are normalized separately.
+            def comparable(instructions):
+                result = []
+                for op, operands in instructions:
+                    operands = re.sub(r'\b[0-9a-f]+ <[^>]+>', '<target>', operands)
+                    operands = re.sub(r'\[pc, #\d+\]', '[pc, #literal]', operands)
+                    result.append((op, operands))
+                return result
+            if kind == 'owner':
+                direct_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', function_body(slot_asm, 'slot_owner_direct'))
+                table_calls = re.findall(r'R_ARM_THM_(?:CALL|JUMP24)\s+([^\n]+)', function_body(slot_asm, 'slot_owner_table'))
+                if len([op for op, args in table if op != 'nop']) > len([op for op, args in direct if op != 'nop']) or direct_calls != table_calls or direct_calls != ['Owner::read() const']:
+                    raise RuntimeError(optimization + ': owner table gained work or changed its direct method call')
+            elif comparable(direct) != comparable(table):
+                raise RuntimeError(optimization + ': native ' + kind + ' table dispatch differs from selected-target call')
+            current[kind] = dict(direct_instructions=len([op for op, args in direct if op != 'nop']),
+                table_instructions=len([op for op, args in table if op != 'nop']),
+                gate='no added instructions and same method relocation' if kind == 'owner' else 'identical normalized instructions')
+        slot_comparisons[optimization] = current
+    runner.run([*flags, '-Og', '-c', HERE / 'regression/DebugLevelCheck.cpp', '-o', output / 'DebugLevelCheck-Og.o'], 'debug-Og-compile')
+    syntax_contracts(flags, runner.run, HERE)
+    for case in range(1, 5):
+        runner.run([*flags, '-DCASE=' + str(case), '-fsyntax-only', HERE / 'regression/IdNameCollisionCheck.cpp'], 'id-name-' + str(case))
+    headers = header_and_fp_checks(flags, runner.run, root, output, version)
+    runner.write_summary(headers=headers, compiler_version=version.strip(), source_root=str(root), standard='c++20',
+        codegen_probes=probes, mutation_controls=probes, slot_comparisons=slot_comparisons, null_checks=args.null_checks,
+        limitation='Offline object and diagnostic checks; no target execution or whole-call-chain stack claim')
+    print('Shared Cortex-M7 checks passed:', runner.counts, 'codegen probes:', probes, flush=True)
 
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cxx", default=os.environ.get("ARM_CXX", "arm-none-eabi-g++"))
-    parser.add_argument("--objdump", help="defaults to the compiler's sibling arm-none-eabi-objdump")
-    parser.add_argument("--build-dir", type=Path, required=True)
-    args = parser.parse_args()
-    compiler = shutil.which(args.cxx)
-    if compiler is None:
-        raise RuntimeError(f"ARM compiler not found: {args.cxx}")
-    objdump = args.objdump or str(Path(compiler).with_name(
-        "arm-none-eabi-objdump" + (".exe" if os.name == "nt" else "")))
-    archiver = str(Path(compiler).with_name(
-        "arm-none-eabi-ar" + (".exe" if os.name == "nt" else "")))
-    output = args.build_dir.resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    factory_report = {}
-
-    def run(command, label, rejection=None):
-        result = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True,
-                                encoding="utf-8", errors="replace", timeout=180)
-        (output / (label + ".log")).write_text(result.stdout, encoding="utf-8")
-        if rejection is not None:
-            diagnostic = rejection
-            if rejection in ("deleted", "no matching|deleted", "deleted|no matching"):
-                diagnostic = r"error:[^\n]*(?:deleted|no matching)"
-            valid = result.returncode != 0 and re.search(diagnostic, result.stdout, re.IGNORECASE)
-            if "-fsyntax-only" in command:
-                valid = valid and re.search(r"\berror:", result.stdout, re.IGNORECASE)
-        else:
-            valid = result.returncode == 0
-        if not valid:
-            print(result.stdout, file=sys.stderr)
-            raise RuntimeError(f"{label} failed (exit {result.returncode}); see {output}")
-        return result.stdout
-
-    print(run([compiler, "--version"], "compiler-version").splitlines()[0], flush=True)
-    compiler_major = int(run([compiler, "-dumpversion"], "compiler-major").split(".")[0])
-    target = run([compiler, "-dumpmachine"], "compiler-target").strip()
-    if target != "arm-none-eabi":
-        raise RuntimeError(f"Expected arm-none-eabi, got {target}")
-    sources = [ROOT / "lib/telemetry/abi/TelemetryAbi.cpp",
-               ROOT / "lib/telemetry/serialization/TelemetryJson.cpp",
-               ROOT / "lib/telemetry/serialization/TelemetryCommandJson.cpp",
-               ROOT / "app/demo/DemoCatalog.cpp"]
-    sources += sorted(source for source in (ROOT / "tests").glob("*.cpp")
-                      if not source.name.endswith("CompileFail.cpp"))
-    sources.append(ROOT / "tests/regression/IdBoundaryCodegen.cpp")
-    for optimization in ("-O2", "-Os"):
-        flags = [compiler, *FLAGS, optimization]
-        probes = 0
-        for source in sources:
-            label = source.stem + optimization
-            obj = output / (label + ".o")
-            run(flags + ["-c", str(source), "-o", str(obj)], label + "-compile")
-            if source.stem.endswith("Codegen"):
-                headers = run([objdump, "-h", str(obj)], label + "-sections")
-                symbols = run([objdump, "-t", str(obj)], label + "-symbols")
-                disassembly = run([objdump, "-dr", "-C", str(obj)],
-                                  label + "-disassembly")
-                check_probe(source.stem, headers, symbols, disassembly)
-                if source.stem == "BoundSetterCodegen":
-                    check_bound_setters(disassembly, optimization, compiler_major)
-                    # A code-size ceiling alone must not conceal a reintroduced
-                    # conversion frame. Replace one instruction without growing it.
-                    changed, count = re.subn(
-                        r"(^[0-9a-fA-F]+ <telemetry::WriteResult telemetry::Setter::invoke(?:Context|Static)_[^\n]+>:\n)"
-                        r"[ \t]*[0-9a-fA-F]+:[^\n]*\n",
-                        r"\g<1>   0:\tb088      \tsub\tsp, #32\n", disassembly, count=1, flags=re.MULTILINE)
-                    if count != 1:
-                        raise RuntimeError("BoundSetterCodegen: missing frame mutation control")
-                    try:
-                        check_bound_setters(changed, optimization, compiler_major)
-                    except RuntimeError:
-                        pass
-                    else:
-                        raise RuntimeError("BoundSetterCodegen: gate accepted extra conversion storage")
-                probes += 1
-        # Enum positions must emit precisely the numeric-position instruction
-        # words, including literal pools. In particular U64 enum positions must
-        # not introduce a runtime 64-bit operation on this 32-bit target.
-        for probe in ("FieldTableCodegen", "CommandTableCodegen"):
-            label = "enum-position-" + probe.removesuffix("Codegen") + optimization
-            obj = output / (label + ".o")
-            run(flags + ["-DTELEMETRY_ENUM_POSITION_PROBE", "-c", f"tests/{probe}.cpp",
-                         "-o", str(obj)], label + "-compile")
-            assembly = run([objdump, "-dr", "-C", str(obj)], label + "-disassembly")
-            original = output / (probe + optimization + "-disassembly.log")
-            if encodings(original) != encodings(output / (label + "-disassembly.log")):
-                raise RuntimeError(f"{probe}: enum positions changed instruction encodings")
-            if probe == "FieldTableCodegen":
-                check_native_field_tables(assembly)
-            else:
-                check_command_dispatch(assembly)
-        label = "command-native-conversion" + optimization
-        obj = output / (label + ".o")
-        run(flags + ["-DTELEMETRY_COMMAND_CONVERSION_PROBE", "-DTELEMETRY_ENUM_POSITION_PROBE",
-                     "-c", "tests/CommandTableCodegen.cpp", "-o", str(obj)], label + "-compile")
-        assembly = run([objdump, "-dr", "-C", str(obj)], label + "-disassembly")
-        check_native_command_conversions(assembly)
-        print(f"{optimization}: enum positions instruction-identical; native double/int command "
-              "conversion has no extra operations versus direct checked call, no Scalar", flush=True)
-        # nosys supplies link-only stubs. Their expected warnings do not
-        # establish board behavior; this executable is deliberately not run.
-        executable = output / ("consumer" + optimization + ".elf")
-        run(flags + ["tests/EmbeddedLinkCheck.cpp", "lib/telemetry/abi/TelemetryAbi.cpp",
-                     "lib/telemetry/serialization/TelemetryJson.cpp",
-                     "--specs=nano.specs", "--specs=nosys.specs", "-Wl,-u,_printf_float",
-                     "-o", str(executable)], "consumer" + optimization + "-link")
-        abi_object = output / ("TelemetryAbi" + optimization + ".o")
-        json_object = output / ("TelemetryJson" + optimization + ".o")
-        command_object = output / ("TelemetryCommandJson" + optimization + ".o")
-        from regression.checks import check_abi_retention
-        check_abi_retention(flags, run, output, abi_object, 32,
-                            "abi-retained" + optimization,
-                            ["--specs=nano.specs", "--specs=nosys.specs"], execute=False)
-        modules = (("core", "TelemetryAbiLinkCheck", abi_object),
-                   ("json", "TelemetryJsonAbiLinkCheck", json_object),
-                   ("command", "TelemetryCommandAbiLinkCheck", command_object))
-        for module_id, (module, source, library_object) in enumerate(modules):
-            mismatch = output / (source + "-mismatch" + optimization + ".o")
-            run(flags + ["-DTELEMETRY_FORCE_CACHELINE=64", "-c", f"tests/{source}.cpp",
-                         "-o", str(mismatch)], f"abi-{module}-mismatch{optimization}-compile")
-            archive = output / (f"libTelemetry-{module}" + optimization + ".a")
-            run([archiver, "rcs", str(archive), str(library_object)],
-                f"abi-{module}-archive" + optimization)
-            matching = output / (source + optimization + ".o")
-            link_tail = ["--specs=nano.specs", "--specs=nosys.specs"]
-            if module in ("json", "command"):
-                link_tail.append("-Wl,-u,_printf_float")
-            run(flags + [str(matching), str(archive), *link_tail,
-                         "-o", str(output / (f"abi-{module}-match" + optimization + ".elf"))],
-                f"abi-{module}-match" + optimization + "-link")
-            run(flags + [str(mismatch), str(archive), *link_tail,
-                         "-o", str(output / (f"abi-{module}-mismatch" + optimization + ".elf"))],
-                f"abi-{module}-mismatch" + optimization + "-link",
-                r"undefined reference|AbiTag|requireTelemetryAbi|schemaCrcAbi")
-            legacy = output / (f"LegacyAbi6-{module}" + optimization + ".o")
-            run(flags + [f"-DTELEMETRY_LEGACY_ABI_MODULE={module_id}", "-c",
-                         "tests/abi/LegacyAbi6Link.cpp", "-o", str(legacy)],
-                f"abi6-{module}{optimization}-compile")
-            run(flags + [str(legacy), str(archive), *link_tail,
-                         "-o", str(output / (f"abi6-{module}-mismatch" + optimization + ".elf"))],
-                f"abi6-{module}{optimization}-link", r"undefined reference|AbiTag")
-            legacy = output / (f"LegacyAbi7-{module}" + optimization + ".o")
-            run(flags + [f"-DTELEMETRY_LEGACY_ABI_MODULE={module_id}", "-c",
-                         "tests/abi/LegacyAbi7Link.cpp", "-o", str(legacy)],
-                f"abi7-{module}{optimization}-compile")
-            run(flags + [str(legacy), str(archive), *link_tail,
-                         "-o", str(output / (f"abi7-{module}-mismatch" + optimization + ".elf"))],
-                f"abi7-{module}{optimization}-link", r"undefined reference|AbiTag")
-        print(f"{optimization}: {len(sources)} sources compiled, {probes} read-only probes checked, "
-              "newlib-nano consumer and independent core/JSON/command ABI archives linked, mixed ABI rejected",
-              flush=True)
-        # Same translation unit, target and compiler: compare a hand-bound
-        # descriptor with the inferred native-function path. Counts are bytes,
-        # not measured cycles. A runtime Field wrapper remains the old path.
-        manual = output / ("FactoryCodegen-manual" + optimization + ".o")
-        run(flags + ["-DTELEMETRY_FACTORY_MANUAL", "-c", "tests/FactoryCodegen.cpp", "-o", str(manual)],
-            "factory-manual" + optimization + "-compile")
-        objects = {"manual": manual, "inferred": output / ("FactoryCodegen" + optimization + ".o")}
-        record = {}
-        for variant, obj in objects.items():
-            symbols = run([objdump, "-t", str(obj)], "factory-" + variant + optimization + "-symbols")
-            record[variant] = {line.split()[-1]: int(line.split()[-2], 16)
-                              for line in symbols.splitlines()
-                              if line.split() and line.split()[-1].startswith("factory_")
-                              and " F " in line}
-        for name in ("factory_known_read", "factory_free_read", "factory_runtime_read"):
-            if name not in record["manual"] or name not in record["inferred"]:
-                raise RuntimeError("Missing factory codegen symbol " + name)
-            if record["inferred"][name] > record["manual"][name]:
-                raise RuntimeError("Inferred factory grew the read wrapper: " + name)
-        factory_report[optimization] = record
-        print(f"{optimization}: factory read wrappers no larger than manual; free read "
-              f'{record["manual"]["factory_free_read"]} -> {record["inferred"]["factory_free_read"]} bytes', flush=True)
-    (output / "factory-codegen.json").write_text(json.dumps(factory_report, indent=2) + "\n", encoding="utf-8")
-    for case in range(1, 19):
-        if case in (1, 2, 3, 4, 13, 14):
-            diagnostic = "position must be non-negative"
-        elif 5 <= case <= 12:
-            diagnostic = "outside (?:FieldTable|CommandTable)"
-        else:
-            diagnostic = "position must be an integer or enum"
-        run([compiler, *FLAGS, f"-DTELEMETRY_POSITION_FAIL_CASE={case}",
-             "-fsyntax-only", "tests/TelemetryPositionCompileFail.cpp"],
-            f"position-rejection-{case}", diagnostic)
-    print("18 invalid positions rejected on ARM32 before index narrowing", flush=True)
-    from regression.checks import check_contracts
-    check_contracts([compiler, *FLAGS], run)
-    run([compiler, *FLAGS, "-Og", "-c", "tests/regression/DebugLevelCheck.cpp",
-         "-o", str(output / "DebugLevelCheck-Og.o")], "debug-level-Og-compile")
-    # A retained ARM ABI reference must also work in position-independent
-    # code. Its relative relocation must survive collection after the marker's
-    # function is discarded, and a mismatched layout must still fail linking.
-    pic = [compiler, *FLAGS, "-O2", "-fpie", "-ffunction-sections", "-fdata-sections"]
-    for cacheline in (32, 64):
-        marker = output / f"AbiRetention-pie-{cacheline}.o"
-        run(pic + [f"-DTELEMETRY_FORCE_CACHELINE={cacheline}",
-                   "-DABI_RETENTION_FORM=1", "-c", "tests/regression/AbiRetention.cpp",
-                   "-o", str(marker)], f"abi-pie-{cacheline}-compile")
-        relocations = run([objdump, "-r", str(marker)], f"abi-pie-{cacheline}-relocations")
-        if "R_ARM_REL32" not in relocations or ".rodata.telemetry.abi_reference" not in relocations:
-            raise RuntimeError("ARM PIC ABI marker lost its retained relative relocation")
-        run(pic + ["-pie", "-Wl,--gc-sections", str(marker), str(abi_object),
-                   "--specs=nano.specs", "--specs=nosys.specs",
-                   "-o", str(output / f"AbiRetention-pie-{cacheline}.elf")],
-            f"abi-pie-{cacheline}-link",
-            r"undefined reference" if cacheline == 64 else None)
-    run([compiler, *FLAGS, "-fsyntax-only", "tests/regression/ReviewCheck.cpp"],
-        "review-arm32-public-api")
-    print("Review contracts and wide-ID API compile on ARM32", flush=True)
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     try:
         main()
-    except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+    except (OSError, RuntimeError) as error:
         sys.exit(str(error))

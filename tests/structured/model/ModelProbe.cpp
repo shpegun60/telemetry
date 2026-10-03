@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/Structured.hpp>
+#include <telemetry/Telemetry.hpp>
 
 #include <array>
 #include <cstddef>
@@ -13,7 +13,7 @@
 #include <span>
 #include <type_traits>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 namespace probe {
 

@@ -5,13 +5,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 namespace slots {
 

@@ -1,7 +1,7 @@
 // Invalid ID categories must fail before any implicit narrowing conversion.
 // CASE0 verifies local enum positions and explicit integral extraction.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 #include <atomic>
 
 #ifndef TELEMETRY_ID_BOUNDARY_FAIL_CASE
@@ -15,12 +15,11 @@ enum LegacyPosition { LegacyFirst };
 float readValue() noexcept { return 1.f; }
 WriteResult writeValue(float) noexcept { return WriteResult::Applied; }
 CommandResult run() noexcept { return CommandResult::Executed; }
-constexpr FieldTable rows{field<&readValue, &writeValue>("value", "")};
+constexpr FieldTable rows{field<&readValue, &writeValue>("value")};
 constexpr FieldCatalogTable fields{group("fields", rows)};
-constexpr Catalog raw[]{Catalog{"fields", rows.data(), rows.size()}};
-constexpr auto fixed = CatalogIndex::bind<raw>();
+constexpr const auto& fixed = fields;
 constexpr CommandTable local{command<&run>("run")};
-constexpr CommandCatalogTable commands{group("commands", local)};
+[[maybe_unused]] constexpr CommandCatalogTable commands{group("commands", local)};
 struct WireId {
     std::uint64_t value;
     constexpr operator std::uint64_t() const noexcept { return value; }
@@ -30,7 +29,7 @@ struct NarrowId {
     constexpr operator FieldId() const noexcept { return value; }
 };
 constexpr WireId wire{0x100000000ULL};
-constexpr NarrowId narrow{0};
+[[maybe_unused]] constexpr NarrowId narrow{0};
 std::atomic<std::uint64_t> atomicWide{wire.value};
 std::atomic<FieldId> atomicNarrow{0};
 }
@@ -38,42 +37,45 @@ using namespace id_boundary_rejection;
 
 int main()
 {
+    Workspace workspace{std::span<std::byte>{}};
+    const auto visitor = [](const auto&) noexcept {};
+    (void)workspace; (void)visitor;
 #if TELEMETRY_ID_BOUNDARY_FAIL_CASE == 1
     (void)fields.index().find(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 2
-    (void)fields.index().read(Position::First);
+    (void)fields.index().readEncoded(Position::First, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 3
-    (void)fields.index().read<float>(Position::First);
+    (void)fields.readAs<float>(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 4
-    (void)fields.index().write(Position::First, 2.f);
+    (void)fields.writeAs(Position::First, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 5
-    (void)fields.find(Position::First);
+    (void)fields.index().find(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 6
-    (void)fields.read(Position::First);
+    (void)fields.index().readEncoded(Position::First, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 7
-    (void)fields.read<float>(Position::First);
+    (void)fields.readAs<float>(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 8
-    (void)fields.write(Position::First, 2.f);
+    (void)fields.writeAs(Position::First, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 9
-    (void)fixed.find(Position::First);
+    (void)fixed.index().find(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 10
-    (void)fixed.read(Position::First);
+    (void)fixed.index().readEncoded(Position::First, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 11
-    (void)fixed.read<float>(Position::First);
+    (void)fixed.readAs<float>(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 12
-    (void)fixed.write(Position::First, 2.f);
+    (void)fixed.writeAs(Position::First, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 13
     (void)commands.index().find(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 14
-    (void)commands.index().execute(Position::First, nullptr, 0);
+    (void)commands.index().executeEncoded(Position::First, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 15
-    (void)commands.index().call(Position::First);
+    (void)commands.visit(Position::First, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 16
-    (void)commands.find(Position::First);
+    (void)commands.index().find(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 17
-    (void)commands.execute(Position::First, nullptr, 0);
+    (void)commands.index().executeEncoded(Position::First, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 18
-    (void)commands.call(Position::First);
+    (void)commands.visit(Position::First, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 19
     (void)groupOf(Position::First);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 20
@@ -81,57 +83,57 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 21
     (void)fields.index().find(LegacyFirst);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 22
-    (void)commands.index().execute(LegacyFirst, nullptr, 0);
+    (void)commands.index().executeEncoded(LegacyFirst, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 23
     (void)fields.index().find(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 24
-    (void)fields.index().read(wire);
+    (void)fields.index().readEncoded(wire, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 25
-    (void)fields.index().read<float>(wire);
+    (void)fields.readAs<float>(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 26
-    (void)fields.index().write(wire, 2.f);
+    (void)fields.writeAs(wire, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 27
-    (void)fields.index().catalog(wire);
+    (void)fields.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 28
-    (void)fields.find(wire);
+    (void)fields.index().find(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 29
-    (void)fields.read(wire);
+    (void)fields.index().readEncoded(wire, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 30
-    (void)fields.read<float>(wire);
+    (void)fields.readAs<float>(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 31
-    (void)fields.write(wire, 2.f);
+    (void)fields.writeAs(wire, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 32
-    (void)fixed.find(wire);
+    (void)fixed.index().find(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 33
-    (void)fixed.read(wire);
+    (void)fixed.index().readEncoded(wire, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 34
-    (void)fixed.read<float>(wire);
+    (void)fixed.readAs<float>(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 35
-    (void)fixed.write(wire, 2.f);
+    (void)fixed.writeAs(wire, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 36
-    (void)fixed.catalog(wire);
+    (void)fields.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 37
     (void)commands.index().find(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 38
-    (void)commands.index().execute(wire, nullptr, 0);
+    (void)commands.index().executeEncoded(wire, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 39
-    (void)commands.index().call(wire);
+    (void)commands.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 40
-    (void)commands.index().catalog(wire);
+    (void)commands.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 41
-    (void)commands.find(wire);
+    (void)commands.index().find(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 42
-    (void)commands.execute(wire, nullptr, 0);
+    (void)commands.index().executeEncoded(wire, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 43
-    (void)commands.call(wire);
+    (void)commands.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 44
-    (void)local.index().find(wire);
+    (void)local.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 45
-    (void)local.index().execute(wire, nullptr, 0);
+    (void)local.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 46
-    (void)local.index().call(wire);
+    (void)local.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 47
-    (void)local.call(wire);
+    (void)local.visit(wire, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 48
     (void)groupOf(wire);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 49
@@ -141,31 +143,31 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 51
     (void)fields.index().find(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 52
-    (void)fields.index().read(atomicWide);
+    (void)fields.index().readEncoded(atomicWide, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 53
-    (void)fields.index().read<float>(atomicWide);
+    (void)fields.readAs<float>(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 54
-    (void)fields.index().write(atomicWide, 2.f);
+    (void)fields.writeAs(atomicWide, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 55
-    (void)fields.find(atomicWide);
+    (void)fields.index().find(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 56
-    (void)fixed.find(atomicWide);
+    (void)fixed.index().find(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 57
-    (void)commands.index().execute(atomicWide, nullptr, 0);
+    (void)commands.index().executeEncoded(atomicWide, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 58
-    (void)local.index().execute(atomicWide, nullptr, 0);
+    (void)local.visit(atomicWide, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 59
-    (void)local.call(atomicWide);
+    (void)local.visit(atomicWide, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 60
     (void)groupOf(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 61
     (void)indexOf(atomicWide);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 62
-    (void)fields.index().catalog(atomicWide);
+    (void)fields.visit(atomicWide, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 63
     (void)fields.index().find(0.0);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 64
-    (void)local.call(0.0);
+    (void)local.visit(0.0, visitor);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 65
     constexpr auto invalid = groupOf(0x100020001ULL); (void)invalid;
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 66
@@ -193,29 +195,29 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 77
     (void)fields.index().find(atomicNarrow);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 78
-    (void)fields.index().read<float>(atomicNarrow);
+    (void)fields.readAs<float>(atomicNarrow);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 79
-    (void)fields.index().write(atomicNarrow, 2.f);
+    (void)fields.writeAs(atomicNarrow, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 80
-    (void)commands.execute(atomicNarrow, nullptr, 0);
+    (void)commands.index().executeEncoded(atomicNarrow, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 81
     (void)fields.index().find(narrow);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 82
-    (void)fields.index().read<float>(narrow);
+    (void)fields.readAs<float>(narrow);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 83
-    (void)fields.index().write(narrow, 2.f);
+    (void)fields.writeAs(narrow, 2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 84
-    (void)commands.execute(narrow, nullptr, 0);
+    (void)commands.index().executeEncoded(narrow, {}, workspace);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 85
     (void)fields.read<Position::First>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 86
-    (void)fields.read<Position::First, float>();
+    (void)fields.readAs<float, Position::First>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 87
     (void)fields.write<Position::First>(2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 88
     (void)fixed.read<Position::First>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 89
-    (void)fixed.read<Position::First, float>();
+    (void)fixed.readAs<float, Position::First>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 90
     (void)fixed.write<Position::First>(2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 91
@@ -223,13 +225,13 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 92
     (void)fields.read<LegacyFirst>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 93
-    (void)fields.read<LegacyFirst, float>();
+    (void)fields.readAs<float, LegacyFirst>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 94
     (void)fields.write<LegacyFirst>(2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 95
     (void)fixed.read<LegacyFirst>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 96
-    (void)fixed.read<LegacyFirst, float>();
+    (void)fixed.readAs<float, LegacyFirst>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 97
     (void)fixed.write<LegacyFirst>(2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 98
@@ -241,7 +243,7 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 101
     (void)commands.call<0x100000000ULL>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 102
-    (void)fields.read<-1, float>();
+    (void)fields.readAs<float, -1>();
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 103
     (void)fields.write<0x100000000ULL>(2.f);
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE == 104
@@ -249,12 +251,5 @@ int main()
 #elif TELEMETRY_ID_BOUNDARY_FAIL_CASE != 0
 #error "Unknown TELEMETRY_ID_BOUNDARY_FAIL_CASE"
 #endif
-    return rows.read<Position::First>() == 1.f
-        && local.call<Position::First>() == CommandResult::Executed
-        && local.call(Position::First) == CommandResult::Executed
-        && fields.find(atomicNarrow.load()) == rows.data()
-        && fixed.find(atomicNarrow.load()) == rows.data()
-        && commands.call(atomicNarrow.load()) == CommandResult::Executed
-        && fields.find(static_cast<FieldId>(narrow)) == rows.data()
-        && fields.find(static_cast<std::uint64_t>(wire)) == nullptr ? 0 : 1;
+    return rows.read<Position::First>() == 1.f && local.call<Position::First>() == CommandResult::Executed ? 0 : 1;
 }

@@ -1,6 +1,6 @@
 // Reject calls that copy a mutable reference or convert native slot types.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 using namespace telemetry;
 
 #ifndef TELEMETRY_SLOT_CALLABLE_FAIL_CASE

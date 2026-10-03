@@ -1,9 +1,9 @@
 {
   "format_version": 1,
   "scope": "offline host execution and ARM compile/link inspection",
-  "captured_at_utc": "2026-10-03T18:35:39.206731+00:00",
-  "source_head": "37bc85771cbbd8597e01835f1e8b187f7b7f32b3",
-  "source_dirty": false,
+  "captured_at_utc": "2026-10-03T20:33:42.840684+00:00",
+  "source_head": "389c995083b4dc0a39cd8775b211ef765494240f",
+  "source_dirty": true,
   "input_lf_sha256": {
     "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
     "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -58,144 +58,91 @@
     "lib/resource/FileSystem.hpp": "ff93b73b5e636df64a38a0f7b2c141675a10f425c9444502d4f40e7e290ecd8d",
     "lib/resource/protocol/Protocol.cpp": "b4733084674d4fc11b2a738a93a71871cf2bfbe3fb804beae580f801da37a508",
     "lib/resource/protocol/Protocol.hpp": "a7a8fb46ac2982bffc9f537b03034b4fa983615c3214504ccfc6227cca39f89c",
-    "lib/resource/resource.pri": "4d54c51167448f38de358aa3448f626d20eb30506e71e199eec32964f2284b68",
-    "lib/resource/structured/BinaryFormat.hpp": "3f4cca8f8d780cae8e1e5c63c6d890d759d92df53cf7a3f328e8155cfc93d092",
-    "lib/resource/structured/Descriptor.hpp": "f97f1850e7e73a6b08456e2e2098a889911af1b36af5a17a4293a06520e1df06",
-    "lib/resource/structured/DescriptorFile.hpp": "408827a310ab5ebf17acef54e5655fdd39f8df03c4c0f4ef08a4b5297f71e054",
-    "lib/resource/structured/detail/Segments.hpp": "3bd06d02366c42fde4d3c22b07bc0bba194b6cdc5d140f7a972fc7316657e55a",
-    "lib/resource/structured/detail/Values.cpp": "1ccf049b697ad5dc04d9a47e229929119f4887a862ac3092e4b02bd68cfdb243",
-    "lib/resource/structured/detail/Values.hpp": "9c06cf1010605ad319c5aeeb4c5680ee5f9c3b3c1f3a5021f515e419342b7191",
-    "lib/resource/structured/ValuesFile.hpp": "c4ed5c911b43e5b028e7e5fb254092389ddbda7fee11999d40f433f8dec1b9b5",
-    "lib/resource/telemetry/BinaryFormat.hpp": "345e12506f96614a9878d2d025d44bdd80cbfe13e94e9068ad94f1e23b5fc62b",
-    "lib/resource/telemetry/CommandsFile.cpp": "24f4859d73b5fae17712ba259a066d6e4159646eb24eb8b1f43b368c5e9a34e3",
-    "lib/resource/telemetry/CommandsFile.hpp": "dd6183208094724835da91cdad17801be0d9fb08aaf6fdd0b9229d57265d88ac",
-    "lib/resource/telemetry/detail/BinaryScalar.hpp": "5df6ce7c5a9431fdf51d7aa3abc915731a9ac942bd7fdcccb407cfa440ec3cde",
-    "lib/resource/telemetry/detail/BinaryWriter.hpp": "3c6b857bf4ff73163845ba640701b38ee9f20494450cf44aecddea588da8e628",
-    "lib/resource/telemetry/detail/BlockStream.hpp": "c0a46f9bef230d75f92cbdb15f5d58f7b4fcf158ea8937a6ebee4ac67abb393d",
-    "lib/resource/telemetry/detail/Fingerprint.hpp": "9b371a1d57499d6b2127897e47c20f86dbae3d0f36cd2077a46670dcc2a57000",
-    "lib/resource/telemetry/detail/Metadata.hpp": "59d1e49a255080668693b432afc602dea2ce980fb1317d44b47004cf89aba5f4",
-    "lib/resource/telemetry/SchemaFile.cpp": "cf12dd4b1f1ed7305e10391e7c6ee9ee9220d52e792366c46d84d32c176ae019",
-    "lib/resource/telemetry/SchemaFile.hpp": "66263a9564dda0a56026c87697792b0cc69cc18e615e8c55d304073113ec8466",
-    "lib/resource/telemetry/TelemetryFiles.hpp": "6792ee15626e375117c98f9b048ba76841a3c3173a051a03b6e823ff8340bc63",
-    "lib/resource/telemetry/ValuesFile.cpp": "52370690e1d6e2928048751196abe17b2a631b637f9a12f13fd89c323be5ef54",
-    "lib/resource/telemetry/ValuesFile.hpp": "03d9fe175429297782191a464e7f9f060aeb079bd5601ac483de51d9535d2df1",
+    "lib/resource/resource.pri": "24dc1040fc413c02a9c6828e888cdbab0ae7d6d31dfc9a33e1f07aff2d942299",
+    "lib/resource/telemetry/v3/BinaryFormat.hpp": "9aba7d6442169531161d72278e65c90cb3f969fddd1917d24ab16d76e0c337b8",
+    "lib/resource/telemetry/v3/Descriptor.hpp": "3e5affc79ca8b055db44c7ef5104dd373505360830dba0152c976faa6fa8e4bf",
+    "lib/resource/telemetry/v3/DescriptorFile.hpp": "ad33c6c5997408a77f3a0cdfea83b584110fd991a05e5426bdc894003d26624a",
+    "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
+    "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
+    "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
+    "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
     "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
-    "lib/telemetry/abi/TelemetryAbi.cpp": "29d0a1ecc2d5e53965a01a101c5ebff8d2c447b9172fd1b435b994ea094fde63",
-    "lib/telemetry/abi/TelemetryAbi.h": "85a0d15f76476225df16f568f1d686b7bf7d36069cc96a8d136e1777e88a04dc",
-    "lib/telemetry/catalog/TelemetryCatalog.h": "71a6209ce8ecccc1aa3209333c81fc82fdc14a138eef088e94a5899ebbdc4f77",
-    "lib/telemetry/catalog/TelemetryCatalogView.h": "105c0ed12c66c098b4656c5658f62fa2a59b7a01f7552778f2f5ae32f09bd00d",
-    "lib/telemetry/catalog/TelemetryFieldCatalogTable.h": "2b3aea68f94de7bbedf9f7be2babcdeb1a26ee1fcdb82b066e29666ce3b4e3d6",
-    "lib/telemetry/catalog/TelemetryGroup.h": "d28ab7f60c500c3ca0e4f418bb72c0dc8644f9109f88e5693dffe3d532eeba16",
-    "lib/telemetry/catalog/TelemetryIndex.h": "e1a9c1520cce1087f0a901eb5fb4bd37eb5ebaa2fb834d7d1983c143c84e1b68",
-    "lib/telemetry/command/TelemetryCommand.h": "9608e03fdfdb174e98c35929a658acd9468b8e295dc5a0a8b85f443e0d5e03e7",
-    "lib/telemetry/command/TelemetryCommandArgs.h": "a0e1591babcb150efa2f082249ec7e6a171818d230abca80dec9eacb3962cbf6",
-    "lib/telemetry/command/TelemetryCommandCatalog.h": "1706e57e47610925888053234cb0916e1bec7604fd096ac7dee2cfc6eea6c699",
-    "lib/telemetry/command/TelemetryCommandCatalogIndex.h": "68c467c936a1c3fafeaaf63849694211668c4f726c2c77020690bd1e667bf1da",
-    "lib/telemetry/command/TelemetryCommandCatalogTable.h": "e11df0a110710bb05ceec1ab7920fd6cb99e2376a44e6836e7ce02ad0d3e0b67",
-    "lib/telemetry/command/TelemetryCommandCatalogView.h": "056d36943752f8931bbef3648f7cc27d84f047213c5b448d8f607d288a5bbe8f",
-    "lib/telemetry/command/TelemetryCommandFactory.h": "e4e6ed9083fc62736760edb0efb2f71a9a7968c50fc2372098af0475dc229a96",
-    "lib/telemetry/command/TelemetryCommandIndex.h": "4ff72f202613a624c74db97359ad34d43a655c57e0943038038900a40260a071",
-    "lib/telemetry/command/TelemetryCommandTable.h": "8a2f1402a646b8f36c11a9b0995e765fe4b6e8458462db44a527a24199f26760",
-    "lib/telemetry/core/TelemetryCacheline.h": "bc897cc7d60718a90772e678c1a78b3e758311c9a911a43f34bc7daec0ded8eb",
-    "lib/telemetry/core/TelemetryCompiler.h": "f1035e4c1d8f84d73d077570aad377a2b0431c06adb371b8a64e1ca6fbf068b3",
-    "lib/telemetry/core/TelemetryConversion.h": "0c5d3274d0853b05863cbc89722874bb508e813a416d8f2bee4aca8942429f0e",
-    "lib/telemetry/core/TelemetryId.h": "254cabf5ae021eac00c2b39af47e5d17a1215982649588c50f64e2e998e76fcc",
-    "lib/telemetry/core/TelemetryScalar.h": "ee79e4706f1a598d33162723474a0d281ed3ae2f0a0ea658d1a316f61ac2216a",
-    "lib/telemetry/detail/TelemetryBounds.h": "3af822ce00b18d17d56a474dec6c461bdc02dd4101f36de4822b7b9fded14a5c",
-    "lib/telemetry/detail/TelemetryCallable.h": "26bb2ca8235a927170b2abfa99498fcdb5fac77de0ebf32243905b0fe7e9317f",
-    "lib/telemetry/detail/TelemetryCommandBinding.h": "6b567cfa1d1846829987a34816dc365b583e18a47a1b200f0954b960a7a57cca",
-    "lib/telemetry/detail/TelemetryFieldBinding.h": "d0fc68cff6c0a6efd3568b407036494e9d7c57d34cb616c6ed57626a4dfc5a38",
-    "lib/telemetry/detail/TelemetryIndexedRange.h": "cd75144fde231b43d64b32f9377e68971e0d33b6fbfe6eccf2d7e8f402022572",
-    "lib/telemetry/detail/TelemetryJsonValue.h": "8a1f37f34c612acc332cc52354130286dd610b63dad4bd22d46ce4b368aa3804",
-    "lib/telemetry/detail/TelemetryJsonWriter.h": "a6d58fd6cd148d60de45cf921aaf6aa61b962ca5ccf81bdbc8d77da62c0bab53",
-    "lib/telemetry/detail/TelemetryNumberConversion.h": "284a93f9eae8d461be432959a83ababbd2e571bf1f5b28222271d16cde2932e3",
-    "lib/telemetry/detail/TelemetryOwner.h": "dd5bcd916e2d4e918f3459c5012febaea4905fce2553fb6f315e9362827fffc5",
-    "lib/telemetry/detail/TelemetrySlotCallable.h": "89538b1bf803976d82e6a4854fd93e08418ec990f07de7d50b46ffcf1851dfc5",
-    "lib/telemetry/detail/TelemetryTarget.h": "6665e1a2e1a805a707b1c7c7c53ab3311c164c4a85c0b0c8eef35599cd81de21",
-    "lib/telemetry/field/TelemetryEnum.h": "fa9ee18a9c1a3cb28685507fb219a35d1a03dbd287e84caea85aa199d6097e23",
-    "lib/telemetry/field/TelemetryField.h": "1e7efbe9179330731c8912cd9ae747f2db4933d3784724d138d90d03a73ac471",
-    "lib/telemetry/field/TelemetryFieldFactory.h": "043179e107f4dc97f13e30107833ab5045498838a788786f1d01515293b4a8aa",
-    "lib/telemetry/field/TelemetryFieldFlags.h": "a79ef191e533f9d2618dbcba7291a361cf8515f32860455dade22c862bf22e51",
-    "lib/telemetry/field/TelemetryFieldTable.h": "a1abe6c9739c878b5e8b9d987d93a8997d5680418a985cac4434de6dd8670882",
-    "lib/telemetry/field/TelemetryFieldType.h": "b7a92ee86f4e81a5e1e9f61ec104bef6214dc672f412c167c0b0497ec0e43d94",
-    "lib/telemetry/field/TelemetryGetter.h": "ffe61e9ce784da048976ab40c1486d0b79008dd62e8269e867a05527bc3047f0",
-    "lib/telemetry/field/TelemetryLimits.h": "894de36caf4348aae3ca2b8fa24e11d4bd1e9473f5ac78fe570f88531b0f1141",
-    "lib/telemetry/field/TelemetrySetter.h": "a9743de3a44cc8231443b3afa0fd137e8bc2fc49e2394bd8d3ac40964b214cb2",
-    "lib/telemetry/serialization/TelemetryCommandJson.cpp": "731dbad4e7b11f79c6ddab4f906b785b85ce71853a6600b28e1f58d9c6ff62d1",
-    "lib/telemetry/serialization/TelemetryCommandJson.h": "ed1473251aa432ce022e444e522c59942ace3b35b73f8442d52b5bf1ed5558e9",
-    "lib/telemetry/serialization/TelemetryJson.cpp": "fd2d7264168384f87c284a0d766c0878062211d3ec7db04e018a99fb324aacc0",
-    "lib/telemetry/serialization/TelemetryJson.h": "a7a2c5afb096bd6039b7678704d878fc06e905cae30533c09546ef33a22a0561",
-    "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "9a58a397e01bf00a4cde502dda683e999327efff0bd3668baefcc30cdd14f9db",
-    "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "82193f5c13c4d8fba4b064ccea90bb61668355a52a1898fd395bc0b92d43c0c9",
-    "lib/telemetry/slot/TelemetryDelegateSlot.h": "b56a773ea267a2219d46b041827ead263acaca00fef84b2fe8802f8d73f76bb6",
-    "lib/telemetry/slot/TelemetryFunctionSlot.h": "a77aa3a2827907b41d182dc44a8850261b7c3431aba2f3b0f8b8c02ec1ebe907",
-    "lib/telemetry/slot/TelemetryOwnerSlot.h": "db177c604a9322c156be27624af1b04e52340729e76eeb8231c33e8da128cb53",
+    "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
+    "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
+    "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+    "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
+    "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
+    "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
+    "lib/telemetry/command/CommandCatalogs.hpp": "3a288737569c642f721787e6b9da2f436178ecb9db5ad7733e373c5857a80f38",
+    "lib/telemetry/command/CommandTable.hpp": "511e14a1aeb9eeb9d20389ffa898a08bf37d9c73fe03575721b6b023af44414f",
+    "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
+    "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
+    "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
+    "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
+    "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+    "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
+    "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
+    "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
+    "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
+    "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
+    "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
+    "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+    "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
+    "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+    "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
+    "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
+    "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
+    "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
+    "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
+    "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+    "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
+    "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
+    "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
+    "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
+    "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+    "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
+    "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
+    "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
+    "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
+    "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+    "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
+    "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+    "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
+    "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
+    "lib/telemetry/slot/TelemetryDelegateSlot.h": "75a458b1177a83e0e43995d72cfeb4bdbcb6343bf52c89f0e2c51a8118a9d649",
+    "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
+    "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
     "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-    "lib/telemetry/Telemetry.h": "9eefa1ec1f3e47d318d87f08d66a4031f188c63027455c98040d9c903a33d52b",
-    "lib/telemetry/telemetry.pri": "025d4c7125eb89b3c8fd7e89c77cdbf2eab13c7eded9b1228a22c0b932160b86",
-    "lib/telemetry_structured/abi/StructuredAbi.cpp": "a0938fda62d5aa661cb3e14a4b94b10c02f75c559e22078383825521db4d4b4b",
-    "lib/telemetry_structured/abi/StructuredAbi.hpp": "627eb1f348b9b521e6c7f7acf507fef04c932264b42a1f56742a18107bc2853d",
-    "lib/telemetry_structured/codec/Codec.hpp": "6b859da306c3c9946096409ebbbfe3911a5b3ab91da5b42c8ed91ce893488654",
-    "lib/telemetry_structured/codec/StoragePolicy.hpp": "8c7453e01453defa57e061e6f9435c312124af109eb6eaebaf8d1985efbbfd6d",
-    "lib/telemetry_structured/codec/Workspace.hpp": "616c36950abc67f6782ff399ecd22e22a7c2f460e7782bca42dc0b305398349e",
-    "lib/telemetry_structured/command/Command.hpp": "33aa5cf26095592774731818af21a069e77f5c609c9ee6cd3f5366196e0e33cb",
-    "lib/telemetry_structured/command/CommandCatalogs.hpp": "b947b760f3ca1cd92a09777b968032d9c49b447c0c9a8ef15ea6d54cc93143b5",
-    "lib/telemetry_structured/command/CommandTable.hpp": "596514a8591a1621b3c396b294f10265a2892c59c0094b30ccc355234c177821",
-    "lib/telemetry_structured/detail/Binding.hpp": "7249912fab56f09e62c37f460ae33ea7db278e616d62ad7d781e4774b518734c",
-    "lib/telemetry_structured/detail/Encoded.hpp": "2fe12eb8851862732351f052df90e03b33cb8408f94cb5b03959e5c1db5355fc",
-    "lib/telemetry_structured/detail/FieldAccess.hpp": "0688bb7e125971303ce1bb66eb554d9058fdbc1b63c58250dd2b78ee33eafc43",
-    "lib/telemetry_structured/detail/Name.hpp": "1cb03111cab67f6869034c6d14031767baa8278092b243419c85f7afe1ead48a",
-    "lib/telemetry_structured/detail/Traversal.hpp": "299069d9ad377ea6b591fa3b9a6870d279c9ef059214c9313f287869f512f565",
-    "lib/telemetry_structured/field/Field.hpp": "4cafcad24933bc039088406340ce7aac4f8c75ec6dd131f48c9b4b09e4f24f3c",
-    "lib/telemetry_structured/field/FieldCatalogs.hpp": "c4a62849fcc7dece397b8bd02fcb7900da5d4fd58be435df522ffb0ac47d83f8",
-    "lib/telemetry_structured/field/FieldTable.hpp": "4f2b268629c39f286c8641c9295189081f2823668c88a154cd2a1a72b94c0852",
-    "lib/telemetry_structured/model/Adapter.cpp": "2dbf37259ffd1c66cbb6492e0fd6fde00a74dc7a1d9afdb29afba052e1df9912",
-    "lib/telemetry_structured/model/Adapter.hpp": "c8d406bf7f423dccf61fbfcda7117007395b8ef9678c2ed533fa27f9a7e7d7f0",
-    "lib/telemetry_structured/model/Catalog.hpp": "7a80139798008604cb86252c1c16cddf516f1134a8d8f22c8e58702766cf2fc7",
-    "lib/telemetry_structured/model/Model.hpp": "2d1fce7fd8b3be58588d7dc120084bb48722ef10d652cb15ecf227f84e7e9b37",
-    "lib/telemetry_structured/reflection/Aggregate.hpp": "891155b6f45538775812cc497f369d490120cddcdc029c8c069510634bfe0bdd",
-    "lib/telemetry_structured/reflection/Callable.hpp": "b1eab38ed11561490b81b719f7e524cf9bd92bb5d27a06070a8f3cda1ab1b9af",
-    "lib/telemetry_structured/reflection/detail/CallableTraitsAdapter.hpp": "7008bde32388ae17cd17e9ed5c86e3c4c93952285f5bd871f63d1cc6913fbbe9",
-    "lib/telemetry_structured/reflection/detail/MagicEnumAdapter.hpp": "9194ba11bd5afb128eb9a50d572cda9cedc2a46144b40d8936eabdcb08a03298",
-    "lib/telemetry_structured/reflection/detail/PfrAdapter.hpp": "631870d4dcf9b0f0a143217537abb49dd301c83dd8846d93856d0e7736421d4c",
-    "lib/telemetry_structured/reflection/Enum.hpp": "b36fa3097ed754173aa6ff87057a4ce829b04d44234db5620ec4452f939c21c2",
-    "lib/telemetry_structured/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
-    "lib/telemetry_structured/result/Dispatch.hpp": "18354bbaae8882fb1c71c83069a1ef12e825ea5394af0f454a0d0f5a4d84e1d3",
-    "lib/telemetry_structured/result/EndpointResults.hpp": "6389abde13d38d42f385f3d3926a033f63445a23d9ef1a8e997ea3ad7bad1eaf",
-    "lib/telemetry_structured/result/ServiceResult.hpp": "3b6efd3a866e688ff75541ee2dd36ee762f5ff606dd3b7bcb26815b40b61e714",
-    "lib/telemetry_structured/service/Service.hpp": "e4cba81a19ac394e8d273190eeb8314cc8b53035d50e5c1c4c08d34d5e24e655",
-    "lib/telemetry_structured/service/ServiceCatalogs.hpp": "860790dbb0888ccfa48fda419894fc7bce22da7b514e7c3253cdad22d23e26ca",
-    "lib/telemetry_structured/service/ServiceTable.hpp": "da3262370b7ee4a1b357af53d0f057f3da7009ef79f7e47ac347629a0e85a9be",
-    "lib/telemetry_structured/Structured.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
-    "lib/telemetry_structured/structured.pri": "c08939dae319bb576418a4fc1f136587e51d1e708ea0402976601fe54cd31ff4",
-    "lib/telemetry_structured/type/Descriptor.hpp": "9f4a84490cfe39ec5fcf7ccc27ed3e8f61544c53b2eaa232e32360a5ada84c17",
-    "lib/telemetry_structured/type/Registry.hpp": "79f037508e194689ef05bb97c048c3b12327f7c9d5a1d270baa27ce80499536b",
-    "lib/telemetry_structured/type/Traits.hpp": "2b0904f91d0164d5de07c3ca716301096fc98370eea9870ba3f8fc8890ab5d1a",
-    "tests/structured/mcu/Fixture.hpp": "97cfb5b593a52d58b8953d244abd3f2cc3821d64d2d4700d2b55e28d4810fb2b",
-    "tests/structured/mcu/h7s/Benchmark.cpp": "28d5fd16f59635d8f7917f816e55fda0407be037c43664fcbee701ca5a4729f9",
+    "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+    "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
+    "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
+    "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
+    "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
+    "tests/structured/mcu/Fixture.hpp": "5622e698ae803ef93e87e4a4b71b717cce10c179c2c3418c2bb59d260d056da0",
+    "tests/structured/mcu/h7s/Benchmark.cpp": "0c196cf7c974e9111e6035f143c8f1ae6d1d1db74f28d91cb0c0d72ac26db217",
     "tests/structured/mcu/h7s/Probe.cpp": "a51014c61225fa47f74f66903ce32440aa08cb25e80b9cdfc7613783c9f3323f",
-    "tests/structured/mcu/h7s/run.py": "26674bab1dbf21d1de6812bbe5b9fb10868ddba5e3347330fd5857140808b4b1",
-    "tests/structured/mcu/h7s/verify.py": "8dfea221a134021f1dd9219bcdfa922127314fbad20bf61af309c40c49407129",
-    "tests/structured/mcu/Host.cpp": "01830aba7de525d3926471f26915409003eb3f5a48fc050cedbdae36134b4db3",
-    "tests/structured/mcu/Mixed.cpp": "218589399698e297e87be1d82f226b6c71729f0909432ad3d683c4b7aa971aad",
-    "tests/structured/mcu/receipt.py": "6dc1969bd574e50f8dd9cedcda28ac403151d65b21c92462357ff51de235e6c3",
-    "tests/structured/mcu/run.py": "94862f86369b1a8c78bc6eb71864b032acb594e1b5134fd8ec669bdf8be1061f",
-    "tests/structured/mcu/Scale.cpp": "5750616ca858f8c53e8df646b9c68602e8204285bcd27a480f3f9398b437c47b",
-    "tests/structured/qualification/AbiClient.cpp": "7e452f171b6f27106e8c615d43c179cdb665d44e6afaced6618584898404dab4",
+    "tests/structured/mcu/h7s/run.py": "87485c36ebf28b824599ec7dc18b98c292ddd917b0d2cb427f45de91464e0b5f",
+    "tests/structured/mcu/h7s/verify.py": "b0a228480ae84237f99f91c99b0c22ac09fd1b6a0107c9910b98d79cde12db36",
+    "tests/structured/mcu/Host.cpp": "f2112662e2a7d10569661253df30ec09de4d015627055ef830d070f780249f7f",
+    "tests/structured/mcu/Mixed.cpp": "25915bf74f7b56d53d995a8c5b06aabc5bd9126647424ac94023fa44ece314d0",
+    "tests/structured/mcu/receipt.py": "87b9380a3c6c9b499a51cba86c5dd7f06e9b356c985a428558b5fd9102748cc0",
+    "tests/structured/mcu/run.py": "c5b5bdea16231d7a382cb9cb6b3f8d593b1aed69b39d16883e23599984130cfb",
+    "tests/structured/mcu/Scale.cpp": "4d90e2dddb66d163a6c30e5e84a24a9407e21f1d59fd3d93ac4ca3a57b21d71b",
+    "tests/structured/qualification/AbiClient.cpp": "e6a7f12cd387b6818d4c04c67d347bb8d6048f1aed29748c02d281d64f9f8c29",
     "tests/structured/qualification/Check.cpp": "dd73a7baa476bb216ece707e2d66c394f968021c9e6189983356839a7d321419",
-    "tests/structured/qualification/Depth.cpp": "7e04d37021fcdde1f78b501dfc32ee51ef5a03563e7afbf6e17af893af37a0fd",
+    "tests/structured/qualification/Depth.cpp": "93e2e143fdc053e31353ba7000b147f33893f80d6ab2baffd705b23f8c8e9d55",
     "tests/structured/qualification/Encoded.cpp": "8ee43cc1af545ff2ebb32ab99b9eef5524d7c4948f1af87f6d8a47b014b90fd0",
-    "tests/structured/qualification/Fixture.hpp": "dfe6c5dceaa68d3743c24473995595cdfbf32eb8dfae18d8ad7f89feac779e57",
-    "tests/structured/qualification/gates.py": "a48eb495548cc068b378bd36e5eca7014be0a64d3a03aa2a0c16c7c460bb8b6e",
-    "tests/structured/qualification/NameNegative.cpp": "b4b44eab5699aa8182f26744f69a7769e3b9fc41b547d5a35ed7311a274d6f52",
-    "tests/structured/qualification/Names.cpp": "eb09513d6f593f08a5d67b4f43b60702d051552accd5eff1c0d05c197f64652d",
+    "tests/structured/qualification/Fixture.hpp": "916ca1a4f3a66ccabcd5ccd21d5e4b16e1ea35ae1fb7289a8ed7254a0efa92a4",
+    "tests/structured/qualification/gates.py": "5982658801aaa77c272dc60a801f81b6c31ea0dd7a62dd8e23613db16d0fc62b",
+    "tests/structured/qualification/LeafCodegen.cpp": "ec971db860c7973464caae8459fae656d7d5e637c9c2847dc21a6330fca9e6db",
+    "tests/structured/qualification/NameNegative.cpp": "96d81a18ba9485cb2035572a2fb3b08947abe452d1387b29e222a683dfc0308f",
+    "tests/structured/qualification/Names.cpp": "7fef0039b92fc62e745a7b2e3018372db477a4728a31464ea9228baccbcd87fa",
     "tests/structured/qualification/Provider.cpp": "c92a6645e6e328bee28489daeb250430734150f7ab550dbe8f65031623b91d8a",
-    "tests/structured/qualification/run.py": "5e001f5ba1501b257519991c8bf765d292f9bded3cfe616ce14d6e4d99ebc8cf",
-    "tests/structured/qualification/ScalarComparison.cpp": "77e7db66bf1c9dadf7eaeff2b8efd7cb3969537151749be805ae0bdd2386340f",
-    "tests/structured/qualification/Scale.cpp": "07d1ad2254646070768d9d19bd1d79ab468b2815212989c4a3bba1c10cc6f13a",
+    "tests/structured/qualification/run.py": "11b0010280a60daca627f2654dcd692e3bde3622a6239c39960ab4ab93afa4a8",
+    "tests/structured/qualification/Scale.cpp": "cc0d9d1533fea4ad2a7b5b1e742866e010cacb89d7ff8e448fe146cc446d9e2f",
     "tests/structured/qualification/SymbolControl.cpp": "1acb67b6bca72faec53020913528beff404bf6a1cc7b0679370721c010f90c9b",
     "tests/structured/qualification/Typed.cpp": "a4e22f2cd636323e1c610ecacd1e7487c36a7e71f250715da43195e4cc49278f",
-    "tests/structured/traversal/Fixture.hpp": "7ae904b1c9dfebc307ef99f020a9a2d2724799e76bea21ec4873b1c4fbec379f"
+    "tests/structured/traversal/Fixture.hpp": "d56e258423ae1260adce0ceb665cefe0fd925a24b082ef1f468ae143864f3591"
   },
   "runs": {
     "mingw13": {
@@ -213,8 +160,8 @@
         "-Ilib/magic_enum",
         "-fstack-usage"
       ],
-      "commands": 58,
-      "checks": 45183,
+      "commands": 52,
+      "checks": 43638,
       "execution": "host",
       "gate_controls": {
         "count_positives": 2,
@@ -226,7 +173,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "0b3cb5a120095272ff1a84618a372c213e4f9ac4243ffdc0841e86633e7f08b3",
+      "report_sha256": "46eccfe3b2a762ec0b9c2945dbde4200ba24d62cfcb4cfa073f07cefd3c17eea",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -256,17 +203,17 @@
           }
         },
         "Scale-O2": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Os": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Og": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         }
@@ -288,8 +235,8 @@
         "-fstack-usage",
         "-fno-delete-null-pointer-checks"
       ],
-      "commands": 58,
-      "checks": 45183,
+      "commands": 52,
+      "checks": 43638,
       "execution": "host",
       "gate_controls": {
         "count_positives": 2,
@@ -301,7 +248,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "1457704bf0a811c6042252f93436683885eec30f0ae3ca399ac473ed1a54615b",
+      "report_sha256": "38055539988c624e801445582ca22a9ad409e176e0653a66513bfc079544cb45",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -331,17 +278,17 @@
           }
         },
         "Scale-O2": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Os": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Og": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         }
@@ -364,8 +311,8 @@
         "-fsanitize=address,undefined",
         "-fno-omit-frame-pointer"
       ],
-      "commands": 58,
-      "checks": 45183,
+      "commands": 52,
+      "checks": 43638,
       "execution": "host",
       "gate_controls": {
         "count_positives": 2,
@@ -377,7 +324,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "ac64d73989097ff5a2c0bdc65b1517ba3d8590bd230b8644b5708b6d48cd5d7d",
+      "report_sha256": "c773f006779ead83aa94e9ea463f52ddd19b97bdb2849b58c109870ab674892e",
       "configurations": {
         "Mixed-O2": {
           "checks": 12230,
@@ -395,17 +342,17 @@
           "big_probe_frames": {}
         },
         "Scale-O2": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Os": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         },
         "Scale-Og": {
-          "checks": 2831,
+          "checks": 2316,
           "consumer_checks": 0,
           "big_probe_frames": {}
         }
@@ -435,7 +382,7 @@
         "-fdata-sections",
         "-DQUALIFICATION_ARM"
       ],
-      "commands": 73,
+      "commands": 67,
       "checks": 0,
       "execution": "compile/link only",
       "gate_controls": {
@@ -448,7 +395,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "67f112d7f5fa0dce79af298bd372d5a652c61d7a645486c33e6e58b7d217e0da",
+      "report_sha256": "26bb4330527ce7d714ecd9a04d6e497007689b490c238464494f383aceb8f245",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -672,7 +619,7 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 25152,
+            "text": 24896,
             "rodata": 7080,
             "data": 76,
             "bss": 57920
@@ -823,8 +770,8 @@
         },
         "Scale-O2": {
           "sections": {
-            "text": 16808,
-            "rodata": 19404,
+            "text": 10556,
+            "rodata": 7048,
             "data": 0,
             "bss": 1032
           },
@@ -870,8 +817,8 @@
         },
         "Scale-Os": {
           "sections": {
-            "text": 17576,
-            "rodata": 19372,
+            "text": 8002,
+            "rodata": 7036,
             "data": 0,
             "bss": 1032
           },
@@ -917,8 +864,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 34848,
-            "rodata": 19444,
+            "text": 19282,
+            "rodata": 7076,
             "data": 0,
             "bss": 1032
           },
@@ -999,7 +946,7 @@
         "-fdata-sections",
         "-DQUALIFICATION_ARM"
       ],
-      "commands": 73,
+      "commands": 67,
       "checks": 0,
       "execution": "compile/link only",
       "gate_controls": {
@@ -1012,7 +959,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "82c3215039f35686a1ee9626e4e39f6bdfd1df9f700bbfa7f29517e4bcbf3432",
+      "report_sha256": "dc5468af5f2fbd5ab5fe757f083ac2a9ebc46dd9308b03777b96d3c69e95eeca",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1268,7 +1215,7 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 28416,
+            "text": 28160,
             "rodata": 7080,
             "data": 76,
             "bss": 57920
@@ -1403,8 +1350,8 @@
         },
         "Scale-O2": {
           "sections": {
-            "text": 16808,
-            "rodata": 19404,
+            "text": 10556,
+            "rodata": 7048,
             "data": 0,
             "bss": 1032
           },
@@ -1450,8 +1397,8 @@
         },
         "Scale-Os": {
           "sections": {
-            "text": 17576,
-            "rodata": 19372,
+            "text": 8002,
+            "rodata": 7036,
             "data": 0,
             "bss": 1032
           },
@@ -1497,8 +1444,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 34848,
-            "rodata": 19444,
+            "text": 19282,
+            "rodata": 7076,
             "data": 0,
             "bss": 1032
           },
@@ -1578,7 +1525,7 @@
         "-fdata-sections",
         "-DQUALIFICATION_ARM"
       ],
-      "commands": 73,
+      "commands": 67,
       "checks": 0,
       "execution": "compile/link only",
       "gate_controls": {
@@ -1591,7 +1538,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "4c75ce15ee8743272bec0d69aca0e9cced63fa924df6591362750efa28c8a639",
+      "report_sha256": "8488cf70bff31942273f3fdfb21b8f6453142929a4832217a5e8a2b45bc0789f",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -1819,7 +1766,7 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 26104,
+            "text": 25848,
             "rodata": 7080,
             "data": 76,
             "bss": 57920
@@ -1964,8 +1911,8 @@
         },
         "Scale-O2": {
           "sections": {
-            "text": 18976,
-            "rodata": 19404,
+            "text": 10584,
+            "rodata": 7048,
             "data": 0,
             "bss": 1032
           },
@@ -2011,8 +1958,8 @@
         },
         "Scale-Os": {
           "sections": {
-            "text": 20144,
-            "rodata": 19372,
+            "text": 10574,
+            "rodata": 7036,
             "data": 0,
             "bss": 1032
           },
@@ -2058,8 +2005,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 46640,
-            "rodata": 19444,
+            "text": 30198,
+            "rodata": 7076,
             "data": 0,
             "bss": 1032
           },
@@ -2148,7 +2095,7 @@
         "-fdata-sections",
         "-DQUALIFICATION_ARM"
       ],
-      "commands": 73,
+      "commands": 67,
       "checks": 0,
       "execution": "compile/link only",
       "gate_controls": {
@@ -2161,7 +2108,7 @@
         "positive": 2,
         "rejected_mutations": 5
       },
-      "report_sha256": "1feee38439d330b83aad4755b6ef47f429fc2603d2f64cb220ae981206c4bdb1",
+      "report_sha256": "e752d86269f8d87dcbbfc7da5b22dd583c2849fe909a7ca088bf59404e23568d",
       "linked_symbol_control": {
         "execution": "nm only",
         "required": [
@@ -2423,7 +2370,7 @@
         },
         "Mixed-Og": {
           "sections": {
-            "text": 29240,
+            "text": 28984,
             "rodata": 7080,
             "data": 76,
             "bss": 57920
@@ -2556,8 +2503,8 @@
         },
         "Scale-O2": {
           "sections": {
-            "text": 18976,
-            "rodata": 19404,
+            "text": 10584,
+            "rodata": 7048,
             "data": 0,
             "bss": 1032
           },
@@ -2603,8 +2550,8 @@
         },
         "Scale-Os": {
           "sections": {
-            "text": 20144,
-            "rodata": 19372,
+            "text": 10574,
+            "rodata": 7036,
             "data": 0,
             "bss": 1032
           },
@@ -2650,8 +2597,8 @@
         },
         "Scale-Og": {
           "sections": {
-            "text": 46640,
-            "rodata": 19444,
+            "text": 30198,
+            "rodata": 7076,
             "data": 0,
             "bss": 1032
           },

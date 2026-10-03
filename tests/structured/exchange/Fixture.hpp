@@ -2,15 +2,15 @@
 #pragma once
 #include <structured_protocol/Bind.hpp>
 #include <structured_protocol/Exchange.hpp>
-#include <resource/structured/DescriptorFile.hpp>
-#include <resource/structured/ValuesFile.hpp>
+#include <resource/telemetry/v3/DescriptorFile.hpp>
+#include <resource/telemetry/v3/ValuesFile.hpp>
 #include <resource/FileSystem.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
 
 namespace fixture {
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 namespace rs = example::structured_protocol;
 using D = rs::PacketStatus;
 using W = telemetry::WriteResult;
@@ -78,9 +78,9 @@ inline constexpr ts::CommandCatalogTable commands{ts::group("device", localComma
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", localServices)};
 inline constexpr ts::Model model{fields, commands, services};
 inline constexpr auto view = model.view();
-inline constexpr resource::structured::Descriptor descriptor{model};
-inline constexpr auto packed = resource::structured::packDescriptor<descriptor>();
-inline constexpr resource::structured::DescriptorFile descriptorFile{packed};
+inline constexpr resource::telemetry::v3::Descriptor descriptor{model};
+inline constexpr auto packed = resource::telemetry::v3::packDescriptor<descriptor>();
+inline constexpr resource::telemetry::v3::DescriptorFile descriptorFile{packed};
 
 // Test helpers deliberately do not use the protocol implementation's helpers.
 template <class U>

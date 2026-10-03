@@ -6,15 +6,15 @@
  */
 #pragma once
 
-#include <telemetry_structured/Structured.hpp>
-#include <resource/structured/Descriptor.hpp>
-#include <resource/structured/ValuesFile.hpp>
+#include <telemetry/Telemetry.hpp>
+#include <resource/telemetry/v3/Descriptor.hpp>
+#include <resource/telemetry/v3/ValuesFile.hpp>
 #include <array>
 #include <limits>
 
 namespace client_example {
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 
 enum class Mode : std::int16_t { Off = -1, On = 2 };
 

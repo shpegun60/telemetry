@@ -7,9 +7,9 @@
 
 #include "../reflection/ProbeTypes.hpp"
 
-#include <telemetry_structured/reflection/Reflection.hpp>
+#include <telemetry/reflection/Reflection.hpp>
 
-namespace refl = telemetry::structured::reflection;
+namespace refl = telemetry::reflection;
 using Kind = refl::EndpointKind;
 
 struct Request { int value; };

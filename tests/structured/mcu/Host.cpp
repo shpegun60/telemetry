@@ -12,7 +12,7 @@ extern "C" [[noreturn]] void abort() noexcept { __builtin_trap(); }
 
 int main()
 {
-    telemetry::structured::requireStructuredAbi();
+    telemetry::requireStructuredAbi();
 #ifndef MCU_SCALE
     qualification::consumer_typed();
     qualification::consumer_encoded();

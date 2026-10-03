@@ -1,6 +1,6 @@
 // The owning and borrowed slot contracts must fail before retaining bad targets.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 using namespace telemetry;
 struct Owner {
     float read() noexcept { return 1.f; }
@@ -50,19 +50,6 @@ void bad() { own.bind(Move{}); }
 #elif TELEMETRY_LATE_BOUND_FAIL_CASE == 16
 struct Destruct { ~Destruct() noexcept(false) {} float operator()() noexcept { return 1.f; } };
 void bad() { own.bind(Destruct{}); }
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 17
-auto bad = field("", "", Context{});
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 18
-auto bad = field("", "", Ref{});
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 19
-auto bad = field("", "", Own{});
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 20
-auto bad = command("", DelegateSlot<CommandResult() noexcept, 32>{});
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 21
-auto bad = field<const Own>("", "", Own{});
-#elif TELEMETRY_LATE_BOUND_FAIL_CASE == 22
-DelegateSlot<WriteResult(std::uint16_t) noexcept, 32> mismatch;
-auto bad = field("", "", ref, mismatch);
 #elif TELEMETRY_LATE_BOUND_FAIL_CASE == 23
 auto bad = context;
 #elif TELEMETRY_LATE_BOUND_FAIL_CASE == 24
@@ -114,6 +101,6 @@ struct PreferNarrow {
 };
 void bad() { DelegateSlot<int(int) noexcept> target; target.bind(PreferNarrow{}); }
 #else
-#error Select TELEMETRY_LATE_BOUND_FAIL_CASE from 1 through 42
+#error "Select a maintained shared case"
 #endif
 int main() {}

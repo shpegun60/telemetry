@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/codec/Codec.hpp>
+#include <telemetry/codec/Codec.hpp>
 
 #include <array>
 #include <bit>
@@ -16,7 +16,7 @@
 #include <span>
 #include <type_traits>
 
-using namespace telemetry::structured;
+using namespace telemetry;
 
 namespace {
 

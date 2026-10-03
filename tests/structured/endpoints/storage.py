@@ -12,8 +12,8 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-ADAPTER = ROOT / 'lib/telemetry_structured/model/Adapter.cpp'
-ABI = ROOT / 'lib/telemetry_structured/abi/StructuredAbi.cpp'
+ADAPTER = ROOT / 'lib/telemetry/model/Adapter.cpp'
+ABI = ROOT / 'lib/telemetry/abi/StructuredAbi.cpp'
 
 
 def main():

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/codec/Codec.hpp>
+#include <telemetry/codec/Codec.hpp>
 
 #include <array>
 #include <cstddef>
@@ -19,9 +19,9 @@ struct Defaulted {
 using Many = std::array<Defaulted, 1024>;
 
 void invalidExpansion(std::span<const std::byte> input,
-                      telemetry::structured::Workspace& workspace)
+                      telemetry::Workspace& workspace)
 {
     auto lease = workspace.reserve<Many>();
     Many* output = nullptr;
-    (void)telemetry::structured::decode(input, lease, output);
+    (void)telemetry::decode(input, lease, output);
 }

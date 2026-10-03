@@ -5,11 +5,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 
 #include <cstdint>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 struct Request { std::uint8_t value; };
 struct Response { std::uint8_t value; };

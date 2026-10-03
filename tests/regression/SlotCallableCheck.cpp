@@ -1,6 +1,6 @@
 // Ordinary overload selection and generic argument deduction in delegate slots.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
@@ -161,5 +161,5 @@ int main()
     owned.invoke(value);
     CHECK(value == 32);
 #endif
-    std::printf("%u slot callable checks passed\n", checks);
+    std::printf("CHECKS %u\n", checks);
 }

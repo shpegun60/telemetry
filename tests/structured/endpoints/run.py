@@ -15,8 +15,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
-ADAPTER = ROOT / 'lib/telemetry_structured/model/Adapter.cpp'
-ABI = ROOT / 'lib/telemetry_structured/abi/StructuredAbi.cpp'
+ADAPTER = ROOT / 'lib/telemetry/model/Adapter.cpp'
+ABI = ROOT / 'lib/telemetry/abi/StructuredAbi.cpp'
 NO_MATCH = r'no matching (?:member )?function'
 DELETED = r'deleted (?:constructor|function|member)'
 DIAGNOSTICS = {

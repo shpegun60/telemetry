@@ -11,7 +11,7 @@
 #include <QTextStream>
 
 namespace ex = client_example;
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 int main(int argc, char** argv)
 {

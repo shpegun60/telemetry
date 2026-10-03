@@ -2,7 +2,8 @@
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 
-Implementation: [resource/structured](../../../lib/resource/structured/README.md).
+Implementation: [resource/telemetry/v3](../../../lib/resource/telemetry/v3/README.md),
+using the native API in `<telemetry/Telemetry.hpp>` and namespace `telemetry`.
 This slice implements v3.0 descriptor bytes and identity, without ValuesFile,
 Bind/Exchange, transport integration or a client UI.
 
@@ -52,7 +53,7 @@ Locally passed MinGW GCC 13.1, WSL GCC 13.3 with null-check mode, Clang 18
 ASan/UBSan, CubeIDE ARM GCC 14.3.1 and ARM GCC 13.2.1 at O2/Os/Og.
 The ARM null-check matrix also passes. Each host run records 5 successful
 commands + 22 intended rejections; ARM records 34 + 22, plus parser checks.
-CI runs these alongside the prior structured and legacy suites and retains
+CI runs these alongside the other active v3 and generic resource suites and retains
 logs, stack reports and extracted golden bytes.
 
 Stage 08 CI at `45652e7` finished 8/9: GCC 13 `-Os` outlined a Service wrapper
@@ -66,7 +67,11 @@ comparisons pass again on both ARM toolchains. These are codegen checks;
 the historical Stage 08 cycle receipts remain measurements of their recorded
 source snapshots, not a new measurement of every endpoint in this slice.
 
-## ARM footprint and stack
+## Historical Stage 09 ARM footprint and stack
+
+The figures below are the original Stage 09 measurements, not new MCU
+measurements of the final namespace migration. Current runners keep the
+native/codegen and stack gates enabled.
 
 Separate linked images retain just descriptor access and its storage root,
 without LTO. The streaming image also retains metadata and the fixture callbacks
@@ -121,17 +126,23 @@ internal Flash, restores in `finally` and verifies read-back. No option bytes
 or external Flash are written. This run's original and restored SHA-256:
 `a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
 Raw windows and image/source hashes are retained in [h7s/receipt.json](h7s/receipt.json).
+It records `source_head=45652e7db79debb54d851e6d4c5208bc16379c97` and completion
+on 2026-09-27. That historical receipt does not contain a `source_dirty` field;
+its captured input hashes identify the measured local build, not HEAD alone.
 Its verifier detects 16 altered receipts; offline verification checks consistency,
 not current-board execution or availability of every original artifact.
 
 ```powershell
 $arm = (Get-ChildItem 'C:/ST/*/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32*/tools/bin/arm-none-eabi-g++.exe' | Sort-Object FullName -Descending | Select-Object -First 1).FullName
 $programmer = (Get-ChildItem 'C:/ST/*/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer*/tools/bin/STM32_Programmer_CLI.exe' | Sort-Object FullName -Descending | Select-Object -First 1).FullName
-python tests/structured/descriptor/h7s/run.py --cube path/to/h7s_cobs_test --arm-cxx $arm --programmer $programmer --output build/descriptor-h7s-new --run
+python tests/structured/descriptor/h7s/run.py --cube path/to/h7s_cobs_test `
+  --arm-cxx $arm --programmer $programmer --serial SELECTED_SERIAL `
+  --port SELECTED_COM --output build/descriptor-h7s-new --run
 python tests/structured/descriptor/h7s/verify.py --self-test
 ```
 
-The default probe serial is `002A001F3033510135393935`, UART COM6. Override
-`--serial`/`--port` only for the intended H7S board. Existing output directories
+The historical run used serial `002A001F3033510135393935`, UART COM6. Current
+execution has no serial/port defaults: `--run` requires explicit `--programmer`,
+`--serial` and `--port`. Without `--run`, only both images are built. Existing output directories
 are refused. A power or host interruption still requires manual restoration
 from the retained `before.bin`.

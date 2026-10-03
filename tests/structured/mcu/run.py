@@ -22,12 +22,11 @@ QUALIFICATION = HERE.parent / 'qualification'
 sys.path.insert(0, str(QUALIFICATION))
 from gates import EXPECTED_CONSUMER_CHECKS, counted_checks, controls, forbidden_symbols, linked_control
 
-EXPECTED_PROBE_CHECKS = {'Mixed': 12230, 'Scale': 2831}
+EXPECTED_PROBE_CHECKS = {'Mixed': 12230, 'Scale': 2316}
 LIBRARY = [ROOT / name for name in (
-    'lib/telemetry_structured/model/Adapter.cpp',
-    'lib/telemetry_structured/abi/StructuredAbi.cpp',
-    'lib/resource/structured/detail/Values.cpp',
-    'lib/telemetry/abi/TelemetryAbi.cpp')]
+    'lib/telemetry/model/Adapter.cpp',
+    'lib/telemetry/abi/StructuredAbi.cpp',
+    'lib/resource/telemetry/v3/detail/Values.cpp')]
 
 
 def bodies(assembly):
@@ -250,24 +249,14 @@ def main():
                 for group in groups:
                     record['native_codegen'].append(native_group(assembly, group,
                         null_checks=args.null_checks, optimized=opt != 'Og'))
-                if family == 'Scale':
-                    record['legacy_native_bodies'] = {symbol: body for symbol, body in bodies(assembly).items()
-                                                      if '::oldLocal(unsigned' in symbol}
             for obj in objects:
                 for line in obj.with_suffix('.su').read_text().splitlines():
                     name, frame, kind = line.split('\t')
                     record['frames'][name] = {'bytes': int(frame), 'kind': kind}
                     # Only the pre-existing consumer roots need the larger
                     # argument/spill budget; a 4 KiB endpoint local is refused.
-                    # Frozen legacy scalar conversion is a comparison, not
-                    # a structured consumer. In Og its large existing frame
-                    # is kept visible in the report; its source is untouched.
-                    portable = name.replace('\\', '/')
-                    legacy = portable.startswith('lib/telemetry/') or '/lib/telemetry/' in portable or \
-                        '::oldScalar(' in name
-                    if legacy:
-                        record.setdefault('legacy_frames', {})[name] = int(frame)
-                        continue
+                    # Directory names never exempt final-core frames from
+                    # the bounded-stack contract.
                     root = 'consumer_typed(' in name or 'consumer_encoded(' in name
                     limit = (768 if opt == 'Og' else 512) if root else 256
                     if args.arm and (kind != 'static' or int(frame) > limit):

@@ -1,6 +1,6 @@
 // Lifetime and owner-type errors must fail before a table can retain an address.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 using namespace telemetry;
 struct Owner {
     float read() noexcept { return 1; }
@@ -16,20 +16,6 @@ void bad() { slot.bind(Owner{}); }
 void bad() { OwnerSlot<const Owner> target; target.bind(Owner{}); }
 #elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 3
 void bad() { OwnerSlot<const Owner> target; target.bind(Derived{}); }
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 4
-auto bad = field<&Owner::read>("", "", OwnerSlot<Owner>{});
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 5
-auto bad = command<&Owner::call>("", OwnerSlot<Owner>{});
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 6
-auto bad = field<&Owner::read, nullptr, const OwnerSlot<Owner>>("", "", OwnerSlot<Owner>{});
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 7
-auto bad = command<&Owner::call, const OwnerSlot<Owner>>("", OwnerSlot<Owner>{});
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 8
-OwnerSlot<const Owner> target;
-auto bad = field<&Owner::read>("", "", target);
-#elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 9
-OwnerSlot<Other> target;
-CommandTable bad{command<&Owner::call>("", target)};
 #elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 10
 auto bad = slot;
 #elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 11
@@ -49,6 +35,6 @@ void bad() { slot.bind(static_cast<Owner*>(nullptr)); }
 #elif TELEMETRY_OWNER_SLOT_FAIL_CASE == 18
 void bad() { OwnerSlot<Owner> target; target = std::move(slot); }
 #else
-#error Select TELEMETRY_OWNER_SLOT_FAIL_CASE from 1 through 18
+#error "Select a maintained shared case"
 #endif
 int main() {}

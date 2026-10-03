@@ -1,22 +1,23 @@
-# Structured v1 / wire v3.0: Stage 15 contract candidate
+# Structured v1 / wire v3.0: Stage 15 freeze
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
 
 Цей документ фіксує програмну частину Stage 15 за
 [implementation plan](StructuredTelemetryV3ImplementationPlan.md).
-Контракт C++20 structured v1 та wire v3.0 зафіксовано як кандидат на freeze.
+Контракт C++20 structured v1 та wire v3.0 заморожено.
 Stage 14 probes виконано на потрібній H7S без зміни runtime бібліотеки.
-Повний Definition of Done Stage 15 очікує exact-SHA CI публікації receipt
-та оновленої offline матриці. Нових API/wire blockers апаратний прогін не
+Повний Definition of Done Stage 15 закрито: [CI 37145176280](https://github.com/shpegun60/telemetry/actions/runs/37145176280)
+для `389c995083b4dc0a39cd8775b211ef765494240f` завершився success, 9/9 jobs.
+Нових API/wire blockers апаратний прогін не
 виявив; це не обіцянка відсутності всіх можливих дефектів.
 
 | Частина | Статус | Доказ |
 | --- | --- | --- |
-| Контракт API/wire | Зафіксований кандидат; локальні gates пройдено | Новий freeze suite, незмінні goldens, попередні semantic suites |
-| Повна програмна матриця CI | Перевіряється для SHA публікації цього зрізу | Нові host/ARM steps і збережені artifacts |
+| Контракт API/wire | Freeze прийнято | Freeze suite, незмінні goldens, semantic suites |
+| Повна програмна матриця CI | PASS, exact `389c995`, 9/9 jobs | CI 37145176280, host/ARM artifacts |
 | Stage 14 hardware qualification | PASS | [Results](../tests/structured/mcu/h7s/RESULTS.md), 30128 conditions, restore, cycles та PSP observations |
-| Повний Stage 15 DoD | Очікує exact-SHA CI receipt зрізу | Вимогу MCU receipt із §18.1 виконано |
-| Міграція 16–20 | Ще не розпочата | Старий scalar/v2.1 baseline збережено |
+| Повний Stage 15 DoD | PASS | MCU receipt із §18.1 та exact-SHA CI |
+| Міграція 16–20 | Stage 16–19 виконано; Stage 20 qualification триває | Baseline й історичні receipts збережено окремо |
 
 ## Межі зафіксованого API
 
@@ -158,6 +159,5 @@ worst-case межею. Однакові native instruction streams у різни
   у всіх TU одного executable залишається вимогою application build.
 
 Новий Stage 14 MCU receipt, backup/restore і actual call-chain stack/cycle
-evidence отримано. Після зеленого exact-SHA CI receipt публікації Stage 15
-можна закрити та розпочати міграцію 16–20. До цього migration guide є
-підготовкою, а source trees і namespace не переміщуються.
+evidence отримано; exact-SHA CI публікації зелений. Stage 15 завершено.
+Міграція 16–20 використовує цей frozen contract і збережені baseline artifacts.

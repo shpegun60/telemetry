@@ -7,8 +7,8 @@
 #ifndef TELEMETRY_DELEGATE_SLOT_H
 #define TELEMETRY_DELEGATE_SLOT_H
 #include "TelemetrySlotTraits.h"
-#include "../core/TelemetryCompiler.h"
-#include "../detail/TelemetrySlotCallable.h"
+#include "../core/Compiler.hpp"
+#include "../detail/SlotCallable.hpp"
 #include <utility>
 namespace telemetry {
 template <class S, std::size_t Bytes = 32, std::size_t Align = alignof(std::max_align_t)>

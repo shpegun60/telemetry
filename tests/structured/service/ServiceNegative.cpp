@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/service/Service.hpp>
+#include <telemetry/service/Service.hpp>
 
 #include <cstdint>
 
@@ -48,56 +48,56 @@ constexpr auto nullMethod =
     static_cast<Response (Device::*)(const Request&) const noexcept>(nullptr);
 
 #if CASE == 1
-auto invalid = telemetry::structured::service<&scalarRequest>("Invalid");
+auto invalid = telemetry::service<&scalarRequest>("Invalid");
 #elif CASE == 2
-auto invalid = telemetry::structured::service<&scalarResponse>("Invalid");
+auto invalid = telemetry::service<&scalarResponse>("Invalid");
 #elif CASE == 3
-auto invalid = telemetry::structured::service<&mutableRequest>("Invalid");
+auto invalid = telemetry::service<&mutableRequest>("Invalid");
 #elif CASE == 4
-auto invalid = telemetry::structured::service<&throwingRequest>("Invalid");
+auto invalid = telemetry::service<&throwingRequest>("Invalid");
 #elif CASE == 5
-auto invalid = telemetry::structured::service<&twoArguments>("Invalid");
+auto invalid = telemetry::service<&twoArguments>("Invalid");
 #elif CASE == 6
-auto invalid = telemetry::structured::service<&pointerResponse>("Invalid");
+auto invalid = telemetry::service<&pointerResponse>("Invalid");
 #elif CASE == 7
-auto invalid = telemetry::structured::service<&Device::read>("Invalid", Device{});
+auto invalid = telemetry::service<&Device::read>("Invalid", Device{});
 #elif CASE == 8
-auto invalid = telemetry::structured::service("Invalid", [value = 1](const Request&) noexcept {
+auto invalid = telemetry::service("Invalid", [value = 1](const Request&) noexcept {
     return Response{static_cast<std::uint16_t>(value)};
 });
 #elif CASE == 9
-auto invalid = telemetry::structured::service("Invalid", &good, 42);
+auto invalid = telemetry::service("Invalid", &good, 42);
 #elif CASE == 10
 const Device device{};
-auto invalid = telemetry::structured::service<&Device::write>("Invalid", device);
+auto invalid = telemetry::service<&Device::write>("Invalid", device);
 #elif CASE == 11
-auto invalid = telemetry::structured::service<&Device::read, const Device>("Invalid", {});
+auto invalid = telemetry::service<&Device::read, const Device>("Invalid", {});
 #elif CASE == 12
-auto invalid = telemetry::structured::service("Invalid",
+auto invalid = telemetry::service("Invalid",
     telemetry::FunctionSlot<Response(const Request&) noexcept>{});
 #elif CASE == 13
-auto invalid = telemetry::structured::service<&Device::read, const Device>(
+auto invalid = telemetry::service<&Device::read, const Device>(
     "Invalid", {DeviceProxy{}});
 #elif CASE == 14
-auto invalid = telemetry::structured::service<&Device::read, const Device>(
+auto invalid = telemetry::service<&Device::read, const Device>(
     "Invalid", {Device{}});
 #elif CASE == 15
 DeviceProxy proxy{};
-auto invalid = telemetry::structured::service<&Device::read, const Device>(
+auto invalid = telemetry::service<&Device::read, const Device>(
     "Invalid", proxy);
 #elif CASE == 16
 DeviceHolder holder{};
-auto invalid = telemetry::structured::service<&Device::read, const Device>(
+auto invalid = telemetry::service<&Device::read, const Device>(
     "Invalid", holder);
 #elif CASE == 17
-auto invalid = telemetry::structured::service<&constResponse>("Invalid");
+auto invalid = telemetry::service<&constResponse>("Invalid");
 #elif CASE == 18
-auto invalid = telemetry::structured::service("Invalid", StatefulPlus{1});
+auto invalid = telemetry::service("Invalid", StatefulPlus{1});
 #elif CASE == 19
-auto invalid = telemetry::structured::service<nullFunction>("Invalid");
+auto invalid = telemetry::service<nullFunction>("Invalid");
 #elif CASE == 20
 Device device{};
-auto invalid = telemetry::structured::service<nullMethod>("Invalid", device);
+auto invalid = telemetry::service<nullMethod>("Invalid", device);
 #else
 #error Select an invalid service case
 #endif

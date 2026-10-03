@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/result/ServiceResult.hpp>
+#include <telemetry/result/ServiceResult.hpp>
 
 #include <array>
 #include <cstdint>
@@ -14,5 +14,5 @@ using Big = std::array<std::uint32_t, 1024>;
 
 auto invalidResult()
 {
-    return telemetry::structured::ServiceResult<Big>::success(Big{});
+    return telemetry::ServiceResult<Big>::success(Big{});
 }

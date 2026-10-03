@@ -132,7 +132,7 @@ extern "C" void bench_loop()
     std::uint8_t command = 0;
     if (HAL_UART_Receive(&huart3, &command, 1, 100) != HAL_OK || command != 'R') return;
     if (!ready) { line("MCU FAIL setup\r\n"); return; }
-    telemetry::structured::requireStructuredAbi();
+    telemetry::requireStructuredAbi();
     qualification::checks = qualification::failures = 0;
 #ifndef MCU_SCALE
     qualification::consumer_typed(); qualification::consumer_encoded();

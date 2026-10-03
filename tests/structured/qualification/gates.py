@@ -34,12 +34,12 @@ def counted_checks(text, label, expected):
     return counted['checks']
 
 
-def forbidden_symbols(nm_output, *, legacy=False):
+def forbidden_symbols(nm_output):
     """Inspect full demangled names from nm -C, including newlib _name_r.
 
     Strip only C spelling/clone suffixes when classifying C functions. C++
     names remain intact, so an unrelated method named free() is not refused.
-    The scaling fixture may retain legacy Scalar; the mixed consumer may not.
+    Every final image rejects the retired Scalar container.
     """
     names = []
     for line in nm_output.splitlines():
@@ -55,7 +55,7 @@ def forbidden_symbols(nm_output, *, legacy=False):
             base = base[:-2]
         allocation = base in ALLOCATORS or bool(re.search(r'\boperator (?:new|delete)(?:\[\])?\(', name))
         formatting = base in FORMATTERS or bool(re.search(r'\bto_chars\(', name))
-        if allocation or formatting or (legacy and 'Scalar::' in name):
+        if allocation or formatting or 'Scalar::' in name:
             rejected.append(name)
     return rejected
 
@@ -112,11 +112,11 @@ def controls():
         'std::to_chars(char*, char*, double)', 'telemetry::Scalar::convert()',
     ]
     for name in mutations:
-        if forbidden_symbols('00000000 T ' + name + '\n', legacy=True) != [name]:
+        if forbidden_symbols('00000000 T ' + name + '\n') != [name]:
             raise AssertionError('Retained symbol accepted: ' + name)
     scalar = '00000000 T telemetry::Scalar::convert()\n'
-    if forbidden_symbols(scalar):
-        raise AssertionError('Frozen legacy comparison cannot be inspected separately')
+    if forbidden_symbols(scalar) != ['telemetry::Scalar::convert()']:
+        raise AssertionError('Retired Scalar container was accepted')
     try:
         forbidden_symbols('not nm output')
     except RuntimeError:

@@ -24,8 +24,8 @@ public:
     // braces and conversion proxies cannot silently create borrowed state.
     template <class... Explicit, class View>
         requires (sizeof...(Explicit) == 0 &&
-                  (std::same_as<View, telemetry::structured::ModelView&> ||
-                   std::same_as<View, const telemetry::structured::ModelView&>))
+                  (std::same_as<View, telemetry::ModelView&> ||
+                   std::same_as<View, const telemetry::ModelView&>))
     [[nodiscard]] static PacketResult process(Binding& peer, View&& model,
         std::uint64_t expectedFingerprint, Input request, Output response) noexcept
     {
@@ -34,7 +34,7 @@ public:
     }
 
 private:
-    [[nodiscard]] static PacketResult processImpl(Binding&, const telemetry::structured::ModelView&,
+    [[nodiscard]] static PacketResult processImpl(Binding&, const telemetry::ModelView&,
         std::uint64_t, Input, Output, detail::CurrentExchangeAbiTag) noexcept;
 };
 

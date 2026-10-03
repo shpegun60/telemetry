@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 
 #include <array>
 #include <cstddef>
@@ -25,42 +25,42 @@ struct Device {
 };
 
 Device device{100};
-inline constexpr telemetry::structured::ServiceTable local{
-    telemetry::structured::service<&Device::read>("Read", device)};
-inline constexpr telemetry::structured::ServiceCatalogTable services{
-    telemetry::structured::group("device", local)};
-inline constexpr telemetry::structured::Model model{
-    telemetry::structured::emptyFields,
-    telemetry::structured::emptyCommands, services};
+inline constexpr telemetry::ServiceTable local{
+    telemetry::service<&Device::read>("Read", device)};
+inline constexpr telemetry::ServiceCatalogTable services{
+    telemetry::group("device", local)};
+inline constexpr telemetry::Model model{
+    telemetry::emptyFields,
+    telemetry::emptyCommands, services};
 
 } // namespace arm_model
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<arm_model::Response>
+telemetry::ServiceResult<arm_model::Response>
 model_direct(const arm_model::Request& request) noexcept
 {
-    return telemetry::structured::ServiceResult<arm_model::Response>::successFrom(
+    return telemetry::ServiceResult<arm_model::Response>::successFrom(
         [&]() -> arm_model::Response { return arm_model::device.read(request); });
 }
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<arm_model::Response>
+telemetry::ServiceResult<arm_model::Response>
 model_local(const arm_model::Request& request) noexcept
 {
     return arm_model::local.call<0>(request);
 }
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<arm_model::Response>
+telemetry::ServiceResult<arm_model::Response>
 model_global(const arm_model::Request& request) noexcept
 {
     return arm_model::services.call<telemetry::makeId<0, 0>()>(request);
 }
 
 extern "C" __attribute__((noinline))
-telemetry::structured::EncodedCallResult
+telemetry::EncodedCallResult
 model_encoded(std::span<const std::byte> input, std::span<std::byte> output,
-              telemetry::structured::Workspace& workspace) noexcept
+              telemetry::Workspace& workspace) noexcept
 {
     return arm_model::model.serviceIndex().callEncoded(
         telemetry::makeId<0, 0>(), input, output, workspace);

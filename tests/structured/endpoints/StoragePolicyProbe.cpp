@@ -4,12 +4,12 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 template <std::size_t Bytes>
 struct Payload { std::array<std::uint8_t, Bytes> bytes; };

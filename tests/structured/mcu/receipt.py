@@ -16,7 +16,7 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-EXPECTED = {'Mixed': 12230, 'Scale': 2831}
+EXPECTED = {'Mixed': 12230, 'Scale': 2316}
 CONFIGURATIONS = {family + '-' + opt for family in EXPECTED for opt in ('O2', 'Os', 'Og')}
 BIG_PROBES = ('bigRead', 'bigCommand', 'bigService')
 SCOPE = 'offline host execution and ARM compile/link inspection'
@@ -88,9 +88,9 @@ def verify(receipt, *, current=True):
         require(set(run['configurations']) == CONFIGURATIONS, name + ': incomplete O2/Os/Og matrix')
         arm = run['execution'] == 'compile/link only'
         require(arm or run['execution'] == 'host', name + ': invalid execution scope')
-        require(type(run['commands']) is int and run['commands'] == (73 if arm else 58),
+        require(type(run['commands']) is int and run['commands'] == (67 if arm else 52),
                 name + ': changed tool-command count')
-        require(type(run['checks']) is int and run['checks'] == (0 if arm else 45183),
+        require(type(run['checks']) is int and run['checks'] == (0 if arm else 3 * sum(EXPECTED.values())),
                 name + ': changed executed-condition count')
         for label, configuration in run['configurations'].items():
             family = label.split('-')[0]

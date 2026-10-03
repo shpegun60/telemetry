@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/service/Service.hpp>
+#include <telemetry/service/Service.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -17,8 +17,8 @@ struct Request { std::uint16_t id; };
 struct Response { std::uint32_t count; };
 struct EmptyResponse {};
 
-using Result = telemetry::structured::ServiceResult<Response>;
-using Status = telemetry::structured::ServiceStatus;
+using Result = telemetry::ServiceResult<Response>;
+using Status = telemetry::ServiceStatus;
 
 inline int calls = 0;
 
@@ -58,12 +58,12 @@ EmptyResponse emptyResponse() noexcept
 
 void reset() noexcept { ++calls; }
 
-telemetry::structured::ServiceResult<void> resetChecked(const Request& request) noexcept
+telemetry::ServiceResult<void> resetChecked(const Request& request) noexcept
 {
     ++calls;
     if (request.id == 0)
-        return telemetry::structured::ServiceResult<void>::failure(Status::Busy);
-    return telemetry::structured::ServiceResult<void>::success();
+        return telemetry::ServiceResult<void>::failure(Status::Busy);
+    return telemetry::ServiceResult<void>::success();
 }
 
 struct Device {
@@ -124,7 +124,7 @@ struct EmptyPlus {
 
 } // namespace probe
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 constexpr auto fixed = ts::service<&probe::read>("Read");
 static_assert(std::is_same_v<typename decltype(fixed)::Request, probe::Request>);

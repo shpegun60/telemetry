@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "status": "software qualification; Stage 14 hardware execution deferred",
+  "status": "frozen; Stage 14 hardware PASS; Stage 15 exact-SHA CI 389c995 success 9/9",
   "api": "C++20 structured v1",
   "wire": {
     "major": 3, "minor": 0, "descriptor_header_bytes": 64, "values_header_bytes": 24,

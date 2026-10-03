@@ -4,14 +4,14 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using DS = ts::DispatchStatus;
 using WR = telemetry::WriteResult;
 #define CHECK(...) do { if (!(__VA_ARGS__)) return __LINE__; } while (false)

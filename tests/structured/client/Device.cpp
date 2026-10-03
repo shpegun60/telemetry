@@ -11,7 +11,7 @@
 #include <vector>
 
 namespace ex = client_example;
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 static void save(const std::filesystem::path& path, std::span<const std::byte> bytes)
 {

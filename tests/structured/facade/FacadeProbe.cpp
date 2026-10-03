@@ -7,9 +7,9 @@
 
 #include "../reflection/ProbeTypes.hpp"
 
-#include <telemetry_structured/reflection/Reflection.hpp>
-#include <telemetry/command/TelemetryCommand.h>
-#include <telemetry/field/TelemetrySetter.h>
+#include <telemetry/reflection/Reflection.hpp>
+#include <telemetry/result/EndpointStatus.hpp>
+#include <telemetry/result/EndpointStatus.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace refl = telemetry::structured::reflection;
+namespace refl = telemetry::reflection;
 using telemetry_structured_probe::MeterConfig;
 using telemetry_structured_probe::Nested;
 using telemetry_structured_probe::RepeatedTypes;
@@ -132,14 +132,14 @@ static_assert(std::is_same_v<Service::Response, facade_probe::Response>);
 static_assert(Service::kind == refl::EndpointKind::Service);
 
 using Wrapped = refl::EndpointTraits<refl::EndpointKind::Service,
-    telemetry::structured::ServiceResult<facade_probe::Response>(
+    telemetry::ServiceResult<facade_probe::Response>(
         const facade_probe::Request&) noexcept>;
 static_assert(Wrapped::wrapsServiceResult);
 static_assert(std::is_same_v<Wrapped::Response, facade_probe::Response>);
 
 using Empty = refl::EndpointTraits<refl::EndpointKind::Service, void() noexcept>;
 using WrappedEmpty = refl::EndpointTraits<refl::EndpointKind::Service,
-    telemetry::structured::ServiceResult<void>() noexcept>;
+    telemetry::ServiceResult<void>() noexcept>;
 using ByValue = refl::EndpointTraits<refl::EndpointKind::Service,
     facade_probe::Response(facade_probe::Request) noexcept>;
 static_assert(std::is_void_v<Empty::Request> && std::is_void_v<Empty::Response>);

@@ -1,13 +1,12 @@
-# Structured telemetry v3: підготовка міграції 16–20
+# Telemetry v3: міграція 16–20
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
 
-**Статус: preparation only; Stage 16 не розпочато.** Інвентаризація виходить
-із tracked source `d642b42b656df367784a8cc57a1fcaf10a301453`. Цей документ
-не змінює core, не закриває Stage 14 і не оголошує Stage 15 завершеним.
-Етапи 16–20 заблоковані до повного Stage 15 gate: прийнятого freeze,
-необхідного MCU evidence та CI для відповідного SHA. Рішення про gate
-належить [implementation plan](StructuredTelemetryV3ImplementationPlan.md)
+**Статус: Stage 16–19 реалізовано; Stage 20 перевіряється перед публікацією.**
+Інвентаризація починалась на `d642b42`; baseline повторено на `389c995`.
+Exact-SHA [CI 37145176280](https://github.com/shpegun60/telemetry/actions/runs/37145176280)
+пройшов 9/9 jobs; Stage 14 MCU receipt прийнято. Рішення про gate
+зафіксовано в [implementation plan](StructuredTelemetryV3ImplementationPlan.md)
 і [freeze qualification](StructuredTelemetryV3FreezeQualification.md).
 
 Мета після gate — один C++20 `telemetry`/`ts`, exact native values і wire
@@ -17,6 +16,14 @@ v3.0. Міграція не додає semantics, не розширює supporte
 до перенесення, з новою матрицею й повторним freeze.
 
 ## 1. Stage 16: підтвердження і source migration cases
+
+Baseline: mixed endpoints MinGW 13.1 і CubeIDE ARM 14.3.1; Service/Model ARM;
+Clang 18 ASan/UBSan traversal та multi-TU qualification; сім freeze/offline
+compiler roles; JS і Chromium. Старі source trees під час цих прогонів
+не змінювались. Попереднє порівняння міграційної копії на CubeIDE ARM дало
+69/69 побайтово однакових native code/layout artifacts; layouts та великі
+individual frames O2/Os/Og збігаються. Після перенесення повторюємо матрицю
+в кінцевому дереві; перевірка копії не замінює final-SHA CI і MCU receipt.
 
 Повторити вже наявні mixed Field/Command/Service fixtures, насамперед
 [MixedFixture.hpp](../tests/structured/endpoints/MixedFixture.hpp) та
@@ -58,16 +65,16 @@ wire goldens, linked sections, frames і normalized instruction streams.
 
 | Поточне джерело | Що використовується новим core | Кінцеве місце / дія |
 | --- | --- | --- |
-| [TelemetrySetter.h](../lib/telemetry/field/TelemetrySetter.h) | `WriteResult`, `uint8_t`, codes Applied..Unavailable | Виділити тільки enum до `telemetry/result/EndpointStatus.hpp`; старий `Setter` не переносити |
-| [TelemetryCommand.h](../lib/telemetry/command/TelemetryCommand.h) | `CommandResult`, `uint8_t`, codes Executed..Failed | Той самий `EndpointStatus.hpp`; `CommandParam`, Scalar arguments і metadata ops не переносити |
-| [TelemetryId.h](../lib/telemetry/core/TelemetryId.h) | Packed IDs, `makeId`, `tryMakeId`, decomposition, bounds/template helpers | `telemetry/core/Id.hpp`, зі збереженими правилами packing та diagnostics |
-| [TelemetryCompiler.h](../lib/telemetry/core/TelemetryCompiler.h) | Inline/compiler attributes у Workspace, codec, encoded paths і slots | `telemetry/core/Compiler.hpp`; зберегти compiler behavior |
-| [TelemetryNumberConversion.h](../lib/telemetry/detail/TelemetryNumberConversion.h) | `convertNumberTo` і finite/bounds semantics для `readAs`/`writeAs` | `telemetry/detail/NumberConversion.hpp`; відокремити від Scalar, додати його прямі standard includes |
-| [TelemetryOwner.h](../lib/telemetry/detail/TelemetryOwner.h) | Actual object borrowing, member owner і temporary rejection | `telemetry/detail/Owner.hpp`, той самий lifetime contract |
-| [TelemetryTarget.h](../lib/telemetry/detail/TelemetryTarget.h) | `nonNullTarget`, `pointerPresent`, uncertainty і weak target behavior | `telemetry/detail/Target.hpp`, зберегти normal/null-check modes |
-| [TelemetrySlotCallable.h](../lib/telemetry/detail/TelemetrySlotCallable.h) | Exact signature matching і delegate support | `telemetry/detail/SlotCallable.hpp`; зберегти `lib/delegate` dependency |
+| [TelemetrySetter.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/field/TelemetrySetter.h) | `WriteResult`, `uint8_t`, codes Applied..Unavailable | Виділити тільки enum до `telemetry/result/EndpointStatus.hpp`; старий `Setter` не переносити |
+| [TelemetryCommand.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/command/TelemetryCommand.h) | `CommandResult`, `uint8_t`, codes Executed..Failed | Той самий `EndpointStatus.hpp`; `CommandParam`, Scalar arguments і metadata ops не переносити |
+| [TelemetryId.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/core/TelemetryId.h) | Packed IDs, `makeId`, `tryMakeId`, decomposition, bounds/template helpers | `telemetry/core/Id.hpp`, зі збереженими правилами packing та diagnostics |
+| [TelemetryCompiler.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/core/TelemetryCompiler.h) | Inline/compiler attributes у Workspace, codec, encoded paths і slots | `telemetry/core/Compiler.hpp`; зберегти compiler behavior |
+| [TelemetryNumberConversion.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryNumberConversion.h) | `convertNumberTo` і finite/bounds semantics для `readAs`/`writeAs` | `telemetry/detail/NumberConversion.hpp`; відокремити від Scalar, додати його прямі standard includes |
+| [TelemetryOwner.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryOwner.h) | Actual object borrowing, member owner і temporary rejection | `telemetry/detail/Owner.hpp`, той самий lifetime contract |
+| [TelemetryTarget.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryTarget.h) | `nonNullTarget`, `pointerPresent`, uncertainty і weak target behavior | `telemetry/detail/Target.hpp`, зберегти normal/null-check modes |
+| [TelemetrySlotCallable.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetrySlotCallable.h) | Exact signature matching і delegate support | `telemetry/detail/SlotCallable.hpp`; зберегти `lib/delegate` dependency |
 | [slot headers](../lib/telemetry/slot/README.md) | FunctionSlot, ContextFunctionSlot, DelegateRefSlot, DelegateSlot, OwnerSlot, recognition traits | Кінцеві `telemetry/slot/*` headers; без нового ownership або runtime modes |
-| [StructuredAbi.hpp](../lib/telemetry_structured/abi/StructuredAbi.hpp) і `.cpp` | Exact new view/ops tag, revision 5, storage budget/layout facts | Кінцевий `telemetry/abi/` header/anchor; ті самі facts, wire не змінюється |
+| [StructuredAbi.hpp](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry_structured/abi/StructuredAbi.hpp) і `.cpp` | Exact new view/ops tag, revision 5, storage budget/layout facts | Кінцевий `telemetry/abi/` header/anchor; ті самі facts, wire не змінюється |
 
 Окремі extraction details:
 
@@ -195,7 +202,7 @@ count, paths, reads і generic protocol разом із app facade.
 | [facade/run.py](../tests/structured/facade/run.py) | Scan старого `lib/telemetry_structured` може стати порожнім | Scan final directory; не дозволити нуль headers як успішний boundary check |
 | [structured resources/run.py](../tests/structured/resources/run.py) | Standalone header scan старого resource tree | Scan `lib/resource/telemetry/v3/` з правильними includes |
 | [resources/run.py](../tests/resources/run.py) | Виключає тільки root component `structured`; після move захопить v3 без backend includes | Generic core scan звузити до власних headers; v3 перевіряється своїм runner |
-| [qualification/ScalarComparison.cpp](../tests/structured/qualification/ScalarComparison.cpp) | Один TU містить new+old same-name tables після namespace move | Розділити binaries до Stage 19; потім прибрати old controls і зберегти direct/new codegen |
+| [qualification/ScalarComparison.cpp](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/structured/qualification/ScalarComparison.cpp) | Один TU містить new+old same-name tables після namespace move | Розділити binaries до Stage 19; потім прибрати old controls і зберегти direct/new codegen |
 | [mcu/Scale.cpp](../tests/structured/mcu/Scale.cpp) | oldLocal/oldScalar та operation index arithmetic | Видаляти old probes лише після baseline; оновити indices/expected/refusal checks, зберегти direct/native/visitor/As/encoded |
 | `endpoints/h7s/*` із `ENDPOINT_LEGACY` | Legacy branch зараз також бачить new fixture | Old-only/new-only TU boundaries; після Stage 19 old branch/target зникає |
 | [resources.pro](../tests/structured/resources/resources.pro), [run_qmake.py](../tests/structured/resources/run_qmake.py) | `MODE=both` стане ODR conflict | Після Stage 17 окремі old/new targets; фінально тільки core-only і v3 selections |
@@ -225,8 +232,8 @@ shared IDs/slot/callable/numeric edge coverage спершу перенести �
 weak targets, ID boundary/explicit-template-argument cases і FP mode
 refusals залишаються релевантними збереженим contracts.
 
-Generic resource `CoreCheck.cpp`, `Negative.cpp`, `TestSupport.hpp` і
-`stack_check.py` лишаються; DeviceCheck переходить на v3 app files.
+Generic resource `CoreCheck.cpp`, `Negative.cpp` і `stack_check.py` лишаються;
+старий невикористовуваний v2 `TestSupport.hpp` видалено після збереження baseline; DeviceCheck переходить на v3 app files.
 Legacy Binary/TelemetryFiles/Metadata/decoder/goldens перевіряли v2
 layout і видаляються або архівуються. Якщо old fixture також перевіряв
 generic cursor/protocol/error поведінку, зберегти ці cases на generic
@@ -250,5 +257,12 @@ provider або v3 перед його видаленням.
 6. README/include/qmake examples показують кінцевий C++20 API й прямо
    вказують відсутність source/ABI/wire compatibility із v2.1.
 
-Цей список є preparation map. Він не означає, що Stage 16 або будь-який
-етап перенесення вже виконано.
+Карта вище також зберігає початкову інвентаризацію. Stage 16–19 виконано:
+нейтральні shared contracts виділено, нове ядро стало єдиним `telemetry`,
+consumers/tests/CI переведено, Scalar/v2 executable implementation видалено.
+Stage 20 потребує свіжих final-source MCU receipts і зеленого CI опублікованого SHA.
+
+Фінальний ARM byte comparison: [69/69 artifacts](evidence/StructuredMigrationCodegen.json).
+Retirement sources та Git baseline: [перелік](evidence/StructuredLegacyTestRetirement.json).
+Поточні [тести](../tests/README.md), [API](../lib/telemetry/README.md) й
+[історичні докази](evidence/pre-unification/README.md) мають окремі ролі.

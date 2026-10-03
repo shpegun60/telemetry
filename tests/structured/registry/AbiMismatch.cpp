@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/abi/StructuredAbi.hpp>
+#include <telemetry/abi/StructuredAbi.hpp>
 
 #include <array>
 #include <cstddef>
@@ -13,7 +13,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 template <class Tag, std::size_t Index>
 struct MutateAbiPart;

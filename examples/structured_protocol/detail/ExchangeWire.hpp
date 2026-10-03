@@ -8,7 +8,7 @@
 #define EXAMPLE_STRUCTURED_PROTOCOL_DETAIL_EXCHANGE_WIRE_HPP
 
 #include "../Binding.hpp"
-#include <telemetry_structured/result/EndpointResults.hpp>
+#include <telemetry/result/EndpointResults.hpp>
 #include <concepts>
 #include <type_traits>
 
@@ -75,9 +75,9 @@ inline bool wireStatus(telemetry::CommandResult status, std::uint8_t& wire) noex
     return false;
 }
 
-inline bool wireStatus(telemetry::structured::ServiceStatus status, std::uint8_t& wire) noexcept
+inline bool wireStatus(telemetry::ServiceStatus status, std::uint8_t& wire) noexcept
 {
-    using S = telemetry::structured::ServiceStatus;
+    using S = telemetry::ServiceStatus;
     switch (status) {
     case S::Ok: wire = 0; return true;
     case S::InvalidArgument: wire = 1; return true;
@@ -88,9 +88,9 @@ inline bool wireStatus(telemetry::structured::ServiceStatus status, std::uint8_t
     return false;
 }
 
-inline PacketStatus packetStatus(telemetry::structured::DispatchStatus status) noexcept
+inline PacketStatus packetStatus(telemetry::DispatchStatus status) noexcept
 {
-    using S = telemetry::structured::DispatchStatus;
+    using S = telemetry::DispatchStatus;
     switch (status) {
     case S::Ok: return PacketStatus::Ok;
     case S::NotFound: return PacketStatus::NotFound;

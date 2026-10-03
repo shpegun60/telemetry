@@ -1,13 +1,13 @@
 /* Stage 10 fixtures. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #pragma once
-#include <resource/structured/DescriptorFile.hpp>
-#include <resource/structured/ValuesFile.hpp>
+#include <resource/telemetry/v3/DescriptorFile.hpp>
+#include <resource/telemetry/v3/ValuesFile.hpp>
 #include <resource/FileSystem.hpp>
 #include <bit>
 
 namespace fixture {
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 struct Empty {};
 struct Point { std::uint16_t code; float value; bool ready; };
 enum class Mode : std::int16_t { Off = -1, On = 2 };

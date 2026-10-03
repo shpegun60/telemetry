@@ -1,2 +1,2 @@
 /* Build the actual resource reader against the captured library snapshot. MIT. */
-#include <resource/structured/detail/Values.cpp>
+#include <resource/telemetry/v3/detail/Values.cpp>

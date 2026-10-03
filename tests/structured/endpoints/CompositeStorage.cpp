@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/model/Model.hpp>
+namespace ts = telemetry;
 namespace small {
 inline int initializers = 0, writes = 0, services = 0;
 int initialize() noexcept { ++initializers; return 4; }

@@ -1,10 +1,10 @@
 /* Typed traversal fixtures. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #pragma once
-#include <telemetry_structured/Structured.hpp>
+#include <telemetry/Telemetry.hpp>
 #include <array>
 
 namespace fixture {
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using W = telemetry::WriteResult;
 using C = telemetry::CommandResult;
 enum class Mode : std::int16_t { Off = -1, On = 2 };

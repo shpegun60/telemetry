@@ -4,7 +4,7 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 
 #if !defined(__arm__)
 // Any unexpected dynamic allocation fails the host test immediately.
@@ -16,7 +16,7 @@ void operator delete(void*, std::size_t) noexcept { std::abort(); }
 void operator delete[](void*, std::size_t) noexcept { std::abort(); }
 #endif
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 namespace large {
 struct Value { std::array<std::uint8_t, 4096> data; };
 inline int reads = 0, writes = 0, calls = 0;

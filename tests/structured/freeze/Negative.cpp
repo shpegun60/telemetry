@@ -1,7 +1,7 @@
 /* Invalid public declarations must stay rejected at the factory boundary.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
-#include <telemetry_structured/Structured.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/Telemetry.hpp>
+namespace ts = telemetry;
 struct Request { std::uint32_t value; };
 #if CASE == 1
 auto invalid = ts::field("Value", "V", +[]() noexcept { return 1.0f; });

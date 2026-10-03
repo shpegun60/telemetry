@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/service/Service.hpp>
+#include <telemetry/service/Service.hpp>
 
 #include <cstdint>
 
@@ -37,20 +37,20 @@ WeakResponse replaceable_service(const WeakRequest&) noexcept
 
 int main()
 {
-    auto absent = telemetry::structured::service<&absent_service>("Absent");
+    auto absent = telemetry::service<&absent_service>("Absent");
     if (absent.call(WeakRequest{1}).status() !=
-        telemetry::structured::ServiceStatus::Unavailable) return 1;
+        telemetry::ServiceStatus::Unavailable) return 1;
 
-    auto replaceable = telemetry::structured::service<&replaceable_service>("Replaceable");
+    auto replaceable = telemetry::service<&replaceable_service>("Replaceable");
     if (replaceable.call(WeakRequest{1}).value().value != EXPECT_OVERRIDE) return 2;
 
     WeakDevice device{};
-    auto absentMethod = telemetry::structured::service<&WeakDevice::absent>(
+    auto absentMethod = telemetry::service<&WeakDevice::absent>(
         "AbsentMethod", device);
     if (absentMethod.call(WeakRequest{1}).status() !=
-        telemetry::structured::ServiceStatus::Unavailable) return 3;
+        telemetry::ServiceStatus::Unavailable) return 3;
 
-    auto replaceableMethod = telemetry::structured::service<&WeakDevice::replaceable>(
+    auto replaceableMethod = telemetry::service<&WeakDevice::replaceable>(
         "ReplaceableMethod", device);
     constexpr auto expectedMethod = EXPECT_OVERRIDE == 11 ? 33 : 44;
     if (replaceableMethod.call(WeakRequest{1}).value().value != expectedMethod) return 4;

@@ -50,9 +50,9 @@ def main():
     if args.null_checks:
         flags += ['-fno-delete-null-pointer-checks']
     flags += ['-I' + str(ROOT / name) for name in ('lib', 'lib/boost_pfr/include', 'lib/magic_enum')]
-    sources = [ROOT / 'lib/telemetry_structured/abi/StructuredAbi.cpp',
-               ROOT / 'lib/telemetry_structured/model/Adapter.cpp',
-               ROOT / 'lib/resource/structured/detail/Values.cpp']
+    sources = [ROOT / 'lib/telemetry/abi/StructuredAbi.cpp',
+               ROOT / 'lib/telemetry/model/Adapter.cpp',
+               ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp']
     suffix = '.exe' if os.name == 'nt' else ''
     for source, name in (('Device.cpp', 'client-device'), ('Resources.cpp', 'client-resources')):
         program = out / (name + suffix)

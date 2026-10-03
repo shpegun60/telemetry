@@ -7,12 +7,12 @@
 
 #include "ProbeTypes.hpp"
 
-#include <telemetry_structured/type/Registry.hpp>
+#include <telemetry/type/Registry.hpp>
 
-using Registry = telemetry::structured::TypeRegistry<
+using Registry = telemetry::TypeRegistry<
     registry_probe::SampleBlock, registry_probe::SameShape>;
 
-extern "C" telemetry::structured::TypeRegistryView structured_registry_view() noexcept
+extern "C" telemetry::TypeRegistryView structured_registry_view() noexcept
 {
     return Registry::view();
 }

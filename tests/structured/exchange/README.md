@@ -6,7 +6,10 @@ This suite still exercises the same packet contract. Telemetry/resource core
 and their `.pri` files do not select or require this protocol. Packet-only
 statuses are owned by the example; endpoint statuses remain in telemetry.
 The hardware figures/receipt below were refreshed on 2026-10-03 against
-the relocated sources. Older measurements remain in the preceding Git revision.
+the protocol-relocation snapshot. They predate the final `telemetry` namespace
+and `resource/telemetry/v3` path migration; they are historical measurements.
+Current C++ declarations use `<telemetry/Telemetry.hpp>` and namespace
+`telemetry`. Older measurements remain in the preceding Git revision.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../../lib/resource/LICENSE).
 
@@ -29,7 +32,7 @@ python3 tests/structured/exchange/run.py --arm --cxx arm-none-eabi-g++ --build-d
 has its own log. The runner counts successful commands and expected rejections;
 these are not counts of individual C++ assertions. CI runs the full default
 runner, including host/sanitized/null-check jobs, ARM and retained board evidence.
-The four-mode qmake provider test excludes example sources. The separate
+The core-only/v3 qmake provider test excludes example sources. The separate
 `qmake.pro` selects the example twice to check idempotent inclusion and calls
 both compiled handlers; an omitted source therefore fails to link.
 
@@ -76,8 +79,8 @@ The host matrix uses dynamic test containers; the MCU fixture uses fixed arrays.
 ## ARM evidence
 
 Linked `Arm.cpp` fixture, including its native callbacks and model. The
-current CubeIDE row is from the API correction; the ARM GCC row is the
-original Stage 11 measurement:
+CubeIDE row is from the protocol API correction; the ARM GCC row is the
+original Stage 11 measurement. Both are historical pre-migration figures:
 
 | Compiler | O2 .text | Os .text | Og .text |
 | --- | ---: | ---: | ---: |
@@ -87,7 +90,8 @@ original Stage 11 measurement:
 Exchange's own frame is 112/112/136 B at O2/Os/Og on both compilers.
 CubeIDE Bind's frame is 48/32/32 B. Gates are 112 B for release and 144 B for
 Og, covering every retained fixture frame; these limits are not measurements
-of full call-chain peaks. Stage 13 still owns end-to-end stack proof.
+of full call-chain peaks. The later [Stage 14 MCU qualification](../mcu/h7s/README.md)
+records the core endpoint call-chain measurements separately.
 The fixture's 12 KiB BSS is static request/response/scratch storage, not hidden
 library allocation. No startup constructors, allocation, formatting or Scalar
 conversion symbols are retained. Exchange's object has no Bind/descriptor/hash
@@ -124,25 +128,33 @@ its original image. Callback and envelope checksums are verified;
 the loop and checksum overhead are not subtracted.
 
 The recorded [receipt](h7s/receipt.json) identifies the exact captured code and
-objects. `source_head=8aa49144`, `source_dirty=true` records the local
-API correction snapshot before its publication commit, rather than inventing a new
-Git SHA for the measurement. The receipt verifier checks coverage/provenance
+objects. `source_head=cd8b636bc8a518fcc1a3021659f109281d47107e` and
+`source_dirty=true` identify the local protocol-relocation snapshot; completion
+was `2026-10-03T11:45:47.235580+00:00`. Captured hashes identify its complete
+contents. These fields are not relabelled with the final migration SHA. The
+receipt verifier checks coverage/provenance
 structure and 16 mutations; it is an offline check, not a fresh board run.
 
 ```powershell
 python tests/structured/exchange/h7s/run.py --cube <copied-Cube-scaffold> `
   --arm-cxx <CubeIDE-arm-none-eabi-g++.exe> --programmer <STM32_Programmer_CLI.exe> `
+  --serial <selected-adapter-serial> --port <selected-UART-port> `
   --output <new-build-directory> --run
 python tests/structured/exchange/h7s/verify.py --self-test
 ```
 
-Without `--run`, only images are built. The live runner selects ST-LINK
-`002A001F3033510135393935` / COM6, verifies NUCLEO-H7S3L8 before programming,
-builds both images first and restores Flash in `finally`. It does not alter
-option bytes or external Flash. The unmodified legacy 3328-check board suite
-is rerun separately for the repository's current-code receipt.
+Without `--run`, only images are built. Device execution requires explicit
+`--programmer`, `--serial` and `--port`; there is no automatic adapter selection.
+The historical run used ST-LINK `002A001F3033510135393935` / COM6. The live
+runner verifies NUCLEO-H7S3L8 before programming, builds and authenticates both
+images first, and restores Flash in `finally`. It does not alter option bytes
+or external Flash. The former 3328-check scalar board suite is retired; the
+[current structured MCU qualification](../mcu/h7s/README.md) supplies separate
+Mixed/Scale evidence. Neither that evidence nor offline receipt verification
+is a new execution of this optional protocol bench.
 
 Remaining scope is deliberate: no real UART/TCP transport implementation,
 authentication, client UI, retries or deduplication is added by this slice.
-Stage 12 may use this example separately from its payload codec; Stage 13 consolidates final whole-program
-measurements. Concurrent model owners still need application synchronization.
+The [client example](../client/README.md) can use its payload codec without
+selecting this protocol. Integrated qualification and MCU measurements remain
+separate suites. Concurrent model owners still need application synchronization.

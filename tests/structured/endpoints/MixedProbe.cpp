@@ -7,7 +7,7 @@
 #include "MixedFixture.hpp"
 #include <type_traits>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using namespace fixture;
 
 static_assert(std::is_same_v<decltype(mixedFields.read<0>()), std::optional<bool>>);

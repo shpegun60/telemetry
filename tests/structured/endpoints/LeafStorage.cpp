@@ -4,11 +4,11 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 #include <algorithm>
 #include <bit>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 namespace leaf {
 enum class Mode : std::uint16_t { Off, On };
 template <class T> inline T current{};

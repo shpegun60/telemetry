@@ -7,8 +7,8 @@
 #ifndef TELEMETRY_CONTEXT_FUNCTION_SLOT_H
 #define TELEMETRY_CONTEXT_FUNCTION_SLOT_H
 #include "TelemetrySlotTraits.h"
-#include "../core/TelemetryCompiler.h"
-#include "../detail/TelemetryTarget.h"
+#include "../core/Compiler.hpp"
+#include "../detail/Target.hpp"
 #include <utility>
 namespace telemetry {
 template <class S> class ContextFunctionSlot {

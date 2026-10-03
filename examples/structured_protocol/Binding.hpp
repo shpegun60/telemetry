@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <telemetry_structured/abi/StructuredAbi.hpp>
+#include <telemetry/abi/StructuredAbi.hpp>
 
 namespace example::structured_protocol {
 
@@ -47,7 +47,7 @@ public:
 private:
     friend class Bind;
     friend class Exchange;
-    const telemetry::structured::ModelView* model_ = nullptr;
+    const telemetry::ModelView* model_ = nullptr;
 };
 
 // Local result of producing a packet. Only [0,written) may be sent. Endpoint
@@ -64,7 +64,7 @@ namespace detail {
 static_assert(std::is_standard_layout_v<Binding> && sizeof(Binding) == sizeof(void*));
 static_assert(std::is_standard_layout_v<PacketResult>);
 template <class CoreTag, std::size_t... Parts> struct ExchangeAbiTag {};
-using CurrentExchangeAbiTag = ExchangeAbiTag<telemetry::structured::detail::CurrentStructuredAbiTag,
+using CurrentExchangeAbiTag = ExchangeAbiTag<telemetry::detail::CurrentStructuredAbiTag,
     1, sizeof(Binding), alignof(Binding), sizeof(PacketResult), alignof(PacketResult),
     offsetof(PacketResult, written), offsetof(PacketResult, dispatch)>;
 } // namespace detail

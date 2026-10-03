@@ -7,15 +7,15 @@
 
 #include "ProbeTypes.hpp"
 
-#include <telemetry_structured/abi/StructuredAbi.hpp>
-#include <telemetry_structured/type/Registry.hpp>
+#include <telemetry/abi/StructuredAbi.hpp>
+#include <telemetry/type/Registry.hpp>
 
 #include <array>
 #include <cstdint>
 #include <type_traits>
 
-using telemetry::structured::TypeKind;
-using telemetry::structured::TypeRegistry;
+using telemetry::TypeKind;
+using telemetry::TypeRegistry;
 using registry_probe::Mode;
 using registry_probe::Reading;
 using registry_probe::SameShape;
@@ -25,9 +25,9 @@ struct EmptyStruct {};
 enum class NoNames : std::uint8_t { One = 1 };
 
 template <>
-struct telemetry::structured::reflection::EnumReflection<NoNames> {
+struct telemetry::reflection::EnumReflection<NoNames> {
     inline static constexpr auto entries =
-        telemetry::structured::reflection::enumEntries<NoNames>();
+        telemetry::reflection::enumEntries<NoNames>();
 };
 
 using Empty = TypeRegistry<>;
@@ -101,8 +101,8 @@ static_assert(Registry::descriptor<14>().recordBytes == 28 +
               (2 + 4 + 5) + (2 + 4 + 6) + (2 + 4 + 5));
 static_assert(Registry::recordsBytes == 546);
 static_assert(Registry::view().find(17) == nullptr);
-static_assert(std::is_standard_layout_v<telemetry::structured::TypeDescriptor>);
-static_assert(std::is_trivially_copyable_v<telemetry::structured::TypeDescriptor>);
+static_assert(std::is_standard_layout_v<telemetry::TypeDescriptor>);
+static_assert(std::is_trivially_copyable_v<telemetry::TypeDescriptor>);
 
 template <class T>
 concept HasSemanticMetadata =
@@ -111,13 +111,13 @@ concept HasSemanticMetadata =
     requires(const T& descriptor) { descriptor.defaultValue; } ||
     requires(const T& descriptor) { descriptor.owner; };
 
-static_assert(!HasSemanticMetadata<telemetry::structured::TypeDescriptor>);
+static_assert(!HasSemanticMetadata<telemetry::TypeDescriptor>);
 
 extern "C" std::uint32_t registry_other_id() noexcept;
 
 int main()
 {
-    telemetry::structured::requireStructuredAbi();
+    telemetry::requireStructuredAbi();
     auto view = Registry::view();
     if (view.count != Registry::typeCount || view.recordsBytes != Registry::recordsBytes)
         return 1;

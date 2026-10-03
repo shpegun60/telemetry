@@ -7,8 +7,8 @@
 #ifndef TELEMETRY_OWNER_SLOT_H
 #define TELEMETRY_OWNER_SLOT_H
 
-#include "../detail/TelemetryOwner.h"
-#include "../detail/TelemetryTarget.h"
+#include "../detail/Owner.hpp"
+#include "../detail/Target.hpp"
 #include <memory>
 #include <type_traits>
 

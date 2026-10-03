@@ -9,14 +9,12 @@ import hashlib
 import json
 from pathlib import Path
 import runpy
-import shutil
-import subprocess
+import re
 import time
-from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
-H7 = runpy.run_path(str(ROOT / 'tests/field_layout/h7s/run.py'))
+H7 = runpy.run_path(str(ROOT / 'tests/h7s_support/build.py'))
 
 
 def sha(path):
@@ -29,38 +27,31 @@ def main():
     parser.add_argument('--arm-cxx', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--programmer')
-    parser.add_argument('--serial', default='002A001F3033510135393935')
-    parser.add_argument('--port', default='COM6')
+    parser.add_argument('--serial', help='explicit adapter serial, required with --run')
+    parser.add_argument('--port', help='explicit serial port, required with --run')
     parser.add_argument('--run', action='store_true')
     args = parser.parse_args()
-    if args.run and not args.programmer:
-        parser.error('--run requires --programmer')
+    if args.run and not all((args.programmer, args.serial, args.port)):
+        parser.error('--run requires --programmer, --serial and --port')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    scaffold = output / 'scaffold'
-    for relative in ('Boot/Core', 'Drivers'):
-        shutil.copytree(args.cube / relative, scaffold / relative)
-    shutil.copy2(args.cube / 'Boot/STM32H7S3L8HX_FLASH.ld', scaffold / 'Boot')
-
-    def prepare(destination, variants):
-        for variant in variants:
-            shutil.copytree(ROOT / 'lib', destination / variant / 'lib')
-
-    H7['BASE']['prepare'] = prepare
-    H7['BASE']['includes'] = lambda directory: ['-I' + str(directory / path) for path in
-        ('lib', 'lib/boost_pfr/include', 'lib/magic_enum')]
-    build_args = SimpleNamespace(cube=scaffold, arm_cxx=args.arm_cxx, variants=['Current'], optimizations=['O2', 'Os'])
-    images = H7['build'](build_args, output, cxx_standard='c++20', fixture_sources=[HERE / 'Probe.cpp', HERE / 'Benchmark.cpp'],
-        fixture_inputs=[Path(__file__), HERE.parent / 'Fixture.hpp', HERE.parent.parent / 'endpoints/MixedFixture.hpp'])
+    images = H7['build'](args, output, fixture_sources=[HERE / 'Probe.cpp', HERE / 'Benchmark.cpp'],
+        fixture_inputs=[Path(__file__), HERE / 'verify.py', HERE.parent / 'Fixture.hpp', HERE.parent.parent / 'endpoints/MixedFixture.hpp'])
     if not args.run:
         return
+    # Validate the complete matrix before any device access.
+    for image in images:
+        if sha(image['elf']) != image['elf_sha256'] or sha(image['binary']) != image['binary_sha256'] or not 0 < Path(image['binary']).stat().st_size <= 65536:
+            raise RuntimeError('Compiled image changed after building')
+    provenance = json.loads((output / 'build-provenance.json').read_text(encoding='utf-8'))
     import serial
     from verify import verify
     with serial.Serial(args.port, 115200, timeout=0.2):
         pass
     connection = ['-c', 'port=SWD', 'sn=' + args.serial, 'mode=UR', 'reset=HWrst', 'freq=1000']
     receipt = dict(started=datetime.now(timezone.utc).isoformat(), serial=args.serial, port=args.port,
-        source_head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+        source_head=provenance['source_head'], source_dirty=provenance['source_dirty'],
+        build_provenance=provenance,
         images=images, build_inputs=json.loads((output / 'build-inputs.json').read_text()),
         compiler=(output / 'common/compiler.log').read_text().splitlines()[0],
         runs={}, completed=False, restored_and_verified=False)
@@ -77,18 +68,20 @@ def main():
     backup = output / 'before.bin'
     info = H7['run']([args.programmer, *connection, '-u', '0x08000000', '0x10000', backup, '-rst'], output / 'backup.log', 60)
     boards = [line.split(':', 1)[1].strip() for line in info.splitlines() if line.startswith('Board ')]
-    if boards != ['NUCLEO-H7S3L8'] or backup.stat().st_size != 65536:
+    serials = re.findall(r'^ST-LINK SN\s*:\s*(.+)$', info, re.M)
+    if boards != ['NUCLEO-H7S3L8'] or serials != [args.serial] or not re.search(r'Device ID\s*:\s*0x485\b', info) or not backup.is_file() or backup.stat().st_size != 65536:
         raise RuntimeError('Unexpected board or incomplete backup; no image programmed')
     receipt['board'] = boards[0]
     receipt['backup_sha256'] = sha(backup)
+    receipt['backup_bytes'] = backup.stat().st_size
     save()
     try:
         for image in images:
             opt = image['optimization']
-            if sha(image['elf']) != image['elf_sha256']:
+            if sha(image['elf']) != image['elf_sha256'] or sha(image['binary']) != image['binary_sha256'] or Path(image['binary']).stat().st_size != image['flash_bytes']:
                 raise RuntimeError('Image changed after building')
             program('flash-' + opt, image['elf'])
-            report = dict(ready=None, check=None, timing=[], done=False)
+            report = dict(ready=None, check=None, timing=[], uart_lines=[], done=False)
             receipt['runs'][opt] = report
             with serial.Serial(args.port, 115200, timeout=0.5, write_timeout=2) as port:
                 port.reset_input_buffer()
@@ -103,6 +96,7 @@ def main():
                         if not raw:
                             continue
                         line = raw.decode('ascii').strip()
+                        report['uart_lines'].append(line)
                         log.write(line + '\n'); log.flush()
                         words = line.split()
                         if words[:2] == ['DESC', 'READY'] and report['ready'] is None:
@@ -122,16 +116,25 @@ def main():
                     raise RuntimeError('MCU did not complete the measurements')
             save()
         receipt['completed'] = True
+    except BaseException as error:
+        receipt['error'] = str(error)
+        raise
     finally:
-        program('restore', backup, True)
-        restored = output / 'restored.bin'
-        H7['run']([args.programmer, *connection, '-u', '0x08000000', '0x10000', restored, '-rst'], output / 'restore-verify.log', 60)
-        receipt['restored_sha256'] = sha(restored)
-        receipt['restored_and_verified'] = receipt['restored_sha256'] == receipt['backup_sha256']
-        receipt['finished'] = datetime.now(timezone.utc).isoformat()
-        save()
-        if not receipt['restored_and_verified']:
-            raise RuntimeError('Restored Flash differs from backup')
+        try:
+            program('restore', backup, True)
+            restored = output / 'restored.bin'
+            H7['run']([args.programmer, *connection, '-u', '0x08000000', '0x10000', restored, '-rst'], output / 'restore-verify.log', 60)
+            receipt['restored_bytes'] = restored.stat().st_size
+            receipt['restored_sha256'] = sha(restored)
+            receipt['restored_and_verified'] = receipt['restored_bytes'] == 65536 and receipt['restored_sha256'] == receipt['backup_sha256']
+            if not receipt['restored_and_verified']:
+                raise RuntimeError('Restored Flash differs from its complete backup')
+        except BaseException as error:
+            receipt['restore_error'] = str(error)
+            raise
+        finally:
+            receipt['finished'] = datetime.now(timezone.utc).isoformat()
+            save()
     verify(receipt)
     print('H7S descriptor measurements complete; original Flash restored and verified', flush=True)
 

@@ -7,9 +7,9 @@
 
 #include "ProbeTypes.hpp"
 
-#include <telemetry_structured/type/Registry.hpp>
+#include <telemetry/type/Registry.hpp>
 
-using Registry = telemetry::structured::TypeRegistry<registry_probe::Reading>;
+using Registry = telemetry::TypeRegistry<registry_probe::Reading>;
 
 #if CASE == 1
 constexpr auto bad = Registry::typeId<registry_probe::SameShape>();

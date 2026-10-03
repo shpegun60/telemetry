@@ -3,9 +3,6 @@
 #ifdef WITH_V3
 #include "Fixture.hpp"
 #endif
-#ifdef WITH_V2
-#include <resource/telemetry/SchemaFile.hpp>
-#endif
 
 namespace {
 struct Plain {
@@ -14,14 +11,8 @@ struct Plain {
     { return {c == 0 ? resource::Status::Ok : resource::Status::InvalidCursor, c, 0, c == 0}; }
 };
 constexpr Plain plain;
-#ifdef WITH_V2
-const telemetry_resource::SchemaFile schema{telemetry::CatalogIndex{nullptr, 0}};
-#endif
 constinit auto files = resource::filesystem(
     resource::file("/plain", plain)
-#ifdef WITH_V2
-    , resource::file("/v2/schema.bin", schema)
-#endif
 #ifdef WITH_V3
     , resource::file("/v3/descriptor.bin", fixture::packedFile)
     , resource::file("/v3/values.bin", fixture::values)

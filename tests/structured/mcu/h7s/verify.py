@@ -32,10 +32,10 @@ REQUIRED_INPUTS = {
     'tests/structured/mcu/h7s/verify.py', 'tests/structured/qualification/Fixture.hpp',
     'tests/structured/qualification/Provider.cpp', 'tests/structured/qualification/Typed.cpp',
     'tests/structured/qualification/Encoded.cpp', 'tests/structured/traversal/Fixture.hpp',
-    'tests/json_stack/StackCall.S', 'tests/field_layout/h7s/run.py',
-    'tests/field_layout/run.py', 'tests/run_checks.py',
-    'lib/telemetry_structured/model/Adapter.cpp', 'lib/telemetry_structured/abi/StructuredAbi.cpp',
-    'lib/resource/structured/detail/Values.cpp', 'lib/telemetry/abi/TelemetryAbi.cpp',
+    'tests/structured/mcu/h7s/StackCall.S',
+    'lib/telemetry/model/Adapter.cpp', 'lib/telemetry/abi/StructuredAbi.cpp',
+    'lib/resource/telemetry/v3/detail/Values.cpp',
+    'tests/h7s_support/build.py',
 }
 MIXED = (
     ('direct_config', 1, 4096), ('local_config', 1, 4096),
@@ -51,10 +51,10 @@ MIXED = (
 )
 SCALE = (
     ('direct_index', 7, 4096), ('local_u32', 1, 4096),
-    ('global_u32', 1, 4096), ('old_local_u32', 1, 4096),
+    ('global_u32', 1, 4096),
     ('named_visitor', 7, 4096), ('lambda_visitor', 7, 4096),
     ('readAs_u32', 7, 4096), ('encoded_u32', 7, 4096),
-    ('old_scalar_u32', 7, 4096), ('direct_known_u32', 1, 4096),
+    ('direct_known_u32', 1, 4096),
 )
 
 
@@ -98,8 +98,8 @@ def inputs():
     paths = {path for directory in (ROOT / 'lib', HERE.parent, HERE.parents[1] / 'qualification')
              for path in directory.rglob('*') if path.is_file() and path.suffix in SOURCE_SUFFIXES}
     paths.update(ROOT / relative for relative in (
-        'tests/structured/traversal/Fixture.hpp', 'tests/json_stack/StackCall.S',
-        'tests/field_layout/h7s/run.py', 'tests/field_layout/run.py', 'tests/run_checks.py'))
+        'tests/structured/traversal/Fixture.hpp', 'tests/structured/mcu/h7s/StackCall.S',
+        'tests/h7s_support/build.py'))
     return {path.relative_to(ROOT).as_posix(): digest(path.read_bytes().replace(b'\r\n', b'\n'))
             for path in sorted(paths)}
 
@@ -248,7 +248,7 @@ def expected_sum(family, operation, profile, iterations, descriptor):
     require(iterations % 128 == 0, 'Incomplete ID sequence window')
     ids = [0] * 128 if profile == 0 else list(range(128))
     if family == 'Scale':
-        values = [17 + (0 if operation in (1, 2, 3, 9) else 3 * identifier) for identifier in ids]
+        values = [17 + (0 if operation in (1, 2, 7) else 3 * identifier) for identifier in ids]
     elif operation in (7, 8, 14):
         values = [1] * 128
     elif operation in (13, 19):
@@ -301,7 +301,7 @@ def verify_image(image):
     require(0x08000000 <= probe < 0x08010000 and probe & 1, 'Probe code is not internal Flash Thumb code')
     require(memory[3:] == [60, 28, 20, 24, 4096], 'Compiled descriptor/native layout changed')
     correct = numbers('CORRECT', 5)
-    expected_correct = [12230, 0, 97, 3, 0] if family == 'Mixed' else [2831, 0, 0, 0, 0]
+    expected_correct = [12230, 0, 97, 3, 0] if family == 'Mixed' else [2316, 0, 0, 0, 0]
     require(correct == expected_correct, 'Target correctness counts/failures changed')
     descriptor, description = b'', None
     if family == 'Mixed':
@@ -319,7 +319,7 @@ def verify_image(image):
         require(97 + 35 * 128 + 4103 + 2 * len(descriptor) == correct[0],
                 'Correctness total no longer matches its component conditions')
     else:
-        require(22 * 128 + 15 == correct[0], 'Scale correctness condition arithmetic changed')
+        require(18 * 128 + 12 == correct[0], 'Scale correctness condition arithmetic changed')
     operations = []
     for index, (name, profiles, iterations) in enumerate(definitions):
         raw = row('OP', 7)
@@ -444,10 +444,12 @@ def verify(receipt, *, current=True, artifacts=None):
         require(key in CONFIGURATIONS and key not in observed, 'Wrong/duplicate hardware image')
         observed.add(key)
         integer(image['flash_bytes'], 'Oversized/empty internal Flash image', 1, 65536)
+        require(image.get('flash_load_span') == [0x08000000, 0x08000000 + image['flash_bytes']],
+                'ELF load span exceeds or differs from the backed-up internal Flash')
         require(valid_hash(image['elf_sha256']) and valid_hash(image['binary_sha256']), 'Missing ELF/binary identity')
         hash_manifest(image['objects_sha256'], 'Missing object identities')
         expected_objects = {'Benchmark.o', 'Probe.o', image['family'] + '.o', 'Adapter.o',
-                            'StructuredAbi.o', 'Values.o', 'TelemetryAbi.o', 'StackCall.o'}
+                            'StructuredAbi.o', 'Values.o', 'StackCall.o'}
         if image['family'] == 'Mixed':
             expected_objects.update(('Provider.o', 'Typed.o', 'Encoded.o'))
         require(set(image['objects_sha256']) == expected_objects, 'Fixture object manifest is incomplete')
@@ -511,6 +513,7 @@ def self_test(receipt):
     alter('missing images', lambda r: r['images'].pop())
     alter('duplicate images', lambda r: r['images'].__setitem__(1, copy.deepcopy(r['images'][0])))
     for key, value in (('elf_sha256', 'invalid'), ('binary_sha256', 'invalid'), ('flash_bytes', 65537),
+                       ('flash_load_span', [0x08000000, 0x08010001]),
                        ('objects_sha256', {}), ('common_objects_sha256', {}), ('linker_sha256', 'invalid'),
                        ('library_sources', {}), ('flags', []), ('link_flags', [])):
         alter(key, lambda r, key=key, value=value: r['images'][0].__setitem__(key, value))
@@ -520,9 +523,9 @@ def self_test(receipt):
     alter('missing required input while others remain',
           lambda r: r['input_lf_sha256'].pop('tests/structured/mcu/h7s/verify.py'))
     alter('missing library input while others remain',
-          lambda r: r['input_lf_sha256'].pop('lib/telemetry_structured/model/Adapter.cpp'))
+          lambda r: r['input_lf_sha256'].pop('lib/telemetry/model/Adapter.cpp'))
     alter('missing library snapshot member', lambda r: r['images'][0]['library_sources'].pop(
-          'lib/telemetry_structured/model/Adapter.cpp'))
+          'lib/telemetry/model/Adapter.cpp'))
     alter('missing startup source while others remain', lambda r: r['scaffold_lf_sha256'].pop(
           'Boot/Core/Startup/startup_stm32h7s3l8hx.s'))
     alter('missing common object while others remain', lambda r: r['images'][0]['common_objects_sha256'].pop('startup.o'))

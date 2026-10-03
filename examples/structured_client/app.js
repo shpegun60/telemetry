@@ -2,7 +2,7 @@
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 import { TypeKind, defaultLimits, DescriptorCache, decodeValue, decodeValues,
-         encodeServiceRequest, decodeServiceResponse } from '../../web/telemetryStructured.js';
+         encodeServiceRequest, decodeServiceResponse } from '../../web/telemetry.js';
 
 const $ = id => document.getElementById(id);
 const cache = new DescriptorCache();

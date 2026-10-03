@@ -5,9 +5,11 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. MIT; repository license applies.
 This correction slice precedes the Stage 12 client. It adds the same
 `get/forEach/visit/empty/begin/end/operator[]` API to Field, Command and Service
 tables/catalogs. Fields also gain explicit static/runtime `readAs/writeAs`.
-The [public contract and examples](../../../lib/telemetry_structured/README.md#exact-types-and-convenient-runtime-access)
+The [public contract and examples](../../../lib/telemetry/README.md#native-api)
 separate typed definitions, homogeneous erased iteration, native runtime access
-and the existing encoded boundary. Protocol/session state lives in an explicitly
+and the existing encoded boundary. The final API uses
+`<telemetry/Telemetry.hpp>` and namespace `telemetry`; protocol/session state
+lives in an explicitly
 selected [example](../../../examples/structured_protocol/README.md).
 
 ## Reproduce
@@ -85,21 +87,25 @@ Data/bss deltas are zero. Dispatch tables remain constant metadata. Code size
 grows with rows and used visitor/value specializations, although ID selection
 uses bounded array indexes rather than a scan. No extra fields are added to
 table/entry objects. Unused methods/specializations do not add object storage.
-This slice does not claim new hardware cycle measurements; full comparative
-qualification, including direct/visitor/encoded paths, remains Stage 13/14.
+These original traversal figures are object/codegen evidence, not hardware
+cycle measurements. Later direct/visitor/encoded cycle and call-chain evidence
+is retained in [Stage 14 qualification](../mcu/h7s/README.md).
 
 ## Preserved boundaries
 
 Stage 08 typed/encoded checks, Stage 09 independent descriptor fixtures and
 Stage 10 values/oracle checks remain enabled. The protocol example retains its
 74 independently specified packet bytes, malformed-input checks, allocation
-controls and four live GC/LTO ABI mismatch controls. The four core/v2/v3/both
+controls and four GC/LTO ABI mismatch controls. The two core-only/v3
 qmake provider builds exclude example sources; `exchange/qmake.pro` selects
 the example explicitly and exercises both handlers.
 
-H7S was rerun on 2026-10-03 with captured current inputs: the legacy suite
-passed 3328 checks per O2/Os image and the relocated protocol example passed
-4300 per image. Both runs restored and verified the original 64 KiB Flash.
-These fixtures validate their own paths, not native visitor cycles; the new
-API's tests and ARM codegen measurements are described above. The refreshed
-repository current-code receipt covers 166 library C++/qmake input hashes.
+The protocol-relocation snapshot was measured on 2026-10-03: its
+[historical protocol receipt](../exchange/h7s/receipt.json) records 4300 checks
+per O2/Os image, original 64 KiB Flash restoration,
+`source_head=cd8b636bc8a518fcc1a3021659f109281d47107e`, and `source_dirty=true`.
+It does not establish visitor cycles for the final namespace migration. The
+former 3328-check scalar receipt is historical and its runner is retired.
+Current mixed/scale qualification is documented in the separate
+[MCU suite](../mcu/README.md); captured manifests retain their own source
+identity rather than being relabelled with later commits.

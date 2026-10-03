@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <utility>
 #include "TelemetrySlotTraits.h"
-#include "../detail/TelemetryTarget.h"
+#include "../detail/Target.hpp"
 
 namespace telemetry {
 

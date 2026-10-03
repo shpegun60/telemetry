@@ -12,8 +12,8 @@
 #include <limits>
 
 namespace df = descriptor_fixture;
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 std::uint64_t descriptorOtherFingerprint() noexcept;
 const std::byte* descriptorOtherBytes() noexcept;
 

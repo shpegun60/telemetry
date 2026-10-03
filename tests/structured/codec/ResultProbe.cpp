@@ -5,14 +5,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/result/ServiceResult.hpp>
+#include <telemetry/result/ServiceResult.hpp>
 
 #include <cstdlib>
 #include <type_traits>
 #include <utility>
 
-using telemetry::structured::ServiceResult;
-using telemetry::structured::ServiceStatus;
+using telemetry::ServiceResult;
+using telemetry::ServiceStatus;
 
 namespace {
 

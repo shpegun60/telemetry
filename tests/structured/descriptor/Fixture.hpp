@@ -6,11 +6,11 @@
  */
 #pragma once
 #include "../endpoints/MixedFixture.hpp"
-#include <resource/structured/Descriptor.hpp>
+#include <resource/telemetry/v3/Descriptor.hpp>
 
 namespace descriptor_fixture {
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 struct Empty {};
 struct Box {
     fixture::MotorConfig config;
@@ -22,14 +22,14 @@ enum class Signed : std::int16_t { Low = -1000, High = 2000 };
 enum class Wide : std::uint64_t { High = 0xffffffffffffffffULL };
 }
 
-template <> struct telemetry::structured::reflection::EnumReflection<descriptor_fixture::Signed> {
-    inline static constexpr auto entries = telemetry::structured::reflection::enumEntries(
-        telemetry::structured::reflection::enumEntry(descriptor_fixture::Signed::High, u8"Haut"),
-        telemetry::structured::reflection::enumEntry(descriptor_fixture::Signed::Low, u8"N\u00e9gatif"));
+template <> struct telemetry::reflection::EnumReflection<descriptor_fixture::Signed> {
+    inline static constexpr auto entries = telemetry::reflection::enumEntries(
+        telemetry::reflection::enumEntry(descriptor_fixture::Signed::High, u8"Haut"),
+        telemetry::reflection::enumEntry(descriptor_fixture::Signed::Low, u8"N\u00e9gatif"));
 };
-template <> struct telemetry::structured::reflection::EnumReflection<descriptor_fixture::Wide> {
-    inline static constexpr auto entries = telemetry::structured::reflection::enumEntries(
-        telemetry::structured::reflection::enumEntry(descriptor_fixture::Wide::High, u8"Max"));
+template <> struct telemetry::reflection::EnumReflection<descriptor_fixture::Wide> {
+    inline static constexpr auto entries = telemetry::reflection::enumEntries(
+        telemetry::reflection::enumEntry(descriptor_fixture::Wide::High, u8"Max"));
 };
 
 namespace descriptor_fixture {

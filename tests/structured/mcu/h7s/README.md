@@ -28,7 +28,7 @@ python tests/structured/mcu/h7s/run.py --cube build/stage13/h7s-protocol/scaffol
 ```
 
 Every run requires a fresh output directory. All four images (Mixed/Scale,
-`-O2`/`-Os`) must link and fit the internal Flash before any device operation.
+`-O2`/`-Os`) must link, have all loadable sections inside the backed-up internal Flash, and fit it before any device operation.
 The library, qualification sources, MCU bodies, assembly trampoline and
 runner/verifier sources are captured with normalized LF SHA-256. The Cube
 scaffold is separately copied and hashed. Each image retains its compiler
@@ -57,14 +57,14 @@ manual restoration from the retained `before.bin`.
 
 - The unchanged Mixed correctness body checks 12230 conditions, including
   the existing 97 multi-translation-unit consumer conditions. Scale checks
-  2831 conditions. The MCU-only owning `readAs<Big>` comparison adds three
+  2316 conditions. The MCU-only owning `readAs<Big>` comparison adds three
   separate conditions to Mixed: all 1024 words, agreement with encoded
   `big_read`, and the repeated group's return. These are reported separately.
 - Mixed preserves direct owner, bound slot, native local/global, named visitor,
   native runtime `readAs`, encoded read/write/Command/Service, 4 KiB Field,
   4 KiB Command input, 4 KiB Service input/output, descriptor streaming,
   packed descriptor copy and Values reads. Scale preserves 128 targets and
-  its direct/new/legacy scalar comparisons. No production endpoint is added.
+  its direct/native/visitor/As/encoded comparisons. No production endpoint is added.
 - Full-byte response comparison, every descriptor cursor, large in-place
   Service overlap and insufficient-workspace refusal remain in the existing
   correctness bodies. The packed descriptor's full bytes, size, fingerprint

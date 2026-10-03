@@ -5,11 +5,11 @@
  * SPDX-License-Identifier: MIT
  */
 #pragma once
-#include <telemetry_structured/Structured.hpp>
+#include <telemetry/Telemetry.hpp>
 #include <array>
 
 namespace fixture {
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 enum class Mode : std::uint8_t { Off, Run, Fault };
 enum class Position : std::uint8_t { Enabled, Rpm, Temperature, Precise, Mode, Samples, State, Config };
 struct MotorConfig { float target; std::uint16_t rpm; bool enabled; };

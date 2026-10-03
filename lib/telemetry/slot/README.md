@@ -62,15 +62,16 @@ inline ContextFunctionSlot<float() noexcept> contextRead;
 inline DelegateRefSlot<float() noexcept> borrowedRead;
 inline DelegateSlot<float() noexcept, 32> ownedRead;
 inline DelegateSlot<WriteResult(float) noexcept, 32> ownedWrite;
-inline DelegateSlot<CommandResult(float) noexcept, 32> configure;
+struct ConfigureRequest { float limit; };
+inline DelegateSlot<CommandResult(const ConfigureRequest&) noexcept, 32> configure;
 
 inline constexpr FieldTable fields{
-    field("Context", "V", contextRead),
-    field("Borrowed", "V", borrowedRead),
-    field("Owned", "V", ownedRead, ownedWrite, limits(230.f, 0.f, 500.f)),
+    field("Context", contextRead),
+    field("Borrowed", borrowedRead),
+    field("Owned", ownedRead, ownedWrite),
 };
 inline constexpr CommandTable commands{
-    command("Configure", configure, arg<0>("Value", "V", 230.f, 0.f, 500.f)),
+    command("Configure", configure),
 };
 ```
 
@@ -92,18 +93,17 @@ ownedRead.bind([correction = 1.02f, &meter]() noexcept {
     return meter.voltage() * correction;
 });
 ownedWrite.bind([&meter](float value) noexcept { return meter.setLimit(value); });
-configure.bind([&meter](float value) noexcept { return meter.configure(value); });
+configure.bind([&meter](const ConfigureRequest& request) noexcept { return meter.configure(request.limit); });
 
 auto value = fields.read<2>();         // optional<float>; native callback.
-auto write = fields.write<2>(250);     // Checked int -> float conversion.
-auto result = commands.call<0>(250.);  // Checked double -> float; no Scalar array.
+auto write = fields.writeAs<2>(250);     // Checked int -> float conversion.
+auto result = commands.call<0>(ConfigureRequest{250.f});  // One complete native request.
 ownedRead.reset();                    // Subsequent reads return nullopt.
 ```
 
 The same slots work through global catalog tables and runtime indexes. Getter
 and setter slots may be different kinds, but their native value types must
-match exactly. Enum inference, dictionary metadata, numeric limits and explicit
-Scalar callback forms work as for other field/command definitions. Direct
+match exactly. Enums, aggregates and arrays use the same native typed endpoint interface. Direct
 objects, free functions and ordinary borrowed callables acquire no slot checks.
 
 `DelegateRefSlot` additionally supports `bind<&freeFunction>()`, `bind(function)`
@@ -119,11 +119,10 @@ capture an owner reference in its owned closure, or use `OwnerSlot`/`DelegateRef
 ## Absence and lifetime
 
 Slots do not assign field/command meanings to absence. Telemetry checks their
-presence before invoking a callback: an empty getter produces Scalar Null or
-`nullopt`, and an empty setter/command reports `Unavailable`. A field with no
-setter remains `ReadOnly`. Field conversion/limits precede setter availability;
-command transport shape checks precede availability, which precedes conversion.
-Binding/reset does not change a descriptor's declared capability or schema CRC.
+presence before invoking a callback: an empty getter produces `nullopt`, and an empty setter/command reports `Unavailable`. A field with no
+setter remains `ReadOnly`. Native numeric conversion and encoded request validation preserve their
+checked failure rules before owner mutation.
+Binding/reset does not change a descriptor's declared capability or descriptor fingerprint.
 
 Callable slots expose `get()` snapshots/views for adapters and `invoke()` with
 the precondition that the target is engaged. There is no `operator()` accepting

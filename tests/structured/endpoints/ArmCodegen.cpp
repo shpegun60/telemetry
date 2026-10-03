@@ -4,9 +4,9 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 #include "MixedFixture.hpp"
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 namespace probe {
 struct Request { std::uint32_t value; };
 struct Device {

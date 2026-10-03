@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "MixedFixture.hpp"
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using namespace fixture;
 
 inline constexpr ts::FieldTable emptyFieldTable{};

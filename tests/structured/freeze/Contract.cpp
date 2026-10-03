@@ -1,14 +1,14 @@
 /* Public type/wire contract for Stage 15 software qualification.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #include "../traversal/Fixture.hpp"
-#include <resource/structured/BinaryFormat.hpp>
+#include <resource/telemetry/v3/BinaryFormat.hpp>
 #include <concepts>
 #ifndef FREEZE_ARM
 #include <cstdio>
 #endif
 
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 using fixture::Config;
 using fixture::Position;
 

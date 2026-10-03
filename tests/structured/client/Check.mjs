@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import * as codec from '../../../web/telemetryStructured.js';
+import * as codec from '../../../web/telemetry.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [directory, device] = process.argv.slice(2);

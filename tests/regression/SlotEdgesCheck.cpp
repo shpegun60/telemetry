@@ -2,7 +2,7 @@
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
 // Review repro (slots): runtime edges not covered by the shipped suites.
 // Intended for ASan/UBSan runs; every check here is defined behavior.
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
@@ -58,8 +58,7 @@ int main()
             const auto address = reinterpret_cast<std::uintptr_t>(&wide);
             return address % 64 == 0 ? wide.value : -1.f;
         });
-        FieldTable rows{field("Aligned", "", aligned)};
-        expect(rows.read<0>() == 5.f, "over-aligned capture stored on its 64-byte boundary");
+        expect(aligned.invoke() == 5.f, "over-aligned capture stored on its 64-byte boundary");
         expect(alignof(decltype(aligned)) == 64 && sizeof(aligned) % 64 == 0, "slot alignment follows Align");
     }
     {
@@ -86,11 +85,9 @@ int main()
     {
         // Non-owning kinds may rebind themselves from inside the running call.
         refSelf.bind(rebinding);
-        FieldTable rows{field("Ref", "", refSelf)};
-        expect(rows.read<0>() == 1.f && rows.read<0>() == 2.f, "DelegateRefSlot self-rebind during a call");
+        expect(refSelf.invoke() == 1.f && refSelf.invoke() == 2.f, "DelegateRefSlot self-rebind during a call");
         contextSelf.bind(&firstContext, nullptr);
-        FieldTable contextRows{field("Context", "", contextSelf)};
-        expect(contextRows.read<0>() == 1.f && contextRows.read<0>() == 2.f,
+        expect(contextSelf.invoke() == 1.f && contextSelf.invoke() == 2.f,
                "ContextFunctionSlot self-rebind during a call");
     }
     {
@@ -116,6 +113,6 @@ int main()
         refTake.invoke(std::move(other));
         expect(!other, "DelegateRefSlot forwards an rvalue reference");
     }
-    std::printf("%d/%d slot edge checks passed\n", checks - failures, checks);
+    std::printf("CHECKS %d\n", checks);
     return failures ? 1 : 0;
 }

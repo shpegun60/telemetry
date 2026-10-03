@@ -7,10 +7,10 @@
 
 #include "../reflection/ProbeTypes.hpp"
 
-#include <telemetry_structured/reflection/Reflection.hpp>
+#include <telemetry/reflection/Reflection.hpp>
 
 using telemetry_structured_probe::MeterConfig;
-namespace refl = telemetry::structured::reflection;
+namespace refl = telemetry::reflection;
 
 static_assert(refl::memberCount<MeterConfig> == 2);
 static_assert(refl::memberName<0, MeterConfig>() == "voltage");

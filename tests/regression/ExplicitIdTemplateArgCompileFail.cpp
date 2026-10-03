@@ -8,7 +8,7 @@
 //   4 commands.index().execute<unsigned short>(WireId{2^32 + 1}, ...)
 //   5 table.call<std::uint16_t>(runtime 65536)               local position 65536 -> row 0
 //   6 index.catalog<GroupId>(runtime 65536)                  group 65536 -> group 0
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 #include <cstdint>
 #include <cstdio>
 
@@ -19,7 +19,7 @@ float r0() noexcept { return 10.f; }
 float r1() noexcept { return 11.f; }
 CommandResult c0() noexcept { ++hits[0]; return CommandResult::Executed; }
 CommandResult c1() noexcept { ++hits[1]; return CommandResult::Executed; }
-constexpr FieldTable g0{field<&r0>("a", ""), field<&r1>("b", "")};
+constexpr FieldTable g0{field<&r0>("a"), field<&r1>("b")};
 constexpr FieldCatalogTable fields{group("g0", g0)};
 constexpr CommandTable k0{command<&c0>("c0"), command<&c1>("c1")};
 constexpr CommandCatalogTable commands{group("k0", k0)};
@@ -42,30 +42,32 @@ int main(int argc, char**)
     const unsigned runtime = static_cast<unsigned>(argc); // 1 at run time
     const WireId wire{(std::uint64_t{1} << 32) | runtime};
     bool reached = false;
+    Workspace workspace{std::span<std::byte>{}};
+    (void)workspace;
 #if CASE == 1
-    const Field* f = index.find<std::uint16_t>(65536 + static_cast<int>(runtime));
+    const FieldEntry* f = index.find<std::uint16_t>(65536 + static_cast<int>(runtime));
     reached = f != nullptr;
     std::printf("find<uint16_t>(65537): %s\n", f ? f->name : "null");
 #elif CASE == 2
-    const Field* f = index.find<FieldId>(wire);
+    const FieldEntry* f = index.find<FieldId>(wire);
     reached = f != nullptr;
     std::printf("find<FieldId>(2^32+1): %s\n", f ? f->name : "null");
 #elif CASE == 3
-    const auto v = index.read<float, FieldId>(SecondRow);
+    const auto v = fields.readAs<float, FieldId>(SecondRow);
     reached = v.has_value();
     std::printf("read<float, FieldId>(unscoped enum 1): %g\n", static_cast<double>(v.value_or(-1.f)));
 #elif CASE == 4
-    const CommandResult result = commands.index().execute<unsigned short>(wire, nullptr, 0);
+    const CommandResult result = commands.index().executeEncoded<unsigned short>(wire, {}, workspace).endpointStatus;
     reached = result == CommandResult::Executed;
     std::printf("execute<unsigned short>(2^32+1): %d hits=%d,%d\n", static_cast<int>(result), hits[0], hits[1]);
 #elif CASE == 5
-    const CommandResult result = k0.call<std::uint16_t>(65535u + runtime);
+    const CommandResult result = k0.visit<std::uint16_t>(65535u + runtime, [](const auto&) noexcept {}) ? CommandResult::Executed : CommandResult::NotFound;
     reached = result == CommandResult::Executed;
     std::printf("call<uint16_t>(65536): %d hits=%d,%d\n", static_cast<int>(result), hits[0], hits[1]);
 #elif CASE == 6
-    const Catalog* g = index.catalog<GroupId>(65535u + runtime);
-    reached = g != nullptr;
-    std::printf("catalog<GroupId>(65536): %s\n", g ? g->name : "null");
+    const bool g = fields.visit<GroupId>(65535u + runtime, [](const auto&) noexcept {});
+    reached = g;
+    std::printf("catalog<GroupId>(65536): %s\n", g ? "found" : "null");
 #endif
     (void) wire;
     (void) index;

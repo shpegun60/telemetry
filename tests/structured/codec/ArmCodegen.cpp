@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/codec/Codec.hpp>
-#include <telemetry_structured/result/ServiceResult.hpp>
+#include <telemetry/codec/Codec.hpp>
+#include <telemetry/result/ServiceResult.hpp>
 
 #include <array>
 #include <cstddef>
@@ -17,7 +17,7 @@
 #include <span>
 
 using Big = std::array<std::uint32_t, 1024>;
-static_assert(telemetry::structured::wireSize<Big> == 4096);
+static_assert(telemetry::wireSize<Big> == 4096);
 
 struct ServiceLike {
     bool ok;
@@ -53,39 +53,39 @@ make_optional_service(std::uint32_t seed) noexcept
     return OptionalServiceLike{true, std::optional<Big>{make_raw(seed)}};
 }
 
-extern "C" [[gnu::noinline]] telemetry::structured::ServiceResult<Big>
+extern "C" [[gnu::noinline]] telemetry::ServiceResult<Big>
 make_actual_service(std::uint32_t seed) noexcept
 {
-    return telemetry::structured::ServiceResult<Big>::successFrom(
+    return telemetry::ServiceResult<Big>::successFrom(
         [seed]() noexcept { return make_raw(seed); });
 }
 
-extern "C" [[gnu::noinline]] telemetry::structured::CodecStatus
+extern "C" [[gnu::noinline]] telemetry::CodecStatus
 encode_big(const Big& input, std::span<std::byte> output) noexcept
 {
-    return telemetry::structured::encode(input, output);
+    return telemetry::encode(input, output);
 }
 
 extern "C" [[gnu::noinline]] std::uint32_t
 decode_big(std::span<const std::byte> input,
-           telemetry::structured::Workspace& workspace) noexcept
+           telemetry::Workspace& workspace) noexcept
 {
     auto lease = workspace.reserve<Big>();
     Big* value = nullptr;
-    if (telemetry::structured::decode(input, lease, value) !=
-        telemetry::structured::CodecStatus::Ok)
+    if (telemetry::decode(input, lease, value) !=
+        telemetry::CodecStatus::Ok)
         return 0;
     return (*value)[0] + (*value)[1023];
 }
 
 extern "C" [[gnu::noinline]] std::uint32_t
 decode_defaulted_big(std::span<const std::byte> input,
-                     telemetry::structured::Workspace& workspace) noexcept
+                     telemetry::Workspace& workspace) noexcept
 {
     auto lease = workspace.reserve<DefaultedBig>();
     DefaultedBig* value = nullptr;
-    if (telemetry::structured::decode(input, lease, value) !=
-        telemetry::structured::CodecStatus::Ok)
+    if (telemetry::decode(input, lease, value) !=
+        telemetry::CodecStatus::Ok)
         return 0;
     return value->marker + value->response[1023];
 }
@@ -126,8 +126,8 @@ optional_service_return(void* storage, std::uint32_t seed) noexcept
     return ::new (storage) OptionalServiceLike(make_optional_service(seed));
 }
 
-extern "C" [[gnu::noinline]] telemetry::structured::ServiceResult<Big>*
+extern "C" [[gnu::noinline]] telemetry::ServiceResult<Big>*
 actual_service_return(void* storage, std::uint32_t seed) noexcept
 {
-    return ::new (storage) telemetry::structured::ServiceResult<Big>(make_actual_service(seed));
+    return ::new (storage) telemetry::ServiceResult<Big>(make_actual_service(seed));
 }

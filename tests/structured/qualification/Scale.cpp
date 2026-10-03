@@ -1,11 +1,11 @@
 /* Multiple used visitor specializations versus named-visitor reuse.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
-#include <telemetry_structured/Structured.hpp>
+#include <telemetry/Telemetry.hpp>
 #ifdef SCALE_EXECUTE
 #include <cstdio>
 #endif
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 namespace scale {
 struct Device {
     std::array<std::uint32_t, ROWS> values{};

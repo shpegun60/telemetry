@@ -7,10 +7,10 @@
 #ifndef TELEMETRY_DELEGATE_REF_SLOT_H
 #define TELEMETRY_DELEGATE_REF_SLOT_H
 #include "TelemetrySlotTraits.h"
-#include "../core/TelemetryCompiler.h"
-#include "../detail/TelemetrySlotCallable.h"
-#include "../detail/TelemetryTarget.h"
-#include "../detail/TelemetryOwner.h"
+#include "../core/Compiler.hpp"
+#include "../detail/SlotCallable.hpp"
+#include "../detail/Target.hpp"
+#include "../detail/Owner.hpp"
 #include <cstdlib>
 #include <utility>
 namespace telemetry {

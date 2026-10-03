@@ -7,7 +7,10 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
 Workspace. Its header is 24 bytes: `TVL3`, major/minor, field count, file size
 and the cached u64 descriptor fingerprint. This last field was added at the
 user's request during Stage 10; it identifies a schema, not live payload
-integrity. Descriptor v3.0 and legacy v2.1 bytes remain unchanged.
+integrity. The active providers live in `resource/telemetry/v3` and namespace
+`resource::telemetry::v3`; their native endpoints use `<telemetry/Telemetry.hpp>`
+and namespace `telemetry`. Descriptor v3.0 bytes remain unchanged. Legacy
+v2.1 providers and their decoder are retired.
 
 ## Reproduction
 
@@ -26,7 +29,7 @@ On Windows select the CubeIDE ARM compiler, not CubeCLT; use the Qt MinGW
 compiler/runtime together. For qmake pass `--make mingw32-make` and the
 installed Qt kit's qmake path. Generated objects/logs go to the selected build
 directory. CI runs this suite in C++20 host, sanitizer, null-check and ARM
-jobs; the Qt job exercises four independent adapter selections.
+jobs; the Qt job exercises core-only and telemetry-v3 selections.
 
 ## What the checks establish
 
@@ -61,33 +64,39 @@ jobs; the Qt job exercises four independent adapter selections.
   section. ARM stack gates are 104 B at O2/Os and 128 B at Og per emitted frame,
   covering the reader, wrappers and 4 KiB Field thunk; these are not a total
   call-chain proof or a bound on an application's arbitrary getter.
-- All optional `resource/structured` headers compile alone with their own
-  dependencies. The core/v2 header suite stays independent of PFR. This fixes
-  the Stage 09 `c25c6fa` CI integration failure: its recursive legacy header
-  sweep had picked up structured headers without a PFR include path. No
-  header coverage was removed.
-- `resources.pro` builds and runs core-only, v2-only, v3-only and both.
-  `.pri` dependencies are explicit, repeated structured/resource includes
-  do not duplicate sources, and the application facade exposes only
-  `FileSystemView`. The compiled reader is named `detail/Values.cpp` so it
-  does not collide with v2 `ValuesFile.cpp` in qmake's flat object directory.
+- All optional `resource/telemetry/v3` headers compile alone with their own
+  dependencies. The generic resource header suite stays independent of PFR.
+  The original Stage 09 `c25c6fa` CI integration failure was caused by a
+  recursive legacy sweep selecting those headers without PFR include paths;
+  separate header coverage avoids that dependency in resource-only builds.
+- `resources.pro` builds and runs core-only and v3. `.pri` dependencies are
+  explicit; repeated telemetry/resource includes do not duplicate sources.
+  The application facade exposes only `FileSystemView`. The compiled v3
+  reader remains `resource/telemetry/v3/detail/Values.cpp`; resource-only
+  builds do not select telemetry, PFR or the optional protocol example.
 
 The first Stage 10 CI run on `a3eb7dc` exposed a stale **legacy** board receipt:
 the optional qmake changes made its recorded `resource.pri` hash differ. A
-fresh [legacy H7S run](../../regression/README.md#h7s-execution) passed
-all 3328 checks at O2/Os and refreshed the current-input evidence without
-loosening the verifier. This is separate from the Stage 10 measurements below;
+historical legacy H7S run published in `2b66bef` passed all 3328 checks at
+O2/Os and refreshed that snapshot's input evidence without loosening the
+verifier. That scalar suite is no longer an active final-API runner. This is
+separate from the Stage 10 measurements below;
 neither the provider implementation nor its wire bytes changed for that fix.
 
-## Local results, 2026-09-27
+## Historical local results, 2026-09-27
+
+These figures describe the original Stage 10 images, not a fresh measurement
+after the final namespace/path migration. The active runners retain their
+correctness, wire, header, symbol and frame checks.
 
 MinGW GCC 13.1, Linux GCC 13.3 with null checks, and Clang 18 with ASan/UBSan
 execute all host cases. Host runners report 27 passing commands, 14 intended
 rejections and 121 independent wire checks. ARM GCC 13.2.1 (CI compiler) and
 CubeIDE GCC 14.3.1 pass 41 commands plus 14 rejections at O2/Os/Og. Qt 6.10.1
-MinGW builds/runs all four selections. The unchanged legacy resource suite
-passes on host, under Clang sanitizers and on ARM; Stage 09's 22 rejected
-declarations and 1729 parser checks still pass.
+MinGW originally built/ran all four then-supported selections. The final
+runner selects only generic core or v3. The legacy resource results belong
+to the historical snapshot; Stage 09's active 22 rejected declarations and
+1729 parser checks remain independent coverage.
 
 The linked inspection fixture retains mixed small values, packed descriptor
 READ and a 4 KiB Field READ. Its RAM includes the caller's 4099-byte scratch,
@@ -107,9 +116,11 @@ a temporary view for each READ, reduced the CubeIDE linked fixture's .text by
 88/108 B at O2/Os. Its wrapper frame fell from 80 to 48 B; the reader frame
 grew by 8 B. No behavior/storage-policy change accompanied that adjustment.
 
-## NUCLEO-H7S3L8
+## Historical NUCLEO-H7S3L8 measurement
 
-The [receipt](h7s/receipt.json) records CubeIDE GCC 14.3.1, a 600 MHz Cortex-M7,
+The [receipt](h7s/receipt.json) records
+`source_head=c25c6fa00f91a7b6baac9ac23299c2ff29396f62`, CubeIDE GCC 14.3.1,
+a 600 MHz Cortex-M7,
 caches enabled, both built images and their library/object digests. The board
 ran all 5700 cursor/capacity cases, checked bytes against the frozen fixture,
 getter counts, a too-small large-token buffer and an actual 4 KiB read.
@@ -132,8 +143,10 @@ Only the first 64 KiB of internal Flash was temporarily replaced. Both images
 were built before any write. Restore/read-back matched the original SHA-256:
 `a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456`.
 No option bytes or external Flash were changed. The run completed at
-2026-09-27 17:09:08 UTC. `verify.py` checks receipt consistency and sixteen
-mutations; it does not represent a new run of later code.
+2026-09-27 17:09:08 UTC. The receipt predates `source_dirty` recording and
+the final namespace migration; its captured hashes identify the local measured
+build. `verify.py` checks receipt consistency and sixteen mutations; it does
+not represent a new run of later code.
 Before publication, all 164 captured C/C++ library and `.pri` files were
 compared with the working sources for both images; their SHA-256 values
 matched. Documentation was subsequently updated with these measurements.
@@ -147,5 +160,7 @@ python tests/structured/resources/h7s/run.py `
   --output build/resource-v3-h7s-new --run
 ```
 
-The output directory must not exist. The helper verifies the expected board,
+The output directory must not exist. With `--run`, explicit `--programmer`,
+`--serial` and `--port` are required; they have no device defaults. Without
+`--run`, the runner only builds both images. The helper verifies the expected board,
 backs up Flash, runs the checks, and restores/verifies the backup in `finally`.

@@ -19,14 +19,34 @@ import time
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[3]
 QUALIFICATION = ROOT / 'tests/structured/qualification'
-COMMON = runpy.run_path(str(ROOT / 'tests/field_layout/h7s/run.py'))
-ARM = COMMON['BASE']['ARM']
-run, sha = COMMON['run'], COMMON['sha']
+ARM = ['-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
+       '-fno-exceptions', '-fno-rtti']
 SCOPE = 'H7S execution and DWT/PSP measurements'
-LIBRARY = ('lib/telemetry_structured/model/Adapter.cpp',
-           'lib/telemetry_structured/abi/StructuredAbi.cpp',
-           'lib/resource/structured/detail/Values.cpp',
-           'lib/telemetry/abi/TelemetryAbi.cpp')
+LIBRARY = ('lib/telemetry/model/Adapter.cpp',
+           'lib/telemetry/abi/StructuredAbi.cpp',
+           'lib/resource/telemetry/v3/detail/Values.cpp')
+CHECK_FLASH_SECTIONS = runpy.run_path(str(ROOT / 'tests/h7s_support/build.py'))['check_flash_sections']
+
+
+def run(command, log, timeout=180):
+    """Retain complete compiler/programmer output and reject nonzero exits."""
+    result = subprocess.run(list(map(str, command)), stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, encoding='utf-8',
+                            errors='replace', timeout=timeout)
+    log.write_text(result.stdout, encoding='utf-8')
+    if result.returncode:
+        raise RuntimeError(f'{log}: exit {result.returncode}\n{result.stdout[-6000:]}')
+    return result.stdout
+
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def replace_once(text, old, new):
+    if text.count(old) != 1:
+        raise RuntimeError('Expected exactly one linker anchor: ' + old)
+    return text.replace(old, new, 1)
 
 
 def lf_sha(path):
@@ -38,8 +58,8 @@ def inputs():
              for path in directory.rglob('*') if path.is_file() and
              path.suffix in ('.h', '.hpp', '.cpp', '.c', '.pri', '.py', '.S')}
     paths.update(ROOT / relative for relative in (
-        'tests/structured/traversal/Fixture.hpp', 'tests/json_stack/StackCall.S',
-        'tests/field_layout/h7s/run.py', 'tests/field_layout/run.py', 'tests/run_checks.py'))
+        'tests/structured/traversal/Fixture.hpp', 'tests/structured/mcu/h7s/StackCall.S',
+        'tests/h7s_support/build.py'))
     return {path.relative_to(ROOT).as_posix(): lf_sha(path) for path in sorted(paths)}
 
 
@@ -115,7 +135,7 @@ def build(args, output):
          cube / 'Boot/Core/Startup/startup_stm32h7s3l8hx.s', '-o', startup], common / 'startup.log')
     original = (cube / linker_source).read_text(encoding='utf-8')
     linker = common / 'benchmark.ld'
-    linker.write_text(COMMON['BASE']['replace_once'](original, '  ._user_heap_stack :',
+    linker.write_text(replace_once(original, '  ._user_heap_stack :',
         '  .dtcm_ids (NOLOAD) : { . = ALIGN(32); *(.dtcm_ids) . = ALIGN(32); } >DTCM\n'
         '  .mcu_probe_stack (NOLOAD) : { . = ALIGN(32); *(.mcu_probe_stack) . = ALIGN(32); } >DTCM\n'
         '  ._user_heap_stack :'), encoding='utf-8')
@@ -126,7 +146,7 @@ def build(args, output):
                    'tests/structured/mcu/' + family + '.cpp', *LIBRARY]
         if family == 'Mixed':
             sources += ['tests/structured/qualification/' + name + '.cpp' for name in ('Provider', 'Typed', 'Encoded')]
-        sources += ['tests/json_stack/StackCall.S']
+        sources += ['tests/structured/mcu/h7s/StackCall.S']
         for opt in ('O2', 'Os'):
             directory = output / family / opt
             directory.mkdir(parents=True)
@@ -150,7 +170,8 @@ def build(args, output):
             run([tool('objcopy'), '-O', 'binary', elf, binary], directory / 'binary.log')
             if not 0 < binary.stat().st_size <= 65536:
                 raise RuntimeError('Image exceeds the backed-up internal Flash: ' + str(binary))
-            run([tool('objdump'), '-h', elf], directory / 'sections.log')
+            sections = run([tool('objdump'), '-h', elf], directory / 'sections.log')
+            flash_load_span = CHECK_FLASH_SECTIONS(sections, binary.stat().st_size)
             run([tool('objdump'), '-drC', elf], directory / 'benchmark.asm')
             run([tool('size'), '-A', elf], directory / 'size.log')
             run([tool('nm'), '-C', elf], directory / 'symbols.log')
@@ -158,6 +179,7 @@ def build(args, output):
             image = dict(family=family, optimization=opt, elf=elf.relative_to(output).as_posix(),
                          binary=binary.relative_to(output).as_posix(), elf_sha256=sha(elf), binary_sha256=sha(binary),
                          flash_bytes=binary.stat().st_size, objects_sha256={p.name: sha(p) for p in objects},
+                         flash_load_span=flash_load_span,
                          common_objects_sha256={p.name: sha(p) for p in [*common_objects, startup]},
                          library_sources=library_sources, flags=cppflags, link_flags=link_flags,
                          linker_sha256=sha(linker),

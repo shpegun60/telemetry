@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/type/Traits.hpp>
+#include <telemetry/type/Traits.hpp>
 
 #include <array>
 #include <cstdint>
@@ -72,4 +72,4 @@ struct alignas(4) Bad {
 struct EmptyBase {};
 struct Bad : EmptyBase { std::uint32_t value; };
 #endif
-std::uint32_t probe() { return telemetry::structured::wireSize<Bad>; }
+std::uint32_t probe() { return telemetry::wireSize<Bad>; }

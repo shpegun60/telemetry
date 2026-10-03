@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import re
 from pathlib import Path
 import subprocess
 import time
@@ -29,14 +30,19 @@ DIAGNOSTICS = {
 
 
 def check_backend_boundary() -> None:
-    library = ROOT / "lib/telemetry_structured"
-    for header in library.rglob("*.hpp"):
+    library = ROOT / "lib/telemetry"
+    headers = sorted(path for path in library.rglob('*')
+                     if path.suffix in ('.h', '.hpp', '.cpp'))
+    if not headers:
+        raise RuntimeError('Reflection boundary scan found no library sources')
+    for header in headers:
         if header.parent == library / "reflection/detail":
             continue
         source = header.read_text(encoding="utf-8")
-        for vendor_symbol in ("boost::pfr::", "magic_enum::", "#include <boost/", "#include <magic_enum", "#include <meta>"):
-            if vendor_symbol in source:
-                raise RuntimeError(f"Vendor dependency escaped reflection/detail: {header}")
+        vendor_use = (r'\bboost\s*::\s*pfr\b|\bmagic_enum\s*::|'
+                      r'#\s*include\s*[<"](?:boost/|magic_enum|meta[>"])')
+        if re.search(vendor_use, source):
+            raise RuntimeError(f"Vendor dependency escaped reflection/detail: {header}")
 
 
 def main() -> None:

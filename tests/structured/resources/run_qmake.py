@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile and execute core-only, v2-only, v3-only and both qmake selections. MIT."""
+"""Compile and execute independent core-only and telemetry v3 selections. MIT."""
 import argparse
 import os
 from pathlib import Path
@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--make', default='make')
     parser.add_argument('--build-dir', type=Path, required=True)
     args = parser.parse_args()
-    for mode in ('core', 'v2', 'v3', 'both'):
+    for mode in ('core', 'v3'):
         out = args.build_dir.resolve() / mode; out.mkdir(parents=True, exist_ok=True)
         commands = [[args.qmake, str(HERE / 'resources.pro'), 'MODE=' + mode,
                      'QMAKE_CXXFLAGS+=-Werror', 'QMAKE_CXXFLAGS+=-UNDEBUG'], [args.make, '-j2']]
@@ -29,14 +29,13 @@ def main():
         makefiles = '\n'.join(p.read_text(errors='replace') for p in out.glob('Makefile*'))
         assert 'structured_protocol' not in makefiles
         assert 'Bind.cpp' not in makefiles and 'Exchange.cpp' not in makefiles
-        if mode in ('core', 'v2'):
+        if mode == 'core':
             # qmake's dependency scanner also lists includes in inactive #ifdef
             # branches. Check actual compiler paths and linked objects instead.
             paths = '\n'.join(re.findall(r'^INCPATH\s*=.*$', makefiles, re.M))
             assert 'boost_pfr' not in paths
-            assert 'structured/detail/Values.cpp' not in (out / '1.log').read_text().replace('\\', '/')
-        if mode in ('core', 'v3'):
-            assert 'telemetry/serialization/TelemetryJson.cpp' not in makefiles.replace('\\', '/')
+            assert 'telemetry/v3/detail/Values.cpp' not in (out / '1.log').read_text().replace('\\', '/')
+        assert 'telemetry/serialization/TelemetryJson.cpp' not in makefiles.replace('\\', '/')
         print(mode + ': build/run passed', flush=True)
 
 

@@ -7,7 +7,7 @@
 #include "Fixture.hpp"
 #include <algorithm>
 namespace df = descriptor_fixture;
-namespace rs = resource::structured;
+namespace rs = resource::telemetry::v3;
 
 #if defined(PACKED_ONLY)
 inline constexpr auto image = df::edgeBytes;

@@ -14,7 +14,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 BIND = ROOT / 'examples/structured_protocol/Bind.cpp'
 EXCHANGE = ROOT / 'examples/structured_protocol/Exchange.cpp'
-VALUES = ROOT / 'lib/resource/structured/detail/Values.cpp'
+VALUES = ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp'
 PROTOCOL = ROOT / 'lib/resource/protocol/Protocol.cpp'
 
 

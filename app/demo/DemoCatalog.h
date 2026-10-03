@@ -1,7 +1,9 @@
+/* Reflected demo endpoints. Semantic decisions belong to this application.
+ * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #ifndef DEMO_CATALOG_H
 #define DEMO_CATALOG_H
 
-#include "Telemetry.h"
+#include <telemetry/Telemetry.hpp>
 #include <cmath>
 #include <limits>
 
@@ -23,10 +25,33 @@ using telemetry::WriteResult;
 using telemetry::CommandResult;
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };
-
-// Numeric values follow the row order below; these names do not add a lookup.
 enum class MeterField : std::size_t { Voltage, Current, Power, Counter, VoltageLimit, Mode, Count };
 enum class MeterCommand : std::size_t { Reset, Configure, Count };
+
+// This is one ordinary aggregate request, not a second parameter type list.
+struct ConfigureRequest {
+    float voltageLimit;
+    Mode mode;
+};
+
+// The old descriptor limits are now checked where their decisions belong.
+inline constexpr float minimumVoltageLimit = 1.0f;
+inline constexpr float maximumVoltageLimit = 1000.0f;
+
+constexpr bool validMode(Mode mode) noexcept
+{
+    switch (mode) {
+    case Mode::Off:
+    case Mode::Auto:
+    case Mode::Manual: return true;
+    }
+    return false;
+}
+
+inline bool validVoltageLimit(float value) noexcept
+{
+    return std::isfinite(value) && value >= minimumVoltageLimit && value <= maximumVoltageLimit;
+}
 
 struct Meter {
     float voltage = 230.0f;
@@ -41,68 +66,77 @@ struct Meter {
     std::uint32_t readCounter() const noexcept { return counter; }
     float readThreshold() const noexcept { return threshold; }
     Mode readMode() const noexcept { return mode; }
-    WriteResult setMode(Mode next) noexcept { mode=next; return WriteResult::Applied; }
+
+    WriteResult setMode(Mode next) noexcept
+    {
+        if (!validMode(next)) return WriteResult::InvalidValue;
+        mode = next;
+        return WriteResult::Applied;
+    }
     WriteResult setThreshold(float next) noexcept
     {
-        if (!std::isfinite(next) || next <= 0.0f || next > 1000.0f) return WriteResult::InvalidValue;
+        if (!validVoltageLimit(next)) return WriteResult::InvalidValue;
         threshold = next;
         return WriteResult::Applied;
     }
-    CommandResult reset() noexcept { counter=0; return CommandResult::Executed; }
-    CommandResult configure(float next, Mode nextMode) noexcept
-    { threshold=next; mode=nextMode; return CommandResult::Executed; }
+    CommandResult reset() noexcept
+    {
+        counter = 0;
+        return CommandResult::Executed;
+    }
+    CommandResult configure(const ConfigureRequest& request) noexcept
+    {
+        // Refuse the whole request before changing either member. The GUI and
+        // encoded callers get the same application validation and result.
+        if (!validVoltageLimit(request.voltageLimit) || !validMode(request.mode))
+            return CommandResult::InvalidValue;
+        threshold = request.voltageLimit;
+        mode = request.mode;
+        return CommandResult::Executed;
+    }
 };
 
 inline Meter meter;
 inline Sensor sensor;
 
-// The function signatures define types. Only labels and optional limits remain.
+// Every definition uses only a name and its native binding.
 inline constexpr telemetry::FieldTable meterFields{
-    field<&Meter::readVoltage>("Ua", "V", meter),
-    field<&Meter::readCurrent>("Ia", "A", meter),
-    field<&Meter::readPower>("P", "kW", meter),
-    field<&Meter::readCounter>("WinCnt", "", meter),
-    field<&Meter::readThreshold, &Meter::setThreshold>("VoltageLimit", "V",
-        meter, telemetry::limits(250.0f, 1.0f, 1000.0f))
-        .withFlags(telemetry::FieldFlag::Persistent),
-    field<&Meter::readMode, &Meter::setMode>("Mode", "", meter,
-        telemetry::limits(Mode::Auto))
-        .withFlags(telemetry::FieldFlag::Persistent),
+    field<&Meter::readVoltage>("Ua", meter),
+    field<&Meter::readCurrent>("Ia", meter),
+    field<&Meter::readPower>("P", meter),
+    field<&Meter::readCounter>("WinCnt", meter),
+    field<&Meter::readThreshold, &Meter::setThreshold>("VoltageLimit", meter),
+    field<&Meter::readMode, &Meter::setMode>("Mode", meter),
 };
-
-static_assert(telemetry::names_unique(meterFields.data(), meterFields.size()));
 static_assert(meterFields.size() == static_cast<std::size_t>(MeterField::Count));
 
-// Free function templates retain exact integer values without Scalar callbacks.
+// Native integer return types preserve every bit, including the U64/S64 ends.
 template <class T> T maximumValue() noexcept { return std::numeric_limits<T>::max(); }
 template <class T> T minimumValue() noexcept { return std::numeric_limits<T>::lowest(); }
 inline constexpr telemetry::FieldTable integerFields{
-    field<&maximumValue<std::uint8_t>>("U8", ""),
-    field<&maximumValue<std::uint16_t>>("U16", ""),
-    field<&maximumValue<std::uint32_t>>("U32", ""),
-    field<&maximumValue<std::uint64_t>>("U64", ""),
-    field<&minimumValue<std::int8_t>>("S8", ""),
-    field<&minimumValue<std::int16_t>>("S16", ""),
-    field<&minimumValue<std::int32_t>>("S32", ""),
-    field<&minimumValue<std::int64_t>>("S64", ""),
+    field<&maximumValue<std::uint8_t>>("U8"),
+    field<&maximumValue<std::uint16_t>>("U16"),
+    field<&maximumValue<std::uint32_t>>("U32"),
+    field<&maximumValue<std::uint64_t>>("U64"),
+    field<&minimumValue<std::int8_t>>("S8"),
+    field<&minimumValue<std::int16_t>>("S16"),
+    field<&minimumValue<std::int32_t>>("S32"),
+    field<&minimumValue<std::int64_t>>("S64"),
 };
-static_assert(telemetry::names_unique(integerFields.data(), integerFields.size()));
 
-// The table owns inline metadata. Runtime lookup still sees ordinary Commands.
 inline constexpr telemetry::CommandTable meterCommands{
     telemetry::command<&Meter::reset>("Reset counter", meter),
-    telemetry::command<&Meter::configure>("Configure meter", meter,
-        telemetry::arg<0>("Voltage limit", "V", 250.0f, 1.0f, 1000.0f),
-        telemetry::arg<1>("Mode", "", Mode::Auto))};
-static_assert(telemetry::commandNamesUnique(meterCommands.data(), meterCommands.size()));
+    telemetry::command<&Meter::configure>("Configure meter", meter),
+};
 static_assert(meterCommands.size() == static_cast<std::size_t>(MeterCommand::Count));
-inline constexpr telemetry::CommandCatalogTable commands{telemetry::group("meter",meterCommands)};
+inline constexpr telemetry::CommandCatalogTable commands{
+    telemetry::group("meter", meterCommands),
+};
 inline constexpr auto commandIndex = commands.index();
 
-// The same declaration form also binds methods on another source object.
 inline constexpr telemetry::FieldTable sensorFields{
-    field<&Sensor::temperature>("Temperature", "degC", sensor),
-    field<&Sensor::enabled>("Enabled", "", sensor),
+    field<&Sensor::temperature>("Temperature", sensor),
+    field<&Sensor::enabled>("Enabled", sensor),
 };
 inline constexpr telemetry::FieldCatalogTable fields{
     telemetry::group("meter", meterFields),
@@ -110,6 +144,8 @@ inline constexpr telemetry::FieldCatalogTable fields{
     telemetry::group("integers", integerFields),
 };
 inline constexpr auto fieldIndex = fields.index();
+inline constexpr telemetry::ServiceCatalogTable<> services{};
+inline constexpr telemetry::Model model{fields, commands, services};
 
 void advance() noexcept;
 

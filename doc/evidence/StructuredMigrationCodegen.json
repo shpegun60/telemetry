@@ -1,0 +1,424 @@
+{
+  "scope": "migration instruction and descriptor-layout byte comparison; not cycle measurements",
+  "baseline_head": "389c995083b4dc0a39cd8775b211ef765494240f",
+  "compiler": "CubeIDE ARM GCC 14.3.1",
+  "baseline_output": "build/stage16/baseline-endpoints-arm14",
+  "current_output": "build/stage17/final-endpoints-arm14",
+  "artifacts_retained_locally": true,
+  "comparisons": [
+    {
+      "file": "O2-array_direct.bin",
+      "bytes": 40,
+      "before_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a",
+      "after_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a"
+    },
+    {
+      "file": "O2-array_global.bin",
+      "bytes": 40,
+      "before_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a",
+      "after_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a"
+    },
+    {
+      "file": "O2-array_local.bin",
+      "bytes": 40,
+      "before_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a",
+      "after_sha256": "00e64a9df3337c0c3004e06da830df9c2f6891f43c8ff0530853c37b831eb95a"
+    },
+    {
+      "file": "O2-boolean_direct.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "O2-boolean_global.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "O2-boolean_local.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "O2-command_direct.bin",
+      "bytes": 16,
+      "before_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c",
+      "after_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c"
+    },
+    {
+      "file": "O2-command_global.bin",
+      "bytes": 16,
+      "before_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c",
+      "after_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c"
+    },
+    {
+      "file": "O2-command_local.bin",
+      "bytes": 16,
+      "before_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c",
+      "after_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c"
+    },
+    {
+      "file": "O2-config_direct.bin",
+      "bytes": 40,
+      "before_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20",
+      "after_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20"
+    },
+    {
+      "file": "O2-config_global.bin",
+      "bytes": 40,
+      "before_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20",
+      "after_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20"
+    },
+    {
+      "file": "O2-config_local.bin",
+      "bytes": 40,
+      "before_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20",
+      "after_sha256": "cc658b3b343a7d2d7718c6e58ffdad1198c2a0a9f5b8124ab41da53f9a5eaf20"
+    },
+    {
+      "file": "O2-enumeration_direct.bin",
+      "bytes": 40,
+      "before_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac",
+      "after_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac"
+    },
+    {
+      "file": "O2-enumeration_global.bin",
+      "bytes": 40,
+      "before_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac",
+      "after_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac"
+    },
+    {
+      "file": "O2-enumeration_local.bin",
+      "bytes": 40,
+      "before_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac",
+      "after_sha256": "23ac28e8eb13db436df1fa453877cb243caebfd348c0f064da55866fac151fac"
+    },
+    {
+      "file": "O2-f32_direct.bin",
+      "bytes": 36,
+      "before_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986",
+      "after_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986"
+    },
+    {
+      "file": "O2-f32_global.bin",
+      "bytes": 36,
+      "before_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986",
+      "after_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986"
+    },
+    {
+      "file": "O2-f32_local.bin",
+      "bytes": 36,
+      "before_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986",
+      "after_sha256": "ad0ca702ac983084885cca9285968d533e96b4a60b9d2211b2c74e45b55e4986"
+    },
+    {
+      "file": "O2-f64_direct.bin",
+      "bytes": 28,
+      "before_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c",
+      "after_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c"
+    },
+    {
+      "file": "O2-f64_global.bin",
+      "bytes": 28,
+      "before_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c",
+      "after_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c"
+    },
+    {
+      "file": "O2-f64_local.bin",
+      "bytes": 28,
+      "before_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c",
+      "after_sha256": "8cd8265dcb1085036485e139a7068ba9bf0ca69a528b5de30628b9622daf042c"
+    },
+    {
+      "file": "O2-layout.bin",
+      "bytes": 52,
+      "before_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172",
+      "after_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172"
+    },
+    {
+      "file": "O2-read_direct.bin",
+      "bytes": 16,
+      "before_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6",
+      "after_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6"
+    },
+    {
+      "file": "O2-read_global.bin",
+      "bytes": 16,
+      "before_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6",
+      "after_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6"
+    },
+    {
+      "file": "O2-read_local.bin",
+      "bytes": 16,
+      "before_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6",
+      "after_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6"
+    },
+    {
+      "file": "O2-state_direct.bin",
+      "bytes": 36,
+      "before_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5",
+      "after_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5"
+    },
+    {
+      "file": "O2-state_global.bin",
+      "bytes": 36,
+      "before_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5",
+      "after_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5"
+    },
+    {
+      "file": "O2-state_local.bin",
+      "bytes": 36,
+      "before_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5",
+      "after_sha256": "1025baecf99415208efcf258948531fd6506d1193c689bf6fc922677feece7d5"
+    },
+    {
+      "file": "O2-u16_direct.bin",
+      "bytes": 44,
+      "before_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc",
+      "after_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc"
+    },
+    {
+      "file": "O2-u16_global.bin",
+      "bytes": 44,
+      "before_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc",
+      "after_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc"
+    },
+    {
+      "file": "O2-u16_local.bin",
+      "bytes": 44,
+      "before_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc",
+      "after_sha256": "b7ce7de2f6842106b755f7d91911cda7cedb22c6fb20872e75cd9dc3ecd291cc"
+    },
+    {
+      "file": "O2-write_direct.bin",
+      "bytes": 16,
+      "before_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492",
+      "after_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492"
+    },
+    {
+      "file": "O2-write_global.bin",
+      "bytes": 16,
+      "before_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492",
+      "after_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492"
+    },
+    {
+      "file": "O2-write_local.bin",
+      "bytes": 16,
+      "before_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492",
+      "after_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492"
+    },
+    {
+      "file": "Og-layout.bin",
+      "bytes": 52,
+      "before_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172",
+      "after_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172"
+    },
+    {
+      "file": "Os-array_direct.bin",
+      "bytes": 32,
+      "before_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221",
+      "after_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221"
+    },
+    {
+      "file": "Os-array_global.bin",
+      "bytes": 32,
+      "before_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221",
+      "after_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221"
+    },
+    {
+      "file": "Os-array_local.bin",
+      "bytes": 32,
+      "before_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221",
+      "after_sha256": "dd6d522350cccdb0505b603b4bf17601bcb1d99db36fd4ac9cd94aac9f144221"
+    },
+    {
+      "file": "Os-boolean_direct.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "Os-boolean_global.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "Os-boolean_local.bin",
+      "bytes": 24,
+      "before_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c",
+      "after_sha256": "4742d89e4d5674dbe6a1772de3357de8da094dc94509c56e120baae14638519c"
+    },
+    {
+      "file": "Os-command_direct.bin",
+      "bytes": 16,
+      "before_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29",
+      "after_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29"
+    },
+    {
+      "file": "Os-command_global.bin",
+      "bytes": 16,
+      "before_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29",
+      "after_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29"
+    },
+    {
+      "file": "Os-command_local.bin",
+      "bytes": 16,
+      "before_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29",
+      "after_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29"
+    },
+    {
+      "file": "Os-config_direct.bin",
+      "bytes": 32,
+      "before_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627",
+      "after_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627"
+    },
+    {
+      "file": "Os-config_global.bin",
+      "bytes": 32,
+      "before_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627",
+      "after_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627"
+    },
+    {
+      "file": "Os-config_local.bin",
+      "bytes": 32,
+      "before_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627",
+      "after_sha256": "672077af379f91ff204e9ca63bf283b0427301ca373acf66ed9a19f8ad2a9627"
+    },
+    {
+      "file": "Os-enumeration_direct.bin",
+      "bytes": 40,
+      "before_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c",
+      "after_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c"
+    },
+    {
+      "file": "Os-enumeration_global.bin",
+      "bytes": 40,
+      "before_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c",
+      "after_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c"
+    },
+    {
+      "file": "Os-enumeration_local.bin",
+      "bytes": 40,
+      "before_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c",
+      "after_sha256": "9a3be5acbe67295852cd5bee4d1fd659b268bffd8ee2bc232db049da54eb583c"
+    },
+    {
+      "file": "Os-f32_direct.bin",
+      "bytes": 28,
+      "before_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c",
+      "after_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c"
+    },
+    {
+      "file": "Os-f32_global.bin",
+      "bytes": 28,
+      "before_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c",
+      "after_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c"
+    },
+    {
+      "file": "Os-f32_local.bin",
+      "bytes": 28,
+      "before_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c",
+      "after_sha256": "64f3f6724ca4da8d589c850a41062dff332d1e1f27ccae48f0dbcf3ae4de475c"
+    },
+    {
+      "file": "Os-f64_direct.bin",
+      "bytes": 32,
+      "before_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b",
+      "after_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b"
+    },
+    {
+      "file": "Os-f64_global.bin",
+      "bytes": 32,
+      "before_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b",
+      "after_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b"
+    },
+    {
+      "file": "Os-f64_local.bin",
+      "bytes": 32,
+      "before_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b",
+      "after_sha256": "5fe58fa1bc6ecc642992269796232c9448a4306eb2ae4090809e68d487db0b9b"
+    },
+    {
+      "file": "Os-layout.bin",
+      "bytes": 52,
+      "before_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172",
+      "after_sha256": "e177d083cbdf0d0735fb9bf502150f56a17d77551bdcb27ef4a92a66c7eaa172"
+    },
+    {
+      "file": "Os-read_direct.bin",
+      "bytes": 16,
+      "before_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b",
+      "after_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b"
+    },
+    {
+      "file": "Os-read_global.bin",
+      "bytes": 16,
+      "before_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b",
+      "after_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b"
+    },
+    {
+      "file": "Os-read_local.bin",
+      "bytes": 16,
+      "before_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b",
+      "after_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b"
+    },
+    {
+      "file": "Os-state_direct.bin",
+      "bytes": 28,
+      "before_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98",
+      "after_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98"
+    },
+    {
+      "file": "Os-state_global.bin",
+      "bytes": 28,
+      "before_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98",
+      "after_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98"
+    },
+    {
+      "file": "Os-state_local.bin",
+      "bytes": 28,
+      "before_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98",
+      "after_sha256": "5b23fe4ab82ec644d19a7b000ccb87893daa54da8c4de147111232ea5f63fb98"
+    },
+    {
+      "file": "Os-u16_direct.bin",
+      "bytes": 40,
+      "before_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252",
+      "after_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252"
+    },
+    {
+      "file": "Os-u16_global.bin",
+      "bytes": 40,
+      "before_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252",
+      "after_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252"
+    },
+    {
+      "file": "Os-u16_local.bin",
+      "bytes": 40,
+      "before_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252",
+      "after_sha256": "e7a0a2bf54c0c6b44443471505d2c2ed35204481a62916a8c0e08131888cf252"
+    },
+    {
+      "file": "Os-write_direct.bin",
+      "bytes": 12,
+      "before_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95",
+      "after_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95"
+    },
+    {
+      "file": "Os-write_global.bin",
+      "bytes": 12,
+      "before_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95",
+      "after_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95"
+    },
+    {
+      "file": "Os-write_local.bin",
+      "bytes": 12,
+      "before_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95",
+      "after_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95"
+    }
+  ]
+}

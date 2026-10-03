@@ -12,7 +12,7 @@ from check_values import check
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-READER = ROOT / 'lib/resource/structured/detail/Values.cpp'
+READER = ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp'
 PROTOCOL = ROOT / 'lib/resource/protocol/Protocol.cpp'
 
 
@@ -55,8 +55,11 @@ def main():
                   '-fno-exceptions', '-fno-rtti', '-ffunction-sections', '-fdata-sections']
 
     # This owns the optional adapter's self-contained header coverage. The
-    # core/v2 runner intentionally does not impose PFR on resource-only users.
-    for i, header in enumerate(sorted((ROOT / 'lib/resource/structured').rglob('*.hpp'))):
+    # Generic resource checks do not impose PFR on resource-only users.
+    headers = sorted((ROOT / 'lib/resource/telemetry/v3').rglob('*.hpp'))
+    if not headers:
+        raise RuntimeError('Optional provider header coverage is empty')
+    for i, header in enumerate(headers):
         source = out / f'header-{i}.cpp'
         source.write_text(f'#include <{header.relative_to(ROOT / "lib").as_posix()}>\n')
         run(flags + ['-fsyntax-only', source], 'header-' + str(i))
@@ -71,6 +74,15 @@ def main():
                              READER, PROTOCOL, '-o', exe], 'build-' + label)
                 run([exe, out / 'descriptor.bin', out / 'values.bin'], 'execute-' + label)
                 if stem == 'Check': counts['oracle'] = check(out)
+        # The application exposes only the generic resource facade. Compile
+        # that consumer separately to catch real provider composition errors.
+        device = out / ('DeviceCheck' + ('.exe' if os.name == 'nt' else ''))
+        run(flags + ['-O2', ROOT / 'tests/resources/DeviceCheck.cpp',
+                     ROOT / 'app/resources/DeviceResources.cpp', ROOT / 'app/demo/DemoCatalog.cpp',
+                     ROOT / 'lib/telemetry/model/Adapter.cpp',
+                     ROOT / 'lib/telemetry/abi/StructuredAbi.cpp', READER, PROTOCOL, '-o', device],
+            'build-device-facade')
+        run([device], 'execute-device-facade')
     else:
         folder = Path(shutil.which(args.cxx) or args.cxx).resolve().parent
         suffix = '.exe' if os.name == 'nt' else ''

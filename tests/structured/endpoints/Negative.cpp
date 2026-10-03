@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: MIT
  */
 #include "MixedFixture.hpp"
-#include <telemetry/field/TelemetryFieldType.h>
 using namespace fixture;
 using WR = telemetry::WriteResult;
 using CR = telemetry::CommandResult;
@@ -17,6 +16,9 @@ struct Owner {
     CR call(const MotorConfig&) noexcept { return CR::Executed; }
 };
 struct Callable { int state; MotorConfig operator()() const noexcept { return {}; } };
+// A real value object exercises the metadata refusal, without relying on
+// deleted legacy declarations to produce an unrelated missing-header error.
+struct ValueMetadata { float initial, minimum, maximum; };
 
 #if CASE == 1
 auto invalid = ts::field("bad", [](int) noexcept { return 1; });
@@ -75,7 +77,7 @@ auto invalid = fields.read<Position::Config>();
 #elif CASE == 28
 auto invalid = ts::field("bad", "V", &get);
 #elif CASE == 29
-auto invalid = ts::field("bad", &get, telemetry::numericType<float>(1, 0, 2));
+auto invalid = ts::field("bad", &get, ValueMetadata{1, 0, 2});
 #elif CASE == 30
 auto invalid = ts::command("bad", "V", +[]() noexcept { return CR::Executed; });
 #elif CASE == 31

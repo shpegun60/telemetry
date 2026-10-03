@@ -9,7 +9,7 @@
 
 namespace example::structured_protocol {
 namespace {
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using D = PacketStatus;
 
 struct Route {
@@ -55,7 +55,7 @@ PacketResult rejectOverlap(Output response, Route route, const ts::Workspace& wo
 } // namespace
 
 PacketResult Exchange::processImpl(const Binding& peer, Input request, Output response,
-    telemetry::structured::Workspace& workspace, detail::CurrentExchangeAbiTag) noexcept
+    telemetry::Workspace& workspace, detail::CurrentExchangeAbiTag) noexcept
 {
     if (response.size() < exchangeHeaderBytes) return {D::BufferTooSmall};
     if (request.size() < exchangeHeaderBytes || !detail::magic(request, "TSRQ"))

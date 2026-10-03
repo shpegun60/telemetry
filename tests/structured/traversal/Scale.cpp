@@ -1,6 +1,6 @@
 /* Incremental object sections for 32/128 positional native visitor rows. MIT. */
-#include <telemetry_structured/Structured.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/Telemetry.hpp>
+namespace ts = telemetry;
 static std::uint32_t value;
 std::uint32_t read() noexcept { return value; }
 template <std::size_t... I>

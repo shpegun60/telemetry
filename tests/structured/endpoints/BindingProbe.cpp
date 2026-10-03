@@ -4,11 +4,11 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
+#include <telemetry/model/Model.hpp>
 #include <algorithm>
 #include <cstdio>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 using WR = telemetry::WriteResult;
 using CR = telemetry::CommandResult;
 #define CHECK(...) do { if (!(__VA_ARGS__)) { std::printf("line %d\n", __LINE__); return 1; } } while (false)

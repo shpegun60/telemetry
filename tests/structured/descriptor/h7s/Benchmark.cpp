@@ -67,6 +67,12 @@ extern "C" void bench_init()
     region.AccessPermission = MPU_REGION_FULL_ACCESS; region.TypeExtField = MPU_TEX_LEVEL1;
     region.IsCacheable = MPU_ACCESS_CACHEABLE; region.IsBufferable = MPU_ACCESS_BUFFERABLE;
     region.IsShareable = MPU_ACCESS_NOT_SHAREABLE; region.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
+    HAL_MPU_ConfigRegion(&region);
+    // Device/no-access GFXMMU region, established by the consolidated MCU bench.
+    region.Number = MPU_REGION_NUMBER2; region.BaseAddress = 0x25000000;
+    region.Size = MPU_REGION_SIZE_16MB; region.AccessPermission = MPU_REGION_NO_ACCESS;
+    region.TypeExtField = MPU_TEX_LEVEL0; region.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+    region.IsBufferable = MPU_ACCESS_BUFFERABLE; region.IsShareable = MPU_ACCESS_SHAREABLE;
     HAL_MPU_ConfigRegion(&region); HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
     SCB_EnableICache(); SCB_EnableDCache();
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;

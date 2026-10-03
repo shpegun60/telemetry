@@ -1,10 +1,9 @@
 /*
  * @file Scale.cpp
- * @brief Runtime-native/encoded/legacy reads of 128 distinct targets.
+ * @brief Runtime-native and encoded reads of 128 distinct targets.
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 #include "Fixture.hpp"
-#include <telemetry/Telemetry.h>
 
 #ifdef MCU_SCALE
 namespace mcu {
@@ -26,22 +25,13 @@ template <std::size_t... I> constexpr auto table(std::index_sequence<I...>) noex
 {
     return ts::FieldTable{ts::field<&Device::read<I>>(labels[I].data(), device)...};
 }
-template <std::size_t... I> constexpr auto oldTable(std::index_sequence<I...>) noexcept
-{
-    return telemetry::FieldTable{
-        telemetry::field<&Device::read<I>>(labels[I].data(), "", device)...};
-}
 inline constexpr auto local = table(std::make_index_sequence<rows>{});
-inline constexpr auto legacy = oldTable(std::make_index_sequence<rows>{});
 inline constexpr ts::FieldCatalogTable fields{ts::group("scale", local)};
-inline constexpr telemetry::Catalog oldCatalog{"scale", legacy.data(), legacy.size()};
-inline constexpr telemetry::CatalogIndex oldIndex{&oldCatalog, 1};
 
 std::uint32_t direct(std::uint32_t id) noexcept { return device.values[id]; }
 std::uint32_t directKnown(std::uint32_t) noexcept { return device.read<0>(); }
 std::uint32_t typedLocal(std::uint32_t) noexcept { return local.read<0>().value_or(0); }
 std::uint32_t typedGlobal(std::uint32_t) noexcept { return fields.read<0>().value_or(0); }
-std::uint32_t oldLocal(std::uint32_t) noexcept { return legacy.read<0>().value_or(0); }
 struct Visitor {
     std::uint32_t* result;
     template <class Endpoint> void operator()(const Endpoint& endpoint) const noexcept
@@ -71,19 +61,18 @@ std::uint32_t encoded(std::uint32_t id) noexcept
         value |= std::uint32_t(std::to_integer<unsigned>(bytes[i])) << (8 * i);
     return value;
 }
-std::uint32_t oldScalar(std::uint32_t id) noexcept { return oldIndex.read<std::uint32_t>(id).value_or(0); }
 constexpr Operation probes[]{
     {"direct_index", direct, 7, 4096}, {"local_u32", typedLocal, 1, 4096},
-    {"global_u32", typedGlobal, 1, 4096}, {"old_local_u32", oldLocal, 1, 4096},
+    {"global_u32", typedGlobal, 1, 4096},
     {"named_visitor", namedVisitor, 7, 4096}, {"lambda_visitor", lambdaVisitor, 7, 4096},
     {"readAs_u32", nativeAs, 7, 4096}, {"encoded_u32", encoded, 7, 4096},
-    {"old_scalar_u32", oldScalar, 7, 4096}, {"direct_known_u32", directKnown, 1, 4096}};
+    {"direct_known_u32", directKnown, 1, 4096}};
 } // namespace
 
 std::span<const Operation> operations() noexcept { return probes; }
 void prepare() noexcept { for (unsigned i = 0; i < rows; ++i) device.values[i] = 17 + i * 3; }
 std::uint32_t expected(unsigned operation, std::uint32_t id) noexcept
-{ return 17 + (((operation >= 1 && operation <= 3) || operation == 9) ? 0 : id * 3); }
+{ return 17 + (((operation >= 1 && operation <= 2) || operation == 7) ? 0 : id * 3); }
 void checkProbes() noexcept
 {
     prepare();
@@ -97,7 +86,6 @@ void checkProbes() noexcept
         qualification::check(lambdaVisitor(id) == 0);
         qualification::check(nativeAs(id) == 0);
         qualification::check(encoded(id) == 0);
-        qualification::check(oldScalar(id) == 0);
     }
 }
 } // namespace mcu

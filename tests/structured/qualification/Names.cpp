@@ -1,7 +1,7 @@
 /* All metadata factories accept constexpr array-element pointer names.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
-#include <telemetry_structured/Structured.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/Telemetry.hpp>
+namespace ts = telemetry;
 inline constexpr std::array<std::array<char, 6>, 4> names{{
     {'F', 'i', 'e', 'l', 'd', '\0'}, {'C', 'm', 'd', '\0'},
     {'S', 'v', 'c', '\0'}, {'G', 'r', 'o', 'u', 'p', '\0'}}};

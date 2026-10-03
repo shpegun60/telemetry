@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Model.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/model/Model.hpp>
+namespace ts = telemetry;
 struct Request { std::uint32_t number; };
 std::uint32_t missingGet() noexcept __attribute__((weak));
 telemetry::WriteResult missingSet(std::uint32_t) noexcept __attribute__((weak));

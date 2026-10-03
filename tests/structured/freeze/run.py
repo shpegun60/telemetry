@@ -108,27 +108,27 @@ def verify_fixtures():
 def manifest_assertions(contract):
     """Keep the readable manifest tied to actual constants, never sizeof(C++ rows)."""
     wire = contract['wire']
-    lines = ['#include <telemetry_structured/Structured.hpp>',
-             '#include <resource/structured/BinaryFormat.hpp>']
+    lines = ['#include <telemetry/Telemetry.hpp>',
+             '#include <resource/telemetry/v3/BinaryFormat.hpp>']
     for key, name in (('major', 'binaryMajor'), ('minor', 'binaryMinor'),
                       ('descriptor_header_bytes', 'descriptorHeaderBytes'),
                       ('values_header_bytes', 'valuesHeaderBytes'),
                       ('record_header_bytes', 'recordHeaderBytes'), ('record_version', 'recordVersion')):
-        lines.append(f'static_assert(resource::structured::{name} == {int(wire[key])});')
+        lines.append(f'static_assert(resource::telemetry::v3::{name} == {int(wire[key])});')
     for key, name in (('record_kinds', 'RecordKind'), ('categories', 'Category'),
                       ('capabilities', 'Capability'), ('value_status', 'ValueStatus')):
         for entry, code in wire[key].items():
-            lines.append(f'static_assert(static_cast<unsigned>(resource::structured::{name}::{entry}) == {int(code)});')
+            lines.append(f'static_assert(static_cast<unsigned>(resource::telemetry::v3::{name}::{entry}) == {int(code)});')
     for key, name in (('type_kinds', 'TypeKind'), ('scalar_codes', 'ScalarCode')):
         for entry, code in wire[key].items():
-            lines.append(f'static_assert(static_cast<unsigned>(telemetry::structured::{name}::{entry}) == {int(code)});')
+            lines.append(f'static_assert(static_cast<unsigned>(telemetry::{name}::{entry}) == {int(code)});')
     for key, name in (('basis', 'fingerprintBasis'), ('prime', 'fingerprintPrime')):
         value = int(wire['fingerprint'][key], 16)
-        lines.append(f'static_assert(resource::structured::{name} == {value}ULL);')
-    lines += [f'static_assert(telemetry::structured::structuredAbiRevision == {int(contract["structured_abi_revision"])});',
+        lines.append(f'static_assert(resource::telemetry::v3::{name} == {value}ULL);')
+    lines += [f'static_assert(telemetry::structuredAbiRevision == {int(contract["structured_abi_revision"])});',
               f'static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES == {int(contract["default_local_object_bytes"])});']
     for name in LIMIT_NAMES:
-        lines.append(f'static_assert(telemetry::structured::Limits::{name} == {int(contract["limits"][name])});')
+        lines.append(f'static_assert(telemetry::Limits::{name} == {int(contract["limits"][name])});')
     for key, name in (('packed_id_bits', 'telemetry::PackedId'),
                       ('group_bits', 'telemetry::GroupId'), ('entry_bits', 'telemetry::EntryOffset'),
                       ('fingerprint_bits', 'std::uint64_t')):
@@ -239,7 +239,7 @@ def main():
         def tool(name):
             return compiler.with_name('arm-none-eabi-' + name + suffix)
         symbols = run([tool('nm'), '-C', image], 'symbols-' + opt)
-        if forbidden_symbols(symbols, legacy=True):
+        if forbidden_symbols(symbols):
             raise RuntimeError(opt + ': allocation/formatting/Scalar symbols retained')
         sections = run([tool('size'), '-A', image], 'sections-' + opt)
         parsed = {name: int(size) for name, size in re.findall(r'^(\S+)\s+(\d+)\s+\d+\s*$', sections, re.M)}

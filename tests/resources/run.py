@@ -1,199 +1,155 @@
 #!/usr/bin/env python3
-"""C++20 resource checks, contract rejections and Cortex-M7 compilation (MIT).
+"""Independent C++20 resource core/protocol checks; telemetry has its own suite.
 
-Authors: Ruslan Kovtun (shpegun60), codexAi.
+Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+No PFR, telemetry headers or optional adapter is needed by this runner.
 """
 import argparse
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
-from stack_check import check_usage, self_test as check_stack_controls
+import sys
+from stack_check import check_usage, self_test
 
 ROOT = Path(__file__).resolve().parents[2]
-TELEMETRY = ["lib/telemetry/abi/TelemetryAbi.cpp"]
-ADAPTERS = [f"lib/resource/telemetry/{name}.cpp" for name in ("SchemaFile", "CommandsFile", "ValuesFile")]
-PROTOCOL = ["lib/resource/protocol/Protocol.cpp"]
-DEVICE = ["app/resources/DeviceResources.cpp", "app/demo/DemoCatalog.cpp"]
-HEADERS = [str(p.relative_to(ROOT / "lib")).replace("\\", "/")
-           for p in sorted((ROOT / "lib/resource").rglob("*.hpp"))
-           if p.relative_to(ROOT / "lib/resource").parts[0] != "structured"]
-# The optional structured adapter has its own header checks with PFR include
-# paths in tests/structured/resources/run.py. Core/v2 consumers stay independent.
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / 'tests/structured/qualification'))
+from gates import forbidden_symbols  # noqa: E402
+
+
+def counted_conditions(text, expected):
+    """A shortened or duplicated positive report cannot qualify the suite."""
+    rows = re.findall(r'^.*?(\d+) (?:checks|controls) passed\s*$', text, re.M)
+    if len(rows) != 1 or int(rows[0]) != expected:
+        raise RuntimeError(f'Expected exactly {expected} counted conditions')
+    return expected
+
+
+def condition_controls():
+    for text in ('Resource: 34 controls passed\n', '34 checks passed\n'):
+        counted_conditions(text, 34)
+    for text in ('', '0 checks passed', '1 checks passed', '33 checks passed',
+                 '35 checks passed', '34 checks passed\n34 checks passed\n'):
+        try:
+            counted_conditions(text, 34)
+        except RuntimeError:
+            continue
+        raise AssertionError('Incomplete or duplicated condition report accepted')
+    return {'positive': 2, 'refused': 6}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cxx", default=os.environ.get("CXX", "g++"))
-    parser.add_argument("--build-dir", type=Path, required=True)
-    parser.add_argument("--sanitize", action="store_true")
-    parser.add_argument("--null-checks", action="store_true",
-                        help="compile every resource check with -fno-delete-null-pointer-checks")
-    parser.add_argument("--arm", action="store_true")
-    parser.add_argument("--node", help="Node executable for the browser decoder checks")
-    parser.add_argument("--objdump", default="arm-none-eabi-objdump")
-    parser.add_argument("--size", default="arm-none-eabi-size")
+    parser.add_argument('--cxx', default=os.environ.get('CXX', 'g++'))
+    parser.add_argument('--build-dir', type=Path, required=True)
+    parser.add_argument('--sanitize', action='store_true')
+    parser.add_argument('--null-checks', action='store_true')
+    parser.add_argument('--arm', action='store_true')
+    parser.add_argument('--objdump')
+    parser.add_argument('--size')
     args = parser.parse_args()
-    check_stack_controls()
-    build = args.build_dir.resolve()
-    build.mkdir(parents=True, exist_ok=True)
-    env = os.environ.copy()
-    if args.sanitize:
-        env.setdefault("ASAN_OPTIONS", "detect_leaks=1:detect_stack_use_after_return=1")
-    if args.sanitize:
-        env.setdefault("UBSAN_OPTIONS", "halt_on_error=1")
+    self_test()
+    output = args.build_dir.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    # clang++ can be a symlink to clang; retain the C++ driver spelling so
+    # host links select the C++ runtime rather than the C driver defaults.
+    compiler = Path(shutil.which(args.cxx) or args.cxx).absolute()
+    environment = os.environ.copy()
+    environment['PATH'] = str(compiler.parent) + os.pathsep + environment.get('PATH', '')
+    environment.setdefault('ASAN_OPTIONS', 'detect_leaks=1:detect_stack_use_after_return=1')
+    environment.setdefault('UBSAN_OPTIONS', 'halt_on_error=1')
+    report = {'commands': 0, 'rejections': 0, 'conditions': 0, 'headers': [],
+              'execution': 'compile/link only' if args.arm else 'host'}
+    report['condition_controls'] = condition_controls()
 
-    def run(command, name, text=None, reject=False, diagnostic=None):
-        result = subprocess.run(command, cwd=ROOT, env=env, input=text,
-                                text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        (build / (name + ".log")).write_text("COMMAND " + repr(command) + "\n" + result.stdout, encoding="utf-8")
-        if (result.returncode == 0) == reject:
-            raise RuntimeError(name + "\n" + result.stdout)
-        if diagnostic and not re.search(diagnostic, result.stdout, re.IGNORECASE):
-            raise RuntimeError(name + " failed for an unexpected reason\n" + result.stdout)
-        if result.returncode == 0 and result.stdout and not name.startswith(("compile", "header", "negative", "dump", "link")):
-            print(result.stdout.strip(), flush=True)
+    def run(command, label, *, diagnostic=None, input_text=None):
+        command = list(map(str, command))
+        result = subprocess.run(command, cwd=ROOT, env=environment, input=input_text,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                encoding='utf-8', errors='replace', timeout=180)
+        (output / (label + '.log')).write_text(
+            f'COMMAND {command!r}\nEXIT {result.returncode}\n{result.stdout}', encoding='utf-8')
+        report['commands'] += 1
+        if diagnostic:
+            if result.returncode == 0 or not re.search(diagnostic, result.stdout, re.I):
+                raise RuntimeError(label + ': intended refusal missing\n' + result.stdout)
+            report['rejections'] += 1
+        elif result.returncode:
+            raise RuntimeError(label + '\n' + result.stdout)
+        print(label + ': pass', flush=True)
         return result.stdout
 
-    flags = [args.cxx, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-pedantic-errors",
-             "-fdiagnostics-color=never", "-Ilib", "-Ilib/telemetry", "-Ilib/delegate"]
+    run([compiler, '--version'], 'compiler')
+    flags = [compiler, '-std=c++20', '-Wall', '-Wextra', '-Werror', '-pedantic-errors',
+             '-fdiagnostics-color=never', '-Ilib']
     if args.null_checks:
-        flags.append("-fno-delete-null-pointer-checks")
-    if args.arm:
-        flags += ["-mcpu=cortex-m7", "-mthumb", "-mfpu=fpv5-d16", "-mfloat-abi=hard",
-                  "-fno-exceptions", "-fno-rtti", "-ffunction-sections", "-fdata-sections"]
+        flags += ['-fno-delete-null-pointer-checks']
     if args.sanitize:
-        flags += ["-O1", "-g", "-fno-omit-frame-pointer", "-fsanitize=address,undefined,float-cast-overflow",
-                  "-fsanitize-address-use-after-scope", "-fno-sanitize-recover=all"]
-    run([args.cxx, "--version"], "compiler")
-    for n, header in enumerate(HEADERS):
-        run(flags + ["-x", "c++", "-fsyntax-only", "-"], f"header-{n}", f"#include <{header}>\n")
-    rejection_count = 34
-    deleted_file = r"call to deleted function ['\u2018]file|use of deleted function [^\n]*resource::file"
-    for case in range(rejection_count + 1):
-        diagnostic = (deleted_file if case in (1, 8, 13, 14) or case >= 15 else
-                      r"deleted" if case == 7 else
-                      r"invalidDefinition" if case in (2, 3, 4, 5, 6, 12) else
-                      r"satisfaction of .Provider|does not satisfy .Provider" if case in (9, 10, 11) else None)
-        run(flags + [f"-DCASE={case}", "-fsyntax-only", "tests/resources/Negative.cpp"],
-            f"negative-{case}", reject=case != 0, diagnostic=diagnostic)
-    if not args.arm:
-        control = build / ("FileBindingsControl.exe" if os.name == "nt" else "FileBindingsControl")
-        run(flags + ["-O1" if args.sanitize else "-O2", "-DCASE=0", "tests/resources/Negative.cpp",
-                     "-o", str(control)], "compile-binding-control")
-        run([str(control)], "binding-control")
-    sources = TELEMETRY + ADAPTERS + PROTOCOL + DEVICE
-    # Only object builds need .su output. Syntax-only checks otherwise leave
-    # a--.su / a-Negative.su beside the repository sources on ARM GCC.
-    object_flags = flags + (["-fstack-usage"] if args.arm else [])
-    for opt in (("O2", "Os") if args.arm else ("O1" if args.sanitize else "O2",)):
-        objects = {}
-        for src in sources:
-            obj = build / f"{opt}-{Path(src).stem}.o"
-            run(object_flags + ["-" + opt, "-c", src, "-o", str(obj)], f"compile-{opt}-{obj.stem}")
-            objects[src] = str(obj)
-            if args.arm and src in ADAPTERS + PROTOCOL:
-                symbols = run([args.objdump, "-tC", str(obj)], f"dump-object-symbols-{opt}-{Path(src).stem}")
-                if re.search(r"malloc|calloc|realloc|operator new", symbols):
-                    raise RuntimeError("Heap dependency entered resource code: " + src)
-                if re.search(r"__aeabi_lmul|__muldi3", symbols):
-                    raise RuntimeError("Software 64-bit multiply entered resource code: " + src)
-
-        if args.arm:
-            run(object_flags + ["-" + opt, "-c", "tests/resources/EmbeddedReviewCheck.cpp",
-                               "-o", str(build / (opt + "-EmbeddedReviewCheck.o"))],
-                "compile-" + opt + "-embedded-review")
-            stack = {}
-            for source in ADAPTERS + PROTOCOL:
-                stem = Path(source).stem
-                report = build / f"{opt}-{stem}.su"
-                stack[stem] = check_usage(report.read_text(encoding="utf-8"),
-                    required=stem if stem.endswith("File") else None, optimization=opt)
-            (build / f"stack-usage-{opt}.log").write_text(json.dumps(stack, indent=2), encoding="utf-8")
-            print(f"ARM {opt} bounded stack guards passed", flush=True)
-            obj = build / f"{opt}-ArmProbe.o"
-            run(object_flags + ["-" + opt, "-c", "tests/resources/ArmProbe.cpp", "-o", str(obj)], f"compile-{opt}-probe")
-            dump = run([args.objdump, "-drC", str(obj)], f"dump-{opt}")
-            sections = run([args.objdump, "-t", str(obj)], f"dump-sections-{opt}")
-            if not re.search(r"\.rodata\S*\s+\S+\s+resource_probe_files", sections):
-                raise RuntimeError("Resource table did not land in constant storage")
-            for name in ("resource_probe_read", "resource_probe_known", "resource_probe_stat",
-                         "resource_probe_fingerprint", "resource_probe_value_lookup"):
-                match = re.search(rf"<{name}>:\n(.*?)(?=\nDisassembly|\n[0-9a-f]+ <|\Z)", dump, re.S)
-                if not match:
-                    raise RuntimeError("Missing dispatch probe: " + name)
-                body = match.group(1)
-                if re.search(r"malloc|operator new|strcmp|strlen|memcmp", body):
-                    raise RuntimeError("Unexpected runtime work in " + name)
-                if name == "resource_probe_known" and re.search(r"\bblx\b|\bbx\s+r[0-9]+", body):
-                    raise RuntimeError("Known provider retained indirect dispatch")
-                if name == "resource_probe_value_lookup":
-                    instructions = re.findall(r"^\s*([0-9a-f]+):\s+(?:[0-9a-f]{4}\s+)+([^\n]+)", body, re.M)
-                    if len(instructions) > 40 or re.search(r"\bbl(?:\.w)?\b|\bblx\b", body):
-                        raise RuntimeError("Direct value lookup gained a call or excessive work")
-                    # A backwards jump to the shared return is ordinary -Os
-                    # tail merging, not an ordinal loop. All other backwards
-                    # edges remain forbidden in this bounded lookup probe.
-                    by_address = {int(a, 16): insn for a, insn in instructions}
-                    for address, instruction in instructions:
-                        branch = re.match(r"b(?:eq|ne|hi|ls|cc|cs|lo|hs|ge|gt|le|lt|\.n|\.w)?(?:\.\w+)?\s+([0-9a-f]+)\b", instruction)
-                        if branch and int(branch[1], 16) < int(address, 16):
-                            target = by_address.get(int(branch[1], 16), "")
-                            if not re.match(r"(?:bx\s+lr\b|pop(?:\.w)?\s+\{[^}]*\bpc\})", target):
-                                raise RuntimeError("Direct value lookup acquired a loop or unknown backwards edge")
-            # The hash itself uses the hardware widening multiply. The probe's
-            # call to that shared hash loop is intentional; libgcc helpers are not.
-            kernel = re.search(
-                r"<telemetry_resource::detail::Fingerprint::bytes\([^\n]*>:\n"
-                r"(.*?)(?=\nDisassembly|\n[0-9a-f]+ <|\Z)", dump, re.S)
-            if (not kernel or not re.search(r"\bumull\b", kernel[1])
-                    or re.search(r"\bbl(?:\.w)?\b|\bblx\b", kernel[1])
-                    or re.search(r"__aeabi_lmul|__muldi3", dump)):
-                raise RuntimeError("Fingerprint lost its hardware multiply")
-            elf = build / f"{opt}-resources.elf"
-            run(flags + ["-" + opt, str(obj), *objects.values(), "--specs=nano.specs", "--specs=nosys.specs",
-                         "-Wl,--gc-sections", "-o", str(elf)], f"link-{opt}")
-            run([args.size, "-A", str(elf)], f"size-{opt}")
-            symbols = run([args.objdump, "-tC", str(elf)], f"dump-symbols-{opt}")
-            if re.search(r"snprintf|_printf_float|localeconv|strtod|to_chars|ryu|schubfach|POW10|\bpow[f l]?\b|schemaCrc", symbols, re.I):
-                raise RuntimeError("Text formatting or JSON dependency entered the binary resource image")
-        else:
-            tests = {
-                "CoreCheck": PROTOCOL,
-                "BinaryCheck": [],
-                "StreamCheck": [],
-                "TelemetryFilesCheck": TELEMETRY + ADAPTERS + PROTOCOL,
-                "LocalityCheck": TELEMETRY + ADAPTERS,
-                "MetadataSizeCheck": TELEMETRY + ADAPTERS,
-                "MetadataContractCheck": TELEMETRY + ADAPTERS,
-                "EmbeddedReviewCheck": TELEMETRY + ADAPTERS,
-                "CursorCheck": TELEMETRY + ADAPTERS + PROTOCOL,
-                "DeviceCheck": sources,
-                "NoHeapCheck": TELEMETRY + ADAPTERS + PROTOCOL,
-            }
-            for name, deps in tests.items():
-                exe = build / (name + (".exe" if os.name == "nt" else ""))
-                run(flags + ["-" + opt, f"tests/resources/{name}.cpp", *(objects[d] for d in deps), "-o", str(exe)], "compile-" + name)
-                run([str(exe), *([str(build / "fixtures")] if name == "TelemetryFilesCheck" else [])], name)
-            if args.node:
-                run([args.node, "tests/resources/DecoderCheck.mjs", str(build / "fixtures")], "DecoderCheck")
-            for adapter in range(3):
-                for mismatch in (False, True):
-                    options = [f"-DADAPTER={adapter}"]
-                    if mismatch:
-                        options += ["-DTELEMETRY_FORCE_CACHELINE=128"]
-                    exe = build / f"abi-{adapter}-{int(mismatch)}.exe"
-                    run(flags + options + ["tests/resources/AbiCheck.cpp",
-                        *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(exe)],
-                        f"abi-{adapter}-{int(mismatch)}", reject=mismatch)
-                run(flags + [f"-DADAPTER={adapter}", "-DLEGACY_ABI7", "tests/resources/AbiCheck.cpp",
-                    *(objects[d] for d in TELEMETRY + ADAPTERS), "-o", str(build / f"abi7-{adapter}.exe")],
-                    f"abi7-{adapter}", reject=True)
-    print(f"Resources: {len(HEADERS)} standalone headers, {rejection_count} contract rejections + binding control; "
-          + ("ARM O2/Os compile/link/layout/codegen passed" if args.arm else
-             f"{len(tests)} host suites + 3 ABI controls and alignment/ABI7 rejections passed"), flush=True)
+        flags += ['-g', '-fno-omit-frame-pointer', '-fsanitize=address,undefined,float-cast-overflow',
+                  '-fsanitize-address-use-after-scope', '-fno-sanitize-recover=all']
+    if args.arm:
+        flags += ['-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
+                  '-fno-exceptions', '-fno-rtti', '-ffunction-sections', '-fdata-sections']
+    headers = sorted((ROOT / 'lib/resource').glob('*.hpp'))
+    headers += sorted((ROOT / 'lib/resource/protocol').glob('*.hpp'))
+    if {path.relative_to(ROOT / 'lib').as_posix() for path in headers} != {
+            'resource/Types.hpp', 'resource/File.hpp', 'resource/FileSystem.hpp',
+            'resource/ChunkWriter.hpp', 'resource/protocol/Protocol.hpp'}:
+        raise RuntimeError('Generic resource header coverage changed')
+    for index, header in enumerate(headers):
+        relative = header.relative_to(ROOT / 'lib').as_posix()
+        run(flags + ['-x', 'c++', '-fsyntax-only', '-'], 'header-' + str(index),
+            input_text='#include <' + relative + '>\n')
+        report['headers'].append(relative)
+    deleted = r"call to deleted function ['\u2018]file|use of deleted function [^\n]*resource::file"
+    for case in range(35):
+        diagnostic = (deleted if case in (1, 8, 13, 14) or case >= 15 else
+                      r'deleted' if case == 7 else
+                      r'invalidDefinition' if case in (2, 3, 4, 5, 6, 12) else
+                      r'satisfaction of .Provider|does not satisfy .Provider' if case in (9, 10, 11) else None)
+        run(flags + [f'-DCASE={case}', '-fsyntax-only', HERE / 'Negative.cpp'],
+            f'negative-{case}', diagnostic=diagnostic)
+    if args.arm:
+        def tool(name):
+            return compiler.with_name('arm-none-eabi-' + name + compiler.suffix)
+        for opt in ('O2', 'Os'):
+            protocol = output / (opt + '-Protocol.o')
+            probe = output / (opt + '-ArmProbe.o')
+            for source, obj in ((ROOT / 'lib/resource/protocol/Protocol.cpp', protocol),
+                                (HERE / 'ArmProbe.cpp', probe)):
+                run(flags + ['-' + opt, '-fstack-usage', '-c', source, '-o', obj], obj.stem)
+            usage = check_usage(protocol.with_suffix('.su').read_text(encoding='utf-8'), required='process')
+            report.setdefault('stack', {})[opt] = usage
+            assembly = run([args.objdump or tool('objdump'), '-drC', probe], 'assembly-' + opt)
+            symbols = run([args.objdump or tool('objdump'), '-t', probe], 'storage-' + opt)
+            if not re.search(r'\.rodata\S*\s+\S+\s+resource_probe_files', symbols):
+                raise RuntimeError('File table left constant storage')
+            body = re.search(r'<resource_probe_known>:\n(.*?)(?=\n[0-9a-f]+ <|\Z)', assembly, re.S)
+            if not body or re.search(r'\bblx\b|\bbx\s+r[0-9]+', body[1]):
+                raise RuntimeError('Known provider gained indirect dispatch')
+            image = output / (opt + '-resources.elf')
+            run(flags + ['-' + opt, probe, protocol, '--specs=nano.specs', '--specs=nosys.specs',
+                         '-Wl,--gc-sections', '-o', image], 'link-' + opt)
+            linked = run([tool('nm'), '-C', image], 'symbols-' + opt)
+            if forbidden_symbols(linked):
+                raise RuntimeError('Allocation/formatting entered generic resource image')
+            run([args.size or tool('size'), '-A', image], 'sections-' + opt)
+    else:
+        for stem, sources in (('CoreCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
+                              ('NoHeapCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
+                              ('Negative', [])):
+            program = output / (stem + ('.exe' if os.name == 'nt' else ''))
+            run(flags + ['-O1' if args.sanitize else '-O2', '-DCASE=0', HERE / (stem + '.cpp'),
+                         *sources, '-o', program], 'build-' + stem)
+            result = run([program], 'execute-' + stem)
+            expected = {'CoreCheck': 4198, 'NoHeapCheck': 5000, 'Negative': 34}[stem]
+            report['conditions'] += counted_conditions(result, expected)
+    (output / 'summary.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+    print(json.dumps({key: report[key] for key in ('commands', 'rejections', 'conditions', 'execution')}))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/model/Adapter.hpp>
+#include <telemetry/model/Adapter.hpp>
 
 #include <array>
 #include <cstddef>
@@ -13,7 +13,7 @@
 #include <span>
 #include <utility>
 
-namespace ts = telemetry::structured;
+namespace ts = telemetry;
 
 template <class Tag, std::size_t Index>
 struct Mutate;
@@ -40,7 +40,7 @@ using Wrong = typename Mutate<ts::detail::CurrentStructuredAbiTag, 60>::type;
 #error Select a mismatched ABI dimension
 #endif
 
-namespace telemetry::structured {
+namespace telemetry {
 EncodedCallResult callServiceEncoded(ModelView, telemetry::PackedId,
                                      std::span<const std::byte>,
                                      std::span<std::byte>, Workspace&, Wrong) noexcept;

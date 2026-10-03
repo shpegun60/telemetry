@@ -1,119 +1,192 @@
+/* Qt presentation over native telemetry definitions.
+ * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QHeaderView>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QStringList>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QDoubleSpinBox>
-#include <QComboBox>
+#include <QVariant>
 
 #include <cmath>
-
-#include "serialization/TelemetryJson.h"
-#include "serialization/TelemetryCommandJson.h"
+#include <limits>
+#include <type_traits>
+#include <utility>
 
 namespace {
-
-QString scalarText(const telemetry::Field& field)
+QString text(std::string_view value)
 {
-    const auto value = field.read();
-    using telemetry::ScalarType;
-    switch (value.type()) {
-        case ScalarType::F32:
-            return std::isfinite(value.get<float>()) ? QString::number(value.get<float>(), 'g', 7) : "n/a";
-        case ScalarType::F64:
-            return std::isfinite(value.get<double>()) ? QString::number(value.get<double>(), 'g', 17) : "n/a";
-        case ScalarType::U8: return QString::number(static_cast<unsigned>(value.get<std::uint8_t>()));
-        case ScalarType::U16: return QString::number(static_cast<unsigned>(value.get<std::uint16_t>()));
-        case ScalarType::U32: return QString::number(value.get<std::uint32_t>());
-        case ScalarType::U64: return QString::number(static_cast<qulonglong>(value.get<std::uint64_t>()));
-        case ScalarType::S8: return QString::number(static_cast<int>(value.get<std::int8_t>()));
-        case ScalarType::S16: return QString::number(static_cast<int>(value.get<std::int16_t>()));
-        case ScalarType::S32: return QString::number(value.get<std::int32_t>());
-        case ScalarType::S64: return QString::number(static_cast<qlonglong>(value.get<std::int64_t>()));
-        case ScalarType::Bool: return value.get<bool>() ? "true" : "false";
-        case ScalarType::Null: return "n/a";
-        default: return "n/a";
+    return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size()));
+}
+
+// Labels and units are presentation policy, outside the telemetry descriptor.
+QString unit(telemetry::PackedId id)
+{
+    switch (id) {
+    case telemetry::makeId<0, 0>():
+    case telemetry::makeId<0, 4>(): return "V";
+    case telemetry::makeId<0, 1>(): return "A";
+    case telemetry::makeId<0, 2>(): return "kW";
+    case telemetry::makeId<1, 0>(): return "degC";
+    default: return {};
     }
 }
 
+template <class T> QString typeText();
+
+template <class T, std::size_t... I>
+QString memberTypes(std::index_sequence<I...>)
+{
+    QStringList members;
+    ((members << text(telemetry::reflection::memberName<I, T>()) + ": " +
+        typeText<telemetry::reflection::MemberType<I, T>>()), ...);
+    return "{" + members.join(", ") + "}";
+}
+
+template <class T> QString typeText()
+{
+    using Type = telemetry::Type<T>;
+    if constexpr (Type::kind == telemetry::TypeKind::Void) {
+        return "void";
+    } else if constexpr (Type::kind == telemetry::TypeKind::Scalar) {
+        switch (Type::code) {
+        case telemetry::ScalarCode::Bool: return "bool";
+        case telemetry::ScalarCode::U8: return "u8";
+        case telemetry::ScalarCode::S8: return "s8";
+        case telemetry::ScalarCode::U16: return "u16";
+        case telemetry::ScalarCode::S16: return "s16";
+        case telemetry::ScalarCode::U32: return "u32";
+        case telemetry::ScalarCode::S32: return "s32";
+        case telemetry::ScalarCode::U64: return "u64";
+        case telemetry::ScalarCode::S64: return "s64";
+        case telemetry::ScalarCode::F32: return "f32";
+        case telemetry::ScalarCode::F64: return "f64";
+        }
+        return "unknown";
+    } else if constexpr (Type::kind == telemetry::TypeKind::Enum) {
+        return "enum<" + typeText<std::underlying_type_t<T>>() + ">";
+    } else if constexpr (Type::kind == telemetry::TypeKind::Array) {
+        return "array<" + typeText<typename Type::Element>() + ", " +
+            QString::number(static_cast<qulonglong>(Type::count)) + ">";
+    } else {
+        return memberTypes<T>(std::make_index_sequence<telemetry::reflection::memberCount<T>>{});
+    }
+}
+
+template <class T> QString nativeText(const T& value);
+
+template <class E, std::size_t... I>
+QString enumText(E value, std::index_sequence<I...>)
+{
+    QString named;
+    ((value == telemetry::reflection::Enum<E>::template entryValue<I>()
+        ? (named = text(telemetry::reflection::Enum<E>::template entryName<I>()), void()) : void()), ...);
+    // A representable unnamed code is still a value, not a fake zero.
+    return named.isEmpty() ? nativeText(static_cast<std::underlying_type_t<E>>(value)) : named;
+}
+
+template <class T, std::size_t... I>
+QString memberValues(const T& value, std::index_sequence<I...>)
+{
+    QStringList members;
+    ((members << text(telemetry::reflection::memberName<I, T>()) + ": " +
+        nativeText(telemetry::reflection::get<I>(value))), ...);
+    return "{" + members.join(", ") + "}";
+}
+
+template <class T> QString nativeText(const T& value)
+{
+    if constexpr (std::is_same_v<T, bool>) {
+        return value ? "true" : "false";
+    } else if constexpr (std::is_integral_v<T>) {
+        // Never route U64/S64 through floating point or a QJson number.
+        if constexpr (std::is_signed_v<T>) return QString::number(static_cast<qlonglong>(value));
+        else return QString::number(static_cast<qulonglong>(value));
+    } else if constexpr (std::is_floating_point_v<T>) {
+        return std::isfinite(value) ? QString::number(value, 'g', std::numeric_limits<T>::max_digits10) : "n/a";
+    } else if constexpr (std::is_enum_v<T>) {
+        return enumText(value, std::make_index_sequence<telemetry::reflection::Enum<T>::entryCount>{});
+    } else if constexpr (telemetry::Type<T>::kind == telemetry::TypeKind::Array) {
+        QStringList elements;
+        for (const auto& element : value) elements << nativeText(element);
+        return "[" + elements.join(", ") + "]";
+    } else {
+        return memberValues(value, std::make_index_sequence<telemetry::reflection::memberCount<T>>{});
+    }
+}
+
+template <std::size_t... I>
+void addModes(QComboBox& box, std::index_sequence<I...>)
+{
+    using Enum = telemetry::reflection::Enum<demo::Mode>;
+    (box.addItem(text(Enum::template entryName<I>()),
+        static_cast<qulonglong>(Enum::template entryValue<I>())), ...);
+}
 } // namespace
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+MainWindow::MainWindow(QWidget* parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
     setWindowTitle("Telemetry playground");
-
     auto* layout = new QVBoxLayout(ui->centralwidget);
-    layout->addWidget(new QLabel("Typed fields and commands: signatures define their parameter types.", this));
+    layout->addWidget(new QLabel("Native fields and commands: C++ signatures define their types.", this));
 
     fields_ = new QTableWidget(this);
+    fields_->setObjectName("telemetryFields");
     fields_->setColumnCount(5);
     fields_->setHorizontalHeaderLabels({"ID", "Field", "Type", "Unit", "Value"});
     fields_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     fields_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    demo::fields.forEach([&]<std::size_t Group, std::size_t Entry>(
+        std::string_view catalog, const auto& endpoint) {
+        constexpr auto id = telemetry::makeId<Group, Entry>();
+        using Value = typename std::remove_cvref_t<decltype(endpoint)>::Value;
+        const int row = fields_->rowCount();
+        fields_->insertRow(row);
+        fields_->setItem(row, 0, new QTableWidgetItem(QString::number(id)));
+        fields_->setItem(row, 1, new QTableWidgetItem(text(catalog) + "." + endpoint.name()));
+        fields_->setItem(row, 2, new QTableWidgetItem(typeText<Value>()));
+        fields_->setItem(row, 3, new QTableWidgetItem(unit(id)));
+        fields_->setItem(row, 4, new QTableWidgetItem);
+    });
     layout->addWidget(fields_);
-
-    char schema[4096];
-    const auto length = telemetry::writeSchema(demo::fieldIndex, schema, sizeof(schema));
-    const auto document = QJsonDocument::fromJson(QByteArray(schema, static_cast<int>(length)));
-    for (const auto& entry : document.object().value("catalogs").toArray()) {
-        const auto catalog = entry.toObject();
-        for (const auto& fieldEntry : catalog.value("fields").toArray()) {
-            const auto field = fieldEntry.toObject();
-            const int row = fields_->rowCount();
-            fields_->insertRow(row);
-            fields_->setItem(row, 0, new QTableWidgetItem(QString::number(field.value("id").toInteger())));
-            fields_->setItem(row, 1, new QTableWidgetItem(catalog.value("name").toString() + "." + field.value("n").toString()));
-            fields_->setItem(row, 2, new QTableWidgetItem(field.value("t").toString()));
-            fields_->setItem(row, 3, new QTableWidgetItem(field.value("u").toString()));
-            fields_->setItem(row, 4, new QTableWidgetItem);
-        }
-    }
-
-    auto* schemaText = new QPlainTextEdit(this);
-    schemaText->setReadOnly(true);
-    // Keep full U64/S64 metadata digits. Parsing into a QJsonDocument is
-    // useful for table structure, but reserializing it can round U64 extrema.
-    schemaText->setPlainText(length == 0 ? "Schema buffer is too small" :
-                            QString::fromUtf8(schema, static_cast<int>(length)));
-    schemaText->setMaximumHeight(110);
-    layout->addWidget(new QLabel("Schema JSON", this));
-    layout->addWidget(schemaText);
 
     values_ = new QPlainTextEdit(this);
     values_->setReadOnly(true);
-    values_->setMaximumHeight(80);
-    layout->addWidget(new QLabel("Values JSON", this));
+    values_->setMaximumHeight(90);
+    layout->addWidget(new QLabel("Current values", this));
     layout->addWidget(values_);
 
-    const auto commandLength = telemetry::writeSchema(demo::commandIndex, schema, sizeof(schema));
-    auto* commandSchema = new QPlainTextEdit(this);
-    commandSchema->setReadOnly(true);
-    commandSchema->setMaximumHeight(90);
-    commandSchema->setPlainText(commandLength ? QString::fromUtf8(schema, static_cast<int>(commandLength))
-                                             : "Command schema buffer is too small");
-    layout->addWidget(new QLabel("Commands", this));
-    layout->addWidget(commandSchema);
+    QStringList commandLines;
+    demo::commands.forEach([&](std::string_view catalog, const auto& endpoint) {
+        using Request = typename std::remove_cvref_t<decltype(endpoint)>::Request;
+        commandLines << text(catalog) + "." + endpoint.name() + "(" + typeText<Request>() + ")";
+    });
+    auto* commands = new QPlainTextEdit(this);
+    commands->setReadOnly(true);
+    commands->setMaximumHeight(90);
+    commands->setPlainText(commandLines.join('\n'));
+    layout->addWidget(new QLabel("Commands and reflected request members", this));
+    layout->addWidget(commands);
+
     auto* controls = new QHBoxLayout;
     auto* reset = new QPushButton("Reset counter", this);
     auto* limit = new QDoubleSpinBox(this);
-    limit->setRange(1.0, 1000.0);
-    limit->setValue(250.0);
+    limit->setRange(demo::minimumVoltageLimit, demo::maximumVoltageLimit);
+    limit->setValue(demo::meter.threshold);
     limit->setSuffix(" V");
     auto* mode = new QComboBox(this);
-    mode->addItems({"Off", "Auto", "Manual"});
-    mode->setCurrentIndex(1);
+    addModes(*mode, std::make_index_sequence<telemetry::reflection::Enum<demo::Mode>::entryCount>{});
+    mode->setCurrentIndex(mode->findData(static_cast<qulonglong>(demo::meter.mode)));
     auto* apply = new QPushButton("Configure meter", this);
     auto* result = new QLabel(this);
     controls->addWidget(reset);
@@ -123,31 +196,26 @@ MainWindow::MainWindow(QWidget *parent)
     controls->addWidget(result);
     layout->addLayout(controls);
     connect(reset, &QPushButton::clicked, this, [this, result] {
-        const auto status = demo::commandIndex.call(0);
+        const auto status = demo::meterCommands.call<demo::MeterCommand::Reset>();
         result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Not executed");
         refreshValues();
     });
     connect(apply, &QPushButton::clicked, this, [this, result, limit, mode] {
-        const auto status = demo::commands.call<1>(limit->value(), mode->currentIndex());
+        // GUI policy bounds the double before its explicit native conversion.
+        const demo::ConfigureRequest request{static_cast<float>(limit->value()),
+            static_cast<demo::Mode>(mode->currentData().toULongLong())};
+        const auto status = demo::commands.call<telemetry::makeId<0, 1>()>(request);
         result->setText(status == telemetry::CommandResult::Executed ? "Executed" : "Invalid arguments");
         refreshValues();
     });
 
     auto* timer = new QTimer(this);
     timer->setInterval(500);
-    connect(timer, &QTimer::timeout, this, [this] {
-        demo::advance();
-        refreshValues();
-    });
+    connect(timer, &QTimer::timeout, this, [this] { demo::advance(); refreshValues(); });
     auto* pause = new QPushButton("Pause", this);
     connect(pause, &QPushButton::clicked, this, [timer, pause] {
-        if (timer->isActive()) {
-            timer->stop();
-            pause->setText("Resume");
-        } else {
-            timer->start();
-            pause->setText("Pause");
-        }
+        if (timer->isActive()) { timer->stop(); pause->setText("Resume"); }
+        else { timer->start(); pause->setText("Pause"); }
     });
     layout->addWidget(pause);
     refreshValues();
@@ -156,28 +224,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 void MainWindow::refreshValues()
 {
-    char values[1024];
-    const auto length = telemetry::writeValues(demo::fieldIndex, values, sizeof(values));
-    if (length == 0) {
-        values_->setPlainText("Values buffer is too small");
-        return;
-    }
-    const QByteArray json(values, static_cast<int>(length));
-    values_->setPlainText(QString::fromUtf8(json));
+    QStringList lines;
     int row = 0;
-    for (std::size_t c = 0; c < demo::fields.size(); ++c) {
-        const auto& catalog = demo::fields.data()[c];
-        for (std::size_t i = 0; i < catalog.count; ++i) {
-            if (auto* item = fields_->item(row++, 4)) {
-                // The simulated sources are stable during this refresh. Reading
-                // them directly keeps U64/S64 out of floating-point conversion.
-                item->setText(scalarText(catalog.fields[i]));
-            }
-        }
-    }
+    demo::fields.forEach([&](std::string_view catalog, const auto& endpoint) {
+        const auto value = endpoint.read();
+        const QString display = value ? nativeText(*value) : "n/a";
+        if (auto* item = fields_->item(row++, 4)) item->setText(display);
+        lines << text(catalog) + "." + endpoint.name() + " = " + display;
+    });
+    values_->setPlainText(lines.join('\n'));
 }
 
-MainWindow::~MainWindow()
-{
-    delete ui;
-}
+MainWindow::~MainWindow() { delete ui; }

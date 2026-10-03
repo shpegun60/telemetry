@@ -20,14 +20,14 @@ public:
     // overlap: routing and native request decoding finish before response writes.
     // Calling again executes again; requestId is correlation, not deduplication.
     [[nodiscard]] static PacketResult process(const Binding& peer, Input request,
-        Output response, telemetry::structured::Workspace& workspace) noexcept
+        Output response, telemetry::Workspace& workspace) noexcept
     {
         return processImpl(peer, request, response, workspace, detail::CurrentExchangeAbiTag{});
     }
 
 private:
     [[nodiscard]] static PacketResult processImpl(const Binding&, Input, Output,
-        telemetry::structured::Workspace&, detail::CurrentExchangeAbiTag) noexcept;
+        telemetry::Workspace&, detail::CurrentExchangeAbiTag) noexcept;
 };
 
 } // namespace example::structured_protocol

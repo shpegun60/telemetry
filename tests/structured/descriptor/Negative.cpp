@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 #include "Fixture.hpp"
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 namespace df = descriptor_fixture;
 #if CASE == 1
 constexpr auto bad = ts::field<&df::read<std::uint32_t>>("bad\0tail");

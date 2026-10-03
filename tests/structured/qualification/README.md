@@ -4,7 +4,9 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 This suite combines the existing heterogeneous/4 KiB model, a separately
 compiled metadata provider, two application consumers and all four compiled
-encoded boundaries. It adds integration evidence without replacing the
+encoded boundaries. The final API uses `<telemetry/Telemetry.hpp>` and
+namespace `telemetry`, with optional providers under `resource/telemetry/v3`.
+It adds integration evidence without replacing the
 Stage 04–12 type, lifetime, codec, wire, storage and native codegen gates.
 
 ## Reproduce
@@ -64,10 +66,13 @@ the C++ program's actual checks. Generated files stay in the selected directory.
   method targets and stable generated names. ARM measures object sections;
   these numbers are not a whole-image Flash delta or MCU cycles.
 - `Depth.cpp` records build time for structural depth 4/8/16. Timing is evidence,
-  not a machine-dependent pass threshold. The scalar baseline includes the
-  existing legacy fixture with the same owner and reports its layouts/bodies.
+  not a machine-dependent pass threshold. `LeafCodegen.cpp` compares current
+  native leaf read/write bodies with direct calls and records entry layouts.
+  It requires release byte equality; the old scalar comparison source is
+  retired and its historical figures below are not relabelled as current results.
 
-Host totals include repeated builds/runs: MinGW **2433 checks**, Linux GCC
+Original Stage 13 host totals include repeated builds/runs: MinGW **2433
+checks**, Linux GCC
 null-check and Clang ASan/UBSan **2635 checks** each, zero failures. ARM
 qualification compiles/inspects/links; it does not report runtime assertions.
 The qmake consumer separately runs the same 97 checks and verifies that old
@@ -79,7 +84,11 @@ disables function/data sections. The real multi-TU consumers retain GC, and
 all ARM scaling measurements keep normal function/data-section flags. This
 exception is recorded in the runner rather than hidden as a library result.
 
-## CubeIDE GCC 14.3.1 evidence
+## Historical Stage 13 CubeIDE GCC 14.3.1 evidence
+
+These are the original Stage 13 measurements before the final namespace/path
+migration. Current qualification retains its symbol, frame, ABI and native
+byte-equality gates; generated reports record their own captured inputs.
 
 Mixed linked image sections, with explicit buffers counted in bss:
 
@@ -117,9 +126,11 @@ Field/Command/Service entry size/alignment is 28/4, 20/4 and 24/4 B; legacy
 Field is 96/32 B and legacy Command is 20/4 B. Scalar native read is 16 B;
 write is 16 B at O2 and 12 B at Os. These are codegen facts, not cycle results.
 
-Fresh legacy regression and optional protocol runs on NUCLEO-H7S3L8 on
-2026-10-03 passed 3328 and 4300 checks per O2/Os image, respectively, and
-restored the same 64 KiB Flash SHA. Their receipts name the prepublication
-HEAD plus dirty state and captured inputs. They do not run this 97-check
-consumer or establish native visitor timing. Full new MCU consumer/call-chain
-qualification and cycle distributions remain Stage 14.
+The [historical optional protocol run](../exchange/h7s/receipt.json) on
+2026-10-03 passed 4300 checks per O2/Os image and restored the original 64 KiB
+Flash. It records `source_head=cd8b636bc8a518fcc1a3021659f109281d47107e` and
+`source_dirty=true`; it does not run this 97-check consumer or establish
+native visitor timing. The former 3328-check scalar run belongs to its
+archived source snapshot and is not an active final-API suite.
+[Stage 14 MCU qualification](../mcu/h7s/README.md) separately retains the
+Mixed/Scale consumer, full call-chain and cycle-distribution evidence.

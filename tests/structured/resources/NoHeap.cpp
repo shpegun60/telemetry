@@ -17,8 +17,8 @@ void operator delete[](void*, std::size_t, std::align_val_t) noexcept { std::abo
 #include "Fixture.hpp"
 int main()
 {
-    const resource::structured::Descriptor descriptor{fixture::bigModel};
-    const resource::structured::ValuesFile values{descriptor, fixture::bigWorkspace};
+    const resource::telemetry::v3::Descriptor descriptor{fixture::bigModel};
+    const resource::telemetry::v3::ValuesFile values{descriptor, fixture::bigWorkspace};
     std::array<std::byte, fixture::bigValues.size()> buffer;
     const auto result = values.read(0, buffer);
     return result.eof && result.written == buffer.size() && fixture::bigWorkspace.used() == 0 ? 0 : 1;

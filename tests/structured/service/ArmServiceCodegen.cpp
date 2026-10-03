@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/service/Service.hpp>
+#include <telemetry/service/Service.hpp>
 
 #include <array>
 #include <cstddef>
@@ -35,10 +35,10 @@ BigResponse raw(const Request& request) noexcept
     return response;
 }
 
-telemetry::structured::ServiceResult<BigResponse>
+telemetry::ServiceResult<BigResponse>
 wrapped(const Request& request) noexcept
 {
-    return telemetry::structured::ServiceResult<BigResponse>::successFrom(
+    return telemetry::ServiceResult<BigResponse>::successFrom(
         [&request]() -> BigResponse {
             BigResponse response{};
             response.bytes[0] = request.channel;
@@ -46,22 +46,22 @@ wrapped(const Request& request) noexcept
         });
 }
 
-inline constexpr auto rawService = telemetry::structured::service<&raw>("Raw");
-inline constexpr auto wrappedService = telemetry::structured::service<&wrapped>("Wrapped");
+inline constexpr auto rawService = telemetry::service<&raw>("Raw");
+inline constexpr auto wrappedService = telemetry::service<&wrapped>("Wrapped");
 inline constexpr auto directOwnerService =
-    telemetry::structured::service<&Device::read>("DirectOwner", device);
+    telemetry::service<&Device::read>("DirectOwner", device);
 
 } // namespace service_arm
 
 static_assert(sizeof(service_arm::BigResponse) == 4096);
-static_assert(sizeof(telemetry::structured::ServiceResult<service_arm::BigResponse>) >= 4097);
+static_assert(sizeof(telemetry::ServiceResult<service_arm::BigResponse>) >= 4097);
 
 // The runner reads these six little-endian words from the object section.
 // They measure the actual target layout rather than host sizeof values.
 extern "C" [[gnu::used, gnu::section(".rodata.service_layout")]]
 const std::uint32_t service_layout[] = {
-    sizeof(telemetry::structured::ServiceResult<service_arm::BigResponse>),
-    alignof(telemetry::structured::ServiceResult<service_arm::BigResponse>),
+    sizeof(telemetry::ServiceResult<service_arm::BigResponse>),
+    alignof(telemetry::ServiceResult<service_arm::BigResponse>),
     sizeof(service_arm::rawService),
     alignof(decltype(service_arm::rawService)),
     sizeof(service_arm::directOwnerService),
@@ -69,21 +69,21 @@ const std::uint32_t service_layout[] = {
 };
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<service_arm::BigResponse>
+telemetry::ServiceResult<service_arm::BigResponse>
 call_big_raw(const service_arm::Request& request) noexcept
 {
     return service_arm::rawService.call(request);
 }
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<service_arm::BigResponse>
+telemetry::ServiceResult<service_arm::BigResponse>
 call_big_wrapped(const service_arm::Request& request) noexcept
 {
     return service_arm::wrappedService.call(request);
 }
 
 extern "C" __attribute__((noinline))
-telemetry::structured::ServiceResult<service_arm::SmallResponse>
+telemetry::ServiceResult<service_arm::SmallResponse>
 call_direct_owner(const service_arm::Request& request) noexcept
 {
     return service_arm::directOwnerService.call(request);

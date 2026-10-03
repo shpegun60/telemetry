@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry_structured/model/Adapter.hpp>
-namespace ts = telemetry::structured;
+#include <telemetry/model/Adapter.hpp>
+namespace ts = telemetry;
 template <class> struct Changed;
 template <std::uint64_t... Parts>
 struct Changed<ts::detail::StructuredAbiTag<Parts...>> {
@@ -22,7 +22,7 @@ struct Changed<ts::detail::StructuredAbiTag<Parts...>> {
     using type = decltype(change(std::make_index_sequence<sizeof...(Parts)>{}));
 };
 using Wrong = Changed<ts::detail::CurrentStructuredAbiTag>::type;
-namespace telemetry::structured {
+namespace telemetry {
 EncodedReadResult readFieldEncoded(ModelView, telemetry::PackedId, std::span<std::byte>, Workspace&, Wrong) noexcept;
 EncodedWriteResult writeFieldEncoded(ModelView, telemetry::PackedId, std::span<const std::byte>, Workspace&, Wrong) noexcept;
 EncodedCommandResult executeCommandEncoded(ModelView, telemetry::PackedId, std::span<const std::byte>, Workspace&, Wrong) noexcept;

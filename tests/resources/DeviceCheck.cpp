@@ -16,11 +16,10 @@
 int main()
 {
     namespace api = device::resources;
-    CHECK(api::fileCount() == 3);
-    CHECK(api::path(api::files::Schema) == "/telemetry/schema.bin");
-    CHECK(api::path(api::files::Commands) == "/telemetry/commands.bin");
+    CHECK(api::fileCount() == 2);
+    CHECK(api::path(api::files::Descriptor) == "/telemetry/descriptor.bin");
     CHECK(api::path(api::files::Values) == "/telemetry/values.bin");
-    for (resource::FileIndex i = 0; i < 3; ++i)
+    for (resource::FileIndex i = 0; i < 2; ++i)
     {
         const auto stat = api::stat(i);
         CHECK(stat.status == resource::Status::Ok && stat.flags == resource::FileFlag::Readable);
@@ -40,9 +39,7 @@ int main()
             CHECK(read.next != cursor);
             cursor = read.next;
         }
-        CHECK(result.size() == stat.size && result.substr(0, 4) == (i == 0   ? "TSCH"
-                                                                    : i == 1 ? "TCMD"
-                                                                             : "TVAL"));
+        CHECK(result.size() == stat.size && result.substr(0, 4) == (i == 0 ? "TDS3" : "TVL3"));
         CHECK(api::write(i, 0, {}).status == resource::Status::NotWritable);
     }
     std::array<std::byte, 9> list{};

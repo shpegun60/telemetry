@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <telemetry_structured/codec/Codec.hpp>
+#include <telemetry/codec/Codec.hpp>
 
 #include <array>
 #include <cstddef>
@@ -47,7 +47,7 @@ void operator delete[](void* pointer, std::size_t) noexcept { std::free(pointer)
 
 int main()
 {
-    using namespace telemetry::structured;
+    using namespace telemetry;
     static Big source{};
     static std::array<std::byte, wireSize<Big>> wire{};
     alignas(Big) static std::array<std::byte, scratchBytes<Big> + sizeof(Tracked)> storage{};

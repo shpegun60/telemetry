@@ -4,7 +4,7 @@
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 #include "Fixture.hpp"
-#include <resource/structured/DescriptorFile.hpp>
+#include <resource/telemetry/v3/DescriptorFile.hpp>
 #include <algorithm>
 
 #ifndef MCU_SCALE

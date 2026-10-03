@@ -1,68 +1,12 @@
-# telemetry.pri - Reusable qmake integration for the standalone telemetry library.
-# Authors: Ruslan Kovtun (shpegun60), codexAi.
-# License: MIT; see LICENSE in this directory.
-#
-# Copy telemetry and its sibling magic_enum/delegate directories into a consumer.
-# The library itself uses only C++17; Qt belongs to the application.
-include($$PWD/../magic_enum/magic_enum.pri)
-include($$PWD/../delegate/delegate.pri)
-CONFIG += c++17
-INCLUDEPATH += $$PWD
-HEADERS += \
-    $$PWD/slot/TelemetryOwnerSlot.h \
-    $$PWD/slot/TelemetryFunctionSlot.h \
-    $$PWD/slot/TelemetryContextFunctionSlot.h \
-    $$PWD/slot/TelemetryDelegateRefSlot.h \
-    $$PWD/slot/TelemetryDelegateSlot.h \
-    $$PWD/slot/TelemetrySlotTraits.h \
-    $$PWD/Telemetry.h \
-    $$PWD/core/TelemetryCompiler.h \
-    $$PWD/core/TelemetryCacheline.h \
-    $$PWD/core/TelemetryId.h \
-    $$PWD/core/TelemetryScalar.h \
-    $$PWD/core/TelemetryConversion.h \
-    $$PWD/field/TelemetryGetter.h \
-    $$PWD/field/TelemetrySetter.h \
-    $$PWD/field/TelemetryFieldType.h \
-    $$PWD/field/TelemetryEnum.h \
-    $$PWD/field/TelemetryField.h \
-    $$PWD/field/TelemetryFieldFlags.h \
-    $$PWD/detail/TelemetryFieldBinding.h \
-    $$PWD/field/TelemetryFieldFactory.h \
-    $$PWD/field/TelemetryFieldTable.h \
-    $$PWD/catalog/TelemetryGroup.h \
-    $$PWD/catalog/TelemetryFieldCatalogTable.h \
-    $$PWD/catalog/TelemetryCatalogView.h \
-    $$PWD/detail/TelemetryIndexedRange.h \
-    $$PWD/command/TelemetryCommandCatalogTable.h \
-    $$PWD/field/TelemetryLimits.h \
-    $$PWD/command/TelemetryCommand.h \
-    $$PWD/command/TelemetryCommandArgs.h \
-    $$PWD/detail/TelemetryCommandBinding.h \
-    $$PWD/command/TelemetryCommandFactory.h \
-    $$PWD/command/TelemetryCommandCatalog.h \
-    $$PWD/command/TelemetryCommandCatalogView.h \
-    $$PWD/command/TelemetryCommandCatalogIndex.h \
-    $$PWD/command/TelemetryCommandIndex.h \
-    $$PWD/command/TelemetryCommandTable.h \
-    $$PWD/catalog/TelemetryCatalog.h \
-    $$PWD/catalog/TelemetryIndex.h \
-    $$PWD/abi/TelemetryAbi.h \
-    $$PWD/serialization/TelemetryJson.h \
-    $$PWD/serialization/TelemetryCommandJson.h \
-    $$PWD/detail/TelemetryCallable.h \
-    $$PWD/detail/TelemetryOwner.h \
-    $$PWD/detail/TelemetryTarget.h \
-    $$PWD/detail/TelemetrySlotCallable.h \
-    $$PWD/detail/TelemetryNumberConversion.h \
-    $$PWD/detail/TelemetryBounds.h \
-    $$PWD/detail/TelemetryJsonWriter.h \
-    $$PWD/detail/TelemetryJsonValue.h
-SOURCES += $$PWD/abi/TelemetryAbi.cpp
-# The ABI anchor is mandatory in core-only builds too. Set telemetry_no_json
-# before including this file; it removes serializers, not numeric/table support.
-!contains(CONFIG, telemetry_no_json) {
-    SOURCES += $$PWD/serialization/TelemetryJson.cpp
-    SOURCES += $$PWD/serialization/TelemetryCommandJson.cpp
+# One C++20 telemetry module. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
+isEmpty(TELEMETRY_STRUCTURED_PRI_INCLUDED) {
+    TELEMETRY_STRUCTURED_PRI_INCLUDED = 1
+    include($$PWD/../delegate/delegate.pri)
+    include($$PWD/../magic_enum/magic_enum.pri)
+    CONFIG -= c++11 c++14 c++17
+    CONFIG += c++20
+    INCLUDEPATH += $$PWD/.. $$PWD/../boost_pfr/include $$PWD/../magic_enum
+    HEADERS += $$files($$PWD/*.hpp, true) $$files($$PWD/slot/*.h, true)
+    SOURCES += $$PWD/abi/StructuredAbi.cpp $$PWD/model/Adapter.cpp
+    DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/slot/README.md
 }
-DISTFILES += $$PWD/LICENSE $$PWD/README.md $$PWD/slot/README.md

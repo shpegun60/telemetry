@@ -16,44 +16,48 @@ jobs:
       fail-fast: false
       matrix:
         cxx: [g++, clang++-18]
-        standard: [c++17, c++20]
+        standard: [c++20]
         mode: [release]
         include:
-          - {cxx: clang++-18, standard: c++17, mode: sanitized}
-          - {cxx: g++, standard: c++17, mode: nullchecks}
+          - {cxx: clang++-18, standard: c++20, mode: sanitized}
           - {cxx: g++, standard: c++20, mode: nullchecks}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Prepare decimal-comma locale
-        run: sudo localedef -i de_DE -f UTF-8 de_DE.UTF-8
       - name: Install Clang LTO linker
         if: matrix.cxx == 'clang++-18'
         run: sudo apt-get update && sudo apt-get install -y lld
-      - name: Compile and check
+      - name: Shared ID, slot and numeric contracts
         env:
           CXX: ${{ matrix.cxx }}
           STANDARD: ${{ matrix.standard }}
           MODE: ${{ matrix.mode }}
-          TELEMETRY_TEST_LOCALE: de_DE.UTF-8
         run: |
           flags=()
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/run_checks.py --std "$STANDARD" --build-dir build/checks "${flags[@]}"
+      - name: Retain shared contract logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-${{ matrix.cxx }}-${{ matrix.standard }}-${{ matrix.mode }}
+          path: |
+            build/checks/*.log
+            build/checks/summary.json
+          if-no-files-found: error
       - name: C++20 resource libraries
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
           CXX: ${{ matrix.cxx }}
           MODE: ${{ matrix.mode }}
-          TELEMETRY_TEST_LOCALE: de_DE.UTF-8
         run: |
           flags=()
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
-          python3 tests/resources/run.py --node node --build-dir build/resources "${flags[@]}"
+          python3 tests/resources/run.py --build-dir build/resources "${flags[@]}"
       - name: C++20 structured reflection backend
         if: matrix.standard == 'c++20' && matrix.mode == 'release'
         env:
@@ -243,26 +247,12 @@ jobs:
             build/structured-freeze/Og
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
-        if: matrix.cxx == 'g++' && matrix.standard == 'c++17'
+        if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
         run: |
-          python3 tests/field_layout/h7s/verify.py --self-test
-          python3 tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/final-receipt.json --samples tests/field_layout/h7s/final-samples.csv --self-test
-          python3 tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/rw32-receipt.json --samples tests/field_layout/h7s/rw32-samples.csv --self-test
-          python3 tests/field_layout/h7s/verify.py --receipt tests/field_layout/h7s/compact-callback-receipt.json --samples tests/field_layout/h7s/compact-callback-samples.csv --self-test
-          python3 tests/json_stack/verify.py --self-test
-          python3 tests/json_stack/verify.py --receipt tests/json_stack/rw32-receipt.json --self-test
-          python3 tests/json_stack/verify.py --receipt tests/json_stack/abi-guard-receipt.json --self-test
-          python3 tests/json_stack/verify.py --receipt tests/json_stack/layered-receipt.json --self-test
-          python3 tests/command_dispatch/h7s/verify.py --self-test
-          python3 tests/position_tables/h7s/verify.py --self-test
-          python3 tests/resources/h7s/verify.py --self-test
-          python3 tests/regression/h7s/verify.py --self-test
-          python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/followup-receipt.json --self-test
-          python3 tests/regression/h7s/verify.py --receipt tests/regression/h7s/current-receipt.json --self-test --current-code
-          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/final-receipt.json --self-test
-          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/storage-receipt.json --self-test
-          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/dispatch-receipt.json --self-test
-          python3 tests/structured/endpoints/h7s/verify.py --receipt tests/structured/endpoints/h7s/dispatch-inline-rejected-receipt.json --self-test
+          python3 doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/final-receipt.json --self-test
+          python3 doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/storage-receipt.json --self-test
+          python3 doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/dispatch-receipt.json --self-test
+          python3 doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/dispatch-inline-rejected-receipt.json --self-test
           python3 tests/structured/descriptor/h7s/verify.py --self-test
           python3 tests/structured/resources/h7s/verify.py --self-test
           python3 tests/structured/exchange/h7s/verify.py --self-test
@@ -276,8 +266,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
-      - name: Compile, inspect constant storage and link
-        run: python3 tests/run_arm_checks.py --build-dir build/arm
+      - name: Shared Cortex-M7 ID and slot checks
+        run: |
+          python3 tests/h7s_support/check.py
+          python3 tests/run_arm_checks.py --build-dir build/arm
+          python3 tests/run_arm_checks.py --null-checks --build-dir build/arm-null
       - name: C++20 resource Cortex-M7 checks
         run: python3 tests/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-resources
       - name: C++20 structured reflection Cortex-M7 checks
@@ -338,6 +331,11 @@ jobs:
           name: cortex-m7-check-logs
           path: |
             build/arm/*.log
+            build/arm/*.json
+            build/arm/*.su
+            build/arm-null/*.log
+            build/arm-null/*.json
+            build/arm-null/*.su
             build/arm-resources/*.log
             build/arm-resources/*.su
             build/arm-structured-reflection/*.log
@@ -423,13 +421,6 @@ jobs:
           make -j2
       - name: Startup check
         run: build/qt/telemetry_playground -platform offscreen --smoke-test
-      - name: Resource adapter without telemetry JSON
-        run: |
-          mkdir -p build/no-json
-          cd build/no-json
-          qmake6 ../../tests/resources/no_json.pro CONFIG+=release QMAKE_CXXFLAGS+=-Werror
-          make -j2
-          ./resource_no_json
       - name: Independent resource qmake configurations
         run: python3 tests/structured/resources/run_qmake.py --qmake qmake6 --build-dir build/resource-qmake
       - name: Explicit structured protocol example qmake

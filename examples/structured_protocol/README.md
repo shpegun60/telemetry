@@ -119,7 +119,7 @@ adapter supplies framing/reassembly and its own admission/disconnect mechanism.
 ## Explicit qmake selection
 
 ```qmake
-include(path/to/lib/telemetry_structured/structured.pri)
+include(path/to/lib/telemetry/telemetry.pri)
 include(path/to/examples/structured_protocol/protocol.pri)
 ```
 

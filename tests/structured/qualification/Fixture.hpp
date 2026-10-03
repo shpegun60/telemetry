@@ -6,16 +6,16 @@
 #pragma once
 
 #include "../traversal/Fixture.hpp"
-#include <resource/structured/Descriptor.hpp>
-#include <resource/structured/ValuesFile.hpp>
+#include <resource/telemetry/v3/Descriptor.hpp>
+#include <resource/telemetry/v3/ValuesFile.hpp>
 #ifndef QUALIFICATION_ARM
 #include <cstdio>
 #include <source_location>
 #endif
 
 namespace qualification {
-namespace ts = telemetry::structured;
-namespace rs = resource::structured;
+namespace ts = telemetry;
+namespace rs = resource::telemetry::v3;
 
 // Counters are shared across translation units. A test counts a checked
 // condition, rather than treating a successful compiler command as a check.

@@ -2,14 +2,14 @@
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[web/telemetryStructured.js](../../../web/telemetryStructured.js) is independent
-of the existing v2 `telemetryBinary.js`. It requires BigInt/DataView support;
-CI uses Node 22. It imports no transport, resource protocol or Bind/Exchange.
+[web/telemetry.js](../../../web/telemetry.js) is the final v3 payload codec.
+It requires BigInt/DataView support; CI uses Node 22. It imports no transport,
+resource protocol or Bind/Exchange. The former v2 decoder is retired.
 
 ## Client API
 
 ```js
-import * as ts from './telemetryStructured.js';
+import * as ts from './telemetry.js';
 
 const model = ts.parseDescriptor(descriptorBytes);
 const service = model.services[0];
@@ -91,14 +91,20 @@ not dependencies of the MCU library.
 - `QtSmoke.cpp`: Qt 6.10.1 MinGW C++20 smoke passed with `-Werror`, exact 41-byte
   response, U64/S64 preserved and native readAs using the same model.
 
+The final-path preview on 2026-10-03 passed the same 3057 JS checks and 20
+Chromium browser checks, plus the Qt smoke, against the migrated C++ API.
+
 The host runner executes five successful commands (six with the browser);
 those are command counts, separate from the assertions above. Local MinGW
-13.1, GCC 13.3 with null checks and Clang 18 ASan/UBSan runs passed. The browser was Edge through
-Playwright 1.63.0; CI runs its pinned Chromium. UI rendering was inspected
+13.1, GCC 13.3 with null checks and Clang 18 ASan/UBSan runs passed. The original Stage 12 browser run used Edge through
+Playwright 1.63.0; the final-path preview and CI use pinned Chromium. The
+original UI rendering was inspected
 from `client-desktop.png`. The test-only optional protocol remains covered by
 its existing correlation/wrap/disconnect suite, not made mandatory here.
 
 This is desktop correctness/integration evidence, not new MCU timing.
-No library C++/qmake input, wire descriptor/values format or endpoint ABI changed in
-Stage 12. Full comparison of visitor specializations, whole-program stack,
-Flash/RAM/cycles and final migration remain the subsequent planned stages.
+Stage 12 originally changed no library C++/qmake input, wire format or endpoint
+ABI. The final migration uses `<telemetry/Telemetry.hpp>`, namespace
+`telemetry`, and `resource/telemetry/v3` providers; it keeps the same native
+DTOs and canonical bytes. Whole-program stack and MCU cycle evidence is
+retained separately in [Stage 14 qualification](../mcu/h7s/README.md).

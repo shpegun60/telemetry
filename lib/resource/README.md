@@ -13,8 +13,7 @@ resource/
   Types.hpp, File.hpp, FileSystem.hpp, ChunkWriter.hpp
   resource.pri
   protocol/    Protocol.hpp, Protocol.cpp
-  telemetry/   SchemaFile, CommandsFile, ValuesFile
-  structured/  v3.0 DescriptorFile and ValuesFile (optional C++20 adapter)
+  telemetry/v3/  DescriptorFile and ValuesFile (optional telemetry adapter)
 ```
 
 One `resource.pri` connects the library to qmake. By default it adds the core
@@ -33,7 +32,7 @@ include(lib/resource/resource.pri)
 ```
 
 Set the option before the resource include; repeated includes add no duplicate
-sources. Binary telemetry providers also work with `CONFIG += telemetry_no_json`.
+sources.
 
 ```cpp
 #include <resource/FileSystem.hpp>
@@ -126,7 +125,7 @@ It owns no cursor and permits overlapping input/output spans.
 
 See [resource tests](../../tests/resources/README.md), the
 [packet protocol](protocol/README.md), and
-[telemetry adapters](telemetry/README.md).
+[telemetry adapters](telemetry/v3/README.md).
 
 The compact result ABI uses 16-byte ReadResult/WriteResult and 8-byte FileStat
 on ARM32. Status-first brace construction remains supported through constexpr
