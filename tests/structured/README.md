@@ -49,13 +49,15 @@ python tests/structured/mcu/h7s/verify.py --self-test
 The [H7S runner](mcu/h7s/README.md) requires an explicit selected device,
 builds every image before access, checks its internal-Flash load span, and
 backs up/restores all 64 KiB with a fresh readback. The current
-[receipt](mcu/h7s/receipt.json) and [results](mcu/h7s/RESULTS.md) are distinct
+[receipt](mcu/h7s/receipt.json) covers the later borrowed extension. The
+[baseline results](mcu/h7s/RESULTS.md) retain their original source identity, distinct
 from the [pre-unification proof](../../doc/evidence/pre-unification/README.md).
 The independent PSP experiment measures observed stack writes across the
 complete probe chain; it is not an unconditional maximum stack bound.
 The separate [borrowed result suite](borrowed/README.md) and
 [H7S comparison](borrowed/h7s/README.md) qualify const-reference outputs.
-Their results remain distinct from the owning Stage 20 baseline.
+Their [qualification results](../../doc/BorrowedNativeValues.md#qualification-results)
+remain distinct from the owning Stage 20 baseline.
 
 Legacy Scalar/v2 executable tests were retired after the baseline was
 captured. Relevant ID/numeric/lifetime/slot/compiler controls remain in

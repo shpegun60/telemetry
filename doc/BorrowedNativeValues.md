@@ -207,3 +207,49 @@ extension. The dedicated H7S fixture compares 4 KiB native/encoded owning and
 borrowed paths, and 64 KiB borrowed native/owning encoded/borrowed encoded paths.
 It never runs a 64 KiB owning native result on the existing 16 KiB probe stack.
 Software and hardware qualification results are recorded after their gates pass.
+
+## Qualification results
+
+The code is sealed at `7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3`.
+The [qualification record](evidence/BorrowedNativeValuesQualification.json)
+keeps each factual capture HEAD, dirty state, compiler identity, report digest
+and receipt identity. All 197 distinct captured inputs were compared with the
+sealed Git blobs. Most software reports were captured before the code commit,
+at `595a65b` with dirty inputs; the ARM13 null role and all hardware captures
+record the later sealed HEAD. These are input-equivalence claims, not invented
+clean-tree captures.
+
+| Dedicated software role | Executed conditions | Intended compile rejections |
+| --- | ---: | ---: |
+| MinGW GCC 13.1 | 2580 | 63 |
+| Clang 18, ASan/UBSan | 2588 | 63 |
+| GCC 13, null-check flag | 2588 | 63 |
+| CubeIDE ARM GCC 14.3.1, normal / null | 0 / 0 | 63 / 63 |
+| ARM GCC 13.2.1, normal / null | 0 / 0 | 63 / 63 |
+
+All roles passed storage budgets 0/16/32/64. ARM O2/Os/Og individual
+native/Entry/thunk frames were at most 48/56/136 B; separately retained
+compiled Model wrappers were at most 280/248/256 B. Release normal-mode
+direct/local/global roots match instruction bytes **and** exact relocations.
+Og/null modes do not claim this equality. Real changed-body, wrong-owner,
+large-frame and linked-allocation controls exercise those respective gates.
+The existing seven-role owning matrix also passed: 130914 host conditions,
+42 configurations, 424 compiler/link/inspection commands and zero ARM
+executions. Its [renewed receipt](../tests/structured/mcu/local-receipt.json)
+remains separate from the dedicated suite.
+
+On NUCLEO-H7S3L8, the dedicated O2/Os images each passed 127 conditions
+and compared 626688 full encoded payload bytes, with 294 timing and 258
+stack rows per image. Ten further images passed the previous owning MCU,
+Descriptor, Values/resource and Bind/Exchange plans. All five device runners
+restored their full 65536-byte backup and verified a fresh readback, with
+the same SHA-256 before and after. The [measured tables](../tests/structured/borrowed/h7s/RESULTS.md)
+retain all comparison scopes, including the Os encoded path's 4 B greater
+observed stack and the absence of a 64 KiB owning-native comparison.
+
+Current receipts qualify this extension's inputs. The [Stage 20 archive](evidence/pre-borrowed/README.md)
+retains exact previous receipt/validator bytes and original measured source
+identities. The existing four golden files, dependency pins and acceptance
+ceilings still pass the freeze checks. This evidence does not convert a
+borrowed view into an owning snapshot or remove the application's lifetime
+and synchronization obligations. Published-SHA CI remains an independent gate.

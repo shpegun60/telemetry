@@ -1,8 +1,8 @@
-# Final telemetry H7S correctness, cycles and observed stack
+# Stage 20 baseline H7S correctness, cycles and observed stack
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. Date: 2026-10-03.
 
-The [receipt](receipt.json) records actual execution of source commit
+The [archived baseline receipt](../../../../doc/evidence/pre-borrowed/h7s/mcu/receipt.json) records actual execution of source commit
 `01fd180ff3678d7c47066f8a728dc1e02f0f3973` after source unification. CubeIDE ARM GCC14.3.1,
 NUCLEO-H7S3L8, selected ST-LINK `002A001F3033510135393935`, COM6.
 All 140 captured LF build inputs match that commit's Git blobs.
@@ -87,3 +87,5 @@ Descriptor/Values bytes and fingerprint remain the frozen mixed fixture:
 Separate fresh Descriptor/Values/Bind-Exchange H7S receipts cover those
 consumer suites at the same code commit. Exact published-SHA CI is a separate
 publication gate.
+
+These baseline numbers are not measurements of the borrowed extension. The current [receipt](receipt.json) and [extension qualification](../../../../doc/BorrowedNativeValues.md#qualification-results) record the later code separately.

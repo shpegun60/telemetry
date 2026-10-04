@@ -77,3 +77,9 @@ Values or optional Exchange output must remain disjoint from all live native
 borrowed objects because headers/status bytes are written outside the payload
 thunk. Native callers must keep a request-backed result's Request alive through
 every result use; passing a temporary does not extend its lifetime.
+
+The completed local matrix and five separate device families are recorded in
+[BorrowedNativeValues.md](../../../doc/BorrowedNativeValues.md#qualification-results).
+Each factual captured HEAD is preserved, with source equivalence checked
+against the sealed code commit. CI repeats this suite on the published SHA;
+the local qualification record is not a replacement for that run.

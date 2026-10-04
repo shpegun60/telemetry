@@ -1,0 +1,591 @@
+{
+  "format_version": 1,
+  "scope": "Borrowed Field and Service extension qualification",
+  "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+  "recorded_at_utc": "2026-10-04T00:01:53.487748+00:00",
+  "source_identity_rule": "Keep factual capture HEAD/dirty state; compare normalized captured inputs against sealed code Git blobs.",
+  "software": {
+    "mingw": {
+      "captured_at_utc": "2026-10-03T23:39:27.156658+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "g++.exe (x86_64-posix-seh-rev1, Built by MinGW-Builds project) 13.1.0",
+      "compiler_sha256": "cd65c087ad69a877e5a105c607cc910abfabcc52ba7e9448572f36567b51698c",
+      "flags": [
+        "C:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-mingw-canonical\\inputs\\lib",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-mingw-canonical\\inputs\\lib\\boost_pfr\\include",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-mingw-canonical\\inputs\\lib\\magic_enum"
+      ],
+      "execution": "host",
+      "commands": 149,
+      "checks": 2580,
+      "compile_rejections": 63,
+      "runtime_rejections": 1,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-mingw-canonical/summary.json",
+      "summary_sha256": "d6609c3854979e357a0e4c30f18b086589109545d94646a0d927604445d3c7db",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 213,
+      "wire_digests": [
+        "bf169e9ff6e121ad6f1fb290a4a006bb3c69e406bde8ad29fa98c924ae3e6e37"
+      ]
+    },
+    "clangsan": {
+      "captured_at_utc": "2026-10-03T23:39:35.224227+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "flags": [
+        "/usr/bin/clang++-18",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-clangsan-canonical/inputs/lib",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-clangsan-canonical/inputs/lib/boost_pfr/include",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-clangsan-canonical/inputs/lib/magic_enum",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer"
+      ],
+      "execution": "host",
+      "commands": 151,
+      "checks": 2588,
+      "compile_rejections": 63,
+      "runtime_rejections": 3,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-clangsan-canonical/summary.json",
+      "summary_sha256": "2d0111a171a7e8b1bc1f879defdb9ab9485385a64517cb8eb54c191473b36b1d",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 215,
+      "wire_digests": [
+        "bf169e9ff6e121ad6f1fb290a4a006bb3c69e406bde8ad29fa98c924ae3e6e37"
+      ]
+    },
+    "gccnull": {
+      "captured_at_utc": "2026-10-03T23:43:12.402451+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "flags": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-gccnull-canonical/inputs/lib",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-gccnull-canonical/inputs/lib/boost_pfr/include",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-gccnull-canonical/inputs/lib/magic_enum",
+        "-fno-delete-null-pointer-checks"
+      ],
+      "execution": "host",
+      "commands": 151,
+      "checks": 2588,
+      "compile_rejections": 63,
+      "runtime_rejections": 3,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-gccnull-canonical/summary.json",
+      "summary_sha256": "e623004b82546084b9ab75c6e5005b312271f14a21cf633db2eaadedc2e97cd6",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 215,
+      "wire_digests": [
+        "bf169e9ff6e121ad6f1fb290a4a006bb3c69e406bde8ad29fa98c924ae3e6e37"
+      ]
+    },
+    "arm14": {
+      "captured_at_utc": "2026-10-03T23:39:33.057640+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+      "compiler_sha256": "ae046a80ebc6e5f46a8d049b5e4ec6b3980bbc6ef05633dd176cae77e08bb01c",
+      "flags": [
+        "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-canonical\\inputs\\lib",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-canonical\\inputs\\lib\\boost_pfr\\include",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-canonical\\inputs\\lib\\magic_enum",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-fstack-usage",
+        "-DBORROWED_ARM"
+      ],
+      "execution": "compile/link only",
+      "commands": 237,
+      "checks": 0,
+      "compile_rejections": 63,
+      "runtime_rejections": 0,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-arm14-canonical/summary.json",
+      "summary_sha256": "03c44e997a8339b7071489372c3eeb18d09e05a11485a28053010b4620c05da8",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 484,
+      "wire_digests": [],
+      "individual_frame_maxima": {
+        "O2": 48,
+        "Os": 56,
+        "Og": 136
+      },
+      "compiled_model_frame_maxima": {
+        "O2": 280,
+        "Os": 248,
+        "Og": 256
+      },
+      "release_bytes_and_relocations_equal": true,
+      "controls": {
+        "linked_symbol_control": {
+          "execution": "nm only",
+          "required": [
+            "_malloc_r",
+            "_printf_r"
+          ],
+          "rejected_symbols": [
+            "__sfvwrite_r",
+            "__sprint_r",
+            "_calloc_r",
+            "_free_r",
+            "_malloc_r",
+            "_printf_r",
+            "_realloc_r",
+            "_sbrk",
+            "_sbrk_r",
+            "_vfiprintf_r",
+            "_vfprintf_r",
+            "fiprintf"
+          ],
+          "elf_sha256": "fb30f1bff6c6b769f0d5818b6520030fb2e677b9bb14ca71993b6f04a61164c4"
+        },
+        "frame_control_rejected": true,
+        "codegen_control_rejected": true,
+        "relocation_control_rejected": true
+      }
+    },
+    "arm14-null": {
+      "captured_at_utc": "2026-10-03T23:43:10.834177+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "arm-none-eabi-g++.exe (GNU Tools for STM32 14.3.rel1.20251027-0700) 14.3.1 20250623",
+      "compiler_sha256": "ae046a80ebc6e5f46a8d049b5e4ec6b3980bbc6ef05633dd176cae77e08bb01c",
+      "flags": [
+        "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-null-canonical\\inputs\\lib",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-null-canonical\\inputs\\lib\\boost_pfr\\include",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed-qualified-arm14-null-canonical\\inputs\\lib\\magic_enum",
+        "-fno-delete-null-pointer-checks",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-fstack-usage",
+        "-DBORROWED_ARM"
+      ],
+      "execution": "compile/link only",
+      "commands": 230,
+      "checks": 0,
+      "compile_rejections": 63,
+      "runtime_rejections": 0,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-arm14-null-canonical/summary.json",
+      "summary_sha256": "5a765e3f584eb31c63cd851da9997a7b1a4286493378faa7e46678e514b31bba",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 469,
+      "wire_digests": [],
+      "individual_frame_maxima": {
+        "O2": 48,
+        "Os": 56,
+        "Og": 136
+      },
+      "compiled_model_frame_maxima": {
+        "O2": 280,
+        "Os": 248,
+        "Og": 256
+      },
+      "release_bytes_and_relocations_equal": false,
+      "controls": {
+        "linked_symbol_control": {
+          "execution": "nm only",
+          "required": [
+            "_malloc_r",
+            "_printf_r"
+          ],
+          "rejected_symbols": [
+            "__sfvwrite_r",
+            "__sprint_r",
+            "_calloc_r",
+            "_free_r",
+            "_malloc_r",
+            "_printf_r",
+            "_realloc_r",
+            "_sbrk",
+            "_sbrk_r",
+            "_vfiprintf_r",
+            "_vfprintf_r",
+            "fiprintf"
+          ],
+          "elf_sha256": "fb30f1bff6c6b769f0d5818b6520030fb2e677b9bb14ca71993b6f04a61164c4"
+        },
+        "frame_control_rejected": true
+      }
+    },
+    "arm13": {
+      "captured_at_utc": "2026-10-03T23:43:45.927960+00:00",
+      "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+      "source_dirty": true,
+      "compiler": "arm-none-eabi-g++ (15:13.2.rel1-2) 13.2.1 20231009",
+      "compiler_sha256": "8b954aa209c87cc599255fc91618e2e7cc41f913d37a1bd233fdd1c13e3274a3",
+      "flags": [
+        "/usr/bin/arm-none-eabi-g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-canonical/inputs/lib",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-canonical/inputs/lib/boost_pfr/include",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-canonical/inputs/lib/magic_enum",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-fstack-usage",
+        "-DBORROWED_ARM"
+      ],
+      "execution": "compile/link only",
+      "commands": 237,
+      "checks": 0,
+      "compile_rejections": 63,
+      "runtime_rejections": 0,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-arm13-canonical/summary.json",
+      "summary_sha256": "338a47e64256b046b148e11b3105e8a1eaa316d47f687fd53623d3523e308f2f",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 484,
+      "wire_digests": [],
+      "individual_frame_maxima": {
+        "O2": 48,
+        "Os": 56,
+        "Og": 136
+      },
+      "compiled_model_frame_maxima": {
+        "O2": 280,
+        "Os": 248,
+        "Og": 256
+      },
+      "release_bytes_and_relocations_equal": true,
+      "controls": {
+        "linked_symbol_control": {
+          "execution": "nm only",
+          "required": [
+            "_malloc_r",
+            "_printf_r"
+          ],
+          "rejected_symbols": [
+            "__sfvwrite_r",
+            "__sprint_r",
+            "_calloc_r",
+            "_fiprintf_r",
+            "_free_r",
+            "_malloc_r",
+            "_printf_r",
+            "_realloc_r",
+            "_sbrk",
+            "_sbrk_r",
+            "_vfiprintf_r",
+            "_vfprintf_r",
+            "fiprintf",
+            "printf",
+            "vfiprintf",
+            "vfprintf"
+          ],
+          "elf_sha256": "ed34b1411b34925db1188463938b4939364e715a062ae7a2431813f39c01a5a9"
+        },
+        "frame_control_rejected": true,
+        "codegen_control_rejected": true,
+        "relocation_control_rejected": true
+      }
+    },
+    "arm13-null": {
+      "captured_at_utc": "2026-10-03T23:48:29.161899+00:00",
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "compiler": "arm-none-eabi-g++ (15:13.2.rel1-2) 13.2.1 20231009",
+      "compiler_sha256": "8b954aa209c87cc599255fc91618e2e7cc41f913d37a1bd233fdd1c13e3274a3",
+      "flags": [
+        "/usr/bin/arm-none-eabi-g++",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-fdiagnostics-color=never",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-null-canonical/inputs/lib",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-null-canonical/inputs/lib/boost_pfr/include",
+        "-I/mnt/c/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/build/borrowed-qualified-arm13-null-canonical/inputs/lib/magic_enum",
+        "-fno-delete-null-pointer-checks",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-fstack-usage",
+        "-DBORROWED_ARM"
+      ],
+      "execution": "compile/link only",
+      "commands": 230,
+      "checks": 0,
+      "compile_rejections": 63,
+      "runtime_rejections": 0,
+      "parser_controls": {
+        "accepted": 1,
+        "rejected": 10
+      },
+      "summary_path": "build/borrowed-qualified-arm13-null-canonical/summary.json",
+      "summary_sha256": "4573f512964fe32a069ee4938b300ea51e15742dc9af328c5bae5887eeb63c03",
+      "input_files": 134,
+      "input_manifest_sha256": "6d1a2b65b1acdea422882a5721c0151a23f35c6c660d20a95f108e30a0590844",
+      "artifact_files": 469,
+      "wire_digests": [],
+      "individual_frame_maxima": {
+        "O2": 48,
+        "Os": 56,
+        "Og": 136
+      },
+      "compiled_model_frame_maxima": {
+        "O2": 280,
+        "Os": 248,
+        "Og": 256
+      },
+      "release_bytes_and_relocations_equal": false,
+      "controls": {
+        "linked_symbol_control": {
+          "execution": "nm only",
+          "required": [
+            "_malloc_r",
+            "_printf_r"
+          ],
+          "rejected_symbols": [
+            "__sfvwrite_r",
+            "__sprint_r",
+            "_calloc_r",
+            "_fiprintf_r",
+            "_free_r",
+            "_malloc_r",
+            "_printf_r",
+            "_realloc_r",
+            "_sbrk",
+            "_sbrk_r",
+            "_vfiprintf_r",
+            "_vfprintf_r",
+            "fiprintf",
+            "printf",
+            "vfiprintf",
+            "vfprintf"
+          ],
+          "elf_sha256": "ed34b1411b34925db1188463938b4939364e715a062ae7a2431813f39c01a5a9"
+        },
+        "frame_control_rejected": true
+      }
+    }
+  },
+  "hardware": {
+    "mcu": {
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "completed": true,
+      "restored_and_verified": true,
+      "backup_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_bytes": 65536,
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "receipt_path": "tests/structured/mcu/h7s/receipt.json",
+      "receipt_sha256": "10db3f170d935f22d456a3378424cf12b916216c26605d73f53b0bdb3a01967c",
+      "input_files": 142,
+      "images": 4,
+      "retained_artifacts": "build/borrowed/h7s-own-mcu"
+    },
+    "descriptor": {
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "completed": true,
+      "restored_and_verified": true,
+      "backup_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_bytes": 65536,
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "receipt_path": "tests/structured/descriptor/h7s/receipt.json",
+      "receipt_sha256": "bcd9d2c536cacc2e19d4fe763d658d4d105b84a3f079174ce6d37c2ccbdd8fee",
+      "input_files": 135,
+      "images": 2,
+      "retained_artifacts": "build/borrowed/h7s-own-descriptor-live"
+    },
+    "resources": {
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "completed": true,
+      "restored_and_verified": true,
+      "backup_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_bytes": 65536,
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "receipt_path": "tests/structured/resources/h7s/receipt.json",
+      "receipt_sha256": "7666f9a2c11b1940de34932169185f2db2437770bd73c183de9457288517030e",
+      "input_files": 135,
+      "images": 2,
+      "retained_artifacts": "build/borrowed/h7s-own-resources-live"
+    },
+    "exchange": {
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "completed": true,
+      "restored_and_verified": true,
+      "backup_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_bytes": 65536,
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "receipt_path": "tests/structured/exchange/h7s/receipt.json",
+      "receipt_sha256": "31a89b5081ebf55d9c41eb877409bd6ae7e16de2dfc3a5b2fe213c5d61819348",
+      "input_files": 142,
+      "images": 2,
+      "retained_artifacts": "build/borrowed/h7s-own-exchange-live"
+    },
+    "borrowed": {
+      "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
+      "source_dirty": true,
+      "completed": true,
+      "restored_and_verified": true,
+      "backup_bytes": 65536,
+      "backup_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "restored_bytes": 65536,
+      "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+      "receipt_path": "tests/structured/borrowed/h7s/receipt.json",
+      "receipt_sha256": "e83bce2eebd1474e5be9dcb77a10e5e52b576d2167477b1e0a4f8b933039be2f",
+      "input_files": 135,
+      "images": 2,
+      "retained_artifacts": "build/borrowed/h7s-live-qualified"
+    }
+  },
+  "owning_software": {
+    "receipt_path": "tests/structured/mcu/local-receipt.json",
+    "receipt_sha256": "9cdc25b40983121d5eabf7515c91a0d9aa02cd0dd0e4a49aa92ea8e6562ee0f1",
+    "source_head": "595a65b158aa6f65dd4e2499fd08817a88f450d5",
+    "source_dirty": true,
+    "input_files": 140,
+    "roles": {
+      "mingw13": {
+        "commands": 52,
+        "checks": 43638,
+        "configurations": 6
+      },
+      "gcc13-null": {
+        "commands": 52,
+        "checks": 43638,
+        "configurations": 6
+      },
+      "clang18-sanitized": {
+        "commands": 52,
+        "checks": 43638,
+        "configurations": 6
+      },
+      "cubeide14": {
+        "commands": 67,
+        "checks": 0,
+        "configurations": 6
+      },
+      "cubeide14-null": {
+        "commands": 67,
+        "checks": 0,
+        "configurations": 6
+      },
+      "arm13": {
+        "commands": 67,
+        "checks": 0,
+        "configurations": 6
+      },
+      "arm13-null": {
+        "commands": 67,
+        "checks": 0,
+        "configurations": 6
+      }
+    }
+  },
+  "sealed_input_files_verified": 197,
+  "limits": [
+    "Borrowed views require stable live application objects and external synchronization.",
+    "Native readAs<T> still makes an explicit owning copy.",
+    "Individual .su frames and observed PSP writes are separate evidence, not an unconditional maximum.",
+    "64 KiB owning native was not instantiated on the 16 KiB PSP.",
+    "DWT comparisons include full-payload FNV consumption and retain raw const-reference callbacks; status wrapper cycles were not separately measured.",
+    "Local artifacts are retained build files, not a permanent downloadable archive.",
+    "Exact published-SHA CI is verified separately after push."
+  ]
+}

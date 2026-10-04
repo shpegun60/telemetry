@@ -91,3 +91,8 @@ changed hashes/lengths and a forged one-byte Flash span against real files.
 Its UART
 controls can also run alone with `verify.py --self-test`; synthetic control
 rows are explicitly parser checks and are never a measurement receipt.
+
+The actual O2/Os device run at sealed code `7b73fb4` is retained in
+[receipt.json](receipt.json); [RESULTS.md](RESULTS.md) reports its measured
+cycles and observed PSP, including the scope and limits of the comparison.
+Creating or rebuilding this fixture does not reproduce that device execution.

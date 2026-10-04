@@ -139,6 +139,15 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/descriptor/run.py --build-dir build/structured-descriptor "${flags[@]}"
+      - name: C++20 borrowed native Field and Service results
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/borrowed/run.py --build-dir build/structured-borrowed "${flags[@]}"
       - name: C++20 structured resource providers
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
@@ -245,6 +254,7 @@ jobs:
             build/structured-freeze/O2
             build/structured-freeze/Os
             build/structured-freeze/Og
+            build/structured-borrowed/
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
@@ -256,6 +266,7 @@ jobs:
           python3 tests/structured/descriptor/h7s/verify.py --self-test
           python3 tests/structured/resources/h7s/verify.py --self-test
           python3 tests/structured/exchange/h7s/verify.py --self-test
+          python3 tests/structured/borrowed/h7s/verify.py --receipt tests/structured/borrowed/h7s/receipt.json --self-test
 
   arm:
     name: Cortex-M7 compile and link
@@ -298,6 +309,10 @@ jobs:
           python3 tests/structured/endpoints/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-endpoints
           python3 tests/structured/endpoints/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-endpoints-nullchecks
           python3 tests/structured/endpoints/storage.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-storage
+      - name: C++20 borrowed native results Cortex-M7 checks
+        run: |
+          python3 tests/structured/borrowed/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-borrowed
+          python3 tests/structured/borrowed/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-borrowed-nullchecks
       - name: C++20 structured descriptor Cortex-M7 checks
         run: |
           python3 tests/structured/descriptor/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor
@@ -403,6 +418,8 @@ jobs:
             build/arm-structured-freeze-nullchecks/*.su
             build/arm-structured-freeze-nullchecks/*.elf
             build/arm-structured-traversal/*.su
+            build/arm-structured-borrowed/
+            build/arm-structured-borrowed-nullchecks/
           if-no-files-found: ignore
 
   qt:

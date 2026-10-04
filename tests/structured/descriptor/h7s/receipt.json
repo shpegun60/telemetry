@@ -1,11 +1,11 @@
 {
-  "started": "2026-10-03T20:57:48.443950+00:00",
+  "started": "2026-10-03T23:55:20.284655+00:00",
   "serial": "002A001F3033510135393935",
   "port": "COM6",
-  "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+  "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
   "source_dirty": true,
   "build_provenance": {
-    "source_head": "01fd180ff3678d7c47066f8a728dc1e02f0f3973",
+    "source_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
     "source_dirty": true,
     "input_lf_sha256": {
       "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
@@ -77,12 +77,12 @@
       "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
       "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
       "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
-      "lib/resource/telemetry/v3/README.md": "8a500cfa457a1078fc0a5ad3be25bcb6e48c267406b9954bcb69370dd5c38a74",
-      "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+      "lib/resource/telemetry/v3/README.md": "5281ca623b7c401f91a6255ea5b9e0108a59b66b4635a17bf526bdd577706abc",
+      "lib/resource/telemetry/v3/ValuesFile.hpp": "d11434b75e730ade139524733fa7b729a6dbcc824962af4d5da44959064079ff",
       "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
       "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
-      "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
-      "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+      "lib/telemetry/abi/StructuredAbi.hpp": "e66fa5be6c6d9e923bc36353912e82770469c235ec33eeef79e2f1dbc4dd7899",
+      "lib/telemetry/codec/Codec.hpp": "113c723eadb0bcfa5f47311899220ba0dc8e6f23f0ed782121ca3d1adeebdcc9",
       "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
       "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
       "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
@@ -91,37 +91,39 @@
       "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
       "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
       "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
-      "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
-      "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+      "lib/telemetry/detail/Encoded.hpp": "2af199634c334925d656487b309165980af4170e571d6e666f9216e25e1970b5",
+      "lib/telemetry/detail/FieldAccess.hpp": "d6a11bb04be43893bcb73ec9cbdd40802314ba7e1ef2cacfaf8d12ea8a33a0ad",
       "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
       "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
       "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
       "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
       "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
       "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
-      "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+      "lib/telemetry/field/Field.hpp": "455f8f43884fc7db390fcea47237915700eed6fcd53da97abcca8c4e04314901",
       "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
-      "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+      "lib/telemetry/field/FieldTable.hpp": "80bb872d7ee54a42754ee66301f36d8e1bc0914c832627204505c288f88820f2",
       "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
       "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
       "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
       "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
-      "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
-      "lib/telemetry/README.md": "82e59e42c3fec4ac660e86e1df1fb5767710dd272eb933eb53b42e361d37adc8",
+      "lib/telemetry/model/Model.hpp": "a8a7085afe3a039bb73669dff0b1f2afa200a6fa55ce021e5bc2f63d95ce9a32",
+      "lib/telemetry/README.md": "d48e5c9b1f217988d6881967228443eb511322623319a0c5bfb6c4aa4fc4e5e3",
       "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
-      "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+      "lib/telemetry/reflection/Callable.hpp": "d54939b0c31e597efadcba80ad9ab7245f8e66e9e89761aa6beb9a7a88247fed",
       "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
       "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
       "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
       "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
       "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+      "lib/telemetry/result/BorrowedServiceResult.hpp": "a37c5131977f20aeb408dcfe05f1c8eaeeb82a95202ccab3f382c91176776dbe",
+      "lib/telemetry/result/BorrowedValue.hpp": "da7bf993d9de65b32ccec6ecd3c6e69909cf9ed58d54ab564335f6840514bfd1",
       "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
       "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
       "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
-      "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
-      "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+      "lib/telemetry/result/ServiceResult.hpp": "881015154bbd0e8ac9de217f7c8ddf2eee357b4d5eab25f0ea89d6031d4cd640",
+      "lib/telemetry/service/Service.hpp": "2f834970c2959db32478b46790a5512b23b84d5caa95bcb3a0e2994acd20e2ce",
       "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
-      "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+      "lib/telemetry/service/ServiceTable.hpp": "088cdb031a0bf83f4063f959d6ae4f8027aa2eda492b6a05d3385be417bd4217",
       "lib/telemetry/slot/README.md": "bff692a1495fde9f6c84567a435fa0a0e338e5767449f2fd0be40eca0f9ec27a",
       "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
       "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
@@ -129,11 +131,11 @@
       "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
       "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
       "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-      "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+      "lib/telemetry/Telemetry.hpp": "c798bb7c4d6dc633d34a52d5a7f2f0e834c2b5981fc19fce6e28f589fbe651ad",
       "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
       "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
       "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
-      "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
+      "lib/telemetry/type/Traits.hpp": "20aa0c5bc3c2a168b18d0913478109383de18cd821666d11660e86a40648cfe2",
       "tests/h7s_support/build.py": "4df38d675fcfaf0693d5f6f52a0a05be3cbe0fb6a122ceb9433526b2a2bcd587",
       "tests/structured/descriptor/Fixture.hpp": "6d44a6d84f1cb5d4962ab72e47c2454bea8400ed6c5c7207a5214e628ce25487",
       "tests/structured/descriptor/h7s/Benchmark.cpp": "8f0bb3cdc55f62ac2bd132553a02d58929b48fac7548aa53381a5f871d4c5ebf",
@@ -261,11 +263,11 @@
     {
       "variant": "Current",
       "optimization": "O2",
-      "elf": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\Current\\O2\\benchmark.elf",
-      "binary": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\Current\\O2\\benchmark.bin",
-      "elf_sha256": "c97b06cd0d6f94ec38a44598bcfdcefd31bdbd0dff3d7172f5b01d68b36627bc",
-      "binary_sha256": "506b36f4be47889085aa5c89dfb14eba4aa5132c0dd92af5a3fe4c86342a4262",
-      "flash_bytes": 29376,
+      "elf": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\Current\\O2\\benchmark.elf",
+      "binary": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\Current\\O2\\benchmark.bin",
+      "elf_sha256": "f746c3543e9d14d6bd3005158cf912cf676445e074bfc856b357b7e7b4e14f92",
+      "binary_sha256": "d1d8f3ea21a2ff693c80dcd62635978cf9610095fddf05c6e23fa89f8c77173e",
+      "flash_bytes": 29416,
       "library_sources": {
         "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
         "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -336,12 +338,12 @@
         "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
         "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
         "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
-        "lib/resource/telemetry/v3/README.md": "8a500cfa457a1078fc0a5ad3be25bcb6e48c267406b9954bcb69370dd5c38a74",
-        "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+        "lib/resource/telemetry/v3/README.md": "5281ca623b7c401f91a6255ea5b9e0108a59b66b4635a17bf526bdd577706abc",
+        "lib/resource/telemetry/v3/ValuesFile.hpp": "d11434b75e730ade139524733fa7b729a6dbcc824962af4d5da44959064079ff",
         "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
         "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
-        "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
-        "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+        "lib/telemetry/abi/StructuredAbi.hpp": "e66fa5be6c6d9e923bc36353912e82770469c235ec33eeef79e2f1dbc4dd7899",
+        "lib/telemetry/codec/Codec.hpp": "113c723eadb0bcfa5f47311899220ba0dc8e6f23f0ed782121ca3d1adeebdcc9",
         "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
         "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
         "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
@@ -350,37 +352,39 @@
         "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
         "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
         "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
-        "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
-        "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+        "lib/telemetry/detail/Encoded.hpp": "2af199634c334925d656487b309165980af4170e571d6e666f9216e25e1970b5",
+        "lib/telemetry/detail/FieldAccess.hpp": "d6a11bb04be43893bcb73ec9cbdd40802314ba7e1ef2cacfaf8d12ea8a33a0ad",
         "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
         "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
         "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
         "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
         "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
         "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
-        "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+        "lib/telemetry/field/Field.hpp": "455f8f43884fc7db390fcea47237915700eed6fcd53da97abcca8c4e04314901",
         "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
-        "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+        "lib/telemetry/field/FieldTable.hpp": "80bb872d7ee54a42754ee66301f36d8e1bc0914c832627204505c288f88820f2",
         "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
         "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
         "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
         "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
-        "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
-        "lib/telemetry/README.md": "82e59e42c3fec4ac660e86e1df1fb5767710dd272eb933eb53b42e361d37adc8",
+        "lib/telemetry/model/Model.hpp": "a8a7085afe3a039bb73669dff0b1f2afa200a6fa55ce021e5bc2f63d95ce9a32",
+        "lib/telemetry/README.md": "d48e5c9b1f217988d6881967228443eb511322623319a0c5bfb6c4aa4fc4e5e3",
         "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
-        "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+        "lib/telemetry/reflection/Callable.hpp": "d54939b0c31e597efadcba80ad9ab7245f8e66e9e89761aa6beb9a7a88247fed",
         "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
         "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
         "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
         "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
         "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+        "lib/telemetry/result/BorrowedServiceResult.hpp": "a37c5131977f20aeb408dcfe05f1c8eaeeb82a95202ccab3f382c91176776dbe",
+        "lib/telemetry/result/BorrowedValue.hpp": "da7bf993d9de65b32ccec6ecd3c6e69909cf9ed58d54ab564335f6840514bfd1",
         "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
         "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
         "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
-        "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
-        "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+        "lib/telemetry/result/ServiceResult.hpp": "881015154bbd0e8ac9de217f7c8ddf2eee357b4d5eab25f0ea89d6031d4cd640",
+        "lib/telemetry/service/Service.hpp": "2f834970c2959db32478b46790a5512b23b84d5caa95bcb3a0e2994acd20e2ce",
         "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
-        "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+        "lib/telemetry/service/ServiceTable.hpp": "088cdb031a0bf83f4063f959d6ae4f8027aa2eda492b6a05d3385be417bd4217",
         "lib/telemetry/slot/README.md": "bff692a1495fde9f6c84567a435fa0a0e338e5767449f2fd0be40eca0f9ec27a",
         "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
         "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
@@ -388,14 +392,14 @@
         "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
         "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
         "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-        "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+        "lib/telemetry/Telemetry.hpp": "c798bb7c4d6dc633d34a52d5a7f2f0e834c2b5981fc19fce6e28f589fbe651ad",
         "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
         "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
         "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
-        "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf"
+        "lib/telemetry/type/Traits.hpp": "20aa0c5bc3c2a168b18d0913478109383de18cd821666d11660e86a40648cfe2"
       },
       "objects_sha256": {
-        "Probe.o": "95349ce52d09175b112153b57e88adc3e7ed8a5a248820a61733c5e6b3c2924a",
+        "Probe.o": "9697101714f59ce2efb9845bbd1e0d411f4096ca06570d74b027b7e88d19f036",
         "Benchmark.o": "d6b2fd5a7f90e89b88ffde5d5de854a651828ed44c20198bf9d6de46326d990c"
       },
       "common_objects_sha256": {
@@ -440,18 +444,18 @@
         "-DUSE_HAL_DRIVER",
         "-DSTM32H7S3xx",
         "--specs=nano.specs",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Boot\\Core\\Inc",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib\\boost_pfr\\include",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib\\magic_enum",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Boot\\Core\\Inc",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib\\boost_pfr\\include",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib\\magic_enum",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc\\Legacy",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc\\Legacy",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\CMSIS\\Device\\ST\\STM32H7RSxx\\Include",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\CMSIS\\Device\\ST\\STM32H7RSxx\\Include",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\CMSIS\\Include",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\CMSIS\\Include",
         "-std=c++20",
         "-O2",
         "-Wall",
@@ -463,15 +467,15 @@
       ],
       "flash_load_span": [
         134217728,
-        134247104
+        134247144
       ],
       "stack_usage": {
         "Benchmark.su": {
-          "sha256": "9f904813a468e4a648bef731189753b63d07adc98123ac23285edc7d1119336a",
+          "sha256": "c4160e0c9ff4c703e109d7458488e8fc4dbf299fd62b637645f2cf3669d6cd8d",
           "bytes": 695
         },
         "Probe.su": {
-          "sha256": "18981d0e0186bddb25d95a711bcfde7dd201d8f8caefa152d4aaed217323f1a4",
+          "sha256": "42ec488b9f95b510e81575730c19af284235ab01cfcc1326f15787214f0d6419",
           "bytes": 26143
         }
       }
@@ -479,11 +483,11 @@
     {
       "variant": "Current",
       "optimization": "Os",
-      "elf": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\Current\\Os\\benchmark.elf",
-      "binary": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\Current\\Os\\benchmark.bin",
-      "elf_sha256": "e53c2e26f46bad02659791aa4bf73aa5baa2e2ea3a524c7c5b973d2a2ad30df4",
-      "binary_sha256": "fbfae717364d2d18ae2fdffec5184e8bb9bf4f4bca365a1d4268a7442748ac24",
-      "flash_bytes": 24788,
+      "elf": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\Current\\Os\\benchmark.elf",
+      "binary": "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\Current\\Os\\benchmark.bin",
+      "elf_sha256": "98279dc2533ba808650c1f63e70cd605c9bde7231b86ef48fa50243d5970c062",
+      "binary_sha256": "ed62cae031484d1102bd54c48fb7712bd5ef7beb523f16d014d4241f27cfdcec",
+      "flash_bytes": 24836,
       "library_sources": {
         "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
         "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
@@ -554,12 +558,12 @@
         "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
         "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
         "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
-        "lib/resource/telemetry/v3/README.md": "8a500cfa457a1078fc0a5ad3be25bcb6e48c267406b9954bcb69370dd5c38a74",
-        "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+        "lib/resource/telemetry/v3/README.md": "5281ca623b7c401f91a6255ea5b9e0108a59b66b4635a17bf526bdd577706abc",
+        "lib/resource/telemetry/v3/ValuesFile.hpp": "d11434b75e730ade139524733fa7b729a6dbcc824962af4d5da44959064079ff",
         "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
         "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
-        "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
-        "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+        "lib/telemetry/abi/StructuredAbi.hpp": "e66fa5be6c6d9e923bc36353912e82770469c235ec33eeef79e2f1dbc4dd7899",
+        "lib/telemetry/codec/Codec.hpp": "113c723eadb0bcfa5f47311899220ba0dc8e6f23f0ed782121ca3d1adeebdcc9",
         "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
         "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
         "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
@@ -568,37 +572,39 @@
         "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
         "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
         "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
-        "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
-        "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+        "lib/telemetry/detail/Encoded.hpp": "2af199634c334925d656487b309165980af4170e571d6e666f9216e25e1970b5",
+        "lib/telemetry/detail/FieldAccess.hpp": "d6a11bb04be43893bcb73ec9cbdd40802314ba7e1ef2cacfaf8d12ea8a33a0ad",
         "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
         "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
         "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
         "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
         "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
         "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
-        "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+        "lib/telemetry/field/Field.hpp": "455f8f43884fc7db390fcea47237915700eed6fcd53da97abcca8c4e04314901",
         "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
-        "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+        "lib/telemetry/field/FieldTable.hpp": "80bb872d7ee54a42754ee66301f36d8e1bc0914c832627204505c288f88820f2",
         "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
         "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
         "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
         "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
-        "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
-        "lib/telemetry/README.md": "82e59e42c3fec4ac660e86e1df1fb5767710dd272eb933eb53b42e361d37adc8",
+        "lib/telemetry/model/Model.hpp": "a8a7085afe3a039bb73669dff0b1f2afa200a6fa55ce021e5bc2f63d95ce9a32",
+        "lib/telemetry/README.md": "d48e5c9b1f217988d6881967228443eb511322623319a0c5bfb6c4aa4fc4e5e3",
         "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
-        "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+        "lib/telemetry/reflection/Callable.hpp": "d54939b0c31e597efadcba80ad9ab7245f8e66e9e89761aa6beb9a7a88247fed",
         "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
         "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
         "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
         "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
         "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+        "lib/telemetry/result/BorrowedServiceResult.hpp": "a37c5131977f20aeb408dcfe05f1c8eaeeb82a95202ccab3f382c91176776dbe",
+        "lib/telemetry/result/BorrowedValue.hpp": "da7bf993d9de65b32ccec6ecd3c6e69909cf9ed58d54ab564335f6840514bfd1",
         "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
         "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
         "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
-        "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
-        "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+        "lib/telemetry/result/ServiceResult.hpp": "881015154bbd0e8ac9de217f7c8ddf2eee357b4d5eab25f0ea89d6031d4cd640",
+        "lib/telemetry/service/Service.hpp": "2f834970c2959db32478b46790a5512b23b84d5caa95bcb3a0e2994acd20e2ce",
         "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
-        "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+        "lib/telemetry/service/ServiceTable.hpp": "088cdb031a0bf83f4063f959d6ae4f8027aa2eda492b6a05d3385be417bd4217",
         "lib/telemetry/slot/README.md": "bff692a1495fde9f6c84567a435fa0a0e338e5767449f2fd0be40eca0f9ec27a",
         "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
         "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
@@ -606,14 +612,14 @@
         "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
         "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
         "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-        "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+        "lib/telemetry/Telemetry.hpp": "c798bb7c4d6dc633d34a52d5a7f2f0e834c2b5981fc19fce6e28f589fbe651ad",
         "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
         "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
         "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
-        "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf"
+        "lib/telemetry/type/Traits.hpp": "20aa0c5bc3c2a168b18d0913478109383de18cd821666d11660e86a40648cfe2"
       },
       "objects_sha256": {
-        "Probe.o": "75c2e5ef10dd1bc22a28459b1d560eb11cdab7405f0a81d8fa7ab772cf35cfe5",
+        "Probe.o": "21eb6bc404c93b2d37b004da4007a10a73fe10983b35ee39d3e618cffed5f3ac",
         "Benchmark.o": "2915c3b17daa8c0f07b6fa6738d968f703835e7c6931c7d2d02c8351961876a4"
       },
       "common_objects_sha256": {
@@ -658,18 +664,18 @@
         "-DUSE_HAL_DRIVER",
         "-DSTM32H7S3xx",
         "--specs=nano.specs",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Boot\\Core\\Inc",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib\\boost_pfr\\include",
-        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\inputs\\lib\\magic_enum",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Boot\\Core\\Inc",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib\\boost_pfr\\include",
+        "-IC:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\inputs\\lib\\magic_enum",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc\\Legacy",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\STM32H7RSxx_HAL_Driver\\Inc\\Legacy",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\CMSIS\\Device\\ST\\STM32H7RSxx\\Include",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\CMSIS\\Device\\ST\\STM32H7RSxx\\Include",
         "-isystem",
-        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\stage20\\h7s-qualified-descriptor\\scaffold\\Drivers\\CMSIS\\Include",
+        "C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-descriptor-live\\scaffold\\Drivers\\CMSIS\\Include",
         "-std=c++20",
         "-Os",
         "-Wall",
@@ -681,15 +687,15 @@
       ],
       "flash_load_span": [
         134217728,
-        134242516
+        134242564
       ],
       "stack_usage": {
         "Benchmark.su": {
-          "sha256": "15b7c0e59fa1cae6d975b69aedba8e755c6e37d5331e7e8993d8a2ef21f2463f",
+          "sha256": "cf389abe4e3e9ba6378090297ff3fc1efe4f4c1e6ddcbb4563b5fa3a0c1adc19",
           "bytes": 913
         },
         "Probe.su": {
-          "sha256": "8f8edbfb23c9263c764bc8a9af67baef3bd695ce73d09df219f258da7e3cb882",
+          "sha256": "20bef1921da1c27625d60c5bac3e167207ef76c1c7a93729e99743d7a395e674",
           "bytes": 28364
         }
       }
@@ -765,12 +771,12 @@
     "lib/resource/telemetry/v3/detail/Segments.hpp": "fdc5673b751ce207344cc37a576c41aac12bfa7559e2dabd87eecc5342e77d98",
     "lib/resource/telemetry/v3/detail/Values.cpp": "a227021f01a0fa37808d9d867aacfc7991751c50edc46cbcc3d4b0751a48e32a",
     "lib/resource/telemetry/v3/detail/Values.hpp": "a897faf6576c582e4ff45f2ab10994f9bdbf38f4a27dc5dd72e12d2d3014196d",
-    "lib/resource/telemetry/v3/README.md": "8a500cfa457a1078fc0a5ad3be25bcb6e48c267406b9954bcb69370dd5c38a74",
-    "lib/resource/telemetry/v3/ValuesFile.hpp": "2e325247097a7f92c0c664e6d78269a3440675475362a384ea7ed8fe0c34ba37",
+    "lib/resource/telemetry/v3/README.md": "5281ca623b7c401f91a6255ea5b9e0108a59b66b4635a17bf526bdd577706abc",
+    "lib/resource/telemetry/v3/ValuesFile.hpp": "d11434b75e730ade139524733fa7b729a6dbcc824962af4d5da44959064079ff",
     "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
     "lib/telemetry/abi/StructuredAbi.cpp": "ccf3459349638bcc112aadca989e445803397434faac23b59e2cf147acbda0d6",
-    "lib/telemetry/abi/StructuredAbi.hpp": "850947476c5a11a2a19435b82a75054163a85d8ca7f2015ed0067e6957c4aea8",
-    "lib/telemetry/codec/Codec.hpp": "7b4e0c92daad8b430bba05a4310b37082e3cb289fd5bb94d0594e59d85343cfc",
+    "lib/telemetry/abi/StructuredAbi.hpp": "e66fa5be6c6d9e923bc36353912e82770469c235ec33eeef79e2f1dbc4dd7899",
+    "lib/telemetry/codec/Codec.hpp": "113c723eadb0bcfa5f47311899220ba0dc8e6f23f0ed782121ca3d1adeebdcc9",
     "lib/telemetry/codec/StoragePolicy.hpp": "35ba2b3f85fb4b08fe2ec879eeedd6ea35f7cee17a824614ddc1eceb97e10f50",
     "lib/telemetry/codec/Workspace.hpp": "97f6951cfa52972cd401fdc6f9ebdee920df454774098824e2b8a84c7173f8d8",
     "lib/telemetry/command/Command.hpp": "8d5f701edcf21aaef77e891053ef235eaea9ba9e5652c67317969cae64279234",
@@ -779,37 +785,39 @@
     "lib/telemetry/core/Compiler.hpp": "cc0e7ba06826b67e81b33a3d4895cb714f75d5d587862571440602c54301a6f1",
     "lib/telemetry/core/Id.hpp": "731f0b823c661dd2860508977db3698fdab8ba15db71bf0e1839a30adcb09eed",
     "lib/telemetry/detail/Binding.hpp": "d2b8888db27ea0222e446485c973aead47c046d8aa5d9cff8fd14d1d8c7fada8",
-    "lib/telemetry/detail/Encoded.hpp": "99b2497fbeba7540eff4f493a1d42262bfb868ebe825f22fcb01c79dd151eef3",
-    "lib/telemetry/detail/FieldAccess.hpp": "ba66f3f7eabac5de20145e734f0b0004ba59b09c445cd6e46c12dd7bfa95970e",
+    "lib/telemetry/detail/Encoded.hpp": "2af199634c334925d656487b309165980af4170e571d6e666f9216e25e1970b5",
+    "lib/telemetry/detail/FieldAccess.hpp": "d6a11bb04be43893bcb73ec9cbdd40802314ba7e1ef2cacfaf8d12ea8a33a0ad",
     "lib/telemetry/detail/Name.hpp": "5892c51d76ec09a50e0cdef5e587da7a790feab163598e9184c3f08712ad42d0",
     "lib/telemetry/detail/NumberConversion.hpp": "755e0ab64679155c8da63a35b5b278706ad4cb51773bef4ffcb489d4dacafecb",
     "lib/telemetry/detail/Owner.hpp": "d13e732f6ccd1a86325b164014f5bb8e3dca6025cc12ceb0715e72365f183127",
     "lib/telemetry/detail/SlotCallable.hpp": "f4ee35a34679b6f4d7f2988c7f702a2a2740510d44db65f42de02a84ed1e4a2a",
     "lib/telemetry/detail/Target.hpp": "e032eebac04082c5c8acb0d3c162fac0268dd3a251827911229a5dc107774c41",
     "lib/telemetry/detail/Traversal.hpp": "35084a05ec27b634473d238c4179c3d7edb50046c099ea7d28f9a3f8dd4e15ef",
-    "lib/telemetry/field/Field.hpp": "5abad68af517ad925736757ef76ad98e1ade0d8dd46e76cd293e6c79547845a4",
+    "lib/telemetry/field/Field.hpp": "455f8f43884fc7db390fcea47237915700eed6fcd53da97abcca8c4e04314901",
     "lib/telemetry/field/FieldCatalogs.hpp": "207b0334eec517c6ef6d6b37f513ad98edbca7c5f8d2f74e165e9b483751e5d6",
-    "lib/telemetry/field/FieldTable.hpp": "8f693ab25fe520ed47edf0854f83fbdcf1be8688194c0b5b7bebed5b963630f2",
+    "lib/telemetry/field/FieldTable.hpp": "80bb872d7ee54a42754ee66301f36d8e1bc0914c832627204505c288f88820f2",
     "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
     "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
     "lib/telemetry/model/Adapter.hpp": "c07b7d50859b7126deef1e99272ea389d7b1ca5bc435d3d28955a8f4a0747b26",
     "lib/telemetry/model/Catalog.hpp": "6e4b17a94ccb467b1a4174c088b3e092139dc61182845943d78718212ecab508",
-    "lib/telemetry/model/Model.hpp": "33d34e5ac7f7914f8bcb1d7e9e6b92f6c7fe72246ea9a92fd4db566f9afdeeed",
-    "lib/telemetry/README.md": "82e59e42c3fec4ac660e86e1df1fb5767710dd272eb933eb53b42e361d37adc8",
+    "lib/telemetry/model/Model.hpp": "a8a7085afe3a039bb73669dff0b1f2afa200a6fa55ce021e5bc2f63d95ce9a32",
+    "lib/telemetry/README.md": "d48e5c9b1f217988d6881967228443eb511322623319a0c5bfb6c4aa4fc4e5e3",
     "lib/telemetry/reflection/Aggregate.hpp": "cd74b63def428730d55f914c8c78578ec33b6e87c94a51e40c17ab18a4c4056b",
-    "lib/telemetry/reflection/Callable.hpp": "6915bdeb46ed35600f7bd7fa739696afcb3f165a7958aa4320f67ada89cf42b0",
+    "lib/telemetry/reflection/Callable.hpp": "d54939b0c31e597efadcba80ad9ab7245f8e66e9e89761aa6beb9a7a88247fed",
     "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "4c0b4336c80e97f72cec3f18be421e9aaeaccef2ec840ed4a9e679c81b4d3b70",
     "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "c3d9ed98226de460f602042715a199644ece5eaf85e3243f1b31d877a2486623",
     "lib/telemetry/reflection/detail/PfrAdapter.hpp": "0a590bfc34a570297318b79f588064e68214c0d8eb159460fd440c88b6224871",
     "lib/telemetry/reflection/Enum.hpp": "18e87e8c8eeafa688a64b75287e759bc14e094313890f2e8ef529c724e2f2fe6",
     "lib/telemetry/reflection/Reflection.hpp": "467914c29c54a6d0d1433c799a334eedd8ac6f14a509dd535bff7abfbfba42b3",
+    "lib/telemetry/result/BorrowedServiceResult.hpp": "a37c5131977f20aeb408dcfe05f1c8eaeeb82a95202ccab3f382c91176776dbe",
+    "lib/telemetry/result/BorrowedValue.hpp": "da7bf993d9de65b32ccec6ecd3c6e69909cf9ed58d54ab564335f6840514bfd1",
     "lib/telemetry/result/Dispatch.hpp": "485e705ab31b08ee69205c72a4efafb8b85924d01d651aec4d3b993882c9471f",
     "lib/telemetry/result/EndpointResults.hpp": "72480d4936bee3c187c7e453adae3b714efada9b5dffd1e0dc361bc362bb867e",
     "lib/telemetry/result/EndpointStatus.hpp": "4364aca465b6cac01e54f1404b96a3da62893ec0dcc688c4617bc8b09cb38d08",
-    "lib/telemetry/result/ServiceResult.hpp": "ef883df85c6cde75e54047b9e2701776a483d0728d81079c095b5e39c6850e4b",
-    "lib/telemetry/service/Service.hpp": "134b478f8702174c261b23b6720a7b28d105ab820f2e0f2c65f8a6671d0e343f",
+    "lib/telemetry/result/ServiceResult.hpp": "881015154bbd0e8ac9de217f7c8ddf2eee357b4d5eab25f0ea89d6031d4cd640",
+    "lib/telemetry/service/Service.hpp": "2f834970c2959db32478b46790a5512b23b84d5caa95bcb3a0e2994acd20e2ce",
     "lib/telemetry/service/ServiceCatalogs.hpp": "746cdf59325a29f15eb4dc64a3cc947099cab1326b6b71f7c6b9ac829074df1a",
-    "lib/telemetry/service/ServiceTable.hpp": "811bc12fe23562eae32d655800bcf42a4ed86197022d87481ffa4b9e469a6753",
+    "lib/telemetry/service/ServiceTable.hpp": "088cdb031a0bf83f4063f959d6ae4f8027aa2eda492b6a05d3385be417bd4217",
     "lib/telemetry/slot/README.md": "bff692a1495fde9f6c84567a435fa0a0e338e5767449f2fd0be40eca0f9ec27a",
     "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "623450fe66ae9a2cecc44912fa3f872848b0d453b7b174fd18276347d7a3a785",
     "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "a88bad5da47171be03f348ddfaaabf97ba42c74ef032d2eb3d7fccd3fd491829",
@@ -817,11 +825,11 @@
     "lib/telemetry/slot/TelemetryFunctionSlot.h": "c0eb91e43b48f1cd74c9d0fcb67338915322b1b3a2abcb083c6961d04a1dc549",
     "lib/telemetry/slot/TelemetryOwnerSlot.h": "3f095211e43646a0ce9b9c221248a387b4976fd113b6031cea100bc5bb55f169",
     "lib/telemetry/slot/TelemetrySlotTraits.h": "85b8c7864e754172a1b58aa2db85e3385894fd19c5b20a640bc820d1e177f2d6",
-    "lib/telemetry/Telemetry.hpp": "f406a941d90cc798c8f0d1ffd2a662cf739b1d873ac1b371551cc16d428298d4",
+    "lib/telemetry/Telemetry.hpp": "c798bb7c4d6dc633d34a52d5a7f2f0e834c2b5981fc19fce6e28f589fbe651ad",
     "lib/telemetry/telemetry.pri": "3756c26828fd15f20b4879c595e7bad235459cdd890041bf485f01d2b0cfe794",
     "lib/telemetry/type/Descriptor.hpp": "c5fb29551c156100bdcfd90df51de3a5588a74f99d560648e8b592cf791078d1",
     "lib/telemetry/type/Registry.hpp": "5ea2dbfbd76657220409a29adc583e100b3594761681d72157fb0393c02e10df",
-    "lib/telemetry/type/Traits.hpp": "8f978b5990651aa2cefa6b03b53a5142ed920062c35d9d6ee8bd88c3ab807ddf",
+    "lib/telemetry/type/Traits.hpp": "20aa0c5bc3c2a168b18d0913478109383de18cd821666d11660e86a40648cfe2",
     "tests/h7s_support/build.py": "4df38d675fcfaf0693d5f6f52a0a05be3cbe0fb6a122ceb9433526b2a2bcd587",
     "tests/structured/descriptor/Fixture.hpp": "6d44a6d84f1cb5d4962ab72e47c2454bea8400ed6c5c7207a5214e628ce25487",
     "tests/structured/descriptor/h7s/Benchmark.cpp": "8f0bb3cdc55f62ac2bd132553a02d58929b48fac7548aa53381a5f871d4c5ebf",
@@ -845,7 +853,7 @@
           0,
           0,
           4096,
-          3328929,
+          3325949,
           224160
         ],
         [
@@ -853,7 +861,7 @@
           0,
           1,
           4096,
-          3329181,
+          3325749,
           224160
         ],
         [
@@ -861,7 +869,7 @@
           0,
           2,
           4096,
-          3328723,
+          3325895,
           224160
         ],
         [
@@ -869,7 +877,7 @@
           0,
           3,
           4096,
-          3328994,
+          3325844,
           224160
         ],
         [
@@ -877,7 +885,7 @@
           0,
           4,
           4096,
-          3328723,
+          3325983,
           224160
         ],
         [
@@ -885,7 +893,7 @@
           0,
           0,
           4096,
-          339738,
+          339810,
           224160
         ],
         [
@@ -893,7 +901,7 @@
           0,
           1,
           4096,
-          339738,
+          339810,
           224160
         ],
         [
@@ -901,7 +909,7 @@
           0,
           2,
           4096,
-          339738,
+          339810,
           224160
         ],
         [
@@ -909,7 +917,7 @@
           0,
           3,
           4096,
-          339738,
+          339810,
           224160
         ],
         [
@@ -917,7 +925,7 @@
           0,
           4,
           4096,
-          339738,
+          339810,
           224160
         ],
         [
@@ -925,7 +933,7 @@
           1,
           0,
           4096,
-          6466111,
+          6463592,
           445056
         ],
         [
@@ -933,7 +941,7 @@
           1,
           1,
           4096,
-          6465981,
+          6463737,
           445056
         ],
         [
@@ -941,7 +949,7 @@
           1,
           2,
           4096,
-          6466000,
+          6463401,
           445056
         ],
         [
@@ -949,7 +957,7 @@
           1,
           3,
           4096,
-          6466141,
+          6464145,
           445056
         ],
         [
@@ -957,7 +965,7 @@
           1,
           4,
           4096,
-          6466020,
+          6463689,
           445056
         ],
         [
@@ -965,7 +973,7 @@
           1,
           0,
           4096,
-          719164,
+          719188,
           445056
         ],
         [
@@ -973,7 +981,7 @@
           1,
           1,
           4096,
-          719164,
+          719188,
           445056
         ],
         [
@@ -981,7 +989,7 @@
           1,
           2,
           4096,
-          719164,
+          719188,
           445056
         ],
         [
@@ -989,7 +997,7 @@
           1,
           3,
           4096,
-          719164,
+          719188,
           445056
         ],
         [
@@ -997,7 +1005,7 @@
           1,
           4,
           4096,
-          719164,
+          719188,
           445056
         ],
         [
@@ -1005,7 +1013,7 @@
           2,
           0,
           4096,
-          17607037,
+          17532236,
           1182608
         ],
         [
@@ -1013,7 +1021,7 @@
           2,
           1,
           4096,
-          17607233,
+          17531819,
           1182608
         ],
         [
@@ -1021,7 +1029,7 @@
           2,
           2,
           4096,
-          17607091,
+          17532251,
           1182608
         ],
         [
@@ -1029,7 +1037,7 @@
           2,
           3,
           4096,
-          17607165,
+          17531983,
           1182608
         ],
         [
@@ -1037,7 +1045,7 @@
           2,
           4,
           4096,
-          17607310,
+          17533220,
           1182608
         ],
         [
@@ -1045,7 +1053,7 @@
           2,
           0,
           4096,
-          2125534,
+          2125550,
           1182608
         ],
         [
@@ -1053,7 +1061,7 @@
           2,
           1,
           4096,
-          2125534,
+          2125550,
           1182608
         ],
         [
@@ -1061,7 +1069,7 @@
           2,
           2,
           4096,
-          2125534,
+          2125550,
           1182608
         ],
         [
@@ -1069,7 +1077,7 @@
           2,
           3,
           4096,
-          2125534,
+          2125550,
           1182608
         ],
         [
@@ -1077,7 +1085,7 @@
           2,
           4,
           4096,
-          2125534,
+          2125550,
           1182608
         ],
         [
@@ -1085,7 +1093,7 @@
           3,
           0,
           128,
-          4661729,
+          4683151,
           246144
         ],
         [
@@ -1093,7 +1101,7 @@
           3,
           1,
           128,
-          4661231,
+          4683151,
           246144
         ],
         [
@@ -1101,7 +1109,7 @@
           3,
           2,
           128,
-          4662090,
+          4683156,
           246144
         ],
         [
@@ -1109,7 +1117,7 @@
           3,
           3,
           128,
-          4661231,
+          4682635,
           246144
         ],
         [
@@ -1117,7 +1125,7 @@
           3,
           4,
           128,
-          4661166,
+          4683151,
           246144
         ],
         [
@@ -1165,7 +1173,7 @@
           4,
           0,
           128,
-          3429098,
+          3423332,
           216832
         ],
         [
@@ -1173,7 +1181,7 @@
           4,
           1,
           128,
-          3429105,
+          3423385,
           216832
         ],
         [
@@ -1181,7 +1189,7 @@
           4,
           2,
           128,
-          3429133,
+          3423355,
           216832
         ],
         [
@@ -1189,7 +1197,7 @@
           4,
           3,
           128,
-          3429136,
+          3423317,
           216832
         ],
         [
@@ -1197,7 +1205,7 @@
           4,
           4,
           128,
-          3429140,
+          3423355,
           216832
         ],
         [
@@ -1244,51 +1252,51 @@
       "uart_lines": [
         "DESC READY 600000000 1486 744",
         "DESC CHECK 0",
-        "DESC T 0 0 0 4096 3328929 224160",
-        "DESC T 0 0 1 4096 3329181 224160",
-        "DESC T 0 0 2 4096 3328723 224160",
-        "DESC T 0 0 3 4096 3328994 224160",
-        "DESC T 0 0 4 4096 3328723 224160",
-        "DESC T 1 0 0 4096 339738 224160",
-        "DESC T 1 0 1 4096 339738 224160",
-        "DESC T 1 0 2 4096 339738 224160",
-        "DESC T 1 0 3 4096 339738 224160",
-        "DESC T 1 0 4 4096 339738 224160",
-        "DESC T 0 1 0 4096 6466111 445056",
-        "DESC T 0 1 1 4096 6465981 445056",
-        "DESC T 0 1 2 4096 6466000 445056",
-        "DESC T 0 1 3 4096 6466141 445056",
-        "DESC T 0 1 4 4096 6466020 445056",
-        "DESC T 1 1 0 4096 719164 445056",
-        "DESC T 1 1 1 4096 719164 445056",
-        "DESC T 1 1 2 4096 719164 445056",
-        "DESC T 1 1 3 4096 719164 445056",
-        "DESC T 1 1 4 4096 719164 445056",
-        "DESC T 0 2 0 4096 17607037 1182608",
-        "DESC T 0 2 1 4096 17607233 1182608",
-        "DESC T 0 2 2 4096 17607091 1182608",
-        "DESC T 0 2 3 4096 17607165 1182608",
-        "DESC T 0 2 4 4096 17607310 1182608",
-        "DESC T 1 2 0 4096 2125534 1182608",
-        "DESC T 1 2 1 4096 2125534 1182608",
-        "DESC T 1 2 2 4096 2125534 1182608",
-        "DESC T 1 2 3 4096 2125534 1182608",
-        "DESC T 1 2 4 4096 2125534 1182608",
-        "DESC T 0 3 0 128 4661729 246144",
-        "DESC T 0 3 1 128 4661231 246144",
-        "DESC T 0 3 2 128 4662090 246144",
-        "DESC T 0 3 3 128 4661231 246144",
-        "DESC T 0 3 4 128 4661166 246144",
+        "DESC T 0 0 0 4096 3325949 224160",
+        "DESC T 0 0 1 4096 3325749 224160",
+        "DESC T 0 0 2 4096 3325895 224160",
+        "DESC T 0 0 3 4096 3325844 224160",
+        "DESC T 0 0 4 4096 3325983 224160",
+        "DESC T 1 0 0 4096 339810 224160",
+        "DESC T 1 0 1 4096 339810 224160",
+        "DESC T 1 0 2 4096 339810 224160",
+        "DESC T 1 0 3 4096 339810 224160",
+        "DESC T 1 0 4 4096 339810 224160",
+        "DESC T 0 1 0 4096 6463592 445056",
+        "DESC T 0 1 1 4096 6463737 445056",
+        "DESC T 0 1 2 4096 6463401 445056",
+        "DESC T 0 1 3 4096 6464145 445056",
+        "DESC T 0 1 4 4096 6463689 445056",
+        "DESC T 1 1 0 4096 719188 445056",
+        "DESC T 1 1 1 4096 719188 445056",
+        "DESC T 1 1 2 4096 719188 445056",
+        "DESC T 1 1 3 4096 719188 445056",
+        "DESC T 1 1 4 4096 719188 445056",
+        "DESC T 0 2 0 4096 17532236 1182608",
+        "DESC T 0 2 1 4096 17531819 1182608",
+        "DESC T 0 2 2 4096 17532251 1182608",
+        "DESC T 0 2 3 4096 17531983 1182608",
+        "DESC T 0 2 4 4096 17533220 1182608",
+        "DESC T 1 2 0 4096 2125550 1182608",
+        "DESC T 1 2 1 4096 2125550 1182608",
+        "DESC T 1 2 2 4096 2125550 1182608",
+        "DESC T 1 2 3 4096 2125550 1182608",
+        "DESC T 1 2 4 4096 2125550 1182608",
+        "DESC T 0 3 0 128 4683151 246144",
+        "DESC T 0 3 1 128 4683151 246144",
+        "DESC T 0 3 2 128 4683156 246144",
+        "DESC T 0 3 3 128 4682635 246144",
+        "DESC T 0 3 4 128 4683151 246144",
         "DESC T 1 3 0 128 529200 246144",
         "DESC T 1 3 1 128 529200 246144",
         "DESC T 1 3 2 128 529200 246144",
         "DESC T 1 3 3 128 529200 246144",
         "DESC T 1 3 4 128 529200 246144",
-        "DESC T 0 4 0 128 3429098 216832",
-        "DESC T 0 4 1 128 3429105 216832",
-        "DESC T 0 4 2 128 3429133 216832",
-        "DESC T 0 4 3 128 3429136 216832",
-        "DESC T 0 4 4 128 3429140 216832",
+        "DESC T 0 4 0 128 3423332 216832",
+        "DESC T 0 4 1 128 3423385 216832",
+        "DESC T 0 4 2 128 3423355 216832",
+        "DESC T 0 4 3 128 3423317 216832",
+        "DESC T 0 4 4 128 3423355 216832",
         "DESC T 1 4 0 128 418610 216832",
         "DESC T 1 4 1 128 418610 216832",
         "DESC T 1 4 2 128 418610 216832",
@@ -1311,7 +1319,7 @@
           0,
           0,
           4096,
-          4298791,
+          4290481,
           224160
         ],
         [
@@ -1319,7 +1327,7 @@
           0,
           1,
           4096,
-          4298245,
+          4290513,
           224160
         ],
         [
@@ -1327,7 +1335,7 @@
           0,
           2,
           4096,
-          4298429,
+          4290656,
           224160
         ],
         [
@@ -1335,7 +1343,7 @@
           0,
           3,
           4096,
-          4298551,
+          4290363,
           224160
         ],
         [
@@ -1343,7 +1351,7 @@
           0,
           4,
           4096,
-          4298793,
+          4290480,
           224160
         ],
         [
@@ -1391,7 +1399,7 @@
           1,
           0,
           4096,
-          8840440,
+          8838936,
           445056
         ],
         [
@@ -1399,7 +1407,7 @@
           1,
           1,
           4096,
-          8840594,
+          8838975,
           445056
         ],
         [
@@ -1407,7 +1415,7 @@
           1,
           2,
           4096,
-          8840044,
+          8838857,
           445056
         ],
         [
@@ -1415,7 +1423,7 @@
           1,
           3,
           4096,
-          8840594,
+          8838579,
           445056
         ],
         [
@@ -1423,7 +1431,7 @@
           1,
           4,
           4096,
-          8840920,
+          8839020,
           445056
         ],
         [
@@ -1471,7 +1479,7 @@
           2,
           0,
           4096,
-          25657361,
+          25652497,
           1182608
         ],
         [
@@ -1479,7 +1487,7 @@
           2,
           1,
           4096,
-          25657204,
+          25648958,
           1182608
         ],
         [
@@ -1487,7 +1495,7 @@
           2,
           2,
           4096,
-          25657067,
+          25650282,
           1182608
         ],
         [
@@ -1495,7 +1503,7 @@
           2,
           3,
           4096,
-          25659725,
+          25650892,
           1182608
         ],
         [
@@ -1503,7 +1511,7 @@
           2,
           4,
           4096,
-          25657511,
+          25651628,
           1182608
         ],
         [
@@ -1551,7 +1559,7 @@
           3,
           0,
           128,
-          6378866,
+          6389611,
           246144
         ],
         [
@@ -1559,7 +1567,7 @@
           3,
           1,
           128,
-          6378964,
+          6388672,
           246144
         ],
         [
@@ -1567,7 +1575,7 @@
           3,
           2,
           128,
-          6378325,
+          6388830,
           246144
         ],
         [
@@ -1575,7 +1583,7 @@
           3,
           3,
           128,
-          6378926,
+          6389481,
           246144
         ],
         [
@@ -1583,7 +1591,7 @@
           3,
           4,
           128,
-          6379491,
+          6388839,
           246144
         ],
         [
@@ -1631,7 +1639,7 @@
           4,
           0,
           128,
-          5000117,
+          5001478,
           216832
         ],
         [
@@ -1639,7 +1647,7 @@
           4,
           1,
           128,
-          5000202,
+          5001468,
           216832
         ],
         [
@@ -1647,7 +1655,7 @@
           4,
           2,
           128,
-          5000287,
+          5001452,
           216832
         ],
         [
@@ -1655,7 +1663,7 @@
           4,
           3,
           128,
-          5000524,
+          5001325,
           216832
         ],
         [
@@ -1663,7 +1671,7 @@
           4,
           4,
           128,
-          5000520,
+          5001867,
           216832
         ],
         [
@@ -1710,51 +1718,51 @@
       "uart_lines": [
         "DESC READY 600000000 1486 744",
         "DESC CHECK 0",
-        "DESC T 0 0 0 4096 4298791 224160",
-        "DESC T 0 0 1 4096 4298245 224160",
-        "DESC T 0 0 2 4096 4298429 224160",
-        "DESC T 0 0 3 4096 4298551 224160",
-        "DESC T 0 0 4 4096 4298793 224160",
+        "DESC T 0 0 0 4096 4290481 224160",
+        "DESC T 0 0 1 4096 4290513 224160",
+        "DESC T 0 0 2 4096 4290656 224160",
+        "DESC T 0 0 3 4096 4290363 224160",
+        "DESC T 0 0 4 4096 4290480 224160",
         "DESC T 1 0 0 4096 400784 224160",
         "DESC T 1 0 1 4096 400784 224160",
         "DESC T 1 0 2 4096 400784 224160",
         "DESC T 1 0 3 4096 400784 224160",
         "DESC T 1 0 4 4096 400784 224160",
-        "DESC T 0 1 0 4096 8840440 445056",
-        "DESC T 0 1 1 4096 8840594 445056",
-        "DESC T 0 1 2 4096 8840044 445056",
-        "DESC T 0 1 3 4096 8840594 445056",
-        "DESC T 0 1 4 4096 8840920 445056",
+        "DESC T 0 1 0 4096 8838936 445056",
+        "DESC T 0 1 1 4096 8838975 445056",
+        "DESC T 0 1 2 4096 8838857 445056",
+        "DESC T 0 1 3 4096 8838579 445056",
+        "DESC T 0 1 4 4096 8839020 445056",
         "DESC T 1 1 0 4096 970042 445056",
         "DESC T 1 1 1 4096 970042 445056",
         "DESC T 1 1 2 4096 970042 445056",
         "DESC T 1 1 3 4096 970042 445056",
         "DESC T 1 1 4 4096 970042 445056",
-        "DESC T 0 2 0 4096 25657361 1182608",
-        "DESC T 0 2 1 4096 25657204 1182608",
-        "DESC T 0 2 2 4096 25657067 1182608",
-        "DESC T 0 2 3 4096 25659725 1182608",
-        "DESC T 0 2 4 4096 25657511 1182608",
+        "DESC T 0 2 0 4096 25652497 1182608",
+        "DESC T 0 2 1 4096 25648958 1182608",
+        "DESC T 0 2 2 4096 25650282 1182608",
+        "DESC T 0 2 3 4096 25650892 1182608",
+        "DESC T 0 2 4 4096 25651628 1182608",
         "DESC T 1 2 0 4096 3079634 1182608",
         "DESC T 1 2 1 4096 3079634 1182608",
         "DESC T 1 2 2 4096 3079634 1182608",
         "DESC T 1 2 3 4096 3079634 1182608",
         "DESC T 1 2 4 4096 3079634 1182608",
-        "DESC T 0 3 0 128 6378866 246144",
-        "DESC T 0 3 1 128 6378964 246144",
-        "DESC T 0 3 2 128 6378325 246144",
-        "DESC T 0 3 3 128 6378926 246144",
-        "DESC T 0 3 4 128 6379491 246144",
+        "DESC T 0 3 0 128 6389611 246144",
+        "DESC T 0 3 1 128 6388672 246144",
+        "DESC T 0 3 2 128 6388830 246144",
+        "DESC T 0 3 3 128 6389481 246144",
+        "DESC T 0 3 4 128 6388839 246144",
         "DESC T 1 3 0 128 710449 246144",
         "DESC T 1 3 1 128 710449 246144",
         "DESC T 1 3 2 128 710449 246144",
         "DESC T 1 3 3 128 710449 246144",
         "DESC T 1 3 4 128 710449 246144",
-        "DESC T 0 4 0 128 5000117 216832",
-        "DESC T 0 4 1 128 5000202 216832",
-        "DESC T 0 4 2 128 5000287 216832",
-        "DESC T 0 4 3 128 5000524 216832",
-        "DESC T 0 4 4 128 5000520 216832",
+        "DESC T 0 4 0 128 5001478 216832",
+        "DESC T 0 4 1 128 5001468 216832",
+        "DESC T 0 4 2 128 5001452 216832",
+        "DESC T 0 4 3 128 5001325 216832",
+        "DESC T 0 4 4 128 5001867 216832",
         "DESC T 1 4 0 128 606770 216832",
         "DESC T 1 4 1 128 606770 216832",
         "DESC T 1 4 2 128 606770 216832",
@@ -1772,5 +1780,5 @@
   "backup_bytes": 65536,
   "restored_bytes": 65536,
   "restored_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
-  "finished": "2026-10-03T20:57:53.605514+00:00"
+  "finished": "2026-10-03T23:55:25.499078+00:00"
 }

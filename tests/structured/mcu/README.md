@@ -44,29 +44,17 @@ sections and disassembly and executes zero conditions.
 
 ## Final-tree offline evidence
 
-The [local receipt](local-receipt.json) records seven actual compiler/mode
-roles with exactly 138 shared LF inputs and 42 configurations.
-These final runs observed HEAD `01fd180` with unchanged captured build inputs;
-the receipt's scoped `source_dirty=false` applies to that input set. It does
-not claim the entire working tree was clean, and it is not a hardware run.
-Each host executes 43,638 conditions, for 130,914 across three host roles.
-
-| Role | Successful tool commands | Executed conditions |
-| --- | ---: | ---: |
-| mingw13 | 52 | 43638 |
-| gcc13-null | 52 | 43638 |
-| clang18-sanitized | 52 | 43638 |
-| cubeide14 | 67 | not executed |
-| cubeide14-null | 67 | not executed |
-| arm13 | 67 | not executed |
-| arm13-null | 67 | not executed |
-
-The independent verifier requires every role, pinned compiler driver,
-Cortex-M7 hard-float ABI flags, normal/null/sanitized mode, all configurations,
-counts, source/report hashes and real-symbol controls. Its 32 mutations
-include omitted/substituted roles and changed counts/flags/frames.
-Raw reports stay in `build/stage20/offline-final-<role>`; their recorded digests
-allow comparison with retained files but do not recreate missing artifacts.
+The [local receipt](local-receipt.json) records seven compiler/mode roles,
+140 shared LF inputs and 42 configurations for the borrowed extension.
+The captured HEAD is `595a65b`, with `source_dirty=true`: source/input hashes
+match the later sealed code commit `7b73fb4`, rather than that earlier HEAD.
+It is not a clean-tree claim. All three host roles executed 43,638 conditions
+apiece (130,914 total); four ARM roles executed zero C++ conditions. Across
+all roles, 424 compiler/link/inspection commands completed successfully.
+Raw reports remain under `build/borrowed/mcu-<role>-canonical`; their digests
+identify retained files, without recreating missing artifacts. The original
+[Stage 20 receipt](../../../doc/evidence/pre-borrowed/offline/local-receipt.json)
+retains its original capture and remains separate.
 
 Each final library frame is checked, including files under `lib/telemetry`.
 There is no directory-based legacy exemption. Individual frames are bounded
