@@ -18,7 +18,7 @@
     "tests/structured/borrowed/h7s/Probe.cpp": "b713af4f705125aa19ea860cfc5ac70f714bb939a6cf5985b6992ad010b66742",
     "tests/structured/borrowed/h7s/run.py": "e63bfaa24c20543bae2042905dac6b358680a3bdc138610d261be245f3816d5c",
     "tests/structured/borrowed/h7s/verify.py": "d6d7db0c202fe38cb4de855b2ca770be3fa9ad244be2e503f486f1c31429641f",
-    "tests/structured/descriptor/Fixture.hpp": "6d44a6d84f1cb5d4962ab72e47c2454bea8400ed6c5c7207a5214e628ce25487",
+    "tests/structured/descriptor/Fixture.hpp": "6e750003992e16a019d1e81c43d3ae18882e80ee61bd9f9bea5162ec4739c78c",
     "tests/structured/descriptor/h7s/Benchmark.cpp": "8f0bb3cdc55f62ac2bd132553a02d58929b48fac7548aa53381a5f871d4c5ebf",
     "tests/structured/descriptor/h7s/Probe.cpp": "c135c24d800448aec8ced3dc6b133fda5e8568f55ee4ba6d50cefd5365a18a5b",
     "tests/structured/descriptor/h7s/run.py": "3af002b2d5c92ec36a272e5e2a2e869ddee903a0b90eb424b187131d673777b4",
@@ -54,7 +54,7 @@
     "tests/structured/qualification/Typed.cpp": "a4e22f2cd636323e1c610ecacd1e7487c36a7e71f250715da43195e4cc49278f",
     "tests/structured/qualification/gates.py": "5982658801aaa77c272dc60a801f81b6c31ea0dd7a62dd8e23613db16d0fc62b",
     "tests/structured/qualification/run.py": "11b0010280a60daca627f2654dcd692e3bde3622a6239c39960ab4ab93afa4a8",
-    "tests/structured/resources/Fixture.hpp": "31e99c3e638227dae64265a0fc0875b1af9d32504c5e15baf979420d1a767d0b",
+    "tests/structured/resources/Fixture.hpp": "04bec1190c53a50924e99c42b5f78e90423f238c89b4070603466f44c7f665a5",
     "tests/structured/resources/h7s/Benchmark.cpp": "62f426f5590f436209f96615007ca36e2f3f5e72040396ea9081d84eec53d034",
     "tests/structured/resources/h7s/Golden.inc": "432d1afd7ed3dcc86b9b65b150c97432aa64cd6074dbacce6c848547e613058a",
     "tests/structured/resources/h7s/Probe.cpp": "51ba54f083377a621da34e557a3cc88ac2b109f364a17f70fa4124ee7dc8b992",
@@ -119,11 +119,11 @@
     "lib/magic_enum/magic_enum.pri": "92dce0a5168f4f11fbbb986eb135bb2bafcc7038ded83a5501118fbdd97d19c7",
     "lib/resource/BytesFile.hpp": "d8c20dc62d036022abee5d366b3565c68613e76832e56d034f62212871533d32",
     "lib/resource/ChunkWriter.hpp": "0835f6605dc5271bbd8838be25cb13fc0064d4cbaf884677cba53a81e3daeff7",
-    "lib/resource/File.hpp": "406b8653394437b7db76371567cf2f27f26bc71803c5dd657979d38128056b9c",
-    "lib/resource/FileSystem.hpp": "990d53a756dec9c20a37588731832866144773ba52566014e2de5e4e5fdc4b6a",
+    "lib/resource/File.hpp": "8c12b0e6c31500bae10bfcd84793620e4d4c0ca20d7e63d587f47a12ee02ad0a",
+    "lib/resource/FileSystem.hpp": "f35b16d9e8f5ea0f27023cb4422c2ddf83276065feaf5e03b5d7268592ef1806",
     "lib/resource/FileView.hpp": "0060aac3d4986117920fde08e607d7be628e30045c2dd8f0956881d4da5ad63c",
     "lib/resource/LICENSE": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
-    "lib/resource/README.md": "a051a470c1a3437f615e85c0d6f01287e0d5c669fbcaafb282a77c223296dabb",
+    "lib/resource/README.md": "e7b8bd58b80e7221628f9593fa792c66dcd1ec4d2fd6b308390a92779e33ffdd",
     "lib/resource/Resource.hpp": "b9853d18bf7a2e6af782af7195bdd416b9679efcb9915e794ff1fc6403c8b1af",
     "lib/resource/Types.hpp": "8eda83fd92066bbc100ac7defce399aaff9d044580b35f447285f7efbce407b0",
     "lib/resource/protocol/Protocol.cpp": "8df9d9ef109bf20ce70dde6162b7f6ff4cf63b94a1a2d90fed003e810e9aec95",
@@ -131,7 +131,7 @@
     "lib/resource/protocol/README.md": "da41aa00facb9118512b84da061355aaef2f867c3d446d412d58fef225390dfe",
     "lib/resource/resource.pri": "d4af600ea8c630671ffd4892db076154e5422ac60a833b8c70a6b4811aad9812",
     "lib/resource/telemetry/v3/BinaryFormat.hpp": "58cf6da4513da48da97bc802ab9dc9cb400b250c4b617fb00e407fa067821104",
-    "lib/resource/telemetry/v3/Descriptor.hpp": "bcf89c7138ee3fabcfa0e8b8023faa4b5d2a90082edc4376ef51f5cef816813e",
+    "lib/resource/telemetry/v3/Descriptor.hpp": "0c129417d0021635ae97c2bdb9567fc9a7785c727d32db3e6f6f12f88ed7eaa1",
     "lib/resource/telemetry/v3/DescriptorFile.hpp": "77246628b9269627fee8d0a47282a5879bd251f27906469e6f285a1893df3c34",
     "lib/resource/telemetry/v3/README.md": "7c93e7f4d02324c4a82f04694533e868ee52b6f6294bcdfa5b225bdc7334cf40",
     "lib/resource/telemetry/v3/ValuesFile.hpp": "dd576675772d03fe6b47a8c3149e22f37481932f3b1d3e8266404f16746170d2",
@@ -166,7 +166,7 @@
     "lib/telemetry/model/Adapter.cpp": "99a0a3249a316445dfcf697ad420e7d8aeb49f1eb5794688b13f160f9b83450e",
     "lib/telemetry/model/Adapter.hpp": "937609df61cf2aaa84b350ad0c452acc0532f1bbb6b3c4c876229ad1193ecdc2",
     "lib/telemetry/model/Catalog.hpp": "ebaf21f83a211e0eed16fcc27ae09451426e579b349db6ac804308fad6ba2740",
-    "lib/telemetry/model/Model.hpp": "5468c956d24e590d23500cda430cd2ecc0d27c1ee00d25e785ae17a41c16f111",
+    "lib/telemetry/model/Model.hpp": "91bf16831576b3862e95b4e7edfa20d4551bf54c13a223cece0a533aacd78291",
     "lib/telemetry/reflection/Aggregate.hpp": "723cf9e455c56ce57b8442d1a229b0ebc1054ecf39a3e21447246719661409e3",
     "lib/telemetry/reflection/Callable.hpp": "531a063f02e9f66ae6d00b1ccd70b1f490052b4c64b80fe4895ee5cfeab41e1c",
     "lib/telemetry/reflection/Enum.hpp": "29c708c871c947c387e471ba8a5267bb42c8e247d18d71fc0dac8ca7610e4a94",
@@ -199,7 +199,7 @@
   "format_version": 2,
   "groups": {
     "borrowed": {
-      "current_input_manifest_sha256": "83f4ac9ded675e72bc2dc27cc05eb857c07ccd18e4015c441524dfb82d703290",
+      "current_input_manifest_sha256": "1bd6b9d4bc07348a8cff400ec27fb01806de656067067197238148df9ca47dad",
       "historical_input_manifest_sha256": "824365521b3502ca66aa17441f860bb5a3c6cb40f7badaef9edc962d92786531",
       "image_manifest_sha256": "2fdb4c28b23c45c3ca9825ac585fcd31a6dfa24d498529859d8c97b9776485bb",
       "macro_prefix_map": null,
@@ -208,7 +208,7 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "descriptor": {
-      "current_input_manifest_sha256": "2eb8de380079cf0bea2e623b0bcc1c249ed2d337464120b166ef921248e1ad35",
+      "current_input_manifest_sha256": "5ae15895bd933dec5a7d8d27a2b1fffef21f6d7609c53704a30d6ffd743a9e5c",
       "historical_input_manifest_sha256": "7531940505a510ad2d02d1324bc6497f7611a45b74dfc8ce45e24670afe6586a",
       "image_manifest_sha256": "5c916ec66a208aa9009c93067a66cc03a7cff1214fd1608d1f51bffe24c5a98f",
       "macro_prefix_map": null,
@@ -217,16 +217,16 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "exchange": {
-      "current_input_manifest_sha256": "cf1d9c67b502cdd37d0bad72875b4831fa2c04e82d741d642ca0a2db4df2bba8",
+      "current_input_manifest_sha256": "48feaf986b9304375170d2530b0382bc33549aef2e6fa548856f0da1d0ff194d",
       "historical_input_manifest_sha256": "8fb267913faf0d88bff5e154b09885c637381edfc64c5ed8d5dc1ad7432a801d",
       "image_manifest_sha256": "ee5c2809e74615d337fe6cd2ca13ff89f2068598b0cf10ef96086117840d4bbb",
-      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-artifacts\\2026-10-04-cleanup-98b945f\\generated-builds\\resource-current-h7s-publication-lf\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
+      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-artifacts\\2026-10-04-cleanup-98b945f\\generated-builds\\resource-current-h7s-paranoid-418-final\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
       "receipt": "tests/structured/exchange/h7s/receipt.json",
       "receipt_lf_sha256": "43cb74c4d5fba4a4634ca03c858ba5015e3bdb9ff7f2dc6a4e7632fc677a882a",
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "mcu": {
-      "current_input_manifest_sha256": "4b3dcc7a1bfd1b2771d5fa22ad1241e271028a4ea37dfc38e335fa5044dd4b15",
+      "current_input_manifest_sha256": "32f6d5c76f377605f6fc76100f44a7b0925903e05a62e9a132378a2188eb7333",
       "historical_input_manifest_sha256": "0043f7f08e78e69600ccfcd6fa54c74a6c4fe126f12ace1ce038be632354ac10",
       "image_manifest_sha256": "8ac042f54bf68d23f0b88f3b5eac647025cbce97c3765a5865d47b4be67c2bcd",
       "macro_prefix_map": null,
@@ -235,7 +235,7 @@
       "scaffold_manifest_sha256": "ea0e5c36be00383dd9b4b483b5aab8a5206b368a93859180624b9ebc34ff6f92"
     },
     "resources": {
-      "current_input_manifest_sha256": "21098ee3485b53b67b086eceebb75156d946acd910eca026b8dfcb3f0ce44104",
+      "current_input_manifest_sha256": "03cd94b96255f75cb2cc9b9bf0a34132fa30ceb9f9043d2928cbd3c104172d52",
       "historical_input_manifest_sha256": "3f96ceeb9fb65e868643b17608420c49ecfb7c0f04fd6e4988a5beb23f2d78a5",
       "image_manifest_sha256": "2b45d51fc44a009dd5f5af45e0d71009f0c0bda1bbc3db2323139e80ba9b1166",
       "macro_prefix_map": null,
@@ -359,9 +359,9 @@
     "receipt": "tests/structured/mcu/local-receipt.json",
     "receipt_lf_sha256": "00fd1714709f28a338a04d295b80ff2608766cef64be5fab4636dc12185da9c6"
   },
-  "recorded_at_utc": "2026-10-04T11:17:16.920563+00:00",
+  "recorded_at_utc": "2026-10-04T11:58:08.970526+00:00",
   "scope": "current source and byte-identical retained H7S images",
   "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
   "source_dirty": true,
-  "source_head": "98b945fafd1b535b5ed6f9085f5077bceccdfff7"
+  "source_head": "418a3fa98dd29f6a9cc59376117632244cebae89"
 }

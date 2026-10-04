@@ -1,6 +1,7 @@
 /* Payload ceilings, exact numeric bits and rejected metadata. MIT. */
 #include "Fixture.hpp"
 #include <resource/protocol/Protocol.hpp>
+#include <algorithm>
 #include <cassert>
 #include <limits>
 
@@ -29,6 +30,17 @@ constexpr rs::Descriptor numericDescriptor{numericModel};
 std::array<std::byte, numericModel.maxFieldScratch()> numericStorage;
 ts::Workspace numericWorkspace{numericStorage};
 constexpr rs::ValuesFile numbers{numericDescriptor, numericWorkspace};
+
+using ExactCvNumericModel =
+    ts::Model<decltype(numericFields), decltype(ts::emptyCommands), decltype(services)>;
+constexpr ExactCvNumericModel exactCvNumericModel{numericFields, ts::emptyCommands, services};
+constexpr rs::Descriptor exactCvNumericDescriptor{exactCvNumericModel};
+constexpr rs::ValuesFile exactCvNumbers{exactCvNumericDescriptor, numericWorkspace};
+static_assert(exactCvNumericDescriptor.valid() &&
+              rs::packDescriptor<exactCvNumericDescriptor>() == rs::packDescriptor<numericDescriptor>());
+static_assert(exactCvNumbers.size() == numbers.size() &&
+              exactCvNumbers.requiredWorkspace() == numbers.requiredWorkspace() &&
+              exactCvNumbers.maxTokenSize() == numbers.maxTokenSize());
 }
 
 int main()
@@ -53,6 +65,18 @@ int main()
     assert(buffer[41] == std::byte{0x80});
     assert(buffer[42] == std::byte{0} && buffer[43] == std::byte{0x34} &&
            buffer[44] == std::byte{0x12} && buffer[45] == std::byte{0xc0} && buffer[46] == std::byte{0x7f});
+
+    // Exact-cv catalogs retain the same descriptor and live Values bytes.
+    std::array<std::byte, numbers.size()> exactCvOutput{};
+    const auto exactRead = exactCvNumbers.read(0, exactCvOutput);
+    assert(exactRead.status == Status::Ok && exactRead.eof && exactRead.written == exactCvOutput.size());
+    assert(std::equal(exactCvOutput.begin(), exactCvOutput.end(), buffer.begin()));
+    std::array<std::byte, emptyValues.size()> emptyOutput{}, exactCvEmptyOutput{};
+    assert(emptyValues.read(0, emptyOutput).eof);
+    const auto exactEmptyRead = exactCvEmptyValues.read(0, exactCvEmptyOutput);
+    assert(exactEmptyRead.status == Status::Ok && exactEmptyRead.eof &&
+           exactEmptyRead.written == exactCvEmptyOutput.size() && exactCvEmptyOutput == emptyOutput);
+    assert(numericWorkspace.used() == 0 && workspace.used() == 0);
 
     char invalidName[] = "Duplicate";
     const ts::FieldTable badTable{ts::field<&u64>(invalidName), ts::field<&s64>(invalidName)};

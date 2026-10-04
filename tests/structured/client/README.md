@@ -71,6 +71,12 @@ not dependencies of the MCU library.
 
 ## Evidence and scope
 
+The runner requires the exact `Check.mjs` report: 3057 integer checks, zero
+integer failures and `cppInterop: true`, with exactly those three fields.
+One positive and sixteen result mutation controls reject duplicate/missing
+fields, extra fields, wrong types, changed counts and failure statuses. These
+parser controls are separate from the interoperability tally below.
+
 - `Check.mjs`: **3057 counted checks**, including every truncated prefix of
   three independently frozen descriptors, semantic mutations with recomputed
   fingerprints, resource/depth/expansion bounds, literal/prototype names,

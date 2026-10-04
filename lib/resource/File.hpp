@@ -100,15 +100,21 @@ inline constexpr FileOps operations = []
 class FileEntry
 {
 public:
-    const std::string_view path;
-    void* const object;
-    const FileOps* const ops;
     constexpr FileEntry(const FileEntry&) noexcept = default;
     constexpr FileEntry(FileEntry&&) noexcept = default;
     FileEntry& operator=(const FileEntry&) = delete;
     FileEntry& operator=(FileEntry&&) = delete;
 
 private:
+    const std::string_view path;
+    void* const object;
+    const FileOps* const ops;
+
+    friend class FileView;
+    friend class FileSystemView;
+    template <std::size_t>
+    friend class FileSystem;
+
     template <Provider T>
     friend constexpr FileEntry file(std::string_view, T&) noexcept;
 

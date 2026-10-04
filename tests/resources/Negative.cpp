@@ -1,5 +1,6 @@
 // Compile-time contract rejections. Authors: Ruslan Kovtun, codexAi (MIT).
 #include <resource/FileSystem.hpp>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -8,15 +9,19 @@
 struct Provider
 {
     resource::FileSize value = 0;
+    mutable const Provider* lastRead = nullptr;
 
     resource::FileSize size() const noexcept
     {
         return value;
     }
 
-    resource::ReadResult read(resource::Cursor, resource::Output) const noexcept
+    resource::ReadResult read(resource::Cursor cursor, resource::Output output) const noexcept
     {
-        return {};
+        lastRead = this;
+        if (output.empty()) return {resource::Status::BufferTooSmall, cursor};
+        output[0] = static_cast<std::byte>(value);
+        return {resource::Status::Ok, cursor + 1, 1, true};
     }
 } provider;
 
@@ -159,25 +164,41 @@ struct PathProxy
 };
 
 auto bad = resource::file<const Provider>({PathProxy{}}, derived);
+#elif CASE == 35
+auto bad = resource::file("/raw-object", provider).object;
+#elif CASE == 36
+auto bad = resource::file("/raw-ops", provider).ops;
+#elif CASE == 37
+auto bad = resource::file("/raw-path", provider).path;
+#elif CASE == 38
+resource::FileEntry bad{"/raw-construction", &provider, &resource::detail::operations<Provider>};
 #else
 constexpr auto good = resource::filesystem(resource::file("/good", provider));
 static_assert(good.fileCount() == 1);
-constexpr auto goodBase = resource::file<const Provider>("/base", derived);
-static_assert(goodBase.path == "/base");
-static_assert(goodBase.ops == &resource::detail::operations<const Provider>);
-constexpr auto goodBracedBase = resource::file<const Provider>("/braced-base", {derived});
-static_assert(goodBracedBase.object == goodBase.object && goodBracedBase.ops == goodBase.ops);
+constexpr auto goodBase = resource::filesystem(resource::file<const Provider>("/base", derived));
+static_assert(goodBase.path(0) == "/base");
+constexpr auto goodBracedBase =
+    resource::filesystem(resource::file<const Provider>("/braced-base", {derived}));
+static_assert(goodBracedBase.path(0) == "/braced-base");
 
 int main()
 {
     unsigned checks = 0;
-    auto check = [&checks](std::string_view path, const Provider& object, resource::FileEntry entry,
-                           const resource::FileOps* operations)
+    auto check = [&checks](std::string_view path, const Provider& object, resource::FileEntry entry)
     {
+        const auto files = resource::filesystem(entry);
+        const auto file = files[0];
+        const auto stat = file.stat();
+        object.lastRead = nullptr;
+        std::array<std::byte, 1> output{};
+        const auto read = file.read(7, output);
         ++checks;
-        if (entry.path != path || entry.path.data() != path.data() ||
-            entry.object != std::addressof(object) || entry.ops != operations ||
-            entry.ops->size(entry.object) != object.size())
+        if (file.path() != path || file.path().data() != path.data() ||
+            !file.readable() || file.writable() || stat.status != resource::Status::Ok ||
+            stat.size != object.size() || stat.flags != resource::FileFlag::Readable ||
+            object.lastRead != std::addressof(object) || read.status != resource::Status::Ok ||
+            read.next != 8 || read.written != 1 || !read.eof ||
+            output[0] != static_cast<std::byte>(object.value))
         {
             std::abort();
         }
@@ -192,46 +213,41 @@ int main()
     std::string path = "/lvalue-string-path-with-storage-beyond-the-small-string-buffer";
     const std::string constantPath = "/const-lvalue-string-path-with-stable-storage";
     const std::string_view view = path;
-    const auto* mutableOps = &resource::detail::operations<Provider>;
-    const auto* constantOps = &resource::detail::operations<const Provider>;
 
-    check(literal, provider, resource::file(literal, provider), mutableOps);
-    check(literal, provider, resource::file<Provider>(literal, provider), mutableOps);
-    check(literal, provider, resource::file<const Provider>(literal, provider), constantOps);
-    check(pointer, provider, resource::file(pointer, provider), mutableOps);
-    check(pointer, provider, resource::file<Provider>(pointer, provider), mutableOps);
-    check(pointer, provider, resource::file<Provider>(static_cast<const char*>(literal), provider),
-          mutableOps);
-    check(array, provider, resource::file<Provider>(array, provider), mutableOps);
-    check(path, provider, resource::file(path, provider), mutableOps);
-    check(path, provider, resource::file<Provider>(path, provider), mutableOps);
-    check(constantPath, provider, resource::file<Provider>(constantPath, provider), mutableOps);
-    check(view, provider, resource::file<Provider>(view, provider), mutableOps);
-    check(view, provider, resource::file<Provider>(std::string_view{path}, provider), mutableOps);
-    check(view, provider, resource::file<Provider>(std::move(view), provider), mutableOps);
-    check(path, derived, resource::file<Provider>(path, derived), mutableOps);
-    check(path, derived, resource::file<const Provider>(path, derived), constantOps);
-    check(path, constant, resource::file(path, constant), constantOps);
-    check(path, constant, resource::file<const Provider>(path, constant), constantOps);
-    check(path, constantDerived, resource::file<const Provider>(path, constantDerived),
-          constantOps);
-    check(path, provider, resource::file<Provider>(path, {provider}), mutableOps);
-    check(path, provider, resource::file<const Provider>(path, {provider}), constantOps);
-    check(path, constant, resource::file<const Provider>(path, {constant}), constantOps);
-    check(path, derived, resource::file<Provider>(path, {derived}), mutableOps);
-    check(path, derived, resource::file<const Provider>(path, {derived}), constantOps);
-    check(path, constantDerived, resource::file<const Provider>(path, {constantDerived}),
-          constantOps);
-    check(literal, provider, resource::file({literal}, provider), mutableOps);
-    check(literal, provider, resource::file<Provider>({literal}, provider), mutableOps);
-    check(literal, derived, resource::file<const Provider>({literal}, {derived}), constantOps);
-    check(pointer, provider, resource::file<Provider>({pointer}, provider), mutableOps);
-    check(pointer, derived, resource::file<const Provider>({pointer}, {derived}), constantOps);
-    check(array, provider, resource::file<Provider>({array}, {provider}), mutableOps);
-    check(array, derived, resource::file<const Provider>({array}, {derived}), constantOps);
-    check(view, provider, resource::file<Provider>({view}, provider), mutableOps);
-    check(view, provider, resource::file<Provider>({std::string_view{path}}, provider), mutableOps);
-    check(view, derived, resource::file<const Provider>({view}, {derived}), constantOps);
+    check(literal, provider, resource::file(literal, provider));
+    check(literal, provider, resource::file<Provider>(literal, provider));
+    check(literal, provider, resource::file<const Provider>(literal, provider));
+    check(pointer, provider, resource::file(pointer, provider));
+    check(pointer, provider, resource::file<Provider>(pointer, provider));
+    check(pointer, provider, resource::file<Provider>(static_cast<const char*>(literal), provider));
+    check(array, provider, resource::file<Provider>(array, provider));
+    check(path, provider, resource::file(path, provider));
+    check(path, provider, resource::file<Provider>(path, provider));
+    check(constantPath, provider, resource::file<Provider>(constantPath, provider));
+    check(view, provider, resource::file<Provider>(view, provider));
+    check(view, provider, resource::file<Provider>(std::string_view{path}, provider));
+    check(view, provider, resource::file<Provider>(std::move(view), provider));
+    check(path, derived, resource::file<Provider>(path, derived));
+    check(path, derived, resource::file<const Provider>(path, derived));
+    check(path, constant, resource::file(path, constant));
+    check(path, constant, resource::file<const Provider>(path, constant));
+    check(path, constantDerived, resource::file<const Provider>(path, constantDerived));
+    check(path, provider, resource::file<Provider>(path, {provider}));
+    check(path, provider, resource::file<const Provider>(path, {provider}));
+    check(path, constant, resource::file<const Provider>(path, {constant}));
+    check(path, derived, resource::file<Provider>(path, {derived}));
+    check(path, derived, resource::file<const Provider>(path, {derived}));
+    check(path, constantDerived, resource::file<const Provider>(path, {constantDerived}));
+    check(literal, provider, resource::file({literal}, provider));
+    check(literal, provider, resource::file<Provider>({literal}, provider));
+    check(literal, derived, resource::file<const Provider>({literal}, {derived}));
+    check(pointer, provider, resource::file<Provider>({pointer}, provider));
+    check(pointer, derived, resource::file<const Provider>({pointer}, {derived}));
+    check(array, provider, resource::file<Provider>({array}, {provider}));
+    check(array, derived, resource::file<const Provider>({array}, {derived}));
+    check(view, provider, resource::file<Provider>({view}, provider));
+    check(view, provider, resource::file<Provider>({std::string_view{path}}, provider));
+    check(view, derived, resource::file<const Provider>({view}, {derived}));
     std::printf("Resource file bindings: %u controls passed\n", checks);
 }
 #endif

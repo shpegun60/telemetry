@@ -22,6 +22,10 @@ These objects are ready without an `init()` call. `BytesFile` borrows its
 source; it does not copy or allocate it. A constexpr source and table can live
 in Flash. Mutable provider state can live in RAM independently of the table.
 
+`file()` returns an opaque immutable `FileEntry`. Its path, provider context
+and operation table are private. Use the filesystem or its `FileView` for
+public metadata and operations; copying an entry only copies the binding.
+
 ## Read a file locally
 
 ```cpp

@@ -66,7 +66,10 @@ provider.
 відрізняє порожній файл від відсутнього.
 
 `FileSystem<N>` володіє масивом дескрипторів. Provider, його дані і тексти
-шляхів залишаються у застосунку. `files.view()` дає `FileSystemView`, який
+шляхів залишаються у застосунку. `file()` повертає opaque immutable
+`FileEntry`: його path, provider context та operation table приватні.
+Публічний доступ до metadata й операцій дають FileSystem та FileView.
+`files.view()` дає `FileSystemView`, який
 позичає саме цю таблицю. Не знищуйте та не переміщуйте таблицю під час
 використання view. Одержання view з тимчасової таблиці відхилене. Копія view
 не копіює provider і не подовжує його життя.

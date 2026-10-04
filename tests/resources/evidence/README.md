@@ -25,7 +25,9 @@ The mapping is retained in the new build's `images.json` and the equivalence
 record. Binary files are never patched or normalized for comparison.
 
 This establishes identical firmware bytes for these existing fixtures after
-the resource formatting, include and namespace changes. The new `BytesFile`, `FileView` and aggregate
+the resource formatting, include and namespace changes, private `FileEntry`
+encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
+The new `BytesFile`, `FileView` and aggregate
 include have separate host and ARM checks in [the resource suite](../README.md).
 They are not instantiated by every historical firmware fixture. The record
 reports compile/link only and does not claim a new hardware session or new
@@ -74,7 +76,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
 python tests/resources/evidence/verify.py verify --self-test `
-  --build-root "$evidenceArchivedBuild/resource-current-h7s-publication-lf" `
+  --build-root "$evidenceArchivedBuild/resource-current-h7s-paranoid-418-final" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
   --path-map "$evidenceOriginalBuild=$evidenceArchivedBuild"
 ```
@@ -125,11 +127,10 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current publication capture is `resource-current-h7s-publication-lf` in the
+The current publication capture is `resource-current-h7s-paranoid-418-final` in the
 same external archive. Reproduction uses the archive's scaffold paths, a fresh
 external output directory and the explicit original-build-to-archive path map.
-The Exchange
-compiler macro mapping still uses the measured literal source path, regardless
+The Exchange compiler macro mapping still uses the measured literal source path, regardless
 of where its artifact files are now stored. These local artifact directories are
 retained evidence, not a permanent downloadable archive. Changing a source hash
 requires another honest capture or a new hardware qualification; a successful

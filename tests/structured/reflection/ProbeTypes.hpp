@@ -31,7 +31,7 @@ struct Nested {
 
 // This declaration deliberately tests the proposed ASCII-only automatic names.
 struct NonAsciiName {
-    std::uint8_t cafÃ©;
+    std::uint8_t café;
 };
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };

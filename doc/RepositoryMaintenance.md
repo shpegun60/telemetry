@@ -13,6 +13,7 @@ Review і transcripts зберігають оригінальні revision-speci
 C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/
   generated-builds/
   retired-id-ranges/
+  retired-qmake-targets/
   manifest.json
   README.md
 ```
@@ -34,6 +35,30 @@ sources/licenses, review transcripts і `.qtcreator` settings збережені
 [Current image equivalence](../tests/resources/evidence/README.md) документує
 перевірку архівованих images через явний `--path-map`. Старі receipts не
 переписані й не перетворені на твердження про новий hardware run.
+
+## Фінальний прохід
+
+Окремо прибрано 14 старих `tests/telemetry_*check.pro`: усі вони посилалися на
+вже видалені legacy `.cpp` і не використовувалися чинними runners. Перед
+видаленням файли скопійовано до `retired-qmake-targets`, побайтово звірено й
+записано SHA-256 у власний `manifest.json`. Активні qmake-проєкти
+`tests/structured/` збережені.
+
+Фінальний прохід також перевірив окреме включення всіх 50 публічних заголовків
+і 132 локальні посилання в основному guide та README. Виправлено UTF-8 identifier
+у reflection-пробі, приватність внутрішніх даних `FileEntry` та класифікацію
+`const`-каталогів у явно заданих `Model`/`Descriptor`. ARM32 layout descriptor-а
+залишився 16 байтів із вирівнюванням 4 та offsets 0/8/12; перевірки layout
+збережені всередині friend-класу. JS runner тепер перевіряє повний звіт
+`3057 checks / 0 failures / cppInterop=true`, включно з типами й унікальністю
+полів. Нові перевірки звіту не додаються до числа interoperability checks.
+
+Подальші generated outputs цього проходу зберігаються поза checkout.
+Перезбірка дванадцяти історичних H7S images є offline compile/link-перевіркою
+їхніх firmware bytes. Вона не означає новий запуск на платі й не змінює
+оригінальні hardware receipts. Повний CI потрібний на SHA follow-up-коміту:
+попередній CI `418a3fa` зупиняв release/ARM structured-перевірки через encoding
+помилку в reflection-пробі.
 
 ## Наступні збірки
 

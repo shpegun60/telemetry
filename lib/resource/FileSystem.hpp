@@ -7,6 +7,7 @@
 #pragma once
 #include "FileView.hpp"
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <ranges>
 
@@ -116,6 +117,12 @@ template <std::size_t N>
 class FileSystem
 {
     static_assert(N <= std::numeric_limits<FileIndex>::max(), "Too many resource files");
+    static_assert(std::is_standard_layout_v<FileEntry> && offsetof(FileEntry, path) == 0);
+#if defined(__arm__) && defined(__SIZEOF_POINTER__) && __SIZEOF_POINTER__ == 4
+    // Keep the ARM32 descriptor ABI checked without exposing private storage.
+    static_assert(sizeof(FileEntry) == 16 && alignof(FileEntry) == 4);
+    static_assert(offsetof(FileEntry, object) == 8 && offsetof(FileEntry, ops) == 12);
+#endif
 
 public:
     constexpr explicit FileSystem(std::array<FileEntry, N> entries) noexcept : files_(entries)

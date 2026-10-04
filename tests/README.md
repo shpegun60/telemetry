@@ -65,6 +65,9 @@ and links them without running an image on a device.
 
 Scalar, legacy Field metadata/limits/arguments, JSON adapter, binary v2 and old
 ABI suites are retired after their source and measured evidence are archived.
+The fourteen obsolete `telemetry_*check.pro` targets referenced removed legacy
+sources and are retired too. Their original files remain in Git history and the
+local cleanup archive; the active qmake targets live under `tests/structured/`.
 Their historical counts and receipts are evidence for those source snapshots;
 they do not describe the final C++20 test matrix. The final API has no source,
 ABI or wire compatibility promise with v2.1. See the

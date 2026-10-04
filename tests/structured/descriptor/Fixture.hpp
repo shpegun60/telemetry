@@ -64,4 +64,12 @@ inline constexpr auto edgeBytes = rs::packDescriptor<edge>();
 inline constexpr auto emptyBytes = rs::packDescriptor<empty>();
 static_assert(mixed.valid() && edge.valid() && empty.valid());
 static_assert(decltype(model)::typeId<fixture::MotorConfig>() == 15);
+
+// Explicit decltype preserves each constexpr catalog's const qualification.
+// Classification must match the deduced Model without changing wire identity.
+using ExactCvModel = ts::Model<decltype(fields), decltype(fixture::commands), decltype(services)>;
+inline constexpr ExactCvModel exactCvModel{fields, fixture::commands, services};
+inline constexpr rs::Descriptor exactCvDescriptor{exactCvModel};
+static_assert(exactCvDescriptor.valid() && exactCvDescriptor.fingerprint() == edge.fingerprint());
+static_assert(rs::packDescriptor<exactCvDescriptor>() == edgeBytes);
 }

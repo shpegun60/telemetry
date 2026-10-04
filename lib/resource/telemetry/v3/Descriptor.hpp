@@ -250,13 +250,14 @@ class Descriptor
     using Registry = typename Model::Registry;
     using Kind = detail::SegmentKind;
     using Segment = detail::Segment;
+    using FieldShape = detail::Shape<std::remove_cv_t<Fields>>;
+    using CommandShape = detail::Shape<std::remove_cv_t<Commands>>;
+    using ServiceShape = detail::Shape<std::remove_cv_t<Services>>;
 
-    static constexpr std::size_t catalogCount = detail::Shape<Fields>::catalogs +
-                                                detail::Shape<Commands>::catalogs +
-                                                detail::Shape<Services>::catalogs;
-    static constexpr std::size_t endpointCount = detail::Shape<Fields>::endpoints +
-                                                 detail::Shape<Commands>::endpoints +
-                                                 detail::Shape<Services>::endpoints;
+    static constexpr std::size_t catalogCount =
+        FieldShape::catalogs + CommandShape::catalogs + ServiceShape::catalogs;
+    static constexpr std::size_t endpointCount =
+        FieldShape::endpoints + CommandShape::endpoints + ServiceShape::endpoints;
     static_assert(catalogCount <= Profile::maxCatalogCountTotal,
                   "Descriptor catalog ceiling exceeded");
     static_assert(endpointCount <= Profile::maxEndpointCountTotal,
@@ -513,7 +514,7 @@ private:
                 const auto bytes = (kind == Kind::Command ? 20ULL : 24ULL) +
                                    nameBytes(catalog.entries[entry].name);
                 const bool writable =
-                    kind == Kind::Field && detail::Writable<Fields>::at(group, entry);
+                    kind == Kind::Field && detail::Writable<std::remove_cv_t<Fields>>::at(group, entry);
                 if (!add(next, bytes, kind, (group << 16) | entry, 0, writable))
                 {
                     return false;
@@ -526,11 +527,9 @@ private:
     constexpr void build() noexcept
     {
         header_.typeCount = Registry::typeCount;
-        header_.catalogCount = {detail::Shape<Fields>::catalogs, detail::Shape<Commands>::catalogs,
-                                detail::Shape<Services>::catalogs};
-        header_.endpointCount = {detail::Shape<Fields>::endpoints,
-                                 detail::Shape<Commands>::endpoints,
-                                 detail::Shape<Services>::endpoints};
+        header_.catalogCount = {FieldShape::catalogs, CommandShape::catalogs, ServiceShape::catalogs};
+        header_.endpointCount = {FieldShape::endpoints, CommandShape::endpoints,
+                                 ServiceShape::endpoints};
         std::size_t next = 0;
         if (!add(next, descriptorHeaderBytes, Kind::Header))
         {

@@ -56,6 +56,17 @@ inline constexpr rs::Descriptor emptyDescriptor{emptyModel};
 inline constexpr rs::ValuesFile emptyValues{emptyDescriptor, workspace};
 static_assert(emptyValues.size() == 24 && emptyValues.fieldCount() == 0);
 
+using ExactCvEmptyModel =
+    ts::Model<decltype(ts::emptyFields), decltype(ts::emptyCommands), decltype(services)>;
+inline constexpr ExactCvEmptyModel exactCvEmptyModel{ts::emptyFields, ts::emptyCommands, services};
+inline constexpr rs::Descriptor exactCvEmptyDescriptor{exactCvEmptyModel};
+inline constexpr rs::ValuesFile exactCvEmptyValues{exactCvEmptyDescriptor, workspace};
+static_assert(exactCvEmptyDescriptor.valid() &&
+              rs::packDescriptor<exactCvEmptyDescriptor>() == rs::packDescriptor<emptyDescriptor>());
+static_assert(exactCvEmptyValues.size() == emptyValues.size() &&
+              exactCvEmptyValues.fieldCount() == 0 && exactCvEmptyValues.requiredWorkspace() == 0 &&
+              exactCvEmptyValues.fingerprint() == emptyValues.fingerprint());
+
 using Big = std::array<std::uint32_t, 1024>;
 inline Big readBig() noexcept { ++calls[10]; return Big{0x01020304}; }
 inline constexpr ts::FieldTable bigTable{ts::field<&readCounter>("Small"), ts::field<&readBig>("Big")};

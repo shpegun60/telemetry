@@ -19,8 +19,8 @@ struct ProbeProvider {
 extern constexpr auto resource_probe_files =
     resource::filesystem(resource::file("/probe", resource_probe_provider));
 static_assert(sizeof(resource::FileEntry) == 16 && alignof(resource::FileEntry) == 4);
-static_assert(offsetof(resource::FileEntry, path) == 0 &&
-              offsetof(resource::FileEntry, object) == 8 && offsetof(resource::FileEntry, ops) == 12);
+// FileSystem<1> above also checks the private path/object/ops offsets (0/8/12)
+// in its production ARM32 layout assertions, alongside this size/alignment gate.
 static_assert(sizeof(resource::FileSystemView) == 8);
 static_assert(sizeof(resource::ReadResult) == 16 && alignof(resource::ReadResult) == 8);
 static_assert(offsetof(resource::ReadResult, next) == 0 && offsetof(resource::ReadResult, written) == 8 &&

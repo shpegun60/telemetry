@@ -14,9 +14,12 @@ python tests/resources/run.py --cxx arm-none-eabi-g++ --arm --build-dir build/re
 
 - `CoreCheck.cpp` retains provider, cursor, path, partial-buffer, LIST progress,
   packet-boundary and output-canary checks. LIST never calls `size()`.
-- `Negative.cpp` has 34 intended compile-time refusals and an executed
+- `Negative.cpp` has 38 intended compile-time refusals and an executed
   positive binding control. The runner verifies the particular diagnostic;
   a missing unrelated header cannot satisfy a lifetime refusal.
+  The 34 positive controls use public `FileSystem`/`FileView` metadata and
+  operations to verify exact borrowed owner and path identity. Raw
+  `FileEntry` path/context/operation access and raw construction are refused.
 - `BytesFileCheck.cpp` checks the ready-made borrowed byte provider: every
   small offset/capacity combination, output canaries, EOF, u64 cursor edges,
   shared backing storage and overlapping reads in both directions. Its 122
@@ -39,6 +42,8 @@ python tests/resources/run.py --cxx arm-none-eabi-g++ --arm --build-dir build/re
   providers through both filesystem and packet APIs.
 - `ArmProbe.cpp` checks actual Cortex-M7 descriptor sizes/offsets, constant
   storage, direct known-provider dispatch and a linked protocol image.
+  Private `FileEntry` offsets remain checked by production static assertions
+  inside its friend `FileSystem<N>`, instantiated by the probe.
 - `stack_check.py` bounds every individual protocol frame at 192 bytes and
   rejects malformed, missing or excessive reports. This is an individual
   frame gate; whole-chain peaks are measured separately on H7S.
@@ -49,17 +54,17 @@ Compiler, diagnostics, disassembly, sections and symbol logs are retained
 beside the summary. Linked ARM allocation/formatting checks use the same
 newlib-aware controls as the final telemetry qualification suite.
 
-The generic host suite currently executes 9,465 conditions, with 64 intended
-compile-time refusals. ARM has 63 refusals: the external array larger than
+The generic host suite currently executes 9,465 conditions, with 68 intended
+compile-time refusals. ARM has 67 refusals: the external array larger than
 u32 used by the last host control cannot be declared on its 32-bit target.
 
 On 2026-10-04 the complete host suite passed under WSL Ubuntu Clang 18.1.3
 with AddressSanitizer, UndefinedBehaviorSanitizer and float-cast-overflow
-checks: 88 commands, 64 intended refusals and all 9,465 executed conditions.
+checks: 92 commands, 68 intended refusals and all 9,465 executed conditions.
 That run includes the current `FileView`, `BytesFile` and
 `resource::protocol` interfaces. Its logs and summary were written outside
 the checkout under
-`C:/Users/admin/Documents/telemetry-validation/20261004-final/resources-capabilities-clang-san`.
+`C:/Users/admin/Documents/telemetry-validation/20261004-final/resources-private-clang-san`.
 It is host evidence; no device was connected or image executed on an MCU.
 
 The optional v3 provider suite is

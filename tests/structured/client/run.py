@@ -14,6 +14,47 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
+EXPECTED_JS_CHECKS = 3057
+
+
+def client_report(text):
+    """Accept the complete Check.mjs result, including its required count."""
+    def unique(pairs):
+        result = dict(pairs)
+        if len(result) != len(pairs):
+            raise ValueError('Duplicate client result fields')
+        return result
+
+    report = json.loads(text, object_pairs_hook=unique)
+    if (not isinstance(report, dict) or set(report) != {'checks', 'failures', 'cppInterop'} or
+            type(report['checks']) is not int or report['checks'] != EXPECTED_JS_CHECKS or
+            type(report['failures']) is not int or report['failures'] != 0 or
+            report['cppInterop'] is not True):
+        raise ValueError('Wrong client result/count/status: ' + repr(report))
+    return report
+
+
+def report_controls():
+    """A lost condition or malformed success report must fail the runner."""
+    valid = {'checks': EXPECTED_JS_CHECKS, 'failures': 0, 'cppInterop': True}
+    client_report(json.dumps(valid))
+    cases = [json.dumps({key: value for key, value in valid.items() if key != missing})
+             for missing in valid]
+    for key, value in (('checks', EXPECTED_JS_CHECKS - 1), ('checks', True),
+                       ('checks', float(EXPECTED_JS_CHECKS)), ('checks', str(EXPECTED_JS_CHECKS)),
+                       ('failures', 1), ('failures', False), ('failures', 0.0),
+                       ('cppInterop', False), ('cppInterop', 1), ('extra', 0)):
+        cases.append(json.dumps({**valid, key: value}))
+    cases += ['{"checks":3057,"checks":3057,"failures":0,"cppInterop":true}',
+              '[3057,0,true]', json.dumps(valid) + ' trailing']
+    for case in cases:
+        try:
+            client_report(case)
+        except ValueError:
+            continue
+        raise AssertionError('Accepted invalid client result: ' + case)
+    return {'positive_reports': 1, 'rejected_mutations': len(cases),
+            'scope': 'result parser controls; no interoperability checks generated'}
 
 
 def main():
@@ -25,6 +66,7 @@ def main():
     parser.add_argument('--null-checks', action='store_true')
     parser.add_argument('--browser', action='store_true')
     args = parser.parse_args()
+    controls = report_controls()
     out = args.build_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -61,13 +103,14 @@ def main():
     oracle = runpy.run_path(str(HERE.parent / 'descriptor/parser.py'))['parse']
     for name in ('descriptor.bin', 'resources-descriptor.bin'):
         oracle((out / name).read_bytes())
-    report = json.loads(run([args.node, HERE / 'Check.mjs', out,
-                            out / ('client-device' + suffix)], 'js-check'))
+    report = client_report(run([args.node, HERE / 'Check.mjs', out,
+                                out / ('client-device' + suffix)], 'js-check'))
     if args.browser:
         run([os.sys.executable, HERE / 'Browser.py', '--device', out / ('client-device' + suffix),
              '--build-dir', out], 'browser-check')
     report['successful_commands'] = commands
     report['independent_descriptors'] = 2
+    report['result_controls'] = controls
     (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
     print('Structured client checks passed:', report, flush=True)
 

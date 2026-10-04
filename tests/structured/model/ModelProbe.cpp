@@ -50,6 +50,43 @@ inline constexpr ts::ServiceTable local{
 inline constexpr ts::ServiceCatalogTable services{ts::group("calibration", local)};
 inline constexpr ts::Model model{ts::emptyFields, ts::emptyCommands, services};
 
+// decltype on the inline constexpr empty markers retains const. Explicit
+// Model arguments must support those same live objects as deduction does.
+using ConstEmptyModel = ts::Model<decltype(ts::emptyFields),
+                                decltype(ts::emptyCommands), decltype(services)>;
+inline constexpr ConstEmptyModel constEmptyModel{ts::emptyFields, ts::emptyCommands, services};
+inline constexpr auto constEmptyView = constEmptyModel.view();
+static_assert(constEmptyModel.fieldIndex().count() == 0);
+static_assert(constEmptyModel.commandIndex().count() == 0);
+static_assert(constEmptyView.fields.count() == 0 && constEmptyView.fieldTypes == nullptr &&
+              constEmptyView.fieldCatalogCount == 0);
+static_assert(constEmptyView.commands.count() == 0 && constEmptyView.commandTypes == nullptr &&
+              constEmptyView.commandCatalogCount == 0);
+static_assert(constEmptyView.serviceCatalogCount == services.size());
+static_assert(constEmptyView.serviceTypeIds(telemetry::makeId<0, 0>())->requestTypeId ==
+              model.typeId<ReadCalibrationRequest>());
+static_assert(constEmptyModel.maxScratch() == model.maxScratch());
+
+std::uint32_t readValue() noexcept { return 7; }
+ts::CommandResult execute() noexcept { return ts::CommandResult::Executed; }
+inline constexpr ts::FieldTable constLocalFields{ts::field<&readValue>("Value")};
+inline constexpr ts::CommandTable constLocalCommands{ts::command<&execute>("Execute")};
+inline constexpr ts::FieldCatalogTable constFields{ts::group("fields", constLocalFields)};
+inline constexpr ts::CommandCatalogTable constCommands{ts::group("commands", constLocalCommands)};
+using ConstFullModel = ts::Model<decltype(constFields), decltype(constCommands), decltype(services)>;
+inline constexpr ConstFullModel constFullModel{constFields, constCommands, services};
+inline constexpr auto constFullView = constFullModel.view();
+static_assert(constFullView.fields.count() == 1 && constFullView.fieldCatalogCount == 1);
+static_assert(constFullView.commands.count() == 1 && constFullView.commandCatalogCount == 1);
+static_assert(constFullView.serviceCatalogCount == services.size());
+static_assert(constFullView.fieldTypeId(telemetry::makeId<0, 0>()) ==
+              constFullModel.typeId<std::uint32_t>());
+static_assert(constFullView.commandTypeId(telemetry::makeId<0, 0>()) ==
+              constFullModel.typeId<void>());
+static_assert(constFullView.serviceTypeIds(telemetry::makeId<0, 0>())->responseTypeId ==
+              constFullModel.typeId<ReadCalibrationResponse>());
+static_assert(constFullModel.maxFieldWireSize() == sizeof(std::uint32_t));
+
 static_assert(local.size() == 2);
 static_assert(services.size() == 1);
 static_assert(model.types().count >= 14);

@@ -106,11 +106,17 @@ def main():
             input_text='#include <' + relative + '>\n')
         report['headers'].append(relative)
     deleted = r"call to deleted function ['\u2018]file|use of deleted function [^\n]*resource::file"
-    for case in range(35):
-        diagnostic = (deleted if case in (1, 8, 13, 14) or case >= 15 else
-                      r'deleted' if case == 7 else
-                      r'invalidDefinition' if case in (2, 3, 4, 5, 6, 12) else
-                      r'satisfaction of .Provider|does not satisfy .Provider' if case in (9, 10, 11) else None)
+    for case in range(39):
+        if 35 <= case <= 37:
+            member = ('object', 'ops', 'path')[case - 35]
+            diagnostic = rf'(?:\b{member}\b[^\n]*private|private[^\n]*\b{member}\b)'
+        elif case == 38:
+            diagnostic = r'(?:FileEntry[^\n]*private|private[^\n]*FileEntry)'
+        else:
+            diagnostic = (deleted if case in (1, 8, 13, 14) or case >= 15 else
+                          r'deleted' if case == 7 else
+                          r'invalidDefinition' if case in (2, 3, 4, 5, 6, 12) else
+                          r'satisfaction of .Provider|does not satisfy .Provider' if case in (9, 10, 11) else None)
         run(flags + [f'-DCASE={case}', '-fsyntax-only', HERE / 'Negative.cpp'],
             f'negative-{case}', diagnostic=diagnostic)
     for case in range(17):

@@ -128,13 +128,13 @@ public:
 
     [[nodiscard]] constexpr FieldIndex fieldIndex() const noexcept
     {
-        if constexpr (std::is_same_v<Fields, EmptyEndpointCatalog>) return {nullptr, 0};
+        if constexpr (std::is_same_v<std::remove_cv_t<Fields>, EmptyEndpointCatalog>) return {nullptr, 0};
         else return fields_->index();
     }
 
     [[nodiscard]] constexpr CommandIndex commandIndex() const noexcept
     {
-        if constexpr (std::is_same_v<Commands, EmptyEndpointCatalog>) return {nullptr, 0};
+        if constexpr (std::is_same_v<std::remove_cv_t<Commands>, EmptyEndpointCatalog>) return {nullptr, 0};
         else return commands_->index();
     }
 
@@ -145,11 +145,11 @@ public:
                          static_cast<std::uint32_t>(services_->size())};
         result.fields = fieldIndex();
         result.commands = commandIndex();
-        if constexpr (!std::is_same_v<Fields, EmptyEndpointCatalog>) {
+        if constexpr (!std::is_same_v<std::remove_cv_t<Fields>, EmptyEndpointCatalog>) {
             result.fieldTypes = Fields::template TypeStorage<Registry>::catalogs.data();
             result.fieldCatalogCount = static_cast<std::uint32_t>(fields_->size());
         }
-        if constexpr (!std::is_same_v<Commands, EmptyEndpointCatalog>) {
+        if constexpr (!std::is_same_v<std::remove_cv_t<Commands>, EmptyEndpointCatalog>) {
             result.commandTypes = Commands::template TypeStorage<Registry>::catalogs.data();
             result.commandCatalogCount = static_cast<std::uint32_t>(commands_->size());
         }
