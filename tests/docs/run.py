@@ -24,6 +24,9 @@ SUPPORT = {
     "Resources": ["lib/resource/protocol/Protocol.cpp"],
     "Encoded": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
 }
+PROJECT = ROOT / "examples/device_integration"
+PROJECT_SOURCES = [PROJECT / name for name in ("main.cpp", "Device.cpp", "Api.cpp")]
+PROJECT_HEADERS = [PROJECT / name for name in ("Device.hpp", "Api.hpp")]
 
 
 def sha256(path):
@@ -108,10 +111,21 @@ def main():
         if re.search(r"^#define NDEBUG\b", macros, re.M) or not re.search(r"^#define assert\(", macros, re.M):
             raise RuntimeError("Runtime assertions are disabled")
         report["assertions_enabled"] = True
-        for name, support in SUPPORT.items():
-            source = EXAMPLES / (name + ".cpp")
-            inputs = [source, *(ROOT / relative for relative in support)]
-            entry = {"input_sha256": {str(path.relative_to(ROOT)): sha256(path) for path in inputs},
+        programs = {name: ([EXAMPLES / (name + ".cpp")],
+                           [ROOT / relative for relative in support], [])
+                    for name, support in SUPPORT.items()}
+        if {path.name for path in PROJECT.glob("*.cpp")} != {path.name for path in PROJECT_SOURCES}:
+            raise RuntimeError("Device integration source coverage changed")
+        programs["DeviceIntegration"] = (
+            PROJECT_SOURCES,
+            [ROOT / relative for relative in
+             ("lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp",
+              "lib/resource/protocol/Protocol.cpp")],
+            [*PROJECT_HEADERS, PROJECT / "CMakeLists.txt"])
+        for name, (sources, support, metadata) in programs.items():
+            inputs = [*sources, *support]
+            entry = {"input_sha256": {str(path.relative_to(ROOT)): sha256(path)
+                                      for path in [*inputs, *metadata]},
                      "builds": [], "executed": False, "conditions": 0}
             report["examples"][name] = entry
             for optimization in (("O2", "Os") if args.arm else ("O1" if args.sanitize else "O2",)):
@@ -134,7 +148,8 @@ def main():
                         raise RuntimeError("Native example did not report completion")
                     entry["assertions"] = "enabled; individual runtime assertion counts are not reported"
                 else:
-                    prefix = "Resource" if name == "Resources" else "Encoded"
+                    prefix = {"Resources": "Resource", "Encoded": "Encoded",
+                              "DeviceIntegration": "Device integration"}[name]
                     rows = re.findall(r"^" + prefix + r" guide: (\d+) checks passed$", result, re.M)
                     if len(rows) != 1 or int(rows[0]) <= 0:
                         raise RuntimeError(name + ": expected one positive counted report")

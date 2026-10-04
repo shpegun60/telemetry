@@ -210,6 +210,11 @@ application state не створюється таблицею ресурсів.
 | `WriteResult{status, next, consumed, complete}` | Статус; відкинути лише `consumed` байтів input; продовжити з `next`; `complete` є підтвердженням provider |
 | `FileStat{status, size, flags}` | Статус перед читанням розміру/capabilities |
 
+`FileSize`, `written` і `consumed` — u32; `next` — u64 Cursor. Якщо provider
+обчислює count у `std::size_t`, перевірте span/storage bounds і можливість
+представити count у u32 перед перетворенням. Простий cast не перевіряє
+переповнення; для малого фіксованого buffer його місткість уже задає межу.
+
 На `Ok` count не перевищує наданий span. Незавершена операція повинна
 передати байти або змінити курсор. `Ok/0` з тим самим курсором і
 `eof=false`/`complete=false` не означає «повторіть пізніше»; це порушення

@@ -6,6 +6,21 @@
 Потрібно швидко згадати назви викликів — відкрийте
 [односторінкову API шпаргалку](API-CHEATSHEET.md).
 
+## Маршрут від першого запуску до своєї прошивки
+
+| Порядок | Практичний розділ | Що буде готове після нього |
+| --- | --- | --- |
+| 1 | [Перша інтеграція](GettingStarted.md) | Build settings, свій клас, local/global tables і native read/write/call |
+| 2 | [Application integration](ApplicationIntegration.md) | Прикладні правила, lifetime, bindings/slots, task synchronization та status handling |
+| 3 | [Transport walkthrough](TransportWalkthrough.md) | Повний receive → framing → telemetry/resource operation → reply шлях |
+| 4 | [Device integration example](../../examples/device_integration/README.md) | Готовий проєкт із кількох файлів, CMake та host перевірками |
+| 5 | [Питання та діагностика](Troubleshooting.md) | Рішення типових build, signature, ID, Workspace і transport проблем |
+
+`NativeApi` нижче — reference для всіх форм API. Для першої інтеграції
+почніть з кроку 1; повні declarations і callbacks є у runnable programs.
+
+## Довідник за завданням
+
 | Завдання | Де читати | Повна програма |
 | --- | --- | --- |
 | Оголосити Field, Command, Service; працювати з native типами | [Native API](NativeApi.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |

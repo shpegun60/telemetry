@@ -5,6 +5,10 @@
 
 | Документ | Призначення |
 | --- | --- |
+| [Перша інтеграція](user/GettingStarted.md) | Покроково: залежності, build, свій Device, tables, IDs і перші виклики |
+| [Application integration](user/ApplicationIntegration.md) | Business logic, slots, lifetime, result handling і task synchronization |
+| [Transport walkthrough](user/TransportWalkthrough.md) | Complete-frame receiver, прямий telemetry доступ і file protocol з боку клієнта |
+| [Питання та діагностика](user/Troubleshooting.md) | Типові compiler/linker, type, status, buffer та framing питання |
 | [API шпаргалка](user/API-CHEATSHEET.md) | Швидко згадати декларації, чотири рівні API та files |
 | [Native API](user/NativeApi.md) | Декларації, типи, callback forms, slots, доступ та iteration |
 | [Транспорт і ресурси](user/TransportAndResources.md) | Custom files, framing, protocol, прямий encoded доступ |

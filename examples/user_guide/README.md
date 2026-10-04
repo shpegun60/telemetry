@@ -28,3 +28,8 @@ python tests/docs/run.py --cxx g++ --build-dir /tmp/telemetry-doc-examples
 [Transport and Resources](../../doc/user/TransportAndResources.md) паралельно
 з цими програмами. Команди й CI integration описані в
 [documentation checks](../../tests/docs/README.md).
+
+Наступний крок після односторінкових програм —
+[device integration](../device_integration/README.md). Він розносить business
+class, metadata/facade та receive loop по різних файлах і показує приймання
+split/coalesced frames для telemetry та files. Він теж перевіряється docs runner.

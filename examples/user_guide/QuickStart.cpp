@@ -1,5 +1,7 @@
 #include <telemetry/Telemetry.hpp>
 #include <cassert>
+#include <cmath>
+#include <limits>
 
 namespace ts = telemetry;
 
@@ -11,7 +13,7 @@ struct Device
     Config read() const noexcept { return state; }
     ts::WriteResult write(const Config& next) noexcept
     {
-        if (next.voltage < 0.0f || next.voltage > 300.0f)
+        if (!std::isfinite(next.voltage) || next.voltage < 0.0f || next.voltage > 300.0f)
             return ts::WriteResult::InvalidValue;
         state = next;
         return ts::WriteResult::Applied;
@@ -41,6 +43,10 @@ int main()
     assert(localFields.write<0>(Config{240.0f, true}) == ts::WriteResult::Applied);
     const auto value = fields.read<ts::makeId<0, 0>()>();
     assert(value && value->voltage == 240.0f);
+    assert(localFields.write<0>(Config{std::numeric_limits<float>::quiet_NaN(), false})
+           == ts::WriteResult::InvalidValue);
+    const auto unchanged = localFields.read<0>();
+    assert(unchanged && unchanged->voltage == 240.0f && unchanged->enabled);
     const auto response = services.call<ts::makeId<0, 0>()>();
     assert(response.hasValue() && response.value().voltage == 240.0f);
     assert(localCommands.call<0>() == ts::CommandResult::Executed);

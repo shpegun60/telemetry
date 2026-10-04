@@ -11,12 +11,29 @@ Field, Command і Service мають одну модель декларації:
 в library core. Qt потрібен лише для демонстраційної програми.
 
 **[Посібник користувача](doc/user/README.md)** ·
+[Перша інтеграція](doc/user/GettingStarted.md) ·
 [Native API](doc/user/NativeApi.md) ·
 [Транспорт і файли](doc/user/TransportAndResources.md) ·
 [Приклади](examples/user_guide/README.md) ·
 [Перевірки](tests/README.md)
 
 Швидко згадати виклики: [API шпаргалка](doc/user/API-CHEATSHEET.md).
+
+## Як пройти першу інтеграцію
+
+1. [Зібрати першу програму](doc/user/GettingStarted.md): залежності, include
+   paths, compiled sources, власний клас, таблиці й перші native виклики.
+2. [Підключити до свого застосунку](doc/user/ApplicationIntegration.md):
+   business validation, status, всі форми binding, slots, snapshots і tasks.
+3. [Провести дані через transport](doc/user/TransportWalkthrough.md): UART/TCP
+   chunks → complete frame → telemetry або files → reply, у готовому прикладі.
+4. [Зібрати multi-file device example](examples/device_integration/README.md):
+   `Device.cpp`, приховані каталоги у `Api.cpp`, bounded receiver і host feeder.
+5. Якщо щось не працює — [питання та діагностика](doc/user/Troubleshooting.md).
+
+Ці розділи читаються послідовно. [Native API](doc/user/NativeApi.md) і
+[Транспорт і ресурси](doc/user/TransportAndResources.md) лишаються довідниками
+точних signatures та contracts, до яких можна звернутися за конкретним питанням.
 
 ## Почати з готової програми
 
@@ -28,6 +45,8 @@ Field, Command і Service мають одну модель декларації:
 ```cpp
 #include <telemetry/Telemetry.hpp>
 #include <cassert>
+#include <cmath>
+#include <limits>
 
 namespace ts = telemetry;
 
@@ -39,7 +58,7 @@ struct Device
     Config read() const noexcept { return state; }
     ts::WriteResult write(const Config& next) noexcept
     {
-        if (next.voltage < 0.0f || next.voltage > 300.0f)
+        if (!std::isfinite(next.voltage) || next.voltage < 0.0f || next.voltage > 300.0f)
             return ts::WriteResult::InvalidValue;
         state = next;
         return ts::WriteResult::Applied;
@@ -69,6 +88,10 @@ int main()
     assert(localFields.write<0>(Config{240.0f, true}) == ts::WriteResult::Applied);
     const auto value = fields.read<ts::makeId<0, 0>()>();
     assert(value && value->voltage == 240.0f);
+    assert(localFields.write<0>(Config{std::numeric_limits<float>::quiet_NaN(), false})
+           == ts::WriteResult::InvalidValue);
+    const auto unchanged = localFields.read<0>();
+    assert(unchanged && unchanged->voltage == 240.0f && unchanged->enabled);
     const auto response = services.call<ts::makeId<0, 0>()>();
     assert(response.hasValue() && response.value().voltage == 240.0f);
     assert(localCommands.call<0>() == ts::CommandResult::Executed);
