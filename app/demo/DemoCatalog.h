@@ -5,9 +5,24 @@
 
 #include <telemetry/Telemetry.hpp>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 
 namespace demo {
+
+// A nested aggregate is one Field value. Reflection describes its members;
+// the codec sends their canonical bytes without native padding.
+struct NestedValue {
+    float f32;
+    double f64;
+    std::int32_t s32;
+};
+struct StructuredValue {
+    NestedValue nested;
+    float f32;
+    double f64;
+    std::int32_t s32;
+};
 
 class Sensor {
 public:
@@ -25,7 +40,7 @@ using telemetry::WriteResult;
 using telemetry::CommandResult;
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };
-enum class MeterField : std::size_t { Voltage, Current, Power, Counter, VoltageLimit, Mode, Count };
+enum class MeterField : std::size_t { Voltage, Current, Power, Counter, VoltageLimit, Mode, Structured, Count };
 enum class MeterCommand : std::size_t { Reset, Configure, Count };
 
 // This is one ordinary aggregate request, not a second parameter type list.
@@ -94,6 +109,11 @@ struct Meter {
         mode = request.mode;
         return CommandResult::Executed;
     }
+
+    StructuredValue readStructured() const noexcept
+    {
+        return {{1.25f, 2.5, -3}, 123.456f, 789.0, -11};
+    }
 };
 
 inline Meter meter;
@@ -107,8 +127,10 @@ inline constexpr telemetry::FieldTable meterFields{
     field<&Meter::readCounter>("WinCnt", meter),
     field<&Meter::readThreshold, &Meter::setThreshold>("VoltageLimit", meter),
     field<&Meter::readMode, &Meter::setMode>("Mode", meter),
+    field<&Meter::readStructured>("Structured", meter),
 };
 static_assert(meterFields.size() == static_cast<std::size_t>(MeterField::Count));
+static_assert(telemetry::wireSize<StructuredValue> == 32);
 
 // Native integer return types preserve every bit, including the U64/S64 ends.
 template <class T> T maximumValue() noexcept { return std::numeric_limits<T>::max(); }

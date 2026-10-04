@@ -55,5 +55,8 @@ Endpoint declarations have only name+binding; no units/limits/defaults/flags
 or parameter/member metadata are added to the structural type model.
 
 Tracked review transcripts and `tests/review` are historical material.
-Preserve the user's unrelated untracked `tests/review-2026-09-26` tree.
+The exploratory `tests/review-2026-09-26` tree was archived externally on
+2026-10-04 after full inventory and per-file hash verification; see
+`doc/RepositoryMaintenance.md`. Preserve that archive and original reports;
+do not recreate the retired probes as active tests without a current contract.
 Never clear ignored build/evidence directories merely because they are ignored.

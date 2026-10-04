@@ -60,6 +60,35 @@ sources/licenses, review transcripts і `.qtcreator` settings збережені
 попередній CI `418a3fa` зупиняв release/ARM structured-перевірки через encoding
 помилку в reflection-пробі.
 
+## Завершення незакомічених матеріалів
+
+Після окремого перегляду всіх 92 файлів `tests/review-2026-09-26` їх перенесено
+до зовнішнього архіву:
+
+```text
+C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-remaining-review-a199bd9/
+  review-2026-09-26/
+  original-DemoCatalog.h
+  manifest.json
+```
+
+Це історичні репро для Scalar/C++17/старих JSON API та локальні порівняльні
+скрипти з залежностями від старих extracted trees і конкретних tool paths.
+Збережено 92 файли, 315 793 байти; SHA-256 кожного файла перевірено до й після
+копіювання. Оригінальну незакомічену версію `DemoCatalog.h` також збережено.
+Старі тексти й результати не переписано як докази поточної бібліотеки.
+
+Троє reviewers звірили відповідні сценарії з активними ID, slot, lifetime,
+null-check, weak-target та resource checks. Нового підтвердженого дефекту чи
+необхідного унікального regression test у цих матеріалах не встановлено.
+Архів залишається локальним; ці файли не підключені до поточного CI.
+
+Корисну частину demo — read-only Field із вкладеною структурою — завершено
+в `app/demo/DemoCatalog.h`: читабельні назви, явний `std::int32_t` та 32 canonical
+wire bytes. Qt smoke перевіряє native/encoded значення, readonly статус і
+відображення вкладених members. Рядки UI перевіряються за ID; додавання поля
+не повинно ламати перевірку точного U64/S64 тексту через старі номери рядків.
+
 ## Наступні збірки
 
 - Передавайте test runner окрему output папку через `--build-dir` / `--output`.

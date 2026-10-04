@@ -4,6 +4,7 @@
 #include "resources/DeviceResources.hpp"
 
 #include <QApplication>
+#include <QString>
 #include <QTableWidget>
 #include <QTimer>
 
@@ -18,10 +19,30 @@ bool smokeTest(MainWindow& window)
     constexpr auto limitId = telemetry::makeId<0, 4>();
     constexpr auto modeId = telemetry::makeId<0, 5>();
     constexpr auto configureId = telemetry::makeId<0, 1>();
+    constexpr auto structuredId = telemetry::makeId<0, demo::MeterField::Structured>();
 
     if (demo::integerFields.read<0>() != std::numeric_limits<std::uint8_t>::max()
         || demo::fields.read<telemetry::makeId<2, 3>()>() != std::numeric_limits<std::uint64_t>::max()
         || demo::fields.read<telemetry::makeId<2, 7>()>() != std::numeric_limits<std::int64_t>::lowest())
+        return false;
+
+    // Read the same nested value through native and encoded routing. The
+    // encoded output contains member bytes, not the aggregate's padding.
+    const auto structured = demo::fields.read<structuredId>();
+    if (!structured || structured->nested.f32 != 1.25f || structured->nested.f64 != 2.5
+        || structured->nested.s32 != -3 || structured->f32 != 123.456f
+        || structured->f64 != 789.0 || structured->s32 != -11
+        || demo::fields.write<structuredId>(*structured) != WriteResult::ReadOnly)
+        return false;
+    std::array<std::byte, telemetry::wireSize<demo::StructuredValue>> structuredWire{};
+    std::array<std::byte, telemetry::wireSize<demo::StructuredValue>> expectedWire{};
+    std::array<std::byte, demo::model.maxFieldScratch()> structuredScratch{};
+    telemetry::Workspace structuredWorkspace{structuredScratch};
+    const auto structuredRead = demo::fieldIndex.readEncoded(structuredId, structuredWire, structuredWorkspace);
+    if (structuredRead.dispatch != telemetry::DispatchStatus::Ok
+        || structuredRead.written != structuredWire.size()
+        || telemetry::encode(*structured, expectedWire) != telemetry::CodecStatus::Ok
+        || structuredWire != expectedWire || structuredWorkspace.used() != 0)
         return false;
 
     if (demo::meterCommands.call<demo::MeterCommand::Configure>(demo::ConfigureRequest{260.0f, demo::Mode::Auto})
@@ -75,9 +96,21 @@ bool smokeTest(MainWindow& window)
     // The visible text must preserve the exact integer values, not decimal
     // strings produced through double or a JSON number.
     const auto* table = window.findChild<QTableWidget*>("telemetryFields");
-    if (table == nullptr || table->rowCount() != 16
-        || table->item(11, 4)->text() != "18446744073709551615"
-        || table->item(15, 4)->text() != "-9223372036854775808")
+    const auto expectedRows = demo::meterFields.size() + demo::sensorFields.size() + demo::integerFields.size();
+    if (table == nullptr || table->rowCount() != static_cast<int>(expectedRows))
+        return false;
+    const auto displayed = [&](telemetry::PackedId id) {
+        for (int row = 0; row < table->rowCount(); ++row) {
+            const auto* key = table->item(row, 0);
+            const auto* value = table->item(row, 4);
+            if (key != nullptr && value != nullptr && key->text().toUInt() == id)
+                return value->text();
+        }
+        return QString{};
+    };
+    if (displayed(telemetry::makeId<2, 3>()) != "18446744073709551615"
+        || displayed(telemetry::makeId<2, 7>()) != "-9223372036854775808"
+        || !displayed(structuredId).contains("nested: {f32: 1.25, f64: 2.5, s32: -3}"))
         return false;
 
     namespace files = device::resources;
