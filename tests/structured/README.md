@@ -7,11 +7,12 @@ The directory name records their development sequence; it does not identify
 a second public library. Current includes use `telemetry/Telemetry.hpp`,
 providers use `resource/telemetry/v3`, and the JS codec is `web/telemetry.js`.
 
-The [implementation plan](../../doc/StructuredTelemetryV3ImplementationPlan.md)
-and [migration guide](../../doc/StructuredTelemetryV3MigrationGuide.md) define
-the contracts. The [checkpoint history](HISTORY.md) preserves earlier results
-at their actual commits. An older green CI or receipt does not qualify a
-later source tree.
+The [current architecture](../../doc/Architecture.md),
+[wire contract](../../doc/WireV3.md) and
+[migration guide](../../doc/StructuredTelemetryV3MigrationGuide.md) define
+the contracts. Earlier plans/reviews were archived with their original bytes;
+[maintenance notes](../../doc/RepositoryMaintenance.md) identify the archive.
+An older green CI or receipt does not qualify a later source tree.
 
 | Suite | Evidence |
 | --- | --- |
@@ -49,7 +50,10 @@ python tests/structured/mcu/h7s/verify.py --self-test
 The [H7S runner](mcu/h7s/README.md) requires an explicit selected device,
 builds every image before access, checks its internal-Flash load span, and
 backs up/restores all 64 KiB with a fresh readback. The current
-[receipt](mcu/h7s/receipt.json) covers the later borrowed extension. The
+[receipt](mcu/h7s/receipt.json) covers the later borrowed extension at its
+recorded source snapshot. The [current binary-equivalence proof](../resources/evidence/README.md)
+relates refreshed source/comment hashes to all twelve unchanged measured images.
+The
 [baseline results](mcu/h7s/RESULTS.md) retain their original source identity, distinct
 from the [pre-unification proof](../../doc/evidence/pre-unification/README.md).
 The independent PSP experiment measures observed stack writes across the
@@ -62,5 +66,5 @@ remain distinct from the owning Stage 20 baseline.
 Legacy Scalar/v2 executable tests were retired after the baseline was
 captured. Relevant ID/numeric/lifetime/slot/compiler controls remain in
 `tests/regression`, generic filesystem checks in `tests/resources`, and
-mixed endpoint/codec/wire checks here. The tracked review archive remains
-historical; untracked review work was not modified.
+mixed endpoint/codec/wire checks here. Retired review work is in the verified
+external archive; retained measured evidence keeps its original source identity.

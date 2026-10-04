@@ -103,3 +103,40 @@ wire bytes. Qt smoke перевіряє native/encoded значення, readonl
 - Directory links обробляйте як links; recursive cleanup не повинен заходити
   в їхні targets. Source, licenses, fixtures і historical review не є build
   outputs.
+
+
+## Documentation and source style refresh (2026-10-04)
+
+The current manual is organized by endpoint family, tables/catalogs, Model,
+codec/Workspace, resource files, Descriptor/Values, transport and COBS. The
+current implementation and wire contracts live in `Architecture.md` and
+`WireV3.md`; obsolete implementation drafts are not the user manual.
+
+Superseded plans, the 2026-09-25 review/transcripts and retired Scalar probes
+were archived outside the checkout at:
+
+```text
+C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-documentation-refresh-a516440/
+  originals/                  143 verified source copies
+  moved-originals/            142 retired tracked originals
+  manifest.json               source paths, bytes and SHA-256
+  retired-capture/             retired Scalar log helper + separate manifest
+```
+
+The migration guide's original is one of the 143 copies; its active path now
+contains the current migration guide. Every moved original was verified
+against its copied SHA-256. Original receipts and measured-source snapshots
+retain their bytes and source identity. Git history also retains the removed
+tracked material. The external archive is local, not part of a distribution.
+
+The style refresh adds file-purpose and class/public-method summaries,
+consistent formatting, and dual include guards/`#pragma once` to authored
+headers. Original vendor sources and sealed measurement inputs are excluded.
+The source-style checker and `.clang-format` make these conventions explicit.
+The production serializer algorithm remains unchanged; actual little/big
+endian execution compares complete wire files. COBS is an optional example
+integration, not a new dependency of telemetry or resource core.
+
+Current host/compiler/codegen checks qualify the refreshed source. Historical
+board receipts qualify their recorded source snapshots; changing comments or
+include guards does not make them fresh measurements of this commit.

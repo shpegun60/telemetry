@@ -10,6 +10,29 @@ the canonical descriptor and values files; the [JavaScript codec](../../web/tele
 decodes those wire types. Applications own transport framing, connection
 state, synchronization and request correlation.
 
+## Reading the source
+
+Each authored source file starts with its purpose and the reason its boundary
+exists. Class and API comments state ownership, borrowed lifetimes, unchecked
+preconditions and failure behavior. Classes with public methods include a compact
+method list, with overloads grouped by purpose. Internal comments explain the invariants
+that are easy to lose during maintenance, including one target selection per
+call, reverse-order Workspace release and validation before owner mutation.
+
+Start with [Field](field/Field.hpp), [Command](command/Command.hpp) or
+[Service](service/Service.hpp) for a native declaration. Their local tables
+keep the original definitions alongside erased runtime entries; catalog tables
+borrow local tables and assign group positions. [Model](model/Model.hpp) then
+combines the catalogs with one [type registry](type/Registry.hpp).
+
+The [public codec](codec/Codec.hpp) owns standalone byte-boundary validation.
+Encoded table entries establish their own bounds before using
+[internal codec steps](detail/Encoded.hpp), so the same checks do not recur in
+every typed thunk. [Binding](detail/Binding.hpp) centralizes target storage and
+selection, while [result types](result) keep routing failures separate from
+application outcomes. These layers share declarations without adding a runtime
+mode to native calls.
+
 ## Native API
 
 A Field getter returns an unqualified supported `T` by value or borrows `const T&`. Its optional

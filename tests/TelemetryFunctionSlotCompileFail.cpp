@@ -1,5 +1,8 @@
 // Reject wrong signatures and temporary slots before borrowing their addresses.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
+// Checks compile-time FunctionSlot signature, lifetime and exact-target refusals.
+// The selected cases prevent invalid function forms from entering a stable late-bound binding.
+
 #include <telemetry/Telemetry.hpp>
 using namespace telemetry;
 using Read = FunctionSlot<float() noexcept>;
@@ -11,25 +14,53 @@ Run run;
 #if TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 1
 FunctionSlot<float()> bad;
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 2
-FunctionSlot<float(*)() noexcept> bad;
+FunctionSlot<float (*)() noexcept> bad;
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 3
-void bad() { reader.bind([]() { return 1.f; }); }
+void bad()
+{
+	reader.bind([]() {
+		return 1.f;
+	});
+}
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 4
-void bad() { reader.bind([]() noexcept { return 1.; }); }
+void bad()
+{
+	reader.bind([]() noexcept {
+		return 1.;
+	});
+}
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 5
-void bad() { float x = 1; reader.bind([x]() noexcept { return x; }); }
+void bad()
+{
+	float x = 1;
+	reader.bind([x]() noexcept {
+		return x;
+	});
+}
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 11
 auto bad = reader;
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 12
 auto bad = std::move(reader);
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 13
-void bad() { Read next; next = reader; }
+void bad()
+{
+	Read next;
+	next = reader;
+}
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 14
-void bad() { Read next; next = std::move(reader); }
+void bad()
+{
+	Read next;
+	next = std::move(reader);
+}
 #elif TELEMETRY_FUNCTION_SLOT_FAIL_CASE == 21
-void bad() { reader(); }
+void bad()
+{
+	reader();
+}
 
 #else
 #error "Select a maintained shared case"
 #endif
-int main() {}
+int main()
+{}

@@ -1,10 +1,21 @@
 # Посібник користувача
 
+[Репозиторій](../../README.md) · [Індекс документів](../README.md) ·
+[API шпаргалка](API-CHEATSHEET.md) · [Архітектура](../Architecture.md)
+
 Це вхідна сторінка документації **поточного C++20 API**. Для першої інтеграції
 не потрібно читати звіти агентів або весь план реалізації.
 
 Потрібно швидко згадати назви викликів — відкрийте
 [односторінкову API шпаргалку](API-CHEATSHEET.md).
+
+## Навігація
+
+- [Маршрут від першого запуску до своєї прошивки](#маршрут-від-першого-запуску-до-своєї-прошивки)
+- [Окремі API за сімейством](#окремі-api-за-сімейством)
+- [Довідник за завданням](#довідник-за-завданням)
+- [Три незалежні способи користування](#три-незалежні-способи-користування)
+- [Правила, які потрібно пам'ятати](#правила-які-потрібно-памятати)
 
 ## Маршрут від першого запуску до своєї прошивки
 
@@ -19,17 +30,39 @@
 `NativeApi` нижче — reference для всіх форм API. Для першої інтеграції
 почніть з кроку 1; повні declarations і callbacks є у runnable programs.
 
+## Окремі API за сімейством
+
+| Розділ | Що пояснює | Наступний крок |
+| --- | --- | --- |
+| [Fields](Fields.md) | Getter/setter forms, exact/As доступ, owning/borrowed results і callbacks | [Tables and catalogs](TablesAndCatalogs.md) |
+| [Commands](Commands.md) | Дії без response payload, Request, Executed/Accepted/refusal і повтори | [Tables and catalogs](TablesAndCatalogs.md) |
+| [Services](Services.md) | Request/Response, status, owning/borrowed результат і encoded reply | [Tables and catalogs](TablesAndCatalogs.md) |
+| [Tables and catalogs](TablesAndCatalogs.md) | Local Position, global PackedId, групи, typed traversal і runtime indexes | [Model](Model.md) |
+| [Model](Model.md) | Спільний structural registry, ModelView, TypeIds і encoded access | [Codec and Workspace](CodecAndWorkspace.md) |
+| [Codec and Workspace](CodecAndWorkspace.md) | Canonical bytes, Lease lifetime, storage budget, scratch і overlap | [Descriptor and Values](DescriptorAndValues.md) |
+| [Resource files](Resources.md) | Provider signatures, FileSystem/FileView, cursor, partial transfer і capability | [Descriptor and Values](DescriptorAndValues.md) |
+| [Descriptor and Values](DescriptorAndValues.md) | Model metadata, live Fields, fingerprint, buffers і token boundaries | [Wire v3.0](../WireV3.md) |
+| [Resource packet protocol](../../lib/resource/protocol/README.md) | Exact LIST/STAT/READ/WRITE envelopes і errors | [Transport walkthrough](TransportWalkthrough.md) |
+| [COBS integration](COBSIntegration.md) | Real `cobs::Endpoint`, pending TX ownership і повний resource round trip | [COBS example](../../examples/cobs_integration/README.md) |
+| [Native reference](NativeApi.md) | Суцільний повний reference типів, bindings, slots, conversions та views | [API шпаргалка](API-CHEATSHEET.md) |
+
+Окремі сторінки мають API tables, значення результатів і lifetime.
+Зразки statements позначені як fragments; готові translation units та
+project sources наведені у [прикладах](../../examples/user_guide/README.md).
+
 ## Довідник за завданням
 
 | Завдання | Де читати | Повна програма |
 | --- | --- | --- |
-| Оголосити Field, Command, Service; працювати з native типами | [Native API](NativeApi.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
-| Локальні/глобальні ID, `readAs`/`writeAs`, iteration, slots, borrowed outputs | [Native API](NativeApi.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
-| Оголосити масив файлів і власний provider, вибрати шляхи | [Транспорт і ресурси](TransportAndResources.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
-| LIST/STAT/READ/WRITE, порційний transfer і cursor | [Транспорт і ресурси](TransportAndResources.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
+| Оголосити Field, Command, Service; працювати з native типами | [Fields](Fields.md), [Commands](Commands.md), [Services](Services.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
+| Локальні/глобальні ID, iteration і indexes | [Tables and catalogs](TablesAndCatalogs.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
+| Model, TypeRegistry, runtime view та encoded buffers | [Model](Model.md), [Codec and Workspace](CodecAndWorkspace.md) | [Encoded.cpp](../../examples/user_guide/Encoded.cpp) |
+| Оголосити масив файлів і власний provider, вибрати шляхи | [Resource files](Resources.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
+| LIST/STAT/READ/WRITE, порційний transfer і cursor | [Resource files](Resources.md), [protocol](../../lib/resource/protocol/README.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
 | Прийняти UART/TCP frame і звернутися до Model без файлів | [Транспорт і ресурси](TransportAndResources.md) | [Encoded.cpp](../../examples/user_guide/Encoded.cpp) |
-| Descriptor/Values та browser decoding | [v3 provider](../../lib/resource/telemetry/v3/README.md) | [Клієнти](../../examples/structured_client/README.md) |
+| Descriptor/Values та browser decoding | [Descriptor and Values](DescriptorAndValues.md) | [Клієнти](../../examples/structured_client/README.md) |
 | Узгодити descriptor один раз на з'єднання | [Bind/Exchange example](../../examples/structured_protocol/README.md) | [Транспорт і ресурси](TransportAndResources.md) |
+| Передати resource packets через чинний COBS endpoint | [COBS integration](COBSIntegration.md) | [Cobs example](../../examples/cobs_integration/README.md) |
 | Зібрати й виконати приклади | [Приклади посібника](../../examples/user_guide/README.md) | [Runner](../../tests/docs/README.md) |
 
 ## Три незалежні способи користування

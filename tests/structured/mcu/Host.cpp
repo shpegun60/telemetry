@@ -7,21 +7,24 @@
 // A freestanding fixture has no process/signal implementation. Keep failed
 // contracts deterministic and allocation-free; do not pull newlib's hosted
 // abort -> raise path into the linked ARM comparison image.
-extern "C" [[noreturn]] void abort() noexcept { __builtin_trap(); }
+extern "C" [[noreturn]] void abort() noexcept
+{
+	__builtin_trap();
+}
 #endif
 
 int main()
 {
-    telemetry::requireStructuredAbi();
+	telemetry::requireStructuredAbi();
 #ifndef MCU_SCALE
-    qualification::consumer_typed();
-    qualification::consumer_encoded();
+	qualification::consumer_typed();
+	qualification::consumer_encoded();
 #endif
-    [[maybe_unused]] const auto consumerChecks = qualification::checks;
-    mcu::checkProbes();
+	[[maybe_unused]] const auto consumerChecks = qualification::checks;
+	mcu::checkProbes();
 #ifndef QUALIFICATION_ARM
-    std::printf("{\"checks\":%u,\"failures\":%u,\"consumer_checks\":%u}\n",
-                qualification::checks, qualification::failures, consumerChecks);
+	std::printf("{\"checks\":%u,\"failures\":%u,\"consumer_checks\":%u}\n", qualification::checks,
+	            qualification::failures, consumerChecks);
 #endif
-    return qualification::failures == 0 ? 0 : 1;
+	return qualification::failures == 0 ? 0 : 1;
 }

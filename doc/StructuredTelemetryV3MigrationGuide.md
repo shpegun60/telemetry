@@ -1,283 +1,155 @@
-# Telemetry v3: міграція 16–20
+# Перенести consumer на поточний Telemetry v3
 
-Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
+Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-**Статус: Stage 16–19 реалізовано; Stage 20 local/software/hardware qualification
-завершено. Publication exact-SHA CI ще очікується.**
-Інвентаризація починалась на `d642b42`; baseline повторено на `389c995`.
-Exact-SHA [CI 37145176280](https://github.com/shpegun60/telemetry/actions/runs/37145176280)
-пройшов 9/9 jobs для історичного baseline; Stage 14 MCU receipt прийнято. Рішення про gate
-зафіксовано в [implementation plan](StructuredTelemetryV3ImplementationPlan.md)
-і [freeze qualification](StructuredTelemetryV3FreezeQualification.md).
-Поточний результат кінцевого дерева, чотири нові H7S receipts і межі
-publication gate наведено у [final qualification](StructuredTelemetryV3FinalQualification.md).
-Captured code HEAD — `01fd180ff3678d7c47066f8a728dc1e02f0f3973`.
+[Індекс](README.md) · [Посібник](user/README.md) · [Архітектура](Architecture.md) ·
+[API](../lib/telemetry/README.md) · [Wire v3.0](WireV3.md)
 
-Кінцеве дерево має один C++20 `telemetry`/`ts`, exact native values і wire
-v3.0. Міграція не додає semantics, не розширює supported types і не
-залишає scalar/v2.1 compatibility implementation. Якщо реальному consumer
-бракує frozen behavior, Stage 15 відкривається знову; потребу закривають
-до перенесення, з новою матрицею й повторним freeze.
+Це чинна карта перенесення consumer. Поточний repository має один C++20
+`telemetry`, exact native values, owning/borrowed outputs та binary wire
+v3.0. Source, in-memory ABI і wire compatibility з попереднім Scalar/v2.1
+API не надаються. Нове підключення починайте з
+[GettingStarted](user/GettingStarted.md).
 
-## 1. Stage 16: підтвердження і source migration cases
+## Навігація
 
-Baseline: mixed endpoints MinGW 13.1 і CubeIDE ARM 14.3.1; Service/Model ARM;
-Clang 18 ASan/UBSan traversal та multi-TU qualification; сім freeze/offline
-compiler roles; JS і Chromium. Старі source trees під час цих прогонів
-не змінювались. Попереднє порівняння міграційної копії на CubeIDE ARM дало
-69/69 побайтово однакових native code/layout artifacts; layouts та великі
-individual frames O2/Os/Og збігаються. Матрицю повторено в кінцевому дереві;
-свіжі MCU receipts отримано. Локальні runs не замінюють publication exact-SHA CI.
+- [Includes, namespace і build](#includes-namespace-і-build)
+- [Declarations і callback signatures](#declarations-і-callback-signatures)
+- [Native access та lifetimes](#native-access-та-lifetimes)
+- [Encoded transport і resources](#encoded-transport-і-resources)
+- [Перевірка перенесення](#перевірка-перенесення)
+- [Походження попередніх результатів](#походження-попередніх-результатів)
 
-Повторено наявні mixed Field/Command/Service fixtures, зокрема
-[MixedFixture.hpp](../tests/structured/endpoints/MixedFixture.hpp) та
-[traversal Fixture.hpp](../tests/structured/traversal/Fixture.hpp).
-Умови залишаються ті самі: bool, signed/unsigned integers, float/double,
-scoped enum, array, struct, read-only/RW, slots, local/global/runtime
-access, exact structural identity і явний checked numeric As access.
-Нових callbacks або metadata модель для проходження gate не потрібна.
+## Includes, namespace і build
 
-| Старий контракт | Міграція на frozen core | Збережений контракт |
-| --- | --- | --- |
-| Getter/Setter через `Scalar` | Native `T`; setter приймає `T` або `const T&`, повертає `WriteResult` | Exact return/input type; getter/setter не викликається при структурному mismatch |
-| Неявне перетворення numeric arguments | Exact typed API або явні `readAs`/`writeAs`; application casts лише там, де рішення свідоме | U64/S64 extrema без double intermediate; narrowing, finite/NaN, bool, output unchanged on refusal |
-| Unscoped enum | Scoped enum з явною underlying width | Width/code representation; representable unknown codes у codec не стають відомими application states |
-| `enumSpec`/enum default | Explicit `EnumReflection`, тільки якщо потрібні точні codes/names | Alias selection, explicit dictionary precedence; default лишається application state/UI policy |
-| `limits`, `arg`, units, defaults, steps, flags | Application validation і UI policy | Зберегти реально потрібну поведінку; не додавати ці дані в TypeRegistry/descriptor |
-| Command із кількома arguments | Один aggregate Request або void | Complete request validation до mutation; збережені status codes і значення `Accepted` |
-| Service | Name+binding, void або aggregate Request/Response, `ServiceResult<Response>` | Response status/payload invariant, exact native type, large-object storage |
-| Local position / packed global ID | Local template position і `makeId(group, entry)` | Bounds до narrowing, negative/high-word rejection, separate endpoint spaces |
-| Late-bound owner/callable | Збережені slot families | Borrowed lifetime, weak/null target, exact signature, rebind/reset synchronization application-owned |
-| Віддалений read/write/command/service | Existing encoded Model operations; framing і agreement у consumer | Fingerprint/reconnect policy на application boundary; malformed payload не викликає callback |
-
-`TypeKind::Scalar` і `ScalarCode` залишаються категорією та кодами leaf
-types. Вони не означають збереження старого `telemetry::Scalar` container.
-Не застосовувати широкий текстовий пошук `Scalar` як вимогу видалити
-leaf codec або його перевірки.
-
-Gate 16: змістовно незмінні endpoint, service, model, traversal і freeze
-suites проходять host/sanitizer/ARM normal/null configurations; local
-native codegen лишається порівняним із direct calls. Збережено як baseline
-wire goldens, linked sections, frames і normalized instruction streams.
-На Stage 16 старе дерево й consumers ще не переміщувались; переносили їх
-після прийняття baseline gate.
-
-## 2. Stage 17: виділені спільні низькорівневі контракти
-
-Спільні IDs, statuses, conversion, owner/target і slot helpers виділено
-до кінцевих нейтральних headers. Core не включає старі Scalar/Setter/Command
-headers. Карта зберігає історичні джерела та виконану механічну розкладку;
-окрема shared library або новий ABI не додавались.
-
-| Історичне джерело `389c995` | Що збережено в core | Кінцеве місце / контракт |
-| --- | --- | --- |
-| [TelemetrySetter.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/field/TelemetrySetter.h) | `WriteResult`, `uint8_t`, codes Applied..Unavailable | Enum виділено до `telemetry/result/EndpointStatus.hpp`; старий `Setter` видалено |
-| [TelemetryCommand.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/command/TelemetryCommand.h) | `CommandResult`, `uint8_t`, codes Executed..Failed | Той самий `EndpointStatus.hpp`; `CommandParam`, Scalar arguments і metadata ops видалено |
-| [TelemetryId.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/core/TelemetryId.h) | Packed IDs, `makeId`, `tryMakeId`, decomposition, bounds/template helpers | `telemetry/core/Id.hpp`, зі збереженими правилами packing та diagnostics |
-| [TelemetryCompiler.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/core/TelemetryCompiler.h) | Inline/compiler attributes у Workspace, codec, encoded paths і slots | `telemetry/core/Compiler.hpp`; compiler behavior збережено |
-| [TelemetryNumberConversion.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryNumberConversion.h) | `convertNumberTo` і finite/bounds semantics для `readAs`/`writeAs` | `telemetry/detail/NumberConversion.hpp`; Scalar dependency прибрано, прямі standard includes додано |
-| [TelemetryOwner.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryOwner.h) | Actual object borrowing, member owner і temporary rejection | `telemetry/detail/Owner.hpp`, той самий lifetime contract |
-| [TelemetryTarget.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetryTarget.h) | `nonNullTarget`, `pointerPresent`, uncertainty і weak target behavior | `telemetry/detail/Target.hpp`; normal/null-check modes збережено |
-| [TelemetrySlotCallable.h](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry/detail/TelemetrySlotCallable.h) | Exact signature matching і delegate support | `telemetry/detail/SlotCallable.hpp`; `lib/delegate` dependency збережено |
-| [slot headers](../lib/telemetry/slot/README.md) | FunctionSlot, ContextFunctionSlot, DelegateRefSlot, DelegateSlot, OwnerSlot, recognition traits | Кінцеві `telemetry/slot/*` headers; без нового ownership або runtime modes |
-| [StructuredAbi.hpp](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/lib/telemetry_structured/abi/StructuredAbi.hpp) і `.cpp` | Exact new view/ops tag, revision 5, storage budget/layout facts | Кінцевий `telemetry/abi/` header/anchor; ті самі facts, wire не змінюється |
-
-Виконані extraction details:
-
-- `FieldAccess.hpp` включає нейтральний `NumberConversion.hpp` без Scalar
-  dependency. Generic checked conversion, FP assumptions, truncation,
-  NaN/infinity та alias/output rules збережено; Scalar-specific
-  `storeConverted` і `convertNumber` прибрано.
-- `Field.hpp`, `Command.hpp`, `EndpointResults.hpp` включають нейтральні
-  statuses. `FieldType`/`Scalar` не надходять транзитивно заради enum status.
-- `Binding.hpp`, `Service.hpp`, `Name.hpp`, CallableTraits adapter та slots
-  перепідключено до нейтральних Owner/Target/Slot headers.
-- Новий ABI header не включає старий `TelemetryAbi.h`. Старий ABI anchor
-  був потрібний лише старим consumers і видалений разом із ними.
-- `TelemetryCacheline.h` та старий `TelemetryCallable.h` не входять у
-  залежності нового core або збережених slots. Саме їх наявність у старому
-  umbrella не є причиною залишати їх у фінальному core.
-- Vendored delegate/PFR/magic_enum licenses і provenance збережено.
-  Reflection/type/codec/Model/Descriptor не повинні обходити facade;
-  PFR і magic_enum calls залишаються в reflection backend.
-Назва `StructuredAbi.hpp` і macro `TELEMETRY_STRUCTURED_LOCAL_BYTES`
-залишились частиною frozen ABI/configuration contract.
-
-## 3. Stage 17: шляхи, namespace і build integration
-
-| Історичний шлях | Кінцевий шлях |
+| Попередня назва/шлях | Чинна інтеграція |
 | --- | --- |
-| `lib/telemetry_structured/Structured.hpp` | `lib/telemetry/Telemetry.hpp` |
-| `lib/telemetry_structured/{reflection,type,codec,field,command,service,model,result,detail,abi}/` | Відповідні каталоги єдиного `lib/telemetry/` |
-| `lib/telemetry_structured/structured.pri` | Єдиний `lib/telemetry/telemetry.pri` |
-| `lib/resource/structured/` | `lib/resource/telemetry/v3/` |
+| `lib/telemetry_structured/Structured.hpp` | `<telemetry/Telemetry.hpp>` із `lib` в include paths |
+| `telemetry::structured` | `telemetry`; `namespace ts = telemetry` може бути application alias |
+| `structured.pri` | `lib/telemetry/telemetry.pri` |
+| `lib/resource/structured/` | `<resource/telemetry/v3/...>` |
+| `resource::structured` | `resource::telemetry::v3` |
+| `resource_structured`, `resource_telemetry_v3` | Явний `CONFIG += resource_telemetry` перед `resource.pri` |
+| `telemetry_no_json`, старий JSON/v2 backend | Configuration прибрана; consumer використовує native API чи v3 codec |
 | `web/telemetryStructured.js` | `web/telemetry.js` |
-| `examples/structured_protocol/` | Збережено як explicit optional protocol consumer |
-| `examples/structured_client/` | Public includes, namespace, `.pri` та JS import оновлено |
 
-Namespace нового core: `telemetry::structured` → `telemetry`; `ts` є
-лише consumer alias. Qualified reflection specializations, aliases,
-compiled symbols і generated include probes оновлено.
-Resource providers мають namespace `resource::telemetry::v3`;
-wire і generic resource API при перенесенні не змінено.
+Потрібні C++20 і include paths для `lib`, `lib/boost_pfr/include` та
+`lib/magic_enum`. Compiled telemetry sources —
+`lib/telemetry/abi/StructuredAbi.cpp` і `lib/telemetry/model/Adapter.cpp`.
+Resource packet layer додає `lib/resource/protocol/Protocol.cpp`; v3 Values
+provider — `lib/resource/telemetry/v3/detail/Values.cpp`.
 
-Relative includes після поглиблення resource tree виправлено: headers у
-`v3/` знаходять `resource/Types.hpp` через `../../Types.hpp`, у `v3/detail/`
-— через `../../../Types.hpp`. Standalone header checks пройшли.
+Qmake manifests вибирають ці sources; generic resource manifest не
+підключає telemetry назад. Optional
+[protocol.pri](../examples/structured_protocol/protocol.pri) додається явно.
+Повні portable/qmake/CMake кроки й готовий project наведені у
+[GettingStarted](user/GettingStarted.md#крок-2-підключіть-source-та-include-paths)
+та [device example](../examples/device_integration/README.md).
 
-Фінальний `.pri` має include guard, PFR/magic_enum/delegate include paths,
-C++20 і лише new ABI/Model sources. `delegate.pri` додає C++17, тому
-кінцева language selection виконується після dependency inclusion.
-Generic resource core/protocol не включає telemetry `.pri` назад і не
-набуває PFR dependency.
+Не змішуйте старі та нові object files, namespace definitions або headers
+в одному executable. Перезберіть усі TU з однаковими configuration macros.
+Чинна structured ABI revision — 6; default local-object budget — 32 B.
+Exact layout tag на compiled boundary виявляє ABI mismatch при linking.
+Wire version 3.0 від цього має незалежну identity.
 
-Після Stage 19 `resource_telemetry` означає тільки v3. V2 implementation
-та тимчасовий `resource_telemetry_v3` flag видалено. Фінальні consumers
-не потребують `structured.pri`, `resource_structured` чи `telemetry_no_json`.
-`examples/structured_protocol/protocol.pri` завжди обирається явно;
-library manifests не підтягують Bind/Exchange.
+## Declarations і callback signatures
 
-**Старі й нові definitions у namespace `telemetry` не можуть бути
-одночасно в одному TU або linked executable.** Це різні definitions
-FieldTable/CommandTable/catalogs, а не два взаємозамінні implementations.
-Після namespace migration old/new comparisons потребують окремих
-old-only/new-only fixtures і binaries. Не лінкувати старі objects із
-новими та не залишати compatibility aliases як обхід. Тимчасовий old
-target існував до останнього переведеного consumer і видалений на Stage 19.
+| Попередня поведінка | Чинне рішення |
+| --- | --- |
+| Getter/setter через універсальний Scalar container | Getter exact `T` або `const T&`; setter exact `T`/`const T&` → `WriteResult` |
+| Неявні numeric conversions | Exact typed доступ або явні checked `readAs`/`writeAs` |
+| Кілька positional Command arguments | Один supported aggregate Request або відсутній Request |
+| Service з прикладним output | Нуль/один aggregate Request; aggregate Response або void; owning/borrowed result |
+| Unit/default/limits/flags у declaration | Declaration тільки name + binding; перевірки й UI semantics у application |
+| Enum metadata/default | Scoped enum з supported underlying integer; за потреби explicit `EnumReflection` dictionary |
+| Late-bound callable/owner | Чинні FunctionSlot/ContextFunctionSlot/DelegateRefSlot/DelegateSlot/OwnerSlot |
 
-## 4. Stage 18: tracked consumers
+Callbacks `noexcept`. Command повертає `CommandResult`; `Accepted` означає
+прийняту дію, а не гарантоване завершення. Service повертає
+`ServiceResult<Response>` або `BorrowedServiceResult<Response>`; status і
+payload перевіряються разом. Getter `const T&` дає `BorrowedValue<T>`.
 
-### Demo та Qt playground
+Units, display labels, defaults, допустимі enum codes та business limits
+перенесіть у callback/UI/application storage, якщо consumer їх потребує.
+Flag на старій declaration сам по собі не був реалізацією persistence.
+Явно збережіть реальну application behavior й refusal-before-mutation.
 
-| Файл | Виконана зміна | Збережена поведінка |
-| --- | --- | --- |
-| [DemoCatalog.h](../app/demo/DemoCatalog.h) | Native field factories name+binding; mixed tables/catalogs/Model; Request aggregate для Configure | Meter/Sensor values, stable IDs/row ordering, exact integer extrema, threshold setter refusal |
-| [DemoCatalog.cpp](../app/demo/DemoCatalog.cpp) | Declarations узгоджено після request зміни | Simulated advance behavior |
-| [mainwindow.cpp](../app/mainwindow.cpp) і [header](../app/mainwindow.h) | Typed ordered traversal/native reads; Scalar formatter і старі JSON serializers прибрано | Exact U64/S64 text, units, UI ranges/defaults, enum labels, commands і periodic refresh |
-| [main.cpp](../app/main.cpp) | Request calls замість positional arguments; explicit native values/As access | Smoke verifies values and successful/refused application commands |
-| [DeviceResources.cpp](../app/resources/DeviceResources.cpp) і [header](../app/resources/DeviceResources.hpp) | Descriptor+values providers замість schema+commands+values; IDs/count оновлено | Generic resource facade і packet protocol contract |
-| [telemetry.pro](../telemetry.pro) | Єдиний final `.pri`, v3 provider selection і JS path | Qt build/smoke без legacy sources |
+`TypeKind::Scalar` і `ScalarCode` лишаються чинними leaf type categories
+codec. Це не колишній Scalar value container. Повні supported types і
+binding forms — у [Native API](user/NativeApi.md).
 
-У Meter старий `configure(float, Mode)` замінено на
-`configure(const ConfigureRequest&)`. Request містить native float
-і scoped Mode; callable перевіряє finite threshold, діапазон 1..1000 і
-допустимі Mode codes **до** зміни threshold/mode. Smoke вже вимагає
-`InvalidValue` для 1001. Це збереження application behavior, а не
-додавання semantic limits до TypeRegistry.
+## Native access та lifetimes
 
-Units `V`, `A`, `kW`, `degC`, початкові UI values, spinbox range і
-Off/Auto/Manual labels залишаються в application/UI. `Persistent` flag
-у demo був metadata; він сам не реалізував persistence. Не переносити
-його як вигадану гарантію storage. Якщо metadata прибирається з UI,
-це має бути окреме явне consumer рішення, не тихий наслідок видалення core.
+Збережіть local table ordering та packed global IDs, якщо вони потрібні
+consumer. Local Position вибирає entry; PackedId містить 16-bit group та
+16-bit entry. Для зовнішніх значень перевіряйте ширину до cast; використовуйте
+`tryMakeId`, а lookup нехай перевіряє actual catalog bounds.
 
-Scoped enum `Mode : uint16_t` збережено. Native enum codec допускає unknown
-representable codes; application setter/Command встановлює свою policy.
-Mode field/Configure відхиляє недопустимі codes без mutation.
-Defaults залишаються initial Meter/UI state.
+Compile-time `read/write/call`, typed `forEach`, runtime `visit` та erased
+encoded API — різні шляхи до тих самих endpoints.
+`forEach`, range-for і `get` самі не виконують callbacks.
+Numeric `As` conversions checked; struct/array access потребує exact C++ T.
 
-Resource paths після міграції: `/telemetry/descriptor.bin` і
-`/telemetry/values.bin`. Old schema/commands file indices зникають;
-[DeviceCheck.cpp](../tests/resources/DeviceCheck.cpp) перевіряє новий
-count, paths, reads і generic protocol разом із app facade.
+Owners, names, callable lvalues, slots, tables і views мають стабільні
+адреси та достатній lifetime. Після переприв'язування slot external
+synchronization лишається application responsibility.
+Borrowed results не подовжують referent lifetime й не утворюють snapshot.
+`readAs<T>` явно повертає owning copy. Lock для borrowed/encoded доступу
+охоплює весь період використання const object, а не тільки getter.
 
-### Browser, Qt example, optional protocol і MCU consumers
+[Application integration](user/ApplicationIntegration.md) і
+[borrowed contract](BorrowedNativeValues.md) показують практичні lifetime,
+snapshot та synchronization рішення.
 
-- [structured_client/Device.hpp](../examples/structured_client/Device.hpp),
-  [QtSmoke.cpp](../examples/structured_client/QtSmoke.cpp), [qt.pro](../examples/structured_client/qt.pro):
-  public includes/namespace, shared statuses/slots, final provider `.pri`.
-- [app.js](../examples/structured_client/app.js),
-  [client/Check.mjs](../tests/structured/client/Check.mjs), browser runner:
-  import `web/telemetry.js`; зберегти descriptor/values decoding, BigInt,
-  shape-driven request/response editors, ceilings і cache/fingerprint policy.
-- [structured_protocol](../examples/structured_protocol/README.md):
-  core/resource includes і aliases оновлено; packet magic/status codes, validation,
-  caller Workspace і routing не змінюються. Transport agreement є прикладом,
-  а не новою умовою native або encoded core calls.
-- [MCU Fixture.hpp](../tests/structured/mcu/Fixture.hpp), `Mixed.cpp`,
-  `Scale.cpp`, Descriptor/Values/Exchange H7S fixtures: tracked MCU test
-  consumers, їхні build source lists та evidence manifests переведено.
-  Старі endpoint H7S branches збережено як історичні докази.
-  Окремого firmware application
-  consumer всередині цього telemetry repository не виявлено.
+## Encoded transport і resources
 
-## 5. Збережені перевірки та закриті migration risks
+Віддалений consumer спочатку отримує complete packet. Encoded Model
+adapter приймає endpoint ID, payload bytes, response span і caller-owned
+Workspace. Core не володіє connections, Ready, requestId, retries або
+descriptor agreement state.
 
-| Місце | Початковий ризик | Виконана дія / збережений gate |
-| --- | --- | --- |
-| [mcu/run.py](../tests/structured/mcu/run.py) | Path-based legacy exemption міг пропустити new-core frames | Exemption прибрано; final core frames перевіряються |
-| [facade/run.py](../tests/structured/facade/run.py) | Старий directory scan міг стати порожнім | Scan final directory; нуль headers відхиляється |
-| [structured resources/run.py](../tests/structured/resources/run.py) | Standalone header scan старого resource tree | Scan `lib/resource/telemetry/v3/` з правильними includes |
-| [resources/run.py](../tests/resources/run.py) | Generic scan міг захопити v3 без backend includes | Generic scan обмежено власними headers; v3 має окремий runner |
-| [qualification/ScalarComparison.cpp](https://github.com/shpegun60/telemetry/blob/389c995083b4dc0a39cd8775b211ef765494240f/tests/structured/qualification/ScalarComparison.cpp) | New+old same-name tables в одному TU | Old controls retired після baseline; direct/new codegen збережено |
-| [mcu/Scale.cpp](../tests/structured/mcu/Scale.cpp) | oldLocal/oldScalar та operation index arithmetic | Old probes retired після baseline; indices/checks оновлено, direct/native/visitor/As/encoded збережено |
-| Історичні `endpoints/h7s/*` із `ENDPOINT_LEGACY` | Legacy branch бачив new fixture | Old branch/target retired; докази збережено окремо |
-| [resources.pro](../tests/structured/resources/resources.pro), [run_qmake.py](../tests/structured/resources/run_qmake.py) | `MODE=both` після namespace move | Фінально тільки core-only і v3 selections |
-| Freeze generated Manifest, source lists, header probes, JS imports | Hardcoded structured paths і namespaces | Runnable inputs оновлено; wire constants/goldens незмінні |
-| [CI workflow](../.github/workflows/ci.yml) | Старі targets/scans або втрачені test steps | Final C++20 host/ARM/Qt matrix та artifacts збережено; publication CI ще pending |
+Descriptor/Values paths обирає application; готовий приклад використовує
+`/telemetry/descriptor.bin` і `/telemetry/values.bin`. Замість старих
+schema/commands files consumer читає один descriptor і v3 Values.
+File indexes — позиції саме поточного filesystem; знаходьте path через
+LIST, якщо layout не закріплений вашим application contract.
 
-Retained summaries/receipts прив'язані до своїх source/input manifests.
-Перенесення не робить старий receipt доказом current-source build.
-Нові receipts генеруються з нових runs; історичні залишаються історичними.
-Ні однаковий ELF, ні individual `.su` frame не доводить MCU cycles або
-максимальний live stack усього call chain.
+Перевірте receive/reply sizes, `model.maxScratch()` та для Values
+`requiredWorkspace()`/`maxTokenSize()`. Local-object budget не є packet
+capacity. Один Values token неподільний; READ payload має вміщати
+найбільший Field. Resource cursor — provider-owned state; продовжуйте
+операцію з повернутого `next`, а не з самостійно вгаданого offset.
 
-## 6. Stage 19–20: видалення та фінальний gate
+Descriptor/Values fingerprint та canonical bytes лишаються wire v3.0
+після додавання borrowed outputs. In-memory ABI змінюється окремо.
+Зберігайте дві перевірки: dispatch та endpoint status; віддавайте рівно
+committed payload bytes. Деталі — у [wire reference](WireV3.md),
+[transport walkthrough](user/TransportWalkthrough.md) та
+[optional protocol example](../examples/structured_protocol/README.md).
 
-Зберегти всі new typed/wire suites: reflection, facade, types, codec,
-registry, service, model, endpoints, traversal, descriptor, resources,
-exchange, client, qualification, mcu і freeze. Зберегти exact goldens,
-negative diagnostics, ABI mismatch/GC/LTO reachability controls,
-no-heap/symbol controls, null-check modes, large-object checks, codegen,
-static frames та потрібні MCU scenarios.
+## Перевірка перенесення
 
-Legacy-only Scalar/FieldType/limits/arg/JSON/v2.1 tests, old ABI guards,
-old codegen probes і build targets видалено після останнього
-переведеного consumer та збереження baseline. Shared IDs/slot/callable/
-numeric edge coverage перенесено на кінцеві headers.
-Зокрема SlotCallable/SlotEdges/SlotOverload, owner/null/
-weak targets, ID boundary/explicit-template-argument cases і FP mode
-refusals залишаються релевантними збереженим contracts.
+1. Зберіть і виконайте [QuickStart](../examples/user_guide/QuickStart.cpp)
+   потрібним compiler; перезберіть весь consumer із current headers/sources.
+2. Перевірте ваші getter/setter/Command/Service: exact types, status,
+   refusal-before-mutation та required side effects.
+3. Перевірте IDs, lifetime, borrowed data stability, synchronized reads,
+   повний frame receive/reply та capacities.
+4. Для custom UI перевірте збереження units/defaults/labels/persistence;
+   descriptor передає форму даних, ці semantics належать consumer.
+5. Виконайте відповідні [maintained checks](../tests/README.md) та власну
+   application integration перевірку. Host чи ARM compile evidence не
+   означає runtime перевірки вашої MCU прошивки.
 
-Generic resource `CoreCheck.cpp`, `Negative.cpp` і `stack_check.py` лишаються;
-старий невикористовуваний v2 `TestSupport.hpp` видалено після збереження baseline;
-DeviceCheck перевіряє v3 app files.
-Legacy Binary/TelemetryFiles/Metadata/decoder/goldens перевіряли v2
-layout і видалені після архівування. Generic cursor/protocol/error cases
-збережено на generic provider або v3.
+## Походження попередніх результатів
 
-Локальний final gate перевірив такі умови; пункт 5 окремо потребує
-publication exact-SHA CI:
+[Stage 15 freeze checkpoint](StructuredTelemetryV3FreezeQualification.md)
+і [Stage 20 qualification](StructuredTelemetryV3FinalQualification.md)
+описують свої recorded source identities, measured evidence та CI.
+Їхні результати не є автоматичним підтвердженням нового consumer чи commit.
 
-1. У runnable tracked production/demo/test includes і manifests немає
-   old Scalar/FieldType/JSON/v2 adapters, `telemetry_structured` target,
-   migration target або compatibility aliases. Archive/review/release
-   history не є production dependency.
-2. Один public umbrella/namespace, один Model/Registry та набір typed
-   tables; resource-only program збирається без telemetry/PFR; selected
-   v3 consumer не лінкує JSON/v2 або optional protocol неявно.
-3. Mixed-table public example, Qt/demo smoke, JS/browser/Qt interoperability,
-   generic resource/protocol, sanitizer і ARM normal/null checks проходять.
-4. Canonical descriptor/values bytes збігаються з frozen goldens; section,
-   stack/codegen differences звірені з baseline й оцінені за реальним diff.
-5. MCU evidence і CI стосуються потрібного source/input set та final SHA;
-   docs відокремлюють measured results від inferred claims.
-6. README/include/qmake examples показують кінцевий C++20 API й прямо
-   вказують відсутність source/ABI/wire compatibility із v2.1.
-
-Карта вище також зберігає початкову інвентаризацію. Stage 16–19 виконано:
-нейтральні shared contracts виділено, нове ядро стало єдиним `telemetry`,
-consumers/tests/CI переведено, Scalar/v2 executable implementation видалено.
-Stage 20 local/software/hardware qualification завершено. Чотири current
-H7S receipts зафіксували code HEAD `01fd180`, повне відновлення Flash і
-незмінні captured LF inputs: MCU — 140, Descriptor — 133, Values/resources
-— 133, Bind/Exchange — 140. Їхній глобальний `source_dirty=true` зберігає
-наявність unrelated untracked review tree; captured code відповідає Git
-цього commit, це не clean-tree claim. Деталі — у
-[final qualification](StructuredTelemetryV3FinalQualification.md).
-Publication exact-SHA CI ще очікується; історичний `389c995` 9/9 його не замінює.
-
-Фінальний ARM byte comparison: [69/69 artifacts](evidence/StructuredMigrationCodegen.json).
-Retirement sources та Git baseline: [перелік](evidence/StructuredLegacyTestRetirement.json).
-Поточні [тести](../tests/README.md), [API](../lib/telemetry/README.md) й
-[історичні докази](evidence/pre-unification/README.md) мають окремі ролі.
+Попередній великий stage-by-stage migration document збережено byte for
+byte у зовнішньому архіві перед заміною цією current API картою.
+Inventory і перевірку архіву описує
+[Repository maintenance](RepositoryMaintenance.md). Receipts не
+перепозначаються під новий source SHA.

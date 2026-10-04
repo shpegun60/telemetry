@@ -7,14 +7,15 @@
 #endif
 int main()
 {
-    const auto files = deviceResources();
-    unsigned position = 0;
-    assert(files.stat(position++).size == 0);
-    std::array<std::byte, 4096> bytes{};
+	const auto files = deviceResources();
+	unsigned position = 0;
+	assert(files.stat(position++).size == 0);
+	std::array<std::byte, 4096> bytes{};
 #ifdef WITH_V3
-    assert(files.read(position++, 0, bytes).eof && bytes[4] == std::byte{3});
-    assert(files.read(position++, 0, bytes).eof && bytes[0] == std::byte{'T'} && bytes[1] == std::byte{'V'});
+	assert(files.read(position++, 0, bytes).eof && bytes[4] == std::byte{3});
+	assert(files.read(position++, 0, bytes).eof && bytes[0] == std::byte{'T'} &&
+	       bytes[1] == std::byte{'V'});
 #endif
-    assert(position == files.fileCount());
-    (void)bytes;
+	assert(position == files.fileCount());
+	(void)bytes;
 }

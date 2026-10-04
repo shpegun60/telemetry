@@ -11,14 +11,27 @@
 
 namespace ts = telemetry;
 
-struct Request { std::uint8_t value; };
-struct Response { std::uint8_t value; };
-Response readValue(const Request& request) noexcept { return {request.value}; }
+struct Request {
+	std::uint8_t value;
+};
+
+struct Response {
+	std::uint8_t value;
+};
+
+Response readValue(const Request& request) noexcept
+{
+	return {request.value};
+}
 
 inline constexpr ts::ServiceTable local{ts::service<&readValue>("Read")};
 inline constexpr ts::ServiceCatalogTable global{ts::group("group", local)};
-enum class BigPosition : std::uint64_t { Invalid = 0x100000000ULL };
-enum class LocalPosition : std::uint8_t { First = 0 };
+enum class BigPosition : std::uint64_t {
+	Invalid = 0x100000000ULL
+};
+enum class LocalPosition : std::uint8_t {
+	First = 0
+};
 
 #if CASE == 1
 auto bad = local.call<1>(Request{});
@@ -37,8 +50,9 @@ auto bad = ts::group("temporary", ts::ServiceTable{ts::service<&readValue>("Read
 #elif CASE == 8
 auto bad = global.index().find<std::uint16_t>(65537);
 #elif CASE == 9
-auto bad = ts::Model{ts::emptyFields, ts::emptyCommands, global}
-    .view().serviceTypeIds<std::uint16_t>(65537);
+auto bad =
+    ts::Model{ts::emptyFields, ts::emptyCommands, global}.view().serviceTypeIds<std::uint16_t>(
+        65537);
 #elif CASE == 10
 auto bad = ts::ServiceTable{ts::service<&readValue>("Read")}.data();
 #elif CASE == 11

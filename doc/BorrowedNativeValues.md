@@ -1,5 +1,7 @@
 # Native values by const reference
 
+[Documentation index](README.md) · [User guide](user/README.md) · [Architecture](Architecture.md) · [Wire v3.0](WireV3.md)
+
 Authors: Ruslan Kovtun (shpegun60), codexAi.
 
 This separate extension follows the completed Stage 16–20 baseline
@@ -7,6 +9,15 @@ This separate extension follows the completed Stage 16–20 baseline
 `595a65b`. Endpoint declarations remain name + binding. The extension changes
 native ownership and Field scratch metadata, without changing canonical type
 shapes, packed u32 IDs, descriptor v3.0 or Values bytes.
+
+## Навігація
+
+- [Declaration and results](#declaration-and-results)
+- [Lifetime and synchronization](#lifetime-and-synchronization)
+- [Storage and checked boundaries](#storage-and-checked-boundaries)
+- [ABI and wire identity](#abi-and-wire-identity)
+- [Qualification](#qualification)
+- [Qualification results](#qualification-results)
 
 ## Declaration and results
 

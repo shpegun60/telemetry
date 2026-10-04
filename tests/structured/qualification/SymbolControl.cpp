@@ -13,5 +13,5 @@ static auto volatile formatTarget = &_printf_r;
 
 int main()
 {
-    return allocateTarget == nullptr || formatTarget == nullptr;
+	return allocateTarget == nullptr || formatTarget == nullptr;
 }

@@ -1,4 +1,6 @@
-# This builds the application example; it does not introduce library packaging.
+# Build and run the ordinary application facade example with its private bindings.
+# Listing the compiled library boundary explicitly shows what a firmware/desktop
+# application links without introducing a library packaging layer.
 cmake_minimum_required(VERSION 3.20)
 project(telemetry_device_integration LANGUAGES CXX)
 set(TELEMETRY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")

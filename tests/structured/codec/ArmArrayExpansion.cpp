@@ -16,17 +16,16 @@
 
 using Big = std::array<std::uint32_t, 1024>;
 
-template <std::size_t... I>
-Big expanded(telemetry::codec_detail::Reader& reader,
-             std::index_sequence<I...>) noexcept
+template<std::size_t... I>
+Big expanded(telemetry::codec_detail::Reader& reader, std::index_sequence<I...>) noexcept
 {
-    return Big{{(static_cast<void>(I),
-                 telemetry::codec_detail::decodeValue<std::uint32_t>(reader))...}};
+	return Big{
+	    {(static_cast<void>(I), telemetry::codec_detail::decodeValue<std::uint32_t>(reader))...}};
 }
 
-extern "C" [[gnu::noinline]] Big* decode_big_expanded(
-    void* storage, std::span<const std::byte> input) noexcept
+extern "C" [[gnu::noinline]] Big* decode_big_expanded(void* storage,
+                                                      std::span<const std::byte> input) noexcept
 {
-    telemetry::codec_detail::Reader reader{input};
-    return ::new (storage) Big(expanded(reader, std::make_index_sequence<1024>{}));
+	telemetry::codec_detail::Reader reader{input};
+	return ::new (storage) Big(expanded(reader, std::make_index_sequence<1024>{}));
 }

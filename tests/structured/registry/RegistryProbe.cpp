@@ -1,6 +1,6 @@
 /*
  * @file RegistryProbe.cpp
- * @brief Stage 05 type order, metadata, size and runtime view checks.
+ * @brief Type order, exact identity, immutable metadata, size and runtime-view checks.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -22,12 +22,13 @@ using registry_probe::SameShape;
 using registry_probe::SampleBlock;
 
 struct EmptyStruct {};
-enum class NoNames : std::uint8_t { One = 1 };
+enum class NoNames : std::uint8_t {
+	One = 1
+};
 
-template <>
+template<>
 struct telemetry::reflection::EnumReflection<NoNames> {
-    inline static constexpr auto entries =
-        telemetry::reflection::enumEntries<NoNames>();
+	inline static constexpr auto entries = telemetry::reflection::enumEntries<NoNames>();
 };
 
 using Empty = TypeRegistry<>;
@@ -35,11 +36,9 @@ using Registry = TypeRegistry<SampleBlock, Reading, SameShape, const Reading&, M
 using Reordered = TypeRegistry<SameShape, Reading>;
 using EmptyShapes = TypeRegistry<EmptyStruct, std::array<std::uint16_t, 0>, NoNames>;
 using ReadingAlias = Reading;
-using Repeated = TypeRegistry<
-    Reading, Reading, Reading, Reading, Reading,
-    Reading, Reading, Reading, Reading, Reading,
-    Reading, Reading, Reading, Reading, Reading,
-    Reading, Reading, Reading, Reading, Reading>;
+using Repeated = TypeRegistry<Reading, Reading, Reading, Reading, Reading, Reading, Reading,
+                              Reading, Reading, Reading, Reading, Reading, Reading, Reading,
+                              Reading, Reading, Reading, Reading, Reading, Reading>;
 
 static_assert(Empty::typeCount == 12);
 static_assert(Empty::typeId<void>() == 0);
@@ -97,19 +96,18 @@ static_assert(Registry::descriptor<15>().member(1)->typeId == 13);
 static_assert(Registry::descriptor<15>().member(2)->typeId == 14);
 static_assert(Registry::descriptor<15>().wireBytes == 14);
 static_assert(Registry::descriptor<13>().recordBytes == 28);
-static_assert(Registry::descriptor<14>().recordBytes == 28 +
-              (2 + 4 + 5) + (2 + 4 + 6) + (2 + 4 + 5));
+static_assert(Registry::descriptor<14>().recordBytes ==
+              28 + (2 + 4 + 5) + (2 + 4 + 6) + (2 + 4 + 5));
 static_assert(Registry::recordsBytes == 546);
 static_assert(Registry::view().find(17) == nullptr);
 static_assert(std::is_standard_layout_v<telemetry::TypeDescriptor>);
 static_assert(std::is_trivially_copyable_v<telemetry::TypeDescriptor>);
 
-template <class T>
-concept HasSemanticMetadata =
-    requires(const T& descriptor) { descriptor.unit; } ||
-    requires(const T& descriptor) { descriptor.minimum; } ||
-    requires(const T& descriptor) { descriptor.defaultValue; } ||
-    requires(const T& descriptor) { descriptor.owner; };
+template<class T>
+concept HasSemanticMetadata = requires(const T& descriptor) { descriptor.unit; } ||
+                              requires(const T& descriptor) { descriptor.minimum; } ||
+                              requires(const T& descriptor) { descriptor.defaultValue; } ||
+                              requires(const T& descriptor) { descriptor.owner; };
 
 static_assert(!HasSemanticMetadata<telemetry::TypeDescriptor>);
 
@@ -117,22 +115,24 @@ extern "C" std::uint32_t registry_other_id() noexcept;
 
 int main()
 {
-    telemetry::requireStructuredAbi();
-    auto view = Registry::view();
-    if (view.count != Registry::typeCount || view.recordsBytes != Registry::recordsBytes)
-        return 1;
-    if (view.find(0) == nullptr || view.find(17) != nullptr)
-        return 2;
-    for (std::uint32_t i = 0; i < view.count; ++i) {
-        const auto* descriptor = view.find(i);
-        if (descriptor->id != i || descriptor->recordBytes < 20)
-            return 3;
-        if (descriptor->kind == TypeKind::Struct) {
-            for (std::uint32_t member = 0; member < descriptor->memberCount; ++member)
-                if (descriptor->member(member)->typeId >= i) return 4;
-        } else if (descriptor->kind == TypeKind::Array || descriptor->kind == TypeKind::Enum) {
-            if (descriptor->relatedTypeId >= i) return 5;
-        }
-    }
-    return registry_other_id() == Registry::typeId<SampleBlock>() ? 0 : 6;
+	telemetry::requireStructuredAbi();
+	auto view = Registry::view();
+	if (view.count != Registry::typeCount || view.recordsBytes != Registry::recordsBytes)
+		return 1;
+	if (view.find(0) == nullptr || view.find(17) != nullptr)
+		return 2;
+	for (std::uint32_t i = 0; i < view.count; ++i) {
+		const auto* descriptor = view.find(i);
+		if (descriptor->id != i || descriptor->recordBytes < 20)
+			return 3;
+		if (descriptor->kind == TypeKind::Struct) {
+			for (std::uint32_t member = 0; member < descriptor->memberCount; ++member)
+				if (descriptor->member(member)->typeId >= i)
+					return 4;
+		} else if (descriptor->kind == TypeKind::Array || descriptor->kind == TypeKind::Enum) {
+			if (descriptor->relatedTypeId >= i)
+				return 5;
+		}
+	}
+	return registry_other_id() == Registry::typeId<SampleBlock>() ? 0 : 6;
 }

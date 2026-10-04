@@ -7,11 +7,23 @@ inline constexpr rs::Descriptor descriptor{fixture::model};
 inline constexpr auto packed = rs::packDescriptor<descriptor>();
 inline constexpr rs::ValuesFile values{descriptor, sharedWorkspace};
 
-ts::ModelView modelView() noexcept { return fixture::model.view(); }
-std::span<const std::byte> descriptorBytes() noexcept { return packed; }
-std::uint64_t fingerprint() noexcept { return descriptor.fingerprint(); }
+ts::ModelView modelView() noexcept
+{
+	return fixture::model.view();
+}
+
+std::span<const std::byte> descriptorBytes() noexcept
+{
+	return packed;
+}
+
+std::uint64_t fingerprint() noexcept
+{
+	return descriptor.fingerprint();
+}
+
 resource::ReadResult readValues(resource::Cursor cursor, std::span<std::byte> output) noexcept
 {
-    return values.read(cursor, output);
+	return values.read(cursor, output);
 }
 } // namespace qualification

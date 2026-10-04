@@ -5,7 +5,13 @@
  * SPDX-License-Identifier: MIT
  */
 #include "Fixture.hpp"
+
 std::uint64_t descriptorOtherFingerprint() noexcept
-{ return descriptor_fixture::edge.fingerprint(); }
+{
+	return descriptor_fixture::edge.fingerprint();
+}
+
 const std::byte* descriptorOtherBytes() noexcept
-{ return descriptor_fixture::edgeBytes.data(); }
+{
+	return descriptor_fixture::edgeBytes.data();
+}

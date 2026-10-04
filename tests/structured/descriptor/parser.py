@@ -1,16 +1,18 @@
 """Independent bounded v3.0 reader fixture; no C++ producer code is imported.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
-This is a test oracle, not the Stage 12 application client.
+This is an independent test oracle; the JS application client is a separate consumer.
 """
 from dataclasses import dataclass
 import struct
 
 
+# Descriptor contract refusal raised by every bounded parser check.
 class InvalidDescriptor(ValueError):
     pass
 
 
+# Immutable parser ceilings checked before slicing strings or allocating record lists.
 @dataclass(frozen=True)
 class Limits:
     descriptor_bytes: int = 4194304
@@ -38,6 +40,9 @@ def fingerprint(data):
     return result
 
 
+# Bounded cursor over one descriptor section or record payload.
+# API: take/number consume bytes; zeros/text validate content; record creates a
+# bounded child reader; done requires exact payload exhaustion.
 class Reader:
     def __init__(self, data, begin, end, limits):
         self.data, self.pos, self.end, self.limits = data, begin, end, limits

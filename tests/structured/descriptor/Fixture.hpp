@@ -4,55 +4,80 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
+
+#ifndef TELEMETRY_TESTS_STRUCTURED_DESCRIPTOR_FIXTURE_HPP
+#define TELEMETRY_TESTS_STRUCTURED_DESCRIPTOR_FIXTURE_HPP
 #pragma once
+
 #include "../endpoints/MixedFixture.hpp"
 #include <resource/telemetry/v3/Descriptor.hpp>
 
 namespace descriptor_fixture {
 namespace ts = telemetry;
 namespace rs = resource::telemetry::v3;
-struct Empty {};
-struct Box {
-    fixture::MotorConfig config;
-    std::array<fixture::State, 2> phases;
-    Empty empty;
-    std::array<std::uint8_t, 0> zero;
-};
-enum class Signed : std::int16_t { Low = -1000, High = 2000 };
-enum class Wide : std::uint64_t { High = 0xffffffffffffffffULL };
-}
 
-template <> struct telemetry::reflection::EnumReflection<descriptor_fixture::Signed> {
-    inline static constexpr auto entries = telemetry::reflection::enumEntries(
-        telemetry::reflection::enumEntry(descriptor_fixture::Signed::High, u8"Haut"),
-        telemetry::reflection::enumEntry(descriptor_fixture::Signed::Low, u8"N\u00e9gatif"));
+// Empty reflected shape verifies zero-size type records and canonical field tokens.
+struct Empty {};
+
+// Nested graph combines shared DTOs, a fixed array and two zero-wire-size members.
+struct Box {
+	fixture::MotorConfig config;
+	std::array<fixture::State, 2> phases;
+	Empty empty;
+	std::array<std::uint8_t, 0> zero;
 };
-template <> struct telemetry::reflection::EnumReflection<descriptor_fixture::Wide> {
-    inline static constexpr auto entries = telemetry::reflection::enumEntries(
-        telemetry::reflection::enumEntry(descriptor_fixture::Wide::High, u8"Max"));
+enum class Signed : std::int16_t {
+	Low = -1000,
+	High = 2000
+};
+enum class Wide : std::uint64_t {
+	High = 0xffffffffffffffffULL
+};
+} // namespace descriptor_fixture
+
+// Explicit signed enum dictionary fixes names and code order for independent wire goldens.
+template<>
+struct telemetry::reflection::EnumReflection<descriptor_fixture::Signed> {
+	inline static constexpr auto entries = telemetry::reflection::enumEntries(
+	    telemetry::reflection::enumEntry(descriptor_fixture::Signed::High, u8"Haut"),
+	    telemetry::reflection::enumEntry(descriptor_fixture::Signed::Low, u8"N\u00e9gatif"));
+};
+
+// Explicit U64 enum dictionary preserves the all-ones code in descriptor bytes.
+template<>
+struct telemetry::reflection::EnumReflection<descriptor_fixture::Wide> {
+	inline static constexpr auto entries = telemetry::reflection::enumEntries(
+	    telemetry::reflection::enumEntry(descriptor_fixture::Wide::High, u8"Max"));
 };
 
 namespace descriptor_fixture {
 inline int calls = 0;
-template <class T> T read() noexcept { ++calls; return {}; }
-inline void ping() noexcept { ++calls; }
+
+template<class T>
+T read() noexcept
+{
+	++calls;
+	return {};
+}
+
+inline void ping() noexcept
+{
+	++calls;
+}
+
 inline telemetry::FunctionSlot<std::uint32_t() noexcept> getter;
 inline telemetry::FunctionSlot<telemetry::WriteResult(std::uint32_t) noexcept> setter;
 inline constexpr ts::FieldTable extraFields{
-    ts::field<&read<Empty>>("Empty"),
-    ts::field<&read<Box>>("Box"),
-    ts::field<&read<Signed>>("Signed"),
-    ts::field<&read<Wide>>("Wide"),
+    ts::field<&read<Empty>>("Empty"), ts::field<&read<Box>>("Box"),
+    ts::field<&read<Signed>>("Signed"), ts::field<&read<Wide>>("Wide"),
     ts::field("Late", getter, setter)};
 inline constexpr ts::FieldTable<> noFields{};
 inline constexpr ts::ServiceTable extraServices{ts::service<&ping>("Ping")};
-inline constexpr ts::FieldCatalogTable fields{
-    ts::group("motor", fixture::mixedFields),
-    ts::group("empty", noFields),
-    ts::group("\xCE\xBC", extraFields)};
-inline constexpr ts::ServiceCatalogTable services{
-    ts::group("motor", fixture::localServices),
-    ts::group("extra", extraServices)};
+inline constexpr ts::FieldCatalogTable fields{ts::group("motor", fixture::mixedFields),
+                                              ts::group("empty", noFields),
+                                              ts::group("\xCE\xBC", extraFields)};
+inline constexpr ts::ServiceCatalogTable services{ts::group("motor", fixture::localServices),
+                                                  ts::group("extra", extraServices)};
 inline constexpr ts::Model model{fields, fixture::commands, services};
 inline constexpr rs::Descriptor mixed{fixture::model};
 inline constexpr rs::Descriptor edge{model};
@@ -72,4 +97,6 @@ inline constexpr ExactCvModel exactCvModel{fields, fixture::commands, services};
 inline constexpr rs::Descriptor exactCvDescriptor{exactCvModel};
 static_assert(exactCvDescriptor.valid() && exactCvDescriptor.fingerprint() == edge.fingerprint());
 static_assert(rs::packDescriptor<exactCvDescriptor>() == edgeBytes);
-}
+} // namespace descriptor_fixture
+
+#endif // TELEMETRY_TESTS_STRUCTURED_DESCRIPTOR_FIXTURE_HPP

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 13: mixed multi-TU consumers, ABI, linked memory and specialization cost.
+"""Mixed multi-TU consumers, ABI, linked memory and visitor-specialization cost.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 Generated evidence stays in the caller-selected directory. Frame limits are

@@ -1,5 +1,8 @@
 // Direct and braced owning temporaries must not become borrowed byte files.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+// Checks compile-time refusal of temporary byte owners, conversion proxies and invalid storage shapes.
+// The oversized-array case uses a declaration only, so its extent is checked without allocating that array.
+
 #include <resource/BytesFile.hpp>
 #include <array>
 #include <utility>
@@ -10,10 +13,17 @@ Array array{};
 const Array constant{};
 std::byte cArray[2]{};
 const std::byte constCArray[2]{};
-struct Conversion
-{
-    Array owned{};
-    operator resource::Input() const noexcept { return owned; }
+
+// Proxy owns the byte array that its converted input span would outlive.
+// Public methods:
+// - operator resource::Input(): Expose proxy bytes.
+struct Conversion {
+	Array owned{};
+
+	operator resource::Input() const noexcept
+	{
+		return owned;
+	}
 } conversion;
 
 #if CASE == 1

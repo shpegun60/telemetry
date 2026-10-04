@@ -8,23 +8,70 @@
 #include <cstdlib>
 #include <new>
 
-void* operator new(std::size_t) { std::abort(); }
-void* operator new[](std::size_t) { std::abort(); }
-void* operator new(std::size_t, std::align_val_t) { std::abort(); }
-void* operator new[](std::size_t, std::align_val_t) { std::abort(); }
-void operator delete(void*) noexcept { std::abort(); }
-void operator delete[](void*) noexcept { std::abort(); }
-void operator delete(void*, std::size_t) noexcept { std::abort(); }
-void operator delete[](void*, std::size_t) noexcept { std::abort(); }
-void operator delete(void*, std::align_val_t) noexcept { std::abort(); }
-void operator delete[](void*, std::align_val_t) noexcept { std::abort(); }
-void operator delete(void*, std::size_t, std::align_val_t) noexcept { std::abort(); }
-void operator delete[](void*, std::size_t, std::align_val_t) noexcept { std::abort(); }
+void* operator new(std::size_t)
+{
+	std::abort();
+}
+
+void* operator new[](std::size_t)
+{
+	std::abort();
+}
+
+void* operator new(std::size_t, std::align_val_t)
+{
+	std::abort();
+}
+
+void* operator new[](std::size_t, std::align_val_t)
+{
+	std::abort();
+}
+
+void operator delete(void*) noexcept
+{
+	std::abort();
+}
+
+void operator delete[](void*) noexcept
+{
+	std::abort();
+}
+
+void operator delete(void*, std::size_t) noexcept
+{
+	std::abort();
+}
+
+void operator delete[](void*, std::size_t) noexcept
+{
+	std::abort();
+}
+
+void operator delete(void*, std::align_val_t) noexcept
+{
+	std::abort();
+}
+
+void operator delete[](void*, std::align_val_t) noexcept
+{
+	std::abort();
+}
+
+void operator delete(void*, std::size_t, std::align_val_t) noexcept
+{
+	std::abort();
+}
+
+void operator delete[](void*, std::size_t, std::align_val_t) noexcept
+{
+	std::abort();
+}
 
 int main()
 {
-    const resource::telemetry::v3::Descriptor d{descriptor_fixture::model};
-    std::array<std::byte, descriptor_fixture::edge.size()> out;
-    const auto result = d.read(0, out);
-    return d.valid() && result.eof && out == descriptor_fixture::edgeBytes ? 0 : 1;
+	const resource::telemetry::v3::Descriptor d{descriptor_fixture::model};
+	std::array<std::byte, descriptor_fixture::edge.size()> out;
+	const auto result = d.read(0, out);
+	return d.valid() && result.eof && out == descriptor_fixture::edgeBytes ? 0 : 1;
 }

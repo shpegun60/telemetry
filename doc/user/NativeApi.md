@@ -2,6 +2,13 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
+[Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
+[Services](Services.md) · [Tables and catalogs](TablesAndCatalogs.md) ·
+[API шпаргалка](API-CHEATSHEET.md)
+
+Це суцільний reference. Для одного API family відкрийте окрему сторінку
+вище; вона пояснює signatures, results, lifetime та веде до повних прикладів.
+
 Цей посібник описує поточний C++20 API у `lib/telemetry`. Робочий приклад
 [Native.cpp](../../examples/user_guide/Native.cpp) містить повну модель, усі
 види slot, owning/borrowed результати, typed traversal і encoded виклики. Його
@@ -17,6 +24,29 @@
 [TransportAndResources.md](TransportAndResources.md). Native API також працює
 без цих файлів: таблиця викликає звичайний C++ callback і повертає його native
 тип або відповідний result wrapper.
+
+## Навігація
+
+- [Чотири рівні доступу](#чотири-рівні-доступу)
+- [1. Що оголошує застосунок](#1-що-оголошує-застосунок)
+- [2. Native тип і wire тип](#2-native-тип-і-wire-тип)
+- [3. Reflection без списку member](#3-reflection-без-списку-member)
+- [4. Enum: automatic, sparse, subset і свої назви](#4-enum-automatic-sparse-subset-і-свої-назви)
+- [5. Field: getter, setter і дві політики результату](#5-field-getter-setter-і-дві-політики-результату)
+- [6. Command: одна дія, нуль або один Request](#6-command-одна-дія-нуль-або-один-request)
+- [7. Service: Request, Response і status](#7-service-request-response-і-status)
+- [8. Function, method, lambda і functor](#8-function-method-lambda-і-functor)
+- [9. OwnerSlot і чотири callable slots](#9-ownerslot-і-чотири-callable-slots)
+- [10. Локальні таблиці та compile-time доступ](#10-локальні-таблиці-та-compile-time-доступ)
+- [11. Каталоги, packed ID і Model](#11-каталоги-packed-id-і-model)
+- [12. Runtime typed доступ і explicit conversions](#12-runtime-typed-доступ-і-explicit-conversions)
+- [13. Iteration: erased записи й exact definitions](#13-iteration-erased-записи-й-exact-definitions)
+- [14. Status: результат власника та dispatch — різні рівні](#14-status-результат-власника-та-dispatch--різні-рівні)
+- [15. Encoded boundaries, Workspace і default 32 bytes](#15-encoded-boundaries-workspace-і-default-32-bytes)
+- [16. Borrowed lifetime і узгоджені дані](#16-borrowed-lifetime-і-узгоджені-дані)
+- [17. Що є бізнес-правилом застосунку](#17-що-є-бізнес-правилом-застосунку)
+- [18. Фіксовані ceilings і build assumptions](#18-фіксовані-ceilings-і-build-assumptions)
+- [19. Перевірка прикладу та сила performance evidence](#19-перевірка-прикладу-та-сила-performance-evidence)
 
 ## Чотири рівні доступу
 
@@ -405,7 +435,7 @@ Field; для Command/Service використовуйте `command`/`service` �
 | Runtime function pointer | `field("Runtime", &readFree)` |
 | Captureless lambda | `field("Stateless", []() noexcept -> uint32_t { return 42; })` |
 | Stateful callable lvalue | `field("Closure", closure)` |
-| Reference wrapper (Service member owner) | `service<&Device::sample>("Referenced", std::cref(device))` |
+| Reference wrapper (member owner) | `field<&Device::readVoltage>("Referenced", std::cref(device))` |
 | OwnerSlot | `field<&Device::readVoltage>("Late", ownerSlot)` |
 | FunctionSlot | `field("Function", functionSlot)` |
 | ContextFunctionSlot | `field("Context", contextSlot)` |
@@ -414,8 +444,9 @@ Field; для Command/Service використовуйте `command`/`service` �
 
 Повні objects, сигнатури й виклики всіх цих форм є в
 [Native.cpp](../../examples/user_guide/Native.cpp); це виконуваний CI приклад.
-Reference-wrapper row стосується підтриманого Service overload, а не обіцянки
-автоматично перетворювати довільний proxy у owner кожної factory.
+Owner і callable wrappers `std::ref`/`std::cref` підтримуються у всіх трьох
+сімействах. Вони позичають underlying object; довільний conversion proxy
+не стає owner binding.
 
 ```cpp
 // Free function, target відомий у типі binding.
@@ -463,8 +494,8 @@ Method binding приймає actual owner object або `OwnerSlot` таког�
 не pointer/smart-pointer variable чи proxy, який може утворити тимчасовий
 owner. Передайте `*uniqueOwner`, якщо lifetime цього реального object
 гарантований застосунком. Const owner не підходить для non-const method.
-Service також має overload для `std::reference_wrapper`; wrapper не продовжує
-lifetime referenced object.
+Усі три factories також приймають `std::reference_wrapper` сумісного owner;
+wrapper не продовжує lifetime referenced object.
 
 Getter і setter можуть бути різними binding strategies, наприклад function
 getter та delegate setter. Їх точний value type повинен збігатися. Direct

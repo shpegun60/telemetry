@@ -63,6 +63,12 @@ encoded examples linked from the [public guide](../doc/user/README.md).
 Host mode executes the examples with assertions enabled; ARM mode compiles
 and links them without running an image on a device.
 
+[COBS integration checks](cobs/README.md) execute the real framing endpoint with
+telemetry and resource operations, including busy ownership, split input and
+gap recovery. The [cross-endian runner](structured/codec/endian.py) executes
+native little/big-endian targets and compares complete canonical wire files.
+[Source conventions](../tools/source_style/README.md) are checked in CI too.
+
 Scalar, legacy Field metadata/limits/arguments, JSON adapter, binary v2 and old
 ABI suites are retired after their source and measured evidence are archived.
 The fourteen obsolete `telemetry_*check.pro` targets referenced removed legacy

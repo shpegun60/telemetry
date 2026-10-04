@@ -25,12 +25,14 @@ constexpr auto bad = ts::service<&df::ping>("\xf4\x90\x80\x80");
 #elif CASE == 8
 constexpr auto bad = ts::group("\xe2\x82", df::extraFields);
 #elif CASE == 9
-inline constexpr ts::FieldTable rows{ts::field<&df::read<int>>("x"), ts::field<&df::read<int>>("x")};
+inline constexpr ts::FieldTable rows{ts::field<&df::read<int>>("x"),
+                                     ts::field<&df::read<int>>("x")};
 inline constexpr ts::FieldCatalogTable catalogs{ts::group("g", rows)};
 inline constexpr ts::Model model{catalogs, ts::emptyCommands, df::noServices};
 constexpr rs::Descriptor bad{model};
 #elif CASE == 10
-inline constexpr ts::FieldCatalogTable catalogs{ts::group("g", df::extraFields), ts::group("g", df::noFields)};
+inline constexpr ts::FieldCatalogTable catalogs{ts::group("g", df::extraFields),
+                                                ts::group("g", df::noFields)};
 inline constexpr ts::Model model{catalogs, ts::emptyCommands, df::noServices};
 constexpr rs::Descriptor bad{model};
 #elif CASE == 11
@@ -38,31 +40,34 @@ auto bad = rs::Descriptor{df::model}.view();
 #else
 struct Profile : ts::Limits {
 #if CASE == 12
-    static constexpr unsigned maxTypeCount = 12;
+	static constexpr unsigned maxTypeCount = 12;
 #elif CASE == 13
-    static constexpr unsigned maxDescriptorBytes = 500;
+	static constexpr unsigned maxDescriptorBytes = 500;
 #elif CASE == 14
-    static constexpr unsigned maxStringBytes = 3;
+	static constexpr unsigned maxStringBytes = 3;
 #elif CASE == 15
-    static constexpr unsigned maxEnumEntriesTotal = 1;
+	static constexpr unsigned maxEnumEntriesTotal = 1;
 #elif CASE == 16
-    static constexpr unsigned maxStructMembers = 2;
+	static constexpr unsigned maxStructMembers = 2;
 #elif CASE == 17
-    static constexpr unsigned maxArrayElements = 1;
+	static constexpr unsigned maxArrayElements = 1;
 #elif CASE == 18
-    static constexpr unsigned maxTypeDepth = 1;
+	static constexpr unsigned maxTypeDepth = 1;
 #elif CASE == 19
-    static constexpr unsigned maxExpandedValueNodes = 3;
+	static constexpr unsigned maxExpandedValueNodes = 3;
 #elif CASE == 20
-    static constexpr unsigned maxValueWireBytes = 8;
+	static constexpr unsigned maxValueWireBytes = 8;
 #elif CASE == 21
-    static constexpr unsigned maxEndpointCountTotal = 1;
+	static constexpr unsigned maxEndpointCountTotal = 1;
 #elif CASE == 22
-    static constexpr unsigned maxCatalogCountTotal = 1;
+	static constexpr unsigned maxCatalogCountTotal = 1;
 #else
 #error Unknown CASE
 #endif
 };
+
 constexpr rs::Descriptor<std::remove_cv_t<decltype(df::fields)>,
-    std::remove_cv_t<decltype(fixture::commands)>, std::remove_cv_t<decltype(df::services)>, Profile> bad{df::model};
+                         std::remove_cv_t<decltype(fixture::commands)>,
+                         std::remove_cv_t<decltype(df::services)>, Profile>
+    bad{df::model};
 #endif

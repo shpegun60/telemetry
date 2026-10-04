@@ -1,6 +1,6 @@
 /*
  * @file TypesProbe.cpp
- * @brief Stage 03 fixed wire type classification and size checks.
+ * @brief Supported fixed wire-type classification, depth, expanded nodes and size checks.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -13,12 +13,33 @@
 #include <type_traits>
 
 struct Empty {};
-struct Reading { float value; std::uint16_t status; };
-struct Samples { std::array<Reading, 3> samples; bool enabled; };
-struct Defaulted { std::uint8_t value = 42; };
-struct Repeated { Reading first; Reading second; };
-enum class Mode : std::uint8_t { Off, On };
-enum class DefaultMode { Off, On };
+
+struct Reading {
+	float value;
+	std::uint16_t status;
+};
+
+struct Samples {
+	std::array<Reading, 3> samples;
+	bool enabled;
+};
+
+struct Defaulted {
+	std::uint8_t value = 42;
+};
+
+struct Repeated {
+	Reading first;
+	Reading second;
+};
+enum class Mode : std::uint8_t {
+	Off,
+	On
+};
+enum class DefaultMode {
+	Off,
+	On
+};
 
 using telemetry::ScalarCode;
 using telemetry::TypeKind;
@@ -44,8 +65,7 @@ static_assert(telemetry::wireSize<Defaulted> == 1);
 static_assert(telemetry::wireSize<Repeated> == 12);
 static_assert(telemetry::wireSize<std::array<Empty, 0>> == 0);
 static_assert(telemetry::wireSize<std::array<Empty, 3>> == 0);
-static_assert(telemetry::wireSize<
-                  std::array<std::array<std::uint64_t, 65536>, 2>> == 1048576);
+static_assert(telemetry::wireSize<std::array<std::array<std::uint64_t, 65536>, 2>> == 1048576);
 static_assert(telemetry::expandedNodes<Samples> == 12);
 static_assert(telemetry::Type<Samples>::depth == 3);
 static_assert(sizeof(Reading) > telemetry::wireSize<Reading>);
@@ -68,7 +88,9 @@ static_assert(telemetry::Type<double>::code == ScalarCode::F64);
 static_assert(std::numeric_limits<std::int8_t>::lowest() == -128);
 static_assert(std::numeric_limits<std::int16_t>::lowest() == -32768);
 static_assert(std::numeric_limits<std::int32_t>::lowest() == -2147483647 - 1);
-static_assert(std::numeric_limits<std::int64_t>::lowest() ==
-              -9223372036854775807LL - 1);
+static_assert(std::numeric_limits<std::int64_t>::lowest() == -9223372036854775807LL - 1);
 
-int main() { return telemetry::wireSize<Samples> == 19 ? 0 : 1; }
+int main()
+{
+	return telemetry::wireSize<Samples> == 19 ? 0 : 1;
+}

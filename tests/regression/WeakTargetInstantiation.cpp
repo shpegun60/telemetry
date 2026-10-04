@@ -1,6 +1,9 @@
 // Every public weak NTTP form must instantiate. WeakTargetCheck.cpp exercises
 // absence after ELF linking; this file also compiles on non-ELF hosts.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
+// Instantiates weak known-target adapters for functions and const/non-const owner methods.
+// Only linked strong controls run; missing weak targets remain compile and link coverage.
+
 #include <telemetry/Telemetry.hpp>
 
 #ifndef TELEMETRY_WEAK_TARGET_FAIL_CASE
@@ -14,9 +17,22 @@ extern "C" WriteResult missingWrite(float) noexcept __attribute__((weak));
 extern "C" CommandResult missingCommand() noexcept __attribute__((weak));
 
 float value = 1.f;
-float strongRead() noexcept { return value; }
-WriteResult strongWrite(float next) noexcept { value = next; return WriteResult::Applied; }
-CommandResult strongRun() noexcept { return CommandResult::Executed; }
+
+float strongRead() noexcept
+{
+	return value;
+}
+
+WriteResult strongWrite(float next) noexcept
+{
+	value = next;
+	return WriteResult::Applied;
+}
+
+CommandResult strongRun() noexcept
+{
+	return CommandResult::Executed;
+}
 
 #if TELEMETRY_WEAK_TARGET_FAIL_CASE == 1
 [[maybe_unused]] constexpr FieldTable probe{field<&missingRead>("value")};
@@ -33,8 +49,8 @@ CommandResult strongRun() noexcept { return CommandResult::Executed; }
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE == 11
 void probe()
 {
-    DelegateRefSlot<float() noexcept> slot;
-    slot.bind<&missingRead>();
+	DelegateRefSlot<float() noexcept> slot;
+	slot.bind<&missingRead>();
 }
 #elif TELEMETRY_WEAK_TARGET_FAIL_CASE != 0
 #error "Unknown TELEMETRY_WEAK_TARGET_FAIL_CASE"
@@ -42,10 +58,10 @@ void probe()
 
 int main()
 {
-    constexpr FieldTable fields{field<&strongRead, &strongWrite>("value")};
-    constexpr CommandTable commands{command<&strongRun>("run")};
-    return fields.read<0>() == 1.f
-        && fields.write<0>(2.f) == WriteResult::Applied
-        && fields.read<0>() == 2.f
-        && commands.call<0>() == CommandResult::Executed ? 0 : 1;
+	constexpr FieldTable fields{field<&strongRead, &strongWrite>("value")};
+	constexpr CommandTable commands{command<&strongRun>("run")};
+	return fields.read<0>() == 1.f && fields.write<0>(2.f) == WriteResult::Applied &&
+	               fields.read<0>() == 2.f && commands.call<0>() == CommandResult::Executed
+	           ? 0
+	           : 1;
 }

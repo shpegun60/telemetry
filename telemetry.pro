@@ -1,3 +1,5 @@
+# Build the optional Qt playground; telemetry/resource core remain Qt-free.
+# Explicit resource_telemetry enables only the v3 provider adapter.
 QT += widgets
 TARGET = telemetry_playground
 CONFIG += c++20 warn_on resource_telemetry

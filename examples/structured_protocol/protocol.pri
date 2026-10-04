@@ -1,4 +1,6 @@
-# Explicit example protocol selection. MIT; repository LICENSE applies.
+# Compile the transport-owned Bind/Exchange example only when selected.
+# Keep peer/session routing outside both library manifests.
+# MIT; repository LICENSE applies.
 # Include lib/telemetry/telemetry.pri independently first.
 # Neither telemetry.pri nor resource.pri includes this example.
 isEmpty(STRUCTURED_PROTOCOL_EXAMPLE_PRI_INCLUDED) {

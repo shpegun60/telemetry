@@ -5,8 +5,18 @@
  * SPDX-License-Identifier: MIT
  */
 
+/*
+ * The complete native and encoded telemetry API in one include.
+ *
+ * Applications can include narrower family headers when they need a smaller
+ * dependency surface. Endpoint declarations and their structural metadata are
+ * shared by native calls and encoded dispatch; transport state stays outside
+ * this library.
+ */
+
 #ifndef TELEMETRY_TELEMETRY_HPP
 #define TELEMETRY_TELEMETRY_HPP
+#pragma once
 
 #include "codec/Codec.hpp"
 #include "model/Adapter.hpp"

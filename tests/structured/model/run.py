@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 07 Service tables, encoded Model path, ABI and ARM codegen checks.
+"""Service tables, encoded Model dispatch, ABI and offline ARM code-generation checks.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 """

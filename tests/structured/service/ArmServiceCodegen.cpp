@@ -13,43 +13,50 @@
 
 namespace service_arm {
 
-struct Request { std::uint8_t channel; };
-struct BigResponse { std::array<std::uint8_t, 4096> bytes; };
-struct SmallResponse { std::uint32_t value; };
+struct Request {
+	std::uint8_t channel;
+};
 
+struct BigResponse {
+	std::array<std::uint8_t, 4096> bytes;
+};
+
+struct SmallResponse {
+	std::uint32_t value;
+};
+
+// Small-response owner exposes a const method for direct and OwnerSlot ARM probes.
+// API: read().
 struct Device {
-    std::uint32_t base;
+	std::uint32_t base;
 
-    SmallResponse read(const Request& request) const noexcept
-    {
-        return {base + request.channel};
-    }
+	SmallResponse read(const Request& request) const noexcept
+	{
+		return {base + request.channel};
+	}
 };
 
 Device device{100};
 
 BigResponse raw(const Request& request) noexcept
 {
-    BigResponse response{};
-    response.bytes[0] = request.channel;
-    return response;
+	BigResponse response{};
+	response.bytes[0] = request.channel;
+	return response;
 }
 
-telemetry::ServiceResult<BigResponse>
-wrapped(const Request& request) noexcept
+telemetry::ServiceResult<BigResponse> wrapped(const Request& request) noexcept
 {
-    return telemetry::ServiceResult<BigResponse>::successFrom(
-        [&request]() -> BigResponse {
-            BigResponse response{};
-            response.bytes[0] = request.channel;
-            return response;
-        });
+	return telemetry::ServiceResult<BigResponse>::successFrom([&request]() -> BigResponse {
+		BigResponse response{};
+		response.bytes[0] = request.channel;
+		return response;
+	});
 }
 
 inline constexpr auto rawService = telemetry::service<&raw>("Raw");
 inline constexpr auto wrappedService = telemetry::service<&wrapped>("Wrapped");
-inline constexpr auto directOwnerService =
-    telemetry::service<&Device::read>("DirectOwner", device);
+inline constexpr auto directOwnerService = telemetry::service<&Device::read>("DirectOwner", device);
 
 } // namespace service_arm
 
@@ -68,23 +75,20 @@ const std::uint32_t service_layout[] = {
     alignof(decltype(service_arm::directOwnerService)),
 };
 
-extern "C" __attribute__((noinline))
-telemetry::ServiceResult<service_arm::BigResponse>
+extern "C" __attribute__((noinline)) telemetry::ServiceResult<service_arm::BigResponse>
 call_big_raw(const service_arm::Request& request) noexcept
 {
-    return service_arm::rawService.call(request);
+	return service_arm::rawService.call(request);
 }
 
-extern "C" __attribute__((noinline))
-telemetry::ServiceResult<service_arm::BigResponse>
+extern "C" __attribute__((noinline)) telemetry::ServiceResult<service_arm::BigResponse>
 call_big_wrapped(const service_arm::Request& request) noexcept
 {
-    return service_arm::wrappedService.call(request);
+	return service_arm::wrappedService.call(request);
 }
 
-extern "C" __attribute__((noinline))
-telemetry::ServiceResult<service_arm::SmallResponse>
+extern "C" __attribute__((noinline)) telemetry::ServiceResult<service_arm::SmallResponse>
 call_direct_owner(const service_arm::Request& request) noexcept
 {
-    return service_arm::directOwnerService.call(request);
+	return service_arm::directOwnerService.call(request);
 }

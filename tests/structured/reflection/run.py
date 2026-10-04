@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 01 C++20 PFR/magic_enum checks. Authors: Ruslan Kovtun, codexAi. MIT."""
+"""C++20 PFR/magic_enum reflection-backend checks. Authors: Ruslan Kovtun, codexAi. MIT."""
 
 import argparse
 import os

@@ -24,6 +24,14 @@ The helper recompiles only `Benchmark.cpp` with an explicit
 The mapping is retained in the new build's `images.json` and the equivalence
 record. Binary files are never patched or normalized for comparison.
 
+The 2026-10-04 documentation/style refresh also preserves three existing
+assertion line constants in the shared Exchange fixture with explicit `#line`
+anchors (107, 120, 134). Otherwise adding comments changes the diagnostic
+constants embedded in firmware. The assertion expressions and refusal paths
+remain identical. All twelve refreshed images were rebuilt from captured
+current inputs and compared with the retained binaries; no original hardware
+receipt or binary was edited.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -127,8 +135,11 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current publication capture is `resource-current-h7s-paranoid-418-final` in the
-same external archive. Reproduction uses the archive's scaffold paths, a fresh
+The current style-refresh capture is
+`C:/Users/admin/Documents/telemetry-validation/20261004-style-docs/h7s-equivalence`.
+The earlier publication capture is retained as
+`resource-current-h7s-paranoid-418-final` in the same external archive.
+Reproduction uses the archive's scaffold paths, a fresh
 external output directory and the explicit original-build-to-archive path map.
 The Exchange compiler macro mapping still uses the measured literal source path, regardless
 of where its artifact files are now stored. These local artifact directories are

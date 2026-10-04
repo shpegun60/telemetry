@@ -41,7 +41,8 @@ static_assert(boost::pfr::get_name<1, Nested>() == "samples");
 static_assert(boost::pfr::tuple_size_v<Nested> == 2);
 
 static_assert(std::is_same_v<decltype(boost::pfr::get<0>(std::declval<MeterConfig&>())), float&>);
-static_assert(std::is_same_v<decltype(boost::pfr::get<0>(std::declval<const MeterConfig&>())), const float&>);
+static_assert(
+    std::is_same_v<decltype(boost::pfr::get<0>(std::declval<const MeterConfig&>())), const float&>);
 static_assert(std::is_same_v<decltype(boost::pfr::get<1>(std::declval<Nested&>())),
                              std::array<std::uint16_t, 3>&>);
 
@@ -71,14 +72,14 @@ extern "C" int structured_probe_other() noexcept;
 
 int main()
 {
-    constexpr auto aliasName = magic_enum::enum_name(Aliases::Ready);
-    std::printf("PFR=%.*s,%.*s; sparse=%.*s; alias=%.*s\n",
-                static_cast<int>(boost::pfr::get_name<0, MeterConfig>().size()),
-                boost::pfr::get_name<0, MeterConfig>().data(),
-                static_cast<int>(boost::pfr::get_name<1, MeterConfig>().size()),
-                boost::pfr::get_name<1, MeterConfig>().data(),
-                static_cast<int>(magic_enum::enum_name<SparseMode::Far>().size()),
-                magic_enum::enum_name<SparseMode::Far>().data(),
-                static_cast<int>(aliasName.size()), aliasName.data());
-    return structured_probe_other() == 2 ? 0 : 1;
+	constexpr auto aliasName = magic_enum::enum_name(Aliases::Ready);
+	std::printf("PFR=%.*s,%.*s; sparse=%.*s; alias=%.*s\n",
+	            static_cast<int>(boost::pfr::get_name<0, MeterConfig>().size()),
+	            boost::pfr::get_name<0, MeterConfig>().data(),
+	            static_cast<int>(boost::pfr::get_name<1, MeterConfig>().size()),
+	            boost::pfr::get_name<1, MeterConfig>().data(),
+	            static_cast<int>(magic_enum::enum_name<SparseMode::Far>().size()),
+	            magic_enum::enum_name<SparseMode::Far>().data(), static_cast<int>(aliasName.size()),
+	            aliasName.data());
+	return structured_probe_other() == 2 ? 0 : 1;
 }

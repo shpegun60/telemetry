@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Minimal Qt Designer shell for MainWindow. The C++ constructor creates the
+    telemetry tables, controls and timer after setupUi supplies centralwidget.
+    Keep widget names stable because the generated UI wrapper is compiled into
+    the playground. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
+-->
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">

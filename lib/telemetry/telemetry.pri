@@ -1,4 +1,11 @@
 # One C++20 telemetry module. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
+# Integrates one C++20 telemetry library into a qmake project.
+#
+# Include dependencies before selecting the required language mode, and add
+# compiled ABI/Model adapters only once even when multiple project fragments
+# include this file. Native-only manual builds may use family headers directly.
+# The public include root stays lib; dependency headers keep their own roots.
+#
 isEmpty(TELEMETRY_STRUCTURED_PRI_INCLUDED) {
     TELEMETRY_STRUCTURED_PRI_INCLUDED = 1
     include($$PWD/../delegate/delegate.pri)

@@ -4,8 +4,19 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
+
+/*
+ * Compiler attributes for small adapters and explicit measurement boundaries.
+ *
+ * Keeping a binding or conversion adapter at its call site lets the compiler
+ * see known targets, identifiers and types in size-optimized builds. The
+ * fallback uses ordinary inline functions; correctness never relies on an
+ * optimizer honoring an attribute.
+ */
+
 #ifndef TELEMETRY_COMPILER_H
 #define TELEMETRY_COMPILER_H
+#pragma once
 
 // Keep small adapters at the call site so known IDs, types and bindings fold
 // even in size-optimized builds. Unsupported compilers use ordinary inline.

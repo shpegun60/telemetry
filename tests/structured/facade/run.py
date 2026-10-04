@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 02 facade checks. Authors: Ruslan Kovtun, codexAi. MIT."""
+"""Normalized aggregate, enum and callable reflection facade checks. Authors: Ruslan Kovtun, codexAi. MIT."""
 
 import argparse
 import os

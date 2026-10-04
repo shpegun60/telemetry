@@ -12,16 +12,18 @@
 namespace refl = telemetry::reflection;
 using Kind = refl::EndpointKind;
 
-struct Request { int value; };
+struct Request {
+	int value;
+};
 
 struct Methods {
-    int observed() volatile noexcept;
-    int temporary() && noexcept;
+	int observed() volatile noexcept;
+	int temporary() && noexcept;
 };
 
 struct Overloaded {
-    int operator()(int) const noexcept;
-    int operator()(float) const noexcept;
+	int operator()(int) const noexcept;
+	int operator()(float) const noexcept;
 };
 
 #if CASE == 1
@@ -45,13 +47,15 @@ using Invalid = refl::EndpointTraits<Kind::Service, int(int, int) noexcept>;
 #elif CASE == 10
 using Invalid = refl::Function<Overloaded>;
 #elif CASE == 11
-using Invalid = refl::Function<decltype([](auto) noexcept { return 1; })>;
+using Invalid = refl::Function<decltype([](auto) noexcept {
+	return 1;
+})>;
 #elif CASE == 12
 static_assert(refl::memberName<0, telemetry_structured_probe::NonAsciiName>().empty());
 #elif CASE == 13
 int readTemporary()
 {
-    return static_cast<int>(refl::get<0>(Request{1}));
+	return static_cast<int>(refl::get<0>(Request{1}));
 }
 #elif CASE == 14
 using Invalid = refl::EndpointTraits<Kind::Service, int(const volatile Request&) noexcept>;

@@ -6,7 +6,11 @@
  */
 #include <telemetry/model/Model.hpp>
 namespace ts = telemetry;
-struct Request { std::uint32_t number; };
+
+struct Request {
+	std::uint32_t number;
+};
+
 std::uint32_t missingGet() noexcept __attribute__((weak));
 telemetry::WriteResult missingSet(std::uint32_t) noexcept __attribute__((weak));
 telemetry::CommandResult missingCall(const Request&) noexcept __attribute__((weak));
@@ -14,15 +18,22 @@ inline constexpr ts::FieldTable fields{ts::field<&missingGet, &missingSet>("miss
 inline constexpr ts::CommandTable commands{ts::command<&missingCall>("missing")};
 inline constexpr ts::FieldCatalogTable fieldCatalogs{ts::group("test", fields)};
 inline constexpr ts::CommandCatalogTable commandCatalogs{ts::group("test", commands)};
+
 int main()
 {
-    if (fields.read<0>() || fields.write<0>(std::uint32_t{1}) != telemetry::WriteResult::Unavailable ||
-        commands.call<0>(Request{}) != telemetry::CommandResult::Unavailable) return 1;
-    std::array<std::byte, 64> scratch{};
-    std::array<std::byte, 4> bytes{};
-    ts::Workspace workspace{scratch};
-    if (fieldCatalogs.index().readEncoded(0, bytes, workspace).dispatch != ts::DispatchStatus::Unavailable ||
-        fieldCatalogs.index().writeEncoded(0, bytes, workspace).dispatch != ts::DispatchStatus::Unavailable ||
-        commandCatalogs.index().executeEncoded(0, bytes, workspace).dispatch != ts::DispatchStatus::Unavailable) return 2;
-    return 0;
+	if (fields.read<0>() ||
+	    fields.write<0>(std::uint32_t{1}) != telemetry::WriteResult::Unavailable ||
+	    commands.call<0>(Request{}) != telemetry::CommandResult::Unavailable)
+		return 1;
+	std::array<std::byte, 64> scratch{};
+	std::array<std::byte, 4> bytes{};
+	ts::Workspace workspace{scratch};
+	if (fieldCatalogs.index().readEncoded(0, bytes, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable ||
+	    fieldCatalogs.index().writeEncoded(0, bytes, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable ||
+	    commandCatalogs.index().executeEncoded(0, bytes, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable)
+		return 2;
+	return 0;
 }

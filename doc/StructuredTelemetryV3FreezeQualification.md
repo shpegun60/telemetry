@@ -1,9 +1,16 @@
 # Structured v1 / wire v3.0: Stage 15 freeze
 
+[Documentation index](README.md) · [User guide](user/README.md) · [Architecture](Architecture.md) · [Wire v3.0](WireV3.md)
+
 Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
 
-Цей документ фіксує програмну частину Stage 15 за
-[implementation plan](StructuredTelemetryV3ImplementationPlan.md).
+Це історичний Stage 15/20 checkpoint. Recorded source identities, ABI revision
+і статуси нижче стосуються цього зрізу. Чинні контракти описують
+[архітектура](Architecture.md), [Wire v3.0](WireV3.md) та
+[freeze manifest](../tests/structured/freeze/contract.json); наступний
+[borrowed-result slice](BorrowedNativeValues.md) має окремі результати.
+
+Цей документ фіксує програмну частину Stage 15 та подальший Stage 20 baseline.
 Контракт C++20 structured v1 та wire v3.0 заморожено.
 Stage 14 probes виконано на потрібній H7S без зміни runtime бібліотеки.
 Повний Definition of Done Stage 15 закрито: [CI 37145176280](https://github.com/shpegun60/telemetry/actions/runs/37145176280)
@@ -12,9 +19,9 @@ Stage 14 probes виконано на потрібній H7S без зміни r
 виявив; це не обіцянка відсутності всіх можливих дефектів.
 Це історичний Stage 15 gate. Stage 16–19 реалізовано, а Stage 20
 local/software/hardware qualification кінцевого дерева завершено.
-Чотири current H7S receipts зафіксували code HEAD
-`01fd180ff3678d7c47066f8a728dc1e02f0f3973`; publication exact-SHA CI
-ще очікується. Поточні результати й межі публікації наведено у
+Чотири Stage 20 H7S receipts зафіксували code HEAD
+`01fd180ff3678d7c47066f8a728dc1e02f0f3973`. Завершений publication
+exact-SHA gate цього baseline та його межі наведено у
 [final qualification](StructuredTelemetryV3FinalQualification.md).
 
 | Частина | Статус | Доказ |
@@ -23,7 +30,14 @@ local/software/hardware qualification кінцевого дерева завер
 | Повна програмна матриця CI | PASS, exact `389c995`, 9/9 jobs | CI 37145176280, host/ARM artifacts |
 | Історична Stage 14 hardware qualification | PASS для captured `37bc857` | [Archived results](evidence/pre-unification/stage14/RESULTS.md), 30128 conditions, restore, cycles та PSP observations |
 | Повний Stage 15 DoD | PASS | MCU receipt із §18.1 та exact-SHA CI |
-| Міграція 16–20 | Stage 16–19 виконано; Stage 20 local qualification завершено, publication CI pending | [Final qualification](StructuredTelemetryV3FinalQualification.md); baseline та current receipts розділено |
+| Міграція 16–20 | Stage 16–20 закрито в наступному baseline checkpoint | [Final qualification](StructuredTelemetryV3FinalQualification.md); source identities розділено |
+
+## Навігація
+
+- [Межі зафіксованого API](#межі-зафіксованого-api)
+- [Wire і залежності](#wire-і-залежності)
+- [Програмні докази та їхні межі](#програмні-докази-та-їхні-межі)
+- [Lifetime, concurrency і storage](#lifetime-concurrency-і-storage)
 
 ## Межі зафіксованого API
 
@@ -146,17 +160,17 @@ untouched reserved slots, caller MSP та interrupts і не є універса
 worst-case межею. Однакові native instruction streams у різних адресах
 образу дали різні цикли; instruction equivalence не означає cycle equivalence.
 
-Current final-source receipts окремі від цих baseline measurements:
-[MCU](../tests/structured/mcu/h7s/receipt.json),
-[Descriptor](../tests/structured/descriptor/h7s/receipt.json),
-[Values/resources](../tests/structured/resources/h7s/receipt.json) і
-[Bind/Exchange](../tests/structured/exchange/h7s/receipt.json).
+Stage 20 final-source receipts окремі від попередніх baseline measurements:
+[MCU](evidence/pre-borrowed/h7s/mcu/receipt.json),
+[Descriptor](evidence/pre-borrowed/h7s/descriptor/receipt.json),
+[Values/resources](evidence/pre-borrowed/h7s/resources/receipt.json) і
+[Bind/Exchange](evidence/pre-borrowed/h7s/exchange/receipt.json).
 Усі чотири завершені з повним restore/readback 65536 B. Їхні captured LF
 inputs — відповідно 140/133/133/140 — збігаються з Git blobs code HEAD
 `01fd180`; captured code після вимірювань не змінювався.
 Глобальний `source_dirty=true` збережено через unrelated untracked review
 tree; це не clean-tree claim. Fresh MCU run виконав 29098 conditions,
-784 DWT windows і 696 stack observations. Current cycles і observed
+784 DWT windows і 696 stack observations. Stage 20 cycles і observed
 full-chain stack наведено в [H7S results](../tests/structured/mcu/h7s/RESULTS.md);
 історичні 30128 conditions і prior H7S cycles не перепозначено як нові.
 
@@ -184,6 +198,7 @@ full-chain stack наведено в [H7S results](../tests/structured/mcu/h7s/R
   у всіх TU одного executable залишається вимогою application build.
 
 Stage 15 завершено з історичним exact `389c995` CI 9/9 і його MCU receipt.
-Міграція 16–19 реалізована зі збереженням frozen contract; Stage 20
-local/software/hardware qualification завершено. Publication exact-SHA CI
-кінцевого evidence-коміту ще очікується; попередній зелений CI його не замінює.
+Міграція 16–19 реалізована зі збереженням frozen contract; підсумковий
+Stage 20 publication gate зафіксовано у
+[final qualification](StructuredTelemetryV3FinalQualification.md).
+Для нового commit потрібний його власний exact-SHA CI.

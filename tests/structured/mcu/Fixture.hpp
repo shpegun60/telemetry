@@ -3,6 +3,9 @@
  * @brief Shared host/MCU probes; no device access in this header.
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
+
+#ifndef TELEMETRY_TESTS_STRUCTURED_MCU_FIXTURE_HPP
+#define TELEMETRY_TESTS_STRUCTURED_MCU_FIXTURE_HPP
 #pragma once
 
 #include "../qualification/Fixture.hpp"
@@ -21,10 +24,10 @@ using Probe = std::uint32_t (*)(std::uint32_t) noexcept;
 // probes run only the same-ID profile; runtime selectors also run sequential
 // and shuffled IDs. Counts include the common loop and checksum accumulation.
 struct Operation {
-    const char* name;
-    Probe invoke;
-    unsigned profiles;
-    unsigned iterations;
+	const char* name;
+	Probe invoke;
+	unsigned profiles;
+	unsigned iterations;
 };
 
 std::span<const Operation> operations() noexcept;
@@ -36,27 +39,31 @@ void checkProbes() noexcept;
 // later MCU runner without depending on a library random-number generator.
 inline void sequence(unsigned profile, std::span<std::uint32_t, sequenceSize> ids) noexcept
 {
-    for (unsigned i = 0; i < ids.size(); ++i) ids[i] = profile == 0 ? 0 : i;
-    if (profile == 2) {
-        std::uint32_t state = 0x51d724bu;
-        for (unsigned i = sequenceSize - 1; i != 0; --i) {
-            state ^= state << 13;
-            state ^= state >> 17;
-            state ^= state << 5;
-            const unsigned other = state % (i + 1);
-            const auto value = ids[i];
-            ids[i] = ids[other];
-            ids[other] = value;
-        }
-    }
+	for (unsigned i = 0; i < ids.size(); ++i)
+		ids[i] = profile == 0 ? 0 : i;
+	if (profile == 2) {
+		std::uint32_t state = 0x51d724bu;
+		for (unsigned i = sequenceSize - 1; i != 0; --i) {
+			state ^= state << 13;
+			state ^= state >> 17;
+			state ^= state << 5;
+			const unsigned other = state % (i + 1);
+			const auto value = ids[i];
+			ids[i] = ids[other];
+			ids[other] = value;
+		}
+	}
 }
 
 inline void checkWindow(unsigned operation, unsigned profile) noexcept
 {
-    // Input IDs are explicit test storage, outside the endpoint call chain.
-    static std::array<std::uint32_t, sequenceSize> ids;
-    sequence(profile, ids);
-    const auto probe = operations()[operation].invoke;
-    for (auto id : ids) qualification::check(probe(id) == expected(operation, id));
+	// Input IDs are explicit test storage, outside the endpoint call chain.
+	static std::array<std::uint32_t, sequenceSize> ids;
+	sequence(profile, ids);
+	const auto probe = operations()[operation].invoke;
+	for (auto id : ids)
+		qualification::check(probe(id) == expected(operation, id));
 }
 } // namespace mcu
+
+#endif // TELEMETRY_TESTS_STRUCTURED_MCU_FIXTURE_HPP

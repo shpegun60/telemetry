@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 15 software contract: API, immutable wire fixtures and dependency pins.
+"""Current software contract: API, immutable wire fixtures and dependency pins.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 ARM images are inspected offline. This runner never opens a device.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 09 descriptor correctness, parser budgets and ARM representation checks.
+"""Descriptor correctness, independent parser budgets and offline ARM representation checks.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 """

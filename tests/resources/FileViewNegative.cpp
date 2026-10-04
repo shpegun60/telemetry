@@ -1,17 +1,28 @@
 // Escaping facades and iterators must not borrow a temporary descriptor table.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
+// Checks that file views and iterators cannot be retained from temporary filesystem facades.
+// Additional cases preserve private construction and explicit presence-testing contracts.
+
 #include <resource/Resource.hpp>
 #include <ranges>
 #include <utility>
 
-struct Provider
-{
-    resource::FileSize size() const noexcept { return 0; }
-    resource::ReadResult read(resource::Cursor cursor, resource::Output) const noexcept
-    {
-        return {resource::Status::Ok, cursor, 0, true};
-    }
+// Stable empty provider isolates facade and iterator lifetime refusal from provider validity.
+// Public methods:
+// - size(): Report empty extent.
+// - read(): Report empty stream.
+struct Provider {
+	resource::FileSize size() const noexcept
+	{
+		return 0;
+	}
+
+	resource::ReadResult read(resource::Cursor cursor, resource::Output) const noexcept
+	{
+		return {resource::Status::Ok, cursor, 0, true};
+	}
 } provider;
+
 const auto files = resource::filesystem(resource::file("/test", provider));
 
 #if CASE == 1

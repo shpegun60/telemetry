@@ -1,5 +1,8 @@
 // Reject calls that copy a mutable reference or convert native slot types.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. License: MIT.
+// Checks refusal of callable overload sets that could copy mutable input or select a throwing form.
+// Each case isolates one incompatible selection rather than relying on a later invocation error.
+
 #include <telemetry/Telemetry.hpp>
 using namespace telemetry;
 
@@ -8,61 +11,190 @@ using namespace telemetry;
 #endif
 
 #if TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 1
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind([](auto x) noexcept { (void)x; }); }
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind([](auto x) noexcept {
+		(void)x;
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 2
-void bad() { DelegateRefSlot<void(int&) noexcept> slot; auto f = [](auto x) noexcept { (void)x; }; slot.bind(f); }
+void bad()
+{
+	DelegateRefSlot<void(int&) noexcept> slot;
+	auto f = [](auto x) noexcept {
+		(void)x;
+	};
+	slot.bind(f);
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 3
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind([](auto... xs) noexcept { ((void)xs, ...); }); }
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind([](auto... xs) noexcept {
+		((void)xs, ...);
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 4
-void bad() { DelegateSlot<void(int&, int&) noexcept> slot; slot.bind([](auto x, auto& y) noexcept { y = x; }); }
+void bad()
+{
+	DelegateSlot<void(int&, int&) noexcept> slot;
+	slot.bind([](auto x, auto& y) noexcept {
+		y = x;
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 5
-void bad() { DelegateSlot<void(int&, int&) noexcept> slot; slot.bind([](auto& x, auto y) noexcept { x = y; }); }
+void bad()
+{
+	DelegateSlot<void(int&, int&) noexcept> slot;
+	slot.bind([](auto& x, auto y) noexcept {
+		x = y;
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 6
-void bad() { DelegateSlot<void(int&&) noexcept> slot; slot.bind([](auto x) noexcept { (void)x; }); }
+void bad()
+{
+	DelegateSlot<void(int&&) noexcept> slot;
+	slot.bind([](auto x) noexcept {
+		(void)x;
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 7
+// Competing value overload must not replace a generic mutable-reference callback.
+// Public methods:
+// - operator(): Offer competing forms.
 struct Target {
-    template <class T> void operator()(T&) const noexcept {}
-    void operator()(int) const noexcept {}
+	template<class T>
+	void operator()(T&) const noexcept
+	{}
+
+	void operator()(int) const noexcept
+	{}
 };
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 8
+// A noexcept value alternative cannot conceal a throwing mutable-reference callback.
+// Public methods:
+// - operator(): Expose noexcept mismatch.
 struct Target {
-    template <class T> void operator()(T&) {}
-    void operator()(int) noexcept {}
+	template<class T>
+	void operator()(T&)
+	{}
+
+	void operator()(int) noexcept
+	{}
 };
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 9
+// Ambiguous const value/reference forms cannot provide an exact callback.
+// Public methods:
+// - operator(): Offer ambiguous forms.
 struct Target {
-    void operator()(int&) const noexcept {}
-    void operator()(int) const noexcept {}
+	void operator()(int&) const noexcept
+	{}
+
+	void operator()(int) const noexcept
+	{}
 };
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 10
+// Mutable value form must not outrank the const reference callback.
+// Public methods:
+// - operator(): Offer competing forms.
 struct Target {
-    void operator()(int&) const noexcept {}
-    void operator()(int) noexcept {}
+	void operator()(int&) const noexcept
+	{}
+
+	void operator()(int) noexcept
+	{}
 };
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 11
-void bad() { DelegateSlot<int(int) noexcept> slot; slot.bind([](auto x) noexcept { return double(x); }); }
+void bad()
+{
+	DelegateSlot<int(int) noexcept> slot;
+	slot.bind([](auto x) noexcept {
+		return double(x);
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 12
-void bad() { DelegateSlot<void(int) noexcept> slot; slot.bind([](double x) noexcept { (void)x; }); }
+void bad()
+{
+	DelegateSlot<void(int) noexcept> slot;
+	slot.bind([](double x) noexcept {
+		(void)x;
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 13
-void bad() { DelegateSlot<void(int&, float) noexcept> slot; slot.bind([](auto& a, auto& b) noexcept { a = int(b); }); }
+void bad()
+{
+	DelegateSlot<void(int&, float) noexcept> slot;
+	slot.bind([](auto& a, auto& b) noexcept {
+		a = int(b);
+	});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 14
+// A constrained generic value callback would copy its mutable input.
+// Public methods:
+// - operator(): Expose copied input.
 struct Target {
-    template <class T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
-    void operator()(T) const noexcept {}
+	template<class T, std::enable_if_t<std::is_integral_v<T>, int> = 0>
+	void operator()(T) const noexcept
+	{}
 };
-void bad() { DelegateSlot<void(int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 15
+// A generic callback copies two inputs even though its result parameter is a reference.
+// Public methods:
+// - operator(): Expose copied inputs.
 struct Target {
-    template <class T> void operator()(T x, T y, int& result) const noexcept { result = x + y; }
+	template<class T>
+	void operator()(T x, T y, int& result) const noexcept
+	{
+		result = x + y;
+	}
 };
-void bad() { DelegateSlot<void(int&, int&, int&) noexcept> slot; slot.bind(Target{}); }
+
+void bad()
+{
+	DelegateSlot<void(int&, int&, int&) noexcept> slot;
+	slot.bind(Target{});
+}
 #elif TELEMETRY_SLOT_CALLABLE_FAIL_CASE == 0
-void good() { DelegateSlot<void(int&) noexcept> slot; slot.bind([](auto&& x) noexcept { ++x; }); }
+void good()
+{
+	DelegateSlot<void(int&) noexcept> slot;
+	slot.bind([](auto&& x) noexcept {
+		++x;
+	});
+}
 #else
 #error Select TELEMETRY_SLOT_CALLABLE_FAIL_CASE from 0 through 15
 #endif
-int main() {}
+int main()
+{}

@@ -14,5 +14,5 @@ using Big = std::array<std::uint32_t, 1024>;
 
 auto invalidResult()
 {
-    return telemetry::ServiceResult<Big>::success(Big{});
+	return telemetry::ServiceResult<Big>::success(Big{});
 }

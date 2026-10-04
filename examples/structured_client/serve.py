@@ -5,6 +5,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 This desktop HTTP example owns routing/status/timeout policy. It is not part
 of telemetry or its JS payload codec. It listens only on localhost.
 """
+
 import argparse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,11 +18,19 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
 
+# Export one stable fake-device descriptor/values pair before accepting requests.
+# Each HTTP operation gets isolated temporary input/output files; the transport
+# owns timeout/status headers and does not retry an operation after execution.
 def create_server(device, data_dir, port=0):
     device, data_dir = Path(device).resolve(), Path(data_dir).resolve()
     data_dir.mkdir(parents=True, exist_ok=True)
     subprocess.run([str(device), str(data_dir)], check=True, timeout=30)
 
+    # Public methods:
+    # - __init__(): Select source directory.
+    # - log_message(): Suppress access logging.
+    # - do_GET(): Serve exported bytes.
+    # - do_POST(): Invoke native service.
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -40,6 +49,7 @@ def create_server(device, data_dir, port=0):
             else:
                 super().do_GET()
 
+        # Admit only a bounded complete payload before invoking the native fake.
         def do_POST(self):
             match = re.fullmatch(r'/service/(0|[1-9][0-9]{0,9})', self.path)
             if not match or int(match[1]) > 0xffffffff:
@@ -88,6 +98,7 @@ def create_server(device, data_dir, port=0):
     return server
 
 
+# Keep generated data under the explicit caller directory, outside source files.
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--device', type=Path, required=True)

@@ -22,16 +22,17 @@ inline constexpr auto descriptorBytes =
     resource::telemetry::v3::packDescriptor<descriptor>();
 ```
 
-The model and names are borrowed. Tables and name storage must outlive the
-descriptor and remain immutable. Owner state and slot targets may change;
+The descriptor copies the Model view and borrows its tables and names.
+Table and name storage must outlive the descriptor and remain immutable;
+the Model object itself need not outlive that copied view. Owner state and slot targets may change;
 neither is inspected by construction, hashing or reading. A descriptor view
 also borrows its owning descriptor; obtaining a view from a temporary is
 rejected. Copying a descriptor does not copy or own the underlying tables.
 
 ## Format and identity
 
-The [implementation plan, section 10](../../../../doc/StructuredTelemetryV3ImplementationPlan.md#descriptor)
-is the wire contract. The file contains a 64-byte `TDS3` header, then Type,
+The [wire v3 contract](../../../../doc/WireV3.md) defines the frozen bytes
+and the [architecture](../../../../doc/Architecture.md) explains the provider boundary. The file contains a 64-byte `TDS3` header, then Type,
 Catalog and Field/Command/Service records. Integers are canonical little-endian;
 strings are a u32 byte length followed by UTF-8 without NUL. Wire bytes contain
 no pointers, C++ padding, unit, limits, defaults, policy flags or type names.

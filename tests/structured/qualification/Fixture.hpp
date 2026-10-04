@@ -3,6 +3,9 @@
  * @brief Multi-TU qualification using the existing mixed/4 KiB fixture.
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
+
+#ifndef TELEMETRY_TESTS_STRUCTURED_QUALIFICATION_FIXTURE_HPP
+#define TELEMETRY_TESTS_STRUCTURED_QUALIFICATION_FIXTURE_HPP
 #pragma once
 
 #include "../traversal/Fixture.hpp"
@@ -23,17 +26,18 @@ inline unsigned checks = 0;
 inline unsigned failures = 0;
 inline void check(bool condition
 #ifndef QUALIFICATION_ARM
-                  , std::source_location where = std::source_location::current()
+                  ,
+                  std::source_location where = std::source_location::current()
 #endif
-                  ) noexcept
+                      ) noexcept
 {
-    ++checks;
-    if (!condition) {
-        ++failures;
+	++checks;
+	if (!condition) {
+		++failures;
 #ifndef QUALIFICATION_ARM
-        std::fprintf(stderr, "%s:%u: check %u failed\n", where.file_name(), where.line(), checks);
+		std::fprintf(stderr, "%s:%u: check %u failed\n", where.file_name(), where.line(), checks);
 #endif
-    }
+	}
 }
 
 // The provider owns immutable metadata; consumers borrow runtime views.
@@ -46,3 +50,5 @@ resource::ReadResult readValues(resource::Cursor, std::span<std::byte>) noexcept
 extern "C" void consumer_typed() noexcept;
 extern "C" void consumer_encoded() noexcept;
 } // namespace qualification
+
+#endif // TELEMETRY_TESTS_STRUCTURED_QUALIFICATION_FIXTURE_HPP

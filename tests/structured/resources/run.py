@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 10 provider correctness, lifetime, independent oracle and ARM gates. MIT."""
+"""V3 provider correctness, lifetime, independent byte oracle and offline ARM gates. MIT."""
 import argparse
 import json
 import os

@@ -13,15 +13,14 @@
 #include <span>
 
 struct Defaulted {
-    std::uint8_t value = 1;
+	std::uint8_t value = 1;
 };
 
 using Many = std::array<Defaulted, 1024>;
 
-void invalidExpansion(std::span<const std::byte> input,
-                      telemetry::Workspace& workspace)
+void invalidExpansion(std::span<const std::byte> input, telemetry::Workspace& workspace)
 {
-    auto lease = workspace.reserve<Many>();
-    Many* output = nullptr;
-    (void)telemetry::decode(input, lease, output);
+	auto lease = workspace.reserve<Many>();
+	Many* output = nullptr;
+	(void)telemetry::decode(input, lease, output);
 }

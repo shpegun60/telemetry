@@ -2,7 +2,12 @@
  * @file DeviceResources.cpp
  * @brief Runtime facade for the demo's v3 descriptor and live values.
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+ *
+ * Build descriptor bytes and a live values provider for the Qt playground.
+ * Static owners and model-sized scratch give the generic facade stable
+ * bindings without a separate initialization phase.
  */
+
 #include "DeviceResources.hpp"
 #include "../demo/DemoCatalog.h"
 #include <resource/Resource.hpp>
@@ -10,8 +15,7 @@
 #include <resource/telemetry/v3/DescriptorFile.hpp>
 #include <resource/telemetry/v3/ValuesFile.hpp>
 
-namespace
-{
+namespace {
 namespace v3 = resource::telemetry::v3;
 
 // Immutable metadata is constructed at compile time. The value provider
@@ -33,42 +37,41 @@ constinit const auto fs =
 static_assert(decltype(fs)::fileCount() == 2);
 } // namespace
 
-namespace device::resources
-{
+namespace device::resources {
 resource::FileSystemView files() noexcept
 {
-    return fs.view();
+	return fs.view();
 }
 
 std::size_t fileCount() noexcept
 {
-    return fs.fileCount();
+	return fs.fileCount();
 }
 
 std::string_view path(resource::FileIndex index) noexcept
 {
-    return fs.path(index);
+	return fs.path(index);
 }
 
 resource::FileStat stat(resource::FileIndex index) noexcept
 {
-    return fs.stat(index);
+	return fs.stat(index);
 }
 
 resource::ReadResult read(resource::FileIndex index, resource::Cursor cursor,
                           resource::Output output) noexcept
 {
-    return fs.read(index, cursor, output);
+	return fs.read(index, cursor, output);
 }
 
 resource::WriteResult write(resource::FileIndex index, resource::Cursor cursor,
                             resource::Input input, bool final) noexcept
 {
-    return fs.write(index, cursor, input, final);
+	return fs.write(index, cursor, input, final);
 }
 
 std::size_t handle(resource::Input request, resource::Output response) noexcept
 {
-    return resource::protocol::process(fs.view(), request, response).written;
+	return resource::protocol::process(fs.view(), request, response).written;
 }
 } // namespace device::resources

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 06 native Service bindings, diagnostics and ARM stack checks.
+"""Native Service bindings, intended diagnostics and offline ARM stack checks.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 """

@@ -1,4 +1,6 @@
-# Desktop consumer; both libraries are selected explicitly.
+# Build the Qt binary-payload consumer of the browser example Model.
+# Both libraries are selected explicitly so the generic resource manifest
+# does not create a reverse telemetry dependency.
 # Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 QT += core
 QT -= gui

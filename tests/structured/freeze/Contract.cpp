@@ -1,4 +1,4 @@
-/* Public type/wire contract for Stage 15 software qualification.
+/* Current public API, wire constants, default ceilings and dependency-pin contract.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #include "../traversal/Fixture.hpp"
 #include <resource/telemetry/v3/BinaryFormat.hpp>
@@ -66,15 +66,19 @@ static_assert(!std::copy_constructible<Fields> && !std::move_constructible<Field
 static_assert(!std::copy_constructible<Commands> && !std::move_constructible<Commands>);
 static_assert(!std::copy_constructible<Services> && !std::move_constructible<Services>);
 static_assert(!std::copy_constructible<ts::Workspace>);
-static_assert(std::same_as<decltype(fixture::localFields.read<Position::Boolean>()), std::optional<bool>>);
-static_assert(std::same_as<decltype(fixture::localFields.read<Position::Float>()), std::optional<double>>);
-static_assert(std::same_as<decltype(fixture::localFields.read<Position::Mode>()), std::optional<fixture::Mode>>);
+static_assert(
+    std::same_as<decltype(fixture::localFields.read<Position::Boolean>()), std::optional<bool>>);
+static_assert(
+    std::same_as<decltype(fixture::localFields.read<Position::Float>()), std::optional<double>>);
+static_assert(std::same_as<decltype(fixture::localFields.read<Position::Mode>()),
+                           std::optional<fixture::Mode>>);
 static_assert(std::same_as<decltype(fixture::localFields.read<Position::Array>()),
                            std::optional<std::array<std::uint16_t, 2>>>);
 static_assert(std::same_as<decltype(fixture::fields.read<telemetry::makeId(2u, 7u)>()),
                            std::optional<Config>>);
 static_assert(std::same_as<decltype(fixture::fields.readAs<double>(7u)), std::optional<double>>);
-static_assert(std::same_as<decltype(fixture::fields.writeAs(7u, Config{})), telemetry::WriteResult>);
+static_assert(
+    std::same_as<decltype(fixture::fields.writeAs(7u, Config{})), telemetry::WriteResult>);
 static_assert(std::same_as<decltype(fixture::localFields.readAs<double, Position::U16>()),
                            std::optional<double>>);
 static_assert(std::same_as<decltype(fixture::fields.readAs<Config, telemetry::makeId(2u, 7u)>()),
@@ -84,9 +88,11 @@ static_assert(std::same_as<decltype(fixture::localFields.writeAs<Position::U16>(
 static_assert(std::same_as<decltype(fixture::fields.writeAs<telemetry::makeId(0u, 7u)>(Config{})),
                            telemetry::WriteResult>);
 static_assert(std::same_as<decltype(fixture::model.view()), ts::ModelView>);
-static_assert(std::same_as<decltype(fixture::commands.call<0>(Config{})), telemetry::CommandResult>);
+static_assert(
+    std::same_as<decltype(fixture::commands.call<0>(Config{})), telemetry::CommandResult>);
 static_assert(std::same_as<decltype(fixture::commands.call<1>()), telemetry::CommandResult>);
-static_assert(std::same_as<decltype(fixture::services.call<0>(Config{})), ts::ServiceResult<Config>>);
+static_assert(
+    std::same_as<decltype(fixture::services.call<0>(Config{})), ts::ServiceResult<Config>>);
 static_assert(std::same_as<decltype(fixture::services.call<1>()), ts::ServiceResult<void>>);
 static_assert(fixture::model.view().fieldTypeId(7u) == fixture::model.view().commandTypeId(0u));
 static_assert(&fixture::fields.get<telemetry::makeId(2u, 7u)>() ==
@@ -99,23 +105,32 @@ static_assert(fixture::noFields.begin() == fixture::noFields.end());
 static_assert(fixture::noCommands.begin() == fixture::noCommands.end());
 static_assert(fixture::noServices.begin() == fixture::noServices.end());
 
-template <class T>
-concept SemanticMetadata = requires(T value) { value.unit; } ||
-                           requires(T value) { value.min; } ||
-                           requires(T value) { value.max; } ||
-                           requires(T value) { value.defaultValue; } ||
-                           requires(T value) { value.limits; } ||
-                           requires(T value) { value.defaults; } ||
-                           requires(T value) { value.step; } ||
-                           requires(T value) { value.constraints; } ||
-                           requires(T value) { value.argumentMetadata; } ||
-                           requires(T value) { value.memberMetadata; };
+template<class T>
+concept SemanticMetadata =
+    requires(T value) { value.unit; } || requires(T value) { value.min; } ||
+    requires(T value) { value.max; } || requires(T value) { value.defaultValue; } ||
+    requires(T value) { value.limits; } || requires(T value) { value.defaults; } ||
+    requires(T value) { value.step; } || requires(T value) { value.constraints; } ||
+    requires(T value) { value.argumentMetadata; } || requires(T value) { value.memberMetadata; };
+
 // Positive controls make the new clauses meaningful even while production
 // descriptors correctly contain none of these members.
-struct StepMetadata { float step; };
-struct ConstraintsMetadata { unsigned constraints; };
-struct LimitsMetadata { unsigned limits; };
-struct DefaultsMetadata { unsigned defaults; };
+struct StepMetadata {
+	float step;
+};
+
+struct ConstraintsMetadata {
+	unsigned constraints;
+};
+
+struct LimitsMetadata {
+	unsigned limits;
+};
+
+struct DefaultsMetadata {
+	unsigned defaults;
+};
+
 static_assert(SemanticMetadata<StepMetadata>);
 static_assert(SemanticMetadata<ConstraintsMetadata>);
 static_assert(SemanticMetadata<LimitsMetadata>);
@@ -126,64 +141,71 @@ static_assert(!SemanticMetadata<ts::CommandEntry>);
 static_assert(!SemanticMetadata<ts::ServiceEntry>);
 
 // Both traversal views borrow the existing rows. None reads live values.
-template <class Table, class Check>
+template<class Table, class Check>
 void checkTraversal(const Table& table, Check& check)
 {
-    std::size_t count = 0;
-    bool ordered = true;
-    table.forEach([&]<std::size_t I>(const auto& definition) {
-        ordered = ordered && I == count && definition.name() == table[I].name;
-        ++count;
-    });
-    check(ordered && count == table.size());
-    count = 0;
-    for (const auto& entry : table) ordered = ordered && &entry == table.data() + count++;
-    check(ordered && count == table.size() && table.end() == table.data() + count);
-    const auto& expected = table.template get<0>();
-    bool same = false;
-    check(table.visit(0, [&](const auto& definition) {
-        same = static_cast<const void*>(&definition) == &expected;
-    }) && same);
-    check(!table.visit(table.size(), [](const auto&) {}));
+	std::size_t count = 0;
+	bool ordered = true;
+	table.forEach([&]<std::size_t I>(const auto& definition) {
+		ordered = ordered && I == count && definition.name() == table[I].name;
+		++count;
+	});
+	check(ordered && count == table.size());
+	count = 0;
+	for (const auto& entry : table)
+		ordered = ordered && &entry == table.data() + count++;
+	check(ordered && count == table.size() && table.end() == table.data() + count);
+	const auto& expected = table.template get<0>();
+	bool same = false;
+	check(table.visit(0, [&](const auto& definition) {
+		same = static_cast<const void*>(&definition) == &expected;
+	}) && same);
+	check(!table.visit(table.size(), [](const auto&) {
+	}));
 }
 
 int main()
 {
-    unsigned checks = 0, failures = 0;
-    const auto check = [&](bool value) { ++checks; if (!value) ++failures; };
-    checkTraversal(fixture::localFields, check);
-    checkTraversal(fixture::localCommands, check);
-    checkTraversal(fixture::localServices, check);
-    check(fixture::device.reads == 0 && fixture::device.writes == 0 &&
-          fixture::device.commands == 0 && fixture::device.services == 0);
-    const Config request{0x12345678u, true};
-    std::array<std::byte, 5> bytes{};
-    const std::array expected{std::byte{0x78}, std::byte{0x56}, std::byte{0x34},
-                              std::byte{0x12}, std::byte{1}};
-    check(ts::encode(request, bytes) == ts::CodecStatus::Ok);
-    check(bytes == expected);
-    check(fixture::localFields.write<Position::Config>(request) == telemetry::WriteResult::Applied);
-    const auto value = fixture::fields.readAs<Config>(telemetry::makeId(2u, 7u));
-    check(value && value->code == request.code);
-    check(fixture::commands.call<1>() == telemetry::CommandResult::Executed);
-    const auto response = fixture::services.call<0>(request);
-    check(response.status() == ts::ServiceStatus::Ok && response.value().code == request.code);
-    ts::Workspace empty{std::span<std::byte>{}};
-    check(fixture::fields.index().readEncoded(7u, bytes, empty).dispatch == ts::DispatchStatus::Ok);
-    check(bytes == expected && empty.used() == 0);
-    bytes.back() = std::byte{2};
-    const auto writes = fixture::device.writes;
-    check(fixture::fields.index().writeEncoded(7u, bytes, empty).dispatch == ts::DispatchStatus::InvalidPayload);
-    check(fixture::device.writes == writes);
-    check(!fixture::fields.readAs<Config>(0x10000u));
-    check(!fixture::fields.readAs<Config>(0x100000000ULL));
-    check(!fixture::fields.readAs<float>(7u));
-    check(fixture::fields.writeAs(7u, std::array<std::uint16_t, 2>{}) ==
-          telemetry::WriteResult::InvalidValue);
-    check(fixture::fields.writeAs(1u, 12.75) == telemetry::WriteResult::Applied);
-    check(fixture::fields.readAs<double>(1u) == 12.0);
+	unsigned checks = 0, failures = 0;
+	const auto check = [&](bool value) {
+		++checks;
+		if (!value)
+			++failures;
+	};
+	checkTraversal(fixture::localFields, check);
+	checkTraversal(fixture::localCommands, check);
+	checkTraversal(fixture::localServices, check);
+	check(fixture::device.reads == 0 && fixture::device.writes == 0 &&
+	      fixture::device.commands == 0 && fixture::device.services == 0);
+	const Config request{0x12345678u, true};
+	std::array<std::byte, 5> bytes{};
+	const std::array expected{std::byte{0x78}, std::byte{0x56}, std::byte{0x34}, std::byte{0x12},
+	                          std::byte{1}};
+	check(ts::encode(request, bytes) == ts::CodecStatus::Ok);
+	check(bytes == expected);
+	check(fixture::localFields.write<Position::Config>(request) == telemetry::WriteResult::Applied);
+	const auto value = fixture::fields.readAs<Config>(telemetry::makeId(2u, 7u));
+	check(value && value->code == request.code);
+	check(fixture::commands.call<1>() == telemetry::CommandResult::Executed);
+	const auto response = fixture::services.call<0>(request);
+	check(response.status() == ts::ServiceStatus::Ok && response.value().code == request.code);
+	ts::Workspace empty{std::span<std::byte>{}};
+	check(fixture::fields.index().readEncoded(7u, bytes, empty).dispatch == ts::DispatchStatus::Ok);
+	check(bytes == expected && empty.used() == 0);
+	bytes.back() = std::byte{2};
+	const auto writes = fixture::device.writes;
+	check(fixture::fields.index().writeEncoded(7u, bytes, empty).dispatch ==
+	      ts::DispatchStatus::InvalidPayload);
+	check(fixture::device.writes == writes);
+	check(!fixture::fields.readAs<Config>(0x10000u));
+	check(!fixture::fields.readAs<Config>(0x100000000ULL));
+	check(!fixture::fields.readAs<float>(7u));
+	check(fixture::fields.writeAs(7u, std::array<std::uint16_t, 2>{}) ==
+	      telemetry::WriteResult::InvalidValue);
+	check(fixture::fields.writeAs(1u, 12.75) == telemetry::WriteResult::Applied);
+	check(fixture::fields.readAs<double>(1u) == 12.0);
 #ifndef FREEZE_ARM
-    std::printf("{\"checks\":%u,\"failures\":%u}\n", checks, failures);
+	std::printf("{\"checks\":%u,\"failures\":%u}\n", checks, failures);
 #endif
-    return failures == 0 ? 0 : 1;
+	return failures == 0 ? 0 : 1;
 }

@@ -11,20 +11,36 @@
 #include <string>
 #include <string_view>
 
-enum class A : std::uint8_t { Zero, One, Far = 200 };
-enum class B : std::uint8_t { Zero };
-enum Unscoped { Item };
+enum class A : std::uint8_t {
+	Zero,
+	One,
+	Far = 200
+};
+enum class B : std::uint8_t {
+	Zero
+};
+
+enum Unscoped {
+	Item
+};
 
 #if CASE == 1
 inline constexpr auto bad = telemetry::reflection::enumCodes<A::Zero, A::Zero>();
-template <> struct telemetry::reflection::EnumReflection<A> { inline static constexpr auto entries = bad; };
+
+template<>
+struct telemetry::reflection::EnumReflection<A> {
+	inline static constexpr auto entries = bad;
+};
+
 static_assert(telemetry::reflection::Enum<A>::entryCount == 2);
 #elif CASE == 2
 inline constexpr auto bad = telemetry::reflection::enumCodes<A::Zero, B::Zero>();
 #elif CASE == 3
-template <> struct telemetry::reflection::EnumReflection<A> {
-    inline static constexpr auto entries = telemetry::reflection::enumCodes<static_cast<A>(1000)>();
+template<>
+struct telemetry::reflection::EnumReflection<A> {
+	inline static constexpr auto entries = telemetry::reflection::enumCodes<static_cast<A>(1000)>();
 };
+
 static_assert(telemetry::reflection::Enum<A>::entryCount == 1);
 #elif CASE == 4
 inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "");
@@ -33,48 +49,60 @@ inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "\xC0\xAF"
 #elif CASE == 6
 inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "a\0b");
 #elif CASE == 7
-template <> struct telemetry::reflection::EnumReflection<A> {
-    inline static constexpr auto entries = telemetry::reflection::enumEntries(
-        telemetry::reflection::enumEntry(A::Zero, "first"),
-        telemetry::reflection::enumEntry(A::Zero, "second"));
+template<>
+struct telemetry::reflection::EnumReflection<A> {
+	inline static constexpr auto entries =
+	    telemetry::reflection::enumEntries(telemetry::reflection::enumEntry(A::Zero, "first"),
+	                                       telemetry::reflection::enumEntry(A::Zero, "second"));
 };
 #elif CASE == 8
 inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, std::string("local"));
 #elif CASE == 9
 static_assert(telemetry::reflection::Enum<Unscoped>::entryCount == 1);
 #elif CASE == 10
-enum class Invalid : bool { No, Yes };
+enum class Invalid : bool {
+	No,
+	Yes
+};
 static_assert(telemetry::reflection::Enum<Invalid>::entryCount == 2);
 #elif CASE == 11
-inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero,
-                                                                          "\xE0\x80\x80");
+inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "\xE0\x80\x80");
 #elif CASE == 12
-inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero,
-                                                                          "\xED\xA0\x80");
+inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "\xED\xA0\x80");
 #elif CASE == 13
-inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero,
-                                                                          "\xF4\x90\x80\x80");
+inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "\xF4\x90\x80\x80");
 #elif CASE == 14
-inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero,
-                                                                          "\xE2\x82");
+inline constexpr auto bad = telemetry::reflection::enumEntry(A::Zero, "\xE2\x82");
 #elif CASE == 15
-enum class NonAscii : std::uint8_t { ΔValue };
+enum class NonAscii : std::uint8_t {
+	ΔValue
+};
 static_assert(telemetry::reflection::Enum<NonAscii>::entryCount == 1);
 #elif CASE == 16
-inline constexpr auto bad = telemetry::reflection::enumEntries(
-    telemetry::reflection::enumEntry(A::Zero, "Zero"),
-    telemetry::reflection::enumEntry(B::Zero, "Zero"));
+inline constexpr auto bad =
+    telemetry::reflection::enumEntries(telemetry::reflection::enumEntry(A::Zero, "Zero"),
+                                       telemetry::reflection::enumEntry(B::Zero, "Zero"));
 #elif CASE == 17
-enum class CharacterEnum : char { One = 1 };
+enum class CharacterEnum : char {
+	One = 1
+};
 static_assert(telemetry::reflection::Enum<CharacterEnum>::entryCount == 1);
 #elif CASE == 18
-enum UnscopedFixed : std::uint8_t { FixedOne = 1 };
+enum UnscopedFixed : std::uint8_t {
+	FixedOne = 1
+};
+
 static_assert(telemetry::reflection::Enum<UnscopedFixed>::entryCount == 1);
 #elif CASE == 19
 struct BorrowedEntry {
-    using EnumType = A;
-    A value = A::Zero;
-    std::string_view name() const noexcept { return "borrowed"; }
+	using EnumType = A;
+	A value = A::Zero;
+
+	std::string_view name() const noexcept
+	{
+		return "borrowed";
+	}
 };
+
 inline constexpr auto bad = telemetry::reflection::enumEntries(BorrowedEntry{});
 #endif

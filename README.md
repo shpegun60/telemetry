@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](lib/telemetry/README.md)
+[![Reflection](https://img.shields.io/badge/reflection-Boost.PFR-blueviolet)](doc/Architecture.md)
+[![Boost.PFR](https://img.shields.io/badge/Boost.PFR-1.92.0-orange)](lib/boost_pfr/VERSION.md)
 [![MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Native C++20 телеметрія для мікроконтролерів:** прив'яжіть звичайний getter,
@@ -19,6 +21,27 @@ Field, Command і Service мають одну модель декларації:
 
 Швидко згадати виклики: [API шпаргалка](doc/user/API-CHEATSHEET.md).
 
+**Ключові слова:** C++20 · compile-time reflection · Boost.PFR · magic_enum ·
+STM32 · embedded · native C++ · Field / Command / Service · zero heap ·
+canonical little-endian · UART / TCP · COBS.
+
+Boost.PFR зафіксований на **boost-1.92.0**. На 2026-10-04 це відповідає
+[останньому стабільному релізу Boost](https://www.boost.org/releases/latest/);
+повний Boost не потрібний. [Походження та SHA-256](lib/boost_pfr/VERSION.md).
+
+## Навігація
+
+- [Як організувати свій протокол](#як-організувати-свій-протокол)
+- [Як пройти першу інтеграцію](#як-пройти-першу-інтеграцію)
+- [Довідник за API](#довідник-за-api)
+- [Почати з готової програми](#почати-з-готової-програми)
+- [Який API вибрати](#який-api-вибрати)
+- [Типи й прив'язки](#типи-й-привязки)
+- [Файли або прямий доступ](#файли-або-прямий-доступ--обидва-варіанти)
+- [Пам'ять і build integration](#память-і-build-integration)
+- [Перевірки та вимірювання](#перевірки-та-вимірювання)
+- [Структура й ліцензія](#структура-й-ліцензія)
+
 ## Як організувати свій протокол
 
 **[Готовий приклад власного протоколу для UART/TCP](examples/device_integration/README.md)**
@@ -32,6 +55,12 @@ Field, Command і Service мають одну модель декларації:
 [Транспортний посібник](doc/user/TransportWalkthrough.md) пояснює таблиці
 операцій, значення статусів, формати пакетів і приклади байтів. Framing цього
 прикладу можна замінити своїм; telemetry core від нього не залежить.
+
+Для чинного sibling COBS є окремі
+[integration guide](doc/user/COBSIntegration.md) і
+[повний host project](examples/cobs_integration/README.md). Він передає
+resource packets через реальний `cobs::Endpoint`, демонструє pending TX
+ownership, backpressure та recovery; host transport у ньому є fake.
 
 ## Як пройти першу інтеграцію
 
@@ -49,6 +78,26 @@ Field, Command і Service мають одну модель декларації:
 [Транспорт і ресурси](doc/user/TransportAndResources.md) лишаються довідниками
 точних signatures та contracts, до яких можна звернутися за конкретним питанням.
 
+## Довідник за API
+
+| Потрібно | Окрема сторінка |
+| --- | --- |
+| Getter/setter, exact/As access і owning/borrowed Field result | [Fields](doc/user/Fields.md) |
+| Application дія, Request, statuses і повторне виконання | [Commands](doc/user/Commands.md) |
+| Request/Response, status та owning/borrowed Service result | [Services](doc/user/Services.md) |
+| Local tables, named groups, PackedId, traversal та indexes | [Tables and catalogs](doc/user/TablesAndCatalogs.md) |
+| Спільний TypeRegistry, ModelView та encoded adapter | [Model](doc/user/Model.md) |
+| Canonical bytes, Workspace/Lease, local budget та overlap | [Codec and Workspace](doc/user/CodecAndWorkspace.md) |
+| Providers, FileSystem/FileView, cursor і partial READ/WRITE | [Resource files](doc/user/Resources.md) |
+| Immutable descriptor, live Values, fingerprint і buffers | [Descriptor and Values](doc/user/DescriptorAndValues.md) |
+| Exact binary headers/records/default ceilings | [Wire v3.0](doc/WireV3.md) |
+| Complete LIST/STAT/READ/WRITE packet processor | [Resource protocol](lib/resource/protocol/README.md) |
+| Реальний COBS Endpoint із telemetry resource packets | [COBS integration](doc/user/COBSIntegration.md) |
+
+У кожній API сторінці є сигнатури, meaning результатів, lifetime та
+посилання на повні приклади. [Документаційний індекс](doc/README.md)
+також веде до module references, tests і measured evidence.
+
 ## Почати з готової програми
 
 [QuickStart.cpp](examples/user_guide/QuickStart.cpp) — повна програма без Qt і
@@ -57,6 +106,16 @@ Field, Command і Service мають одну модель декларації:
 
 <!-- quickstart:begin -->
 ```cpp
+/*
+ * Small native Fields, Commands and Services application.
+ *
+ * Start with ordinary owner methods and bind names directly to their signatures.
+ * The static owner and tables satisfy borrowing lifetimes; semantic validation
+ * stays in Device rather than the structural Model.
+ *
+ * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+ */
+
 #include <telemetry/Telemetry.hpp>
 #include <cassert>
 #include <cmath>
@@ -64,34 +123,54 @@ Field, Command і Service мають одну модель декларації:
 
 namespace ts = telemetry;
 
-struct Config { float voltage; bool enabled; };
-struct Snapshot { float voltage; bool enabled; };
-struct Device
-{
-    Config state{230.0f, true};
-    Config read() const noexcept { return state; }
-    ts::WriteResult write(const Config& next) noexcept
-    {
-        if (!std::isfinite(next.voltage) || next.voltage < 0.0f || next.voltage > 300.0f)
-            return ts::WriteResult::InvalidValue;
-        state = next;
-        return ts::WriteResult::Applied;
-    }
-    ts::CommandResult reset() noexcept
-    {
-        state = {230.0f, true};
-        return ts::CommandResult::Executed;
-    }
-    Snapshot sample() const noexcept { return {state.voltage, state.enabled}; }
+struct Config {
+	float voltage;
+	bool enabled;
+};
+
+struct Snapshot {
+	float voltage;
+	bool enabled;
+};
+
+// Public methods:
+// - read(): Copy current configuration.
+// - write(): Apply validated configuration.
+// - reset(): Restore example defaults.
+// - sample(): Copy measurement snapshot.
+struct Device {
+	Config state{230.0f, true};
+
+	Config read() const noexcept
+	{
+		return state;
+	}
+
+	ts::WriteResult write(const Config& next) noexcept
+	{
+		if (!std::isfinite(next.voltage) || next.voltage < 0.0f || next.voltage > 300.0f)
+			return ts::WriteResult::InvalidValue;
+		state = next;
+		return ts::WriteResult::Applied;
+	}
+
+	ts::CommandResult reset() noexcept
+	{
+		state = {230.0f, true};
+		return ts::CommandResult::Executed;
+	}
+
+	Snapshot sample() const noexcept
+	{
+		return {state.voltage, state.enabled};
+	}
 };
 
 inline Device device;
 inline constexpr ts::FieldTable localFields{
     ts::field<&Device::read, &Device::write>("Config", device)};
-inline constexpr ts::CommandTable localCommands{
-    ts::command<&Device::reset>("Reset", device)};
-inline constexpr ts::ServiceTable localServices{
-    ts::service<&Device::sample>("Sample", device)};
+inline constexpr ts::CommandTable localCommands{ts::command<&Device::reset>("Reset", device)};
+inline constexpr ts::ServiceTable localServices{ts::service<&Device::sample>("Sample", device)};
 inline constexpr ts::FieldCatalogTable fields{ts::group("device", localFields)};
 inline constexpr ts::CommandCatalogTable commands{ts::group("device", localCommands)};
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", localServices)};
@@ -99,16 +178,16 @@ inline constexpr ts::Model model{fields, commands, services};
 
 int main()
 {
-    assert(localFields.write<0>(Config{240.0f, true}) == ts::WriteResult::Applied);
-    const auto value = fields.read<ts::makeId<0, 0>()>();
-    assert(value && value->voltage == 240.0f);
-    assert(localFields.write<0>(Config{std::numeric_limits<float>::quiet_NaN(), false})
-           == ts::WriteResult::InvalidValue);
-    const auto unchanged = localFields.read<0>();
-    assert(unchanged && unchanged->voltage == 240.0f && unchanged->enabled);
-    const auto response = services.call<ts::makeId<0, 0>()>();
-    assert(response.hasValue() && response.value().voltage == 240.0f);
-    assert(localCommands.call<0>() == ts::CommandResult::Executed);
+	assert(localFields.write<0>(Config{240.0f, true}) == ts::WriteResult::Applied);
+	const auto value = fields.read<ts::makeId<0, 0>()>();
+	assert(value && value->voltage == 240.0f);
+	assert(localFields.write<0>(Config{std::numeric_limits<float>::quiet_NaN(), false}) ==
+	       ts::WriteResult::InvalidValue);
+	const auto unchanged = localFields.read<0>();
+	assert(unchanged && unchanged->voltage == 240.0f && unchanged->enabled);
+	const auto response = services.call<ts::makeId<0, 0>()>();
+	assert(response.hasValue() && response.value().voltage == 240.0f);
+	assert(localCommands.call<0>() == ts::CommandResult::Executed);
 }
 ```
 <!-- quickstart:end -->

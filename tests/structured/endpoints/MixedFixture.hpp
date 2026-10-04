@@ -4,43 +4,132 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
+
+#ifndef TELEMETRY_TESTS_STRUCTURED_ENDPOINTS_MIXEDFIXTURE_HPP
+#define TELEMETRY_TESTS_STRUCTURED_ENDPOINTS_MIXEDFIXTURE_HPP
 #pragma once
+
 #include <telemetry/Telemetry.hpp>
 #include <array>
 
 namespace fixture {
 namespace ts = telemetry;
-enum class Mode : std::uint8_t { Off, Run, Fault };
-enum class Position : std::uint8_t { Enabled, Rpm, Temperature, Precise, Mode, Samples, State, Config };
-struct MotorConfig { float target; std::uint16_t rpm; bool enabled; };
-struct State { float volts; bool active; };
-
-struct Device {
-    MotorConfig current{230.0f, 1500, true};
-    int reads = 0;
-    int writes = 0;
-    int commands = 0;
-    int services = 0;
-    telemetry::WriteResult writeStatus = telemetry::WriteResult::Applied;
-    telemetry::CommandResult commandStatus = telemetry::CommandResult::Executed;
-
-    bool enabled() noexcept { ++reads; return current.enabled; }
-    std::uint16_t rpm() noexcept { ++reads; return current.rpm; }
-    float temperature() noexcept { ++reads; return 21.5f; }
-    double precise() noexcept { ++reads; return 0.125; }
-    Mode mode() noexcept { ++reads; return Mode::Run; }
-    std::array<std::uint16_t, 3> samples() noexcept { ++reads; return {1, 256, 65535}; }
-    State state() noexcept { ++reads; return {current.target, current.enabled}; }
-    MotorConfig config() noexcept { ++reads; return current; }
-    telemetry::WriteResult setConfig(const MotorConfig& value) noexcept
-    { ++writes; current = value; return writeStatus; }
-    telemetry::CommandResult configure(const MotorConfig& value) noexcept
-    { ++commands; current = value; return commandStatus; }
-    telemetry::CommandResult reset() noexcept
-    { ++commands; return commandStatus; }
-    MotorConfig echo(const MotorConfig& value) noexcept
-    { ++services; return value; }
+enum class Mode : std::uint8_t {
+	Off,
+	Run,
+	Fault
 };
+enum class Position : std::uint8_t {
+	Enabled,
+	Rpm,
+	Temperature,
+	Precise,
+	Mode,
+	Samples,
+	State,
+	Config
+};
+
+// Shared exact DTO registered once across Field, Command and Service roots.
+struct MotorConfig {
+	float target;
+	std::uint16_t rpm;
+	bool enabled;
+};
+
+// Small composite Field output with independent floating and boolean leaves.
+struct State {
+	float volts;
+	bool active;
+};
+
+// Counted mutable owner; configurable statuses expose preflight/callback ordering.
+// API: enabled/rpm/temperature/precise/mode/samples/state/config read native values;
+// setConfig writes; configure/reset execute Commands; echo returns a Service payload.
+struct Device {
+	MotorConfig current{230.0f, 1500, true};
+	int reads = 0;
+	int writes = 0;
+	int commands = 0;
+	int services = 0;
+	telemetry::WriteResult writeStatus = telemetry::WriteResult::Applied;
+	telemetry::CommandResult commandStatus = telemetry::CommandResult::Executed;
+
+	bool enabled() noexcept
+	{
+		++reads;
+		return current.enabled;
+	}
+
+	std::uint16_t rpm() noexcept
+	{
+		++reads;
+		return current.rpm;
+	}
+
+	float temperature() noexcept
+	{
+		++reads;
+		return 21.5f;
+	}
+
+	double precise() noexcept
+	{
+		++reads;
+		return 0.125;
+	}
+
+	Mode mode() noexcept
+	{
+		++reads;
+		return Mode::Run;
+	}
+
+	std::array<std::uint16_t, 3> samples() noexcept
+	{
+		++reads;
+		return {1, 256, 65535};
+	}
+
+	State state() noexcept
+	{
+		++reads;
+		return {current.target, current.enabled};
+	}
+
+	MotorConfig config() noexcept
+	{
+		++reads;
+		return current;
+	}
+
+	telemetry::WriteResult setConfig(const MotorConfig& value) noexcept
+	{
+		++writes;
+		current = value;
+		return writeStatus;
+	}
+
+	telemetry::CommandResult configure(const MotorConfig& value) noexcept
+	{
+		++commands;
+		current = value;
+		return commandStatus;
+	}
+
+	telemetry::CommandResult reset() noexcept
+	{
+		++commands;
+		return commandStatus;
+	}
+
+	MotorConfig echo(const MotorConfig& value) noexcept
+	{
+		++services;
+		return value;
+	}
+};
+
 inline Device device;
 inline constexpr ts::FieldTable mixedFields{
     ts::field<&Device::enabled>("Enabled", device),
@@ -59,4 +148,6 @@ inline constexpr ts::FieldCatalogTable fields{ts::group("motor", mixedFields)};
 inline constexpr ts::CommandCatalogTable commands{ts::group("motor", localCommands)};
 inline constexpr ts::ServiceCatalogTable services{ts::group("motor", localServices)};
 inline constexpr ts::Model model{fields, commands, services};
-}
+} // namespace fixture
+
+#endif // TELEMETRY_TESTS_STRUCTURED_ENDPOINTS_MIXEDFIXTURE_HPP

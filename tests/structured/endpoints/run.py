@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 08 mixed fields, commands, bindings, compiled adapters and ARM checks.
+"""Mixed endpoints, bindings, compiled adapters and offline ARM qualification.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 """

@@ -4,7 +4,13 @@ using namespace fixture;
 using Packed = std::remove_cv_t<decltype(packed)>;
 using Provider = std::remove_cv_t<decltype(packedFile)>;
 using Values = std::remove_cv_t<decltype(values)>;
-struct Proxy { operator ts::Workspace&() const noexcept { return workspace; } };
+
+struct Proxy {
+	operator ts::Workspace&() const noexcept
+	{
+		return workspace;
+	}
+};
 #if CASE == 1
 rs::DescriptorFile bad{Packed{}};
 #elif CASE == 2

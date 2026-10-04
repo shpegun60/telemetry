@@ -5,8 +5,18 @@
  * SPDX-License-Identifier: MIT
  */
 
+/*
+ * Contains the pinned aggregate-reflection backend and its compile-mode checks.
+ *
+ * Member count, type, name and access are translated into the library's facade.
+ * C++20 member-name support is required because descriptor identity includes
+ * those names. Native references keep their original cv/ref category through
+ * this adapter; the public facade applies its lvalue-only access contract.
+ */
+
 #ifndef TELEMETRY_PFR_ADAPTER_HPP
 #define TELEMETRY_PFR_ADAPTER_HPP
+#pragma once
 
 #include <boost/pfr/config.hpp>
 #include <boost/pfr/core.hpp>
@@ -32,26 +42,26 @@
 
 namespace telemetry::reflection::detail {
 
-template <class T>
+template<class T>
 using ReflectedType = std::remove_cv_t<std::remove_reference_t<T>>;
 
-template <class T>
+template<class T>
 inline constexpr std::size_t pfrMemberCount = boost::pfr::tuple_size_v<ReflectedType<T>>;
 
-template <std::size_t I, class T>
+template<std::size_t I, class T>
 using PfrMemberType = boost::pfr::tuple_element_t<I, ReflectedType<T>>;
 
-template <std::size_t I, class T>
+template<std::size_t I, class T>
 constexpr std::string_view pfrMemberName() noexcept
 {
-    return boost::pfr::get_name<I, ReflectedType<T>>();
+	return boost::pfr::get_name<I, ReflectedType<T>>();
 }
 
-template <std::size_t I, class T>
-constexpr decltype(auto) pfrGet(T&& object)
-    noexcept(noexcept(boost::pfr::get<I>(std::forward<T>(object))))
+template<std::size_t I, class T>
+constexpr decltype(auto)
+pfrGet(T&& object) noexcept(noexcept(boost::pfr::get<I>(std::forward<T>(object))))
 {
-    return boost::pfr::get<I>(std::forward<T>(object));
+	return boost::pfr::get<I>(std::forward<T>(object));
 }
 
 } // namespace telemetry::reflection::detail

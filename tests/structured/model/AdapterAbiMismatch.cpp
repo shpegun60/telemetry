@@ -15,19 +15,19 @@
 
 namespace ts = telemetry;
 
-template <class Tag, std::size_t Index>
+template<class Tag, std::size_t Index>
 struct Mutate;
 
-template <std::uint64_t... Parts, std::size_t Index>
+template<std::uint64_t... Parts, std::size_t Index>
 struct Mutate<ts::detail::StructuredAbiTag<Parts...>, Index> {
-    inline static constexpr std::array values{Parts...};
-    static_assert(Index < sizeof...(Parts));
+	inline static constexpr std::array values{Parts...};
+	static_assert(Index < sizeof...(Parts));
 
-    template <std::size_t... I>
-    static auto changed(std::index_sequence<I...>)
-        -> ts::detail::StructuredAbiTag<(values[I] + (I == Index ? 1 : 0))...>;
+	template<std::size_t... I>
+	static auto changed(std::index_sequence<I...>)
+	    -> ts::detail::StructuredAbiTag<(values[I] + (I == Index ? 1 : 0))...>;
 
-    using type = decltype(changed(std::make_index_sequence<sizeof...(Parts)>{}));
+	using type = decltype(changed(std::make_index_sequence<sizeof...(Parts)>{}));
 };
 
 #if CASE == 1
@@ -41,15 +41,14 @@ using Wrong = typename Mutate<ts::detail::CurrentStructuredAbiTag, 60>::type;
 #endif
 
 namespace telemetry {
-EncodedCallResult callServiceEncoded(ModelView, telemetry::PackedId,
-                                     std::span<const std::byte>,
+EncodedCallResult callServiceEncoded(ModelView, telemetry::PackedId, std::span<const std::byte>,
                                      std::span<std::byte>, Workspace&, Wrong) noexcept;
 }
 
 int main()
 {
-    ts::Workspace workspace{std::span<std::byte>{}};
-    ts::ModelView view{ts::TypeRegistryView{}, ts::ServiceIndex{nullptr, 0}, nullptr, 0};
-    auto result = ts::callServiceEncoded(view, 0, {}, {}, workspace, Wrong{});
-    return static_cast<int>(result.dispatch);
+	ts::Workspace workspace{std::span<std::byte>{}};
+	ts::ModelView view{ts::TypeRegistryView{}, ts::ServiceIndex{nullptr, 0}, nullptr, 0};
+	auto result = ts::callServiceEncoded(view, 0, {}, {}, workspace, Wrong{});
+	return static_cast<int>(result.dispatch);
 }

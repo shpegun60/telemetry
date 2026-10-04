@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 03 fixed-wire-type and enum checks. Ruslan Kovtun, codexAi. MIT."""
+"""Supported fixed-wire-type and enum dictionary checks. Ruslan Kovtun, codexAi. MIT."""
 
 import argparse
 import os

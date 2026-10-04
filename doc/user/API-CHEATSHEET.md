@@ -1,8 +1,26 @@
 # API: швидка шпаргалка
 
+[User guide](README.md) · [Documentation index](../README.md) · [API cheatsheet](API-CHEATSHEET.md)
+
+[Fields](Fields.md) · [Commands](Commands.md) · [Services](Services.md) ·
+[Tables and catalogs](TablesAndCatalogs.md) · [Model](Model.md) ·
+[Codec and Workspace](CodecAndWorkspace.md) · [Resources](Resources.md) ·
+[Descriptor and Values](DescriptorAndValues.md)
+
 `namespace ts = telemetry;` далі лише скорочення. Фрагменти використовують
 named objects із [повного прикладу](../../examples/user_guide/Native.cpp).
 Усі callbacks — `noexcept`; owners, names і slots живуть довше за таблиці.
+
+## Навігація
+
+- [Створити](#створити)
+- [A. Compile-time exact — рекомендовано для application code](#a-compile-time-exact--рекомендовано-для-application-code)
+- [B. Typed traversal — усі definitions](#b-typed-traversal--усі-definitions)
+- [C. Runtime ID, typed definition](#c-runtime-id-typed-definition)
+- [D. Runtime ID + bytes — transport/backend](#d-runtime-id--bytes--transportbackend)
+- [Який обхід](#який-обхід)
+- [Результати й пам'ять](#результати-й-память)
+- [Files](#files)
 
 ## Створити
 

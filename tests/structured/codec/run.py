@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 04 codec, lifetime, allocation and Cortex-M7 stack checks."""
+"""Codec byte/lifetime/allocation checks and offline Cortex-M7 stack inspection."""
 
 import argparse
 import os

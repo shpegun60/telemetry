@@ -20,5 +20,5 @@ static_assert(magic_enum::enum_name<Mode::Manual>() == "Manual");
 
 extern "C" int structured_probe_other() noexcept
 {
-    return static_cast<int>(boost::pfr::tuple_size_v<MeterConfig>);
+	return static_cast<int>(boost::pfr::tuple_size_v<MeterConfig>);
 }

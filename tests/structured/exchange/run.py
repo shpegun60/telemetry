@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 11 Bind/Exchange correctness, ABI, bounded integration and MCU gates. MIT."""
+"""Optional Bind/Exchange correctness, ABI, bounded integration and offline MCU gates. MIT."""
 import argparse
 import json
 import os

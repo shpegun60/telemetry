@@ -6,8 +6,19 @@
  *
  * This header is an implementation detail and is not a stable public API.
  */
+
+/*
+ * Checked arithmetic conversion shared by native Field access.
+ *
+ * Bounds are evaluated in representations that cannot round a rejected input
+ * into an accepted endpoint. Floating-point conversion requires ordinary IEEE
+ * NaN and infinity behavior. The output changes only after all checks pass,
+ * including when the caller aliases input and output.
+ */
+
 #ifndef TELEMETRY_DETAIL_NUMBER_CONVERSION_H
 #define TELEMETRY_DETAIL_NUMBER_CONVERSION_H
+#pragma once
 
 #include "../core/Compiler.hpp"
 #include <cstdint>
@@ -19,8 +30,8 @@
 // Range/finite checks must remain effective before floating-to-integer casts.
 // MSVC spells this assumption /fp:fast rather than GCC/Clang's -ffast-math;
 // either mode may optimize away the NaN branch when narrowing to float.
-#if defined(__FAST_MATH__) || (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0) \
-    || (defined(_M_FP_FAST) && _M_FP_FAST)
+#if defined(__FAST_MATH__) || (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0) ||       \
+    (defined(_M_FP_FAST) && _M_FP_FAST)
 #error "Compile telemetry conversions without fast-math, finite-math-only or /fp:fast"
 #endif
 
@@ -50,99 +61,111 @@ static_assert(std::numeric_limits<float>::radix == 2 && std::numeric_limits<doub
 static_assert(std::numeric_limits<float>::max_exponent > 64,
               "Every supported integer must fit in the floating-point range");
 
-template <class Number>
+template<class Number>
 // Keep this small check inline even at -Os: an outlined call can make generic
 // readers preserve an FPU register across the rare float-to-bool conversion.
 TELEMETRY_FORCE_INLINE constexpr bool scalarFinite(Number number) noexcept
 {
-    constexpr Number limit = std::numeric_limits<Number>::max();
-    return number >= -limit && number <= limit;
+	constexpr Number limit = std::numeric_limits<Number>::max();
+	return number >= -limit && number <= limit;
 }
 
-template <class To, class From>
+template<class To, class From>
 TELEMETRY_FORCE_INLINE constexpr bool convertNumberTo(From number, To& result) noexcept
 {
-    // Work in a local value until every check succeeds: callers may alias
-    // their input/output, and a failed conversion must preserve the output.
-    To converted{};
-    if constexpr (std::is_same_v<To, From>) {
-        result = number;
-        return true;
-    } else if constexpr (std::is_same_v<To, bool>) {
-        if constexpr (std::is_floating_point_v<From>) {
-            if (!scalarFinite(number)) return false;
-        }
-        converted = number != 0;
-    } else if constexpr (std::is_floating_point_v<To>) {
-        if constexpr (std::is_floating_point_v<From>) {
-            if constexpr (std::numeric_limits<To>::max_exponent >= std::numeric_limits<From>::max_exponent) {
-                converted = static_cast<To>(number);
-            } else {
-                // Common finite inputs need only the destination's two bounds.
-                // Non-finite values are handled without an out-of-range cast.
-                constexpr From limit = static_cast<From>(std::numeric_limits<To>::max());
-                if (number >= -limit && number <= limit) converted = static_cast<To>(number);
-                else if (number != number) converted = std::numeric_limits<To>::quiet_NaN();
-                else if (number == std::numeric_limits<From>::infinity()) converted = std::numeric_limits<To>::infinity();
-                else if (number == -std::numeric_limits<From>::infinity()) converted = -std::numeric_limits<To>::infinity();
-                else return false;
-            }
-        } else {
-            // Every int64/uint64 fits F32/F64's finite range. Precision may round.
-            converted = static_cast<To>(number);
-        }
-    } else if constexpr (std::is_floating_point_v<From>) {
-        if constexpr (std::is_signed_v<To>) {
-            static_assert(std::numeric_limits<To>::lowest()
-                          == -std::numeric_limits<To>::max() - 1,
-                          "Floating-to-integer conversion requires a full two's-complement range");
-        }
-        // Powers of two are exact in the source float type, including 2^64.
-        // Never round max() into an inclusive upper bound. The lower bound
-        // permits fractions truncating to min() only when the source precision
-        // can represent them; otherwise min() itself is the first valid value.
-        constexpr From upper = static_cast<From>(std::numeric_limits<To>::max() / 2 + 1) * From{2};
-        constexpr From lower = static_cast<From>(std::numeric_limits<To>::lowest());
-        if constexpr (!std::is_signed_v<To>
-                      || std::numeric_limits<From>::digits > std::numeric_limits<To>::digits) {
-            if (!(number > lower - From{1} && number < upper)) return false;
-        } else {
-            if (!(number >= lower && number < upper)) return false;
-        }
-        converted = static_cast<To>(number);
-    } else if constexpr (std::is_signed_v<From>) {
-        // Compare integral bounds in integral types. A double intermediate
-        // would lose the distinction between adjacent U64/S64 endpoints.
-        if constexpr (std::is_signed_v<To>) {
-            if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
-                if (number < std::numeric_limits<To>::lowest()
-                    || number > std::numeric_limits<To>::max()) return false;
-            }
-        } else {
-            if (number < 0) return false;
-            if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
-                if (static_cast<std::uint64_t>(number) > std::numeric_limits<To>::max()) return false;
-            }
-        }
-        converted = static_cast<To>(number);
-    } else {
-        if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
-            if (number > static_cast<std::uint64_t>(std::numeric_limits<To>::max())) return false;
-        }
-        converted = static_cast<To>(number);
-    }
-    result = converted;
-    return true;
+	// Work in a local value until every check succeeds: callers may alias
+	// their input/output, and a failed conversion must preserve the output.
+	To converted{};
+	if constexpr (std::is_same_v<To, From>) {
+		result = number;
+		return true;
+	} else if constexpr (std::is_same_v<To, bool>) {
+		if constexpr (std::is_floating_point_v<From>) {
+			if (!scalarFinite(number))
+				return false;
+		}
+		converted = number != 0;
+	} else if constexpr (std::is_floating_point_v<To>) {
+		if constexpr (std::is_floating_point_v<From>) {
+			if constexpr (std::numeric_limits<To>::max_exponent >=
+			              std::numeric_limits<From>::max_exponent) {
+				converted = static_cast<To>(number);
+			} else {
+				// Common finite inputs need only the destination's two bounds.
+				// Non-finite values are handled without an out-of-range cast.
+				constexpr From limit = static_cast<From>(std::numeric_limits<To>::max());
+				if (number >= -limit && number <= limit)
+					converted = static_cast<To>(number);
+				else if (number != number)
+					converted = std::numeric_limits<To>::quiet_NaN();
+				else if (number == std::numeric_limits<From>::infinity())
+					converted = std::numeric_limits<To>::infinity();
+				else if (number == -std::numeric_limits<From>::infinity())
+					converted = -std::numeric_limits<To>::infinity();
+				else
+					return false;
+			}
+		} else {
+			// Every int64/uint64 fits F32/F64's finite range. Precision may round.
+			converted = static_cast<To>(number);
+		}
+	} else if constexpr (std::is_floating_point_v<From>) {
+		if constexpr (std::is_signed_v<To>) {
+			static_assert(std::numeric_limits<To>::lowest() == -std::numeric_limits<To>::max() - 1,
+			              "Floating-to-integer conversion requires a full two's-complement range");
+		}
+		// Powers of two are exact in the source float type, including 2^64.
+		// Never round max() into an inclusive upper bound. The lower bound
+		// permits fractions truncating to min() only when the source precision
+		// can represent them; otherwise min() itself is the first valid value.
+		constexpr From upper = static_cast<From>(std::numeric_limits<To>::max() / 2 + 1) * From{2};
+		constexpr From lower = static_cast<From>(std::numeric_limits<To>::lowest());
+		if constexpr (!std::is_signed_v<To> ||
+		              std::numeric_limits<From>::digits > std::numeric_limits<To>::digits) {
+			if (!(number > lower - From{1} && number < upper))
+				return false;
+		} else {
+			if (!(number >= lower && number < upper))
+				return false;
+		}
+		converted = static_cast<To>(number);
+	} else if constexpr (std::is_signed_v<From>) {
+		// Compare integral bounds in integral types. A double intermediate
+		// would lose the distinction between adjacent U64/S64 endpoints.
+		if constexpr (std::is_signed_v<To>) {
+			if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
+				if (number < std::numeric_limits<To>::lowest() ||
+				    number > std::numeric_limits<To>::max())
+					return false;
+			}
+		} else {
+			if (number < 0)
+				return false;
+			if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
+				if (static_cast<std::uint64_t>(number) > std::numeric_limits<To>::max())
+					return false;
+			}
+		}
+		converted = static_cast<To>(number);
+	} else {
+		if constexpr (std::numeric_limits<To>::digits < std::numeric_limits<From>::digits) {
+			if (number > static_cast<std::uint64_t>(std::numeric_limits<To>::max()))
+				return false;
+		}
+		converted = static_cast<To>(number);
+	}
+	result = converted;
+	return true;
 }
 
-template <class To, class From>
+template<class To, class From>
 TELEMETRY_FORCE_INLINE constexpr std::optional<To> readNumber(From number) noexcept
 {
-    To converted{};
-    if (!convertNumberTo(number, converted)) return std::nullopt;
-    return converted;
+	To converted{};
+	if (!convertNumberTo(number, converted))
+		return std::nullopt;
+	return converted;
 }
-
 
 } // namespace detail
 } // namespace telemetry

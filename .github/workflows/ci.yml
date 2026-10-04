@@ -1,3 +1,5 @@
+# Qualify native contracts, canonical wire bytes, examples and offline ARM codegen.
+# Hardware receipts retain their measured source identity; CI never flashes a board.
 name: CI
 
 on:
@@ -28,6 +30,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: File comments and dual include guards
+        run: python3 tools/source_style/check.py
+      - uses: actions/checkout@v4
+        with:
+          repository: shpegun60/cobs
+          ref: 2e0abf260848fcb74e4a57b37532188047759643
+          path: build/dependencies/cobs
+      - name: Real COBS telemetry and resource integration
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          python3 tests/cobs/run.py --cobs-root build/dependencies/cobs --build-dir build/cobs "${flags[@]}"
+      - name: Retain COBS integration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobs-${{ matrix.cxx }}-${{ matrix.mode }}
+          path: build/cobs/
+          if-no-files-found: error
       - name: Install Clang LTO linker
         if: matrix.cxx == 'clang++-18'
         run: sudo apt-get update && sudo apt-get install -y lld
@@ -311,6 +335,20 @@ jobs:
         run: python3 tests/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-resources
       - name: User-guide examples Cortex-M7 compile and link
         run: python3 tests/docs/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-docs
+      - uses: actions/checkout@v4
+        with:
+          repository: shpegun60/cobs
+          ref: 2e0abf260848fcb74e4a57b37532188047759643
+          path: build/dependencies/cobs
+      - name: Real COBS integration Cortex-M7 compile and link
+        run: python3 tests/cobs/run.py --arm --cxx arm-none-eabi-g++ --cobs-root build/dependencies/cobs --build-dir build/arm-cobs
+      - name: Retain COBS ARM images and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobs-cortex-m7
+          path: build/arm-cobs/
+          if-no-files-found: error
       - name: C++20 structured reflection Cortex-M7 checks
         run: python3 tests/structured/reflection/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-reflection
       - name: C++20 structured facade Cortex-M7 checks
@@ -445,6 +483,32 @@ jobs:
             build/arm-structured-borrowed/
             build/arm-structured-borrowed-nullchecks/
           if-no-files-found: ignore
+
+  endian:
+    name: Real little/big endian byte equivalence
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: shpegun60/cobs
+          ref: 2e0abf260848fcb74e4a57b37532188047759643
+          path: build/dependencies/cobs
+      - name: Install s390x C++ compiler and user-mode emulator
+        run: sudo apt-get update && sudo apt-get install -y g++-s390x-linux-gnu qemu-user
+      - name: Canonical codec, resource, Descriptor and Values bytes
+        run: python3 tests/structured/codec/endian.py --build-dir build/endian
+      - name: COBS telemetry/resource on a real big-endian target
+        run: python3 tests/cobs/run.py --cxx s390x-linux-gnu-g++ --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu --expect-big-endian --cobs-root build/dependencies/cobs --build-dir build/cobs-big
+      - name: Retain endian execution and byte equivalence evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: little-big-endian
+          path: |
+            build/endian/
+            build/cobs-big/
+          if-no-files-found: error
 
   qt:
     name: Qt playground

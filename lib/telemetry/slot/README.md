@@ -54,6 +54,34 @@ source, movement and destruction must also be nothrow and fit the chosen size
 and alignment. Oversized targets are rejected even if a consumer enables the
 companion delegate library's heap fallback. Slots never allocate target storage.
 
+## Public operations
+
+Default construction leaves every slot empty. `OwnerSlot<T>::Owner` is `T`;
+callable slots expose their exact `Signature` and `Function` pointer types.
+For a context slot, `Function` includes the extra first `void*` argument.
+
+| Slot / operation | Contract |
+| --- | --- |
+| `OwnerSlot::bind(owner)` | Borrow an actual compatible object lvalue, including supported cv/base adjustment; temporary and proxy owners are rejected |
+| `OwnerSlot::get()` | Nullable borrowed owner pointer; no lifetime extension |
+| `FunctionSlot::bind(function)` | Copy one exact noexcept function pointer; `nullptr` selects absence |
+| `FunctionSlot::get()` | Copy the selected function pointer |
+| `ContextFunctionSlot::bind(function, context)` | Copy both words; null context is permitted, null function selects absence |
+| `ContextFunctionSlot::get()` | Copy a `Target` with public `function` and `context` members |
+| `DelegateRefSlot::bind<&function>()` / `bind<&Method>(owner)` | Select a known free function or borrow an actual method owner |
+| `DelegateRefSlot::bind(function_or_callable)` | Copy an exact function pointer or borrow a named callable; deduced capture-free temporaries can convert to a pointer |
+| `DelegateSlot::bind(callable)` | Own a nothrow, signature-compatible closure in fixed inline storage |
+| Delegate slots: `bind(nullptr)` | Reset the borrowed target or destroy the owned closure |
+| Every slot: `reset()` | Clear selection; an owning delegate destroys its current closure, while a context slot clears both words |
+| Every slot: `available()` / explicit bool | Check current selection without invoking the callback |
+| Callable slots: `invoke(args...)` | Invoke the engaged selection with the declared signature |
+| Delegate slots: `get()` | Borrow a `Target` view from an lvalue slot; copied views still depend on that slot |
+
+Context/delegate `Target` types provide explicit bool and `invoke(args...)`.
+Delegate targets cannot be default-constructed or extracted from an xvalue
+slot. A context target is a value snapshot; its referenced context remains
+borrowed. Resetting the slot does not change an already copied context target.
+
 ## One field/command interface
 
 ```cpp
@@ -119,7 +147,11 @@ capture an owner reference in its owned closure, or use `OwnerSlot`/`DelegateRef
 ## Absence and lifetime
 
 Slots do not assign field/command meanings to absence. Telemetry checks their
-presence before invoking a callback: an empty getter produces `nullopt`, and an empty setter/command reports `Unavailable`. A field with no
+presence before invoking a callback: an empty owning getter produces `nullopt`,
+and an empty borrowed getter produces an empty `BorrowedValue`. An empty
+setter/command reports `Unavailable`; a native Service returns failure with
+`ServiceStatus::Unavailable`. Encoded operations use `DispatchStatus::Unavailable`
+for an absent selected target. A field with no
 setter remains `ReadOnly`. Native numeric conversion and encoded request validation preserve their
 checked failure rules before owner mutation.
 Binding/reset does not change a descriptor's declared capability or descriptor fingerprint.

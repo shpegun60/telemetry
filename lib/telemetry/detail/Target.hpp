@@ -4,8 +4,19 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.
  */
+
+/*
+ * Target-presence checks that work for constexpr declarations and linked calls.
+ *
+ * Template identity rejects an explicit null target without asking the
+ * constant evaluator to compare uncertain function addresses. Runtime checks
+ * still handle a weak target that resolves to null. Reference slots resolve
+ * that uncertainty while binding because their view cannot defer the check.
+ */
+
 #ifndef TELEMETRY_DETAIL_TARGET_H
 #define TELEMETRY_DETAIL_TARGET_H
+#pragma once
 
 #include "../core/Compiler.hpp"
 #include <type_traits>
@@ -17,49 +28,49 @@ namespace telemetry::detail {
 // -fno-delete-null-pointer-checks. A weak symbol can still resolve to null at
 // link time, so invocations check their target and reference-slot bindings
 // resolve it before installing a delegate.
-template <auto Target>
+template<auto Target>
 inline constexpr bool nonNullTarget = [] {
-    using T = decltype(Target);
-    if constexpr (std::is_pointer_v<T> || std::is_member_pointer_v<T>) {
-        return !std::is_same_v<std::integral_constant<T, Target>,
-                               std::integral_constant<T, nullptr>>;
-    } else {
-        return false;
-    }
+	using T = decltype(Target);
+	if constexpr (std::is_pointer_v<T> || std::is_member_pointer_v<T>) {
+		return !std::is_same_v<std::integral_constant<T, Target>,
+		                       std::integral_constant<T, nullptr>>;
+	} else {
+		return false;
+	}
 }();
 
 // For pointer values passed as ordinary constexpr arguments, GCC may be unable
 // to decide whether a non-null function address compares equal to null. In
 // that case keep the descriptor and let its invocation check the actual value.
 // At run time, and for foldable constexpr nulls, preserve the exact test.
-template <class Pointer>
+template<class Pointer>
 constexpr bool pointerPresenceUncertain(Pointer pointer) noexcept
 {
 #if defined(__GNUC__) || defined(__clang__)
-    return __builtin_is_constant_evaluated()
-        && !__builtin_constant_p(pointer == nullptr);
+	return __builtin_is_constant_evaluated() && !__builtin_constant_p(pointer == nullptr);
 #else
-    (void)pointer;
-    return false;
+	(void)pointer;
+	return false;
 #endif
 }
 
-template <class Pointer>
+template<class Pointer>
 constexpr bool pointerPresent(Pointer pointer) noexcept
 {
-    if (pointerPresenceUncertain(pointer)) return true;
-    return pointer != nullptr;
+	if (pointerPresenceUncertain(pointer))
+		return true;
+	return pointer != nullptr;
 }
 
-template <auto Target>
+template<auto Target>
 TELEMETRY_FORCE_INLINE constexpr bool targetAvailable() noexcept
 {
-    if constexpr (std::is_pointer_v<decltype(Target)>
-                  || std::is_member_pointer_v<decltype(Target)>) {
-        return pointerPresent(Target);
-    } else {
-        return true; // A structural callable object is a value, not a pointer.
-    }
+	if constexpr (std::is_pointer_v<decltype(Target)> ||
+	              std::is_member_pointer_v<decltype(Target)>) {
+		return pointerPresent(Target);
+	} else {
+		return true; // A structural callable object is a value, not a pointer.
+	}
 }
 
 } // namespace telemetry::detail

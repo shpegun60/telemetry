@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage 05 TypeRegistry, immutable storage and exact ABI link checks.
+"""TypeRegistry identity, immutable storage and exact ABI link checks.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 """

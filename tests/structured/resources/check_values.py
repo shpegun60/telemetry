@@ -1,4 +1,4 @@
-"""Independent Stage 10 values/header oracle, not the Stage 12 client. MIT."""
+"""Independent Values/header oracle with explicit offsets and canonical scalar bytes. MIT."""
 from pathlib import Path
 import struct
 import sys

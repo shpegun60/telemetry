@@ -54,7 +54,9 @@ Application synchronization, validation and transport state remain external.
 Endpoint declarations have only name+binding; no units/limits/defaults/flags
 or parameter/member metadata are added to the structural type model.
 
-Tracked review transcripts and `tests/review` are historical material.
+Retired review transcripts, Scalar probes and superseded implementation plans
+are archived outside this checkout; current contracts are in `doc/Architecture.md`
+and `doc/WireV3.md`. See `doc/RepositoryMaintenance.md` for the verified manifest.
 The exploratory `tests/review-2026-09-26` tree was archived externally on
 2026-10-04 after full inventory and per-file hash verification; see
 `doc/RepositoryMaintenance.md`. Preserve that archive and original reports;

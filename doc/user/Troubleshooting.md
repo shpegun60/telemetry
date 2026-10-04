@@ -1,8 +1,34 @@
 # Питання та діагностика під час інтеграції
 
+[User guide](README.md) · [Documentation index](../README.md) · [API cheatsheet](API-CHEATSHEET.md)
+
 Це доповнення до [першої інтеграції](GettingStarted.md). Починайте з того,
 що бачите у compiler, status або відповіді transport, і перевіряйте конкретний
 контракт нижче.
+
+## Навігація
+
+- [Що готове використовувати, а що треба додати у своєму застосунку?](#що-готове-використовувати-а-що-треба-додати-у-своєму-застосунку)
+- [Не знаходиться telemetry/Telemetry.hpp або boost/pfr.hpp](#не-знаходиться-telemetrytelemetryhpp-або-boostpfrhpp)
+- [Compiler каже, що немає span / concepts / consteval](#compiler-каже-що-немає-span--concepts--consteval)
+- [Linker не знаходить readFieldEncoded / callServiceEncoded](#linker-не-знаходить-readfieldencoded--callserviceencoded)
+- [field() або command() видає великий template diagnostic](#field-або-command-видає-великий-template-diagnostic)
+- [Чому не можна передати Command два аргументи?](#чому-не-можна-передати-command-два-аргументи)
+- [У UI приходить double, а setter приймає float](#у-ui-приходить-double-а-setter-приймає-float)
+- [readAs<T>(id) повертає порожній результат](#readastid-повертає-порожній-результат)
+- [Чому однакові ID працюють у різних сімействах?](#чому-однакові-id-працюють-у-різних-сімействах)
+- [WorkspaceTooSmall або BufferTooSmall](#workspacetoosmall-або-buffertoosmall)
+- [Чому не серіалізується packed struct або memory dump?](#чому-не-серіалізується-packed-struct-або-memory-dump)
+- [Можна додати string, vector, pointer, довільний клас?](#можна-додати-string-vector-pointer-довільний-клас)
+- [field() має unit/default/limits аргументи?](#field-має-unitdefaultlimits-аргументи)
+- [Callback повернув Busy / InvalidValue, а dispatch — Ok](#callback-повернув-busy--invalidvalue-а-dispatch--ok)
+- [Я додав /settings.bin. Де він створився на Flash?](#я-додав-settingsbin-де-він-створився-на-flash)
+- [BytesFile є writable або telemetry ValuesFile приймає WRITE?](#bytesfile-є-writable-або-telemetry-valuesfile-приймає-write)
+- [Навіщо cursor u64, якщо ID u32?](#навіщо-cursor-u64-якщо-id-u32)
+- [TCP/UART надіслав половину packet або кілька packets одразу](#tcpuart-надіслав-половину-packet-або-кілька-packets-одразу)
+- [Чи буде Command виконана двічі після retry?](#чи-буде-command-виконана-двічі-після-retry)
+- [Дані змінюються іншою task під час encode](#дані-змінюються-іншою-task-під-час-encode)
+- [Що читати далі?](#що-читати-далі)
 
 ## Що готове використовувати, а що треба додати у своєму застосунку?
 
@@ -105,7 +131,7 @@ adapter і перевірте прикладні правила. Universal `call
 Request structs немає. Якщо дані вже прийшли у canonical wire form,
 використайте encoded operations.
 
-## readAs<T>(id) повертає порожній результат
+## `readAs<T>(id)` повертає порожній результат
 
 Перевірте окремо:
 

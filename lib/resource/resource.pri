@@ -1,4 +1,6 @@
-# Generic C++20 resources, with explicitly selected wire v3 providers. MIT.
+# Generic C++20 resources and complete-packet dispatch.
+# Keep structural providers opt-in so ordinary file consumers do not acquire
+# telemetry/reflection dependencies. MIT; this directory LICENSE applies.
 isEmpty(RESOURCE_PRI_INCLUDED) {
     RESOURCE_PRI_INCLUDED = 1
     CONFIG -= c++11 c++14 c++17

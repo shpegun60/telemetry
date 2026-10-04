@@ -1,0 +1,521 @@
+# Services: typed request, response і application status
+
+`Service` відкриває прикладну операцію з відповіддю: одержати snapshot,
+запитати дані каналу, прочитати large cached block, перевірити стан або
+обчислити результат за одним request. Callback має no request або одну
+aggregate struct; response також є aggregate struct або Void.
+
+Native call повертає owning `ServiceResult<Response>` або borrowed
+`BorrowedServiceResult<Response>`. Application status відділений від
+encoded routing/codec status. Один і той самий callback працює для direct
+native call і transport adapter; connection/session/retry state Service
+не зберігає.
+
+Це довідник поточного C++20 API. `ts` у прикладах означає
+`namespace ts = telemetry;`. Загальний include —
+[`<telemetry/Telemetry.hpp>`](../../lib/telemetry/Telemetry.hpp).
+Для current state без request дивіться [Fields](Fields.md), для action
+тільки зі status — [Commands](Commands.md).
+
+## 1. Повний приклад owning та borrowed responses
+
+Приклад використовує три response форми й exact encoded query. Build
+requirements ті самі, що в
+[runnable guide examples](../../examples/user_guide/README.md).
+
+```cpp
+#include <telemetry/Telemetry.hpp>
+#include <array>
+#include <cassert>
+#include <cstdint>
+
+namespace ts = telemetry;
+
+struct Query { std::uint16_t channel; };
+struct Reply {
+    std::uint32_t sequence;
+    std::uint16_t gain;
+};
+
+struct Device {
+    Reply cached{7, 100};
+    bool busy = false;
+    unsigned pings = 0;
+
+    Reply snapshot() const noexcept { return cached; }
+    const Reply& latest() const noexcept { return cached; }
+    void ping() noexcept { ++pings; }
+
+    ts::ServiceResult<Reply> query(const Query& request) const noexcept {
+        if (request.channel >= 3)
+            return ts::ServiceResult<Reply>::failure(ts::ServiceStatus::InvalidArgument);
+        if (busy)
+            return ts::ServiceResult<Reply>::failure(ts::ServiceStatus::Busy);
+        return ts::ServiceResult<Reply>::success({cached.sequence, cached.gain});
+    }
+};
+
+inline Device device;
+inline constexpr ts::ServiceTable localServices{
+    ts::service<&Device::snapshot>("Snapshot", device),
+    ts::service<&Device::query>("Query", device),
+    ts::service<&Device::latest>("Latest", device),
+    ts::service<&Device::ping>("Ping", device),
+};
+inline constexpr ts::ServiceCatalogTable services{
+    ts::group("device", localServices),
+};
+inline constexpr ts::FieldCatalogTable<> fields{};
+inline constexpr ts::CommandCatalogTable<> commands{};
+inline constexpr ts::Model model{fields, commands, services};
+
+int main() {
+    const auto owned = localServices.call<0>();
+    assert(owned.hasValue() && owned.value().sequence == 7);
+    const auto borrowed = localServices.call<2>();
+    assert(borrowed && borrowed.valueOrNull() == &device.cached);
+    assert(localServices.call<3>().status() == ts::ServiceStatus::Ok);
+    assert(device.pings == 1);
+
+    constexpr auto queryId = ts::makeId<0, 1>();
+    const auto rejected = services.call<queryId>(Query{9});
+    assert(rejected.status() == ts::ServiceStatus::InvalidArgument);
+    assert(!rejected.hasValue());
+
+    std::array<std::byte, ts::wireSize<Query>> input{};
+    std::array<std::byte, ts::wireSize<Reply>> output{};
+    std::array<std::byte, model.maxServiceScratch()> storage{};
+    ts::Workspace workspace{storage};
+    assert(ts::encode(Query{1}, input) == ts::CodecStatus::Ok);
+    const auto result = services.index().callEncoded(queryId, input, output, workspace);
+    assert(result.dispatch == ts::DispatchStatus::Ok);
+    assert(result.endpointStatus == ts::ServiceStatus::Ok);
+    assert(result.written == output.size());
+    assert(workspace.used() == 0);
+}
+```
+
+Plain `Reply` return автоматично стає successful owning result. Plain
+`const Reply&` стає successful borrowed result. Plain `void` стає
+`ServiceResult<void>::success()`. Explicit wrapper callback зберігає
+application refusal: `query` може повернути `Busy` чи `InvalidArgument`
+без жодного response object.
+
+Runnable examples із broader coverage:
+[Native.cpp](../../examples/user_guide/Native.cpp),
+[Encoded.cpp](../../examples/user_guide/Encoded.cpp),
+[browser/Qt client](../../examples/structured_client/README.md).
+
+## 2. Request та response shapes
+
+| Частина | Підтримувана форма | Meaning |
+| --- | --- | --- |
+| No request | `Response operation() noexcept` | `Request = void`, native `call()` |
+| Request by value | `Response operation(Request value) noexcept` | Exact struct request |
+| Request by const reference | `Response operation(const Request& value) noexcept` | Exact struct request без writable reference |
+| Owning plain response | `Reply operation() noexcept` | Нормалізується до `ServiceResult<Reply>` із Ok |
+| Borrowed plain response | `const Reply& operation() noexcept` | Нормалізується до `BorrowedServiceResult<Reply>` із Ok |
+| Owning status wrapper | `ServiceResult<Reply> operation(const Query&) noexcept` | Callback визначає status та owning payload |
+| Borrowed status wrapper | `BorrowedServiceResult<Reply> operation(const Query&) noexcept` | Callback визначає status та borrowed view |
+| No response | `void operation() noexcept` | `ServiceResult<void>` із Ok |
+| Status-only response | `ServiceResult<void> operation(const Query&) noexcept` | Success/refusal без payload |
+
+`Request` та `Reply` — ordinary supported aggregate structs із fixed
+scalars, supported scoped enums, `std::array` або nested aggregates.
+Scalar/array як весь request чи response не дозволяється: обгорніть його
+в struct, наприклад `struct Measurement { float voltage; };` або
+`struct Samples { std::array<float, 16> values; };`.
+No-request/no-response `telemetry::Void` є alias `void`. Empty struct
+залишається struct, хоч її wire payload може мати zero bytes.
+
+Не підтримуються pointers, mutable/rvalue reference request, volatile
+payload, два чи більше arguments, variadic/throwing callback, volatile
+owner method, rvalue-qualified owner method, mutable-reference/rvalue-reference
+response або reference на result wrapper. Result wrapper має бути повернутий
+exactly by value: `ServiceResult<Reply>` чи `BorrowedServiceResult<Reply>`.
+Plain response має бути unqualified `Reply`, exact `const Reply&` або void.
+
+`std::optional<Reply>` не є service outcome protocol. Перетворіть прикладний
+optional у `ServiceResult<Reply>::success` / `failure` всередині callback.
+`CommandResult` не є заміною service status; використовуйте
+`ServiceResult<void>` для operation з application refusal без response.
+
+Request exact type перевіряється на native call: implicit conversion до
+іншої aggregate не виконується. У Service немає `readAs`, `writeAs` чи
+generic numeric request conversion. Виконайте бажаний conversion/validation
+у application adapter перед формуванням Request.
+
+## 3. Усі declaration та binding forms
+
+Фабрика `telemetry::service` створює `ServiceDefinition<Binding>` із inferred
+Request/Response. Name plus binding — повний endpoint declaration.
+
+| Форма | Приклад | Target/lifetime |
+| --- | --- | --- |
+| Known free function | `service<&queryFree>("Query")` | Exact function у binding type |
+| Known owner method | `service<&Device::query>("Query", device)` | Borrowed actual owner |
+| Const owner | `service<&Device::query>("Query", constDevice)` | Compatible const method |
+| Owner wrapper | `service<&Device::query>("Query", std::cref(device))` | Borrowed underlying object |
+| Rebindable owner | `service<&Device::query>("Query", ownerSlot)` | Borrowed `OwnerSlot<Device>` |
+| Runtime function pointer | `service("Query", &queryFree)` | Exact pointer copied into binding |
+| Capture-free lambda | `service("Ping", []() noexcept {})` | Copied converted function pointer |
+| Named functor | `service("Query", functor)` | Borrowed callable lvalue |
+| Named capturing lambda | `service("Query", closure)` | Borrowed closure lvalue |
+| Callable wrapper | `service("Query", std::ref(closure))` | Borrowed underlying callable |
+| Callable slot | `service("Query", querySlot)` | Borrowed stable slot address |
+
+Method owner може бути exact object або compatible derived object;
+cv/base adjustment не створює temporary. Pointer/smart-pointer variables
+не приймаються як owner: передайте перевірений live `*pointer` або `OwnerSlot`.
+Temporary owner, proxy conversion до owner та temporary capturing callable
+не може стати borrowed endpoint. Service factory має окремі guards також
+для explicit owner type та braced arguments; prefer звичайну deduction.
+
+Const owner/callable зберігає constness: binding має бути noexcept-invocable
+на фактичному об'єкті. Noexcept lvalue-qualified methods підтримуються.
+Overloaded method потребує вибору exact member pointer. Ordinary class
+callable має мати однозначну signature; generic/overloaded callable можна
+resolve exact slot signature або обгорнути typed lambda adapter.
+Runtime pointer копіюється: зміна source pointer variable не rebind definition.
+
+Name storage borrowed і immutable. Non-null, nonempty valid UTF-8 name має
+fit string ceiling. Invalid factory name — constexpr construction diagnostic
+або runtime `abort`, а не ServiceStatus. Descriptor перевіряє duplicate names
+у відповідних scopes; native/encoded endpoint lookup використовує positions.
+Units, limits, defaults та application metadata factory не додає.
+
+### Slot форми для різних response contracts
+
+Signature може бути `Reply(const Query&) noexcept`,
+`ServiceResult<Reply>(const Query&) noexcept`,
+`const Reply&() noexcept`, `BorrowedServiceResult<Reply>() noexcept`,
+`void() noexcept` або `ServiceResult<void>(const Query&) noexcept`.
+Slot не змінює declared return contract.
+
+| Slot | Bind API | Ownership |
+| --- | --- | --- |
+| `OwnerSlot<Device>` | `bind(device)`; `service<&Device::query>("Query", slot)` | Borrowed owner |
+| `FunctionSlot<Signature>` | `bind(&queryFree)` | Exact native function pointer |
+| `ContextFunctionSlot<Signature>` | `bind(callback, context)` | Extra first `void*` callback argument; borrowed context |
+| `DelegateRefSlot<Signature>` | `bind<&freeFunction>()`, `bind<&Device::query>(device)`, `bind(namedCallable)` | Borrowed owner/callable або free target |
+| `DelegateSlot<Signature, Bytes, Align>` | `bind([&device](const Query& q) noexcept { return device.query(q); })` | Owned bounded inline closure |
+
+Default owned capacity — 32 bytes; default alignment —
+`alignof(std::max_align_t)`. Owning bind copies lvalue closure або moves
+rvalue closure, включаючи compatible move-only closures. Construction,
+movement, destruction та invocation nothrow; target має fit size/alignment
+і не переходить на heap. Referenced captures залишаються borrowed.
+
+Усі slots noncopyable/nonmovable та мають `reset`, `available`, `get` і
+explicit bool. Callable slots мають `invoke` з engaged-target precondition;
+checked Service call спершу перевіряє selected target. Function/context
+snapshots — values, delegate snapshots — borrowed views. Slot bind/reset,
+owner destruction і invocation serialized зовні; owned callback не може
+знищити/rebind власний executing closure. Exact signature resolution та
+всі bind overloads описано в
+[runtime slot guide](../../lib/telemetry/slot/README.md).
+
+## 4. ServiceDefinition: API та normalizing rules
+
+| Member | Тип | Meaning |
+| --- | --- | --- |
+| `Request` | Struct або void | Native input shape |
+| `Response` | Struct або void | Payload type після result unwrapping |
+| `borrowsResponse` | `static constexpr bool` | Plain const-reference або borrowed wrapper |
+| `Result` | `ServiceResult<Response>` / `BorrowedServiceResult<Response>` | Native normalized result |
+| `name()` | `const char*` | Borrowed endpoint name |
+| `call()` | `Result` | No-request call |
+| `call(request)` | `Result` | Exact request call |
+
+| Callback return | `call` result | Поведінка |
+| --- | --- | --- |
+| `Response` | `ServiceResult<Response>` | Construct successful owned payload |
+| `const Response&` | `BorrowedServiceResult<Response>` | Successful view, без response copy |
+| `ServiceResult<Response>` | Same owning wrapper | Preserve application status/payload |
+| `BorrowedServiceResult<Response>` | Same borrowed wrapper | Preserve application status/view |
+| `void` | `ServiceResult<void>` | Callback completes, then return Ok |
+| `ServiceResult<void>` | Same status-only wrapper | Preserve application status |
+
+Unavailable binding повертає native failure із `ServiceStatus::Unavailable`
+до callback. Target snapshot робиться один раз і застосовується як до
+availability check, так і до invocation. Valid direct owner не потребує
+runtime null-owner check, але його lifetime обов'язковий.
+
+## 5. Owning ServiceResult
+
+`ServiceResult<T>` тримає status та optional active object у union. Object
+`T` існує рівно для status Ok. Failure не default-constructs response і не
+змушує створювати dummy data.
+
+| API | Результат/контракт | Meaning |
+| --- | --- | --- |
+| `ServiceResult<T>::success(value)` | Owning successful result | Convenient by-value payload, `sizeof(T) <= 256` |
+| `ServiceResult<T>::successFrom(factory)` | Owning successful result | Factory повертає exact `T`, construct у final result storage |
+| `ServiceResult<T>::failure(status)` | Failure без `T` | Status має бути defined non-Ok code |
+| `status()` | `ServiceStatus` | Application outcome |
+| `hasValue()` | `bool` | `status() == Ok` |
+| `value() &` | `T&` | Mutable owned payload, precondition engagement |
+| `value() const&` | `const T&` | Const owned payload, precondition engagement |
+| `value() &&` | `T&&` | Move доступ до owned payload, precondition engagement |
+| `valueOrNull()` | `T*` або `const T*` | Safe pointer для success/failure |
+| Copy/move constructors і assignment | Owning state/payload operations | Copy/move payload коли він engaged; source move не автоматично failure |
+| Destructor | Ends owned `T` lifetime | Failure не destroys неіснуючий payload |
+
+Owning `ServiceResult<T>` не має `operator bool`, `operator*` або
+`operator->`: використовуйте `hasValue`, `value` та `valueOrNull`.
+Payload destructor має бути noexcept. Wrapper copy/move properties залежать
+від payload operations; вони не є універсальною гарантією nothrow.
+Endpoint callback має завершуватися noexcept згідно із declaration contract.
+
+Для великої відповіді створюйте payload прямо через `successFrom`:
+
+```cpp
+struct Block { std::array<std::uint32_t, 128> words; };
+
+ts::ServiceResult<Block> makeBlock() noexcept {
+    return ts::ServiceResult<Block>::successFrom([]() noexcept -> Block {
+        return Block{};
+    });
+}
+```
+
+`success(Block{})` для такого типу відхиляється compile-time convenient
+factory bound. Ця межа не є максимальною Service response size і не
+дорівнює encoded local-object budget. `successFrom` уникає implicit large
+by-value factory temporary; загальний callback stack залежить і від вашої
+реалізації. Plain `Block` callback return також normalizes через
+`successFrom` у Service adapter.
+
+`ServiceResult<void>` має тільки `success()`, `failure(status)`, `status()`
+та `hasValue()`. Тут `hasValue()` означає success, response object відсутній,
+wire response size zero. `failure(Ok)` та unknown failure status є contract
+violation й завершуються через `abort`.
+
+## 6. BorrowedServiceResult і lifetime відповіді
+
+`BorrowedServiceResult<T>` тримає status та `BorrowedValue<T>` const-view.
+Він не копіює, не переміщує й не destroys response object.
+
+| API | Meaning |
+| --- | --- |
+| `BorrowedServiceResult<T>::success(value)` | Borrow exact non-volatile `T` lvalue; temporary/proxy rejected |
+| `failure(status)` | Defined non-Ok status, empty view |
+| `status()` | Application outcome |
+| `hasValue()`, `explicit operator bool` | Response view engaged |
+| `valueOrNull()` | `const T*`; safe на failure |
+| `value()`, `operator*()` | `const T&`; requires engaged view |
+| `operator->()` | Borrowed const pointer; dereferencing requires engagement |
+| Copy/move wrapper | Копія view/status без lifetime extension |
+
+Borrowed payload має бути non-void aggregate для Service. Borrowed `void`
+не існує; status-only outcome використовує `ServiceResult<void>`.
+`failure(Ok)` або unknown status — contract violation.
+
+Для native call referenced response має жити після return до останнього
+використання caller view. Це не snapshot: owner може змінити той самий
+object через інший шлях. Serializer потребує alive/stable response протягом
+усього encoding. Generic const-reference return не може вказувати на local
+callback variable, знищену на return.
+
+Borrowed response може посилатися на native caller request, якщо його
+lifetime достатній. Якщо callback повертає `const Request&`, виклик із
+temporary request створює view, що втратить object після завершення full
+expression. Для native persisted view використовуйте named request.
+Encoded callback може повернути reference на decoded request: request
+залишається живим до завершення response encoding, після чого цей reference
+не зберігається library і не може бути retained застосунком.
+
+## 7. Table, catalog та positional IDs
+
+`ServiceTable` володіє declarations і erased rows; local position —
+declaration order. `ServiceCatalogTable` позичає local tables через named
+`group`. Group order визначає high part global ID.
+
+| API | Тип/результат | Meaning |
+| --- | --- | --- |
+| `local.get<Position>()` | `const ServiceDefinition&` | Exact declaration |
+| `local.call<Position>()`, `call<Position>(request)` | Definition `Result` | Static local typed call |
+| `catalogs.get<Id>()` | `const ServiceDefinition&` | Static packed-ID declaration |
+| `catalogs.call<Id>()`, `call<Id>(request)` | Definition `Result` | Static global typed call |
+| `size()`, `empty()` | `size_t`, `bool` | Local entry count / catalog group count |
+| `data()`, `begin()`, `end()` | Borrowed row pointers | Erased rows/catalog iteration |
+| `operator[](i)` | `const ServiceEntry&` / `const ServiceCatalog&` | Unchecked, `i < size()` required |
+| `forEach(visitor)` | `void` | Typed traversal, без implicit execution |
+| `visit(position_or_id, visitor)` | `bool` | Checked typed selection; visitor return ignored |
+| `catalogs.index()` | `ServiceIndex` | Copyable borrowed runtime view |
+
+Local table не має `index()`. `local[position].callEncoded` працює з
+erased row після вашого local bounds check; global external ID перевіряється
+через `catalogs.index().find/callEncoded`.
+
+`PackedId` — integer u32 з 16-bit group і 16-bit entry. Наприклад,
+`makeId<0, 1>()` — другий Service першого catalog. Field/Command/Service
+ID spaces окремі; transport operation обирає family. Reordering declarations
+змінює IDs, а зміна slot target — ні. Names не шукаються при dispatch.
+
+Local position може бути integer/scoped enum. Global packed ID має бути
+integral, не local enum. Static positions/IDs перевіряються compile-time;
+runtime original width перевіряється до narrowing, тому negative/wide
+input не wraps до валідного endpoint. `tryMakeId` повертає optional для
+fallible group/entry components; `makeId<Group, Position>()` дає static
+diagnostics; invalid runtime `makeId(group, entry)` є contract violation.
+`tryGroupOf`/`tryIndexOf` fallible; `groupOf`/`indexOf` вимагають valid u32.
+Range validity ще не означає, що catalog/row існує у вашій моделі.
+
+Local `forEach` callback — ordinary `visitor(definition)` або optional
+`operator()<Position>(definition)`. Global `forEach` —
+`visitor(catalogName, definition)` або
+`operator()<Group, Entry>(catalogName, definition)`. Local/global `visit`
+обидва передають тільки `definition`. `visit` result означає selection,
+а не successful Service response. Visitors повинні компілюватися для всіх
+heterogeneous definitions; exact request/response branch обирайте через
+`if constexpr`.
+
+Runtime `call(id, request)` відсутній. Використовуйте visitor із exact
+Request type та власним typed result handling або encoded API для runtime
+byte payload. Як і endpoint, response type обраної native Service може
+відрізнятися; universal owning response container library не створює.
+
+Metadata `RootTypes`, `staticSize`, `TypeStorage<Registry>` описує roots і
+positional request/response TypeIds. `ServiceTypePair` має `requestTypeId`
+та `responseTypeId`; `ServiceTypeCatalog` містить matching positional array.
+`model.view().serviceTypeIds(id)` повертає optional pair. `Model::typeId<T>()`
+та `model.types()` працюють із complete registry; TypeId не є endpoint ID.
+
+## 8. Erased encoded API та storage
+
+| API | Результат | Meaning |
+| --- | --- | --- |
+| `ServiceEntry::callEncoded(input, output, workspace)` | `EncodedCallResult` | Checked payload operation однієї row |
+| `ServiceIndex::find(id)` | `const ServiceEntry*` | Checked lookup, nullptr для invalid/absent ID |
+| `ServiceIndex::callEncoded(id, input, output, workspace)` | `EncodedCallResult` | Lookup та bounded call |
+| `ServiceIndex::catalogs()`, `count()` | Pointer, `uint32_t` | Borrowed catalog array та group count |
+| `callServiceEncoded(modelView, id, input, output, workspace)` | `EncodedCallResult` | Compiled ModelView boundary із exact ABI tag |
+
+`ServiceEntry` містить `context`, raw `invoke`, `name`, `requestWireBytes`,
+`responseWireBytes` та `scratchBytes`. Викликайте checked `callEncoded`,
+не raw pointer без preflight. Index з user-supplied catalog pointers/count
+вимагає coherent live backing rows; `find` перевіряє IDs, а не forged pointers.
+
+Input має мати exact request wire length. Output має вмістити всю successful
+response **до callback**, навіть якщо application callback потім відмовить.
+No-request input — empty span, Void response потребує zero payload capacity.
+Codec перевіряє native representation, включаючи canonical bool 0/1;
+application channel/range/mode checks залишаються callback policy.
+
+Порядок boundary: lookup → input/output length checks → scratch overlap та
+capacity → decode complete request → select target → invoke → encode response.
+No application callback при length/representation/capacity preflight failure.
+Borrowed-response encoding може відхилити payload/native-object alias вже
+після callback; encoded failure не відкочує side effects, виконані callback.
+
+Input/output spans можуть overlap, включаючи partial overlap: decoded native
+request сформовано до першого output byte. Але якщо Service потребує
+Workspace, обидва supplied spans мають бути disjoint від Workspace storage.
+Borrowed response payload output має бути disjoint від referenced native
+object; тримайте transport buffers окремо від live owner objects.
+
+Encoded storage policy використовує default local-object budget 32 bytes
+(`TELEMETRY_STRUCTURED_LOCAL_BYTES`), configurable узгоджено в усіх TUs.
+Request отримує local budget першим; actual owning result wrapper використовує
+залишок. Решта native objects створюється в aligned Workspace leases.
+Budget zero примушує owning/request object storage через Workspace.
+Void та borrowed response не потребують owning response object storage;
+borrowed response без large request може працювати з zero scratch.
+
+`scratchBytes` — сума required request/result reservations із worst-case
+alignment. `model.maxServiceScratch()` достатній для однієї fresh Workspace
+operation; `model.maxScratch()` включає всі endpoint families. Native object
+size, wire size та result-wrapper size відрізняються. Local budget не є
+bound повного call stack. Реальні callback frames та nested calls потребують
+окремого вимірювання.
+
+Request lease живе до response encoding; result lease звільняється перед
+request lease. Workspace і byte storage external, lease release — LIFO.
+Callback не може retain decoded request reference чи leased result після
+call return. Nested/concurrent operations потребують бюджету всіх live
+leases або separate Workspaces. Дивіться
+[Workspace](../../lib/telemetry/codec/Workspace.hpp) та
+[StoragePolicy](../../lib/telemetry/codec/StoragePolicy.hpp).
+
+## 9. Application status та dispatch status
+
+| `ServiceStatus` | Code | Meaning |
+| --- | --- | --- |
+| `Ok` | 0 | Successful response або successful Void operation |
+| `InvalidArgument` | 1 | Callback відхилив business request |
+| `Unavailable` | 2 | Native binding unavailable або application data/operation відсутня |
+| `Busy` | 3 | Callback зараз не може виконати request |
+| `Failed` | 4 | Application operation завершилася невдачею |
+
+| `DispatchStatus` | Code | Encoded meaning |
+| --- | --- | --- |
+| `Ok` | 0 | Application status доставлено; refusal має zero payload |
+| `NotFound` | 4 | Invalid/absent endpoint ID |
+| `InvalidPayload` | 5 | Length, representation, scratch overlap або borrowed-response alias refusal |
+| `BufferTooSmall` | 6 | Output недостатній для declared successful response |
+| `WorkspaceTooSmall` | 7 | Немає достатнього aligned request/result storage |
+| `InternalError` | 8 | Internal result-construction invariant не виконано |
+| `Unavailable` | 9 | Binding target absent до callback |
+
+`EncodedCallResult` має `dispatch`, `endpointStatus` та `written`.
+Спершу перевірте dispatch. При `Ok` endpointStatus meaningful:
+
+- `Ok + ServiceStatus::Ok` — response payload у `output[0..written)`;
+  written дорівнює declared response wire size, включаючи zero для Void
+  або empty response struct.
+- `Ok + InvalidArgument/Unavailable/Busy/Failed` — application refusal,
+  written zero, response payload відсутній.
+- `dispatch != Ok` — application result не доставлено; endpointStatus
+  default не є підтвердженням success, written zero.
+
+Default constructors полів encoded result не створюють готової successful
+відповіді. Відправляйте payload лише відповідно до returned dispatch/status/
+written. In-process result layout не є packet envelope; transport має
+encode власні status fields і correlation. Frozen canonical payload та
+descriptor визначає [WireV3](../WireV3.md), transport flow —
+[TransportWalkthrough](TransportWalkthrough.md).
+
+## 10. Lifetime, state та повторні запити
+
+Owners, named callables, name memory, slots, local tables та catalogs
+borrowed і stable до останньої invocation/view use. Tables noncopyable/
+nonmovable: runtime contexts можуть borrow table-owned bindings.
+Borrowing `get`, row pointers, traversal та catalog `index` APIs require
+lvalue tables. ModelView/ServiceIndex копіює views, не ownership.
+
+Externally serialize calls, owner mutation, slot bind/reset/destruction та
+Workspace access. Const method не робить underlying mutable state atomic.
+Plain owning response дає власний native object, але snapshot coherence
+його членів має забезпечити callback; borrowed response додатково вимагає
+стабільного об'єкта під час caller use/encoding. Жодного cross-Service
+transaction, lock або deferred target deletion library не додає.
+
+Повторний call повторно викликає callback. Request ID, timeout, caching,
+repeat suppression чи idempotency визначає transport/application. Після
+timeout operation outcome може бути невідомим; library не виконує retry.
+Queueing operation повинна копіювати request до власної memory; Service
+не тримає його після return. Status Busy/Failed не rollback вже виконаних
+application changes.
+
+## 11. Джерела та runnable приклади
+
+- [ServiceDefinition і factory overloads](../../lib/telemetry/service/Service.hpp).
+- [ServiceTable/ServiceEntry та encoding](../../lib/telemetry/service/ServiceTable.hpp).
+- [ServiceCatalogTable/ServiceIndex](../../lib/telemetry/service/ServiceCatalogs.hpp).
+- [ServiceResult](../../lib/telemetry/result/ServiceResult.hpp),
+  [BorrowedServiceResult](../../lib/telemetry/result/BorrowedServiceResult.hpp),
+  [BorrowedValue](../../lib/telemetry/result/BorrowedValue.hpp).
+- [Native.cpp](../../examples/user_guide/Native.cpp): Query/Snapshot,
+  borrowed Settings, plain void, explicit status-only result та borrowed
+  response, що посилається на request.
+- [Encoded.cpp](../../examples/user_guide/Encoded.cpp): owning/borrowed
+  large Report, insufficient scratch без callback та application refusals.
+- [Browser/Qt client](../../examples/structured_client/README.md): exact
+  integer64, unknown enum codes, request editor і payload decoding.
+- [Device integration](../../examples/device_integration/README.md):
+  ordinary business types за runtime facade та serialized framed dispatch.
+- [Fields](Fields.md), [Commands](Commands.md),
+  [TransportWalkthrough](TransportWalkthrough.md).
+
+Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../LICENSE).

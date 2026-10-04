@@ -1,5 +1,18 @@
 # Файли ресурсів, пакети та encoded доступ
 
+[Посібник](README.md) · [Resource files](Resources.md) ·
+[Descriptor and Values](DescriptorAndValues.md) · [Wire v3.0](../WireV3.md) ·
+[Transport walkthrough](TransportWalkthrough.md)
+
+Готовий [COBS integration](COBSIntegration.md) використовує upstream
+`cobs::Endpoint` зі sibling repository; повний host project та його перевірки
+описані у [README прикладу](../../examples/cobs_integration/README.md).
+
+Окремий [Resource API guide](Resources.md) пояснює provider/FileView
+signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
+пояснює Model providers і whole-token reads. Тут зібрано повний шлях
+від files і encoded operations до packet/transport integration.
+
 Автори: Ruslan Kovtun (shpegun60), codexAi. MIT.
 
 Нативні оголошення Field/Command/Service описані в
@@ -7,6 +20,22 @@
 байтами, додати власні файли та підключити обробку до транспорту.
 Усі наведені обробники синхронні. Вони не створюють UART, TCP-з'єднання,
 задачу, чергу або сховище.
+
+## Навігація
+
+- [Який інтерфейс потрібен](#який-інтерфейс-потрібен)
+- [Додати файли та встановити шляхи](#додати-файли-та-встановити-шляхи)
+- [Перебрати файли та отримати FileView](#перебрати-файли-та-отримати-fileview)
+- [Готові байти: BytesFile та JSON](#готові-байти-bytesfile-та-json)
+- [Власний provider із читанням та записом](#власний-provider-із-читанням-та-записом)
+- [LIST, STAT, READ та WRITE через generic protocol](#list-stat-read-та-write-через-generic-protocol)
+- [UART/TCP: спочатку повний packet](#uarttcp-спочатку-повний-packet)
+- [Прямі encoded операції Model без файлового шару](#прямі-encoded-операції-model-без-файлового-шару)
+- [Wire значення та перевірка результатів](#wire-значення-та-перевірка-результатів)
+- [Workspace, локальний бюджет та borrowed response](#workspace-локальний-бюджет-та-borrowed-response)
+- [DescriptorFile та ValuesFile у тій самій таблиці](#descriptorfile-та-valuesfile-у-тій-самій-таблиці)
+- [Коли потрібен приклад Bind/Exchange](#коли-потрібен-приклад-bindexchange)
+- [Збірка та що перевіряють приклади](#збірка-та-що-перевіряють-приклади)
 
 ## Який інтерфейс потрібен
 

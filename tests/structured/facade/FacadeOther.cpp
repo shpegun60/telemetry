@@ -18,5 +18,5 @@ static_assert(refl::memberName<1, MeterConfig>() == "rpm");
 
 extern "C" int structured_facade_other() noexcept
 {
-    return static_cast<int>(refl::memberCount<MeterConfig>);
+	return static_cast<int>(refl::memberCount<MeterConfig>);
 }

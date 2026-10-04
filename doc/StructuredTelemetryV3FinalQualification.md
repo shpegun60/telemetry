@@ -1,6 +1,13 @@
 # Telemetry v3: фінальна кваліфікація Stage 20
 
+[Documentation index](README.md) · [User guide](user/README.md) · [Architecture](Architecture.md) · [Wire v3.0](WireV3.md)
+
 Автори: Ruslan Kovtun (shpegun60), codexAi. Дата: 2026-10-03.
+
+Це історичний qualification checkpoint зі своїми source identities та
+measured inputs. Чинний API описують [архітектура](Architecture.md),
+[Wire v3.0](WireV3.md) та [посібник](user/README.md); наступний
+[borrowed-result slice](BorrowedNativeValues.md) має окремі результати.
 
 Stage 16–20 закрито на `8c56a5e54b79ef3c5bb1111c9769af103b663eec`:
 локальні host, sanitizer, ARM, Qt, browser та апаратні перевірки пройшли,
@@ -14,6 +21,13 @@ Stage 20 baseline. Його [receipts і validators](evidence/pre-borrowed/READM
 збережено точними Git blob копіями перед окремим
 [borrowed-result slice](BorrowedNativeValues.md). Оновлені current receipts
 цього slice мають власні captured inputs і не замінюють історичні вимірювання.
+
+## Навігація
+
+- [Кінцевий результат міграції](#кінцевий-результат-міграції)
+- [Програмні перевірки](#програмні-перевірки)
+- [Фактичні H7S прогони](#фактичні-h7s-прогони)
+- [Межі висновків](#межі-висновків)
 
 ## Кінцевий результат міграції
 

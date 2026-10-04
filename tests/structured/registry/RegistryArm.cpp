@@ -9,10 +9,9 @@
 
 #include <telemetry/type/Registry.hpp>
 
-using Registry = telemetry::TypeRegistry<
-    registry_probe::SampleBlock, registry_probe::SameShape>;
+using Registry = telemetry::TypeRegistry<registry_probe::SampleBlock, registry_probe::SameShape>;
 
 extern "C" telemetry::TypeRegistryView structured_registry_view() noexcept
 {
-    return Registry::view();
+	return Registry::view();
 }
