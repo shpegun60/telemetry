@@ -143,6 +143,19 @@ Read=1         Write=2           Command=3        Service=4
 encoded API, а header, status envelope і framing вибирає застосунок.
 Не змішуйте ці коди з resource LIST/STAT/READ/WRITE.
 
+| Код Direct | Операція | Що вона робить | Payload запиту | Успішна відповідь |
+| --- | --- | --- | --- | --- |
+| 1 | Read | Викликає getter вибраного Field | Порожній | Canonical значення Field |
+| 2 | Write | Передає нове значення setter вибраного Field | Canonical значення того самого типу, що Field | `WriteResult`, без value payload |
+| 3 | Command | Викликає прикладну дію, наприклад Reset або Configure | Порожній або один canonical Request відповідно до сигнатури | `CommandResult`, без response payload |
+| 4 | Service | Викликає метод із результатом, наприклад ReadReport | Порожній або один canonical Request відповідно до сигнатури | `ServiceStatus` та canonical Response; для void response payload порожній |
+
+Read/Write/Command/Service — **операції протоколу прикладу**. Reset,
+Configure та інші назви — **команди вашого Device**, оголошені через
+`command(...)`. Бібліотека не має загального wire-коду Reset: його packed ID
+визначає позиція у ваших Command catalogs. Operation вибирає родину, ID —
+конкретний endpoint усередині неї.
+
 У прикладі Field `Config` має тип:
 
 ```cpp
@@ -230,6 +243,66 @@ payload. За `ServiceStatus::Busy` або іншої service відмови `wr
 виклику. Endpoint status має зміст лише за dispatch `Ok`. Наприклад,
 відсутній target дає dispatch `Unavailable`; callback, який сам відмовив,
 може повернути endpoint `Unavailable` після успішного dispatch.
+
+### Що означають числові статуси Direct
+
+У framed Direct відповіді з розділу 1 спочатку йде `route=1`, потім
+`dispatch`, потім `endpointStatus`, після них — payload. Наведені коди
+dispatch відповідають `telemetry::DispatchStatus` у поточному прикладі;
+encoded C++ API сам response header не створює.
+
+| Код dispatch | Назва | Значення для клієнта |
+| --- | --- | --- |
+| 0 | Ok | Маршрутизація та encoded обробка пройшли; тепер перевірте endpointStatus |
+| 4 | NotFound | Packed ID не вибирає існуючого endpoint у цій родині |
+| 5 | InvalidPayload | Невірна довжина або representation payload; також можливе порушення buffer contract |
+| 6 | BufferTooSmall | Output замалий для можливого успішного response |
+| 7 | WorkspaceTooSmall | Caller-owned scratch замалий для цього endpoint |
+| 8 | InternalError | Виявлено некоректний результат чи внутрішній контракт; payload не використовувати |
+| 9 | Unavailable | Вибраний endpoint має відсутню поточну ціль, наприклад порожній slot |
+
+Direct не використовує dispatch коди 1..3. Невідомий route або неповний
+Direct header дає окремий application error envelope з розділу 1;
+невідомий Direct operation дає dispatch `InvalidPayload`.
+
+За `dispatch=Ok` значення endpointStatus залежить від операції. Число 1,
+наприклад, має різний зміст для Write, Command та Service. Для Read цей
+byte дорівнює нулю та окремого endpoint статусу не позначає.
+
+| Write endpointStatus | Назва | Значення |
+| --- | --- | --- |
+| 0 | Applied | Setter підтвердив застосування значення |
+| 1 | NotFound | Callback повідомив, що прикладний об'єкт для запису не знайдено |
+| 2 | ReadOnly | Запис недоступний; зокрема Field не має setter |
+| 3 | InvalidValue | Значення декодовано, але setter відхилив його за прикладними правилами |
+| 4 | Busy | Застосунок зараз не може виконати запис |
+| 5 | Unavailable | Callback повідомив про недоступність прикладного ресурсу |
+
+| Command endpointStatus | Назва | Значення |
+| --- | --- | --- |
+| 0 | Executed | Callback підтвердив виконання команди |
+| 1 | Accepted | Owner прийняв команду у свою чергу; завершення ще не підтверджене |
+| 2 | NotFound | Callback не знайшов потрібного прикладного об'єкта |
+| 3 | Unavailable | Callback повідомив про недоступність дії |
+| 4 | ArgumentCountMismatch | Збережений код відмови callback; не означає підтримку довільного списку аргументів |
+| 5 | InvalidValue | Callback відхилив вміст Request за прикладними правилами |
+| 6 | Busy | Застосунок зараз не може виконати або прийняти команду |
+| 7 | Failed | Callback повідомив про помилку виконання |
+
+| Service endpointStatus | Назва | Значення |
+| --- | --- | --- |
+| 0 | Ok | Service успішний; декодуйте response згідно з його типом |
+| 1 | InvalidArgument | Service відхилив прикладний зміст Request |
+| 2 | Unavailable | Callback повідомив про недоступність результату/ресурсу |
+| 3 | Busy | Застосунок зараз не може обслужити запит |
+| 4 | Failed | Callback повідомив про помилку виконання |
+
+Ці endpoint коди також використовує Exchange. Їхні значення
+звіряються з [endpoint enums](../../lib/telemetry/result/EndpointStatus.hpp),
+[ServiceStatus](../../lib/telemetry/result/ServiceResult.hpp) та явним
+[Exchange wire mapping](../../examples/structured_protocol/detail/ExchangeWire.hpp).
+Callback сам визначає прикладні наслідки своєї відмови; статус не створює
+автоматичного rollback, persistence або повторного виклику.
 
 Output capacity перевіряється для **повного можливого успішного response**
 до callback. 63 bytes недостатньо для 64-byte Report, навіть якщо Device
@@ -356,6 +429,13 @@ const resource::Input encodedReply{responseBuffer.data(), reply.written};
 [protocol README](../../lib/resource/protocol/README.md). Зовнішній application
 frame, наведений вище, не входить до жодного рядка:
 
+| Код resource | Операція | Що вона означає |
+| --- | --- | --- |
+| 1 | LIST | Повернути сторінку шляхів, починаючи з file index у cursor; байти самих файлів не читаються |
+| 2 | STAT | Отримати поточний byte size та Readable/Writable capabilities вибраного файла |
+| 3 | READ | Попросити provider видати наступну порцію bytes із його cursor |
+| 4 | WRITE | Передати provider порцію bytes; він підтверджує спожиту кількість і наступний cursor |
+
 | Op | Request body | Response body |
 | --- | --- | --- |
 | LIST=1 | `u8 op, u64 cursor` | `u8 status, u64 next, u8 eof, u16 dataSize, data[]` |
@@ -368,10 +448,34 @@ NUL, а packet не може мати зайвого хвоста. LIST request 
 STAT — 5, READ — 13, WRITE — `16 + dataSize`. LIST/READ response header
 займає 12 bytes, STAT — 6, WRITE — 14.
 
-Resource status codes: `Ok=0`, `InvalidFile=1`, `NotReadable=2`,
-`NotWritable=3`, `InvalidCursor=4`, `CursorExpired=5`, `BufferTooSmall=6`,
-`InvalidData=7`, `InternalError=8`. STAT flags: `Readable=1`, `Writable=2`.
+| Поле | Значення |
+| --- | --- |
+| index | u32 позиція файла у `filesystem(...)`; не telemetry packed ID |
+| cursor | Початкова позиція LIST або непрозорий u64 стан конкретного provider для READ/WRITE |
+| next | Cursor, який клієнт передає у наступний запит тієї самої операції |
+| dataSize | Кількість bytes у цьому packet, без header; не загальний розмір файла |
+| eof | READ/LIST завершено, якщо byte дорівнює 1 |
+| final | Цей WRITE input містить кінець submitted stream; це ще не підтвердження завершення |
+| consumed | Скільки bytes із початку WRITE input прийняв provider |
+| complete | Provider підтвердив завершення WRITE transfer |
+| size | Поточний byte size файла, отриманий через STAT |
+| flags | Bitmask capabilities: Readable=1, Writable=2; read/write файл має 3 |
+
+| Resource status | Назва | Значення |
+| --- | --- | --- |
+| 0 | Ok | Операція успішна; transfer може потребувати наступної порції |
+| 1 | InvalidFile | File index виходить за межі таблиці |
+| 2 | NotReadable | У файла немає read callback |
+| 3 | NotWritable | У файла немає write callback |
+| 4 | InvalidCursor | Cursor не є допустимою позицією для цієї операції/provider |
+| 5 | CursorExpired | Provider більше не може продовжити цей стан, наприклад старий запис уже недоступний |
+| 6 | BufferTooSmall | Доступна capacity недостатня; перевірте потрібний envelope і цілий token/path |
+| 7 | InvalidData | Невалідний packet або відхилені provider дані; також LIST path понад wire limit |
+| 8 | InternalError | Provider повідомив внутрішню помилку або protocol виявив суперечливий result |
+
+STAT flags описують наявність callbacks, а не гарантію готовності storage.
 Custom read/write settings має flags 3; `BytesFile` має flags 1.
+Коди звіряються з [resource Types.hpp](../../lib/resource/Types.hpp).
 
 Malformed packet, unknown op або final byte 2 можуть одержати тільки один
 status byte `InvalidData`. Клієнт спочатку перевіряє довжину response та
@@ -532,6 +636,36 @@ bytes у конфігурацію. Шлях `/telemetry/values.bin` сам не 
 У ньому transport тримає `Binding` і Workspace на підключення. Bind узгоджує
 version/fingerprint один раз для поточної сесії; Exchange далі передає
 operation, packed ID, canonical payload та requestId для зіставлення відповіді.
+
+Bind request `TSBN` має version 3.0 та descriptor fingerprint; response
+`TSBA` має окремий BindStatus:
+
+| Код BindStatus | Назва | Значення |
+| --- | --- | --- |
+| 0 | Ready | Версія й fingerprint збігаються; peer прив'язаний до цієї Model |
+| 1 | SchemaMismatch | Клієнт має інший descriptor; Exchange не дозволено |
+| 2 | UnsupportedVersion | Version не дорівнює підтримуваній 3.0; Exchange не дозволено |
+| 3 | InvalidRequest | Невірний magic або довжина Bind packet не дорівнює 16 bytes; Exchange не дозволено |
+
+Після Ready Exchange використовує такі коди operation:
+
+| Код Exchange | Операція | Значення |
+| --- | --- | --- |
+| 1 | FieldWrite | Записати Field за packed ID; повернути WriteResult |
+| 2 | Command | Викликати Command за packed ID; повернути CommandResult |
+| 3 | Service | Викликати Service за packed ID; повернути ServiceStatus та можливий response |
+
+**FieldRead у цьому Exchange немає.** Для нього використовуйте Direct Read
+з розділу 2 або окремий ValuesFile. Код 1 тут означає FieldWrite, тоді як у
+Direct — Read, а в resource — LIST. Спочатку визначте обраний envelope;
+цифра operation сама по собі не вибирає протокол.
+
+Exchange dispatch коди 0 та 4..9 мають значення з Direct таблиці вище.
+Додатково `1=InvalidRequest` означає некоректний packet header/operation,
+`2=UnsupportedVersion` — іншу version, `3=NotReady` — peer не має успішного
+Bind. EndpointStatus читають лише при dispatch Ok. Точні offsets 24-byte
+`TSRQ/TSRP` header і правила відповідей без bytes наведено у
+[protocol README](../../examples/structured_protocol/README.md).
 
 ```cpp
 // modelView має власне стабільне ім'я й живе довше binding.

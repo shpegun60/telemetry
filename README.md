@@ -19,6 +19,20 @@ Field, Command і Service мають одну модель декларації:
 
 Швидко згадати виклики: [API шпаргалка](doc/user/API-CHEATSHEET.md).
 
+## Як організувати свій протокол
+
+**[Готовий приклад власного протоколу для UART/TCP](examples/device_integration/README.md)**
+показує весь шлях: chunks → повний frame → операція → відповідь. У
+[Api.cpp](examples/device_integration/Api.cpp) є обробник і збирач потоку, у
+[Api.hpp](examples/device_integration/Api.hpp) — коди операцій та runtime facade.
+Один маршрут читає/записує Fields і викликає Commands/Services **без файлів**;
+інший передає файлові LIST/STAT/READ/WRITE у `resource::protocol::process()`.
+Приклад можна зібрати й запустити на host без Qt та пристрою.
+
+[Транспортний посібник](doc/user/TransportWalkthrough.md) пояснює таблиці
+операцій, значення статусів, формати пакетів і приклади байтів. Framing цього
+прикладу можна замінити своїм; telemetry core від нього не залежить.
+
 ## Як пройти першу інтеграцію
 
 1. [Зібрати першу програму](doc/user/GettingStarted.md): залежності, include
