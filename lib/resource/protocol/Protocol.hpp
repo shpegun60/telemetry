@@ -7,7 +7,7 @@
 #pragma once
 #include <resource/FileSystem.hpp>
 
-namespace resource_protocol
+namespace resource::protocol
 {
 enum class Op : std::uint8_t
 {
@@ -29,4 +29,4 @@ struct Reply
 // operations use their normal reply envelope, including on provider errors.
 [[nodiscard]] Reply process(resource::FileSystemView files, resource::Input request,
                             resource::Output response) noexcept;
-} // namespace resource_protocol
+} // namespace resource::protocol

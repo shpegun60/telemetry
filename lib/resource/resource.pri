@@ -4,7 +4,19 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
     CONFIG -= c++11 c++14 c++17
     CONFIG += c++20
     INCLUDEPATH += $$PWD/..
-    HEADERS += $$PWD/Types.hpp $$PWD/File.hpp $$PWD/FileSystem.hpp $$PWD/ChunkWriter.hpp $$PWD/protocol/Protocol.hpp
+    # The core has no compiled sources and does not include telemetry.
+    HEADERS += \
+        $$PWD/Resource.hpp \
+        $$PWD/Types.hpp \
+        $$PWD/File.hpp \
+        $$PWD/FileView.hpp \
+        $$PWD/FileSystem.hpp \
+        $$PWD/BytesFile.hpp \
+        $$PWD/ChunkWriter.hpp
+
+    # The packet layer is compiled once by this manifest. Transport framing
+    # and the application's telemetry control protocol remain separate.
+    HEADERS += $$PWD/protocol/Protocol.hpp
     SOURCES += $$PWD/protocol/Protocol.cpp
     contains(CONFIG, resource_telemetry) {
         HEADERS += $$files($$PWD/telemetry/v3/*.hpp, true)

@@ -53,7 +53,15 @@ reflection facade checks, types, codec/workspace lifetime, registry, services,
 model, descriptor and values goldens, resources, traversal, optional protocol,
 client interoperability, multi-TU qualification, MCU qualification and the
 frozen API/wire contract. [Resource checks](resources/README.md) preserve the
-independent resource/protocol checks and selected v3 providers.
+independent flat filesystem, lazy `FileView`, borrowed `BytesFile` and
+`resource::protocol` checks without telemetry dependencies. The optional
+[v3 provider checks](structured/resources/README.md) validate descriptor/value
+providers and the application's resource facade separately.
+
+[User-guide checks](docs/README.md) compile the complete native, resource and
+encoded examples linked from the [public guide](../doc/user/README.md).
+Host mode executes the examples with assertions enabled; ARM mode compiles
+and links them without running an image on a device.
 
 Scalar, legacy Field metadata/limits/arguments, JSON adapter, binary v2 and old
 ABI suites are retired after their source and measured evidence are archived.

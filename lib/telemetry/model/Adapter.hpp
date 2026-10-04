@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_MODEL_ADAPTER_HPP
-#define TELEMETRY_STRUCTURED_MODEL_ADAPTER_HPP
+#ifndef TELEMETRY_MODEL_ADAPTER_HPP
+#define TELEMETRY_MODEL_ADAPTER_HPP
 
 #include "../abi/StructuredAbi.hpp"
 

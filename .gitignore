@@ -20,6 +20,8 @@ ui_*.h
 qrc_*.cpp
 *.o
 *.obj
+*.elf
+*.su
 *.exe
 *.dll
 *.pdb

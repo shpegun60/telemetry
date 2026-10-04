@@ -37,10 +37,10 @@ int main()
     static_assert(largeValues.maxTokenSize() == 65537);
     std::array<std::byte, 13> request{};
     request[0] = std::byte{3};
-    auto r = resource_protocol::process(largeFs.view(), request, buffer);
+    auto r = resource::protocol::process(largeFs.view(), request, buffer);
     assert(r.status == Status::Ok && r.written == 12 + 24 && buffer[1] == std::byte{24});
     request[5] = std::byte{24};
-    r = resource_protocol::process(largeFs.view(), request, buffer);
+    r = resource::protocol::process(largeFs.view(), request, buffer);
     assert(r.status == Status::BufferTooSmall && r.written == 12 && largeCalls == 0);
     assert(buffer[1] == std::byte{24} && buffer[9] == std::byte{0});
     // The provider itself can serve this field when the caller has capacity.

@@ -1,12 +1,13 @@
-# Structured resource providers v3.0 (C++20)
+# Telemetry descriptor and values files (wire 3.0, C++20)
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../LICENSE).
 
-Stage 09 supplies the immutable descriptor of a structured `Model`;
-Stage 10 exposes it and live values through the existing resource protocol.
-The Stage 11 control protocol is now an explicitly selected example outside
-both libraries. There is no separate `.pri` here or telemetry dependency in
-the generic resource core.
+These providers expose the current `telemetry::Model` as an immutable
+descriptor and live native values. `v3` names the binary wire format 3.0; this
+is the unified Model adapter, including borrowed Field outputs. It contains no
+retired Scalar/v2 adapter. The optional control protocol is an application
+example outside both libraries. There is no separate `.pri` here or telemetry
+dependency in the generic resource core.
 
 ```cpp
 #include <resource/telemetry/v3/Descriptor.hpp>
@@ -101,13 +102,13 @@ nodes, descriptor bytes and total catalogs/endpoints. The independent global
 `Type<T>`/registry checks still apply; a profile cannot enable an unsupported
 wire type. Profiles normally lower ceilings. The current implementation does
 not require every profile constant to be at most its `Limits` counterpart,
-so descriptor-only ceilings can also be raised. This Stage 09 review note
-records existing behavior; Stage 11 does not change profile validation.
+so descriptor-only ceilings can also be raised. This does not change
+global wire-type validation or the supported structural types.
 
 The independent host parser fixture checks header budgets before allocating
 record collections, validates every reference and recomputes wire sizes,
 depth and expanded nodes without expanding arrays. It is a test oracle;
-the [Stage 12 client](../../../../tests/structured/client/README.md) consumes the
+the [reference client](../../../../tests/structured/client/README.md) consumes the
 same descriptor and values bytes independently of any control protocol.
 
 ## Values and integration
@@ -127,8 +128,8 @@ inline std::array<std::byte, model.maxFieldScratch()> storage;
 inline ts::Workspace workspace{storage};
 inline constexpr rs::ValuesFile values{descriptor, workspace};
 constinit auto files = resource::filesystem(
-    resource::file("/telemetry3/descriptor.bin", descriptorFile),
-    resource::file("/telemetry3/values.bin", values));
+    resource::file("/telemetry/descriptor.bin", descriptorFile),
+    resource::file("/telemetry/values.bin", values));
 ```
 
 `ValuesFile` copies the descriptor's field index and cached fingerprint, then

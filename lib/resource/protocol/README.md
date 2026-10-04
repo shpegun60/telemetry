@@ -8,7 +8,7 @@ The `protocol` module depends only on the [resource core](../README.md).
 retry policy. No telemetry, session storage, dynamic allocation or path lookup
 is performed. Include `lib/resource/resource.pri`, or compile `Protocol.cpp`
 with `lib` on the include path. The public header is
-`<resource/protocol/Protocol.hpp>`; the namespace is `resource_protocol`.
+`<resource/protocol/Protocol.hpp>`; the namespace is `resource::protocol`.
 
 All integers are encoded explicitly little-endian, without struct layout or
 unaligned typed loads. There is no terminator after paths or data. Boolean
@@ -63,3 +63,7 @@ layer. Clients check status, byte count, progress and completion on every reply.
 
 See [tests](../../../tests/resources/README.md) and the small
 [application facade](../../../app/resources/DeviceResources.hpp).
+
+The C++ API lives in `resource::protocol`. Users of the former global
+`resource_protocol` spelling must update their calls and rebuild
+`Protocol.cpp`; packet bytes, operation codes and reply layouts are unchanged.

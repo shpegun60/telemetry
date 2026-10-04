@@ -23,6 +23,12 @@ DISTFILES += \
     .gitattributes \
     LICENSE \
     README.md \
+    doc/README.md \
+    $$files($$PWD/doc/user/*, true) \
+    $$files($$PWD/examples/user_guide/*, true) \
+    $$files($$PWD/examples/resources/*, true) \
+    $$files($$PWD/tests/docs/*, true) \
+    $$files($$PWD/tests/editor/*, true) \
     .github/workflows/ci.yml \
     lib/delegate/README.md \
     lib/delegate/LICENSE \

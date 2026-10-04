@@ -23,6 +23,8 @@ jobs:
           - {cxx: g++, standard: c++20, mode: nullchecks}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Authenticate retained inputs against the sealed Git commit.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -58,6 +60,25 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/resources/run.py --build-dir build/resources "${flags[@]}"
+      - name: Runnable C++20 user-guide examples
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/docs/run.py --build-dir build/docs "${flags[@]}"
+      - name: Retain user-guide example logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-${{ matrix.cxx }}-${{ matrix.standard }}-${{ matrix.mode }}
+          path: |
+            build/docs/*.log
+            build/docs/summary.json
+          if-no-files-found: error
       - name: C++20 structured reflection backend
         if: matrix.standard == 'c++20' && matrix.mode == 'release'
         env:
@@ -266,13 +287,15 @@ jobs:
           python3 tests/structured/descriptor/h7s/verify.py --self-test
           python3 tests/structured/resources/h7s/verify.py --self-test
           python3 tests/structured/exchange/h7s/verify.py --self-test
-          python3 tests/structured/borrowed/h7s/verify.py --receipt tests/structured/borrowed/h7s/receipt.json --self-test
+          python3 tests/resources/evidence/verify.py verify --self-test
 
   arm:
     name: Cortex-M7 compile and link
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Required by the historical/current binary relation.
       - name: Install ARM GCC and newlib-nano
         run: |
           sudo apt-get update
@@ -286,6 +309,8 @@ jobs:
           python3 tests/regression/ArmSlotGateCheck.py --build-dir build/arm-null
       - name: C++20 resource Cortex-M7 checks
         run: python3 tests/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-resources
+      - name: User-guide examples Cortex-M7 compile and link
+        run: python3 tests/docs/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-docs
       - name: C++20 structured reflection Cortex-M7 checks
         run: python3 tests/structured/reflection/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-reflection
       - name: C++20 structured facade Cortex-M7 checks
@@ -333,10 +358,8 @@ jobs:
         run: |
           python3 tests/structured/mcu/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu
           python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
-      - name: Verify retained offline qualification receipt
-        run: python3 tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
-      - name: Verify retained H7S qualification evidence
-        run: python3 tests/structured/mcu/h7s/verify.py --self-test
+      - name: Verify retained qualification and current binary equivalence
+        run: python3 tests/resources/evidence/verify.py verify --self-test
       - name: C++20 structured API and wire freeze Cortex-M7 contract
         run: |
           python3 tests/structured/freeze/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze
@@ -355,6 +378,7 @@ jobs:
             build/arm-null/*.su
             build/arm-resources/*.log
             build/arm-resources/*.su
+            build/arm-docs/
             build/arm-structured-reflection/*.log
             build/arm-structured-facade/*.log
             build/arm-structured-types/*.log

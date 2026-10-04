@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_ABI_HPP
-#define TELEMETRY_STRUCTURED_ABI_HPP
+#ifndef TELEMETRY_ABI_HPP
+#define TELEMETRY_ABI_HPP
 
 #include "../model/Model.hpp"
 

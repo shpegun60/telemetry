@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_PFR_ADAPTER_HPP
-#define TELEMETRY_STRUCTURED_PFR_ADAPTER_HPP
+#ifndef TELEMETRY_PFR_ADAPTER_HPP
+#define TELEMETRY_PFR_ADAPTER_HPP
 
 #include <boost/pfr/config.hpp>
 #include <boost/pfr/core.hpp>

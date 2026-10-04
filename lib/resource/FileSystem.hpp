@@ -5,9 +5,10 @@
  * License: MIT; see LICENSE.
  */
 #pragma once
-#include "File.hpp"
+#include "FileView.hpp"
 #include <array>
 #include <limits>
+#include <ranges>
 
 namespace resource
 {
@@ -24,6 +25,31 @@ public:
     constexpr std::size_t fileCount() const noexcept
     {
         return count_;
+    }
+
+    constexpr std::size_t size() const noexcept
+    {
+        return count_;
+    }
+
+    constexpr bool empty() const noexcept
+    {
+        return count_ == 0;
+    }
+
+    constexpr FileView operator[](FileIndex index) const noexcept
+    {
+        return {index < count_ ? std::addressof(files_[index]) : nullptr, index};
+    }
+
+    constexpr FileIterator begin() const noexcept
+    {
+        return {files_, 0};
+    }
+
+    constexpr FileIterator end() const noexcept
+    {
+        return {files_, static_cast<FileIndex>(count_)};
     }
 
     constexpr std::string_view path(FileIndex index) const noexcept
@@ -119,6 +145,37 @@ public:
         return N;
     }
 
+    static constexpr std::size_t size() noexcept
+    {
+        return N;
+    }
+
+    static constexpr bool empty() noexcept
+    {
+        return N == 0;
+    }
+
+    constexpr FileView operator[](FileIndex index) const& noexcept
+    {
+        return view()[index];
+    }
+
+    FileView operator[](FileIndex) const&& = delete;
+
+    constexpr FileIterator begin() const& noexcept
+    {
+        return view().begin();
+    }
+
+    FileIterator begin() const&& = delete;
+
+    constexpr FileIterator end() const& noexcept
+    {
+        return view().end();
+    }
+
+    FileIterator end() const&& = delete;
+
     constexpr std::string_view path(FileIndex index) const noexcept
     {
         return view().path(index);
@@ -151,3 +208,7 @@ constexpr auto filesystem(Entry... entries) noexcept
     return FileSystem<sizeof...(Entry)>{std::array<FileEntry, sizeof...(Entry)>{entries...}};
 }
 } // namespace resource
+
+// Iterators borrow the descriptor table rather than the small view object.
+template <>
+inline constexpr bool std::ranges::enable_borrowed_range<resource::FileSystemView> = true;

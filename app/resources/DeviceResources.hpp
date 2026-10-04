@@ -4,14 +4,20 @@
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 #pragma once
-#include <resource/Types.hpp>
+#include <resource/FileSystem.hpp>
 #include <string_view>
 
-namespace device::resources {
-namespace files {
+namespace device::resources
+{
+namespace fileIds
+{
 inline constexpr resource::FileIndex Descriptor = 0;
 inline constexpr resource::FileIndex Values = 1;
-} // namespace files
+} // namespace fileIds
+
+// Borrow only the generic file table at the transport boundary. Its providers
+// and telemetry templates stay private to DeviceResources.cpp.
+resource::FileSystemView files() noexcept;
 
 std::size_t fileCount() noexcept;
 std::string_view path(resource::FileIndex index) noexcept;

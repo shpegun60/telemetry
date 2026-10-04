@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_COMMAND_COMMAND_TABLE_HPP
-#define TELEMETRY_STRUCTURED_COMMAND_COMMAND_TABLE_HPP
+#ifndef TELEMETRY_COMMAND_COMMAND_TABLE_HPP
+#define TELEMETRY_COMMAND_COMMAND_TABLE_HPP
 
 #include "Command.hpp"
 #include "../result/EndpointResults.hpp"

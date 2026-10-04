@@ -17,8 +17,8 @@ int main()
 {
     namespace api = device::resources;
     CHECK(api::fileCount() == 2);
-    CHECK(api::path(api::files::Descriptor) == "/telemetry/descriptor.bin");
-    CHECK(api::path(api::files::Values) == "/telemetry/values.bin");
+    CHECK(api::path(api::fileIds::Descriptor) == "/telemetry/descriptor.bin");
+    CHECK(api::path(api::fileIds::Values) == "/telemetry/values.bin");
     for (resource::FileIndex i = 0; i < 2; ++i)
     {
         const auto stat = api::stat(i);

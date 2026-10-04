@@ -97,6 +97,7 @@ def main():
     headers += sorted((ROOT / 'lib/resource/protocol').glob('*.hpp'))
     if {path.relative_to(ROOT / 'lib').as_posix() for path in headers} != {
             'resource/Types.hpp', 'resource/File.hpp', 'resource/FileSystem.hpp',
+            'resource/FileView.hpp', 'resource/BytesFile.hpp', 'resource/Resource.hpp',
             'resource/ChunkWriter.hpp', 'resource/protocol/Protocol.hpp'}:
         raise RuntimeError('Generic resource header coverage changed')
     for index, header in enumerate(headers):
@@ -112,10 +113,35 @@ def main():
                       r'satisfaction of .Provider|does not satisfy .Provider' if case in (9, 10, 11) else None)
         run(flags + [f'-DCASE={case}', '-fsyntax-only', HERE / 'Negative.cpp'],
             f'negative-{case}', diagnostic=diagnostic)
+    for case in range(17):
+        run(flags + [f'-DCASE={case}', '-fsyntax-only', HERE / 'BytesFileNegative.cpp'],
+            f'bytes-negative-{case}',
+            diagnostic=r'(?:deleted|no matching|no viable).*BytesFile' if case else None)
+    if not args.arm:
+        run(flags + ['-DCASE=17', '-fsyntax-only', HERE / 'BytesFileNegative.cpp'],
+            'bytes-oversized', diagnostic=r'bytesFileSizeExceeded')
+    for case in range(14):
+        diagnostic = (
+            r"deleted[^\n]*(?:operator[\s'\u2018\u2019]*\[\]|begin|end)|use of deleted function[^\n]*FileSystem"
+            if 1 <= case <= 6 else
+            r'no match|constraints not satisfied' if case in (7, 8) else
+            r'(?:cannot convert|no viable conversion).*FileView' if case == 9 else
+            r'no member named .*object' if case == 10 else
+            r'no member named .*ops' if case == 11 else
+            r'(?:private.*FileView|FileView.*private)' if case == 12 else
+            r'(?:private.*FileIterator|FileIterator.*private)' if case == 13 else None)
+        run(flags + [f'-DCASE={case}', '-fsyntax-only', HERE / 'FileViewNegative.cpp'],
+            f'file-view-negative-{case}', diagnostic=diagnostic)
     if args.arm:
         def tool(name):
             return compiler.with_name('arm-none-eabi-' + name + compiler.suffix)
         for opt in ('O2', 'Os'):
+            run(flags + ['-' + opt, '-c', HERE / 'BytesFileCheck.cpp',
+                         '-o', output / (opt + '-BytesFileCheck.o')], 'bytes-check-' + opt)
+            run(flags + ['-' + opt, '-c', HERE / 'FileViewCheck.cpp',
+                         '-o', output / (opt + '-FileViewCheck.o')], 'file-view-check-' + opt)
+            run(flags + ['-' + opt, '-c', ROOT / 'examples/resources/Files.cpp',
+                         '-o', output / (opt + '-ResourceExample.o')], 'resource-example-' + opt)
             protocol = output / (opt + '-Protocol.o')
             probe = output / (opt + '-ArmProbe.o')
             for source, obj in ((ROOT / 'lib/resource/protocol/Protocol.cpp', protocol),
@@ -140,13 +166,21 @@ def main():
     else:
         for stem, sources in (('CoreCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
                               ('NoHeapCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
+                              ('BytesFileCheck', []),
+                              ('FileViewCheck', []),
                               ('Negative', [])):
             program = output / (stem + ('.exe' if os.name == 'nt' else ''))
             run(flags + ['-O1' if args.sanitize else '-O2', '-DCASE=0', HERE / (stem + '.cpp'),
                          *sources, '-o', program], 'build-' + stem)
             result = run([program], 'execute-' + stem)
-            expected = {'CoreCheck': 4198, 'NoHeapCheck': 5000, 'Negative': 34}[stem]
+            expected = {'CoreCheck': 4198, 'NoHeapCheck': 5000, 'BytesFileCheck': 122,
+                        'FileViewCheck': 88, 'Negative': 34}[stem]
             report['conditions'] += counted_conditions(result, expected)
+        example = output / ('ResourceExample' + ('.exe' if os.name == 'nt' else ''))
+        run(flags + ['-O1' if args.sanitize else '-O2', ROOT / 'examples/resources/Files.cpp',
+                     '-o', example], 'build-resource-example')
+        result = run([example], 'execute-resource-example')
+        report['conditions'] += counted_conditions(result, 23)
     (output / 'summary.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     print(json.dumps({key: report[key] for key in ('commands', 'rejections', 'conditions', 'execution')}))
 

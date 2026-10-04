@@ -1,0 +1,531 @@
+# Файли ресурсів, пакети та encoded доступ
+
+Автори: Ruslan Kovtun (shpegun60), codexAi. MIT.
+
+Нативні оголошення Field/Command/Service описані в
+[NativeApi.md](NativeApi.md). Ця сторінка показує, як передати їхні значення
+байтами, додати власні файли та підключити обробку до транспорту.
+Усі наведені обробники синхронні. Вони не створюють UART, TCP-з'єднання,
+задачу, чергу або сховище.
+
+## Який інтерфейс потрібен
+
+| Потреба | Інтерфейс | Що вибирає адресат |
+| --- | --- | --- |
+| Прочитати/змінити C++ значення всередині програми | Нативні таблиці з [Native API](NativeApi.md) | Позиція або packed ID та точний тип |
+| Передати одне значення/виклик як байти | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` | Операція, u32 packed ID, payload |
+| Надати набір файлів із власними шляхами | `resource::filesystem(file(path, provider), ...)` | u32 індекс файла |
+| Передати файлові операції як пакети | `resource::protocol::process(view, request, response)` | LIST/STAT/READ/WRITE |
+| Прочитати опис Model та всі його Fields | `resource::telemetry::v3::DescriptorFile` і `ValuesFile` | Файли, додані в звичайну таблицю ресурсів |
+| Узгодити Model перед керівними викликами | Окремий приклад Bind/Exchange | Контекст підключення, який належить транспорту |
+
+Індекс файла і telemetry packed ID — різні адресні простори. Файловий
+`WRITE` викликає `provider.write()`. `ValuesFile` і `DescriptorFile` мають
+тільки читання; зміну Field, Command та Service маршрутизують до Model.
+
+## Додати файли та встановити шляхи
+
+Повний приклад із локальним доступом, JSON-текстом, частковим записом і
+пакетами — [Resources.cpp](../../examples/user_guide/Resources.cpp).
+Він використовує тільки загальну resource бібліотеку:
+
+```cpp
+#include <resource/Resource.hpp>
+
+inline constexpr std::array versionBytes{
+    std::byte{1}, std::byte{0}, std::byte{0}, std::byte{0}};
+inline constexpr resource::BytesFile version{versionBytes};
+
+inline constinit const auto files = resource::filesystem(
+    resource::file("/device/version.bin", version));
+```
+
+`file("/your/path", provider)` одночасно визначає шлях і прив'язує живий
+об'єкт. Наступний `file(...)` додає наступний індекс. Окремої реєстрації
+шляхів, `init()` для таблиці чи створення каталогів немає. Ім'я файла не
+вибирає накопичувач: RAM, Flash, SD-картку чи генерацію байтів реалізує
+provider.
+
+Шлях є плоскою міткою. `/logs/state.json` можна показати клієнту як папки,
+але ядро не обходить дерево. Шлях починається з `/`, не закінчується `/`,
+не має порожніх компонентів, `.`/`..`, зворотного слеша або ASCII control
+байтів. У таблиці не може бути двох однакових шляхів. Невалідна constexpr
+або constinit декларація не компілюється; невірна runtime декларація
+порушує контракт і завершується `abort()`.
+
+Стабільний рядковий літерал — простий спосіб задати шлях. `std::string_view`
+і lvalue `std::string` також позичені: їхній текст повинен залишитися за
+тією самою адресою. Зберігайте текст шляхів незмінним: construction
+перевіряє його один раз. `file()` відхиляє тимчасові provider та owning рядки.
+Створення `string_view` вручну не подовжує життя його джерела.
+
+`FileIndex` — u32 позиція, починаючи з нуля. Зміна порядку декларацій
+змінює індекси. Клієнт може отримати поточний порядок через LIST; core не
+робить lookup за шляхом. `path(index)` повертає порожній view для невірного
+індексу; `stat/read/write` повертають `InvalidFile`. Статус `FileStat`
+відрізняє порожній файл від відсутнього.
+
+`FileSystem<N>` володіє масивом дескрипторів. Provider, його дані і тексти
+шляхів залишаються у застосунку. `files.view()` дає `FileSystemView`, який
+позичає саме цю таблицю. Не знищуйте та не переміщуйте таблицю під час
+використання view. Одержання view з тимчасової таблиці відхилене. Копія view
+не копіює provider і не подовжує його життя.
+
+## Перебрати файли та отримати FileView
+
+```cpp
+for (const auto file : files) {
+    const auto index = file.index();
+    const auto path = file.path();
+    const bool canRead = file.readable();
+    const bool canWrite = file.writable();
+    // Показати index/path. Provider ще не викликався.
+    (void)index;
+    (void)path;
+    (void)canRead;
+    (void)canWrite;
+}
+
+const auto view = files.view();
+for (const auto file : view) {
+    const auto stat = file.stat(); // Тепер явно питаємо поточний size/flags.
+    if (stat.status == resource::Status::Ok) {
+        // Використати stat.size та stat.flags.
+    }
+}
+
+const auto selected = view[1];
+if (selected) {
+    // selected.read(cursor, output);
+    // selected.write(cursor, input, final);
+}
+```
+
+`size()` таблиці/view — кількість файлів, `empty()` — чи немає записів.
+Це не сумарний обсяг даних; байтовий розмір окремого файла повертає
+`file.stat().size`. `FileView` має `index()`, `path()`, `valid()`, explicit
+bool, constexpr `readable()`/`writable()` та `stat/read/write`.
+Capability methods перевіряють тільки наявність callback, без виклику
+provider. Вони не гарантують готовність storage чи успіх операції.
+Отримання facade за `view[index]` перевіряє
+bounds: відсутній запис дає `valid()==false`, порожній path та
+false в обох capabilities; операції дають `InvalidFile`, а `index()`
+зберігає запитаний індекс.
+
+`begin/end` дають forward iterators, які повертають невеликий FileView
+за значенням. Перебір, `index()`, `path()` і `valid()` читають тільки
+дескриптор; те саме стосується `readable()`/`writable()`.
+Provider `size/read/write` викликаються лише через явні
+операції. Тому можна будувати список імен без читання SD-картки чи
+getter telemetry. [Resources.cpp](../../examples/user_guide/Resources.cpp)
+перевіряє це лічильником звернень до `size()`.
+
+FileView/iterator позичають descriptor table напряму, а не маленький
+об'єкт FileSystemView. `for (auto file : files.view())` допустимий:
+тимчасовий view не володіє таблицею. FileSystemView також є
+`std::ranges::borrowed_range`. Це дозволяє зберігати iterator, одержаний
+з тимчасового view, тільки поки **underlying FileSystem, paths та providers**
+живі. Тимчасовий owning FileSystem не перетворюється на довгоживучу
+таблицю; його `view/begin/end/operator[]` для rvalue відхилені.
+Не розіменовуйте end і не збільшуйте його далі.
+
+У Qt demo runtime facade
+[DeviceResources.hpp](../../app/resources/DeviceResources.hpp) надає
+`device::resources::files()` із типом `resource::FileSystemView`.
+Transport/UI може перебрати цей view без telemetry templates:
+
+```cpp
+for (const auto file : device::resources::files()) {
+    const auto stat = file.stat();
+    // file.index(), file.path(), stat.status, stat.size, stat.flags
+}
+```
+
+Додайте include цього application header для такого коду. Це функція demo,
+а не глобальна registry бібліотеки. Вона позичає статичну таблицю
+Descriptor/Values providers із DeviceResources.cpp.
+Імена індексів demo містяться в `device::resources::fileIds::Descriptor`
+та `device::resources::fileIds::Values`.
+
+## Готові байти: BytesFile та JSON
+
+`BytesFile` — read-only provider над byte span або живим масивом
+`std::byte`. Він не копіює байти і не виділяє пам'ять. Конструктор приймає
+стабільні C-масиви/std::array та явні byte spans; owning тимчасові масиви,
+conversion wrappers і приховані braced джерела відхиляються. Явний span
+має власний контракт життя backing storage.
+
+```cpp
+inline constexpr char text[] = "{\"ready\":true}";
+inline const resource::BytesFile json{
+    std::as_bytes(std::span{text}).first(sizeof(text) - 1)};
+inline constinit const auto textFiles = resource::filesystem(
+    resource::file("/status.json", json));
+```
+
+Тут саме застосунок підготував JSON і виключив кінцевий NUL. Розширення
+`.json` не запускає серіалізацію telemetry і не встановлює HTTP Content-Type.
+За потреби це робить HTTP адаптер застосунку. Для змінного JSON provider
+генерує або бере стабільний buffer і визначає його актуальний `size()`.
+Під час зміни buffer застосунок забезпечує узгодженість читання.
+
+У `BytesFile` курсор — байтовий offset. На EOF читання дає
+`Ok`, `written=0`, `eof=true`; за EOF — `InvalidCursor`; порожній output
+до EOF — `BufferTooSmall`. Великий u64 offset перевіряється перед
+звуженням. Розмір source повинен поміститися в u32. Копія provider позичає
+ті самі байти; вона не створює snapshot. Читання допускає overlap з
+mutable source через `memmove`; такий output змінить backing bytes, тому
+для збереження source використовуйте окремий buffer.
+
+## Власний provider із читанням та записом
+
+Потрібен звичайний клас із точними `noexcept` сигнатурами. Базового класу
+або macro реєстрації немає:
+
+```cpp
+resource::FileSize size() const noexcept;
+resource::ReadResult read(resource::Cursor cursor,
+                          resource::Output output) const noexcept;
+resource::WriteResult write(resource::Cursor cursor,
+                            resource::Input input, bool final) noexcept;
+```
+
+`size()` потрібен завжди; принаймні один із `read`/`write` повинен існувати.
+Пропущений `write` робить файл read-only, пропущений `read` — write-only.
+Capabilities обчислюються з наявних callbacks, а `stat()` питає актуальний
+розмір. Provider може мати власний startup; готовність SD-драйвера чи
+application state не створюється таблицею ресурсів.
+
+`Cursor` — u64 непрозоре значення provider. Core не збільшує його і не
+порівнює з `size()`. Для byte provider це offset; для іншого формату це
+може бути sequence/state token. Нуль починає передачу. Далі клієнт
+передає `result.next`, а не самостійно обчислену позицію.
+
+| Результат | Що перевіряє клієнт |
+| --- | --- |
+| `ReadResult{status, next, written, eof}` | Статус; використовувати лише перші `written` байтів; продовжити з `next` до `eof` |
+| `WriteResult{status, next, consumed, complete}` | Статус; відкинути лише `consumed` байтів input; продовжити з `next`; `complete` є підтвердженням provider |
+| `FileStat{status, size, flags}` | Статус перед читанням розміру/capabilities |
+
+На `Ok` count не перевищує наданий span. Незавершена операція повинна
+передати байти або змінити курсор. `Ok/0` з тим самим курсором і
+`eof=false`/`complete=false` не означає «повторіть пізніше»; це порушення
+контракту. Поверніть відповідний статус, наприклад `BufferTooSmall`.
+Завершена операція з нульовим count є нормальною.
+
+На помилці provider повертає вхідний курсор, нульовий count та false
+завершення. Клієнт відкидає output цієї операції. Уже зроблені побічні
+ефекти запису core не відкочує: provider повинен визначити це сам.
+Spans із аргументів `read()`/`write()` діють протягом одного синхронного
+виклику; callback не зберігає їх для подальшої роботи.
+
+`final=true` позначає останню частину submitted input, але не гарантує,
+що provider прийняв її всю. Якщо `consumed < input.size()`, повторно
+подайте suffix із тим самим `final=true` та поверненим курсором.
+Порожній final input може завершити передачу. `complete` — окреме
+підтвердження; семантику запису на Flash чи застосування settings задає
+provider. У [Resources.cpp](../../examples/user_guide/Resources.cpp)
+RAM provider бере максимум два байти: трьохбайтовий final input потребує
+двох викликів. Клієнт перевіряє progress на кожному кроці.
+
+## LIST, STAT, READ та WRITE через generic protocol
+
+```cpp
+#include <resource/protocol/Protocol.hpp>
+auto reply = resource::protocol::process(files.view(), completeRequest,
+                                         responseBuffer);
+// У транспорт відправляється тільки responseBuffer[0 .. reply.written).
+```
+
+`Reply{status, written}` — локальний C++ результат, не packet struct.
+Функція сама пише packet байтами в `responseBuffer`. Не передавайте весь
+buffer із невикористаним хвостом або memory representation `Reply`.
+
+Усі числа в packet little-endian. u8 bool — тільки 0 або 1. Після
+path/data немає NUL. Пакет має точну довжину; зайві байти також є помилкою.
+
+| Op | Request | Response |
+| --- | --- | --- |
+| LIST=1 | `u8 op, u64 cursor` | `u8 status, u64 next, u8 eof, u16 dataSize, data[]` |
+| STAT=2 | `u8 op, u32 index` | `u8 status, u32 size, u8 flags` |
+| READ=3 | `u8 op, u32 index, u64 cursor` | `u8 status, u64 next, u8 eof, u16 dataSize, data[]` |
+| WRITE=4 | `u8 op, u32 index, u64 cursor, u8 final, u16 dataSize, data[]` | `u8 status, u64 next, u32 consumed, u8 complete` |
+
+LIST повертає `[u16 pathLength][path bytes]` для кожного цілого запису.
+Його cursor — порядковий індекс наступного файла, а не cursor provider.
+LIST не викликає `size()` або читання provider. STAT питає поточний size.
+READ/WRITE використовують provider cursor і його правила progress.
+
+Розміри request: LIST 9, STAT 5, READ 13, WRITE `16 + dataSize` байтів.
+Response header LIST/READ має 12 байтів, STAT — 6, WRITE — 14.
+READ payload не перевищує 65535 байтів. Цілий LIST path разом із u16
+length повинен поміститися в 65535, тому максимум path — 65533 байти.
+Core дозволяє довші локальні шляхи; packet LIST поверне `InvalidData`
+при старті на такому записі. Додаткові правила paging є в
+[protocol README](../../lib/resource/protocol/README.md).
+
+Неправильний packet, невірний final byte чи невідома операція можуть
+отримати однобайтову відповідь `InvalidData`. Якщо нормальний response
+header не поміщається, `Reply{BufferTooSmall, 0}` не викликає provider.
+Клієнт перевіряє `written` перед розбором відповіді та не припускає, що
+будь-яка помилка має звичайний envelope. Result provider із неможливим
+count/status/progress перетворюється на `InternalError`.
+
+Resource статуси: `Ok`, `InvalidFile`, `NotReadable`, `NotWritable`,
+`InvalidCursor`, `CursorExpired`, `BufferTooSmall`, `InvalidData`,
+`InternalError`. Їхні wire коди 0..8 за цим порядком фіксовані.
+`Readable=1`, `Writable=2`; read/write файл має flags=3.
+
+## UART/TCP: спочатку повний packet
+
+`resource::protocol::process` приймає **один уже зібраний packet**.
+Він не зберігає недочитані байти між викликами. Один TCP `recv()` може
+дати частину packet або кілька packet разом. UART DMA/IRQ callback також
+не визначає його межу. Не передавайте такий fragment відразу в process.
+
+Нижній шар застосунку визначає межі, обмежує накопичення, збирає повний
+packet і виділяє кожен packet окремо. Він також володіє framing, перевіркою
+цілісності, timeout, прийомом/відправленням і disconnect. Бібліотека не
+надає прихованого `PacketAssembler` чи готового socket/UART driver.
+В [Resources.cpp](../../examples/user_guide/Resources.cpp) тільки
+демонструється копіювання двох відомих fragments у buffer; довжина
+packet відома harness заздалегідь. Справжній транспорт мусить визначити
+цю довжину сам до виклику process.
+
+`written=0` означає відсутність packet для відправлення. Після одержання
+відповіді транспорт може потребувати кількох send/DMA операцій, щоб
+передати всі `written` байти. Buffer та його contents залишаються
+живими до завершення фізичної передачі. Наступний request не використовує
+цей самий output, поки передача ще читає його.
+
+Повторний WRITE знову викликає provider. Timeout не доводить, що попередній
+запис не відбувся. Політику повторів, повторюваність операції та облік
+результату визначає застосунок.
+
+## Прямі encoded операції Model без файлового шару
+
+Коли transport уже має операцію, точний u32 ID та payload, файли не потрібні.
+Повний [Encoded.cpp](../../examples/user_guide/Encoded.cpp) оголошує
+Device, Field/Command/Service tables, catalogs, Model, Workspace та
+реальний `onCompletePacket`, який маршрутизує байти до цих API:
+
+```cpp
+namespace ts = telemetry;
+auto field = ts::readFieldEncoded(model.view(), id, output, workspace);
+auto write = ts::writeFieldEncoded(model.view(), id, input, workspace);
+auto command = ts::executeCommandEncoded(model.view(), id, input, workspace);
+auto service = ts::callServiceEncoded(model.view(), id, input, output, workspace);
+```
+
+`id` має тип `telemetry::PackedId` (`uint32_t`), output —
+`std::span<std::byte>`, input — `std::span<const std::byte>`, workspace —
+`telemetry::Workspace&`. Старші 16 біт ID — catalog position, молодші —
+entry position. Кожна родина має свій простір IDs: Field 0, Command 0 та
+Service 0 можуть одночасно існувати й означати різні callbacks.
+Порядок declarations визначає identity; імена чи TypeId не підмінюють її.
+До передачі ширшого зовнішнього числа в u32 adapter перевірте, що воно
+поміщається, щоб не обрізати адресу до іншого endpoint.
+
+Той самий checked доступ є в runtime indexes:
+
+```cpp
+model.fieldIndex().readEncoded(id, output, workspace);
+model.fieldIndex().writeEncoded(id, input, workspace);
+model.commandIndex().executeEncoded(id, input, workspace);
+model.serviceIndex().callEncoded(id, input, output, workspace);
+```
+
+Compiled Model adapter приймає `ModelView` за значенням і позичає його
+таблиці. Лінкуйте `model/Adapter.cpp` та `abi/StructuredAbi.cpp`, якщо
+використовуєте чотири вільні adapter функції. `.pri` telemetry робить
+це автоматично. Прямі index/header-only native операції цих object files
+самі по собі не потребують.
+
+У прикладі застосунок вибрав свій header: `u8 operation + u32 LE ID`,
+потім native payload. Це **тільки формат прикладу**, а не wire protocol
+telemetry чи resource LIST/STAT/READ/WRITE. `onCompletePacket` отримує
+повний packet; UART/TCP framing він не реалізує. Повернений `guide::Reply`
+є локальним результатом. Реальний transport явно кодує свій response
+header/status і передає лише успішно записаний payload.
+
+## Wire значення та перевірка результатів
+
+Encoded payload має фіксований `telemetry::wireSize<T>`: little-endian
+scalars, underlying enum codes, array elements, struct members у порядку
+декларації. C++ padding, pointers, member names і response wrappers у нього
+не потрапляють. Наприклад, `{uint32_t limit; bool enabled;}` займає
+5 wire байтів навіть якщо `sizeof` C++ об'єкта більше.
+Невідомий representable enum code дозволений; bool byte 2 не дозволений.
+Бізнес-обмеження на limit перевіряє setter після успішного decode.
+
+Для input потрібна **точна** довжина; no-request Command/Service приймає
+порожній span. Output повинен мати capacity для всього успішного значення
+або Service response. Це перевіряється перед callback, навіть якщо
+callback міг би повернути Busy. Використовуйте тільки перші `written`
+байтів. Значення status не є частиною canonical payload; transport
+передає його окремо у вибраному ним envelope.
+
+| Encoded result | Значення |
+| --- | --- |
+| `EncodedReadResult{dispatch, written}` | Чи прочитано Field та скільки wire байтів готово |
+| `EncodedWriteResult{dispatch, endpointStatus}` | Routing/decode окремо від `WriteResult` setter |
+| `EncodedCommandResult{dispatch, endpointStatus}` | Routing/decode окремо від `CommandResult` callback |
+| `EncodedCallResult{dispatch, endpointStatus, written}` | Routing/codec окремо від `ServiceStatus` та response payload |
+
+Спочатку перевіряйте `dispatch`. `endpointStatus` має зміст лише за
+`dispatch == DispatchStatus::Ok`. `Ok + WriteResult::InvalidValue`
+означає: правильний endpoint викликано з правильним типом, але застосунок
+відхилив значення. `InvalidPayload` означає неправильну довжину, bool
+representation або overlap; callback у типовому decode/preflight випадку
+ще не викликався. Read-only Field повертає
+`Ok + WriteResult::ReadOnly` до декодування input.
+
+Dispatch статуси: `Ok`, `NotFound`, `InvalidPayload`, `BufferTooSmall`,
+`WorkspaceTooSmall`, `InternalError`, `Unavailable`. Порожній late-bound
+target дає dispatch `Unavailable`; callback, який сам повернув
+Unavailable/Busy, дає свій endpoint status після успішного dispatch.
+Service failure не має response payload (`written=0`).
+`CommandResult::Accepted` не створює library queue: queue і встановлення
+завершення належать callback/owner застосунку.
+
+## Workspace, локальний бюджет та borrowed response
+
+`TELEMETRY_STRUCTURED_LOCAL_BYTES` за замовчуванням дорівнює 32.
+Це бюджет живих payload objects encoded операції, а не межа всього
+stack frame чи native return ABI. Малий owning Field або request може
+поміститися локально. Для owning Service request бере бюджет першим;
+потім перевіряється **повний `ServiceResult<Response>` wrapper**, а не
+тільки `sizeof(Response)`. Більші об'єкти йдуть у Workspace.
+
+```cpp
+inline std::array<std::byte, model.maxScratch()> storage;
+inline telemetry::Workspace workspace{storage};
+```
+
+Це достатній bound з урахуванням alignment для однієї encoded операції.
+Nested/concurrent операціям потрібна пам'ять для всіх живих leases або
+окремі Workspaces. Лізи звільняються у зворотному порядку. Buffer і
+Workspace позичені, доступ до них та owner state серіалізує застосунок.
+Не розміщуйте request/response всередині scratch span. Повністю локальний
+endpoint Workspace не використовує. Macro задається однаково в усіх
+translation units; compiled ABI boundary виявляє різні layouts/policies
+при лінкуванні.
+
+Getter `const T&` і Service `const Response&` чи
+`BorrowedServiceResult<Response>` кодують існуючий const об'єкт. Вони
+не копіюють цей response в Workspace. Borrowed Service витрачає payload
+бюджет на request; статус/view не є response storage. Для fallible borrowed
+Service використовуйте `success(existingObject)` або `failure(status)`.
+Для великого owning response використовуйте
+`ServiceResult<T>::successFrom(factory)`; `success(value)` призначений
+для response до 256 native байтів.
+
+У [Encoded.cpp](../../examples/user_guide/Encoded.cpp) `Report` має
+64 wire байти. Owning `CopyReport` потребує Workspace; borrowed `ViewReport`
+працює з порожнім Workspace при малому Query. Обидва мають однаковий
+canonical response layout. Змінна `report` у Device живе весь час, коли
+callback/encoder читає її; повернення посилання на локальний temporary
+цього контракту не виконає.
+
+Borrowed output мусить бути disjoint із повним native об'єктом, включно
+з padding. Адреса стає відомою після getter/callback, тому такий overlap
+може бути відхилений уже після його побічних ефектів. Transport envelope
+теж не повинен записуватися поверх цього об'єкта. Borrowed view не
+захоплює snapshot і не дає міжпольової coherence. Докладніше —
+[BorrowedNativeValues.md](../BorrowedNativeValues.md).
+
+## DescriptorFile та ValuesFile у тій самій таблиці
+
+Додайте providers до звичайного `filesystem(...)` поруч із власними
+файлами. Шляхи задає застосунок:
+
+```cpp
+namespace rs = resource::telemetry::v3;
+inline constexpr rs::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
+inline constexpr rs::ValuesFile valuesFile{descriptor, workspace};
+inline constinit const auto telemetryFiles = resource::filesystem(
+    resource::file("/telemetry/descriptor.bin", descriptorFile),
+    resource::file("/telemetry/values.bin", valuesFile));
+```
+
+`v3` називає wire 3.0 поточної Model. Descriptor містить типи, catalogs,
+Fields/Commands/Services та cached fingerprint. Metadata і names залишаються
+незмінними; owners і slot targets у fingerprint не входять. Для constexpr
+Model packed bytes є способом зберегти готовий descriptor у Flash;
+streaming Descriptor також підтримується для startup metadata.
+
+Values містить 24-byte header із fingerprint і потім для кожного Field
+`u8 status + wireSize<T> bytes`. Token має поміститися **цілим**. Status
+Unavailable має zero payload, який не декодується як значення.
+Це coherent returned value одного getter, але не спільний snapshot усієї
+Model. Provider не викликає getter для token, який не поміститься.
+Валідний Values cursor — позиція в header, початок token або EOF;
+payload interior дає `InvalidCursor`.
+
+Перевірте `valuesFile.maxTokenSize()` проти output capacity та protocol
+65535-byte payload limit. Більший token не фрагментується цим provider;
+повторення того самого too-small READ не дасть progress. Для Values
+використовується тільки read scratch; `requiredWorkspace()` може бути
+нульовим, навіть якщо великий Field setter потребує decoded storage.
+Underlying tables/metadata та Workspace мають жити протягом усіх читань.
+Формат і lifetime подробиці — у
+[v3 provider README](../../lib/resource/telemetry/v3/README.md).
+
+## Коли потрібен приклад Bind/Exchange
+
+[examples/structured_protocol](../../examples/structured_protocol/README.md)
+є готовим окремим прикладом control packet handlers. Він включається
+явно і не є вимогою native, encoded або local resource операцій.
+
+Transport зберігає `Binding` на admitted connection та окремий Workspace.
+Bind порівнює wire version і descriptor fingerprint один раз для
+поточної immutable Model. Він позичає **іменований живий `ModelView`**:
+
+```cpp
+#include <structured_protocol/Bind.hpp>
+#include <structured_protocol/Exchange.hpp>
+
+inline constexpr auto modelView = model.view();
+example::structured_protocol::Binding peer;
+auto bind = example::structured_protocol::Bind::process(
+    peer, modelView, descriptor.fingerprint(), completeBindPacket, bindOutput);
+auto call = example::structured_protocol::Exchange::process(
+    peer, completeExchangePacket, exchangeOutput, workspace);
+```
+
+Bind має `TSBN/TSBA`, Exchange — `TSRQ/TSRP`. Exchange передає correlation
+requestId, operation та packed endpoint ID; fingerprint не додається до
+кожного виклику. Перевіряйте status і відправляйте тільки `written` байти.
+`peer.reset()` при disconnect/model replacement скидає agreement; очищення
+старих queued frames, admission, serialization та generation правила
+належать транспорту. Не подавайте `model.view()` temporary у Bind.
+
+Для цієї частини додайте `examples` до include path і явно компілюйте
+`examples/structured_protocol/Bind.cpp` та `Exchange.cpp`, або включіть
+`examples/structured_protocol/protocol.pri`. Звичайні telemetry/resource
+manifests ці handlers не підключають.
+
+Exchange підтримує FieldWrite, Command і Service; Field reading можна
+робити прямим encoded доступом або Values. Correlation не є deduplication:
+повторний packet знову виконує callback. Приклад не створює прихованої
+черги повторів, persistent owner або транзакцій.
+
+## Збірка та що перевіряють приклади
+
+Загальний resource core потребує тільки `-std=c++20 -Ilib`.
+Для resource packets додайте `lib/resource/protocol/Protocol.cpp`.
+Encoded приклад потребує також include directories `lib/boost_pfr/include`,
+`lib/magic_enum` та `lib/telemetry/model/Adapter.cpp`,
+`lib/telemetry/abi/StructuredAbi.cpp`. Values додає свій
+`lib/resource/telemetry/v3/detail/Values.cpp`. `.pri` manifests описані у
+[resource README](../../lib/resource/README.md) та
+[telemetry README](../../lib/telemetry/README.md).
+
+Обидва [user guide приклади](../../examples/user_guide/README.md) —
+самостійні host програми. Resources перевіряє table/provider binding,
+partial writes, чотири resource operations, malformed input і недостатню
+reply capacity. Encoded виконує routing по ID, business refusal окремо від
+bad bool, повторний Command, Workspace preflight і owning/borrowed Service.
+Це виконання прикладів на host, а не measurement UART/TCP або MCU.

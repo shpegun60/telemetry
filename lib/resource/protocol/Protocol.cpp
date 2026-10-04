@@ -9,7 +9,7 @@
 #include <cstring>
 #include <limits>
 
-namespace resource_protocol
+namespace resource::protocol
 {
 namespace
 {
@@ -208,4 +208,4 @@ Reply process(resource::FileSystemView files, resource::Input request,
     }
     return shortError(Status::InvalidData, response);
 }
-} // namespace resource_protocol
+} // namespace resource::protocol

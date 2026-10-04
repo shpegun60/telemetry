@@ -41,7 +41,7 @@ int main()
         check(read.status == resource::Status::Ok && read.written == 1 && output[0] == std::byte{42});
         check(files.read(0, 1, output).eof);
         check(files.write(0, 0, {}).status == resource::Status::NotWritable);
-        const auto response = resource_protocol::process(files.view(), list, output);
+        const auto response = resource::protocol::process(files.view(), list, output);
         check(response.status == resource::Status::Ok && response.written > 12);
     }
     std::printf("Generic resource without heap: %u checks passed\n", checks);

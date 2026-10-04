@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_CODEC_WORKSPACE_HPP
-#define TELEMETRY_STRUCTURED_CODEC_WORKSPACE_HPP
+#ifndef TELEMETRY_CODEC_WORKSPACE_HPP
+#define TELEMETRY_CODEC_WORKSPACE_HPP
 
 #include <cstddef>
 #include <memory>

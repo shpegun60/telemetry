@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_PROBE_TYPES_HPP
-#define TELEMETRY_STRUCTURED_PROBE_TYPES_HPP
+#ifndef TELEMETRY_PROBE_TYPES_HPP
+#define TELEMETRY_PROBE_TYPES_HPP
 
 #include <array>
 #include <cstdint>
@@ -31,7 +31,7 @@ struct Nested {
 
 // This declaration deliberately tests the proposed ASCII-only automatic names.
 struct NonAsciiName {
-    std::uint8_t café;
+    std::uint8_t cafÃ©;
 };
 
 enum class Mode : std::uint16_t { Off, Auto, Manual };

@@ -47,6 +47,6 @@ int main()
 {
     const std::byte request[9]{std::byte{1}};
     std::byte reply[64];
-    return resource_protocol::process(resource_probe_files.view(), request, reply).status ==
+    return resource::protocol::process(resource_probe_files.view(), request, reply).status ==
            resource::Status::Ok ? 0 : 1;
 }

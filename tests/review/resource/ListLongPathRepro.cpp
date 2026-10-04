@@ -39,7 +39,7 @@ int main()
     {
         // cursor 0: entry 0 ("/a", 4 bytes on the wire) always fits in these payloads.
         std::vector<std::byte> reply(12 + payload);
-        const auto r = resource_protocol::process(fs.view(), list, reply);
+        const auto r = resource::protocol::process(fs.view(), list, reply);
         std::printf("payload %5zu: status=%u written=%zu next=%llu eof=%u dataSize=%llu\n",
                     payload, unsigned(r.status), r.written,
                     (unsigned long long)get(reply, 1, 8), unsigned(reply[9]),

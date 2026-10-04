@@ -11,19 +11,17 @@ License SHA-256 (canonical tracked Git blob bytes):
 Git preserves its original bytes. The `.pri` exposes the files in Qt Creator;
 no separate compilation or Qt dependency is required.
 
-The legacy `TelemetryEnum.h` and the structured reflection backend include
-this header. The structured Registry/Codec/Model consume the normalized
-reflection facade rather than calling magic_enum directly. Legacy numeric
-catalogs do not include reflection code. The upstream default scan range is
-`-128..127`; specialize `magic_enum::customize::enum_range<E>` in the shared
-enum definition header for another range, or use telemetry's explicit enum
-value pack. Explicit values do not scan a range. All translation units must
-use the same enum definitions and reflection configuration.
+The C++20 reflection backend includes this header. Registry, Codec, Model and
+resource providers consume telemetry's normalized reflection facade rather
+than calling magic_enum directly. Its default scan range is `-128..127`.
+Specialize `magic_enum::customize::enum_range<E>` in a shared enum definition
+header for another range, or specialize `telemetry::reflection::EnumReflection<E>`
+with `enumCodes` / `enumEntries` for an explicit sparse or filtered dictionary.
+All translation units must use the same enum definitions and configuration.
 
-Aliased enumerators share a numeric code and a compiler-selected name. They
-cannot produce distinct keys in one JSON dictionary. Forward declarations
-alone do not provide enumerator names. Names are compiled into the program;
-only JSON construction happens at runtime. No runtime registration is used.
-On Clang, an enum nested in a class template may need a named enumerator use
-before scanning, to instantiate its enumerator list. The explicit value pack
-does this naturally; numeric type traits alone may not instantiate that list.
+Aliased enumerators share a numeric code and one compiler-selected automatic
+name. Explicit dictionary entries select one name per distinct code. Forward
+declarations alone do not provide enumerator names. Reflection runs at compile
+time; no runtime registration or JSON formatting is introduced by this header.
+See the supported customization syntax in the
+[user guide](../../doc/user/NativeApi.md).

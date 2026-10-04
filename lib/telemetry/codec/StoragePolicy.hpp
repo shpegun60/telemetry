@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_CODEC_STORAGE_POLICY_HPP
-#define TELEMETRY_STRUCTURED_CODEC_STORAGE_POLICY_HPP
+#ifndef TELEMETRY_CODEC_STORAGE_POLICY_HPP
+#define TELEMETRY_CODEC_STORAGE_POLICY_HPP
 
 #include <cstddef>
 #include <type_traits>

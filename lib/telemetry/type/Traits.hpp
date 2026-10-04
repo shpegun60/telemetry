@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_TYPE_TRAITS_HPP
-#define TELEMETRY_STRUCTURED_TYPE_TRAITS_HPP
+#ifndef TELEMETRY_TYPE_TRAITS_HPP
+#define TELEMETRY_TYPE_TRAITS_HPP
 
 #include "../reflection/Reflection.hpp"
 

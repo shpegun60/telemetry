@@ -86,19 +86,19 @@ public:
         Active active{*peer};
         return rs::Exchange::process(peer->binding, request, response, peer->workspace);
     }
-    std::optional<resource_protocol::Reply> resource(Connection connection, Input request, Output response) noexcept
+    std::optional<resource::protocol::Reply> resource(Connection connection, Input request, Output response) noexcept
     {
         auto* peer = get(connection);
         if (!peer || peer->busy || request.empty()) return std::nullopt;
         // Discovery and descriptor access do not depend on Ready. Values do.
-        const auto op = static_cast<resource_protocol::Op>(request[0]);
-        const bool discovery = op == resource_protocol::Op::List || op == resource_protocol::Op::Stat ||
-            (op == resource_protocol::Op::Read && request.size() == 13 && get32(request, 1) == 0);
+        const auto op = static_cast<resource::protocol::Op>(request[0]);
+        const bool discovery = op == resource::protocol::Op::List || op == resource::protocol::Op::Stat ||
+            (op == resource::protocol::Op::Read && request.size() == 13 && get32(request, 1) == 0);
         if (!discovery && !peer->binding.ready()) return std::nullopt;
         Active active{*peer};
         const auto files = resource::filesystem(
             resource::file("/descriptor.bin", descriptorFile), resource::file("/values.bin", peer->values));
-        return resource_protocol::process(files.view(), request, response);
+        return resource::protocol::process(files.view(), request, response);
     }
     bool queue(Connection connection, const std::array<std::byte, 24>& packet) noexcept
     {

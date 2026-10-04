@@ -1,3 +1,3 @@
-# Optional enum reflection dependency; only TelemetryEnum.h includes it.
+# Header-only enum reflection backend; consumed through telemetry::reflection.
 HEADERS += $$PWD/magic_enum.hpp
 DISTFILES += $$PWD/LICENSE $$PWD/README.md

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_ENUM_HPP
-#define TELEMETRY_STRUCTURED_ENUM_HPP
+#ifndef TELEMETRY_ENUM_HPP
+#define TELEMETRY_ENUM_HPP
 
 #include "detail/MagicEnumAdapter.hpp"
 

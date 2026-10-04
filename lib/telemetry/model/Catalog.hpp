@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_MODEL_CATALOG_HPP
-#define TELEMETRY_STRUCTURED_MODEL_CATALOG_HPP
+#ifndef TELEMETRY_MODEL_CATALOG_HPP
+#define TELEMETRY_MODEL_CATALOG_HPP
 
 #include "../type/Descriptor.hpp"
 #include "../detail/Name.hpp"

@@ -19,7 +19,7 @@ constinit const auto files = resource::filesystem(
 extern "C" std::size_t criticHandle(const std::uint8_t* request, std::size_t size, std::uint8_t* response,
                                      std::size_t capacity) noexcept
 {
-    const auto reply = resource_protocol::process(
+    const auto reply = resource::protocol::process(
         files.view(), resource::Input{reinterpret_cast<const std::byte*>(request), size},
         resource::Output{reinterpret_cast<std::byte*>(response), capacity});
     return reply.written;

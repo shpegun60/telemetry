@@ -82,15 +82,15 @@ bool smokeTest(MainWindow& window)
 
     namespace files = device::resources;
     if (files::fileCount() != 2
-        || files::path(files::files::Descriptor) != "/telemetry/descriptor.bin"
-        || files::path(files::files::Values) != "/telemetry/values.bin"
+        || files::path(files::fileIds::Descriptor) != "/telemetry/descriptor.bin"
+        || files::path(files::fileIds::Values) != "/telemetry/values.bin"
         || files::stat(2).status != resource::Status::InvalidFile)
         return false;
     std::array<std::byte, 64> prefix{};
-    for (const auto index : {files::files::Descriptor, files::files::Values}) {
+    for (const auto index : {files::fileIds::Descriptor, files::fileIds::Values}) {
         const auto stat = files::stat(index);
         const auto result = files::read(index, 0, prefix);
-        const char* magic = index == files::files::Descriptor ? "TDS3" : "TVL3";
+        const char* magic = index == files::fileIds::Descriptor ? "TDS3" : "TVL3";
         if (stat.status != resource::Status::Ok || stat.size < prefix.size()
             || result.status != resource::Status::Ok || result.written < 4
             || !resource::has(stat.flags, resource::FileFlag::Readable)

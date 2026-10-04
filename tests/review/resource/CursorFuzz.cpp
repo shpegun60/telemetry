@@ -194,7 +194,7 @@ int main()
         }
         const std::size_t inSize = (seed >> 20) % 41, outSize = (seed >> 30) % 70;
         std::fill(response.begin(), response.end(), std::byte{0x5a});
-        const auto r = resource_protocol::process(fs.view(), {request.data(), inSize}, {response.data() + 1, outSize});
+        const auto r = resource::protocol::process(fs.view(), {request.data(), inSize}, {response.data() + 1, outSize});
         CHECK(r.written <= outSize && response[0] == std::byte{0x5a} && response[outSize + 1] == std::byte{0x5a});
         if (r.written >= 12 && (request[0] == std::byte{1} || request[0] == std::byte{3}) && inSize == (request[0] == std::byte{1} ? 9u : 13u))
         {

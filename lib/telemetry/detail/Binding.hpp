@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_DETAIL_BINDING_HPP
-#define TELEMETRY_STRUCTURED_DETAIL_BINDING_HPP
+#ifndef TELEMETRY_DETAIL_BINDING_HPP
+#define TELEMETRY_DETAIL_BINDING_HPP
 
 #include "../reflection/Callable.hpp"
 #include <telemetry/detail/Owner.hpp>

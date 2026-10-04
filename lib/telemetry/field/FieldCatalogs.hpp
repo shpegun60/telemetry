@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_FIELD_FIELD_CATALOGS_HPP
-#define TELEMETRY_STRUCTURED_FIELD_FIELD_CATALOGS_HPP
+#ifndef TELEMETRY_FIELD_FIELD_CATALOGS_HPP
+#define TELEMETRY_FIELD_FIELD_CATALOGS_HPP
 
 #include "../model/Catalog.hpp"
 #include "FieldTable.hpp"

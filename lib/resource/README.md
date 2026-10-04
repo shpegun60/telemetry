@@ -1,42 +1,115 @@
-# Flat resources (C++20)
+# Resources: files from ordinary C++ objects
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](LICENSE).
 
-`resource` depends only on the C++20 standard library. It knows neither a
-transport protocol nor telemetry. A path is a borrowed flat label; slashes do
-not imply nodes, directories, resolution or filesystem access.
-
-The library keeps its optional modules beside the core headers:
-
-```text
-resource/
-  Types.hpp, File.hpp, FileSystem.hpp, ChunkWriter.hpp
-  resource.pri
-  protocol/    Protocol.hpp, Protocol.cpp
-  telemetry/v3/  DescriptorFile and ValuesFile (optional telemetry adapter)
-```
-
-One `resource.pri` connects the library to qmake. By default it adds the core
-headers and packet protocol without a telemetry dependency:
-
-```qmake
-include(lib/resource/resource.pri)
-```
-
-Enable the telemetry providers explicitly when the application needs them:
-
-```qmake
-include(lib/telemetry/telemetry.pri)
-CONFIG += resource_telemetry
-include(lib/resource/resource.pri)
-```
-
-Set the option before the resource include; repeated includes add no duplicate
-sources.
+A resource file is a **path plus a provider**. The path names the file for a
+client. The provider supplies its bytes. No operating-system filesystem,
+directory tree, storage allocation or telemetry model is created by declaring
+that path.
 
 ```cpp
-#include <resource/FileSystem.hpp>
+#include <resource/Resource.hpp>
 
+inline constexpr std::array versionBytes{
+    std::byte{1}, std::byte{0}, std::byte{0}, std::byte{0}};
+inline constexpr resource::BytesFile versionFile{versionBytes};
+
+inline constinit const auto files = resource::filesystem(
+    resource::file("/device/version.bin", versionFile)); // index 0
+```
+
+These objects are ready without an `init()` call. `BytesFile` borrows its
+source; it does not copy or allocate it. A constexpr source and table can live
+in Flash. Mutable provider state can live in RAM independently of the table.
+
+## Read a file locally
+
+```cpp
+std::array<std::byte, 32> output;
+resource::Cursor cursor = 0;
+const auto result = files.read(0, cursor, output);
+if (result.status == resource::Status::Ok) {
+    // Consume exactly output[0 .. result.written).
+    cursor = result.next;
+    // Stop at result.eof; otherwise read again with cursor.
+}
+```
+
+Use `stat(index)` for size and capabilities, and `path(index)` for its name.
+The file index is its position in the declaration, starting at zero. Reads do
+not look up a string or walk directories. The core does one bounds check and
+indexes the descriptor array.
+
+## Iterate and access one file
+
+Both `FileSystem` and `FileSystemView` provide `size()`, `empty()`, `begin()`,
+`end()` and checked `operator[]`. `fileCount()` remains available. The iterator
+returns a small borrowed `FileView`, which exposes the index and path without
+exposing the provider pointer or operation table:
+
+```cpp
+const auto fs = files.view();
+for (auto file : fs) {
+    const auto index = file.index();
+    const auto path = file.path();
+    const bool canRead = file.readable();
+    const bool canWrite = file.writable();
+    const auto info = file.stat(); // Explicitly calls this provider's size().
+    // Use index/path, capabilities and info.status/size/flags in the application.
+}
+
+auto file = fs[0];
+auto result = file.read(0, output);
+// file.write(cursor, input, final) uses the same contract as fs.write(...).
+```
+
+Enumeration and `readable()`/`writable()` call no `size()`, `read()` or `write()`
+callback. The constexpr capability methods inspect declared callbacks only;
+they do not establish that a provider is ready or that an operation will succeed.
+Invalid indexing returns an invalid facade: `file.valid()` is false, its path is empty,
+both capabilities are false, and operations report `InvalidFile`. The requested
+index is retained.
+`FileView` and iterators borrow the descriptor table directly, so a temporary
+`FileSystemView` is safe when that table remains alive. They do not extend the
+table/provider lifetimes. A temporary owning `FileSystem` cannot provide these
+borrowed handles through direct indexing or iterator access.
+
+## Add another file and choose its path
+
+Create a stable provider object and add another `file(path, object)` entry:
+
+```cpp
+inline constexpr std::array calibrationBytes{
+    std::byte{0x12}, std::byte{0x34}};
+inline constexpr resource::BytesFile calibrationFile{calibrationBytes};
+
+inline constinit const auto deviceFiles = resource::filesystem(
+    resource::file("/device/version.bin", versionFile),       // index 0
+    resource::file("/calibration/reference.bin", calibrationFile)); // index 1
+```
+
+There is no separate path registration. `/calibration/reference.bin` is a
+flat label. The client may display it as folders by splitting `/`; the MCU
+core never creates those folders. Extensions do not select an encoder:
+`.bin`, `.json` or `.txt` mean whatever bytes the provider produces.
+
+Paths must start with `/`, have nonempty components, and contain no ASCII
+control bytes (`0x00..0x1f`, `0x7f`), backslashes, `.` or `..` components, or
+trailing slash. Duplicate paths are rejected during table construction.
+Examples: `/settings.bin`, `/logs/status.txt`, `/telemetry/values.bin`.
+
+Changing the order changes file indexes, so clients rediscover the table with
+LIST after firmware changes. There is no `FileId` member in a descriptor.
+The packet LIST format can carry a whole path of at most 65533 bytes; a path
+larger than this is usable locally but not representable in that protocol.
+
+## Supply your own file format or storage
+
+For bytes already held in an array/span, use `BytesFile`. For generated data,
+a flash partition, logger, SD-card file or custom write handling, use an
+ordinary class with these exact signatures:
+
+```cpp
 class SettingsFile {
 public:
     resource::FileSize size() const noexcept;
@@ -44,60 +117,115 @@ public:
     resource::WriteResult write(resource::Cursor, resource::Input, bool final) noexcept;
 };
 
-SettingsFile settings;
-constinit const auto files = resource::filesystem(
+inline SettingsFile settings;
+inline constinit const auto settingsFiles = resource::filesystem(
     resource::file("/settings.bin", settings));
-
-// Later, after application initialization:
-// files.read(0, 0, output);
-// files.write(0, cursor, input, final);
 ```
 
-For another build system, add the parent `lib` directory to the include path
-and compile the sources of the modules you use. The core has no compiled
-source, Qt, allocation, RTTI or virtual base class. Concepts require an exact
-`uint32_t size() const noexcept`, and
-at least one correctly typed `read` or `write` operation. `FileOps` holds the
-generated function pointers; unavailable operations are null. `stat()` derives
-Readable/Writable from these operations and queries the current size.
+`size()` is required and returns an exact u32 size. At least one of `read()`
+or `write()` must exist. Omit `write()` for read-only files; omit `read()` for
+write-only files. There is no virtual base class or registration macro.
+`file()` creates one immutable operation table per provider type, and STAT
+computes Readable/Writable from the callbacks that actually exist.
 
-`FileIndex` and `FileSize` are `uint32_t`; `Cursor` is `uint64_t`. Identity is
-the position starting at zero. Reordering the declarations changes identity.
-`path()` returns an empty view for an invalid index; `stat/read/write` report
-`InvalidFile`. `FileStat` includes a status so an empty file is distinguishable
-from an invalid index. A provider returns an exact size representable in u32.
+A complete, compilable read/write provider and a three-file table are in
+[the resource example](../../examples/resources/README.md). The example is
+checked by the generic resource runner and has no telemetry dependency.
+Writes to a custom resource call that provider's `write()`. Writing a telemetry
+Field or executing a Command/Service remains a separate Model operation; the
+DescriptorFile and ValuesFile providers themselves are read-only.
 
-The table, provider and path text have independent lifetimes. `file()` rejects
-temporary providers and owning temporary path strings, including calls with an
-explicit provider type such as `file<const Base>(prefix + "/name", derived)`.
-An explicit provider type may add `const` or select a base class of a live
-provider; it cannot introduce a provider conversion temporary. Braced provider
-arguments follow the same rule: `{provider}` can bind the existing object,
-while `{}`, `{Provider{}}` and conversion wrappers are rejected.
-With an explicit provider type, `std::ref(provider)` and conversion-proxy
-lvalues are also rejected: pass the actual object, `.get()` reference or
-explicit dereference instead. The binding validates cv/base pointer conversion,
-not an arbitrary user-defined conversion. A helper returning `const T&` can
-still hide a temporary; the caller must keep the referenced provider alive.
-String literals, character pointers, `string_view` values and lvalue strings
-remain borrowed paths; the text must stay alive at the same address while the
-descriptor is in use. Braced paths accept literals, character pointers and
-`string_view` values. Braces around an owning string or conversion wrapper are
-rejected, including `{lvalueString}`; pass a stable string directly instead.
-An explicitly created `string_view` remains the caller's lifetime
-responsibility. Paths must start with `/`, have nonempty components, and contain
-no ASCII control bytes (`0x00..0x1f`, `0x7f`), backslashes, `.` or `..` components,
-or trailing slash. Duplicate paths are rejected.
-These checks run during constant evaluation for constexpr/constinit definitions;
-invalid runtime definitions terminate with `abort()`. There is no protocol
-length limit in this library. Consumers supply valid UTF-8 labels if their UI
-expects UTF-8.
+## Library boundaries and build integration
+
+```text
+application objects / immutable byte arrays
+        | file(path, provider)
+        v
+resource::FileSystem --> stat / read / write / path by u32 index
+        |
+        +-- resource::protocol::process --> LIST / STAT / READ / WRITE packets
+        |                                  caller supplies UART/TCP/framing
+        |
+        +-- optional resource::telemetry::v3 providers
+            current Model --> descriptor.bin / live values.bin
+```
+
+```text
+resource/
+  Resource.hpp                   generic public umbrella
+  Types.hpp                      spans, statuses, sizes, opaque cursor
+  File.hpp, FileSystem.hpp       bindings and flat indexed table
+  FileView.hpp                   lazy file facade and forward iterator
+  BytesFile.hpp, ChunkWriter.hpp byte-array provider and output utility
+  resource.pri                   one qmake manifest
+  protocol/                      generic packet operations
+  telemetry/v3/                  current Model adapter, wire format 3.0
+```
+
+The generic core depends only on the C++20 standard library. It has no
+compiled sources, Qt, PFR, allocation, RTTI or virtual base class. Including
+`Resource.hpp` does not select a packet protocol or a telemetry adapter.
+`telemetry/v3` is the current adapter; the directory version names its frozen
+wire format, not a retired Scalar model.
+
+For qmake:
+
+```qmake
+CONFIG += c++20
+include(path/to/lib/resource/resource.pri)
+```
+
+This manifest lists the generic headers and compiles `protocol/Protocol.cpp`
+once. Enable telemetry providers explicitly, before the resource include:
+
+```qmake
+include(path/to/lib/telemetry/telemetry.pri)
+CONFIG += resource_telemetry
+include(path/to/lib/resource/resource.pri)
+```
+
+Repeated includes add no duplicate sources. For another build system, add
+`lib` to the include path. The generic core needs no source files; compile
+`protocol/Protocol.cpp` for packet handling and
+`telemetry/v3/detail/Values.cpp` for live telemetry values. Select the telemetry
+library separately for that adapter. No manifest includes it in reverse.
+
+## Ownership and lifetime
 
 `FileSystem<N>` owns only the descriptor array. `view()` returns a borrowed,
-non-template `FileSystemView` for compiled boundaries and rejects a temporary
-table. Lookup is one bounds check and direct indexing. Descriptor copies use
-ordinary C++ copy construction, never raw packet serialization. Providers are
-not copied. Const providers retain their const qualification in the callbacks.
+non-template `FileSystemView` and rejects a temporary table. `path()` returns
+an empty view for an invalid index; `stat/read/write` report `InvalidFile`.
+`FileStat` includes status so an empty file is distinguishable from an invalid
+index. Providers and their data are not copied.
+
+`FileIndex` and `FileSize` are u32. `Cursor` is u64 because it is opaque provider
+state, not file identity. `BytesFile` interprets it as a byte offset; another
+provider may use a sequence/state token. The core neither increments it nor
+compares it with `size()`.
+
+The table, provider, path text and byte storage have independent lifetimes.
+Keep all four alive at stable addresses for every operation and keep path
+text unchanged while registered. String literals
+are the easiest paths. An lvalue `std::string` is also usable, but must not be
+moved, resized or destroyed while its descriptor is used.
+
+`file()` rejects temporary providers and owning temporary path strings,
+including explicit types and braced arguments. An explicit provider type may
+add const or select a base class of the live object. It cannot introduce a
+conversion temporary. Pass `std::ref(provider).get()` or explicitly dereference
+a holder; conversion-proxy objects are not borrowed providers.
+`{provider}` may bind the existing object; `{}`, `{Provider{}}` and conversion
+wrappers are rejected. Braced paths accept literals, character pointers and
+`string_view`, but not owning strings, including `{lvalueString}`.
+
+Explicit `string_view` and span values are already borrowed views. Their
+construction cannot prove that their backing storage survives. Likewise a
+helper returning `const T&` may hide a temporary. The caller remains responsible
+for these lifetimes. `BytesFile` rejects owning array temporaries passed
+directly, and never changes its source; its read output may overlap the source.
+A read that overlaps mutable source storage changes those bytes through the
+caller-provided output, so applications needing an immutable snapshot keep
+output separate.
 
 ## Transfer contract
 
@@ -117,8 +245,10 @@ not copied. Const providers retain their const qualification in the callbacks.
   `complete` is the provider's acknowledgement, not a synonym for `final`.
 - No repeated-write suppression exists. Every request reaches the provider.
   Synchronization, coherent snapshots and any persistent storage belong there.
-- Spans are valid only during the synchronous operation; do not retain them.
-  Core and callbacks assume valid C++ spans and live objects.
+- Spans passed to `read()`/`write()` are valid only during that synchronous
+  operation; providers must not retain these operation spans. A provider may
+  separately borrow stable source storage, as `BytesFile` does. Core and
+  callbacks assume valid C++ spans and live objects.
 
 `ChunkWriter` has `writeAtomic` (all bytes or none) and `writePartial` (what fits).
 It owns no cursor and permits overlapping input/output spans.
@@ -128,7 +258,7 @@ See [resource tests](../../tests/resources/README.md), the
 [telemetry adapters](telemetry/v3/README.md).
 
 The compact result ABI uses 16-byte ReadResult/WriteResult and 8-byte FileStat
-on ARM32. Status-first brace construction remains supported through constexpr
-constructors. These types are no longer aggregates; designated initializers
-must become ordinary constructor calls. Rebuild all resource consumers after
-this ABI change. The packet representation is independent and unchanged.
+on ARM32. Constructors take `{status, cursor, count, finished}` independently
+of the in-memory member order. These types are not aggregates and use ordinary
+constructor calls rather than designated initializers. The packet
+representation is independent of this C++ layout.

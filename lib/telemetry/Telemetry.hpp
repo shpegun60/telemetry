@@ -1,12 +1,12 @@
 /*
- * @file Structured.hpp
- * @brief Single include for the evolving C++20 structured telemetry API.
+ * @file Telemetry.hpp
+ * @brief Public C++20 telemetry API for native values and structural types.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_STRUCTURED_HPP
-#define TELEMETRY_STRUCTURED_STRUCTURED_HPP
+#ifndef TELEMETRY_TELEMETRY_HPP
+#define TELEMETRY_TELEMETRY_HPP
 
 #include "codec/Codec.hpp"
 #include "model/Adapter.hpp"

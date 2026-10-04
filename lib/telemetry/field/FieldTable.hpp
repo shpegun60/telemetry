@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_FIELD_FIELD_TABLE_HPP
-#define TELEMETRY_STRUCTURED_FIELD_FIELD_TABLE_HPP
+#ifndef TELEMETRY_FIELD_FIELD_TABLE_HPP
+#define TELEMETRY_FIELD_FIELD_TABLE_HPP
 
 #include "Field.hpp"
 #include "../result/EndpointResults.hpp"

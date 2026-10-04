@@ -23,7 +23,7 @@ def check_usage(text, required=None, optimization=None):
 
 
 def self_test():
-    good = 'probe.cpp:1:1:resource_protocol::process()\t192\tstatic'
+    good = 'probe.cpp:1:1:resource::protocol::process()\t192\tstatic'
     if check_usage(good, 'process')['maximum'] != 192:
         raise RuntimeError('Resource stack positive control failed')
     for text, required in (('', None), ('not a report', None),

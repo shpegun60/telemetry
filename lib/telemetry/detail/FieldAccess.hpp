@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_DETAIL_FIELD_ACCESS_HPP
-#define TELEMETRY_STRUCTURED_DETAIL_FIELD_ACCESS_HPP
+#ifndef TELEMETRY_DETAIL_FIELD_ACCESS_HPP
+#define TELEMETRY_DETAIL_FIELD_ACCESS_HPP
 
 #include <telemetry/detail/NumberConversion.hpp>
 #include <telemetry/result/EndpointStatus.hpp>

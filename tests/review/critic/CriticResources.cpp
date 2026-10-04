@@ -96,7 +96,7 @@ std::size_t dumpResources(char* text, std::size_t capacity) noexcept
     // The same values file through one protocol READ packet: u8 op, u32 index, u64 cursor.
     std::byte request[13] = {std::byte{3}, std::byte{2}};
     std::byte response[256];
-    const auto reply = resource_protocol::process(files.view(), request, response);
+    const auto reply = resource::protocol::process(files.view(), request, response);
     t.add("protocol READ values.bin -> status=%u written=%u\n",
           static_cast<unsigned>(reply.status), static_cast<unsigned>(reply.written));
     return t.used;

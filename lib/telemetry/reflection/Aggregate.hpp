@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_AGGREGATE_HPP
-#define TELEMETRY_STRUCTURED_AGGREGATE_HPP
+#ifndef TELEMETRY_AGGREGATE_HPP
+#define TELEMETRY_AGGREGATE_HPP
 
 #include "detail/PfrAdapter.hpp"
 

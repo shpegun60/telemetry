@@ -237,7 +237,7 @@ void progressChecks()
     put(Output{request}, 5, cursor);
     put(Output{request}, 14, std::uint16_t{1});
     request[16] = std::byte{0x5a};
-    using resource_protocol::process;
+    using resource::protocol::process;
     for (unsigned mode = 0; mode < 8; ++mode)
     {
         provider.advance = (mode & 1) != 0;
@@ -308,7 +308,7 @@ int main()
     CHECK(empty.writePartial({}) == 0 && empty.writeAtomic({}));
 
     std::array<std::byte, 64> request{};
-    using resource_protocol::process;
+    using resource::protocol::process;
     request[0] = std::byte{1};
     const auto statCalls = memory.stats;
     auto r = process(view, Input{request}.first(9), Output{out}.first(23));

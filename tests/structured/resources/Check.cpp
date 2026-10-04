@@ -186,15 +186,15 @@ void protocol()
     std::array<std::byte, 13> request{};
     request[0] = std::byte{3}; put(request.data() + 1, std::uint32_t{1});
     std::array<std::byte, 85> reply{};
-    auto r = resource_protocol::process(fs.view(), request, reply);
+    auto r = resource::protocol::process(fs.view(), request, reply);
     assert(r.status == Status::Ok && r.written == reply.size());
     assert(reply[9] == std::byte{1} && reply[10] == std::byte{73});
     assert(std::equal(reply.begin() + 12, reply.end(), expected().begin()));
     put(request.data() + 5, std::uint64_t{25});
-    r = resource_protocol::process(fs.view(), request, reply);
+    r = resource::protocol::process(fs.view(), request, reply);
     assert(r.status == Status::InvalidCursor && r.written == 12);
     put(request.data() + 5, std::uint64_t{24});
-    r = resource_protocol::process(fs.view(), request, {reply.data(), 16});
+    r = resource::protocol::process(fs.view(), request, {reply.data(), 16});
     assert(r.status == Status::BufferTooSmall && r.written == 12 && reply[1] == std::byte{24});
     assert(fs.view().stat(1).size == values.size());
     assert(fs.view().stat(1).flags == resource::FileFlag::Readable);

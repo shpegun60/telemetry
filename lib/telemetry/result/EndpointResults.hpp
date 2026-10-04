@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_STRUCTURED_RESULT_ENDPOINT_RESULTS_HPP
-#define TELEMETRY_STRUCTURED_RESULT_ENDPOINT_RESULTS_HPP
+#ifndef TELEMETRY_RESULT_ENDPOINT_RESULTS_HPP
+#define TELEMETRY_RESULT_ENDPOINT_RESULTS_HPP
 
 #include "Dispatch.hpp"
 #include <telemetry/result/EndpointStatus.hpp>

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_REFLECTION_HPP
-#define TELEMETRY_STRUCTURED_REFLECTION_HPP
+#ifndef TELEMETRY_REFLECTION_HPP
+#define TELEMETRY_REFLECTION_HPP
 
 #include "Aggregate.hpp"
 #include "Callable.hpp"

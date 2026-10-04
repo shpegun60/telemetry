@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_MODEL_MODEL_HPP
-#define TELEMETRY_STRUCTURED_MODEL_MODEL_HPP
+#ifndef TELEMETRY_MODEL_MODEL_HPP
+#define TELEMETRY_MODEL_MODEL_HPP
 
 #include "../service/ServiceCatalogs.hpp"
 #include "../field/FieldCatalogs.hpp"

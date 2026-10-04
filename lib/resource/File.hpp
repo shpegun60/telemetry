@@ -80,23 +80,16 @@ inline constexpr FileOps operations = []
     // One immutable operation table per provider type. Missing capabilities
     // remain null; no type inspection takes place during a runtime request.
     FileOps ops{};
-    ops.size = +[](const void* context) noexcept
-    {
-        return static_cast<const T*>(context)->size();
-    };
+    ops.size = +[](const void* context) noexcept { return static_cast<const T*>(context)->size(); };
     if constexpr (ReadableProvider<T>)
     {
         ops.read = +[](const void* context, Cursor cursor, Output output) noexcept
-        {
-            return static_cast<const T*>(context)->read(cursor, output);
-        };
+        { return static_cast<const T*>(context)->read(cursor, output); };
     }
     if constexpr (WritableProvider<T>)
     {
         ops.write = +[](void* context, Cursor cursor, Input input, bool final) noexcept
-        {
-            return static_cast<T*>(context)->write(cursor, input, final);
-        };
+        { return static_cast<T*>(context)->write(cursor, input, final); };
     }
     return ops;
 }();

@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef TELEMETRY_STRUCTURED_CALLABLE_HPP
-#define TELEMETRY_STRUCTURED_CALLABLE_HPP
+#ifndef TELEMETRY_CALLABLE_HPP
+#define TELEMETRY_CALLABLE_HPP
 
 #include "detail/CallableTraitsAdapter.hpp"
 
