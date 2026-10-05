@@ -22,6 +22,8 @@ SUPPORT = {
     "QuickStart": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
     "Native": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
     "Resources": ["lib/resource/protocol/Protocol.cpp"],
+    "ResourceClient": ["lib/resource/protocol/Protocol.cpp"],
+    "Ergonomics": ["lib/telemetry/abi/StructuredAbi.cpp"],
     "Encoded": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
 }
 PROJECT = ROOT / "examples/device_integration"
@@ -147,9 +149,13 @@ def main():
                     if result.strip() != "Native API guide: examples passed":
                         raise RuntimeError("Native example did not report completion")
                     entry["assertions"] = "enabled; individual runtime assertion counts are not reported"
+                elif name == "ResourceClient":
+                    if not result.rstrip().endswith("Resource client example passed"):
+                        raise RuntimeError("Resource client example did not report completion")
+                    entry["assertions"] = "enabled; error paths return nonzero"
                 else:
                     prefix = {"Resources": "Resource", "Encoded": "Encoded",
-                              "DeviceIntegration": "Device integration"}[name]
+                              "DeviceIntegration": "Device integration", "Ergonomics": "Ergonomics"}[name]
                     rows = re.findall(r"^" + prefix + r" guide: (\d+) checks passed$", result, re.M)
                     if len(rows) != 1 or int(rows[0]) <= 0:
                         raise RuntimeError(name + ": expected one positive counted report")

@@ -235,8 +235,10 @@ catalog declaration order задає group position.
 | `local.get<Position>()` | `const CommandDefinition&` | Exact declaration |
 | `local.call<Position>()` | `CommandResult` | No-request native action |
 | `local.call<Position>(request)` | `CommandResult` | Exact typed native request |
+| `local.callAs(position)`, `callAs(position, request)` | `NativeCallResult<CommandResult>` | Checked runtime native selection з exact request |
 | `catalogs.get<Id>()` | `const CommandDefinition&` | Static global declaration |
 | `catalogs.call<Id>()`, `call<Id>(request)` | `CommandResult` | Static global native action |
+| `catalogs.callAs(id)`, `callAs(id, request)` | `NativeCallResult<CommandResult>` | Checked runtime packed-ID native action |
 | `size()`, `empty()` | `size_t`, `bool` | Local entry count / catalog group count |
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased iteration без execution |
 | `operator[](i)` | `const CommandEntry&` / `const CommandCatalog&` | Unchecked; requires `i < size()` |
@@ -274,9 +276,14 @@ Traversal сам по собі не викликає command; command викон
 
 ### Typed call з runtime ID
 
-Runtime heterogeneous table не має `call(id, request)`: тип request треба
-підтвердити в typed visitor або декодувати через encoded boundary.
-Для `Configure` із першого прикладу:
+`callAs(position_or_id[, request])` обирає runtime Command і повертає
+`NativeCallResult<CommandResult>`. Request має точно збігатися з declared
+`Request` після зняття cv/ref; conversions між structs чи numeric members
+не виконуються. Форму без request можна застосувати тільки до `Request = void`.
+Невідповідність дає `SignatureMismatch` до callback і slot availability check.
+
+Для `Configure` із першого повного прикладу visitor можна замінити direct
+runtime call. Раніше selection і endpoint status оброблялися окремо:
 
 ```cpp
 ts::CommandResult outcome = ts::CommandResult::NotFound;
@@ -295,6 +302,42 @@ const bool selected = commands.visit(id, [&](const auto& definition) {
 відділяє exact request types. `selected == false` залишить `NotFound`;
 `selected == true` ще не означає `Executed`. Traversal visitors не повинні
 бути noexcept, але endpoint callback signatures — повинні.
+
+Та сама операція через `callAs`:
+
+```cpp
+const Configure request{40, Mode::Measuring};
+const ts::PackedId id = ts::makeId<0, 1>();
+const auto result = commands.callAs(id, request);
+assert(result.status() == ts::NativeCallStatus::Ok);
+assert(result.hasValue());
+assert(result.value() == ts::CommandResult::Executed);
+
+const auto reset = localCommands.callAs(0);
+assert(reset.hasValue() && reset.value() == ts::CommandResult::Executed);
+```
+
+| `NativeCallStatus` | Meaning |
+| --- | --- |
+| `Ok` | Exact endpoint result доставлено; application status читається через `value()` |
+| `NotFound` | Position/ID invalid на original width або group/row відсутня |
+| `SignatureMismatch` | Row існує, але exact Request або no-request форма не збігається |
+
+`result.hasValue()` означає доставку `CommandResult`, а не `Executed`.
+`Busy`, `InvalidValue` та `Unavailable` збережено у `result.value()` при
+selection `Ok`; наприклад empty declared slot дає `Ok + Unavailable`.
+`value()` вимагає selection `Ok`; `valueOrNull()` safe також на failure.
+Ці native selection statuses не є encoded dispatch чи wire codes.
+
+Local input приймає integer або scoped position enum; packed ID — integral.
+Negative/wide input перевіряється до narrowing. Методи вимагають lvalue
+table/catalog; names, slots та owners зберігають свої borrowed lifetimes.
+`callAs` виконується синхронно і не додає queue чи request ownership.
+
+Typed `visit` лишається варіантом для кількох request types, custom result
+handling або доступу до definition. Static `call<Position/Id>` не змінюється;
+encoded bytes викликаються через `executeEncoded`. Runnable coverage:
+[NativeCalls.cpp](../../tests/ergonomics/NativeCalls.cpp).
 
 `RootTypes` містить один request type на кожну Command у порядку оголошення,
 включно з `Void` для команд без запиту; повтори зберігаються.

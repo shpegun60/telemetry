@@ -26,7 +26,7 @@ DIAGNOSTICS = {
     7: r"deleted function",
     8: r"deleted function",
     9: r"no matching function",
-    10: r"Service method must be noexcept-invocable on this owner",
+    10: r"Endpoint method must be noexcept-invocable on this owner",
     11: r"deleted function",
     12: r"deleted function",
     13: r"no matching function|deleted function",
@@ -35,8 +35,8 @@ DIAGNOSTICS = {
     16: r"deleted function",
     17: r"Service must return Response, void or the exact ServiceResult",
     18: r"deleted function",
-    19: r"Service target cannot be nullptr",
-    20: r"Service target cannot be nullptr",
+    19: r"Endpoint target cannot be nullptr",
+    20: r"Endpoint target cannot be nullptr",
 }
 
 

@@ -54,11 +54,13 @@
 | --- | --- | --- |
 | A. Compile-time exact | `read<Id>()`, `write<Id>(value)`, `call<Id>(request)` | Рекомендований application API, коли endpoint відомий компілятору |
 | B. Typed traversal | `forEach(visitor)` | Обійти всі concrete definitions із їхніми native типами |
-| C. Runtime ID, typed endpoint | `visit(id, visitor)` | Вибрати definition у runtime й обробити її typed branch |
+| C. Runtime ID, typed endpoint | `readAs<T>`, `callAs` / `callAs<Result>`, `visit(id, visitor)` | Known native type або concrete definition у runtime |
 | D. Erased/encoded | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` | Transport/backend має ID та bytes |
 
 Local tables використовують Position замість global Id. Для Field також є
 прямий runtime `readAs<T>/writeAs`, коли caller знає потрібний native тип.
+Command має exact `callAs(id[, request])`; Service —
+`callAs<Result>(id[, request])`, коли caller знає Request і result wrapper.
 **`forEach` і range-for не виконують getter, Command або Service автоматично.**
 `forEach/visit` викликають лише ваш visitor; сам visitor вирішує, чи потрібна
 endpoint operation. [API шпаргалка](API-CHEATSHEET.md) зводить ці виклики.
@@ -706,6 +708,7 @@ Model не є сховищем усіх значень і не знімає snap
 | `ModelView`, Index, `TypeRegistryView`, metadata descriptors | Borrowed arrays/names/function metadata; lifetime продовжити не можуть | Runtime access; metadata lookup сам не викликає endpoint |
 | `Workspace`, `Lease<T>` | Workspace позичає caller byte span; Lease володіє lifetime constructed T у span | Runtime reserve/construct/destroy, без heap |
 | `ServiceResult<T>` / `optional<T>` | Власний T, якщо результат успішний | Операції result не виконують endpoint |
+| `NativeCallResult<Result>` | Власний exact endpoint Result лише при successful selection | Selection success не означає application success |
 | `BorrowedValue<T>` / `BorrowedServiceResult<T>` | Адреса існуючого const T, не ownership T | Access потребує live/stable target |
 | Reflection / `Type<T>` / `TypeRegistry<...>` | Compile-time факти й immutable generated metadata | Shape/size/type IDs, без live getter |
 
@@ -755,10 +758,66 @@ members. Runtime structural mismatch повертає empty optional / `InvalidV
 Compile-time `readAs<WrongStruct>()` не маскує incompatible shape і дає
 compile-time diagnostic.
 
-У Command/Service немає загального native `callAs(...)` або `execute(...)`.
-Native назва — `call`, з exact Request. Якщо ID runtime і потрібні native типи,
-застосуйте `visit` та `if constexpr`; якщо Request/Response уже wire bytes,
-застосуйте `executeEncoded` / `callEncoded`.
+Command і Service підтримують runtime exact native calls без visitor:
+
+| Family | Local / catalog call | Result |
+| --- | --- | --- |
+| Command | `callAs(position_or_id[, request])` | `NativeCallResult<CommandResult>` |
+| Service | `callAs<ServiceResult<Response>>(position_or_id[, request])` | `NativeCallResult<ServiceResult<Response>>` |
+| Borrowed Service | `callAs<BorrowedServiceResult<Response>>(position_or_id[, request])` | `NativeCallResult<BorrowedServiceResult<Response>>` |
+| Void response Service | `callAs<ServiceResult<void>>(position_or_id[, request])` | `NativeCallResult<ServiceResult<void>>` |
+
+Request після зняття cv/ref має точно збігатися з declaration; request та
+response conversions не виконуються. Service Result — exact wrapper від
+`definition.call()`, включно з owning/borrowed policy. Форму без request
+застосовуйте до `Request = void`; empty struct не є void. Local input може
+бути integer чи scoped position enum; global input — integral packed ID.
+Original width перевіряється до narrowing, table/catalog має бути lvalue.
+
+Наприклад, цей самостійний фрагмент показує local runtime calls:
+
+```cpp
+#include <telemetry/Telemetry.hpp>
+#include <cassert>
+#include <cstdint>
+
+namespace runtime_demo {
+struct Reply { std::uint32_t value; };
+telemetry::CommandResult reset() noexcept {
+    return telemetry::CommandResult::Executed;
+}
+Reply snapshot() noexcept { return {7}; }
+const telemetry::CommandTable commands{telemetry::command<&reset>("Reset")};
+const telemetry::ServiceTable services{telemetry::service<&snapshot>("Snapshot")};
+
+void run(std::uint64_t position) {
+    const auto action = commands.callAs(position);
+    const auto reply = services.callAs<telemetry::ServiceResult<Reply>>(position);
+    if (action.hasValue())
+        assert(action.value() == telemetry::CommandResult::Executed);
+    if (reply.hasValue() && reply.value().hasValue())
+        assert(reply.value().value().value == 7);
+}
+} // namespace runtime_demo
+```
+
+`NativeCallStatus::NotFound` означає invalid/absent position чи ID;
+`SignatureMismatch` — row існує, але exact Request або Result не збігається.
+Обидві відмови не викликають callback і не конструюють endpoint Result.
+`Ok` означає, що endpoint result доставлено: `Busy`, `InvalidValue` та
+`Unavailable` лишаються його application status. Empty compatible slot дає
+selection `Ok` та inner `Unavailable`. Outer `hasValue()` не є inner
+`hasValue()`; для Service перевірте обидва перед payload access.
+
+`NativeCallResult<Result>::successFrom(factory)` будує exact Result у final
+union storage. Runtime dispatch не додає move/copy endpoint wrapper або
+large response. Owning wrapper все одно містить payload bytes: caller обирає
+його storage і budgets callback stack; borrowed wrapper не продовжує
+request/response lifetime. Encoded Workspace/local-object policy не змінюється.
+
+Typed `visit` лишається варіантом для custom dispatch та кількох native shapes;
+static `call<Position/Id>` зберігає exact API. Для Query із відомих Command
+declarations visitor alternative виглядає так:
 
 ```cpp
 CommandResult status = CommandResult::NotFound;
@@ -773,6 +832,10 @@ Generic visitor має компілюватися для кожного definiti
 `if constexpr` дозволяє явно обрати потрібний Request/Response contract. `selected`
 означає, що ID вибрав definition; якщо branch нічого не викликав, це не робить
 операцію успішною. Зберігайте свій endpoint status окремо від selection bool.
+Before/after фрагменти з exact requests наведено у [Commands](Commands.md)
+та [Services](Services.md); повне runnable coverage —
+[NativeCalls.cpp](../../tests/ergonomics/NativeCalls.cpp). Для wire bytes
+використовуйте `executeEncoded` / `callEncoded`.
 
 ## 13. Iteration: erased записи й exact definitions
 
@@ -854,6 +917,7 @@ Metadata views позичені; вони не є копією application state
 | `WriteResult` | `Applied`, `NotFound`, `ReadOnly`, `InvalidValue`, `Busy`, `Unavailable` |
 | `CommandResult` | `Executed`, `Accepted`, `NotFound`, `Unavailable`, `ArgumentCountMismatch`, `InvalidValue`, `Busy`, `Failed` |
 | `ServiceStatus` | `Ok`, `InvalidArgument`, `Unavailable`, `Busy`, `Failed` |
+| `NativeCallStatus` | `Ok`, `NotFound`, `SignatureMismatch`; native selection, не application status |
 
 Застосунок повертає статус за своєю операцією. Library також повідомляє
 відсутній binding чи invalid native lookup/conversion через відповідні наявні

@@ -74,6 +74,8 @@ class ServiceResult {
 	              "ServiceResult payload destructor must be noexcept");
 
 public:
+	using value_type = T;
+
 	// This factory preserves prvalue construction into the result's final
 	// storage. It is the bounded-stack form for large response objects.
 	template<class Factory>
@@ -237,6 +239,8 @@ private:
 template<>
 class ServiceResult<void> {
 public:
+	using value_type = void;
+
 	[[nodiscard]] static constexpr ServiceResult success() noexcept
 	{
 		return ServiceResult{ServiceStatus::Ok};

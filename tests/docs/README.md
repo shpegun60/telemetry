@@ -1,16 +1,17 @@
 # User-guide example checks
 
-`run.py` compiles the four complete examples under
+`run.py` compiles the six complete examples under
 [`examples/user_guide`](../../examples/user_guide) with C++20 and warnings as
 errors, plus the complete multi-file
 [`device_integration`](../../examples/device_integration/README.md) application.
-Host mode executes all five programs. `Native.cpp` keeps its runtime
+Host mode executes all seven programs. `Native.cpp` keeps its runtime
 assertions enabled through `-UNDEBUG`, as does `QuickStart.cpp`; a preprocessor
 control verifies that `NDEBUG` is absent and `assert` remains defined. The Native example reports
-completion, while Resources, Encoded and DeviceIntegration report their
+completion, while Resources, Encoded, Ergonomics and DeviceIntegration report their
 executed check counts.
 The runner records those counts without claiming per-assert counts for Native
-or QuickStart. It also requires exact text agreement between `QuickStart.cpp`
+or QuickStart. ResourceClient executes complete client/server operations and
+reports completion after checking outcomes. It also requires exact text agreement between `QuickStart.cpp`
 and the root README's marked `quickstart:begin` / `quickstart:end` C++ block,
 normalizing only platform line endings.
 
@@ -23,7 +24,7 @@ python tests/docs/run.py --cxx arm-none-eabi-g++ --arm --build-dir build/docs-ar
 
 Select the actual compiler on the machine. `--build-dir` is required and may
 point outside the checkout. Sanitizers are a host execution mode. ARM mode
-compiles and links all five programs at `-O2` and `-Os` with newlib-nano and
+compiles and links all seven programs at `-O2` and `-Os` with newlib-nano and
 nosys; it executes no image and connects to no board. `--null-checks` retains
 the existing null-check compiler mode in either host or ARM builds.
 

@@ -39,6 +39,8 @@ struct CommandCatalog {
 // - CommandIndex(): Borrow Command catalogs.
 // - catalogs(): Borrow catalog rows.
 // - count(): Count catalog groups.
+// - forEachEntry(): Visit erased entries.
+// - forEachEntryWhile(): Visit erased entries until false.
 // - find(): Find checked ID.
 // - executeEncoded(): Execute encoded request.
 class CommandIndex {
@@ -55,6 +57,18 @@ public:
 	[[nodiscard]] constexpr std::uint32_t count() const noexcept
 	{
 		return count_;
+	}
+
+	template<class Visitor>
+	constexpr void forEachEntry(Visitor&& visitor) const
+	{
+		detail::forEachCatalogEntry(catalogs_, count_, visitor);
+	}
+
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachEntryWhile(Visitor&& visitor) const
+	{
+		return detail::forEachCatalogEntryWhile(catalogs_, count_, visitor);
 	}
 
 	template<class... Explicit, std::integral Id>
@@ -112,8 +126,12 @@ struct IsCommandTable<CommandTable<D...>> : std::true_type {};
 // - operator[](): Borrow unchecked group.
 // - get(): Borrow typed definition.
 // - forEach(): Visit typed definitions.
+// - forEachWhile(): Visit until false.
+// - forEachEntry(): Visit erased entries.
+// - forEachEntryWhile(): Visit erased entries until false.
 // - visit(): Select checked ID.
 // - call(): Invoke native command.
+// - callAs(): Select runtime signature.
 template<class... Groups>
 class CommandCatalogTable {
 	static_assert(sizeof...(Groups) <= idComponentCapacity,
@@ -215,6 +233,33 @@ public:
 	template<class Visitor>
 	void forEach(Visitor&&) const&& = delete;
 
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachWhile(Visitor&& visitor) const&
+	{
+		return detail::forEachGroupWhile(groups_, visitor, std::index_sequence_for<Groups...>{});
+	}
+
+	template<class Visitor>
+	bool forEachWhile(Visitor&&) const&& = delete;
+
+	template<class Visitor>
+	constexpr void forEachEntry(Visitor&& visitor) const&
+	{
+		index().forEachEntry(visitor);
+	}
+
+	template<class Visitor>
+	void forEachEntry(Visitor&&) const&& = delete;
+
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachEntryWhile(Visitor&& visitor) const&
+	{
+		return index().forEachEntryWhile(visitor);
+	}
+
+	template<class Visitor>
+	bool forEachEntryWhile(Visitor&&) const&& = delete;
+
 	template<class... Explicit, std::integral Id, class Visitor>
 	    requires(sizeof...(Explicit) == 0)
 	[[nodiscard]] bool visit(Id id, Visitor&& visitor) const&
@@ -233,6 +278,43 @@ public:
 	template<class... Explicit, std::integral Id, class Visitor>
 	    requires(sizeof...(Explicit) == 0)
 	bool visit(Id, Visitor&&) const&& = delete;
+
+	// Keep packed-ID validation before narrowing, then index group and row.
+	template<class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0)
+	[[nodiscard]] NativeCallResult<telemetry::CommandResult> callAs(Id id) const& noexcept
+	{
+		if (!telemetry::detail::indexFits<PackedId>(id))
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		const auto packed = static_cast<PackedId>(id);
+		const auto group = packed >> 16;
+		if (group >= staticSize)
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		using Dispatch =
+		    detail::NativeGroupCallDispatch<std::tuple<Groups...>, telemetry::CommandResult, void>;
+		return Dispatch::entries[group](groups_, packed & 0xffffu, nullptr);
+	}
+
+	template<class... Explicit, std::integral Id, class Argument>
+	    requires(sizeof...(Explicit) == 0 && !std::is_volatile_v<Argument>)
+	[[nodiscard]] NativeCallResult<telemetry::CommandResult>
+	callAs(Id id, const Argument& request) const& noexcept
+	{
+		if (!telemetry::detail::indexFits<PackedId>(id))
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		const auto packed = static_cast<PackedId>(id);
+		const auto group = packed >> 16;
+		if (group >= staticSize)
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		using Dispatch =
+		    detail::NativeGroupCallDispatch<std::tuple<Groups...>, telemetry::CommandResult,
+		                                    std::remove_cvref_t<Argument>>;
+		return Dispatch::entries[group](groups_, packed & 0xffffu, request);
+	}
+
+	template<class... Explicit, std::integral Id, class... Args>
+	    requires(sizeof...(Explicit) == 0)
+	void callAs(Id, Args&&...) const&& = delete;
 
 	template<auto Id, class... Args>
 	[[nodiscard]] telemetry::CommandResult call(Args&&... args) const noexcept

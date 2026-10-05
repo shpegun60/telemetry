@@ -335,8 +335,10 @@ declaration order. `ServiceCatalogTable` позичає local tables через 
 | --- | --- | --- |
 | `local.get<Position>()` | `const ServiceDefinition&` | Exact declaration |
 | `local.call<Position>()`, `call<Position>(request)` | Definition `Result` | Static local typed call |
+| `local.callAs<Result>(position[, request])` | `NativeCallResult<Result>` | Checked runtime native call з exact Request/Result |
 | `catalogs.get<Id>()` | `const ServiceDefinition&` | Static packed-ID declaration |
 | `catalogs.call<Id>()`, `call<Id>(request)` | Definition `Result` | Static global typed call |
+| `catalogs.callAs<Result>(id[, request])` | `NativeCallResult<Result>` | Checked runtime packed-ID native call |
 | `size()`, `empty()` | `size_t`, `bool` | Local entry count / catalog group count |
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased rows/catalog iteration |
 | `operator[](i)` | `const ServiceEntry&` / `const ServiceCatalog&` | Unchecked, `i < size()` required |
@@ -371,10 +373,77 @@ Local `forEach` callback — ordinary `visitor(definition)` або optional
 heterogeneous definitions; exact request/response branch обирайте через
 `if constexpr`.
 
-Runtime `call(id, request)` відсутній. Використовуйте visitor із exact
-Request type та власним typed result handling або encoded API для runtime
-byte payload. Як і endpoint, response type обраної native Service може
-відрізнятися; universal owning response container library не створює.
+### Exact runtime `callAs`
+
+`callAs<Result>(position_or_id[, request])` повертає `NativeCallResult<Result>`.
+`Result` має бути exact `ServiceResult<Response>`,
+`BorrowedServiceResult<Response>` або `ServiceResult<void>`, який повертає
+definition `call()`. Request теж exact після зняття cv/ref. Plain `Response`
+callback уже normalized до `ServiceResult<Response>`; caller запитує wrapper,
+а не сам `Response`. Owning та borrowed wrappers не взаємозамінні.
+Conversion чи універсального owning response container тут немає.
+
+Для Query із першого повного прикладу typed visitor раніше міг явно зберігати
+response і selection окремо:
+
+```cpp
+using Result = ts::ServiceResult<Reply>;
+Result outcome = Result::failure(ts::ServiceStatus::Unavailable);
+const Query request{1};
+const ts::PackedId id = ts::makeId<0, 1>();
+const bool selected = services.visit(id, [&](const auto& definition) {
+    using Definition = std::remove_cvref_t<decltype(definition)>;
+    if constexpr (std::is_same_v<typename Definition::Request, Query> &&
+                  std::is_same_v<typename Definition::Result, Result>)
+        outcome = definition.call(request);
+});
+```
+
+Для одного known Request/Result достатньо `callAs`:
+
+```cpp
+const Query request{1};
+const auto result = services.callAs<ts::ServiceResult<Reply>>(
+    ts::makeId<0, 1>(), request);
+assert(result.status() == ts::NativeCallStatus::Ok && result.hasValue());
+assert(result.value().status() == ts::ServiceStatus::Ok);
+assert(result.value().hasValue() && result.value().value().sequence == 7);
+
+const auto borrowed = localServices.callAs<ts::BorrowedServiceResult<Reply>>(2);
+assert(borrowed.hasValue() && borrowed.value().valueOrNull() == &device.cached);
+const auto ping = localServices.callAs<ts::ServiceResult<void>>(3);
+assert(ping.hasValue() && ping.value().hasValue());
+```
+
+| `NativeCallStatus` | Meaning |
+| --- | --- |
+| `Ok` | Exact endpoint result доставлено, включно з application failure |
+| `NotFound` | Position/ID invalid на original width або group/row відсутня |
+| `SignatureMismatch` | Exact Request, no-request форма або Result wrapper не збігається |
+
+Shape checks передують callback та binding availability. `NotFound` і
+`SignatureMismatch` не викликають Service і не конструюють endpoint Result.
+Empty compatible slot дає selection `Ok`, всередині —
+`ServiceStatus::Unavailable` без response. `result.hasValue()` означає лише,
+що inner wrapper існує: це **не** `result.value().hasValue()` і не application
+success. Наприклад `Ok + ServiceStatus::Busy` має outer `hasValue() == true`,
+inner `hasValue() == false`. `value()` вимагає outer engagement;
+`valueOrNull()` safe для selection failure. Native selection statuses не є
+encoded dispatch або wire codes.
+
+`NativeCallResult<Result>::successFrom(factory)` вимагає exact `Result` і
+будує його прямо в final storage. Runtime dispatch повертає prvalue endpoint
+wrapper у це сховище, без additional move, optional accumulator чи dummy
+response. Owning result займає bytes власного payload; caller обирає, де
+тримати wrapper, і budgets callback stack. Borrowed wrapper позичає response
+за тим самим lifetime contract; callAs не продовжує lifetime request/response.
+Encoded Workspace та local-object policy лишаються своїм окремим contract.
+
+Runtime calls вимагають lvalue table/catalog і перевіряють input width до
+narrowing. Typed `visit` лишається варіантом для різних Request/Result або
+custom handling. Static `call<Position/Id>` зберігає свій exact API;
+wire bytes обробляються через `callEncoded`. Runnable coverage:
+[NativeCalls.cpp](../../tests/ergonomics/NativeCalls.cpp).
 
 `RootTypes` містить positional пари `Request0, Response0, Request1, Response1, ...`:
 два roots на кожен Service, включно з `Void`, зі збереженням повторів.

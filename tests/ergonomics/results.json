@@ -1,0 +1,399 @@
+{
+  "format": 1,
+  "scope": "Host execution and offline Cortex-M7 compiler inspection; no device access",
+  "source_head": "e263aa48a5afdb4158d6bb03543a6348de5a387c",
+  "source_dirty": true,
+  "input_hash_convention": "Raw checkout bytes captured before compilation and checked unchanged afterward; not an LF-normalized source gate",
+  "input_hashes": {
+    "lib/resource/BytesFile.hpp": "07d516714b16a2ace3cda52a2ed5861dc19885b79b0311405a439f39b90b8e2d",
+    "lib/resource/ChunkWriter.hpp": "6db94cdf2538d5d2865b07cf8cfb3b1afdc81ea312a0c012c11d1ca59a5ef23b",
+    "lib/resource/File.hpp": "ae8a390f8150f745d12884ff40605ebdf6388ee2983d5ab1e35cce4544b5fd46",
+    "lib/resource/FileSystem.hpp": "55146bdddee52ccb050b8329b5c8c6e508d418a3153098b45ba4be9fdd4321c7",
+    "lib/resource/FileView.hpp": "7e1d9e6bc8cbd9f04f37cd6b425cea7c42cff9920d7899b51d6c376d22b70c2a",
+    "lib/resource/protocol/Client.hpp": "4d9a77c66004d107aaf1084986736a9bfea77a8ab483a3a451f1cb4eb658d7c3",
+    "lib/resource/protocol/Protocol.cpp": "0380c876270b4293c771e8ddb8f58989324491506196c41f47052205f2987abc",
+    "lib/resource/protocol/Protocol.hpp": "29aacd85e776213985407f6bbaa3114446b247184ee9145f744a605208eb9fa2",
+    "lib/resource/protocol/Wire.hpp": "a6ab005e9f63243cab47d56385f865e51ea6c19e5a06b3e3f30c5204d76c208c",
+    "lib/resource/Resource.hpp": "fb3bb5d3a5db8c9eb80a3613c32d804fa94bb652410b5980ceb12288e13bba3f",
+    "lib/resource/telemetry/v3/BinaryFormat.hpp": "3a74655aea31000d2f90bd1f5a3d92ad244ccd9059b9fa156077e2303e082651",
+    "lib/resource/telemetry/v3/Descriptor.hpp": "ca6ef3d97e544702ec605fb94e9a3115f6d05c84f2392d2eb982f5fb99c49cba",
+    "lib/resource/telemetry/v3/DescriptorFile.hpp": "4fe5143d16b4da3d6a76260bce084a748b217b4ec2ce9d98d30efad4d8dda6a3",
+    "lib/resource/telemetry/v3/detail/Segments.hpp": "76ed7d112d97fd33ed45736586dd2930c063f31abe0115ff786f31b4a586973a",
+    "lib/resource/telemetry/v3/detail/Values.hpp": "076fb12429eed91580b79ddf1b7356081c176b6cb332a6644f12130acd6e5e03",
+    "lib/resource/telemetry/v3/ValuesFile.hpp": "591d16e54db47a9d07185cc3fa9b98469f7b9ac8040defcc8a8791134d5a0cf0",
+    "lib/resource/Types.hpp": "96b41fcc577c984cb7c90d4943ec526507dcf334c01d2ee50b99ca23c444accc",
+    "lib/telemetry/abi/StructuredAbi.cpp": "d75eea01906ffadabcfe5c8249f32e671c673fc44000a26b18d84b4fcc450d9b",
+    "lib/telemetry/abi/StructuredAbi.hpp": "93f8202b43b529a066fd94185f2a16aecc98afe1d735902e5976e8b56dc5208f",
+    "lib/telemetry/codec/Codec.hpp": "1fb1dd454d279c077a50ff1bd22aeffbcfa5c619e2b5725aec75920ef6990c72",
+    "lib/telemetry/codec/StoragePolicy.hpp": "67aa2f89e1fe908c46f3ae62d951db0c5e34b3c84447cae9ee99eaaa3e34b92f",
+    "lib/telemetry/codec/Workspace.hpp": "29d9cf5aefbf68ccdaf3c3c5a02a1c8561b3bdbbcedf3dd6dbd46a6a4895a607",
+    "lib/telemetry/command/Command.hpp": "7a528f094454c80e560bb5ef64cd8786cb730374adef4441662c0ed610cfa412",
+    "lib/telemetry/command/CommandCatalogs.hpp": "62a0c1659304796bc5bd45d241a3c4439c7f67a54fde341935a6504f5d9e5b9b",
+    "lib/telemetry/command/CommandTable.hpp": "8ed1d561a50e5850f31c42a98b23efeed56cd9c7bcb32c695292ae02668f46b2",
+    "lib/telemetry/core/Compiler.hpp": "1f6509b0e34f05a57a81486b15a78d58fa81b04dcc0bb0036b508ef0d7de7c0c",
+    "lib/telemetry/core/Id.hpp": "22254f2b256dfc7627279850fee91a46f8e0c958ec98628411610e0e168d3500",
+    "lib/telemetry/detail/Binding.hpp": "087b6f7e5e83fcbc491735e535bda2b902ecffa632556d4fd53f490850d45a6d",
+    "lib/telemetry/detail/Encoded.hpp": "5d620f5ae1f97f17a2f9008d6fa35fe3e3e2ac0160267dc5e73976e3fefe699e",
+    "lib/telemetry/detail/FieldAccess.hpp": "9cb641b2f40b856fe0f6f91ebc14ee5562880c4b108a84628513a5ba0b5a6c48",
+    "lib/telemetry/detail/Name.hpp": "0955191d587c5e4df46206886e54f69bea849313d03d6585bfb8be17f74ae399",
+    "lib/telemetry/detail/NativeCall.hpp": "bee0308f864396347bdf546f7ff10d9c21e76f9d4f77311d6ad8193caf32e12d",
+    "lib/telemetry/detail/NumberConversion.hpp": "82d74959652299fb8ec9ce2305957ad601293ab8ac7dbbb48ce5fe4baa21dfed",
+    "lib/telemetry/detail/Owner.hpp": "8b47424598a365e3f59be495b605f999a5f00fae185bb3071014ed11e952332b",
+    "lib/telemetry/detail/SlotCallable.hpp": "9afa6d5cac0f9847d4bf000f6a4fcaef3e488cc6951acc6b5088c7fc776a7e75",
+    "lib/telemetry/detail/Target.hpp": "cb87b1539ec21b1135bc940d296f726042c5b3f76a522ba98cd36ae6f6fa8c7f",
+    "lib/telemetry/detail/Traversal.hpp": "58e8da37860520048e62409a609f60f327f95b2bcdb8854add75a50c7c3973e6",
+    "lib/telemetry/field/Field.hpp": "fa27b3a5a03d34b49d87d7f81fbfb911c11e1c848bb527ed2beadc12941d15d3",
+    "lib/telemetry/field/FieldCatalogs.hpp": "d2590791f7686c020e678407adc10a92bd18e157b27fabf02fe670c2288f1de8",
+    "lib/telemetry/field/FieldTable.hpp": "468d3f4a4cdbb0fcee4441b222bf92b21c7ace9b36eb461d517f5373385183e9",
+    "lib/telemetry/model/Adapter.hpp": "562b3b7a75d969b80e4265bcf8e617645674369b3c0fd8e203106a0073999af2",
+    "lib/telemetry/model/Catalog.hpp": "71ce5ac72a8ce5472e6737bdff1c5a7f3c3ffe2b14c9786c0eb53cfe4ff36566",
+    "lib/telemetry/model/Model.hpp": "bff1a7231daa571d4850750aa4fc69854b66dd6f050e80e2875ae65e83353c17",
+    "lib/telemetry/reflection/Aggregate.hpp": "aae45ef5f9770f8af15a67709530b45e61a3b87adcbb81496149960a6bc8b44f",
+    "lib/telemetry/reflection/Callable.hpp": "61d6b92a94740c7cd41a57e96e13ae1729628fa529da3160f70a2f472899fdc6",
+    "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "bc5e403a9a592792607b7573a11467e150d39985987d6a50ae9b3f30c3fb091b",
+    "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "229389bc6baea41d5f22d680f2c570093e1eb839bfef702bcb2e9cfe22c394f3",
+    "lib/telemetry/reflection/detail/PfrAdapter.hpp": "28377c602041a9aee0e91cb1819164f28652e50e4539438eabf47ca3ca466d0d",
+    "lib/telemetry/reflection/Enum.hpp": "57626e3c5ba3b7cc56ed054d5fa371e84dbb87359bdd8c91ab675109183826ae",
+    "lib/telemetry/reflection/Reflection.hpp": "d73ba41a4fa5070bec42477ee7e47c1ec0ab465752676a003c134c84797ad457",
+    "lib/telemetry/result/BorrowedServiceResult.hpp": "d534864367fe7d6e32c64be2c31ebbbbc262581764ff4e3192a2064f9677618f",
+    "lib/telemetry/result/BorrowedValue.hpp": "14d148e7cbc71400a5695fb25e49ea095737dab0b41b9d9593ad764e7f347463",
+    "lib/telemetry/result/Dispatch.hpp": "f26b1df0a3814799d1ff1481dc73974297c401758e46e302abe8a4cd6f352242",
+    "lib/telemetry/result/EndpointResults.hpp": "4ff5a7eb23de0a973b8e2d30bf44a56fa68ee5713a76995db200b1ad25b2023f",
+    "lib/telemetry/result/EndpointStatus.hpp": "09212a71ad1203bd68ecd57002a4a53c021eb230b294b622da942cd1bbb0ce8d",
+    "lib/telemetry/result/FieldReadResult.hpp": "dd8b984e4855c19c0bcb3ad5d3088c618a39b058fca7911d2a8daeb83dbfb2ea",
+    "lib/telemetry/result/NativeCallResult.hpp": "232b08b3efac27ec57447084e41d20cc4ee9cf8e58c8bfdfbf2569dbd2e0d2e1",
+    "lib/telemetry/result/ServiceResult.hpp": "50ffb407f229ab2f0fc85fdebaa620f8584ef15563fa071b39a2d73f1d9c3edd",
+    "lib/telemetry/service/Service.hpp": "b619f28bf222cd7520dadde5e3434a32548a73e86c0cc2f9c825be5503c90034",
+    "lib/telemetry/service/ServiceCatalogs.hpp": "4a6461df4c7e00fe3d72cc7db0ae37b41221b513d149f629372af370df9d19f7",
+    "lib/telemetry/service/ServiceTable.hpp": "34ff83df73596197afde2187991424f3eb350df3dbb736d7afb0d242c33c364c",
+    "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "9391a96bdf7e9b6c2cde5f424134e4c81cd188c88c595fea86bdbe326013d5d0",
+    "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "d1d99353eff29881bdebeabb69fc447b543dd60ece0075426bb1edd9cdaaf600",
+    "lib/telemetry/slot/TelemetryDelegateSlot.h": "81caa7c6441597956477653b419c073aba52ccd49b1ec5213435c18010eb2eaf",
+    "lib/telemetry/slot/TelemetryFunctionSlot.h": "111afbbf73048b5ab0004380ed3c90f0db4063f0333bb0578d05f18e19108d9b",
+    "lib/telemetry/slot/TelemetryOwnerSlot.h": "06b4bf3fc157ce5088f5861b09093375fd2b1d22ad8e7115174bf931181929a5",
+    "lib/telemetry/slot/TelemetrySlotTraits.h": "60972e3f44ed2356a37ea144914ec11ea5ea798b9ff88ef3201e0422b4283ebb",
+    "lib/telemetry/Telemetry.hpp": "10037ec223606e9dba3dd4e72c28cddb12f0b0ad98a0fabdf58c2042212386a7",
+    "lib/telemetry/type/Descriptor.hpp": "2a1bc6aab6f4ad65876a56e9f70aee1db4835c3f3e3dd4e64e90cd93e3f80bd8",
+    "lib/telemetry/type/Registry.hpp": "c228ab085afb40295ddf0d2064e656107c5e3e74bc36318768f6ac6f1d56d21e",
+    "lib/telemetry/type/Traits.hpp": "a84b809904a0bd81ebf30768a89a8d9aa4054e4456562ddd9bbd7dd53a7e1659",
+    "tests/ergonomics/Basics.cpp": "3c9a9d1f25e194fcd9a1feb11982155989df80744658c20be4dfcf9ddb7e7ed3",
+    "tests/ergonomics/Fields.cpp": "b95670b2d481207b7f98fdca7f4a438da9b28ae88ae70b35ebdbdb0c62de8ff8",
+    "tests/ergonomics/FieldsNegative.cpp": "0c704e080aac7bbb8ad6dc47dd929d5e56f9c65ae17353c4c22f73a5687a4472",
+    "tests/ergonomics/LargeNativeCodegen.cpp": "f35eeeded90b6b183b64f3a6e05b2b4f4ec3a79342c20862fb84362233499d01",
+    "tests/ergonomics/NativeCalls.cpp": "beccda417675e66d56d51f91c559a95d3f35cbefdc88abb340a0e11a0ac06c7d",
+    "tests/ergonomics/NativeNegative.cpp": "7fd51b1212dd4f1fe9a67e39e2513369223dbf5a6d5132b5b9a3b5eac5f062e8",
+    "tests/ergonomics/NativeScale.cpp": "af547c6697e79d820dffc83cd2cd285261bc0e3a4dba11fffa0bd3f183d7a5c8",
+    "tests/ergonomics/ResourceClient.cpp": "7c30a43898c24a646c888227799b397fc6642a9890938dc9b01988c5a7f607af",
+    "tests/ergonomics/ResourceClientCodegen.cpp": "15f0b1b9a16afc2f6c5df29f82c6356e90f3985fef2944e2ed17d04a6b396b46",
+    "tests/ergonomics/run.py": "f9104803138fa2862df8facf59e966716f5390a1db33a27e47526a5e6d3b300a",
+    "tests/ergonomics/Traversal.cpp": "3f0dd25aca3352d6c30ccd40c5607964f78adc0ed42b273e7afa0a8adb0e6f63",
+    "tests/ergonomics/TraversalNegative.cpp": "08528276fa82da08b1742732a44b9249c7d3df22b2678ba69a5b5923c870de10"
+  },
+  "runs": {
+    "host": {
+      "compiler": "C:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe",
+      "compiler_sha256": "cd65c087ad69a877e5a105c607cc910abfabcc52ba7e9448572f36567b51698c",
+      "source_head": "e263aa48a5afdb4158d6bb03543a6348de5a387c",
+      "source_dirty": true,
+      "arm": false,
+      "sanitize": false,
+      "null_checks": true,
+      "flags": [
+        "C:\\Qt\\Tools\\mingw1310_64\\bin\\g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-UNDEBUG",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fno-delete-null-pointer-checks"
+      ],
+      "commands": 99,
+      "rejections": 79,
+      "executions": {
+        "Basics": "",
+        "Traversal": "",
+        "Fields": "fields runtime checks: 263",
+        "NativeCalls": "NativeCalls: 53 checks passed",
+        "ResourceClient": "Resource client: 443 checks passed",
+        "NativeScale-128": "NativeScale: 644 checks passed (128 targets)",
+        "NativeScale-256": "NativeScale: 1284 checks passed (256 targets)"
+      },
+      "completed": true,
+      "summary_sha256": "65a610161cec4eb72363782791601f11cac4d0fcc62a4d3e3c7385c7950800f8",
+      "artifact_directory": "C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/final-captured-host"
+    },
+    "sanitized": {
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "source_head": "e263aa48a5afdb4158d6bb03543a6348de5a387c",
+      "source_dirty": true,
+      "arm": false,
+      "sanitize": true,
+      "null_checks": false,
+      "flags": [
+        "/usr/bin/clang++-18",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-UNDEBUG",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer"
+      ],
+      "commands": 99,
+      "rejections": 79,
+      "executions": {
+        "Basics": "",
+        "Traversal": "",
+        "Fields": "fields runtime checks: 263",
+        "NativeCalls": "NativeCalls: 53 checks passed",
+        "ResourceClient": "Resource client: 443 checks passed",
+        "NativeScale-128": "NativeScale: 644 checks passed (128 targets)",
+        "NativeScale-256": "NativeScale: 1284 checks passed (256 targets)"
+      },
+      "completed": true,
+      "summary_sha256": "b0cdd4d09cbe1264d014bbb941cb8ac8e333c8a4d514373a2b1c588ec894115b",
+      "artifact_directory": "C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/final-captured-sanitized"
+    },
+    "arm": {
+      "compiler": "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+      "compiler_sha256": "ae046a80ebc6e5f46a8d049b5e4ec6b3980bbc6ef05633dd176cae77e08bb01c",
+      "source_head": "e263aa48a5afdb4158d6bb03543a6348de5a387c",
+      "source_dirty": true,
+      "arm": true,
+      "sanitize": false,
+      "null_checks": false,
+      "flags": [
+        "C:\\ST\\STM32CubeIDE_2.0.0\\STM32CubeIDE\\plugins\\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.14.3.rel1.win32_1.0.100.202602081740\\tools\\bin\\arm-none-eabi-g++.exe",
+        "-std=c++20",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-UNDEBUG",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-mcpu=cortex-m7",
+        "-mthumb",
+        "-mfpu=fpv5-d16",
+        "-mfloat-abi=hard",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fstack-usage"
+      ],
+      "commands": 172,
+      "rejections": 79,
+      "executions": {},
+      "completed": true,
+      "summary_sha256": "160b3db098b34bd33146c9e8c22b72f9340b92237910fed735626d14c25d76df",
+      "artifact_directory": "C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/final-captured-arm"
+    }
+  },
+  "arm_scale": {
+    "scale-O2-128": {
+      "targets_per_family": 128,
+      "targets_per_group": 32,
+      "combined_fixture_text_bytes": 15116,
+      "combined_fixture_rodata_bytes": 10646,
+      "native_entry_thunks": 256,
+      "native_group_thunks": 8,
+      "manual_entry_thunks": 256,
+      "wrappers": {
+        "manual_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "convenience_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "manual_service": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "convenience_service": {
+          "code_bytes": 60,
+          "frame_bytes": 24
+        }
+      }
+    },
+    "scale-Os-128": {
+      "targets_per_family": 128,
+      "targets_per_group": 32,
+      "combined_fixture_text_bytes": 15696,
+      "combined_fixture_rodata_bytes": 10627,
+      "native_entry_thunks": 256,
+      "native_group_thunks": 8,
+      "manual_entry_thunks": 256,
+      "wrappers": {
+        "manual_command": {
+          "code_bytes": 48,
+          "frame_bytes": 16
+        },
+        "convenience_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "manual_service": {
+          "code_bytes": 48,
+          "frame_bytes": 16
+        },
+        "convenience_service": {
+          "code_bytes": 56,
+          "frame_bytes": 24
+        }
+      }
+    },
+    "scale-O2-256": {
+      "targets_per_family": 256,
+      "targets_per_group": 32,
+      "combined_fixture_text_bytes": 29600,
+      "combined_fixture_rodata_bytes": 20598,
+      "native_entry_thunks": 512,
+      "native_group_thunks": 16,
+      "manual_entry_thunks": 512,
+      "wrappers": {
+        "manual_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "convenience_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "manual_service": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "convenience_service": {
+          "code_bytes": 60,
+          "frame_bytes": 24
+        }
+      }
+    },
+    "scale-Os-256": {
+      "targets_per_family": 256,
+      "targets_per_group": 32,
+      "combined_fixture_text_bytes": 30884,
+      "combined_fixture_rodata_bytes": 20579,
+      "native_entry_thunks": 512,
+      "native_group_thunks": 16,
+      "manual_entry_thunks": 512,
+      "wrappers": {
+        "manual_command": {
+          "code_bytes": 48,
+          "frame_bytes": 16
+        },
+        "convenience_command": {
+          "code_bytes": 56,
+          "frame_bytes": 16
+        },
+        "manual_service": {
+          "code_bytes": 48,
+          "frame_bytes": 16
+        },
+        "convenience_service": {
+          "code_bytes": 56,
+          "frame_bytes": 24
+        }
+      }
+    }
+  },
+  "arm_large": {
+    "large-O2": {
+      "largest_individual_frame_bytes": 40,
+      "wrappers": {
+        "manual_large": {
+          "code_bytes": 28,
+          "frame_bytes": 16
+        },
+        "convenience_large": {
+          "code_bytes": 36,
+          "frame_bytes": 16
+        },
+        "convenience_large_global": {
+          "code_bytes": 52,
+          "frame_bytes": 16
+        },
+        "borrowed_large": {
+          "code_bytes": 16,
+          "frame_bytes": 0
+        }
+      }
+    },
+    "large-Os": {
+      "largest_individual_frame_bytes": 32,
+      "wrappers": {
+        "manual_large": {
+          "code_bytes": 26,
+          "frame_bytes": 16
+        },
+        "convenience_large": {
+          "code_bytes": 38,
+          "frame_bytes": 16
+        },
+        "convenience_large_global": {
+          "code_bytes": 50,
+          "frame_bytes": 16
+        },
+        "borrowed_large": {
+          "code_bytes": 16,
+          "frame_bytes": 0
+        }
+      }
+    },
+    "large-Og": {
+      "largest_individual_frame_bytes": 72,
+      "wrappers": {
+        "manual_large": {
+          "code_bytes": 28,
+          "frame_bytes": 16
+        },
+        "convenience_large": {
+          "code_bytes": 28,
+          "frame_bytes": 8
+        },
+        "convenience_large_global": {
+          "code_bytes": 20,
+          "frame_bytes": 8
+        },
+        "borrowed_large": {
+          "code_bytes": 16,
+          "frame_bytes": 8
+        }
+      }
+    }
+  },
+  "arm_equivalence": {
+    "client-O2": {
+      "code_sections_equal": true,
+      "frame_maps_equal": true
+    },
+    "protocol-O2": {
+      "code_sections_equal": true,
+      "frame_maps_equal": true
+    },
+    "client-Os": {
+      "code_sections_equal": true,
+      "frame_maps_equal": true
+    },
+    "protocol-Os": {
+      "code_sections_equal": true,
+      "frame_maps_equal": true
+    }
+  }
+}

@@ -215,6 +215,7 @@ target один раз на операцію; bind/reset має бути seriali
 | `read()` | `ReadResult` | Один getter invocation; empty result, якщо target unavailable |
 | `write(value)` | `WriteResult` | Exact `T`; argument category forwarded |
 | `readAs<To>()` | `std::optional<To>` | Owning copy або checked numeric conversion |
+| `readAsResult<To>()` | `FieldReadResult<To>` | Та сама owning операція з причиною відмови |
 | `writeAs(value)` | `WriteResult` | Explicit conversion до `T`, потім setter |
 
 Exact `write` допускає тільки той самий native тип після зняття cv/ref;
@@ -236,6 +237,61 @@ by const reference; mutable volatile object відхиляється.
 Copy view копіює лише pointer. Getter-returned object має жити й залишатися
 стабільним для всіх наступних view accesses. Const-view обмежує доступ через
 цей view; він не блокує owner mutations і не створює snapshot.
+
+### Runtime borrowed read та причина відмови
+
+`local.readBorrowed<T>(position)` і `catalogs.readBorrowed<T>(id)` повертають
+`BorrowedValue<T>` тільки для declared exact `Value == T` та `borrowsValue`.
+Alias того самого `T` підходить; інша структура з такими самими members — ні.
+Numeric conversion і owning getter не створюють view: результат empty,
+getter не викликається. Invalid position/ID та unavailable borrowed getter
+також дають empty view. Dispatch містить лише функції для requested `T`:
+ні копії `T`, ні Workspace, ні сховища універсального value тут немає.
+
+Static `readBorrowed<T, Position>()` / `readBorrowed<T, Id>()` зберігає той
+самий exact borrowed contract; incompatible declaration дає diagnostic.
+Усі table/catalog borrowed форми вимагають lvalue table. View не продовжує
+lifetime owner, slot чи getter-returned object.
+
+`readAsResult<T>` — explicit owning convenience API з тими самими conversion
+rules, що й `readAs<T>`. Runtime lookup розрізняє чотири причини відмови:
+
+| `FieldReadStatus` | Значення |
+| --- | --- |
+| `Ok` | Requested owning `T` готовий |
+| `NotFound` | Original-width position/ID invalid або row відсутня |
+| `TypeMismatch` | Declared shape не допускає exact type або numeric conversion |
+| `Unavailable` | Shape підходить, але getter binding не resolved |
+| `ConversionFailed` | Getter викликано, але numeric value не representable |
+
+Перевірки йдуть у порядку lookup → declared shape → binding → conversion.
+Shape mismatch не викликає getter, навіть якщо його slot unavailable.
+Successful read та failed conversion викликають getter рівно один раз.
+Static `readAsResult<T, Position/Id>()` і definition `readAsResult<T>()`
+перевіряють declared shape на compile time, тому runtime `NotFound` та
+`TypeMismatch` у них не виникають.
+
+```cpp
+const auto view = localFields.readBorrowed<Config>(position);
+if (view)
+    consume(view.value()); // owner має жити до завершення consume
+
+const auto result = localFields.readAsResult<double>(position);
+if (result.hasValue())
+    consume(result.value());
+else
+    report(result.status());
+```
+
+`FieldReadResult<T>` owns requested `T` лише при `Ok`; `hasValue()` та explicit
+`operator bool` перевіряють цей стан. `value()` / `operator*` вимагають
+`hasValue()`, а `valueOrNull()` safe для обох станів. `operator->` повертає
+той самий optional pointer. Failure не default-constructs `T`; exact owning
+success будує `T` без intermediate value container. `successFrom(factory)`
+вимагає exact `T` result і будує його в final storage; `failure(status)`
+вимагає один із чотирьох failure statuses. Result wrapper має storage для `T`,
+тому для великого payload без owning copy обирайте `readBorrowed<T>`.
+Ці native statuses не є wire codes і не змінюють encoded dispatch.
 
 ### Правила `readAs` / `writeAs`
 
@@ -266,6 +322,8 @@ Failed readAs не пояснює причину: unavailable target, invalid ru
 structural mismatch і range failure дають `nullopt`. Failed numeric writeAs
 дає `InvalidValue` до setter. Runtime selection відсутнього Field дає
 `NotFound`; read-only declaration дає `ReadOnly` до conversion/callback.
+Для причини read failure використовуйте `readAsResult`; contract `readAs`
+залишається `optional<To>`.
 
 ## 5. Local table, catalogs та IDs
 
@@ -284,13 +342,19 @@ Global `PackedId` має high 16 bits group і low 16 bits local position:
 | `local.read<Position>()` | Definition `ReadResult` | Exact native read |
 | `local.write<Position>(value)` | `WriteResult` | Exact native write |
 | `local.readAs<To, Position>()` | `optional<To>` | Static selection, explicit conversion |
+| `local.readBorrowed<T, Position>()` | `BorrowedValue<T>` | Static exact borrowed declaration |
+| `local.readAsResult<To, Position>()` | `FieldReadResult<To>` | Static owning read з native status |
 | `local.writeAs<Position>(value)` | `WriteResult` | Static selection, explicit conversion |
 | `local.readAs<To>(position)` | `optional<To>` | Checked runtime local selection |
+| `local.readBorrowed<T>(position)` | `BorrowedValue<T>` | Checked exact borrowed runtime read |
+| `local.readAsResult<To>(position)` | `FieldReadResult<To>` | Checked owning read з причиною відмови |
 | `local.writeAs(position, value)` | `WriteResult` | Checked runtime local selection |
 | `catalogs.get<Id>()` | `const FieldDefinition&` | Exact declaration by packed static ID |
 | `catalogs.read<Id>()`, `write<Id>(value)` | Definition read / `WriteResult` | Exact native global access |
 | `catalogs.readAs<To, Id>()`, `writeAs<Id>(value)` | Owning read / `WriteResult` | Static global conversion access |
 | `catalogs.readAs<To>(id)`, `writeAs(id, value)` | Owning read / `WriteResult` | Checked runtime global conversion access |
+| `catalogs.readBorrowed<T, Id>()`, `readBorrowed<T>(id)` | `BorrowedValue<T>` | Static/checked runtime exact borrowed read |
+| `catalogs.readAsResult<To, Id>()`, `readAsResult<To>(id)` | `FieldReadResult<To>` | Static/checked runtime owning read з native status |
 | `size()`, `empty()` | `size_t`, `bool` | Entry count for local table; group count for catalog table |
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased iteration, без getter invocation |
 | `operator[](i)` | `const FieldEntry&` або `const FieldCatalog&` | Unchecked; caller requires `i < size()` |
@@ -430,6 +494,7 @@ Setter отримує валідне native представлення, але �
 - [FieldTable та erased FieldEntry](../../lib/telemetry/field/FieldTable.hpp).
 - [FieldCatalogTable та FieldIndex](../../lib/telemetry/field/FieldCatalogs.hpp).
 - [BorrowedValue](../../lib/telemetry/result/BorrowedValue.hpp),
+  [FieldReadResult](../../lib/telemetry/result/FieldReadResult.hpp),
   [checked numeric conversions](../../lib/telemetry/detail/NumberConversion.hpp).
 - [Native.cpp](../../examples/user_guide/Native.cpp): slots, exact values,
   borrowed Settings/Block, static/runtime As, iteration і IDs.

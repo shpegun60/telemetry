@@ -35,8 +35,20 @@ receipt or binary was edited.
 The 2026-10-05 root-deduplication refresh rebuilds the same twelve images from
 the current table, catalog and Model registry roots. Every raw firmware binary
 still matches its retained measured artifact. This is offline compile/link
-evidence for the current 131 library inputs and 57 fixture inputs, with no new
+evidence for that capture's 131 library inputs and 57 fixture inputs, with no new
 device execution or changed historical receipt.
+
+The 2026-10-05 ergonomic API refresh captures 136 current library inputs and
+57 fixture inputs and rebuilds the same twelve retained images. Every raw
+firmware binary matches byte for byte after the documented Exchange source-path
+mapping. The new field, native-call and resource-client headers are included
+in the captured inventory; binary equality qualifies the existing fixtures,
+which do not instantiate every newly added entrypoint. Their separate host and
+ARM checks establish the new API behavior and code generation. This refresh
+adds no device execution or new hardware measurements and preserves all six
+original receipts. The final source capture includes the public-method comment
+additions to the command/service tables and catalogs and rebuilds all five
+groups from those exact inputs; its twelve firmware binaries remain identical.
 
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
@@ -89,7 +101,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261005-root-dedup/h7s-equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/equivalence/final-source'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -142,7 +154,10 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current 2026-10-05 root-deduplication capture is
+The current 2026-10-05 ergonomic API capture is
+`C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/equivalence/final-source`.
+The first ergonomic capture remains in the parent `equivalence` directory.
+The earlier 2026-10-05 root-deduplication capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261005-root-dedup/h7s-equivalence`.
 The 2026-10-04 style-refresh capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261004-style-docs/h7s-equivalence`.

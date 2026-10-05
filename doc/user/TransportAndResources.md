@@ -313,6 +313,66 @@ Resource статуси: `Ok`, `InvalidFile`, `NotReadable`, `NotWritable`,
 `InternalError`. Їхні wire коди 0..8 за цим порядком фіксовані.
 `Readable=1`, `Writable=2`; read/write файл має flags=3.
 
+### Клієнт: зібрати request і перевірити response
+
+`<resource/protocol/Client.hpp>` надає header-only API у
+`resource::protocol::client`. Усі builders приймають caller-owned `Output`
+першим аргументом:
+
+```cpp
+namespace client = resource::protocol::client;
+std::array<std::byte, resource::protocol::wire::readRequestSize> request{};
+auto built = client::makeRead(request, fileIndex, cursor);
+if (built.status == client::BuildStatus::Ok) {
+    // Передайте тільки request[0 .. built.written).
+    // Транспорт повертає один повністю зібраний receivedPacket.
+    auto parsed = client::parseRead(receivedPacket);
+    if (parsed && !parsed.shortError && parsed.response.status == resource::Status::Ok) {
+        consume(parsed.response.data); // До повторного використання receive buffer.
+        cursor = parsed.response.next;
+    }
+}
+```
+
+| Builder | Решта аргументів |
+| --- | --- |
+| `makeList(output, cursor)` | LIST cursor |
+| `makeStat(output, index)` | індекс файла |
+| `makeRead(output, index, cursor)` | індекс і provider cursor |
+| `makeWrite(output, index, cursor, data, final)` | індекс, cursor, `Input`, final |
+
+Результат усіх builders — `BuildResult{BuildStatus status, size_t written}`.
+`Ok` означає готовий prefix для транспорту. `BufferTooSmall` і
+`PayloadTooLarge` мають `written=0` та залишають output незмінним.
+WRITE приймає не більш як 65535 байтів. Arrays, fixed spans та dynamic spans
+працюють через той самий перевірений API. Розміри packet доступні як
+constexpr у `resource::protocol::wire` з `Wire.hpp`.
+
+`parseList(reply)`, `parseStat(reply)`, `parseRead(reply)` і
+`parseWrite(reply, submittedBytes)` перевіряють точну довжину, status codes,
+flags, boolean bytes та declared counts. LIST перевіряє всі length-prefixed
+paths, їхній синтаксис і максимальну довжину 65533. Для WRITE передайте
+довжину payload саме того request, на який прийшла відповідь: parser
+перевіряє `consumed <= submittedBytes <= 65535`.
+
+`ParseResult::parsing` (`Ok`/`Malformed`) відокремлений від remote
+`response.status`. `if (parsed)` перевіряє лише правильність розбору;
+provider може відповісти помилкою у коректному packet. Один байт
+`InvalidData` теж є коректною відповіддю на неправильний request і має
+`shortError=true`. У ньому значущий лише `response.status`: cursor, counts
+та completion fields не були передані. Однобайтний `Ok` чи інший status
+parser відхиляє. Caller перевіряє cursor progress та completion з урахуванням
+попереднього request; READ/WRITE cursor може бути opaque.
+
+**Parsed views позичають received packet.** `ReadReply::data`, кожен
+`std::string_view` із `ListReply::paths` та його iterators дійсні, поки
+receive buffer живий і незмінний. Скористайтеся ними до отримання наступного
+packet у цей buffer. Копія parsed result чи path view не копіює bytes.
+Клієнт не виділяє пам'ять і не повертає owning packet.
+
+Повний runnable приклад із локальним обміном packet:
+[ResourceClient.cpp](../../examples/user_guide/ResourceClient.cpp).
+
 ## UART/TCP: спочатку повний packet
 
 `resource::protocol::process` приймає **один уже зібраний packet**.

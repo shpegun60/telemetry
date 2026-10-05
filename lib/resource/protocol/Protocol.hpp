@@ -14,15 +14,9 @@
 #pragma once
 
 #include <resource/FileSystem.hpp>
+#include "Wire.hpp"
 
 namespace resource::protocol {
-enum class Op : std::uint8_t {
-	List = 1,
-	Stat = 2,
-	Read = 3,
-	Write = 4
-};
-
 struct Reply {
 	resource::Status status;
 	std::size_t written;

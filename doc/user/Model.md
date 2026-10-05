@@ -255,12 +255,18 @@ Manual C++20 build має include roots `lib`, `lib/boost_pfr/include` і `lib/m
 | `model.maxServiceScratch()` | Максимум одночасного request/result scratch серед Services |
 | `model.maxScratch()` | Максимум попередніх трьох меж для однієї encoded operation |
 | `model.maxFieldWireSize()` | Найбільший Field payload у canonical bytes |
+| `model.maxCommandRequestWireSize()` | Найбільший Command request у canonical bytes; no-request має 0 |
+| `model.maxServiceRequestWireSize()` | Найбільший Service request у canonical bytes; no-request має 0 |
 | `model.maxServiceResponseWireSize()` | Найбільший Service response payload у canonical bytes |
 
 `maxScratch()` включає запас для вирівнювання byte span. Він достатній для
 однієї operation на Workspace без активних outer leases. Nested calls потребують
 суми всіх одночасно живих leases або окремих Workspaces. Межа не описує stack
 callback, compiler spills чи transport packet headers.
+
+Wire maxima є `constexpr` та рахують лише canonical payload bytes, без native
+padding і framing. Порожня family або лише no-request endpoints дають 0 для
+відповідної request межі.
 
 ## Typed access і runtime access
 
@@ -320,6 +326,14 @@ checks; library не перевіряє коректність довільно 
 TypeId lookup приймає integral packed ID, перевіряє його до narrowing і повертає
 `nullopt` для невідомих positions. Lookup metadata не викликає application callback.
 Копія `ModelView` позичає ті самі arrays і owners, не створюючи snapshot live state.
+
+Runtime indexes також мають `forEachEntry(visitor)` і
+`forEachEntryWhile(visitor)`. Вони передають packed ID, group name та
+`const FieldEntry&`/`const CommandEntry&`/`const ServiceEntry&` у declaration
+order; callback не потребує concrete table type. `forEachEntry` ігнорує result,
+а `forEachEntryWhile` вимагає саме `bool`: false зупиняє прохід та повертає
+false; повний або порожній прохід повертає true. Ці виклики позичають rows
+та не виконують endpoint callbacks.
 
 ## TypeRegistry і TypeDescriptor
 

@@ -43,7 +43,7 @@ DIAGNOSTICS = {
     28: 'Structured field accepts name and bindings only',
     29: 'Structured field accepts name and bindings only',
     30: 'Structured command accepts name and one binding only',
-    31: 'Service target cannot be nullptr', 32: 'Service target cannot be nullptr',
+    31: 'Endpoint target cannot be nullptr', 32: 'Endpoint target cannot be nullptr',
     33: NO_MATCH, 34: DELETED, 35: NO_MATCH, 36: NO_MATCH,
     37: NO_MATCH, 38: NO_MATCH,
     39: r'no matching (?:function|constructor)',

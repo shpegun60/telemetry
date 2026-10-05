@@ -88,10 +88,13 @@ struct FieldEntry {
 // - operator[](): Borrow unchecked row.
 // - get(): Borrow typed definition.
 // - forEach(): Visit typed definitions.
+// - forEachWhile(): Visit until false.
 // - visit(): Select checked position.
 // - read(): Read native value.
 // - write(): Apply native value.
 // - readAs(): Read owning conversion.
+// - readBorrowed(): Borrow exact native value.
+// - readAsResult(): Read owning conversion with native failure status.
 // - writeAs(): Apply checked conversion.
 template<class... Definitions>
 class FieldTable {
@@ -184,6 +187,16 @@ public:
 	template<class Visitor>
 	void forEach(Visitor&&) const&& = delete;
 
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachWhile(Visitor&& visitor) const&
+	{
+		return detail::forEachDefinitionWhile(definitions_, visitor,
+		                                      std::index_sequence_for<Definitions...>{});
+	}
+
+	template<class Visitor>
+	bool forEachWhile(Visitor&&) const&& = delete;
+
 	// A local position may be an integer or scoped position enum. Invalid
 	// positions return false without invoking the visitor. Callback returns
 	// are ignored; the bool reports selection, not the endpoint's status.
@@ -237,6 +250,30 @@ public:
 	template<class To, auto Position>
 	void readAs() const&& = delete;
 
+	template<class To, auto Position>
+	    requires std::is_same_v<To, std::remove_cvref_t<To>>
+	[[nodiscard]] BorrowedValue<To> readBorrowed() const& noexcept
+	{
+		const auto& definition = get<Position>();
+		using Definition = std::remove_cvref_t<decltype(definition)>;
+		static_assert(std::is_same_v<To, typename Definition::Value> && Definition::borrowsValue,
+		              "Field readBorrowed requires the exact borrowed value type");
+		return detail::readFieldBorrowed<To>(definition);
+	}
+
+	template<class To, auto Position>
+	void readBorrowed() const&& = delete;
+
+	template<class To, auto Position>
+	    requires std::is_same_v<To, std::remove_cvref_t<To>>
+	[[nodiscard]] FieldReadResult<To> readAsResult() const& noexcept
+	{
+		return get<Position>().template readAsResult<To>();
+	}
+
+	template<class To, auto Position>
+	void readAsResult() const&& = delete;
+
 	template<auto Position, class From>
 	    requires(!std::is_volatile_v<From>)
 	[[nodiscard]] telemetry::WriteResult writeAs(const From& value) const& noexcept
@@ -265,6 +302,46 @@ public:
 	template<class To, class... Explicit, class Position>
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
 	void readAs(Position) const&& = delete;
+
+	// Only an exact borrowed getter may supply a runtime view. Invalid input,
+	// owning declarations, mismatched types and unavailable getters are empty.
+	template<class To, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             std::is_same_v<To, std::remove_cvref_t<To>>)
+	[[nodiscard]] BorrowedValue<To> readBorrowed(Position position) const& noexcept
+	{
+		static_assert(Type<To>::kind != TypeKind::Void,
+		              "Field readBorrowed requires a native value type");
+		if (!telemetry::detail::indexFits<std::uint32_t>(position))
+			return {};
+		const auto i = static_cast<std::uint32_t>(position);
+		if (i >= staticSize)
+			return {};
+		return detail::FieldReadDispatch<std::tuple<Definitions...>, To>::borrows[i](definitions_);
+	}
+
+	template<class To, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	void readBorrowed(Position) const&& = delete;
+
+	template<class To, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             std::is_same_v<To, std::remove_cvref_t<To>>)
+	[[nodiscard]] FieldReadResult<To> readAsResult(Position position) const& noexcept
+	{
+		static_assert(Type<To>::kind != TypeKind::Void,
+		              "Field readAsResult requires a native value type");
+		if (!telemetry::detail::indexFits<std::uint32_t>(position))
+			return FieldReadResult<To>::failure(FieldReadStatus::NotFound);
+		const auto i = static_cast<std::uint32_t>(position);
+		if (i >= staticSize)
+			return FieldReadResult<To>::failure(FieldReadStatus::NotFound);
+		return detail::FieldReadDispatch<std::tuple<Definitions...>, To>::reads[i](definitions_);
+	}
+
+	template<class To, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	void readAsResult(Position) const&& = delete;
 
 	template<class... Explicit, class Position, class From>
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&

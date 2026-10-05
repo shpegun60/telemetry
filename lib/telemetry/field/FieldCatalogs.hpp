@@ -39,6 +39,8 @@ struct FieldCatalog {
 // - FieldIndex(): Borrow Field catalogs.
 // - catalogs(): Borrow catalog rows.
 // - count(): Count catalog groups.
+// - forEachEntry(): Visit erased entries.
+// - forEachEntryWhile(): Visit erased entries until false.
 // - find(): Find checked ID.
 // - readEncoded(): Read encoded value.
 // - writeEncoded(): Apply encoded value.
@@ -56,6 +58,18 @@ public:
 	[[nodiscard]] constexpr std::uint32_t count() const noexcept
 	{
 		return count_;
+	}
+
+	template<class Visitor>
+	constexpr void forEachEntry(Visitor&& visitor) const
+	{
+		detail::forEachCatalogEntry(catalogs_, count_, visitor);
+	}
+
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachEntryWhile(Visitor&& visitor) const
+	{
+		return detail::forEachCatalogEntryWhile(catalogs_, count_, visitor);
 	}
 
 	template<class... Explicit, std::integral Id>
@@ -125,10 +139,15 @@ struct IsFieldTable<FieldTable<D...>> : std::true_type {};
 // - operator[](): Borrow unchecked group.
 // - get(): Borrow typed definition.
 // - forEach(): Visit typed definitions.
+// - forEachWhile(): Visit until false.
+// - forEachEntry(): Visit erased entries.
+// - forEachEntryWhile(): Visit erased entries until false.
 // - visit(): Select checked ID.
 // - read(): Read native value.
 // - write(): Apply native value.
 // - readAs(): Read owning conversion.
+// - readBorrowed(): Borrow exact native value.
+// - readAsResult(): Read owning conversion with native failure status.
 // - writeAs(): Apply checked conversion.
 template<class... Groups>
 class FieldCatalogTable {
@@ -231,6 +250,33 @@ public:
 	template<class Visitor>
 	void forEach(Visitor&&) const&& = delete;
 
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachWhile(Visitor&& visitor) const&
+	{
+		return detail::forEachGroupWhile(groups_, visitor, std::index_sequence_for<Groups...>{});
+	}
+
+	template<class Visitor>
+	bool forEachWhile(Visitor&&) const&& = delete;
+
+	template<class Visitor>
+	constexpr void forEachEntry(Visitor&& visitor) const&
+	{
+		index().forEachEntry(visitor);
+	}
+
+	template<class Visitor>
+	void forEachEntry(Visitor&&) const&& = delete;
+
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachEntryWhile(Visitor&& visitor) const&
+	{
+		return index().forEachEntryWhile(visitor);
+	}
+
+	template<class Visitor>
+	bool forEachEntryWhile(Visitor&&) const&& = delete;
+
 	template<class... Explicit, std::integral Id, class Visitor>
 	    requires(sizeof...(Explicit) == 0)
 	[[nodiscard]] bool visit(Id id, Visitor&& visitor) const&
@@ -283,6 +329,30 @@ public:
 	template<class To, auto Id>
 	void readAs() const&& = delete;
 
+	template<class To, auto Id>
+	    requires std::is_same_v<To, std::remove_cvref_t<To>>
+	[[nodiscard]] BorrowedValue<To> readBorrowed() const& noexcept
+	{
+		const auto& definition = get<Id>();
+		using Definition = std::remove_cvref_t<decltype(definition)>;
+		static_assert(std::is_same_v<To, typename Definition::Value> && Definition::borrowsValue,
+		              "Field readBorrowed requires the exact borrowed value type");
+		return detail::readFieldBorrowed<To>(definition);
+	}
+
+	template<class To, auto Id>
+	void readBorrowed() const&& = delete;
+
+	template<class To, auto Id>
+	    requires std::is_same_v<To, std::remove_cvref_t<To>>
+	[[nodiscard]] FieldReadResult<To> readAsResult() const& noexcept
+	{
+		return get<Id>().template readAsResult<To>();
+	}
+
+	template<class To, auto Id>
+	void readAsResult() const&& = delete;
+
 	template<auto Id, class From>
 	    requires(!std::is_volatile_v<From>)
 	[[nodiscard]] telemetry::WriteResult writeAs(const From& value) const& noexcept
@@ -314,6 +384,48 @@ public:
 	template<class To, class... Explicit, std::integral Id>
 	    requires(sizeof...(Explicit) == 0)
 	void readAs(Id) const&& = delete;
+
+	template<class To, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0 && std::is_same_v<To, std::remove_cvref_t<To>>)
+	[[nodiscard]] BorrowedValue<To> readBorrowed(Id id) const& noexcept
+	{
+		static_assert(Type<To>::kind != TypeKind::Void,
+		              "Field readBorrowed requires a native value type");
+		if (!telemetry::detail::indexFits<PackedId>(id))
+			return {};
+		const auto packed = static_cast<PackedId>(id);
+		const auto group = packed >> 16;
+		if (group >= staticSize)
+			return {};
+		return detail::FieldGroupReadDispatch<std::tuple<Groups...>, To>::borrows[group](
+		    groups_, packed & 0xffffu);
+	}
+
+	template<class To, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0)
+	void readBorrowed(Id) const&& = delete;
+
+	// Failure precedence is checked ID, declared shape, getter availability,
+	// then checked conversion. No failure path fabricates a value of To.
+	template<class To, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0 && std::is_same_v<To, std::remove_cvref_t<To>>)
+	[[nodiscard]] FieldReadResult<To> readAsResult(Id id) const& noexcept
+	{
+		static_assert(Type<To>::kind != TypeKind::Void,
+		              "Field readAsResult requires a native value type");
+		if (!telemetry::detail::indexFits<PackedId>(id))
+			return FieldReadResult<To>::failure(FieldReadStatus::NotFound);
+		const auto packed = static_cast<PackedId>(id);
+		const auto group = packed >> 16;
+		if (group >= staticSize)
+			return FieldReadResult<To>::failure(FieldReadStatus::NotFound);
+		return detail::FieldGroupReadDispatch<std::tuple<Groups...>, To>::reads[group](
+		    groups_, packed & 0xffffu);
+	}
+
+	template<class To, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0)
+	void readAsResult(Id) const&& = delete;
 
 	template<class... Explicit, std::integral Id, class From>
 	    requires(sizeof...(Explicit) == 0 && !std::is_volatile_v<From>)

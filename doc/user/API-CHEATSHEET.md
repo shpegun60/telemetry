@@ -85,12 +85,27 @@ services.visit(id, [](const auto& service) { /* typed branch */ });
 fields.readAs<double>(id);
 fields.writeAs(id, 240);
 localFields.readAs<double, Position::Voltage>();
+
+// Exact Command request; Result type fixed to CommandResult.
+const auto configured = commands.callAs(ts::makeId<0, 1>(), Configure{device.settings});
+const auto reset = localCommands.callAs(0); // No request.
+
+// Exact Service result wrapper and exact request type.
+const auto snapshot = services.callAs<ts::ServiceResult<Snapshot>>(ts::makeId<0, 1>(), Query{0});
+const auto settings = services.callAs<ts::BorrowedServiceResult<Settings>>(ts::makeId<0, 3>(), Query{0});
+const auto ping = services.callAs<ts::ServiceResult<void>>(ts::makeId<0, 4>()); // No request/payload.
 ```
 
 Numeric `As` conversions checked; struct/array потребують exact C++ type.
-Для Command/Service немає універсального native runtime Request: different
-definitions можуть приймати різні structs або void. Використайте `visit` з
-`if constexpr` або encoded API.
+Command `callAs` повертає `NativeCallResult<CommandResult>`; Service
+`callAs<Result>` — `NativeCallResult<Result>`. Request і Service result wrapper
+мають точно збігатися з declaration; conversions не виконуються. Input width
+перевіряється до narrowing, table/catalog має бути lvalue.
+`NativeCallStatus` — `Ok`, `NotFound`, `SignatureMismatch`. Останні дві відмови
+не викликають endpoint. `Ok` доставляє application result, включно з
+`Busy`/`Unavailable`. Typed `visit` із `if constexpr` лишається альтернативою
+для різних shapes; byte payload обробляє encoded API. Повне runnable coverage:
+[NativeCalls.cpp](../../tests/ergonomics/NativeCalls.cpp).
 
 ## D. Runtime ID + bytes — transport/backend
 
@@ -127,10 +142,19 @@ packet із UART/TCP chunks. [Encoded.cpp](../../examples/user_guide/Encoded.cpp
 | Service `Response` / `ServiceResult<Response>` | `ServiceResult<Response>` |
 | Service `const Response&` / `BorrowedServiceResult<Response>` | `BorrowedServiceResult<Response>` |
 | Service void | `ServiceResult<void>` |
+| Command runtime `callAs` | `NativeCallResult<CommandResult>` |
+| Service runtime `callAs<Result>` | `NativeCallResult<Result>` |
 
 `readAs<T>` завжди owning copy. Borrowed result позичає existing const object;
 він має лишатися живим і стабільним. Owning Service result перевіряйте через
 `hasValue()/status()`; він не має optional-style `bool/*/->`.
+
+`NativeCallResult::hasValue()` означає доставку exact endpoint result.
+Для Service це не означає inner `hasValue()` чи application success:
+перевірте `result.value().status()` та `result.value().hasValue()` перед payload.
+`valueOrNull()` safe також на selection failure. Final-storage
+`successFrom(factory)` не додає move/copy wrapper/response; owning result
+містить payload bytes, storage обирає caller. Borrowed lifetime rules ті самі.
 
 Encoded default local budget — 32 B; larger objects використовують caller-owned
 `Workspace`. Достатній bound однієї операції — `model.maxScratch()`. Синхронізація

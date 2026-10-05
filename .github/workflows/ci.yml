@@ -283,6 +283,15 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/borrowed/run.py --build-dir build/structured-borrowed "${flags[@]}"
+      - name: Native runtime access, traversal and resource client APIs
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/ergonomics/run.py --build-dir build/ergonomics "${flags[@]}"
       - name: C++20 structured resource providers
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
@@ -390,6 +399,7 @@ jobs:
             build/structured-freeze/Os
             build/structured-freeze/Og
             build/structured-borrowed/
+            build/ergonomics/
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
@@ -477,6 +487,9 @@ jobs:
         run: |
           python3 tests/structured/borrowed/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-borrowed
           python3 tests/structured/borrowed/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-borrowed-nullchecks
+      - name: Native runtime and resource client APIs Cortex-M7 checks
+        run: |
+          python3 tests/ergonomics/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-ergonomics
       - name: C++20 structured descriptor Cortex-M7 checks
         run: |
           python3 tests/structured/descriptor/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor
@@ -583,6 +596,7 @@ jobs:
             build/arm-structured-traversal/*.su
             build/arm-structured-borrowed/
             build/arm-structured-borrowed-nullchecks/
+            build/arm-ergonomics/
           if-no-files-found: ignore
 
   endian:

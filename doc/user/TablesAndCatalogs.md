@@ -101,16 +101,22 @@ const reference на concrete definition.
 | Field | `readAs<To, Position>()`, `readAs<To>(position)` | Owning `optional<To>` із checked numeric/exact structural access |
 | Field | `writeAs<Position>(value)`, `writeAs(position, value)` | Checked conversion до endpoint T; `WriteResult` |
 | Command | `call<Position>()`, `call<Position>(request)` | `CommandResult` |
+| Command | `callAs(position[, request])` | `NativeCallResult<CommandResult>` із checked exact selection |
 | Service | `call<Position>()`, `call<Position>(request)` | Exact owning/borrowed Service result |
+| Service | `callAs<Result>(position[, request])` | `NativeCallResult<Result>` із exact Request/Result |
 | Усі | `get<Position>()` | Concrete definition; endpoint не виконується |
 | Усі | `forEach(visitor)` | Ordered typed visitor на кожну definition |
+| Усі | `forEachWhile(visitor)` | Exact-`bool` visitor; false зупиняє обхід, результат означає повний прохід |
 | Усі | `visit(position, visitor)` | `bool` знайдено; visitor отримує concrete definition |
 | Усі | `size()`, `empty()`, `data()`, `begin()`, `end()` | Erased rows/metadata; callbacks не викликаються |
 | Усі | `operator[](std::size_t)` | Unchecked erased row; caller забезпечує index < size |
 
-Command/Service не мають універсального native runtime Request, бо різні
-rows можуть приймати різні aggregate types. Для runtime selection
-використайте typed `visit` або encoded index. Getter ownership і result
+Command runtime `callAs` і Service `callAs<Result>` підтримують один exact
+native Request та exact result wrapper caller. `NotFound` означає invalid або
+absent position/ID; `SignatureMismatch` — інший declared Request/Result без
+callback. Selection `Ok` доставляє endpoint result, також `Busy`/`Unavailable`;
+outer `hasValue()` не є Service payload `hasValue()`. Для custom typed branches
+лишається `visit`; для bytes — encoded index. Getter ownership і result
 handling описані в [Native API](NativeApi.md).
 
 Фрагмент application function після declarations вище:
@@ -142,16 +148,21 @@ void useLocalTable() {
 | Field | `readAs<To, Id>()`, `readAs<To>(id)` | Owning `optional<To>` |
 | Field | `writeAs<Id>(value)`, `writeAs(id, value)` | Checked `WriteResult` |
 | Command | `call<Id>(request)` або `call<Id>()` | `CommandResult` |
+| Command | `callAs(id[, request])` | `NativeCallResult<CommandResult>` |
 | Service | `call<Id>(request)` або `call<Id>()` | Endpoint-specific Service result |
+| Service | `callAs<Result>(id[, request])` | `NativeCallResult<Result>` |
 | Усі | `get<Id>()` | Concrete definition у вибраній local table |
 | Усі | `forEach(visitor)` | Group name та concrete definition |
+| Усі | `forEachWhile(visitor)` | Group name та concrete definition; exact-`bool` continuation |
+| Усі | `forEachEntry(visitor)` | Packed ID, group name та borrowed erased row |
+| Усі | `forEachEntryWhile(visitor)` | Erased row visitor з exact-`bool` continuation |
 | Усі | `visit(id, visitor)` | `bool` selection, concrete definition |
 | Усі | `index()` | Copyable borrowed FieldIndex/CommandIndex/ServiceIndex |
 | Усі | `size()`, `empty()`, range-for, `operator[]` | Metadata груп; `size()` рахує groups, не endpoints |
 
 Compile-time Group/Position поза actual tables відхиляється при compilation.
-Runtime `visit` повертає false без visitor для invalid ID. Callback return
-visitor ігнорується; його `bool` selection не є endpoint result.
+Runtime `visit` повертає false без visitor для invalid ID. `forEach` і `visit`
+ігнорують callback result; `bool` selection від `visit` не є endpoint result.
 
 ## Побудувати та перевірити IDs
 
@@ -189,6 +200,12 @@ void selectCount(std::uint64_t group, std::uint64_t position) {
 Typed traversal зберігає exact native type. Звичайний visitor приймає
 definition; templated visitor додатково дістає compile-time position.
 Catalog visitor отримує group name та definition, і може мати `<G, I>`.
+
+`forEachWhile` приймає ті самі typed signatures. Visitor повертає саме `bool`:
+`true` продовжує, `false` зупиняє наступні invocations у всіх наступних groups.
+Метод повертає `true` після повного обходу, також для порожньої table/catalog;
+повернений visitor-ом `false` дає результат `false`, навіть на останньому row.
+Усі typed branches мають компілюватися незалежно від runtime зупинки.
 
 ```cpp
 void inspectDefinitions() {
@@ -229,6 +246,29 @@ void inspectRows() {
 }
 ```
 
+Для плоского обходу catalog та його runtime index мають `forEachEntry`.
+Callback отримує `(PackedId, std::string_view, const Entry&)`; `Entry` —
+`FieldEntry`, `CommandEntry` чи `ServiceEntry` відповідної family. Rows ідуть
+у порядку group/entry declaration; порожні groups пропускаються, ID зберігає
+actual group position. Callback result ігнорується. `forEachEntryWhile` має
+таку саму signature та exact-`bool` continuation, як typed `forEachWhile`.
+
+```cpp
+void inspectFlatRows() {
+    table_demo::fields.index().forEachEntry(
+        [](telemetry::PackedId id, std::string_view group,
+           const telemetry::FieldEntry& entry) {
+            (void)id;
+            (void)group;
+            (void)entry.wireBytes;
+        });
+}
+```
+
+Visitors позичають original definitions/rows, не копіюються і не викликають
+endpoint самі по собі. Table/catalog traversal потребує lvalue; copyable
+runtime index можна використати як temporary, доки backing tables живуть.
+
 Visitor exceptions, якщо вони увімкнені, передаються caller. Endpoint
 callbacks лишаються `noexcept`. Не обробляйте erased raw function pointers
 як checked API: відповідні `readEncoded`/`writeEncoded`/`executeEncoded`/
@@ -243,6 +283,7 @@ callbacks лишаються `noexcept`. Не обробляйте erased raw fu
 | `CommandIndex` | `executeEncoded(id, input, workspace)` | `EncodedCommandResult` |
 | `ServiceIndex` | `callEncoded(id, input, output, workspace)` | `EncodedCallResult` |
 | Усі | `find(id)`, `count()`, `catalogs()` | Lookup pointer; число groups; borrowed metadata array |
+| Усі | `forEachEntry(visitor)`, `forEachEntryWhile(visitor)` | Flat borrowed rows у packed-ID порядку; continuation лише в `While` |
 
 Index copy позичає ті самі backing rows; він не подовжує lifetime чи
 серіалізує owners. [Encoded.cpp](../../examples/user_guide/Encoded.cpp)

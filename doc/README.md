@@ -2,6 +2,7 @@
 
 [Репозиторій](../README.md) · [Посібник](user/README.md) ·
 [API шпаргалка](user/API-CHEATSHEET.md) · [Архітектура](Architecture.md) ·
+[Runtime native та обхід](user/Ergonomics.md) ·
 [Wire v3.0](WireV3.md) · [Тести](../tests/README.md)
 
 Цей індекс описує чинний C++20 `telemetry` і wire v3.0. Для першої

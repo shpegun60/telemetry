@@ -20,6 +20,8 @@ Field, Command і Service мають одну модель декларації:
 [Перевірки](tests/README.md)
 
 Швидко згадати виклики: [API шпаргалка](doc/user/API-CHEATSHEET.md).
+Runtime native `callAs`, Field borrowing, докладні read statuses та плоский
+обхід з ID: [практичний посібник](doc/user/Ergonomics.md).
 
 **Ключові слова:** C++20 · compile-time reflection · Boost.PFR · magic_enum ·
 STM32 · embedded · native C++ · Field / Command / Service · zero heap ·

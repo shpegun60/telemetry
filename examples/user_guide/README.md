@@ -9,6 +9,8 @@
 | [Native.cpp](Native.cpp) | Field/Command/Service; типи, всі slots, owning/borrowed outputs, typed та erased traversal | `StructuredAbi.cpp`, `Adapter.cpp` |
 | [Resources.cpp](Resources.cpp) | Flat filesystem, lazy FileView, custom R/W provider, порційний LIST/STAT/READ/WRITE | `Protocol.cpp` |
 | [Encoded.cpp](Encoded.cpp) | Власний complete-frame adapter без файлів, business validation, великі/borrowed responses | `StructuredAbi.cpp`, `Adapter.cpp` |
+| [Ergonomics.cpp](Ergonomics.cpp) | Runtime native callAs, borrowed Field, причини відмов та flat/While traversal | `StructuredAbi.cpp` |
+| [ResourceClient.cpp](ResourceClient.cpp) | Checked resource request builders і borrowed reply parsers | `Protocol.cpp` |
 
 ```sh
 python tests/docs/run.py --cxx g++ --build-dir /tmp/telemetry-doc-examples

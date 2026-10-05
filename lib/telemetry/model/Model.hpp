@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <type_traits>
 
 namespace telemetry {
@@ -122,6 +123,8 @@ private:
 // - maxCommandScratch(): Bound Command scratch.
 // - maxScratch(): Bound operation scratch.
 // - maxFieldWireSize(): Bound Field payload.
+// - maxCommandRequestWireSize(): Bound Command payload.
+// - maxServiceRequestWireSize(): Bound request payload.
 // - maxServiceScratch(): Bound Service scratch.
 // - maxServiceResponseWireSize(): Bound response payload.
 template<class Fields, class Commands, class Services>
@@ -251,6 +254,26 @@ public:
 				if (catalog.entries[entry].wireBytes > result)
 					result = catalog.entries[entry].wireBytes;
 		}
+		return result;
+	}
+
+	[[nodiscard]] constexpr std::uint32_t maxCommandRequestWireSize() const noexcept
+	{
+		std::uint32_t result = 0;
+		commandIndex().forEachEntry([&](PackedId, std::string_view, const CommandEntry& entry) {
+			if (entry.requestWireBytes > result)
+				result = entry.requestWireBytes;
+		});
+		return result;
+	}
+
+	[[nodiscard]] constexpr std::uint32_t maxServiceRequestWireSize() const noexcept
+	{
+		std::uint32_t result = 0;
+		serviceIndex().forEachEntry([&](PackedId, std::string_view, const ServiceEntry& entry) {
+			if (entry.requestWireBytes > result)
+				result = entry.requestWireBytes;
+		});
 		return result;
 	}
 

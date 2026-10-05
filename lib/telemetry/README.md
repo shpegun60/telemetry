@@ -10,6 +10,13 @@ the canonical descriptor and values files; the [JavaScript codec](../../web/tele
 decodes those wire types. Applications own transport framing, connection
 state, synchronization and request correlation.
 
+For runtime native IDs use Command `callAs` and Service `callAs<Result>`.
+Field `readBorrowed<T>` returns an exact const view; `readAsResult<T>` retains
+failure reasons. Flat `forEachEntry` includes IDs and catalog names, while
+typed/erased `While` traversal stops on false. See the
+[practical guide](../../doc/user/Ergonomics.md) and
+[complete example](../../examples/user_guide/Ergonomics.cpp).
+
 ## Reading the source
 
 Each authored source file starts with its purpose and the reason its boundary

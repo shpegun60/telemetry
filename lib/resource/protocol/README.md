@@ -61,6 +61,79 @@ written outside its C++ span: that remains a provider contract violation.
 WRITE retries are delivered again. There is no transaction or deduplication
 layer. Clients check status, byte count, progress and completion on every reply.
 
+## Bounded client API
+
+Include `<resource/protocol/Client.hpp>` for the header-only
+`resource::protocol::client` API. Packet sizes and operation codes are shared
+with `process` through `<resource/protocol/Wire.hpp>`:
+`wire::listRequestSize=9`, `statRequestSize=5`, `readRequestSize=13`,
+`writeRequestHeaderSize=16`, `chunkReplyHeaderSize=12`, `statReplySize=6`,
+`writeReplySize=14`, `maxPayloadSize=65535` and `maxListPathSize=65533`.
+
+| Builder | Arguments after caller-owned `Output` | Bytes written on success |
+|---|---|---|
+| `makeList` | `Cursor cursor` | 9 |
+| `makeStat` | `FileIndex index` | 5 |
+| `makeRead` | `FileIndex index, Cursor cursor` | 13 |
+| `makeWrite` | `FileIndex index, Cursor cursor, Input data, bool final` | `16 + data.size()` |
+
+Every builder returns `BuildResult{BuildStatus status, size_t written}`.
+`BuildStatus` is `Ok`, `BufferTooSmall` or `PayloadTooLarge`; failure returns
+zero written bytes and leaves output unchanged. Arrays, fixed spans and
+dynamic spans use the same checked result. WRITE accepts at most 65535 payload
+bytes and safely copies overlapping input before writing the request header.
+The caller sends only the written prefix and keeps those bytes alive until
+the transport has finished reading them.
+
+| Parser | Additional argument | Parsed response |
+|---|---|---|
+| `parseList(Input reply)` | none | `status, next, eof, paths` |
+| `parseStat(Input reply)` | none | `status, size, flags` |
+| `parseRead(Input reply)` | none | `status, next, eof, data` |
+| `parseWrite(Input reply, size_t submittedBytes)` | original WRITE payload length | `status, next, consumed, complete` |
+
+Parsers return `ParseResult<Response>{parsing, response, shortError}`.
+`parsing` is `ParseStatus::Ok` or `Malformed`; the explicit boolean conversion
+tests parsing success. It is independent of `response.status`, which carries
+the remote resource/provider status. An ordinary provider error is a valid
+parsed response. All parsers also accept the one-byte `InvalidData` error
+that `process` emits for a malformed request. Such a result has `shortError=true`;
+only `response.status` is meaningful because no normal response fields were
+transmitted. A one-byte `Ok` or any other status is malformed.
+
+Parsing checks exact packet lengths, trailing bytes, status codes, STAT flag
+bits, boolean bytes, declared data counts and error responses carrying data
+or completion. LIST additionally checks every complete length-prefixed path
+against the core's flat-label spelling rules and the 65533-byte path limit.
+WRITE verifies `consumed <= submittedBytes <= 65535`. The caller retains the
+request context to check cursor progress, expected LIST indices and provider
+completion semantics. READ/WRITE cursors may be opaque and need not equal
+the previous cursor plus the byte count.
+
+**Reply views borrow the received packet.** `ReadReply::data`, every path
+returned by the iterable `ListReply::paths`, and its iterators remain valid
+only while the response storage is alive and unchanged. Parse and use them
+before receiving the next packet into that storage; copying the parsed
+result or a `string_view` does not copy the bytes. The API allocates nothing
+and never returns an owning packet.
+
+```cpp
+namespace client = resource::protocol::client;
+std::array<std::byte, resource::protocol::wire::readRequestSize> request;
+auto built = client::makeRead(request, fileIndex, cursor);
+if (built.status == client::BuildStatus::Ok) {
+    // Send request[0 .. built.written); receive one complete reply.
+    auto parsed = client::parseRead(receivedPacket);
+    if (parsed && !parsed.shortError && parsed.response.status == resource::Status::Ok) {
+        consume(parsed.response.data); // Finish before receivedPacket is reused.
+        cursor = parsed.response.next;
+    }
+}
+```
+
+A runnable in-process transport example is
+[ResourceClient.cpp](../../../examples/user_guide/ResourceClient.cpp).
+
 See [tests](../../../tests/resources/README.md) and the small
 [application facade](../../../app/resources/DeviceResources.hpp).
 

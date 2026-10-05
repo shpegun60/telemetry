@@ -7,15 +7,14 @@
 #include "Protocol.hpp"
 #include <algorithm>
 #include <cstring>
-#include <limits>
 
 namespace resource::protocol {
 namespace {
 using namespace resource;
-constexpr std::size_t chunkHeader = 12;
-constexpr std::size_t statHeader = 6;
-constexpr std::size_t writeHeader = 14;
-constexpr std::size_t maxPayload = std::numeric_limits<std::uint16_t>::max();
+constexpr std::size_t chunkHeader = wire::chunkReplyHeaderSize;
+constexpr std::size_t statHeader = wire::statReplySize;
+constexpr std::size_t writeHeader = wire::writeReplySize;
+constexpr std::size_t maxPayload = wire::maxPayloadSize;
 
 // These helpers are used only after checking the complete fixed header.
 template<class T>
@@ -70,7 +69,7 @@ Reply process(resource::FileSystemView files, resource::Input request,
 	const auto op = static_cast<Op>(std::to_integer<unsigned char>(request[0]));
 	if (op == Op::List) {
 		// LIST owns its index cursor here. Resource providers never see it.
-		if (request.size() != 9) {
+		if (request.size() != wire::listRequestSize) {
 			return shortError(Status::InvalidData, response);
 		}
 		const auto cursor = load<Cursor>(request, 1);
@@ -88,7 +87,7 @@ Reply process(resource::FileSystemView files, resource::Input request,
 			const auto path = files.path(static_cast<FileIndex>(next));
 			// The u16 dataSize includes this entry's u16 length prefix too.
 			// A larger path can never fit, even with an unlimited caller buffer.
-			if (path.size() > maxPayload - sizeof(std::uint16_t)) {
+			if (path.size() > wire::maxListPathSize) {
 				// Keep a completed prefix visible. The next request starts at
 				// this unrepresentable entry and reports its error separately.
 				if (used != 0) {
@@ -114,7 +113,7 @@ Reply process(resource::FileSystemView files, resource::Input request,
 	}
 	if (op == Op::Stat) {
 		// STAT queries current size; LIST deliberately never makes this call.
-		if (request.size() != 5) {
+		if (request.size() != wire::statRequestSize) {
 			return shortError(Status::InvalidData, response);
 		}
 		if (response.size() < statHeader) {
@@ -129,7 +128,7 @@ Reply process(resource::FileSystemView files, resource::Input request,
 	if (op == Op::Read) {
 		// The provider writes directly after the response header. Validate its
 		// reported count before publishing any of those bytes to the transport.
-		if (request.size() != 13) {
+		if (request.size() != wire::readRequestSize) {
 			return shortError(Status::InvalidData, response);
 		}
 		const auto index = load<FileIndex>(request, 1);
@@ -150,12 +149,12 @@ Reply process(resource::FileSystemView files, resource::Input request,
 		return chunkReply(response, result.status, result.next, result.written, result.eof);
 	}
 	if (op == Op::Write) {
-		if (request.size() < 16) {
+		if (request.size() < wire::writeRequestHeaderSize) {
 			return shortError(Status::InvalidData, response);
 		}
 		const auto length = load<std::uint16_t>(request, 14);
 		const auto final = std::to_integer<unsigned char>(request[13]);
-		if (request.size() - 16 != length || final > 1) {
+		if (request.size() - wire::writeRequestHeaderSize != length || final > 1) {
 			return shortError(Status::InvalidData, response);
 		}
 		const auto index = load<FileIndex>(request, 1);
@@ -165,7 +164,8 @@ Reply process(resource::FileSystemView files, resource::Input request,
 		}
 		// Parse first, invoke second, encode last: an overlapping packet/reply
 		// buffer remains valid for the synchronous provider's input lifetime.
-		auto result = files.write(index, cursor, request.subspan(16), final != 0);
+		auto result =
+		    files.write(index, cursor, request.subspan(wire::writeRequestHeaderSize), final != 0);
 		if (!validStatus(result.status) || result.consumed > length ||
 		    (result.status != Status::Ok &&
 		     (result.consumed != 0 || result.next != cursor || result.complete)) ||

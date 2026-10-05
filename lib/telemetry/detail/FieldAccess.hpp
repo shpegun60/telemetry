@@ -20,6 +20,8 @@
 
 #include <telemetry/detail/NumberConversion.hpp>
 #include <telemetry/result/EndpointStatus.hpp>
+#include <telemetry/result/BorrowedValue.hpp>
+#include <telemetry/result/FieldReadResult.hpp>
 #include <array>
 #include <optional>
 #include <tuple>
@@ -105,6 +107,111 @@ template<class Definition, class From>
 		return telemetry::WriteResult::InvalidValue;
 	}
 }
+
+// Shape preflight precedes availability checks and getter invocation. An
+// exact borrowed declaration returns its existing view without any T storage.
+template<class To, class Definition>
+[[nodiscard]] BorrowedValue<To> readFieldBorrowed(const Definition& definition) noexcept
+{
+	if constexpr (std::is_same_v<To, typename Definition::Value> && Definition::borrowsValue)
+		return definition.read();
+	else
+		return {};
+}
+
+template<class To, class Definition>
+[[nodiscard]] FieldReadResult<To> readFieldAsResult(const Definition& definition) noexcept
+{
+	using From = typename Definition::Value;
+	if constexpr (std::is_same_v<To, From> || (nativeNumber<To> && nativeNumber<From>))
+		return definition.template readAsResult<To>();
+	else
+		return FieldReadResult<To>::failure(FieldReadStatus::TypeMismatch);
+}
+
+// Each requested native type gets homogeneous borrowed and owning-result
+// branches. Lookup storage contains only function pointers, never a value T.
+// Public methods:
+// - borrow(): Borrow selected exact declaration.
+// - read(): Read selected declaration with failure status.
+// - makeBorrows(): Build borrowed readers.
+// - makeReads(): Build result readers.
+template<class Tuple, class Value>
+struct FieldReadDispatch {
+	using Borrow = BorrowedValue<Value> (*)(const Tuple&) noexcept;
+	using Read = FieldReadResult<Value> (*)(const Tuple&) noexcept;
+
+	template<std::size_t I>
+	static BorrowedValue<Value> borrow(const Tuple& definitions) noexcept
+	{
+		return readFieldBorrowed<Value>(std::get<I>(definitions));
+	}
+
+	template<std::size_t I>
+	static FieldReadResult<Value> read(const Tuple& definitions) noexcept
+	{
+		return readFieldAsResult<Value>(std::get<I>(definitions));
+	}
+
+	template<std::size_t... I>
+	static consteval auto makeBorrows(std::index_sequence<I...>) noexcept
+	{
+		return std::array<Borrow, sizeof...(I)>{{&borrow<I>...}};
+	}
+
+	template<std::size_t... I>
+	static consteval auto makeReads(std::index_sequence<I...>) noexcept
+	{
+		return std::array<Read, sizeof...(I)>{{&read<I>...}};
+	}
+
+	inline static constexpr auto borrows =
+	    makeBorrows(std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+	inline static constexpr auto reads =
+	    makeReads(std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+};
+
+// Group selection reuses each local table's per-type checked dispatch. Packed
+// positions are already validated by the catalog before these branches run.
+// Public methods:
+// - borrow(): Borrow selected group's entry.
+// - read(): Read selected group's entry with failure status.
+// - makeBorrows(): Build group borrowers.
+// - makeReads(): Build group readers.
+template<class Tuple, class Value>
+struct FieldGroupReadDispatch {
+	using Borrow = BorrowedValue<Value> (*)(const Tuple&, std::uint32_t) noexcept;
+	using Read = FieldReadResult<Value> (*)(const Tuple&, std::uint32_t) noexcept;
+
+	template<std::size_t Group>
+	static BorrowedValue<Value> borrow(const Tuple& groups, std::uint32_t entry) noexcept
+	{
+		return std::get<Group>(groups).table->template readBorrowed<Value>(entry);
+	}
+
+	template<std::size_t Group>
+	static FieldReadResult<Value> read(const Tuple& groups, std::uint32_t entry) noexcept
+	{
+		return std::get<Group>(groups).table->template readAsResult<Value>(entry);
+	}
+
+	template<std::size_t... Group>
+	static consteval auto makeBorrows(std::index_sequence<Group...>) noexcept
+	{
+		return std::array<Borrow, sizeof...(Group)>{{&borrow<Group>...}};
+	}
+
+	template<std::size_t... Group>
+	static consteval auto makeReads(std::index_sequence<Group...>) noexcept
+	{
+		return std::array<Read, sizeof...(Group)>{{&read<Group>...}};
+	}
+
+	inline static constexpr auto borrows =
+	    makeBorrows(std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+	inline static constexpr auto reads =
+	    makeReads(std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+};
 
 // Homogeneous result types let runtime readAs/writeAs return directly from the
 // selected branch. This avoids a visitor's external optional<T> plus temporary

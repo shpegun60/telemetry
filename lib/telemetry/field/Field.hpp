@@ -35,6 +35,13 @@ namespace field_detail {
 // Empty marker for an absent declared Field setter capability.
 struct NoSetter {};
 
+// A named constraint keeps invalid writes absent from requires expressions
+// while the compiler diagnostic points callers to explicit conversion.
+template<class Argument, class Value>
+concept ExactFieldWriteArgumentUse_writeAs_for_conversion =
+    std::is_same_v<std::remove_cvref_t<Argument>, Value> &&
+    !std::is_volatile_v<std::remove_reference_t<Argument>>;
+
 // Validates a Field getter and preserves owning/borrowed result shape.
 template<class Binding>
 struct GetterShape
@@ -76,6 +83,7 @@ consteval bool checkSetter()
 // - read(): Read native value.
 // - write(): Apply native value.
 // - readAs(): Read owning conversion.
+// - readAsResult(): Read owning conversion with native failure status.
 // - writeAs(): Apply checked conversion.
 template<class Getter, class Setter = field_detail::NoSetter>
 class FieldDefinition {
@@ -112,8 +120,7 @@ public:
 	// Exact native writes preserve the argument's value/reference category.
 	// An absent declared setter is ReadOnly; an empty setter slot is Unavailable.
 	template<class Argument>
-	    requires(std::is_same_v<std::remove_cvref_t<Argument>, Value> &&
-	             !std::is_volatile_v<std::remove_reference_t<Argument>>)
+	    requires field_detail::ExactFieldWriteArgumentUse_writeAs_for_conversion<Argument, Value>
 	[[nodiscard]] telemetry::WriteResult write(Argument&& value) const noexcept
 	{
 		if constexpr (!writable) {
@@ -138,6 +145,34 @@ public:
 		                  (detail::nativeNumber<To> && detail::nativeNumber<Value>),
 		              "Field readAs permits numeric conversion or the exact structural type");
 		return detail::readFieldAs<To>(*this);
+	}
+
+	// An owning convenience read with explicit failure status. The getter is
+	// selected once, and exact large values are constructed in final storage.
+	template<class To>
+	    requires std::is_same_v<To, std::remove_cvref_t<To>>
+	[[nodiscard]] TELEMETRY_FORCE_INLINE FieldReadResult<To> readAsResult() const noexcept
+	{
+		static_assert(Type<To>::kind != TypeKind::Void,
+		              "Field readAsResult requires a native value type");
+		static_assert(std::is_same_v<To, Value> ||
+		                  (detail::nativeNumber<To> && detail::nativeNumber<Value>),
+		              "Field readAsResult permits numeric conversion or the exact structural type");
+		auto selected = getter_.snapshot();
+		if (!Getter::available(selected))
+			return FieldReadResult<To>::failure(FieldReadStatus::Unavailable);
+		if constexpr (std::is_same_v<To, Value>) {
+			return FieldReadResult<To>::successFrom([&selected]() -> To {
+				return Getter::invoke(selected);
+			});
+		} else {
+			const auto converted = detail::checkedFieldNumber<To>(Getter::invoke(selected));
+			if (!converted)
+				return FieldReadResult<To>::failure(FieldReadStatus::ConversionFailed);
+			return FieldReadResult<To>::successFrom([&converted]() -> To {
+				return *converted;
+			});
+		}
 	}
 
 	// Complete conversion before calling the setter. Invalid numeric input

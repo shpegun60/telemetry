@@ -18,7 +18,9 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
 
     # The packet layer is compiled once by this manifest. Transport framing
     # and the application's telemetry control protocol remain separate.
-    HEADERS += $$PWD/protocol/Protocol.hpp
+    HEADERS += $$PWD/protocol/Protocol.hpp \
+        $$PWD/protocol/Wire.hpp \
+        $$PWD/protocol/Client.hpp
     SOURCES += $$PWD/protocol/Protocol.cpp
     contains(CONFIG, resource_telemetry) {
         HEADERS += $$files($$PWD/telemetry/v3/*.hpp, true)

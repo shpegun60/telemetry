@@ -93,8 +93,8 @@ struct CallableInvocable<Function, std::tuple<Args...>>
 template<auto Target>
 struct StaticFunction {
 	using Signature = decltype(Target);
-	static_assert(telemetry::detail::nonNullTarget<Target>, "Service target cannot be nullptr");
-	static_assert(functionPointer<Signature>, "Service target must be a function");
+	static_assert(telemetry::detail::nonNullTarget<Target>, "Endpoint target cannot be nullptr");
+	static_assert(functionPointer<Signature>, "Endpoint target must be a function");
 
 	[[nodiscard]] constexpr bool snapshot() const noexcept
 	{
@@ -124,13 +124,13 @@ template<auto Target, class Owner>
 struct StaticMethod {
 	using Signature = decltype(Target);
 	using Object = typename OwnerObject<Owner>::type;
-	static_assert(telemetry::detail::nonNullTarget<Target>, "Service target cannot be nullptr");
-	static_assert(std::is_member_function_pointer_v<Signature>, "Service target must be a method");
+	static_assert(telemetry::detail::nonNullTarget<Target>, "Endpoint target cannot be nullptr");
+	static_assert(std::is_member_function_pointer_v<Signature>, "Endpoint target must be a method");
 	static_assert(telemetry::detail::isDirectMemberOwner<Signature, Object>,
-	              "Service method requires a direct owner or OwnerSlot of that owner");
+	              "Endpoint method requires a direct owner or OwnerSlot of that owner");
 	static_assert(MemberInvocable<Signature, Object,
 	                              typename reflection::Function<Signature>::Arguments>::value,
-	              "Service method must be noexcept-invocable on this owner");
+	              "Endpoint method must be noexcept-invocable on this owner");
 
 	Owner* owner;
 
@@ -177,7 +177,7 @@ struct StaticMethod {
 template<class Function>
 struct RuntimeFunction {
 	using Signature = Function;
-	static_assert(functionPointer<Function>, "Service callback must be a function pointer");
+	static_assert(functionPointer<Function>, "Endpoint callback must be a function pointer");
 
 	Function function;
 
@@ -210,7 +210,7 @@ struct BorrowedCallable {
 	using Signature = std::remove_cv_t<Callable>;
 	static_assert(
 	    CallableInvocable<Callable, typename reflection::Function<Signature>::Arguments>::value,
-	    "Service callable must be noexcept-invocable as borrowed");
+	    "Endpoint callable must be noexcept-invocable as borrowed");
 	Callable* callable;
 
 	[[nodiscard]] constexpr Callable* snapshot() const noexcept

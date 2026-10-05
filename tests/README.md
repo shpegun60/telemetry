@@ -69,6 +69,11 @@ gap recovery. The [cross-endian runner](structured/codec/endian.py) executes
 native little/big-endian targets and compares complete canonical wire files.
 [Source conventions](../tools/source_style/README.md) are checked in CI too.
 
+[Ergonomic API checks](ergonomics/README.md) execute native runtime selection,
+borrowed reads, detailed read failures, stoppable traversal and bounded resource
+client parsing. ARM profiles compare manual/helper dispatch at 128/256 targets,
+large-response stack frames and unchanged generic protocol codegen.
+
 [Scalability checks](scalability/README.md) separate typed-table compilation,
 exact type diversity, erased indexes, resources, visitor objects and module
 dependencies. Their bounded CI profiles gate correctness and build capacity;

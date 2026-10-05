@@ -22,6 +22,7 @@
 #include "../result/EndpointResults.hpp"
 #include "../detail/Encoded.hpp"
 #include "../detail/Traversal.hpp"
+#include "../detail/NativeCall.hpp"
 #include "../type/Registry.hpp"
 #include <telemetry/core/Id.hpp>
 #include <array>
@@ -67,8 +68,10 @@ struct CommandEntry {
 // - operator[](): Borrow unchecked row.
 // - get(): Borrow typed definition.
 // - forEach(): Visit typed definitions.
+// - forEachWhile(): Visit until false.
 // - visit(): Select checked position.
 // - call(): Invoke native command.
+// - callAs(): Select runtime signature.
 template<class... Definitions>
 class CommandTable {
 	static_assert(sizeof...(Definitions) <= idComponentCapacity,
@@ -158,6 +161,16 @@ public:
 	template<class Visitor>
 	void forEach(Visitor&&) const&& = delete;
 
+	template<class Visitor>
+	[[nodiscard]] constexpr bool forEachWhile(Visitor&& visitor) const&
+	{
+		return detail::forEachDefinitionWhile(definitions_, visitor,
+		                                      std::index_sequence_for<Definitions...>{});
+	}
+
+	template<class Visitor>
+	bool forEachWhile(Visitor&&) const&& = delete;
+
 	// A local position may be an integer or scoped position enum. Invalid
 	// positions return false without invoking the visitor. Callback returns
 	// are ignored; the bool reports selection, not the endpoint's status.
@@ -179,6 +192,44 @@ public:
 	template<class... Explicit, class Position, class Visitor>
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
 	bool visit(Position, Visitor&&) const&& = delete;
+
+	// Runtime selection preserves the exact native Request and Result types.
+	// Ok means an endpoint result was delivered, including application refusal.
+	template<class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	[[nodiscard]] NativeCallResult<telemetry::CommandResult>
+	callAs(Position position) const& noexcept
+	{
+		if (!telemetry::detail::indexFits<std::uint32_t>(position))
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		const auto i = static_cast<std::uint32_t>(position);
+		if (i >= staticSize)
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		using Dispatch =
+		    detail::NativeCallDispatch<std::tuple<Definitions...>, telemetry::CommandResult, void>;
+		return Dispatch::entries[i](definitions_, nullptr);
+	}
+
+	template<class... Explicit, class Position, class Argument>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             !std::is_volatile_v<Argument>)
+	[[nodiscard]] NativeCallResult<telemetry::CommandResult>
+	callAs(Position position, const Argument& request) const& noexcept
+	{
+		if (!telemetry::detail::indexFits<std::uint32_t>(position))
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		const auto i = static_cast<std::uint32_t>(position);
+		if (i >= staticSize)
+			return NativeCallResult<telemetry::CommandResult>::failure(NativeCallStatus::NotFound);
+		using Dispatch =
+		    detail::NativeCallDispatch<std::tuple<Definitions...>, telemetry::CommandResult,
+		                               std::remove_cvref_t<Argument>>;
+		return Dispatch::entries[i](definitions_, request);
+	}
+
+	template<class... Explicit, class Position, class... Args>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	void callAs(Position, Args&&...) const&& = delete;
 
 	template<auto Position, class... Args>
 	[[nodiscard]] telemetry::CommandResult call(Args&&... args) const noexcept
