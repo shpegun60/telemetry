@@ -1,0 +1,2121 @@
+{
+  "authors": "Ruslan Kovtun (shpegun60), codexAi",
+  "license": "MIT",
+  "measured_date": "2026-10-05",
+  "baseline_source_head": "34cf1599614fe475b0823f7a0acfb6ee3aeff8f9",
+  "candidate_source": "Uncommitted library implementation on baseline34cf159; input hashes identify actual code",
+  "scope": "Single-trial sequential host compiler profiles and canonical parity; no MCU execution",
+  "normalization": "Only CRLF to LF for input identity; exact original hashes remain in source summaries",
+  "normalized_production_input_sha256": {
+    "baseline": {
+      "lib/boost_pfr/include/boost/pfr.hpp": "4649852228196a1857e209f6ad84ffe95eb42ba3d53fff2b91802eb4be474fcd",
+      "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
+      "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
+      "lib/boost_pfr/include/boost/pfr/core_name.hpp": "fcf91dde2849a12c6f1fc1ea330959677b95e5b7266a35947d4a327eb5ceaf28",
+      "lib/boost_pfr/include/boost/pfr/detail/config.hpp": "10e20426d95ca544acf013ac6d8df61caf7b354fe92958ad9b62b792d52ad80c",
+      "lib/boost_pfr/include/boost/pfr/detail/core.hpp": "c1c7c2a633844697ff1f91dc0fc1cad43a44325fa7eb097e828fd89253078b25",
+      "lib/boost_pfr/include/boost/pfr/detail/core14_classic.hpp": "7083f69e3e2fe6859979efc65a4a5c8335ae348acaab7963fb960c904b1fb426",
+      "lib/boost_pfr/include/boost/pfr/detail/core14_loophole.hpp": "6ca6eb541a90a780ef3020c0c6f58bafe6259f9688337aca7ce5dd2adebcebb9",
+      "lib/boost_pfr/include/boost/pfr/detail/core17.hpp": "700cbe805be53e049981b9d279916b42b6c8e2e583a5dc8d0693382ecf497910",
+      "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp": "07903414f0798758fe140eea5e0048123878fd4204ce34baf502f72da866e9dd",
+      "lib/boost_pfr/include/boost/pfr/detail/core26.hpp": "5297b0557d614e48a7475ba8d717697839966894350412f924f90de716f15eca",
+      "lib/boost_pfr/include/boost/pfr/detail/core26_reflection.hpp": "5addeb8579d39ae470426b84b25a266fa9edc68a4bd1a19085e6bb4e4dfbe483",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name.hpp": "9c838ff1156cdd2acaf911aa59739c4e602e66410f21f53f5209cbbf784de4fe",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name14_disabled.hpp": "a4d65ef53fa5d05b0edc48f81c78aa9f17fde4c7c573c7fa41b8496b92be2a73",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name20_static.hpp": "738061339251d85be02901dff9ad723d776967511fb6645d119d0893ab8ad7f4",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name26_reflection.hpp": "5bb8954b4b91087755bb6683156fe7b4768150b5ddf2a2f133dfda4e14e8d884",
+      "lib/boost_pfr/include/boost/pfr/detail/detectors.hpp": "40cac68c7a01af7307eec4725de71783ac7ad72db158463ed63eb049385f6242",
+      "lib/boost_pfr/include/boost/pfr/detail/fake_object.hpp": "48ed22e2c7d63e8030ef919c9ff0c64f95a660043064025b1584861038104320",
+      "lib/boost_pfr/include/boost/pfr/detail/fields_count.hpp": "2ad090e16de6857b65580fc757f2ff908a2dcc1e8dfd4df5be7899b8edad8891",
+      "lib/boost_pfr/include/boost/pfr/detail/for_each_field.hpp": "6f49900af1ad7fd4094ae0b4901c18d08bd80dc2176626069aca4d6670bdad80",
+      "lib/boost_pfr/include/boost/pfr/detail/for_each_field_impl.hpp": "b9d4dc8b4470a7d62a0e34f25e253e8e983c2f7fb356808c0724990df91a75dd",
+      "lib/boost_pfr/include/boost/pfr/detail/functional.hpp": "6acbac4eea43b28d5c01f592756753b42d6d3be2820f3dab9f31d2c12d54a35a",
+      "lib/boost_pfr/include/boost/pfr/detail/io.hpp": "63370759c7d28ae670b3dd78ddd5e91778f81da8f06ddbcb252ff755c592f63b",
+      "lib/boost_pfr/include/boost/pfr/detail/make_flat_tuple_of_references.hpp": "2aad27e108445944e7cbf2b1e6a3326bb5cd1c2edaae04735f018cd898576e79",
+      "lib/boost_pfr/include/boost/pfr/detail/make_integer_sequence.hpp": "7de6fd4a8e0385da613d60d19a1d33536a9764ae0060a18a6bc643f1d9ee5add",
+      "lib/boost_pfr/include/boost/pfr/detail/offset_based_getter.hpp": "2ffb10662802fcb329b0c4da5119bc24058219862546dc9a38b226fa32a83c0e",
+      "lib/boost_pfr/include/boost/pfr/detail/possible_reflectable.hpp": "74125e2b26a16e07e40236ccb7f24b2e7539963cadbaea9f04f5af295f1b3286",
+      "lib/boost_pfr/include/boost/pfr/detail/rvalue_t.hpp": "4125eb1e522c042648a0c473d1a34372f9d2004eb92598eee7ab35b1c576dbb5",
+      "lib/boost_pfr/include/boost/pfr/detail/sequence_tuple.hpp": "793d632854dbf755442629cd5713a2196dff6498912c3b7971dce7836a5c853d",
+      "lib/boost_pfr/include/boost/pfr/detail/size_array.hpp": "9efcc3a3bfe24896d23ee0f8fd9a6e7ab5f55a87776bd7bcde89656e9e9d1d46",
+      "lib/boost_pfr/include/boost/pfr/detail/size_t_.hpp": "d6b90bfaf92b8ec264d2fd4d2f72e42f7268c06632b76a66e79211c125e9b173",
+      "lib/boost_pfr/include/boost/pfr/detail/stdarray.hpp": "8f4aa7cd432f5118a94353abf93e36b0e12724bde1ad0eab55ad0e40e154bec0",
+      "lib/boost_pfr/include/boost/pfr/detail/stdtuple.hpp": "9b14e3ecf131d8ccbfbfafa6e2e9c0abf61c178ce549486ad2907cfd8f3c9045",
+      "lib/boost_pfr/include/boost/pfr/detail/tie_from_structure_tuple.hpp": "4d5d4fe37f233c89b6224d5a446a4399d6e1dab5ecc8288235523b42f0b2348f",
+      "lib/boost_pfr/include/boost/pfr/detail/unsafe_declval.hpp": "a833b833a0febd16f68ea90835df287dee1ea03b2f3a8ce40ad35f6c18338752",
+      "lib/boost_pfr/include/boost/pfr/functions_for.hpp": "76d131adf7981b395e4ac164382e25cce18842abd428f30ba3f4a0196b248d21",
+      "lib/boost_pfr/include/boost/pfr/functors.hpp": "e3a921e058c73d08c116b8620bd35f839c5fa7aa935c85c8647e736b06793479",
+      "lib/boost_pfr/include/boost/pfr/io.hpp": "3d9ed56e1c5a192a773c7ecd05745512bdd1e9b7940997e6ae0300c158a9c822",
+      "lib/boost_pfr/include/boost/pfr/io_fields.hpp": "c80e394cc3578deaf4b0b7576aa7f87cb6348034144009133ee1d897cae13778",
+      "lib/boost_pfr/include/boost/pfr/ops.hpp": "dfd8233a5c1041cd9971d85dc28175ade6b6439f9aff4bd99e65b117c9dc791f",
+      "lib/boost_pfr/include/boost/pfr/ops_fields.hpp": "4e3caefc635ba685aa4c5f6855bbcdc0c00f622023f9c4079c09576b9ce4e833",
+      "lib/boost_pfr/include/boost/pfr/traits.hpp": "00dfb9158b0971f500fa864394a185fd02b56b9b529232ba3ff4cc333d60f55e",
+      "lib/boost_pfr/include/boost/pfr/traits_fwd.hpp": "dc75f37c001d33707110eaaee90b1dff8b6d4efe1719142b677d5c4c4b21af54",
+      "lib/boost_pfr/include/boost/pfr/tuple_size.hpp": "b4e65002af093af2749490d26dd171757162474454384188dd7aec78eb04540e",
+      "lib/delegate/tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+      "lib/magic_enum/magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+      "lib/resource/BytesFile.hpp": "10d305d63d4f962e5fe841c0ff9b909132e39ee1af9f9459f7897869e9f23594",
+      "lib/resource/ChunkWriter.hpp": "a89df16c8c428fa1e0b5e2285d271461d89e5ff36897aa8a4ef708b3546b9a19",
+      "lib/resource/File.hpp": "195e596919e69a62191b0ce2118b83bf61f724cd45dc1f85bd1e685cc09c381f",
+      "lib/resource/FileSystem.hpp": "815d005ba7d160daefccd27392a9b17eea85bbcd669e464079629c03a270668f",
+      "lib/resource/FileView.hpp": "bf86d3584ccdd9321a87c7e8c913365b8b1893b28224c5b4a390e9a2c77cf2d0",
+      "lib/resource/Resource.hpp": "c5a1430dea2101ebee3f9056f1cf4ef211a4553ca2d69c893d826ae97721a4db",
+      "lib/resource/Types.hpp": "9b48c584443c7a2d9b984476a5fecb15caab2bf45b0bfc3d05995a565b5b40cb",
+      "lib/resource/protocol/Protocol.cpp": "b703047eea8a6934f738ddc7cb9a654bf8e6d5e8c88cc6f37f9b1e5e49587b52",
+      "lib/resource/protocol/Protocol.hpp": "6bc67658e4ca86eab9306b0e6cdd10122244f3f6836ba73b87603121279aa812",
+      "lib/resource/telemetry/v3/BinaryFormat.hpp": "c390b148189071a9517b2580b5d5aee9fb9aed19304a16a37043eb173428a830",
+      "lib/resource/telemetry/v3/Descriptor.hpp": "c79267bbb10a77fb41dd1b0adc9efd81e90a37d5ecf0a50eed48bc895bb50691",
+      "lib/resource/telemetry/v3/DescriptorFile.hpp": "ac0c36573ca6ed691268523b90c0dee12d40580d80978a2f8fc2b07b9d8a7723",
+      "lib/resource/telemetry/v3/ValuesFile.hpp": "5647eeb9f8c77e267011aa05e8bf1bd82ab0a75466c3c2d5ded0b2c8dbc4d742",
+      "lib/resource/telemetry/v3/detail/Segments.hpp": "6ae3b801065e9e3d3f2f2f2ae34f0c7eb09fa5ad0f524eb020bbe276f9c140a8",
+      "lib/resource/telemetry/v3/detail/Values.cpp": "cdd2a37681426cfb5d3f8f0888d1a47f8f8a4fd6f4a2dbc5b4770dac1d5542d0",
+      "lib/resource/telemetry/v3/detail/Values.hpp": "ff6f49aaaa987538f41a7348d16a04399d331fafb052c42399476723cc4eb404",
+      "lib/telemetry/Telemetry.hpp": "175211500e33fff5f6801112b123df09b91f38947fd95d595117073a24a6c8fb",
+      "lib/telemetry/abi/StructuredAbi.cpp": "c54422d2ee92eece98ba0f9df0aa4e2b832a784f122bc35f7cbbfeef6334acb9",
+      "lib/telemetry/abi/StructuredAbi.hpp": "e23f695de2c1842af43911121686837e91afa63e3ecdfd41e4d38382815a5ea2",
+      "lib/telemetry/codec/Codec.hpp": "310c41ddc0c2a227564c41d58b9788c0e284b79d1585d0cda461f893d79c3ed1",
+      "lib/telemetry/codec/StoragePolicy.hpp": "a8f82edfc62dba89ab838d79811fce1a40a0df10646d74e4f377ebff3e47688f",
+      "lib/telemetry/codec/Workspace.hpp": "e8384049dd431c53bf9ae53f02f8571cea6ba65e47ceba9d0812723039f3f878",
+      "lib/telemetry/command/Command.hpp": "a283b2c19d7de0347ecb9e9d6d7efcc5365ab003221528ca47ee994eb9e13565",
+      "lib/telemetry/command/CommandCatalogs.hpp": "421d84647dac8b82de5aea155dd374e923396c0dc5ceb0c333005c2d00b0c49c",
+      "lib/telemetry/command/CommandTable.hpp": "9a5162b89d16d8062895eccea0d7bb22905c1d6bb4d416cba18b8edc52414cb0",
+      "lib/telemetry/core/Compiler.hpp": "bbc6dc179f48ca3b10410d690447b89a1d2513e9c6ec6ef00648665b3bb303c5",
+      "lib/telemetry/core/Id.hpp": "e2c5489a7f12c8370cb925fe7fb78f7d7d31fad68b58aa9ce73c248071b1aeb1",
+      "lib/telemetry/detail/Binding.hpp": "930c2833cbc15ab4e98ce443db2c944c308e2f45d3b7317eb92a08fc1c8f6b32",
+      "lib/telemetry/detail/Encoded.hpp": "a3339dfbdc8db7db794dcfb80d9a8af8b64afe3486a24a488a003a7e8552188e",
+      "lib/telemetry/detail/FieldAccess.hpp": "e7f0c25c33977735e25d25afe4fb825881634f805c2cdac3fd820c7e86f95baf",
+      "lib/telemetry/detail/Name.hpp": "e846b34c25bc8b27ae7c0b32b8bd869bf724f0f8ae0f2faf22d1876f514e3787",
+      "lib/telemetry/detail/NumberConversion.hpp": "4f4f2d477be9e1fbf803423f1f21933781df72baf10c4d1573eeac8d63887da6",
+      "lib/telemetry/detail/Owner.hpp": "5f9e7e4487d9993594b749de6e5ddd40c56d71884f56c769af7317a450f0bea4",
+      "lib/telemetry/detail/SlotCallable.hpp": "b1bb4cc0e45c0972e72cc40f12ce81fdfc1dbb98454d7a01966be0d79d0aa1b1",
+      "lib/telemetry/detail/Target.hpp": "27a53d36d128db7833a277a7f21e726356d24973c1213b0cfe3d0528078b832e",
+      "lib/telemetry/detail/Traversal.hpp": "9a55f62402a23255e249eb8eb483f6e31fd56eed251891a52c3b5ad375867da4",
+      "lib/telemetry/field/Field.hpp": "93cdeef33262465edb155f3ba0f138ffdcb8bcfae318b3a5f650115855acdcbc",
+      "lib/telemetry/field/FieldCatalogs.hpp": "3b9d95124f81945c4767b76f255ddeb8329e3845243c2066184333fa6cde65ec",
+      "lib/telemetry/field/FieldTable.hpp": "a8dcde8ef4a37dbd5a6cd8b1a657facc4bae0fe68baab62e15b56434493640b4",
+      "lib/telemetry/model/Adapter.cpp": "48aeee6f212b31eaae27244dc85a17a8e5de4f6ca92ab56b2ceab5ddaf47ee3f",
+      "lib/telemetry/model/Adapter.hpp": "ddeeeb5a0b77db36449a987a085dc62c428784155122aff6530665a3ec1989bb",
+      "lib/telemetry/model/Catalog.hpp": "e08ffe04e7632a6e39cd11b4877bce4bef519c9a861cbe828d6c40c3da7c9682",
+      "lib/telemetry/model/Model.hpp": "57a0aa24f8d7678f27f30a9c24f9228fb60d8d3b7ada45ac3ea544cfd0017dd7",
+      "lib/telemetry/reflection/Aggregate.hpp": "a905e6bd6b0d37e6cdbe062d5a1c7c9ec1e75d1ff637442301a64ea235ceaec5",
+      "lib/telemetry/reflection/Callable.hpp": "6dfe1b02fda380e18f710ddb5d3b06cb0928bce0876f85966afbf1e1285b60e0",
+      "lib/telemetry/reflection/Enum.hpp": "977d94fbde0e3833a56be6c989d4cb94994707486e419833a1a652bb4b5b2350",
+      "lib/telemetry/reflection/Reflection.hpp": "75b4495b60c18f87978ba510226068e83646f2b0897ad029182594c49b31a15d",
+      "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "bb527758ca34c1eb26e4a437f784148774adc37024e9eaaa9b01c16a6d2a42b3",
+      "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "b293b6a7b08efd5ef762ec32bcff13119bdbc002f00557c7fd3fe0e52f24d218",
+      "lib/telemetry/reflection/detail/PfrAdapter.hpp": "6ea719bb5b3d4b340915222522422c8e38c3d7070509402b573a577e5a0e8a0d",
+      "lib/telemetry/result/BorrowedServiceResult.hpp": "51c64bc33f5784966c5ef544802c1c2b427298019b8ec4c4893086fd793977fd",
+      "lib/telemetry/result/BorrowedValue.hpp": "54aefba7d1c104c9807db9d1a6a94a41b5b6725c0da3582f2377ae24340452f1",
+      "lib/telemetry/result/Dispatch.hpp": "dff827dda7cf7f6d26b066bcd03594e48dec2490b0e709dea57f236241ea1c65",
+      "lib/telemetry/result/EndpointResults.hpp": "4c3c6555db9fdd706c1328c4bd0f40d2f85520a8c4c075ce26abcc3e57caa3ca",
+      "lib/telemetry/result/EndpointStatus.hpp": "3b336f53c261553ae7caf40f48ce7c35783cb6001ae0145257f4adff1f846b7d",
+      "lib/telemetry/result/ServiceResult.hpp": "e04b72802648fddcf2ee3e723bf77a4424ec4ff8d1c1c611ca3e97d15516460c",
+      "lib/telemetry/service/Service.hpp": "1a220f6bbc015bc3dde0e1a27ffeb94458d467206389bed6e814e9379a2b7514",
+      "lib/telemetry/service/ServiceCatalogs.hpp": "8ad18ff383677091f6d54451a164a39e10e719d646119ec8e71cb9a3d6aad308",
+      "lib/telemetry/service/ServiceTable.hpp": "d37c8635b1357703651dac0c9cb2d51b83df0f3d8b5d57bcc4dc8499217ae7ea",
+      "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "757ae651fff3ead16b93e592c76d18399172122f29e6c2bb8fb60b27ee678c0d",
+      "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "481209bac0737afa77382f2a966dd64c5c347efb48dc68b626c59705b95090dd",
+      "lib/telemetry/slot/TelemetryDelegateSlot.h": "7368262b6a8a46b8e5c6d6daeb74b2076f3c73c4e6a705dcee2da393e72eee24",
+      "lib/telemetry/slot/TelemetryFunctionSlot.h": "f9a4b06feaff2356bbed321dffea0cb3cb74ee647b35e5156bcd60831b8458c4",
+      "lib/telemetry/slot/TelemetryOwnerSlot.h": "c37a729405a787c89b5f29f4989ec1b31e983d263c932b8f2937e8951858d08f",
+      "lib/telemetry/slot/TelemetrySlotTraits.h": "e40213d6e6fbb9e81c3b9b6c02cb6aa95771515735abc154a26ef8ea5eea2aa8",
+      "lib/telemetry/type/Descriptor.hpp": "89528e62927bf80feff85a46e32df9376df344a04b0fcc2ec4073912d558c066",
+      "lib/telemetry/type/Registry.hpp": "d5a221b0b2e0809d0c8a223ccffef2c3763731d074d3bd8879381057f119db2a",
+      "lib/telemetry/type/Traits.hpp": "c6452150218f388cea4784d9c641c33aa0121e1164b7da556bbbc2d006173ea1"
+    },
+    "candidate": {
+      "lib/boost_pfr/include/boost/pfr.hpp": "4649852228196a1857e209f6ad84ffe95eb42ba3d53fff2b91802eb4be474fcd",
+      "lib/boost_pfr/include/boost/pfr/config.hpp": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
+      "lib/boost_pfr/include/boost/pfr/core.hpp": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
+      "lib/boost_pfr/include/boost/pfr/core_name.hpp": "fcf91dde2849a12c6f1fc1ea330959677b95e5b7266a35947d4a327eb5ceaf28",
+      "lib/boost_pfr/include/boost/pfr/detail/config.hpp": "10e20426d95ca544acf013ac6d8df61caf7b354fe92958ad9b62b792d52ad80c",
+      "lib/boost_pfr/include/boost/pfr/detail/core.hpp": "c1c7c2a633844697ff1f91dc0fc1cad43a44325fa7eb097e828fd89253078b25",
+      "lib/boost_pfr/include/boost/pfr/detail/core14_classic.hpp": "7083f69e3e2fe6859979efc65a4a5c8335ae348acaab7963fb960c904b1fb426",
+      "lib/boost_pfr/include/boost/pfr/detail/core14_loophole.hpp": "6ca6eb541a90a780ef3020c0c6f58bafe6259f9688337aca7ce5dd2adebcebb9",
+      "lib/boost_pfr/include/boost/pfr/detail/core17.hpp": "700cbe805be53e049981b9d279916b42b6c8e2e583a5dc8d0693382ecf497910",
+      "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp": "07903414f0798758fe140eea5e0048123878fd4204ce34baf502f72da866e9dd",
+      "lib/boost_pfr/include/boost/pfr/detail/core26.hpp": "5297b0557d614e48a7475ba8d717697839966894350412f924f90de716f15eca",
+      "lib/boost_pfr/include/boost/pfr/detail/core26_reflection.hpp": "5addeb8579d39ae470426b84b25a266fa9edc68a4bd1a19085e6bb4e4dfbe483",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name.hpp": "9c838ff1156cdd2acaf911aa59739c4e602e66410f21f53f5209cbbf784de4fe",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name14_disabled.hpp": "a4d65ef53fa5d05b0edc48f81c78aa9f17fde4c7c573c7fa41b8496b92be2a73",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name20_static.hpp": "738061339251d85be02901dff9ad723d776967511fb6645d119d0893ab8ad7f4",
+      "lib/boost_pfr/include/boost/pfr/detail/core_name26_reflection.hpp": "5bb8954b4b91087755bb6683156fe7b4768150b5ddf2a2f133dfda4e14e8d884",
+      "lib/boost_pfr/include/boost/pfr/detail/detectors.hpp": "40cac68c7a01af7307eec4725de71783ac7ad72db158463ed63eb049385f6242",
+      "lib/boost_pfr/include/boost/pfr/detail/fake_object.hpp": "48ed22e2c7d63e8030ef919c9ff0c64f95a660043064025b1584861038104320",
+      "lib/boost_pfr/include/boost/pfr/detail/fields_count.hpp": "2ad090e16de6857b65580fc757f2ff908a2dcc1e8dfd4df5be7899b8edad8891",
+      "lib/boost_pfr/include/boost/pfr/detail/for_each_field.hpp": "6f49900af1ad7fd4094ae0b4901c18d08bd80dc2176626069aca4d6670bdad80",
+      "lib/boost_pfr/include/boost/pfr/detail/for_each_field_impl.hpp": "b9d4dc8b4470a7d62a0e34f25e253e8e983c2f7fb356808c0724990df91a75dd",
+      "lib/boost_pfr/include/boost/pfr/detail/functional.hpp": "6acbac4eea43b28d5c01f592756753b42d6d3be2820f3dab9f31d2c12d54a35a",
+      "lib/boost_pfr/include/boost/pfr/detail/io.hpp": "63370759c7d28ae670b3dd78ddd5e91778f81da8f06ddbcb252ff755c592f63b",
+      "lib/boost_pfr/include/boost/pfr/detail/make_flat_tuple_of_references.hpp": "2aad27e108445944e7cbf2b1e6a3326bb5cd1c2edaae04735f018cd898576e79",
+      "lib/boost_pfr/include/boost/pfr/detail/make_integer_sequence.hpp": "7de6fd4a8e0385da613d60d19a1d33536a9764ae0060a18a6bc643f1d9ee5add",
+      "lib/boost_pfr/include/boost/pfr/detail/offset_based_getter.hpp": "2ffb10662802fcb329b0c4da5119bc24058219862546dc9a38b226fa32a83c0e",
+      "lib/boost_pfr/include/boost/pfr/detail/possible_reflectable.hpp": "74125e2b26a16e07e40236ccb7f24b2e7539963cadbaea9f04f5af295f1b3286",
+      "lib/boost_pfr/include/boost/pfr/detail/rvalue_t.hpp": "4125eb1e522c042648a0c473d1a34372f9d2004eb92598eee7ab35b1c576dbb5",
+      "lib/boost_pfr/include/boost/pfr/detail/sequence_tuple.hpp": "793d632854dbf755442629cd5713a2196dff6498912c3b7971dce7836a5c853d",
+      "lib/boost_pfr/include/boost/pfr/detail/size_array.hpp": "9efcc3a3bfe24896d23ee0f8fd9a6e7ab5f55a87776bd7bcde89656e9e9d1d46",
+      "lib/boost_pfr/include/boost/pfr/detail/size_t_.hpp": "d6b90bfaf92b8ec264d2fd4d2f72e42f7268c06632b76a66e79211c125e9b173",
+      "lib/boost_pfr/include/boost/pfr/detail/stdarray.hpp": "8f4aa7cd432f5118a94353abf93e36b0e12724bde1ad0eab55ad0e40e154bec0",
+      "lib/boost_pfr/include/boost/pfr/detail/stdtuple.hpp": "9b14e3ecf131d8ccbfbfafa6e2e9c0abf61c178ce549486ad2907cfd8f3c9045",
+      "lib/boost_pfr/include/boost/pfr/detail/tie_from_structure_tuple.hpp": "4d5d4fe37f233c89b6224d5a446a4399d6e1dab5ecc8288235523b42f0b2348f",
+      "lib/boost_pfr/include/boost/pfr/detail/unsafe_declval.hpp": "a833b833a0febd16f68ea90835df287dee1ea03b2f3a8ce40ad35f6c18338752",
+      "lib/boost_pfr/include/boost/pfr/functions_for.hpp": "76d131adf7981b395e4ac164382e25cce18842abd428f30ba3f4a0196b248d21",
+      "lib/boost_pfr/include/boost/pfr/functors.hpp": "e3a921e058c73d08c116b8620bd35f839c5fa7aa935c85c8647e736b06793479",
+      "lib/boost_pfr/include/boost/pfr/io.hpp": "3d9ed56e1c5a192a773c7ecd05745512bdd1e9b7940997e6ae0300c158a9c822",
+      "lib/boost_pfr/include/boost/pfr/io_fields.hpp": "c80e394cc3578deaf4b0b7576aa7f87cb6348034144009133ee1d897cae13778",
+      "lib/boost_pfr/include/boost/pfr/ops.hpp": "dfd8233a5c1041cd9971d85dc28175ade6b6439f9aff4bd99e65b117c9dc791f",
+      "lib/boost_pfr/include/boost/pfr/ops_fields.hpp": "4e3caefc635ba685aa4c5f6855bbcdc0c00f622023f9c4079c09576b9ce4e833",
+      "lib/boost_pfr/include/boost/pfr/traits.hpp": "00dfb9158b0971f500fa864394a185fd02b56b9b529232ba3ff4cc333d60f55e",
+      "lib/boost_pfr/include/boost/pfr/traits_fwd.hpp": "dc75f37c001d33707110eaaee90b1dff8b6d4efe1719142b677d5c4c4b21af54",
+      "lib/boost_pfr/include/boost/pfr/tuple_size.hpp": "b4e65002af093af2749490d26dd171757162474454384188dd7aec78eb04540e",
+      "lib/delegate/tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+      "lib/magic_enum/magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+      "lib/resource/BytesFile.hpp": "10d305d63d4f962e5fe841c0ff9b909132e39ee1af9f9459f7897869e9f23594",
+      "lib/resource/ChunkWriter.hpp": "a89df16c8c428fa1e0b5e2285d271461d89e5ff36897aa8a4ef708b3546b9a19",
+      "lib/resource/File.hpp": "195e596919e69a62191b0ce2118b83bf61f724cd45dc1f85bd1e685cc09c381f",
+      "lib/resource/FileSystem.hpp": "815d005ba7d160daefccd27392a9b17eea85bbcd669e464079629c03a270668f",
+      "lib/resource/FileView.hpp": "bf86d3584ccdd9321a87c7e8c913365b8b1893b28224c5b4a390e9a2c77cf2d0",
+      "lib/resource/Resource.hpp": "c5a1430dea2101ebee3f9056f1cf4ef211a4553ca2d69c893d826ae97721a4db",
+      "lib/resource/Types.hpp": "9b48c584443c7a2d9b984476a5fecb15caab2bf45b0bfc3d05995a565b5b40cb",
+      "lib/resource/protocol/Protocol.cpp": "b703047eea8a6934f738ddc7cb9a654bf8e6d5e8c88cc6f37f9b1e5e49587b52",
+      "lib/resource/protocol/Protocol.hpp": "6bc67658e4ca86eab9306b0e6cdd10122244f3f6836ba73b87603121279aa812",
+      "lib/resource/telemetry/v3/BinaryFormat.hpp": "c390b148189071a9517b2580b5d5aee9fb9aed19304a16a37043eb173428a830",
+      "lib/resource/telemetry/v3/Descriptor.hpp": "c79267bbb10a77fb41dd1b0adc9efd81e90a37d5ecf0a50eed48bc895bb50691",
+      "lib/resource/telemetry/v3/DescriptorFile.hpp": "ac0c36573ca6ed691268523b90c0dee12d40580d80978a2f8fc2b07b9d8a7723",
+      "lib/resource/telemetry/v3/ValuesFile.hpp": "5647eeb9f8c77e267011aa05e8bf1bd82ab0a75466c3c2d5ded0b2c8dbc4d742",
+      "lib/resource/telemetry/v3/detail/Segments.hpp": "6ae3b801065e9e3d3f2f2f2ae34f0c7eb09fa5ad0f524eb020bbe276f9c140a8",
+      "lib/resource/telemetry/v3/detail/Values.cpp": "cdd2a37681426cfb5d3f8f0888d1a47f8f8a4fd6f4a2dbc5b4770dac1d5542d0",
+      "lib/resource/telemetry/v3/detail/Values.hpp": "ff6f49aaaa987538f41a7348d16a04399d331fafb052c42399476723cc4eb404",
+      "lib/telemetry/Telemetry.hpp": "175211500e33fff5f6801112b123df09b91f38947fd95d595117073a24a6c8fb",
+      "lib/telemetry/abi/StructuredAbi.cpp": "c54422d2ee92eece98ba0f9df0aa4e2b832a784f122bc35f7cbbfeef6334acb9",
+      "lib/telemetry/abi/StructuredAbi.hpp": "e23f695de2c1842af43911121686837e91afa63e3ecdfd41e4d38382815a5ea2",
+      "lib/telemetry/codec/Codec.hpp": "310c41ddc0c2a227564c41d58b9788c0e284b79d1585d0cda461f893d79c3ed1",
+      "lib/telemetry/codec/StoragePolicy.hpp": "a8f82edfc62dba89ab838d79811fce1a40a0df10646d74e4f377ebff3e47688f",
+      "lib/telemetry/codec/Workspace.hpp": "e8384049dd431c53bf9ae53f02f8571cea6ba65e47ceba9d0812723039f3f878",
+      "lib/telemetry/command/Command.hpp": "a283b2c19d7de0347ecb9e9d6d7efcc5365ab003221528ca47ee994eb9e13565",
+      "lib/telemetry/command/CommandCatalogs.hpp": "53865e54510ffd4c4c4f7c4d301a72121ee28689273dff9036c72acbd3a86c1d",
+      "lib/telemetry/command/CommandTable.hpp": "36734c75ff753e4ce9ae7aaea12783993d7a0f6f4bdee81a683356bd5701ef2c",
+      "lib/telemetry/core/Compiler.hpp": "bbc6dc179f48ca3b10410d690447b89a1d2513e9c6ec6ef00648665b3bb303c5",
+      "lib/telemetry/core/Id.hpp": "e2c5489a7f12c8370cb925fe7fb78f7d7d31fad68b58aa9ce73c248071b1aeb1",
+      "lib/telemetry/detail/Binding.hpp": "930c2833cbc15ab4e98ce443db2c944c308e2f45d3b7317eb92a08fc1c8f6b32",
+      "lib/telemetry/detail/Encoded.hpp": "a3339dfbdc8db7db794dcfb80d9a8af8b64afe3486a24a488a003a7e8552188e",
+      "lib/telemetry/detail/FieldAccess.hpp": "e7f0c25c33977735e25d25afe4fb825881634f805c2cdac3fd820c7e86f95baf",
+      "lib/telemetry/detail/Name.hpp": "e846b34c25bc8b27ae7c0b32b8bd869bf724f0f8ae0f2faf22d1876f514e3787",
+      "lib/telemetry/detail/NumberConversion.hpp": "4f4f2d477be9e1fbf803423f1f21933781df72baf10c4d1573eeac8d63887da6",
+      "lib/telemetry/detail/Owner.hpp": "5f9e7e4487d9993594b749de6e5ddd40c56d71884f56c769af7317a450f0bea4",
+      "lib/telemetry/detail/SlotCallable.hpp": "b1bb4cc0e45c0972e72cc40f12ce81fdfc1dbb98454d7a01966be0d79d0aa1b1",
+      "lib/telemetry/detail/Target.hpp": "27a53d36d128db7833a277a7f21e726356d24973c1213b0cfe3d0528078b832e",
+      "lib/telemetry/detail/Traversal.hpp": "9a55f62402a23255e249eb8eb483f6e31fd56eed251891a52c3b5ad375867da4",
+      "lib/telemetry/field/Field.hpp": "93cdeef33262465edb155f3ba0f138ffdcb8bcfae318b3a5f650115855acdcbc",
+      "lib/telemetry/field/FieldCatalogs.hpp": "f698a094866d97fefb3d1ce67a456544a30def875469986916cc14367873b848",
+      "lib/telemetry/field/FieldTable.hpp": "025558f31ad640f1a27b08bd459a7542c25228e6c9e26cbfd7e9e14123e6c0bd",
+      "lib/telemetry/model/Adapter.cpp": "48aeee6f212b31eaae27244dc85a17a8e5de4f6ca92ab56b2ceab5ddaf47ee3f",
+      "lib/telemetry/model/Adapter.hpp": "ddeeeb5a0b77db36449a987a085dc62c428784155122aff6530665a3ec1989bb",
+      "lib/telemetry/model/Catalog.hpp": "e08ffe04e7632a6e39cd11b4877bce4bef519c9a861cbe828d6c40c3da7c9682",
+      "lib/telemetry/model/Model.hpp": "4683540c0e1ca320f42c27ca5e7e4e3ab66e38d4ca467220a1a29766ce2ddd0d",
+      "lib/telemetry/reflection/Aggregate.hpp": "a905e6bd6b0d37e6cdbe062d5a1c7c9ec1e75d1ff637442301a64ea235ceaec5",
+      "lib/telemetry/reflection/Callable.hpp": "6dfe1b02fda380e18f710ddb5d3b06cb0928bce0876f85966afbf1e1285b60e0",
+      "lib/telemetry/reflection/Enum.hpp": "977d94fbde0e3833a56be6c989d4cb94994707486e419833a1a652bb4b5b2350",
+      "lib/telemetry/reflection/Reflection.hpp": "75b4495b60c18f87978ba510226068e83646f2b0897ad029182594c49b31a15d",
+      "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp": "bb527758ca34c1eb26e4a437f784148774adc37024e9eaaa9b01c16a6d2a42b3",
+      "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp": "b293b6a7b08efd5ef762ec32bcff13119bdbc002f00557c7fd3fe0e52f24d218",
+      "lib/telemetry/reflection/detail/PfrAdapter.hpp": "6ea719bb5b3d4b340915222522422c8e38c3d7070509402b573a577e5a0e8a0d",
+      "lib/telemetry/result/BorrowedServiceResult.hpp": "51c64bc33f5784966c5ef544802c1c2b427298019b8ec4c4893086fd793977fd",
+      "lib/telemetry/result/BorrowedValue.hpp": "54aefba7d1c104c9807db9d1a6a94a41b5b6725c0da3582f2377ae24340452f1",
+      "lib/telemetry/result/Dispatch.hpp": "dff827dda7cf7f6d26b066bcd03594e48dec2490b0e709dea57f236241ea1c65",
+      "lib/telemetry/result/EndpointResults.hpp": "4c3c6555db9fdd706c1328c4bd0f40d2f85520a8c4c075ce26abcc3e57caa3ca",
+      "lib/telemetry/result/EndpointStatus.hpp": "3b336f53c261553ae7caf40f48ce7c35783cb6001ae0145257f4adff1f846b7d",
+      "lib/telemetry/result/ServiceResult.hpp": "e04b72802648fddcf2ee3e723bf77a4424ec4ff8d1c1c611ca3e97d15516460c",
+      "lib/telemetry/service/Service.hpp": "1a220f6bbc015bc3dde0e1a27ffeb94458d467206389bed6e814e9379a2b7514",
+      "lib/telemetry/service/ServiceCatalogs.hpp": "c509c787d1aab888cf5187f5bd4b3a1dbb78bfb980d2f011b3a7a6a69a72a9f1",
+      "lib/telemetry/service/ServiceTable.hpp": "d005cb08dc2d2430bfd997c059b339f6246c0e13518ef29d51f93256b6b84f17",
+      "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "757ae651fff3ead16b93e592c76d18399172122f29e6c2bb8fb60b27ee678c0d",
+      "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "481209bac0737afa77382f2a966dd64c5c347efb48dc68b626c59705b95090dd",
+      "lib/telemetry/slot/TelemetryDelegateSlot.h": "7368262b6a8a46b8e5c6d6daeb74b2076f3c73c4e6a705dcee2da393e72eee24",
+      "lib/telemetry/slot/TelemetryFunctionSlot.h": "f9a4b06feaff2356bbed321dffea0cb3cb74ee647b35e5156bcd60831b8458c4",
+      "lib/telemetry/slot/TelemetryOwnerSlot.h": "c37a729405a787c89b5f29f4989ec1b31e983d263c932b8f2937e8951858d08f",
+      "lib/telemetry/slot/TelemetrySlotTraits.h": "e40213d6e6fbb9e81c3b9b6c02cb6aa95771515735abc154a26ef8ea5eea2aa8",
+      "lib/telemetry/type/Descriptor.hpp": "89528e62927bf80feff85a46e32df9376df344a04b0fcc2ec4073912d558c066",
+      "lib/telemetry/type/Registry.hpp": "406a99b04eef048919466e60c4bd0d89f0c61bd7f34763a21c9f69fde470b9bf",
+      "lib/telemetry/type/Traits.hpp": "c6452150218f388cea4784d9c641c33aa0121e1164b7da556bbbc2d006173ea1"
+    }
+  },
+  "normalized_changed_inputs": [
+    "lib/telemetry/command/CommandCatalogs.hpp",
+    "lib/telemetry/command/CommandTable.hpp",
+    "lib/telemetry/field/FieldCatalogs.hpp",
+    "lib/telemetry/field/FieldTable.hpp",
+    "lib/telemetry/model/Model.hpp",
+    "lib/telemetry/service/ServiceCatalogs.hpp",
+    "lib/telemetry/service/ServiceTable.hpp",
+    "lib/telemetry/type/Registry.hpp"
+  ],
+  "baseline_manifest_sha256": "ee3bd46b63c84cb7bbd2402454de0da9fc593a7dc3ff2f53f1c2ada5f2d5ab49",
+  "retained_results_json_sha256": "456b8abd8048286c98327cc715c0c9672b084fc747653eb3d56dfb493e8dce07",
+  "semantic_scope": {
+    "RootTypes": "Unchanged positional list; one Value per Field, one Request per Command, Request then Response per Service row",
+    "RegistryRootTypes": "First-occurrence unique normalized roots in each table and family catalog",
+    "Model": "Concatenates reduced Field, Command, Service roots without global union",
+    "TypeRegistry": "Direct CollectRoots recursion and dependency-first descriptor ordering unchanged",
+    "helper_depth": "Approximately N/32+32; neither logarithmic nor unlimited"
+  },
+  "table_profiles": [
+    {
+      "name": "field-512-sharded-shared-model",
+      "endpoints_per_family": 512,
+      "total_endpoints": 512,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "c44f33ea109cddd0cf8e3103c3b084498248b3cbd8fb22d8ddd565d82d38464d",
+      "source": "field-512-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 512,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-512-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-512-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.4263591460000002,
+        "gnu_time_wall_seconds": 1.4,
+        "peak_rss_kib": 232764,
+        "log": "field-512-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/g++",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-512-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-512-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11704701699999998,
+        "gnu_time_wall_seconds": 0.06,
+        "peak_rss_kib": 9984,
+        "log": "field-512-sharded-shared-model-link.log"
+      },
+      "image_sha256": "015663b8ceb85b1bae0719ed5d74f33d314dd9fc57b741f53dba3240c8bf6743",
+      "correctness": {
+        "checks": 3588,
+        "failures": 0
+      },
+      "expected_checks": 3588,
+      "status": "pass",
+      "variant": "baseline",
+      "report_directory": "baseline-gcc-fields",
+      "source_bytes": 43100,
+      "object_sections": {
+        ".text": 1562,
+        ".rodata": 5807,
+        ".data": 42760,
+        ".bss": 6152
+      },
+      "image_sections": {
+        ".text": 1800,
+        ".rodata": 5810,
+        ".data": 42792,
+        ".bss": 6176
+      }
+    },
+    {
+      "name": "field-1024-sharded-shared-model",
+      "endpoints_per_family": 1024,
+      "total_endpoints": 1024,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "197d0221a8e1e21d0adb5b294b10176e66e7eef2b8e0db76bf987d8a4a120fca",
+      "source": "field-1024-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-1024-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-1024-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 1.3713514719999997,
+        "gnu_time_wall_seconds": 1.31,
+        "peak_rss_kib": 267472,
+        "log": "field-1024-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-gcc-fields",
+      "source_bytes": 82470
+    },
+    {
+      "name": "field-2048-sharded-shared-model",
+      "endpoints_per_family": 2048,
+      "total_endpoints": 2048,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "91f61584d0e506215b4fa0f2acebb6ea0e3c86dbdce558c9275c7fdcf0bb3558",
+      "source": "field-2048-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 2048,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-2048-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-fields/field-2048-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 1.5713296149999998,
+        "gnu_time_wall_seconds": 1.56,
+        "peak_rss_kib": 392076,
+        "log": "field-2048-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-gcc-fields",
+      "source_bytes": 162182
+    },
+    {
+      "name": "mixed-256-sharded-shared-model",
+      "endpoints_per_family": 256,
+      "total_endpoints": 768,
+      "family": "mixed",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "935093e3b21f1af3623841e4c2398da26c9a9b0dd72f5fc5013f148420ce5150",
+      "source": "mixed-256-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-mixed/mixed-256-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-gcc-mixed/mixed-256-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 1.4718294590000003,
+        "gnu_time_wall_seconds": 1.45,
+        "peak_rss_kib": 284108,
+        "log": "mixed-256-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-gcc-mixed",
+      "source_bytes": 59845
+    },
+    {
+      "name": "field-512-sharded-shared-model",
+      "endpoints_per_family": 512,
+      "total_endpoints": 512,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "c44f33ea109cddd0cf8e3103c3b084498248b3cbd8fb22d8ddd565d82d38464d",
+      "source": "field-512-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 512,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-512-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-512-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.3701412519999998,
+        "gnu_time_wall_seconds": 1.35,
+        "peak_rss_kib": 232260,
+        "log": "field-512-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-512-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-512-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11712826700000178,
+        "gnu_time_wall_seconds": 0.07,
+        "peak_rss_kib": 68864,
+        "log": "field-512-sharded-shared-model-link.log"
+      },
+      "image_sha256": "7978f3f8fdcd3513d6df70f9a969477b4752b41b8631d71a7c880fcd19f65cbb",
+      "correctness": {
+        "checks": 3588,
+        "failures": 0
+      },
+      "expected_checks": 3588,
+      "status": "pass",
+      "variant": "baseline",
+      "report_directory": "baseline-clang-fields",
+      "source_bytes": 43100,
+      "object_sections": {
+        ".text": 1267,
+        ".rodata": 5807,
+        ".data": 42504,
+        ".bss": 6152
+      },
+      "image_sections": {
+        ".text": 1513,
+        ".rodata": 5808,
+        ".data": 42512,
+        ".bss": 6160
+      }
+    },
+    {
+      "name": "field-1024-sharded-shared-model",
+      "endpoints_per_family": 1024,
+      "total_endpoints": 1024,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "197d0221a8e1e21d0adb5b294b10176e66e7eef2b8e0db76bf987d8a4a120fca",
+      "source": "field-1024-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-1024-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-1024-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 1.470830411999998,
+        "gnu_time_wall_seconds": 1.43,
+        "peak_rss_kib": 368916,
+        "log": "field-1024-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-clang-fields",
+      "source_bytes": 82470
+    },
+    {
+      "name": "field-2048-sharded-shared-model",
+      "endpoints_per_family": 2048,
+      "total_endpoints": 2048,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "91f61584d0e506215b4fa0f2acebb6ea0e3c86dbdce558c9275c7fdcf0bb3558",
+      "source": "field-2048-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 2048,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-2048-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-fields/field-2048-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 2.573686083000002,
+        "gnu_time_wall_seconds": 2.56,
+        "peak_rss_kib": 748732,
+        "log": "field-2048-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-clang-fields",
+      "source_bytes": 162182
+    },
+    {
+      "name": "mixed-256-sharded-shared-model",
+      "endpoints_per_family": 256,
+      "total_endpoints": 768,
+      "family": "mixed",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "935093e3b21f1af3623841e4c2398da26c9a9b0dd72f5fc5013f148420ce5150",
+      "source": "mixed-256-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-mixed/mixed-256-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-clang-mixed/mixed-256-sharded-shared-model.o"
+        ],
+        "returncode": 1,
+        "timed_out": false,
+        "observed_wall_seconds": 1.5201442480000011,
+        "gnu_time_wall_seconds": 1.5,
+        "peak_rss_kib": 380964,
+        "log": "mixed-256-sharded-shared-model-compile.log"
+      },
+      "status": "compiler-template-depth",
+      "variant": "baseline",
+      "report_directory": "baseline-clang-mixed",
+      "source_bytes": 59845
+    },
+    {
+      "name": "field-512-sharded-shared-model",
+      "endpoints_per_family": 512,
+      "total_endpoints": 512,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "c44f33ea109cddd0cf8e3103c3b084498248b3cbd8fb22d8ddd565d82d38464d",
+      "source": "field-512-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 512,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-512-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-512-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.217902475999999,
+        "gnu_time_wall_seconds": 1.2,
+        "peak_rss_kib": 218224,
+        "log": "field-512-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/g++",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-512-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-512-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.06563969100000122,
+        "gnu_time_wall_seconds": 0.05,
+        "peak_rss_kib": 9984,
+        "log": "field-512-sharded-shared-model-link.log"
+      },
+      "image_sha256": "a245053c69c8b982fc65aa18f2fc6c480ba4d8e04079ed888c48a64b1a81d70c",
+      "correctness": {
+        "checks": 3588,
+        "failures": 0
+      },
+      "expected_checks": 3588,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-gcc-fields",
+      "source_bytes": 43100,
+      "object_sections": {
+        ".text": 1562,
+        ".rodata": 5807,
+        ".data": 42760,
+        ".bss": 6152
+      },
+      "image_sections": {
+        ".text": 1800,
+        ".rodata": 5810,
+        ".data": 42792,
+        ".bss": 6176
+      }
+    },
+    {
+      "name": "field-1024-sharded-shared-model",
+      "endpoints_per_family": 1024,
+      "total_endpoints": 1024,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "197d0221a8e1e21d0adb5b294b10176e66e7eef2b8e0db76bf987d8a4a120fca",
+      "source": "field-1024-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-1024-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-1024-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.3188043989999976,
+        "gnu_time_wall_seconds": 1.26,
+        "peak_rss_kib": 241668,
+        "log": "field-1024-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/g++",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-1024-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-1024-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11616503699999825,
+        "gnu_time_wall_seconds": 0.06,
+        "peak_rss_kib": 10432,
+        "log": "field-1024-sharded-shared-model-link.log"
+      },
+      "image_sha256": "cd6086f98fca6d5ddbc0884e676487b74e42cddd61e1dda6a8e2581f84bf31f8",
+      "correctness": {
+        "checks": 7172,
+        "failures": 0
+      },
+      "expected_checks": 7172,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-gcc-fields",
+      "source_bytes": 82470,
+      "object_sections": {
+        ".text": 1562,
+        ".rodata": 11439,
+        ".data": 84616,
+        ".bss": 12296
+      },
+      "image_sections": {
+        ".text": 1800,
+        ".rodata": 11442,
+        ".data": 84648,
+        ".bss": 12320
+      }
+    },
+    {
+      "name": "field-2048-sharded-shared-model",
+      "endpoints_per_family": 2048,
+      "total_endpoints": 2048,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "91f61584d0e506215b4fa0f2acebb6ea0e3c86dbdce558c9275c7fdcf0bb3558",
+      "source": "field-2048-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 2048,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-2048-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-2048-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.5199093039999987,
+        "gnu_time_wall_seconds": 1.47,
+        "peak_rss_kib": 301140,
+        "log": "field-2048-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/g++",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-2048-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-fields/field-2048-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11617955500000221,
+        "gnu_time_wall_seconds": 0.06,
+        "peak_rss_kib": 11720,
+        "log": "field-2048-sharded-shared-model-link.log"
+      },
+      "image_sha256": "8047d68d3185873ec422f08fd78a95715b1631fb87e2d36c444f1da8be54f562",
+      "correctness": {
+        "checks": 14340,
+        "failures": 0
+      },
+      "expected_checks": 14340,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-gcc-fields",
+      "source_bytes": 162182,
+      "object_sections": {
+        ".text": 1562,
+        ".rodata": 22703,
+        ".data": 168328,
+        ".bss": 24584
+      },
+      "image_sections": {
+        ".text": 1800,
+        ".rodata": 22706,
+        ".data": 168360,
+        ".bss": 24608
+      }
+    },
+    {
+      "name": "mixed-256-sharded-shared-model",
+      "endpoints_per_family": 256,
+      "total_endpoints": 768,
+      "family": "mixed",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "935093e3b21f1af3623841e4c2398da26c9a9b0dd72f5fc5013f148420ce5150",
+      "source": "mixed-256-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/g++",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-fmax-errors=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-mixed/mixed-256-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-mixed/mixed-256-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.368676114000003,
+        "gnu_time_wall_seconds": 1.34,
+        "peak_rss_kib": 261740,
+        "log": "mixed-256-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/g++",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-mixed/mixed-256-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-gcc-mixed/mixed-256-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.06644937400000117,
+        "gnu_time_wall_seconds": 0.05,
+        "peak_rss_kib": 10240,
+        "log": "mixed-256-sharded-shared-model-link.log"
+      },
+      "image_sha256": "110ca371d889b025ae54ae10a65cd7905d55ade0a1a5d1c1246b9f4df6b081f1",
+      "correctness": {
+        "checks": 4616,
+        "failures": 0
+      },
+      "expected_checks": 4616,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-gcc-mixed",
+      "source_bytes": 59845,
+      "object_sections": {
+        ".text": 3485,
+        ".rodata": 10031,
+        ".data": 49352,
+        ".bss": 3080
+      },
+      "image_sections": {
+        ".text": 3736,
+        ".rodata": 10034,
+        ".data": 49384,
+        ".bss": 3104
+      }
+    },
+    {
+      "name": "field-512-sharded-shared-model",
+      "endpoints_per_family": 512,
+      "total_endpoints": 512,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "c44f33ea109cddd0cf8e3103c3b084498248b3cbd8fb22d8ddd565d82d38464d",
+      "source": "field-512-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 512,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-512-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-512-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.121793740000001,
+        "gnu_time_wall_seconds": 1.07,
+        "peak_rss_kib": 188928,
+        "log": "field-512-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-512-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-512-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11713366299999706,
+        "gnu_time_wall_seconds": 0.08,
+        "peak_rss_kib": 68864,
+        "log": "field-512-sharded-shared-model-link.log"
+      },
+      "image_sha256": "55014a6ab5f0735ea88ba24c556e8d44c41061b4b6a0b93218bbcebc2dcb8dc0",
+      "correctness": {
+        "checks": 3588,
+        "failures": 0
+      },
+      "expected_checks": 3588,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-clang-fields",
+      "source_bytes": 43100,
+      "object_sections": {
+        ".text": 1267,
+        ".rodata": 5807,
+        ".data": 42504,
+        ".bss": 6152
+      },
+      "image_sections": {
+        ".text": 1513,
+        ".rodata": 5808,
+        ".data": 42512,
+        ".bss": 6160
+      }
+    },
+    {
+      "name": "field-1024-sharded-shared-model",
+      "endpoints_per_family": 1024,
+      "total_endpoints": 1024,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "197d0221a8e1e21d0adb5b294b10176e66e7eef2b8e0db76bf987d8a4a120fca",
+      "source": "field-1024-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-1024-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-1024-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.2703026149999985,
+        "gnu_time_wall_seconds": 1.23,
+        "peak_rss_kib": 209264,
+        "log": "field-1024-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-1024-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-1024-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11659531399999423,
+        "gnu_time_wall_seconds": 0.07,
+        "peak_rss_kib": 68864,
+        "log": "field-1024-sharded-shared-model-link.log"
+      },
+      "image_sha256": "e7d88ff80e3d10d7ac851571ed9905ed19789723f2d8da268952565b87603dba",
+      "correctness": {
+        "checks": 7172,
+        "failures": 0
+      },
+      "expected_checks": 7172,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-clang-fields",
+      "source_bytes": 82470,
+      "object_sections": {
+        ".text": 1267,
+        ".rodata": 11439,
+        ".data": 84104,
+        ".bss": 12296
+      },
+      "image_sections": {
+        ".text": 1513,
+        ".rodata": 11440,
+        ".data": 84112,
+        ".bss": 12304
+      }
+    },
+    {
+      "name": "field-2048-sharded-shared-model",
+      "endpoints_per_family": 2048,
+      "total_endpoints": 2048,
+      "family": "field",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "91f61584d0e506215b4fa0f2acebb6ea0e3c86dbdce558c9275c7fdcf0bb3558",
+      "source": "field-2048-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 2048,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-2048-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-2048-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.5709883540000007,
+        "gnu_time_wall_seconds": 1.54,
+        "peak_rss_kib": 275580,
+        "log": "field-2048-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-2048-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-fields/field-2048-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11708567600000208,
+        "gnu_time_wall_seconds": 0.08,
+        "peak_rss_kib": 69120,
+        "log": "field-2048-sharded-shared-model-link.log"
+      },
+      "image_sha256": "81f40bb8d7019a2352e3b54f39a171bcc220aa9024d108e5d0aa50b18c96da11",
+      "correctness": {
+        "checks": 14340,
+        "failures": 0
+      },
+      "expected_checks": 14340,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-clang-fields",
+      "source_bytes": 162182,
+      "object_sections": {
+        ".text": 1267,
+        ".rodata": 22703,
+        ".data": 167304,
+        ".bss": 24584
+      },
+      "image_sections": {
+        ".text": 1513,
+        ".rodata": 22704,
+        ".data": 167312,
+        ".bss": 24592
+      }
+    },
+    {
+      "name": "mixed-256-sharded-shared-model",
+      "endpoints_per_family": 256,
+      "total_endpoints": 768,
+      "family": "mixed",
+      "layout": "sharded",
+      "shard_rows": 32,
+      "stage": "model",
+      "targets": "shared",
+      "owner_profile": "Same owner class; distinct stable owner instance per row",
+      "dto_profile": "One exact Payload shared by all active families",
+      "registry_unique_types": 13,
+      "source_sha256": "935093e3b21f1af3623841e4c2398da26c9a9b0dd72f5fc5013f148420ce5150",
+      "source": "mixed-256-sharded-shared.cpp",
+      "optimization": "O2",
+      "root_occurrences": 1024,
+      "template_depth_override": null,
+      "bracket_depth_override": null,
+      "compile": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "-std=c++20",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-pedantic-errors",
+          "-fdiagnostics-color=never",
+          "-ftemplate-backtrace-limit=6",
+          "-O2",
+          "-ffunction-sections",
+          "-fdata-sections",
+          "-Ilib",
+          "-Ilib/boost_pfr/include",
+          "-Ilib/magic_enum",
+          "-ferror-limit=2",
+          "-DSCALE_FULL_MODEL",
+          "-c",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-mixed/mixed-256-sharded-shared.cpp",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-mixed/mixed-256-sharded-shared-model.o"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 1.370102462999995,
+        "gnu_time_wall_seconds": 1.35,
+        "peak_rss_kib": 221440,
+        "log": "mixed-256-sharded-shared-model-compile.log"
+      },
+      "link": {
+        "command": [
+          "/usr/bin/clang++-18",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-mixed/mixed-256-sharded-shared-model.o",
+          "-Wl,--gc-sections",
+          "-o",
+          "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-clang-mixed/mixed-256-sharded-shared-model"
+        ],
+        "returncode": 0,
+        "timed_out": false,
+        "observed_wall_seconds": 0.11712067500000245,
+        "gnu_time_wall_seconds": 0.06,
+        "peak_rss_kib": 68864,
+        "log": "mixed-256-sharded-shared-model-link.log"
+      },
+      "image_sha256": "74cf311446000ba3b538d22ec9f0d12b18a547d81a4f00fc2c4ce9ba4eb92fa0",
+      "correctness": {
+        "checks": 4616,
+        "failures": 0
+      },
+      "expected_checks": 4616,
+      "status": "pass",
+      "variant": "candidate",
+      "report_directory": "candidate-clang-mixed",
+      "source_bytes": 59845,
+      "object_sections": {
+        ".text": 2756,
+        ".rodata": 10031,
+        ".data": 48968,
+        ".bss": 3080
+      },
+      "image_sections": {
+        ".text": 3019,
+        ".rodata": 10032,
+        ".data": 48976,
+        ".bss": 3088
+      }
+    }
+  ],
+  "distinct_model_controls": [
+    {
+      "name": "model-distinct-128",
+      "count": 128,
+      "variant": "distinct",
+      "layer": "model",
+      "expected_success": true,
+      "source_path": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-distinct128/model-distinct-128.cpp",
+      "source_sha256": "4936041a466b8c930216acebb7e7a4c2d6eba71d28bbb44c5d05f7876d7cdeed",
+      "compiler": "/usr/bin/g++",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compile": {
+        "returncode": 0,
+        "timeout": false,
+        "wall_seconds": 8.556080156999997,
+        "log": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-distinct128/_usr_bin_g__-model-distinct-128-compile.log",
+        "compiler_wall_seconds": 8.55,
+        "peak_rss_kib": 1087572,
+        "cpu_user_seconds": 7.5,
+        "cpu_system_seconds": 0.65
+      },
+      "object_sha256": "6d447f9b913895982c9db6852def911babe1e3d097e766d60564081c75b62a37",
+      "footprint": {
+        "object_bytes": 5266344,
+        "text_bytes": 20604,
+        "rodata_bytes": 20084,
+        "relocated_const_bytes": 40536,
+        "bss_bytes": 0
+      },
+      "runtime": {
+        "type_count": 143,
+        "records_bytes": 10156,
+        "descriptor_bytes": 14733,
+        "descriptor_index_bytes": 9504,
+        "descriptor_native_bytes": 9680,
+        "field_table_bytes": 9216,
+        "max_scratch": 0,
+        "dto_native_bytes": 28
+      },
+      "image_sha256": "d8a3666ac101069231886d024f8aaac37fe1f136eb09be40780866598d8857f2",
+      "outcome": "pass",
+      "library_variant": "baseline",
+      "report_directory": "baseline-distinct128",
+      "source_bytes": 10809
+    },
+    {
+      "name": "model-distinct-128",
+      "count": 128,
+      "variant": "distinct",
+      "layer": "model",
+      "expected_success": true,
+      "source_path": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-distinct128/model-distinct-128.cpp",
+      "source_sha256": "4936041a466b8c930216acebb7e7a4c2d6eba71d28bbb44c5d05f7876d7cdeed",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compile": {
+        "returncode": 0,
+        "timeout": false,
+        "wall_seconds": 8.08053812,
+        "log": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/baseline-distinct128/_usr_bin_clang__-18-model-distinct-128-compile.log",
+        "compiler_wall_seconds": 8.07,
+        "peak_rss_kib": 1046684,
+        "cpu_user_seconds": 7.86,
+        "cpu_system_seconds": 0.58
+      },
+      "object_sha256": "2c45706abc5008264c2600f0fcbfda7da736777dd686d87609e2f63cc7ff98f0",
+      "footprint": {
+        "object_bytes": 2756672,
+        "text_bytes": 6580,
+        "rodata_bytes": 20076,
+        "relocated_const_bytes": 40536,
+        "bss_bytes": 0
+      },
+      "runtime": {
+        "type_count": 143,
+        "records_bytes": 10156,
+        "descriptor_bytes": 14733,
+        "descriptor_index_bytes": 9504,
+        "descriptor_native_bytes": 9680,
+        "field_table_bytes": 9216,
+        "max_scratch": 0,
+        "dto_native_bytes": 28
+      },
+      "image_sha256": "a8638e1761ff087f77eccd24027dc141c5dd6f048a67b65eb8446952f44b4622",
+      "outcome": "pass",
+      "library_variant": "baseline",
+      "report_directory": "baseline-distinct128",
+      "source_bytes": 10809
+    },
+    {
+      "name": "model-distinct-128",
+      "count": 128,
+      "variant": "distinct",
+      "layer": "model",
+      "expected_success": true,
+      "source_path": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-distinct128/model-distinct-128.cpp",
+      "source_sha256": "4936041a466b8c930216acebb7e7a4c2d6eba71d28bbb44c5d05f7876d7cdeed",
+      "compiler": "/usr/bin/g++",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compile": {
+        "returncode": 0,
+        "timeout": false,
+        "wall_seconds": 9.167868369999994,
+        "log": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-distinct128/_usr_bin_g__-model-distinct-128-compile.log",
+        "compiler_wall_seconds": 9.15,
+        "peak_rss_kib": 1096008,
+        "cpu_user_seconds": 7.59,
+        "cpu_system_seconds": 0.71
+      },
+      "object_sha256": "6d447f9b913895982c9db6852def911babe1e3d097e766d60564081c75b62a37",
+      "footprint": {
+        "object_bytes": 5266344,
+        "text_bytes": 20604,
+        "rodata_bytes": 20084,
+        "relocated_const_bytes": 40536,
+        "bss_bytes": 0
+      },
+      "runtime": {
+        "type_count": 143,
+        "records_bytes": 10156,
+        "descriptor_bytes": 14733,
+        "descriptor_index_bytes": 9504,
+        "descriptor_native_bytes": 9680,
+        "field_table_bytes": 9216,
+        "max_scratch": 0,
+        "dto_native_bytes": 28
+      },
+      "image_sha256": "d8a3666ac101069231886d024f8aaac37fe1f136eb09be40780866598d8857f2",
+      "outcome": "pass",
+      "library_variant": "candidate",
+      "report_directory": "candidate-distinct128",
+      "source_bytes": 10809
+    },
+    {
+      "name": "model-distinct-128",
+      "count": 128,
+      "variant": "distinct",
+      "layer": "model",
+      "expected_success": true,
+      "source_path": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-distinct128/model-distinct-128.cpp",
+      "source_sha256": "4936041a466b8c930216acebb7e7a4c2d6eba71d28bbb44c5d05f7876d7cdeed",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compile": {
+        "returncode": 0,
+        "timeout": false,
+        "wall_seconds": 8.389105298999993,
+        "log": "/mnt/c/Users/admin/Documents/telemetry-validation/20261005-root-dedup/candidate-distinct128/_usr_bin_clang__-18-model-distinct-128-compile.log",
+        "compiler_wall_seconds": 8.38,
+        "peak_rss_kib": 1055664,
+        "cpu_user_seconds": 7.89,
+        "cpu_system_seconds": 0.52
+      },
+      "object_sha256": "2c45706abc5008264c2600f0fcbfda7da736777dd686d87609e2f63cc7ff98f0",
+      "footprint": {
+        "object_bytes": 2756672,
+        "text_bytes": 6580,
+        "rodata_bytes": 20076,
+        "relocated_const_bytes": 40536,
+        "bss_bytes": 0
+      },
+      "runtime": {
+        "type_count": 143,
+        "records_bytes": 10156,
+        "descriptor_bytes": 14733,
+        "descriptor_index_bytes": 9504,
+        "descriptor_native_bytes": 9680,
+        "field_table_bytes": 9216,
+        "max_scratch": 0,
+        "dto_native_bytes": 28
+      },
+      "image_sha256": "a8638e1761ff087f77eccd24027dc141c5dd6f048a67b65eb8446952f44b4622",
+      "outcome": "pass",
+      "library_variant": "candidate",
+      "report_directory": "candidate-distinct128",
+      "source_bytes": 10809
+    }
+  ],
+  "canonical_parity": [
+    {
+      "report_directory": "final-before-gcc",
+      "summary_sha256": "336747c0abba3ffcf3f904d79e2362c9e92ead9ad75e8b4bcc7d86bbdb23ec63",
+      "expect_new": false,
+      "sanitize": false,
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "runner_sha256": "2171d278782d71848dec69c78ce646240f1c3d96270f3e4bcea391cff2b45171",
+      "fixture_hashes": {
+        "Fixture.hpp": "56747b7c77138290a13cf0f52976258f2cb006898729611b7944c5f0021bd26e",
+        "Check.cpp": "e8f2a8fa07c419d2360fc08e08a25db939eb4b88fc9558eb53710deda06151f1"
+      },
+      "result": {
+        "checks": 4995,
+        "value_read_cases": 680,
+        "fields": 8,
+        "commands": 6,
+        "services": 7,
+        "type_count": 19,
+        "values_bytes": 67,
+        "descriptor_bytes": 1566,
+        "fingerprint": "724a6d8d17a90361"
+      },
+      "image_sha256": "df41a3d16a717a81ac7e52e746ab4096b8df8053ff89efdb702a3ab10d355e43",
+      "artifacts": {
+        "descriptor.bin": {
+          "bytes": 1566,
+          "sha256": "36a2e593eaef15681452e316bc4fa10830b4c2606be48dfc8f253ddd5ef15502"
+        },
+        "values.bin": {
+          "bytes": 67,
+          "sha256": "4f8d64c5cf4e2de1a5c4007332dd6d3f45c8101483290b2f60064d22e0a4490f"
+        },
+        "type-ids.bin": {
+          "bytes": 236,
+          "sha256": "22d08890390596d21cb26922b4f12b2b967c8f0633f3f5bdde73e298c8202e52"
+        }
+      },
+      "canonical_parity": null
+    },
+    {
+      "report_directory": "final-before-clang",
+      "summary_sha256": "e922021eb5fae5fe676ab4386bec267619767520c755ae2d7a179249a34e686b",
+      "expect_new": false,
+      "sanitize": false,
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "runner_sha256": "2171d278782d71848dec69c78ce646240f1c3d96270f3e4bcea391cff2b45171",
+      "fixture_hashes": {
+        "Fixture.hpp": "56747b7c77138290a13cf0f52976258f2cb006898729611b7944c5f0021bd26e",
+        "Check.cpp": "e8f2a8fa07c419d2360fc08e08a25db939eb4b88fc9558eb53710deda06151f1"
+      },
+      "result": {
+        "checks": 4995,
+        "value_read_cases": 680,
+        "fields": 8,
+        "commands": 6,
+        "services": 7,
+        "type_count": 19,
+        "values_bytes": 67,
+        "descriptor_bytes": 1566,
+        "fingerprint": "724a6d8d17a90361"
+      },
+      "image_sha256": "9a28ff8424a4ae797a6c39a93f5a11f6dfdb8529defabd79309675e0a8c53849",
+      "artifacts": {
+        "descriptor.bin": {
+          "bytes": 1566,
+          "sha256": "36a2e593eaef15681452e316bc4fa10830b4c2606be48dfc8f253ddd5ef15502"
+        },
+        "values.bin": {
+          "bytes": 67,
+          "sha256": "4f8d64c5cf4e2de1a5c4007332dd6d3f45c8101483290b2f60064d22e0a4490f"
+        },
+        "type-ids.bin": {
+          "bytes": 236,
+          "sha256": "22d08890390596d21cb26922b4f12b2b967c8f0633f3f5bdde73e298c8202e52"
+        }
+      },
+      "canonical_parity": null
+    },
+    {
+      "report_directory": "final-after-gcc",
+      "summary_sha256": "247c8952f327afacf393617dc3790e64adba72a588c56d3d80b93863297aabe9",
+      "expect_new": true,
+      "sanitize": false,
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769",
+      "runner_sha256": "2171d278782d71848dec69c78ce646240f1c3d96270f3e4bcea391cff2b45171",
+      "fixture_hashes": {
+        "Fixture.hpp": "56747b7c77138290a13cf0f52976258f2cb006898729611b7944c5f0021bd26e",
+        "Check.cpp": "e8f2a8fa07c419d2360fc08e08a25db939eb4b88fc9558eb53710deda06151f1"
+      },
+      "result": {
+        "checks": 4995,
+        "value_read_cases": 680,
+        "fields": 8,
+        "commands": 6,
+        "services": 7,
+        "type_count": 19,
+        "values_bytes": 67,
+        "descriptor_bytes": 1566,
+        "fingerprint": "724a6d8d17a90361"
+      },
+      "image_sha256": "b21f0dcf50840fcae5400b3e7c596696b15b329d50285c35bc876f5b3164b685",
+      "artifacts": {
+        "descriptor.bin": {
+          "bytes": 1566,
+          "sha256": "36a2e593eaef15681452e316bc4fa10830b4c2606be48dfc8f253ddd5ef15502"
+        },
+        "values.bin": {
+          "bytes": 67,
+          "sha256": "4f8d64c5cf4e2de1a5c4007332dd6d3f45c8101483290b2f60064d22e0a4490f"
+        },
+        "type-ids.bin": {
+          "bytes": 236,
+          "sha256": "22d08890390596d21cb26922b4f12b2b967c8f0633f3f5bdde73e298c8202e52"
+        }
+      },
+      "canonical_parity": true
+    },
+    {
+      "report_directory": "final-after-clang",
+      "summary_sha256": "d4e70f3f91fbf37621509d7161b2b7a00a0658e24cb8e3cf72dc5144b61afee5",
+      "expect_new": true,
+      "sanitize": false,
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "runner_sha256": "2171d278782d71848dec69c78ce646240f1c3d96270f3e4bcea391cff2b45171",
+      "fixture_hashes": {
+        "Fixture.hpp": "56747b7c77138290a13cf0f52976258f2cb006898729611b7944c5f0021bd26e",
+        "Check.cpp": "e8f2a8fa07c419d2360fc08e08a25db939eb4b88fc9558eb53710deda06151f1"
+      },
+      "result": {
+        "checks": 4995,
+        "value_read_cases": 680,
+        "fields": 8,
+        "commands": 6,
+        "services": 7,
+        "type_count": 19,
+        "values_bytes": 67,
+        "descriptor_bytes": 1566,
+        "fingerprint": "724a6d8d17a90361"
+      },
+      "image_sha256": "8e89dcf3485d5b9c15589aedeafe8377682e07cd8a0ae229dae09edd559dfcc2",
+      "artifacts": {
+        "descriptor.bin": {
+          "bytes": 1566,
+          "sha256": "36a2e593eaef15681452e316bc4fa10830b4c2606be48dfc8f253ddd5ef15502"
+        },
+        "values.bin": {
+          "bytes": 67,
+          "sha256": "4f8d64c5cf4e2de1a5c4007332dd6d3f45c8101483290b2f60064d22e0a4490f"
+        },
+        "type-ids.bin": {
+          "bytes": 236,
+          "sha256": "22d08890390596d21cb26922b4f12b2b967c8f0633f3f5bdde73e298c8202e52"
+        }
+      },
+      "canonical_parity": true
+    },
+    {
+      "report_directory": "final-after-clang-sanitized",
+      "summary_sha256": "86c7005c5e71b1fcb64b1654fbe731cd31ea50d3b9ac27784641c32ce70b3c07",
+      "expect_new": true,
+      "sanitize": true,
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45",
+      "runner_sha256": "2171d278782d71848dec69c78ce646240f1c3d96270f3e4bcea391cff2b45171",
+      "fixture_hashes": {
+        "Fixture.hpp": "56747b7c77138290a13cf0f52976258f2cb006898729611b7944c5f0021bd26e",
+        "Check.cpp": "e8f2a8fa07c419d2360fc08e08a25db939eb4b88fc9558eb53710deda06151f1"
+      },
+      "result": {
+        "checks": 4995,
+        "value_read_cases": 680,
+        "fields": 8,
+        "commands": 6,
+        "services": 7,
+        "type_count": 19,
+        "values_bytes": 67,
+        "descriptor_bytes": 1566,
+        "fingerprint": "724a6d8d17a90361"
+      },
+      "image_sha256": "74da0624f8a73da7f7bca3709e1df771e1165e169eba08f9988dc201f4fa34e5",
+      "artifacts": {
+        "descriptor.bin": {
+          "bytes": 1566,
+          "sha256": "36a2e593eaef15681452e316bc4fa10830b4c2606be48dfc8f253ddd5ef15502"
+        },
+        "values.bin": {
+          "bytes": 67,
+          "sha256": "4f8d64c5cf4e2de1a5c4007332dd6d3f45c8101483290b2f60064d22e0a4490f"
+        },
+        "type-ids.bin": {
+          "bytes": 236,
+          "sha256": "22d08890390596d21cb26922b4f12b2b967c8f0633f3f5bdde73e298c8202e52"
+        }
+      },
+      "canonical_parity": true
+    }
+  ],
+  "source_reports": {
+    "baseline-gcc-fields": {
+      "summary_sha256": "fedbde8fd85ea275b284084b096845d5cb88fedd7724dda00306068efee42e2b",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/g++",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769"
+    },
+    "baseline-gcc-mixed": {
+      "summary_sha256": "9ac6dd674706c96c63cc62d49ef4b02db593ed6a7ed06e45662a40fc8d868756",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/g++",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769"
+    },
+    "baseline-clang-fields": {
+      "summary_sha256": "959355a362f608c4c5faa602d8098ee72bc59b2b4963821d65166355657f348e",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45"
+    },
+    "baseline-clang-mixed": {
+      "summary_sha256": "3b160cd15064cd86eee00aa2f30771114887aaa1990aaebbeaed5fefcd67c6c7",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45"
+    },
+    "candidate-gcc-fields": {
+      "summary_sha256": "dd3d7fba3b7e69694e01be8cc17b16bf847e166c9d71dffdc0261636d1bcb89a",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/g++",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769"
+    },
+    "candidate-gcc-mixed": {
+      "summary_sha256": "73a9d40578ca9131cff1d6c4effac677eb56ab96045c8c9621ea766e34eee2d4",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/g++",
+      "compiler_version": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+      "compiler_sha256": "1353e9bdd29a7295c7226bf6c63abccce056d8cac31f112e5cdbecc3f28c2769"
+    },
+    "candidate-clang-fields": {
+      "summary_sha256": "337d8c061d948df39d5482426cca2146c9df8727b6a08adad1a30e48c0072aee",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45"
+    },
+    "candidate-clang-mixed": {
+      "summary_sha256": "8256317036b3e58263209395ff7107ca36e3251fffe72b30250013ba203f8a76",
+      "runner_sha256": "3ab55a3ceb79b2e1bbc85acb15ea4681586240d7755d376b0dd453600d578588",
+      "compiler": "/usr/bin/clang++-18",
+      "compiler_version": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+      "compiler_sha256": "8ef402d453d1ba4902e4ee0f0f847f6cfa01400c95aa43c24e97818b9c0e3f45"
+    },
+    "baseline-distinct128": {
+      "summary_sha256": "ec282354c1951d80cc4c3d1b84fbdbec6a0867c40a34b338377c2a98db704f17",
+      "runner_sha256": "750025d498c6c89e3c398beca978e0d6e9181cbb205ffaae5393060cd13cd279",
+      "flags": [
+        "-std=c++20",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-ftemplate-backtrace-limit=6",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-Ilib/delegate",
+        "-ffunction-sections",
+        "-fdata-sections"
+      ]
+    },
+    "candidate-distinct128": {
+      "summary_sha256": "61e9667ac084392bba6eaace4e6f87559b665afebac28dbe92b5c8a6229cc0c0",
+      "runner_sha256": "750025d498c6c89e3c398beca978e0d6e9181cbb205ffaae5393060cd13cd279",
+      "flags": [
+        "-std=c++20",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pedantic-errors",
+        "-ftemplate-backtrace-limit=6",
+        "-fdiagnostics-color=never",
+        "-Ilib",
+        "-Ilib/boost_pfr/include",
+        "-Ilib/magic_enum",
+        "-Ilib/delegate",
+        "-ffunction-sections",
+        "-fdata-sections"
+      ]
+    }
+  },
+  "orchestration_notes": [
+    "Same archived34cf159 measurement runners and generated programs used before/after",
+    "Archived baseline HEAD metadata is supplied by verified manifest; archive has no artificial .git",
+    "First tar used Windows EOL conversion and was retained; raw archive payloads verified against526 Git blobs",
+    "Distinct controls initially did not compile due external argument abbreviation; corrected before four successful controls",
+    "External series log label contained a slash; retained completed profile summaries and corrected only orchestration"
+  ],
+  "counts": {
+    "table_profiles": 16,
+    "candidate_table_profiles_pass": 8,
+    "candidate_table_conditions": 59432,
+    "distinct_controls_pass": 4,
+    "canonical_parity_runs": 5
+  },
+  "arm_qualification": {
+    "summary_sha256": "ff2321357cecd31e90274b6a502f3dab8435a69107f983a2a9f331492fec10a5",
+    "compiler": "CubeIDE ARM GCC14.3.1",
+    "compiler_sha256": "ae046a80ebc6e5f46a8d049b5e4ec6b3980bbc6ef05633dd176cae77e08bb01c",
+    "completed": true,
+    "hardware_access": false,
+    "existing_suites": [
+      {
+        "label": "registry",
+        "returncode": 0
+      },
+      {
+        "label": "endpoints",
+        "returncode": 0
+      },
+      {
+        "label": "model",
+        "returncode": 0
+      },
+      {
+        "label": "freeze",
+        "returncode": 0
+      }
+    ],
+    "native_sections_compared": 99,
+    "native_sections_equal": true,
+    "native_section_map_sha256": "4dfd55d78d80c9668842ad100e1e362c36751a5e6bf2979ae0bfc1fc5587d91e",
+    "selected_native_sections": {
+      "O2/read_direct": {
+        "bytes": 16,
+        "before_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6",
+        "after_sha256": "95c7ea12a243504f36d4a3a5f53717e238c226acaf1d52c244c3f7f106139ad6"
+      },
+      "O2/write_global": {
+        "bytes": 16,
+        "before_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492",
+        "after_sha256": "66370c85969624c792bc6ea0a9d78c28ae5352d6322e57767347cf39a7d15492"
+      },
+      "O2/command_global": {
+        "bytes": 16,
+        "before_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c",
+        "after_sha256": "6ce0552c908a2fb6e7aad5560c25241f047c2d9dd05523281d1aea17ca674f2c"
+      },
+      "Os/read_direct": {
+        "bytes": 16,
+        "before_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b",
+        "after_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b"
+      },
+      "Os/write_global": {
+        "bytes": 12,
+        "before_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95",
+        "after_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95"
+      },
+      "Os/command_global": {
+        "bytes": 16,
+        "before_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29",
+        "after_sha256": "2506dfd41200b31f868d8e68ceedbaab24b129ecd2c7ae140b3285f82789eb29"
+      },
+      "Og/read_direct": {
+        "bytes": 16,
+        "before_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b",
+        "after_sha256": "6ded57829633a9fae147a6787a26d7cccebab22d6d2092e0e1726175e39dd37b"
+      },
+      "Og/write_global": {
+        "bytes": 12,
+        "before_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95",
+        "after_sha256": "63871abef82f3b70fdd301a577c608be2d27e64fdb902bbf9c44480b64122f95"
+      },
+      "Og/command_global": {
+        "bytes": 16,
+        "before_sha256": "bd1db06954b0ade4bb68da0c6a93cec83c3208dd8f51490a67b32d0dffb065f2",
+        "after_sha256": "bd1db06954b0ade4bb68da0c6a93cec83c3208dd8f51490a67b32d0dffb065f2"
+      }
+    },
+    "endpoint_layout_sections": {
+      "O2": {
+        "bytes": 52,
+        "before_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b",
+        "after_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b"
+      },
+      "Os": {
+        "bytes": 52,
+        "before_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b",
+        "after_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b"
+      },
+      "Og": {
+        "bytes": 52,
+        "before_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b",
+        "after_sha256": "799fdb95ac3174a5be3a972809bf0656c2e8e6df82cbee82b4678ac3b5c4504b"
+      }
+    },
+    "large_endpoint_individual_su_frames_bytes": {
+      "O2": [
+        24,
+        12,
+        12
+      ],
+      "Os": [
+        24,
+        16,
+        16
+      ],
+      "Og": [
+        80,
+        72,
+        72
+      ]
+    },
+    "scope": "Exact selected object section bytes, layout constants and individual compiler frames; no whole-ELF identity, board execution or cycle claim"
+  },
+  "host_qualification": {
+    "summary_sha256": "ef772e61588f752975414c73e6994f3375e7ea219f26213ee12bd6e6053d1702",
+    "source_head": "34cf1599614fe475b0823f7a0acfb6ee3aeff8f9",
+    "source_dirty": true,
+    "completed": true,
+    "hardware_access": false,
+    "runs": [
+      {
+        "label": "registry-gcc",
+        "returncode": 0,
+        "compiler": "g++",
+        "options": []
+      },
+      {
+        "label": "model-gcc",
+        "returncode": 0,
+        "compiler": "g++",
+        "options": []
+      },
+      {
+        "label": "endpoints-gcc-nullchecks",
+        "returncode": 0,
+        "compiler": "g++",
+        "options": [
+          "--null-checks"
+        ]
+      },
+      {
+        "label": "descriptor-gcc-nullchecks",
+        "returncode": 0,
+        "compiler": "g++",
+        "options": [
+          "--null-checks"
+        ]
+      },
+      {
+        "label": "endpoints-clang-sanitized",
+        "returncode": 0,
+        "compiler": "clang++-18",
+        "options": [
+          "--sanitize"
+        ]
+      },
+      {
+        "label": "resources-clang-sanitized",
+        "returncode": 0,
+        "compiler": "clang++-18",
+        "options": [
+          "--sanitize"
+        ]
+      },
+      {
+        "label": "freeze-clang-sanitized",
+        "returncode": 0,
+        "compiler": "clang++-18",
+        "options": [
+          "--sanitize"
+        ]
+      }
+    ],
+    "scope": "Focused correctness/null-check/sanitizer gates; durations are not comparative timing evidence"
+  },
+  "offline_firmware_equivalence": {
+    "record": "tests/resources/evidence/equivalence.json",
+    "record_lf_sha256": "e25e37edce0ef27f27f0171f0345c795fbe22216aa5a9d20096cf2d47b87bf73",
+    "images": 12,
+    "library_inputs": 131,
+    "fixture_inputs": 57,
+    "identical_firmware_binaries": 12,
+    "same_elf_sha256": 6,
+    "validation": "Tracked self-test and full retained/current artifact verification passed",
+    "scope": "Offline captured-input rebuild with original scaffolds and compiler; no new board execution or cycle measurement"
+  }
+}

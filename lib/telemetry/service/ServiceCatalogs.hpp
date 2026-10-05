@@ -146,7 +146,10 @@ class ServiceCatalogTable {
 	              "Service catalog groups require ServiceTable instances");
 
 public:
+	// Positional request/response pairs retain every service across groups.
 	using RootTypes = typename detail::ConcatLists<typename Groups::TableType::RootTypes...>::type;
+	using RegistryRootTypes = typename detail::UniqueFirst<
+	    typename detail::ConcatLists<typename Groups::TableType::RegistryRootTypes...>::type>::type;
 	static constexpr std::size_t staticSize = sizeof...(Groups);
 
 	constexpr explicit ServiceCatalogTable(Groups... groups) noexcept

@@ -18,6 +18,7 @@
 - [Умови compile-time перевірки](#умови-compile-time-перевірки)
 - [Одна велика таблиця та кілька каталогів](#одна-велика-таблиця-та-кілька-каталогів)
 - [Repeated roots та унікальні типи](#repeated-roots-та-унікальні-типи)
+- [Скорочення registry roots](#скорочення-registry-roots)
 - [Host ELF sections](#host-elf-sections)
 - [Межі library contract і компілятора](#межі-library-contract-і-компілятора)
 - [Як організувати великий застосунок](#як-організувати-великий-застосунок)
@@ -28,11 +29,17 @@
 
 ## Що вже виміряно
 
-Compile-time зріз виконано 2026-10-05 на library baseline
+Початковий compile-time зріз виконано 2026-10-05 на library baseline
 `617d037a94e8761a6d70cdc45eafe97232a3c924`. У всіх включених серіях
 збігаються SHA-256 **114 library source/header inputs**. Повні generated
 sources, compiler commands, logs, object/ELF sections і counters зберігає
 runner [compile_tables.py](../tests/scalability/compile_tables.py).
+
+Ці початкові числа збережено як історичний baseline. Commit
+`34cf1599614fe475b0823f7a0acfb6ee3aeff8f9` має ті самі committed library
+inputs, а новий [зріз RegistryRootTypes](#скорочення-registry-roots) нижче
+вимірює вже змінену реалізацію на його робочому дереві. Старі відмови
+Field1024/Mixed256 не описують поточний sharded Model після цієї зміни.
 
 Включено 49 профілів: 43 успішні executions із 63 836 повтореними assertions,
 нуль correctness failures і шість окремих compiler-budget rejections.
@@ -40,9 +47,9 @@ runner [compile_tables.py](../tests/scalability/compile_tables.py).
 сценаріїв. Перевіряється кожен endpoint: runtime routing, callback state,
 canonical bytes, завершення Workspace lease і спільні TypeIds у full Model.
 
-Результат цього зрізу: **розподіл на невеликі таблиці істотно зменшив час і
+Результат початкового зрізу: **розподіл на невеликі таблиці істотно зменшив час і
 пам'ять компіляції, але не усунув recursive root collection у повному Model**.
-Успіх таблиць на 1024 Fields і відмова Model на тих самих 1024 Fields — різні
+Історичний успіх таблиць на 1024 Fields і відмова Model на тих самих 1024 Fields — різні
 результати, які не можна звести до одного напису «1024 endpoints підтримано».
 
 ## Умови compile-time перевірки
@@ -82,6 +89,10 @@ hashes збережено. Основний GCC512 table-only rejection взаг
 helper, бо він існує лише у full Model. Runtime source бібліотеки не змінювався.
 
 ## Одна велика таблиця та кілька каталогів
+
+Таблиця цього розділу описує початковий незмінний library baseline;
+поточні default-budget sharded Model результати наведено в
+[новому зрізі](#скорочення-registry-roots).
 
 У таблиці наведено **compile seconds / peak compiler RSS MiB**. PASS
 включає подальший link і correctness execution. Порожня клітинка означає,
@@ -128,21 +139,24 @@ Clang результат немає.
 
 ## Repeated roots та унікальні типи
 
-Перед dependency collection/deduplication кількість root occurrences у Model:
+Кількість позиційних root occurrences у незмінному public `RootTypes`:
 
 ```text
 R = FieldCount + CommandCount + 2 × ServiceCount
 ```
 
-Field додає Value, Command — Request, Service — Request та Response. Void
+Field додає Value, Command — Request, Service — Request, потім Response для
+кожного рядка, тобто два roots на Service навіть за однакових exact типів. Void
 також є root occurrence, хоча його builtin TypeId вже існує. Root occurrences
 і unique types — різні лічильники.
 
 У [Registry.hpp](../lib/telemetry/type/Registry.hpp) повторений exact тип не
 отримує другого descriptor і його dependencies повторно не збираються.
-Проте `CollectRoots` рекурсивно проходить кожний root occurrence.
-[Model](../lib/telemetry/model/Model.hpp) і каталоги спочатку об'єднують повні
-root lists local tables. Тому поділ tables не скорочує R повного Model.
+На початковому baseline `CollectRoots` рекурсивно проходив кожний root
+occurrence, а Model і каталоги об'єднували повні root lists local tables.
+Тоді поділ tables не скорочував R повного Model. Поточна реалізація передає
+Model скорочені `RegistryRootTypes`; [новий зріз](#скорочення-registry-roots)
+відділяє позиційний R від фактичного registry input.
 
 | Full Model, shards32 | Endpoints усього | R | Unique types | GCC seconds / RSS MiB | Clang seconds / RSS MiB |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -153,13 +167,119 @@ root lists local tables. Тому поділ tables не скорочує R по
 | Mixed256 | 768 | 1024 | 13 | 1.18 / 277.6 — depth rejection | 1.55 / 372.1 — depth rejection |
 | Field1024 | 1024 | 1024 | 13 | 1.37 / 261.2 — depth rejection | 1.39 / 360.5 — depth rejection |
 
-Це відтворений контрприклад припущенню, що «500–2000 endpoints нормально»
+Це історичний відтворений контрприклад припущенню, що «500–2000 endpoints нормально»
 вже доведено лише з O(1) runtime lookup та metadata deduplication. Mixed768
 endpoints у цих default builds не зібрав повний Model, хоча мав лише 13 types
 і всі local tables були невеликими. Водночас окремий GCC depth2048 diagnostic
 зібрав Field1024 Model. Це доводить залежність від compiler budget у конкретній
 формі root collection; воно не доводить автоматичну придатність будь-якого
 2000-endpoint застосунку або toolchain.
+
+## Скорочення registry roots
+
+Поточна реалізація додає `RegistryRootTypes` до локальних таблиць і family
+catalogs. Public `RootTypes` зберігає позиції, порядок і повторення: один
+Value на Field, один Request на Command, Request потім Response на кожний
+Service. `RegistryRootTypes` нормалізує cv/ref та лишає першу появу exact
+C++ типу. Два різні structs із однаковим wire shape лишаються різними типами.
+
+Family catalog об'єднує вже скорочені local-table roots і скорочує їх знову.
+Model конкатенує Field, Command і Service `RegistryRootTypes` саме в цьому
+порядку; **глобального unique union між сімействами він не робить**.
+Catalog-like adapters зі старим `RootTypes` підтримуються через fallback.
+Прямий `TypeRegistry<Roots...>` зберігає попередню рекурсію `CollectRoots` і
+dependency-first ordering. Для shared-Payload Field2048 позиційний R лишається
+2048, але registry input має один root; Mixed256 має R = 1024 і три roots у
+Model input, по одному на family. Сам registry має ті самі 13 exact types.
+
+`detail::UniqueFirst<TypeList<...>>::type` обробляє блоки по 32 roots і
+перевіряє membership через normalized type markers. Орієнтовна recursion
+depth — N/32 + 32, а не N. Це не logarithmic алгоритм і не необмежена
+capacity: distinct roots, великі tuples, багато groups та інші compiler
+budgets все одно мають власну вартість. 32 є внутрішньою granularity роботи,
+а не новим API limit чи runtime buffer size.
+
+Before — raw Git archive `34cf159`; after — незакомічена реалізація на
+цьому самому HEAD із вісьмома зміненими library headers. Усі 526 baseline
+payloads перевірено проти Git blobs. Для library identity нормалізовано лише
+CRLF у LF: Windows worktree та raw archive мають різні exact byte hashes,
+тому оригінальні hashes залишено в кожному report. Використано ті самі
+архівовані generators/runners, source hashes для відповідних C++ profiles
+збігаються before/after. Старий [results.json](../tests/scalability/results.json)
+збережено; новий [root_dedup_results.json](../tests/scalability/root_dedup_results.json)
+містить commands, compiler/input hashes, generated source sizes, time/RSS,
+sections та hashes п'яти фінальних parity reports.
+
+WSL GCC 13.3 і Clang 18.1.3, C++20/O2, shards32, shared targets, один exact
+Payload. Default template/expression/constexpr budgets, 240 s і 4096 MiB
+address-space cap. Builds послідовні в погодженому CPU-вікні; числа — один
+sample, не portable speed guarantee. RSS наведено в MiB.
+
+| Full Model | GCC before → after, s / RSS | Clang before → after, s / RSS |
+| --- | --- | --- |
+| Field512 | PASS 1.40 / 227.3 → PASS 1.20 / 213.1 | PASS 1.35 / 226.8 → PASS 1.07 / 184.5 |
+| Field1024 | depth rejection 1.31 / 261.2 → PASS 1.26 / 236.0 | depth rejection 1.43 / 360.3 → PASS 1.23 / 204.4 |
+| Field2048 | depth rejection 1.56 / 382.9 → PASS 1.47 / 294.1 | depth rejection 2.56 / 731.2 → PASS 1.54 / 269.1 |
+| Mixed256, 768 endpoints | depth rejection 1.45 / 277.4 → PASS 1.34 / 255.6 | depth rejection 1.50 / 372.0 → PASS 1.35 / 216.2 |
+
+Baseline2048 реально компілювали після 1024 з
+`--no-skip-after-compiler-limit`; це attempted rejection, не skipped profile.
+Усі вісім after profiles виконали 59 432 conditions, failures0: кожний row,
+callback state, canonical payload, TypeId і Workspace перевірено. Поліпшення
+default-budget acceptance доведено для цього shared/sharded profile; воно
+не означає прийняття довільних 2048 distinct DTO або великого single tuple.
+
+У Field512 до/після збігаються linked section totals: GCC `.text` 1800 B і
+`.rodata` 5810 B; Clang `.text` 1513 B і `.rodata` 5808 B. `.data`/`.bss`
+totals цього profile теж не змінилися. Це порівняння sections конкретного
+host fixture, а не обіцянка whole-ELF identity чи firmware size.
+
+Окремий distinct128/model control не має repeated-root виграшу. Він включає
+codec/descriptor work, 128 різних DTO та 143 exact types. Усі чотири builds
+і executions пройшли з default flags:
+
+| Distinct128 full Model | Before, s / RSS MiB | After, s / RSS MiB |
+| --- | ---: | ---: |
+| GCC 13.3 | 8.55 / 1062.1 | 9.16 / 1070.3 |
+| Clang 18.1.3 | 8.07 / 1022.2 | 8.38 / 1030.9 |
+
+Додаткова uniqueness робота видима в цих single trials; швидкість для
+distinct-root застосунку не обіцяється. Direct TypeRegistry optimization
+не входить у цей зріз.
+
+П'ять фінальних canonical parity runs — before/after GCC і Clang, а також
+after Clang ASan/UBSan — виконали по 4995 checks, 680 value-read cases.
+Fixture має 8 Fields, 6 Commands, 7 Services і 19 types. У всіх п'яти
+однакові descriptor1566 B, values67 B, type-ids236 B та fingerprint
+`724a6d8d17a90361`; hashes кожного payload і executable збережено в новому JSON.
+Це доказ canonical parity перевірених схем і операцій; hardware execution
+цей зріз не вимірює.
+
+Offline CubeIDE ARM GCC 14.3.1 qualification пройшов existing registry,
+endpoints, Model і freeze suites на O2/Os/Og. Порівняння archive34cf159 із
+поточною реалізацією підтвердило exact bytes для 99 named native `.text`
+sections і трьох endpoint-layout sections. Окремі compiler `.su` frames
+large Field `readOne`, Field `writeOne` і Command `invokeOne`:
+O2 — 24/12/12 B, Os — 24/16/16 B,
+Og — 80/72/72 B. Це individual frames, не сумарний call-chain watermark.
+Summary hash, selected section hashes і layout bytes збережено в новому JSON.
+Це object-code/layout evidence; whole-ELF identity, board execution чи MCU
+cycles не встановлено.
+
+Окремо перезібрано всі 12 H7S qualification images через існуючі runners
+без `--run`, із CubeIDE GCC 14.3.1 та збереженими Cube scaffolds. Raw firmware
+binaries побайтово збіглися з виміряними images. Поточні source hashes та
+повний artifact verification записані в
+[offline equivalence record](../tests/resources/evidence/README.md).
+Старі hardware receipts не змінено; це зв'язок нового source з тими самими
+12 images, а не нове виконання на платі чи вимір циклів Field2048/Mixed256.
+ELF symbol/debug bytes не входять у твердження про тотожність firmware bytes.
+
+Focused host qualification також пройшов сім suites із coherent library
+inputs: registry/Model на GCC; endpoints/descriptor на GCC із null checks;
+endpoints/resources/freeze на Clang ASan/UBSan. Новий JSON зберігає labels,
+flags і summary hash цих correctness gates; їхні діагностичні durations не
+додаються до comparative compile-time таблиць.
 
 ## Host ELF sections
 
@@ -229,7 +349,10 @@ operation/step budgets, compile time, compiler memory, linker memory і
 2. **Повторно використовуйте exact DTO там, де контракт справді один.**
    Один `Config` у Field, Command і Service має один TypeId у Model.
    Два різні C++ structs з однаковими members не є одним exact type.
-   Shared DTO зменшує structural metadata, але не усуває проходу repeated roots.
+   Shared DTO зменшує structural metadata та поточні `RegistryRootTypes`.
+   Позиційний `RootTypes` зберігає всі rows; distinct DTO не отримують такого
+   repeated-root виграшу. [Вимір before/after](#скорочення-registry-roots)
+   окремо показує acceptance і додаткову distinct-root compile work.
 3. **Не включайте повну application schema в кожний consumer.** Зберіть
    concrete tables/catalogs/Model у composition translation unit або невеликій
    групі composition units. Transport/UI/business consumers отримують вузький
@@ -310,6 +433,11 @@ resource representation і visitor specialization від repeated-DTO tables.
 assertions в одну уявну кількість різних сценаріїв.
 
 ### Unique types і structural complexity
+
+Числа цього підрозділу належать початковому baseline. Shared1024 rejection
+у direct-registry profile лишається його власним результатом: нова зміна
+не оптимізує прямий `TypeRegistry<Roots...>`. Поточні Model профілі та
+distinct128 before/after control наведено в [новому зрізі](#скорочення-registry-roots).
 
 [compile_types.py](../tests/scalability/compile_types.py) порівнює N повторень
 одного `Dto<0>` та N різних `Dto<I>`. Кожен DTO має однакову форму, спільний
@@ -521,16 +649,18 @@ Object sections не є linked firmware totals: section GC/LTO може змін
 Runtime positional routing підходить для великих каталогів: число rows не
 додає linear lookup. Однак **default-toolchain capacity для довільних тисяч
 typed endpoints не підтверджено**. Відтворено обмеження великого tuple,
-repeated-root recursion, unique-type expression depth/memory, pinned PFR та
+історичну repeated-root recursion, unique-type expression depth/memory, pinned PFR та
 MinGW section-name storage. Вони виникають значно раніше формальних ceilings
 у конкретних profiles і не лікуються більшим Workspace.
 
 Для застосунку почніть із module-local tables, shared exact DTO, одного
 composition point та runtime facade для consumers без потреби в native typed
 доступі. Виміряйте саме свій endpoint/type/visitor mix на compiler прошивки.
-Для істотно більших Models наступне обґрунтоване engineering завдання —
-зменшення repeated-root/tuple compile work з незмінними wire та native contracts;
-це пропозиція за результатом вимірів, **не реалізована оптимізація цього зрізу**.
+Поточний `RegistryRootTypes` уже зменшує repeated-root input і в default
+profiles довів Field2048/Mixed256. Великі single tuples, arbitrary distinct
+roots і direct TypeRegistry recursion залишаються окремими межами; ця зміна
+не створює універсальної capacity. Деталі acceptance, compile-cost control
+та canonical parity наведено в [новому зрізі](#скорочення-registry-roots).
 
 ## Як повторити перевірку
 
@@ -565,7 +695,7 @@ rejections як результат дослідження; unexpected compilatio
 та correctness failures завжди мають nonzero exit. `generated-only` не
 вважається execution failure і не є доказом успішної компіляції.
 
-Окремий explicit diagnostic, що пройшов у цьому зрізі:
+Історичний explicit diagnostic, що пройшов на початковому baseline:
 
 ```sh
 python3 tests/scalability/compile_tables.py \

@@ -32,6 +32,12 @@ remain identical. All twelve refreshed images were rebuilt from captured
 current inputs and compared with the retained binaries; no original hardware
 receipt or binary was edited.
 
+The 2026-10-05 root-deduplication refresh rebuilds the same twelve images from
+the current table, catalog and Model registry roots. Every raw firmware binary
+still matches its retained measured artifact. This is offline compile/link
+evidence for the current 131 library inputs and 57 fixture inputs, with no new
+device execution or changed historical receipt.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -83,8 +89,9 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261005-root-dedup/h7s-equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
-  --build-root "$evidenceArchivedBuild/resource-current-h7s-paranoid-418-final" `
+  --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
   --path-map "$evidenceOriginalBuild=$evidenceArchivedBuild"
 ```
@@ -135,7 +142,9 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current style-refresh capture is
+The current 2026-10-05 root-deduplication capture is
+`C:/Users/admin/Documents/telemetry-validation/20261005-root-dedup/h7s-equivalence`.
+The 2026-10-04 style-refresh capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261004-style-docs/h7s-equivalence`.
 The earlier publication capture is retained as
 `resource-current-h7s-paranoid-418-final` in the same external archive.

@@ -296,8 +296,13 @@ const bool selected = commands.visit(id, [&](const auto& definition) {
 `selected == true` ще не означає `Executed`. Traversal visitors не повинні
 бути noexcept, але endpoint callback signatures — повинні.
 
-`RootTypes`, `staticSize` і `TypeStorage<Registry>` містять structural
-metadata, не active requests. `model.view().commandTypeId(id)` повертає
+`RootTypes` містить один request type на кожну Command у порядку оголошення,
+включно з `Void` для команд без запиту; повтори зберігаються.
+`RegistryRootTypes` прибирає повтори, зберігаючи перше входження, і служить
+лише compile-time входом Registry. Каталог має обидва aliases; positional
+roots охоплюють усі групи. `staticSize` рахує рядки локальної таблиці або
+групи каталогу, а `TypeStorage<Registry>` має TypeId для кожної команди.
+Це structural metadata, не active requests. `model.view().commandTypeId(id)` повертає
 optional request TypeId; Void request має registry Void type.
 TypeId та packed endpoint ID є різними identities.
 

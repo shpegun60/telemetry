@@ -35,6 +35,22 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install measurement tools
         run: sudo apt-get update && sudo apt-get install -y clang-18 time binutils
+      - name: Checkout immutable positional-root baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 34cf1599614fe475b0823f7a0acfb6ee3aeff8f9
+          path: build/root-baseline
+      - name: Preserve positional roots and exact descriptor/value bytes
+        run: |
+          python3 tests/scalability/root_types/run.py --cxx g++ \
+            --source-root build/root-baseline \
+            --build-dir "$RUNNER_TEMP/scalability/root-before"
+          python3 tests/scalability/root_types/run.py --cxx g++ --expect-new \
+            --before-dir "$RUNNER_TEMP/scalability/root-before" \
+            --build-dir "$RUNNER_TEMP/scalability/root-after-gcc"
+          python3 tests/scalability/root_types/run.py --cxx clang++-18 --sanitize --expect-new \
+            --before-dir "$RUNNER_TEMP/scalability/root-before" \
+            --build-dir "$RUNNER_TEMP/scalability/root-after-sanitized"
       - name: Require successful repeated-type Model profiles
         run: |
           for compiler in g++ clang++-18; do
@@ -43,6 +59,20 @@ jobs:
               --rows 32 128 --families field command service mixed \
               --layouts sharded --stages model --require-pass \
               --isolation-note "Sequential profiles in a dedicated CI worker"
+          done
+      - name: Require default-budget 1024 and 2048 repeated fields and Mixed256
+        run: |
+          for compiler in g++ clang++-18; do
+            python3 tests/scalability/compile_tables.py --cxx "$compiler" \
+              --build-dir "$RUNNER_TEMP/scalability/repeated-roots-$compiler" \
+              --rows 1024 2048 --families field --layouts sharded \
+              --stages model --require-pass \
+              --isolation-note "Sequential root-reduction regression; default compiler budgets"
+            python3 tests/scalability/compile_tables.py --cxx "$compiler" \
+              --build-dir "$RUNNER_TEMP/scalability/mixed-roots-$compiler" \
+              --rows 256 --families mixed --layouts sharded \
+              --stages model --require-pass \
+              --isolation-note "Mixed256 per family; default compiler budgets"
           done
       - name: Require successful shared and distinct type graphs
         run: |

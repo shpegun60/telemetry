@@ -99,7 +99,9 @@ class FieldTable {
 	              "Field table exceeds the 16-bit local position space");
 
 public:
+	// One positional root per field; repeated types intentionally describe rows.
 	using RootTypes = detail::TypeList<typename Definitions::Value...>;
+	using RegistryRootTypes = typename detail::UniqueFirst<RootTypes>::type;
 	static constexpr std::size_t staticSize = sizeof...(Definitions);
 
 	constexpr explicit FieldTable(Definitions... definitions) noexcept

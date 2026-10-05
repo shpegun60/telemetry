@@ -138,7 +138,10 @@ class FieldCatalogTable {
 	              "Field catalog groups require FieldTable instances");
 
 public:
+	// Positional roots retain every field across groups, including duplicates.
 	using RootTypes = typename detail::ConcatLists<typename Groups::TableType::RootTypes...>::type;
+	using RegistryRootTypes = typename detail::UniqueFirst<
+	    typename detail::ConcatLists<typename Groups::TableType::RegistryRootTypes...>::type>::type;
 	static constexpr std::size_t staticSize = sizeof...(Groups);
 
 	constexpr explicit FieldCatalogTable(Groups... groups) noexcept

@@ -75,7 +75,9 @@ class CommandTable {
 	              "Command table exceeds the 16-bit local position space");
 
 public:
+	// One positional request root per command, including Void for no request.
 	using RootTypes = detail::TypeList<typename Definitions::Request...>;
+	using RegistryRootTypes = typename detail::UniqueFirst<RootTypes>::type;
 	static constexpr std::size_t staticSize = sizeof...(Definitions);
 
 	constexpr explicit CommandTable(Definitions... definitions) noexcept

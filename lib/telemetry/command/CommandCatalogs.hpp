@@ -122,7 +122,10 @@ class CommandCatalogTable {
 	              "Command catalog groups require CommandTable instances");
 
 public:
+	// Positional request roots retain every command across groups.
 	using RootTypes = typename detail::ConcatLists<typename Groups::TableType::RootTypes...>::type;
+	using RegistryRootTypes = typename detail::UniqueFirst<
+	    typename detail::ConcatLists<typename Groups::TableType::RegistryRootTypes...>::type>::type;
 	static constexpr std::size_t staticSize = sizeof...(Groups);
 
 	constexpr explicit CommandCatalogTable(Groups... groups) noexcept

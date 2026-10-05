@@ -4,7 +4,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 [Measured findings](../../doc/Scalability.md) · [Test index](../README.md) ·
 [Module fixture](modular/README.md) · [Runtime integration](../../doc/user/Model.md) ·
-[Recorded profiles](results.json)
+[Historical profiles](results.json) · [Registry-root before/after](root_dedup_results.json)
 
 Measure endpoint counts, repeated roots, exact type diversity, visitor types
 and consumer dependencies separately. A passing erased index population is not
@@ -105,9 +105,51 @@ ceiling, not backend capacity. Keep each DTO within the backend limit, using
 nested DTOs when appropriate. Do not treat `all_expected: false` as green.
 
 Explicit diagnostic overrides are recorded, never silently added:
-`compile_tables.py --template-depth 2048` for repeated roots, and
+the historical `compile_tables.py --template-depth 2048` repeated-root profile, and
 `compile_types.py --compiler-extra-flag=-fbracket-depth=1024` for the measured
 Clang unique-type case. These are not universal recommendations or guarantees.
+
+## Registry-root reduction profiles
+
+Current `RegistryRootTypes` retains the first occurrence of each normalized
+exact C++ type in a table/family catalog. Public `RootTypes` is unchanged and
+positional: one Value per Field, one Request per Command, Request then Response
+per Service row, including equal request/response types. Model concatenates the
+three reduced family lists without a global union; direct TypeRegistry recursion
+is unchanged. The block helper has approximate depth N/32+32, not logarithmic or
+unlimited capacity. See [measured before/after](../../doc/Scalability.md#скорочення-registry-roots).
+
+The default-budget shared-Payload profiles now pass with both GCC13.3 and
+Clang18.1.3 at 512/1024/2048 Fields and Mixed256 (768 endpoints), shards32.
+The baseline 1024/2048/Mixed256 depth rejections in results.json are historical.
+Do not apply their former recommendation to increase template depth to the
+current shared/sharded profile. The separate distinct128/model control also
+passes, with additional compile work recorded rather than a speed guarantee.
+
+```sh
+python3 tests/scalability/compile_tables.py --cxx g++ \
+  --build-dir /tmp/telemetry-root-dedup-fields --rows 512 1024 2048 \
+  --families field --layouts sharded --shard-rows 32 --stages model \
+  --no-skip-after-compiler-limit --require-pass
+python3 tests/scalability/compile_tables.py --cxx clang++-18 \
+  --build-dir /tmp/telemetry-root-dedup-mixed --rows 256 \
+  --families mixed --layouts sharded --shard-rows 32 --stages model --require-pass
+python3 tests/scalability/compile_types.py --baseline "$(git rev-parse HEAD)" \
+  --build-dir /tmp/telemetry-root-dedup-distinct128 --counts 128 \
+  --variants distinct --layers model --compilers g++ clang++-18 --require-pass
+```
+
+Before/after use the same generated source and flags. A raw baseline archive
+is verified against Git blobs; its ROOT is distinct from the candidate tree.
+Windows CRLF input identity is normalized only for cross-tree comparison;
+original hashes remain in each report. Archive HEAD metadata is supplied from
+its verified manifest instead of creating artificial Git metadata. Larger
+baseline profiles are explicitly attempted with --no-skip-after-compiler-limit.
+New [root_dedup_results.json](root_dedup_results.json) preserves commands,
+time/RSS, generated source sizes, sections, normalized before/after inputs and
+five canonical parity report/payload hashes. The original results.json is
+unchanged. All eight candidate shared profiles and four distinct controls pass;
+this does not establish arbitrary large distinct-schema or single-tuple capacity.
 
 ## Read the evidence correctly
 

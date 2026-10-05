@@ -23,6 +23,7 @@
 - [Typed access і runtime access](#typed-access-і-runtime-access)
 - [ModelView](#modelview)
 - [TypeRegistry і TypeDescriptor](#typeregistry-і-typedescriptor)
+- [Positional roots і registry roots](#positional-roots-і-registry-roots)
 - [Reflection та форма payload](#reflection-та-форма-payload)
 - [Порядок IDs і зміни declaration](#порядок-ids-і-зміни-declaration)
 - [Межі та порожні категорії](#межі-та-порожні-категорії)
@@ -62,6 +63,44 @@ Native виклик можна виконати прямо через local tabl
 `Model`. Модель потрібна, коли всі families мають узгодити type metadata,
 runtime view або розміри encoded storage. Сам `Model` не має native
 `read<...>()`, `write<...>()` чи `call<...>()`: ці операції належать tables і catalogs.
+
+## Positional roots і registry roots
+
+Таблиці й каталоги мають два різні compile-time списки:
+
+| Alias | Порядок і кількість | Споживач |
+| --- | --- | --- |
+| `RootTypes` | Усі declared roots; повтори зберігаються | Positional metadata, кількість Field tokens у `ValuesFile` |
+| `RegistryRootTypes` | Унікальні normalized C++ типи; перше входження зберігається | Побудова `Model::Registry` |
+
+Field має один value root, Command — один request root, Service — пару
+request/response roots у порядку `Request0, Response0, Request1, Response1, ...`.
+`Void` також залишається у positional списку. У каталозі списки йдуть у порядку
+груп, а всередині груп — у порядку оголошення endpoints.
+
+Наприклад, 100 Fields одного типу мають `RootTypes::size == 100` і
+`RegistryRootTypes::size == 1`. Values зберігає всі 100 значень і 100 tokens
+плюс EOF; Registry описує спільний тип один раз. Кількість endpoints,
+packed IDs і positional TypeId arrays від дедуплікації не зменшуються.
+
+Дедуплікація виконується в local table, потім між tables у каталозі.
+`Model` передає Registry ці скорочені списки в порядку Fields → Commands →
+Services. Registry, як і раніше, додає залежності перед типом-контейнером;
+однаковий wire shape не об'єднує різні C++ типи. TypeIds, canonical descriptor
+bytes і fingerprint тому не змінюються від самого скорочення повторених roots.
+
+Catalog-like adapter із колишнім `RootTypes` без `RegistryRootTypes` також
+приймається: Model виводить унікальні registry roots із його positional списку.
+Для адаптера з власним `RegistryRootTypes` цей alias має дотримуватися того
+самого порядку першого входження; він не може приховувати типи endpoints.
+
+Це оптимізація template computation. Вона не змінює runtime entry layouts,
+storage budget чи indexed dispatch і не гарантує побайтово однаковий ELF:
+конкретна спеціалізація `Model::Registry` та її symbol names можуть змінитися.
+Для великих проектів дивіться вимірювання й окремі compiler ceilings у
+[Scalability](../Scalability.md). Прямий `TypeRegistry<Roots...>` і далі приймає
+переданий користувачем список; hierarchical reduction стосується tables,
+catalogs і Model.
 
 ## Повний приклад
 

@@ -376,8 +376,13 @@ Request type та власним typed result handling або encoded API для
 byte payload. Як і endpoint, response type обраної native Service може
 відрізнятися; universal owning response container library не створює.
 
-Metadata `RootTypes`, `staticSize`, `TypeStorage<Registry>` описує roots і
-positional request/response TypeIds. `ServiceTypePair` має `requestTypeId`
+`RootTypes` містить positional пари `Request0, Response0, Request1, Response1, ...`:
+два roots на кожен Service, включно з `Void`, зі збереженням повторів.
+`RegistryRootTypes` містить унікальні типи в порядку першого входження й
+використовується лише для побудови Registry. Каталог має обидва aliases й
+зберігає порядок груп та пар. `staticSize` рахує Services у локальній таблиці
+або групи каталогу, а `TypeStorage<Registry>` має pair для кожного Service.
+`ServiceTypePair` має `requestTypeId`
 та `responseTypeId`; `ServiceTypeCatalog` містить matching positional array.
 `model.view().serviceTypeIds(id)` повертає optional pair. `Model::typeId<T>()`
 та `model.types()` працюють із complete registry; TypeId не є endpoint ID.

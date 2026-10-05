@@ -76,6 +76,80 @@ struct Append<TypeList<Present...>, T> {
 	using type = TypeList<Present..., T>;
 };
 
+// Membership markers avoid a fold over all previously discovered roots.
+// The set contains normalized, unique types, so no base can occur twice.
+template<class T>
+struct RegistryRootMarker {};
+
+template<class List>
+struct RegistryRootSet;
+
+template<class... T>
+struct RegistryRootSet<TypeList<T...>> : RegistryRootMarker<T>... {};
+
+template<class List, class T,
+         bool Present = std::is_base_of_v<RegistryRootMarker<T>, RegistryRootSet<List>>>
+struct UniqueRootAppend {
+	using type = List;
+};
+
+template<class List, class T>
+struct UniqueRootAppend<List, T, false> : Append<List, T> {};
+
+// This recursion is confined to one block of at most 32 input roots.
+template<class List, class... Roots>
+struct UniqueRootBlock;
+
+template<class List>
+struct UniqueRootBlock<List> {
+	using type = List;
+};
+
+template<class List, class First, class... Rest>
+struct UniqueRootBlock<List, First, Rest...> {
+	using WithFirst = typename UniqueRootAppend<List, std::remove_cvref_t<First>>::type;
+	using type = typename UniqueRootBlock<WithFirst, Rest...>::type;
+};
+
+// Long sequences advance by a fixed-size block rather than by each endpoint.
+// The block size is private compile-time work granularity, not an API limit
+// or a runtime storage budget. No giant tuple is instantiated to split it.
+template<class List, class... Roots>
+struct UniqueRootChunks : UniqueRootBlock<List, Roots...> {};
+
+template<class List, class T0, class T1, class T2, class T3, class T4, class T5, class T6, class T7,
+         class T8, class T9, class T10, class T11, class T12, class T13, class T14, class T15,
+         class T16, class T17, class T18, class T19, class T20, class T21, class T22, class T23,
+         class T24, class T25, class T26, class T27, class T28, class T29, class T30, class T31,
+         class... Rest>
+struct UniqueRootChunks<List, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15,
+                        T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26, T27, T28, T29, T30,
+                        T31, Rest...> {
+	using WithBlock =
+	    typename UniqueRootBlock<List, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13,
+	                             T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T24, T25, T26,
+	                             T27, T28, T29, T30, T31>::type;
+	using type = typename UniqueRootChunks<WithBlock, Rest...>::type;
+};
+
+template<class List>
+struct UniqueFirst;
+
+// Registry inputs preserve first occurrence and exact normalized C++ identity.
+// Positional RootTypes must remain separate: their duplicates describe rows.
+template<class... Roots>
+struct UniqueFirst<TypeList<Roots...>> : UniqueRootChunks<TypeList<>, Roots...> {};
+
+// Model also accepts catalog-like adapters written before RegistryRootTypes
+// existed. Preserve their source contract while deduplicating their old roots.
+template<class Source, class = void>
+struct RegistryRootsOf : UniqueFirst<typename Source::RootTypes> {};
+
+template<class Source>
+struct RegistryRootsOf<Source, std::void_t<typename Source::RegistryRootTypes>> {
+	using type = typename Source::RegistryRootTypes;
+};
+
 template<class T, class... Present>
 struct Position;
 

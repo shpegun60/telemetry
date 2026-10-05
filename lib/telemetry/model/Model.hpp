@@ -33,6 +33,7 @@ namespace telemetry {
 // Empty categories can be explicit without requiring a dummy local table.
 struct EmptyEndpointCatalog {
 	using RootTypes = detail::TypeList<>;
+	using RegistryRootTypes = detail::TypeList<>;
 };
 
 inline constexpr EmptyEndpointCatalog emptyFields{};
@@ -126,8 +127,9 @@ private:
 template<class Fields, class Commands, class Services>
 class Model {
 	using AllRoots =
-	    typename detail::ConcatLists<typename Fields::RootTypes, typename Commands::RootTypes,
-	                                 typename Services::RootTypes>::type;
+	    typename detail::ConcatLists<typename detail::RegistryRootsOf<Fields>::type,
+	                                 typename detail::RegistryRootsOf<Commands>::type,
+	                                 typename detail::RegistryRootsOf<Services>::type>::type;
 
 public:
 	using Registry = typename detail::RegistryFromList<AllRoots>::type;

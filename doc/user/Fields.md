@@ -319,8 +319,15 @@ Callback має компілюватися для кожного можливо�
 request/value types використовуйте `if constexpr`. Traversal callbacks можуть
 кидати exceptions, якщо вони enabled; endpoint callbacks залишаються noexcept.
 
-Публічні metadata aliases `RootTypes`, `staticSize` і `TypeStorage<Registry>`
-описують declared types та positional TypeIds. `Model::typeId<T>()`,
+Публічний `RootTypes` містить один value type на кожен Field у порядку
+оголошення; повтори навмисні. `RootTypes::size` — кількість полів, тому
+`ValuesFile` залишає окремий token для кожного поля навіть із тим самим типом.
+`RegistryRootTypes` містить лише унікальні типи в порядку першого входження:
+це окремий compile-time вхід для Registry, а не список рядків таблиці.
+Каталог має обидва aliases й зберігає порядок груп та полів усередині груп.
+`staticSize` — кількість рядків локальної таблиці або груп у каталозі;
+`TypeStorage<Registry>` зберігає positional TypeIds для всіх рядків.
+`Model::typeId<T>()`,
 `model.view().fieldTypeId(id)` і `model.types()` дозволяють звірити native
 тип з registry. TypeId є identity типу в конкретному complete Model,
 а packed Field ID — identity endpoint; це різні простори.

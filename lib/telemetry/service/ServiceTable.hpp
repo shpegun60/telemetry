@@ -109,8 +109,10 @@ class ServiceTable {
 	    "ServiceTable requires service() definitions");
 
 public:
+	// Positional request/response pairs remain interleaved in declaration order.
 	using RootTypes = typename detail::ConcatLists<
 	    detail::TypeList<typename Definitions::Request, typename Definitions::Response>...>::type;
+	using RegistryRootTypes = typename detail::UniqueFirst<RootTypes>::type;
 
 	static constexpr std::size_t staticSize = sizeof...(Definitions);
 
