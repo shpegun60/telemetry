@@ -18,6 +18,8 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 COBS_REVISION = "2e0abf260848fcb74e4a57b37532188047759643"
+# Keep this independent of executable output: removing a scenario must fail CI.
+EXPECTED_CHECKS = 368
 
 
 def digest(path):
@@ -55,6 +57,7 @@ def main():
         parser.error("COBS checkout must be at the documented pinned revision " + COBS_REVISION)
     report = {"completed": False, "compiler_sha256": digest(compiler),
               "cobs_tested_revision": actual_revision, "images": {}, "checks": 0,
+              "expected_checks": EXPECTED_CHECKS,
               "mode": "arm-compile-link" if args.arm else "host-execution"}
 
     def run(command, label):
@@ -116,8 +119,8 @@ def main():
         if not args.arm:
             output = run([*prefix, image], "execute-" + opt)
             match = re.fullmatch(r"COBS telemetry/resource integration: (\d+) checks passed\s*", output)
-            if not match or int(match[1]) != 295:
-                raise RuntimeError("The example did not execute its 295 expected checks")
+            if not match or int(match[1]) != EXPECTED_CHECKS:
+                raise RuntimeError(f"The example did not execute its {EXPECTED_CHECKS} expected checks")
             report["checks"] += int(match[1])
     if {str(path): digest(path) for path in sorted(set(inputs))} != before:
         raise RuntimeError("Build inputs changed during validation")

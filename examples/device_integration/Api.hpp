@@ -13,7 +13,9 @@
 #pragma once
 
 #include "Device.hpp"
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 
 namespace app::api {

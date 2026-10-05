@@ -2,9 +2,24 @@
 
 The [working example](../../examples/cobs_integration/README.md) uses actual
 COBS endpoints, CRC, fixed blocks and borrowed transport callbacks. No framing
-simulation replaces the COBS encoder/decoder. It executes **295 conditions**:
+simulation replaces the COBS encoder/decoder. It executes **368 conditions**:
 Field read/write/refusal, Command, Service, resource LIST/STAT/READ/partial WRITE,
 chunked receive, busy-send ownership and gap recovery through the delimiter.
+The runner requires the exact count independently of the executable's output,
+so dropping a scenario cannot silently pass with a lower number.
+
+Two integration boundary checks complement the application operations:
+
+- One encoded **payload data byte** is changed without editing the COBS code,
+  length, CRC trailer or delimiter. `crc_errors` and `frames_lost` each increase
+  once; structural/length counters stay unchanged. No packet is published,
+  all application callback counters stay unchanged, and the next valid request
+  succeeds without a reset or gap notification.
+- Exactly **128 application bytes**, including zeros, round-trip through both
+  COBS endpoints in three-byte chunks. The echo checks framing capacity rather
+  than a particular telemetry DTO. TX and RX blocks stay owned through Busy
+  and packet lifetimes, then return to the pools. A 129-byte allocation and an
+  append past the 128-byte capacity are rejected without changing the payload.
 
 The runner requires the pinned COBS Git revision
 `2e0abf260848fcb74e4a57b37532188047759643` and records actual source/image hashes.

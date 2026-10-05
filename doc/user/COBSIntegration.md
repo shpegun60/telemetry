@@ -219,7 +219,12 @@ Direct/Resource route. Тоді явно використайте
 ## Перевірки та межі
 
 [COBS runner](../../tests/cobs/run.py) перевіряє реальні endpoints, CRC,
-ownership і 295 application conditions. Sanitizers виконуються на Linux;
+ownership і 368 виконаних умов. Окремий тест змінює один payload byte,
+зберігаючи COBS blocks, length і delimiter: receiver повідомляє CRC failure,
+не передає packet у application і приймає наступний правильний frame.
+Перевірено також усі 128 application bytes в обох напрямках, embedded zeros,
+відмову для 129 bytes та звільнення borrowed TX/RX blocks.
+Sanitizers виконуються на Linux;
 ARM mode перевіряє компіляцію/лінкування. Реальне UART DMA виконання цього
 telemetry прикладу тут не заявлене.
 

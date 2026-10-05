@@ -11,6 +11,22 @@ permissions:
   contents: read
 
 jobs:
+  source-style:
+    name: Source comments, guards and pinned formatting
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact formatter version
+        run: |
+          python3 -m venv build/source-style-venv
+          build/source-style-venv/bin/python -m pip --disable-pip-version-check install clang-format==22.1.8
+      - name: Verify authored sources without rewriting them
+        run: |
+          python3 tools/source_style/check.py --clang-format build/source-style-venv/bin/clang-format --self-test
+
   checks:
     name: ${{ matrix.cxx }} ${{ matrix.standard }} ${{ matrix.mode }}
     runs-on: ubuntu-24.04

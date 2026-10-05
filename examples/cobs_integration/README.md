@@ -74,7 +74,7 @@ Resource READ response включає application route і свій 12-byte head
 
 ## Перевірені сценарії
 
-295 виконаних умов перевіряють:
+368 виконаних умов перевіряють:
 
 - Direct Read/Write одного Field, підтвердження Applied та InvalidValue;
 - Command без Request та Service з Request/Response;
@@ -83,6 +83,12 @@ Resource READ response включає application route і свій 12-byte head
 - COBS frames із нульовими bytes, порції RX по три bytes;
 - прийнятий TX borrow, повернення блока через `poll()` та збереження Message на Busy;
 - physical gap, відкидання неповного frame до delimiter та наступний повний frame.
+- пошкоджений payload byte при незмінних COBS code/length/CRC/delimiter:
+  `crc_errors` збільшується, packet не з'являється, application callbacks не
+  викликаються, наступний правильний запит одразу працює;
+- echo усіх 128 application bytes в обидва боки, включно з нулями, та
+  повернення TX/RX блоків після Busy і завершення borrow; спроба 129 bytes
+  відхиляється без зміни вже побудованого payload.
 
 Публічні операції й статуси описані в
 [TransportWalkthrough](../../doc/user/TransportWalkthrough.md).

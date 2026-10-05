@@ -13,6 +13,7 @@
 #include <cobs/Cobs.h>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <span>
@@ -272,6 +273,142 @@ void checkResources(Link& client, Transport& ct, Link& device, Transport& dt)
 	require(scalar32(reply.data(), 10) == 1 && reply.data()[14] == 1);
 }
 
+// Locate a nonzero decoded payload byte without changing COBS code bytes,
+// length, delimiter or CRC. The receiver must reject integrity, not framing.
+bool corruptPayload(std::span<std::uint8_t> frame, std::size_t target)
+{
+	std::size_t encoded = 0, decoded = 0;
+	while (encoded < frame.size() && frame[encoded] != 0) {
+		const auto code = frame[encoded++];
+		if (code - 1u > frame.size() - encoded)
+			return false;
+		for (unsigned i = 1; i < code; ++i, ++encoded, ++decoded) {
+			if (decoded == target) {
+				// Keep the encoded data byte nonzero so block geometry is intact.
+				if (frame[encoded] == 0 || frame[encoded] == 1)
+					return false;
+				frame[encoded] ^= 1;
+				return true;
+			}
+		}
+		if (code != 0xff && encoded < frame.size() && frame[encoded] != 0)
+			++decoded; // Zero represented by the boundary between COBS blocks.
+	}
+	return false;
+}
+
+void checkIntegrity(Link& client, Transport& ct, Link& device, Transport& dt)
+{
+	const auto before = device.stats().rx;
+	const auto rxAvailable = device.storage().rx_available();
+	const auto txAvailable = client.storage().tx_available();
+	const auto callbacks = app::api::diagnostics();
+	auto request = direct(client, app::api::Operation::Write, 0);
+	appendValue(request, std::uint32_t{42});
+	require(client.send(request) == wire::SendResult::Sent && !request);
+	const auto original = ct.frame();
+	std::array<std::uint8_t,
+	           cobs::codec::max_wire_size(Link::length_size + Link::max_send_size + Link::crc_size)>
+	    storage{};
+	require(original.size() <= storage.size() && original.back() == 0);
+	// The explicit bound also keeps GCC's ARM array-bounds analysis local.
+	std::copy_n(original.data(), std::min(original.size(), storage.size()), storage.data());
+	auto damaged = std::span{storage}.first(original.size());
+	// First value byte follows the length and six-byte Direct application header.
+	require(corruptPayload(damaged, Link::length_size + 6));
+	unsigned changed = 0;
+	for (std::size_t i = 0; i < damaged.size(); ++i)
+		changed += damaged[i] != original[i];
+	require(changed == 1 && damaged.back() == 0);
+	for (std::size_t offset = 0; offset < damaged.size();) {
+		const auto count = std::min(std::size_t{3}, damaged.size() - offset);
+		device.consume(damaged.subspan(offset, count));
+		offset += count;
+	}
+	ct.finish();
+	client.poll(0);
+	require(!client.tx_active() && client.storage().tx_available() == txAvailable);
+	require(!device.pop_packet()); // No application body can reach packet routing.
+	const auto after = device.stats().rx;
+	require(after.crc_errors == before.crc_errors + 1);
+	require(after.frames_lost == before.frames_lost + 1);
+	require(after.frames_received == before.frames_received);
+	require(after.malformed == before.malformed &&
+	        after.length_mismatch == before.length_mismatch && after.oversize == before.oversize &&
+	        after.resyncs == before.resyncs);
+	require(device.storage().rx_available() == rxAvailable);
+	const auto unchanged = app::api::diagnostics();
+	require(unchanged.device.reads == callbacks.device.reads &&
+	        unchanged.device.writes == callbacks.device.writes &&
+	        unchanged.device.commands == callbacks.device.commands &&
+	        unchanged.device.services == callbacks.device.services &&
+	        unchanged.fileReads == callbacks.fileReads &&
+	        unchanged.fileWrites == callbacks.fileWrites);
+	// The failed CRC consumed its delimiter; the next valid request works directly.
+	request = direct(client, app::api::Operation::Read, 0);
+	auto reply = roundTrip(client, ct, device, dt, request);
+	directStatus(reply, 0);
+	require(reply.size() == 7 && scalar32(reply.data(), 3) == 10);
+	require(device.stats().rx.frames_received == before.frames_received + 1);
+	require(device.stats().rx.crc_errors == before.crc_errors + 1);
+}
+
+void checkCapacity(Link& client, Transport& ct, Link& device, Transport& dt)
+{
+	static_assert(Link::max_send_size == 128 && Link::max_receive_size == 128);
+	const auto clientTx = client.storage().tx_available();
+	const auto clientRx = client.storage().rx_available();
+	const auto deviceTx = device.storage().tx_available();
+	const auto deviceRx = device.storage().rx_available();
+	const auto clientBefore = client.stats().rx;
+	const auto deviceBefore = device.stats().rx;
+	std::array<std::uint8_t, Link::max_send_size> payload{};
+	for (std::size_t i = 0; i < payload.size(); ++i)
+		payload[i] = i % 7 == 0 ? 0 : static_cast<std::uint8_t>(i + 1);
+	// This echo tests COBS capacity independently of any particular DTO or route.
+	// All 128 application bytes are delivered in each direction, including zeros.
+	auto tooLarge = client.make_message(payload.size() + 1);
+	require(!tooLarge && client.storage().tx_available() == clientTx);
+	auto request = client.make_message(payload.size());
+	require(request && request.size() == 0 && request.capacity() == payload.size());
+	require(request.append_bytes(payload) && request.size() == payload.size());
+	require(!request.append_le(std::uint8_t{1}) && request.size() == payload.size());
+	require(client.send(request) == wire::SendResult::Sent && !request);
+	require(client.storage().tx_available() == clientTx - 1 && client.tx_active());
+	const auto borrowed = ct.frame();
+	require(!borrowed.empty() && borrowed.back() == 0);
+	auto pending = client.make_message(payload.size());
+	require(pending && pending.append_bytes(payload));
+	require(client.send(pending) == wire::SendResult::Busy && pending.size() == payload.size());
+	require(ct.frame().data() == borrowed.data() && ct.frame().size() == borrowed.size());
+	transfer(client, ct, device);
+	require(client.storage().tx_available() == clientTx - 1); // pending still owns its TX block.
+	auto incoming = device.pop_packet();
+	require(incoming && incoming.size() == payload.size());
+	require(std::equal(incoming.data().begin(), incoming.data().end(), payload.begin()));
+	require(device.storage().rx_available() == deviceRx - 1);
+	auto response = device.make_message(payload.size());
+	require(response && response.append_bytes(incoming.data()));
+	require(device.send(response) == wire::SendResult::Sent && !response);
+	require(device.storage().tx_available() == deviceTx - 1);
+	incoming.reset(); // Reply has its own TX block; the decoded RX borrow is done.
+	require(device.storage().rx_available() == deviceRx);
+	transfer(device, dt, client);
+	require(device.storage().tx_available() == deviceTx);
+	auto reply = client.pop_packet();
+	require(reply && reply.size() == payload.size());
+	require(std::equal(reply.data().begin(), reply.data().end(), payload.begin()));
+	require(client.storage().rx_available() == clientRx - 1);
+	reply.reset();
+	pending = {};
+	require(client.storage().rx_available() == clientRx &&
+	        client.storage().tx_available() == clientTx);
+	require(client.stats().rx.frames_received == clientBefore.frames_received + 1 &&
+	        client.stats().rx.frames_lost == clientBefore.frames_lost);
+	require(device.stats().rx.frames_received == deviceBefore.frames_received + 1 &&
+	        device.stats().rx.frames_lost == deviceBefore.frames_lost);
+}
+
 void checkOwnership(Link& client, Transport& ct, Link& device)
 {
 	auto first = client.make_message();
@@ -321,6 +458,8 @@ int main()
 	checkTelemetry(client, clientTransport, device, deviceTransport);
 	checkResources(client, clientTransport, device, deviceTransport);
 	checkOwnership(client, clientTransport, device);
+	checkIntegrity(client, clientTransport, device, deviceTransport);
+	checkCapacity(client, clientTransport, device, deviceTransport);
 	require(client.unbind() && device.unbind());
 	std::printf("COBS telemetry/resource integration: %u checks passed\n", checks);
 }

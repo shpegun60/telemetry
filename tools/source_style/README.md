@@ -26,10 +26,35 @@ undocumented new library code. They retain their existing explanatory comments.
 The checker verifies file headers/guard uniqueness; class-summary quality is
 reviewed against actual methods, rather than guessed by a C++ regular expression.
 
-Use clang-format **22.1.8** for a reproducible formatting pass, then compile
+Formatting is enforced by the separate **Source comments, guards and pinned
+formatting** CI job. It installs clang-format **22.1.8** into a virtual
+environment and runs this checker over the same maintained inventory. The
+checker rejects any other formatter version. It compares formatter output
+with each C++/JavaScript file after normalizing CRLF to LF; it never rewrites
+source during this check. Noncanonical tabs, braces, spacing or blank lines
+fail CI, while Windows checkout line endings do not.
+
+Run the complete gate locally with the same pinned formatter:
+
+```sh
+python3 -m venv /tmp/telemetry-source-style
+/tmp/telemetry-source-style/bin/python -m pip install clang-format==22.1.8
+python3 tools/source_style/check.py \
+  --clang-format /tmp/telemetry-source-style/bin/clang-format --self-test
+```
+
+`--self-test` feeds a deliberately malformed C++ function through the real
+formatter, then proves that the canonical result is accepted, the original
+malformed function is rejected, and canonical CRLF text is accepted. These
+controls use the same comparison as the maintained-file gate and do not create
+or modify source files. `--self-test` requires `--clang-format`; the original
+no-argument command remains the comments/guards-only check.
+
+Use clang-format **22.1.8** for an intentional formatting pass, then compile
 the affected examples and run the contract/codegen suites. Negative fixtures
-and macros need compiler verification too. Logs and generated binaries belong
-in an explicit external `--build-dir`, never beside the helper.
+and macros need compiler verification too. Virtual environments, logs and
+generated binaries belong outside the source tree during local validation;
+CI keeps generated files in its ignored `build` tree.
 
 The 2026-10-04 pass checked 296 authored file-purpose headers and 88 dual
 header guards, and formatted 244 C++/JavaScript sources. Library/consumer token
