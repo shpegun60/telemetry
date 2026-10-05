@@ -68,6 +68,12 @@ runtime view або розміри encoded storage. Сам `Model` не має n
 
 Таблиці й каталоги мають два різні compile-time списки:
 
+`RootTypes` і `RegistryRootTypes` — публічні контракти для метаданих,
+призначені для авторів адаптерів і перевірок на етапі компіляції. Для читання, запису
+й викликів використовуйте table/catalog API; для інформації про типи —
+`model.types()` і `Model::typeId<T>()`. `RegistryRootTypes` не визначає
+endpoint IDs, кількість рядків чи бізнес-логіку застосунку.
+
 | Alias | Порядок і кількість | Споживач |
 | --- | --- | --- |
 | `RootTypes` | Усі declared roots; повтори зберігаються | Positional metadata, кількість Field tokens у `ValuesFile` |
