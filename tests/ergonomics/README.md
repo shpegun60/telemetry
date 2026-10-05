@@ -13,6 +13,18 @@ python tests/ergonomics/run.py --cxx g++ --null-checks --build-dir /tmp/telemetr
 python tests/ergonomics/run.py --arm --cxx arm-none-eabi-g++ --build-dir /tmp/telemetry-ergonomics-arm
 ```
 
+The existing [cross-endian runner](../structured/codec/endian.py) also builds
+ResourceClient.cpp with Protocol.cpp for native little-endian Linux and
+big-endian s390x, then executes the latter through QEMU. Both builds force
+the expected `std::endian::native` with an injected assertion, use the same
+request/reply byte goldens, and retain executable hashes and output in
+`summary.json`. Its input manifest includes ResourceClient.cpp and the runner
+itself. This runs in the endian CI job and does not access hardware:
+
+```sh
+python tests/structured/codec/endian.py --build-dir /tmp/telemetry-endian
+```
+
 The suite covers exact native runtime Command/Service selection separately
 from application outcomes, factory result lifetime, borrowed Field identity,
 owning read refusal reasons, getter-once, stoppable typed/erased iteration,

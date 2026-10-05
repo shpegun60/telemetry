@@ -81,3 +81,18 @@ Existing descriptor/resources, freeze, qualification, documentation examples,
 source formatting and resource contract runners also passed locally. The new
 ergonomic suite is wired into release, null-checks, sanitized and Cortex-M7 CI;
 this pre-publication record does not claim a future exact-SHA CI result.
+
+## Cross-endian client follow-up
+
+The 2026-10-05 follow-up adds the existing ResourceClient.cpp/Protocol.cpp
+program to the cross-endian runner, with production library sources unchanged
+from `28da04d`. Local Linux little-endian execution and s390x execution through
+QEMU both passed all 443 client checks. The complete runner passed 10 program
+executions and five byte-identical Descriptor/Values files. Its source manifest
+now also covers ResourceClient.cpp and endian.py itself; both target builds
+assert their real native endian. The endian CI job runs this same gate and
+retains both executable hashes, logs and source hashes in its summary.
+
+This qualification is native/emulated host execution, not an H7S measurement.
+The firmware equivalence record establishes 12/12 identical `.bin` images;
+current/retained ELF hashes are separate identities, with only 6/12 equal.

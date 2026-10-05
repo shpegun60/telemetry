@@ -67,6 +67,8 @@ and links them without running an image on a device.
 telemetry and resource operations, including busy ownership, split input and
 gap recovery. The [cross-endian runner](structured/codec/endian.py) executes
 native little/big-endian targets and compares complete canonical wire files.
+It also executes resource client request/reply byte goldens, malformed-input
+controls and client/server round trips on both targets.
 [Source conventions](../tools/source_style/README.md) are checked in CI too.
 
 [Ergonomic API checks](ergonomics/README.md) execute native runtime selection,

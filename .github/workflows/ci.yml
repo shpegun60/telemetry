@@ -611,7 +611,7 @@ jobs:
           path: build/dependencies/cobs
       - name: Install s390x C++ compiler and user-mode emulator
         run: sudo apt-get update && sudo apt-get install -y g++-s390x-linux-gnu qemu-user
-      - name: Canonical codec, resource, Descriptor and Values bytes
+      - name: Canonical codec, resource client, Descriptor and Values bytes
         run: python3 tests/structured/codec/endian.py --build-dir build/endian
       - name: COBS telemetry/resource on a real big-endian target
         run: python3 tests/cobs/run.py --cxx s390x-linux-gnu-g++ --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu --expect-big-endian --cobs-root build/dependencies/cobs --build-dir build/cobs-big

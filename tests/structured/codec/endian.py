@@ -3,8 +3,9 @@
 
 Linux s390x runs through QEMU user-mode with its own C++ standard library. This
 exercises the real big-endian branch, rather than changing a preprocessor endian
-macro on a little-endian machine. The test compares complete Descriptor/Values
-files too; it does not measure MCU cycles or touch a physical board.
+macro on a little-endian machine. Resource client builders/parsers use byte
+goldens on both targets. The test compares complete Descriptor/Values files
+too; it does not measure MCU cycles or touch a physical board.
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 """
 import argparse
@@ -32,13 +33,27 @@ def main():
     args = parser.parse_args()
     out = args.build_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    report = {"completed": False, "targets": {}, "wire_files": {}}
+    report = {"completed": False, "targets": {}, "wire_files": {}, "executions": 0}
+    programs = {
+        "codec": (["tests/structured/codec/CodecProbe.cpp"], []),
+        "resource": (["tests/resources/CoreCheck.cpp", "lib/resource/protocol/Protocol.cpp"], []),
+        "resource-client": (["tests/ergonomics/ResourceClient.cpp",
+                             "lib/resource/protocol/Protocol.cpp"], []),
+        "descriptor": (["tests/structured/descriptor/DescriptorCheck.cpp",
+                        "tests/structured/descriptor/Other.cpp"],
+                       ["mixed.bin", "edge.bin", "empty.bin"]),
+        "values": (["tests/structured/resources/Check.cpp", "lib/resource/protocol/Protocol.cpp",
+                    "lib/resource/telemetry/v3/detail/Values.cpp"],
+                   ["values-descriptor.bin", "values.bin"]),
+    }
     inputs = [path for path in (ROOT / "lib").rglob("*")
               if path.is_file() and path.suffix in {".cpp", ".h", ".hpp"}]
     inputs += [path for directory in (ROOT / "tests/structured/codec",
                ROOT / "tests/structured/descriptor", ROOT / "tests/structured/resources",
                ROOT / "tests/resources") for path in directory.glob("*")
                if path.suffix in {".cpp", ".h", ".hpp"}]
+    inputs += [ROOT / source for sources, _ in programs.values() for source in sources]
+    inputs.append(Path(__file__).resolve())
     before = {path.relative_to(ROOT).as_posix(): digest(path) for path in sorted(set(inputs))}
 
     def run(command, label):
@@ -54,16 +69,6 @@ def main():
         print(label + ": pass", flush=True)
         return result.stdout
 
-    programs = {
-        "codec": (["tests/structured/codec/CodecProbe.cpp"], []),
-        "resource": (["tests/resources/CoreCheck.cpp", "lib/resource/protocol/Protocol.cpp"], []),
-        "descriptor": (["tests/structured/descriptor/DescriptorCheck.cpp",
-                        "tests/structured/descriptor/Other.cpp"],
-                       ["mixed.bin", "edge.bin", "empty.bin"]),
-        "values": (["tests/structured/resources/Check.cpp", "lib/resource/protocol/Protocol.cpp",
-                    "lib/resource/telemetry/v3/detail/Values.cpp"],
-                   ["values-descriptor.bin", "values.bin"]),
-    }
     for target, cxx, endian in (("little", args.cxx_native, "little"),
                                 ("big", args.cxx_big, "big")):
         compiler = Path(shutil.which(cxx) or cxx).absolute()
@@ -85,6 +90,7 @@ def main():
             run([*flags, *sources, "-o", image], target + "-build-" + name)
             output = run([*prefix, image, *(folder / file for file in files)],
                          target + "-execute-" + name)
+            report["executions"] += 1
             report["targets"][target]["programs"][name] = {
                 "image_sha256": digest(image), "output": output}
     for name in ("mixed.bin", "edge.bin", "empty.bin", "values-descriptor.bin", "values.bin"):
@@ -98,7 +104,8 @@ def main():
     report["input_sha256"] = before
     report["completed"] = True
     (out / "summary.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print("Little/big endian: 8 executions and 5 byte-identical wire files passed", flush=True)
+    print(f"Little/big endian: {report['executions']} executions and "
+          f"{len(report['wire_files'])} byte-identical wire files passed", flush=True)
 
 
 if __name__ == "__main__":
