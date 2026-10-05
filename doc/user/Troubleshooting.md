@@ -13,6 +13,7 @@
 - [Compiler каже, що немає span / concepts / consteval](#compiler-каже-що-немає-span--concepts--consteval)
 - [Linker не знаходить readFieldEncoded / callServiceEncoded](#linker-не-знаходить-readfieldencoded--callserviceencoded)
 - [field() або command() видає великий template diagnostic](#field-або-command-видає-великий-template-diagnostic)
+- [Великий Model упирається в compiler depth або memory limit](#великий-model-упирається-в-compiler-depth-або-memory-limit)
 - [Чому не можна передати Command два аргументи?](#чому-не-можна-передати-command-два-аргументи)
 - [У UI приходить double, а setter приймає float](#у-ui-приходить-double-а-setter-приймає-float)
 - [readAs<T>(id) повертає порожній результат](#readastid-повертає-порожній-результат)
@@ -61,6 +62,21 @@ filesystem/protocol та Descriptor/Values providers. Повні host прикл
 використайте відповідний `.pri`. Якщо компілюєте вручну, виконайте повну
 команду з [GettingStarted](GettingStarted.md), щоб перевірити paths окремо
 від інтеграції з IDE.
+
+## Великий Model упирається в compiler depth або memory limit
+
+Спочатку розрізніть число endpoints, root occurrences і unique exact types.
+Поточний registry проходить повторені roots навіть після deduplication types.
+Одна велика local table також створює великий `std::tuple`. Поділіть таблиці за
+модулями, повторно використовуйте exact DTO для спільного контракту і не включайте
+повний application Model у кожний runtime consumer.
+
+Порівняння і відтворювані команди є в [Scalability](../Scalability.md).
+Explicit compiler budget override — окреме виміряне рішення, яке не усуває
+потреби в compiler memory/time та Flash/RAM. Не збільшуйте числа без визначення
+точного diagnostic. Для pinned C++20 PFR aggregate201 вже перевищує backend
+capacity200, хоча normalized `maxStructMembers` дорівнює 256; тут compiler-depth
+override не є виправленням. Розділіть DTO на звичайні вкладені aggregates.
 
 ## Compiler каже, що немає span / concepts / consteval
 

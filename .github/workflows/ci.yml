@@ -27,6 +27,50 @@ jobs:
         run: |
           python3 tools/source_style/check.py --clang-format build/source-style-venv/bin/clang-format --self-test
 
+  scalability:
+    name: Bounded catalogs, type graphs and module integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install measurement tools
+        run: sudo apt-get update && sudo apt-get install -y clang-18 time binutils
+      - name: Require successful repeated-type Model profiles
+        run: |
+          for compiler in g++ clang++-18; do
+            python3 tests/scalability/compile_tables.py --cxx "$compiler" \
+              --build-dir "$RUNNER_TEMP/scalability/tables-$compiler" \
+              --rows 32 128 --families field command service mixed \
+              --layouts sharded --stages model --require-pass \
+              --isolation-note "Sequential profiles in a dedicated CI worker"
+          done
+      - name: Require successful shared and distinct type graphs
+        run: |
+          python3 tests/scalability/compile_types.py --baseline "$GITHUB_SHA" \
+            --build-dir "$RUNNER_TEMP/scalability/types" --counts 32 128 \
+            --compilers g++ clang++-18 --layers registry model --backend-boundaries --require-pass
+      - name: Validate runtime indexes and actual descriptor/value files
+        run: |
+          python3 tests/scalability/runtime.py --cxx g++ \
+            --build-dir "$RUNNER_TEMP/scalability/runtime"
+          python3 tests/scalability/runtime.py --cxx clang++-18 --sanitize \
+            --build-dir "$RUNNER_TEMP/scalability/runtime-sanitized"
+          python3 tests/scalability/runtime.py --cxx clang++-18 --sanitize --resources \
+            --build-dir "$RUNNER_TEMP/scalability/resources-sanitized"
+      - name: Validate visitor types and independent module consumers
+        run: |
+          python3 tests/scalability/visitors.py --cxx g++ --rows 128 \
+            --build-dir "$RUNNER_TEMP/scalability/visitors"
+          python3 tests/scalability/modular.py --cxx g++ \
+            --build-dir "$RUNNER_TEMP/scalability/modular"
+      - name: Retain profiles and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalability
+          path: ${{ runner.temp }}/scalability/
+          if-no-files-found: error
+
   checks:
     name: ${{ matrix.cxx }} ${{ matrix.standard }} ${{ matrix.mode }}
     runs-on: ubuntu-24.04
@@ -349,6 +393,17 @@ jobs:
           python3 tests/regression/ArmSlotGateCheck.py --build-dir build/arm-null
       - name: C++20 resource Cortex-M7 checks
         run: python3 tests/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-resources
+      - name: Bounded scalability layout and visitor objects
+        run: |
+          python3 tests/scalability/runtime.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/scalability-arm/layout"
+          python3 tests/scalability/visitors.py --arm --cxx arm-none-eabi-g++ --rows 128 --build-dir "$RUNNER_TEMP/scalability-arm/visitors"
+      - name: Retain scalability ARM object evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scalability-arm
+          path: ${{ runner.temp }}/scalability-arm/
+          if-no-files-found: error
       - name: User-guide examples Cortex-M7 compile and link
         run: python3 tests/docs/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-docs
       - uses: actions/checkout@v4

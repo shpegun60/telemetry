@@ -42,6 +42,7 @@
 | Request/Response, Service statuses і reply payload | [Services](user/Services.md) |
 | Local tables, named groups, packed IDs та runtime indexes | [Tables and catalogs](user/TablesAndCatalogs.md) |
 | Structural TypeRegistry, ModelView та всі runtime indexes | [Model](user/Model.md) |
+| Великі catalogs, unique DTOs, visitor code size та module dependencies | [Масштабування](Scalability.md), [reproducible checks](../tests/scalability/README.md) |
 | Canonical codec, Workspace/Lease, scratch та overlap | [Codec and Workspace](user/CodecAndWorkspace.md) |
 | Всі callback/binding forms, exact/As доступ, enums, iteration і slots | [Native API](user/NativeApi.md) |
 | Custom files, providers і cursors | [Resource files](user/Resources.md) |

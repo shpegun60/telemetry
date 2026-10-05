@@ -69,6 +69,12 @@ gap recovery. The [cross-endian runner](structured/codec/endian.py) executes
 native little/big-endian targets and compares complete canonical wire files.
 [Source conventions](../tools/source_style/README.md) are checked in CI too.
 
+[Scalability checks](scalability/README.md) separate typed-table compilation,
+exact type diversity, erased indexes, resources, visitor objects and module
+dependencies. Their bounded CI profiles gate correctness and build capacity;
+larger exploratory runs retain compiler limits as findings. See the
+[measured report](../doc/Scalability.md) for the populations and limitations.
+
 Scalar, legacy Field metadata/limits/arguments, JSON adapter, binary v2 and old
 ABI suites are retired after their source and measured evidence are archived.
 The fourteen obsolete `telemetry_*check.pro` targets referenced removed legacy

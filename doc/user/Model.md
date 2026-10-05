@@ -458,6 +458,13 @@ serialized-size limits; їхній `valid()` не замінює application val
 Конкретний compile-time reflection backend та compiler мають підтримувати
 обраний shape.
 
+У pinned C++20 Boost.PFR backend практична межа одного aggregate — **200 direct
+members**, хоча normalized ceiling `maxStructMembers` дорівнює 256. Nested DTOs
+можуть розділити більшу прикладну структуру. Compile-time вартість також залежить
+від кількості roots, exact DTO types і local table size; дивіться окремі
+[вимірювання масштабування](../Scalability.md). Acceptance ceilings не обіцяють
+успішну збірку за default compiler budgets чи вміщення у Flash кожного MCU.
+
 Для порожніх catalogs можна оголосити:
 
 ```cpp
