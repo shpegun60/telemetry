@@ -180,5 +180,19 @@ void test()
 		Zero = 0
 	};
 	(void)commandCatalog.call(Local::Zero, Request{});
+#elif CASE == 58
+	(void)services.callAs<Reply>(0, Request{}).valueOrNull();
+#elif CASE == 59
+	(void)serviceCatalog.callAs<Reply>(0, Request{}).valueOrNull();
+#elif CASE == 60
+	const auto result = services.callAs<Reply>(0, Request{});
+	(void)std::move(result).valueOrNull();
+#elif CASE == 61
+	// Preserve the return type's const qualification on the temporary itself.
+	(void)[]()->const Owned
+	{
+		return serviceCatalog.callAs<Reply>(0, Request{});
+	}
+	().valueOrNull();
 #endif
 }

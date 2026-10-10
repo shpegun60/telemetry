@@ -758,6 +758,65 @@ void checkLifetime()
 #endif
 }
 
+// Owning pointers depend on the named wrapper's lifetime. Borrowed pointers
+// instead refer to application storage and remain valid after a wrapper expires.
+template<class Result>
+concept HasValuePointer = requires(Result&& result) { std::forward<Result>(result).valueOrNull(); };
+
+void checkValuePointers()
+{
+	using Owned = ts::ServiceCallResult<Reply>;
+	using Borrowed = ts::BorrowedServiceCallResult<Reply>;
+	using Nothing = ts::ServiceCallResult<void>;
+	static_assert(HasValuePointer<Owned&> && HasValuePointer<const Owned&>);
+	static_assert(!HasValuePointer<Owned&&> && !HasValuePointer<const Owned&&>);
+	static_assert(HasValuePointer<Borrowed&> && HasValuePointer<const Borrowed&>);
+	static_assert(HasValuePointer<Borrowed&&> && HasValuePointer<const Borrowed&&>);
+	static_assert(!HasValuePointer<Nothing&> && !HasValuePointer<const Nothing&>);
+	static_assert(!HasValuePointer<Nothing&&> && !HasValuePointer<const Nothing&&>);
+
+	auto local = services.callAs<Reply>(0, Request{});
+	auto global = serviceCatalog.callAs<Reply>(packed(0), Request{});
+	const auto constLocal = services.callAs<Reply>(0, Request{});
+	const auto constGlobal = serviceCatalog.callAs<Reply>(packed(0), Request{});
+	CHECK(local.valueOrNull() == &local.value());
+	CHECK(global.valueOrNull() == &global.value());
+	CHECK(constLocal.valueOrNull() == &constLocal.value());
+	CHECK(constGlobal.valueOrNull() == &constGlobal.value());
+	local.valueOrNull()->value = 91;
+	CHECK(local.value().value == 91);
+	CHECK(constGlobal.valueOrNull()->value == 73);
+
+	// The four temporary wrappers are gone before any pointer is inspected.
+	const Reply* borrowedLocal = services.callBorrowed<Reply>(7, Request{}).valueOrNull();
+	const Reply* borrowedGlobal =
+	    serviceCatalog.callBorrowed<Reply>(packed(7), Request{}).valueOrNull();
+	const Reply* constBorrowedLocal = []() -> const Borrowed {
+		return services.callBorrowed<Reply>(7, Request{});
+	}()
+	                                              .valueOrNull();
+	const Reply* constBorrowedGlobal = []() -> const Borrowed {
+		return serviceCatalog.callBorrowed<Reply>(packed(7), Request{});
+	}()
+	                                               .valueOrNull();
+	for (const Reply* pointer :
+	     {borrowedLocal, borrowedGlobal, constBorrowedLocal, constBorrowedGlobal}) {
+		CHECK(pointer == &backing);
+		CHECK(pointer->value == 73);
+	}
+	backing.value = 91;
+	for (const Reply* pointer :
+	     {borrowedLocal, borrowedGlobal, constBorrowedLocal, constBorrowedGlobal})
+		CHECK(pointer->value == 91);
+	backing.value = 73;
+
+	// Moving the payload out uses value(), whose rvalue overload remains public.
+	Reply movedLocal = services.callAs<Reply>(0, Request{}).value();
+	Reply movedGlobal = std::move(global).value();
+	CHECK(movedLocal.value == 73);
+	CHECK(movedGlobal.value == 73);
+}
+
 void checkTypesAndCompatibility()
 {
 	using Owned = ts::ServiceCallResult<Reply>;
@@ -880,5 +939,6 @@ int main()
 	checkLarge<1024>(16);
 	checkLarge<4096>(17);
 	checkLifetime();
+	checkValuePointers();
 	std::printf("FlatCalls: %u checks passed\n", checks);
 }

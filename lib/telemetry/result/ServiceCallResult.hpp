@@ -80,7 +80,7 @@ ServiceCallStatus serviceCallStatus(const NativeCallResult<Result>& result) noex
 // - hasValue(): Check operation success and payload lifetime.
 // - operator bool(): Check operation success.
 // - value(): Access the successful response, or check a void success.
-// - valueOrNull(): Access an optional nonvoid response pointer.
+// - valueOrNull(): Access an optional nonvoid pointer from an lvalue result.
 template<class T>
 class ServiceCallResult {
 	static_assert(std::is_same_v<T, std::remove_cvref_t<T>> &&
@@ -151,17 +151,28 @@ public:
 		requireValue();
 	}
 
-	[[nodiscard]] std::add_pointer_t<T> valueOrNull() noexcept
+	[[nodiscard]] std::add_pointer_t<T> valueOrNull() & noexcept
 	    requires(!std::is_void_v<T>)
 	{
 		return native_.hasValue() ? native_.value().valueOrNull() : nullptr;
 	}
 
-	[[nodiscard]] std::add_pointer_t<const T> valueOrNull() const noexcept
+	[[nodiscard]] std::add_pointer_t<const T> valueOrNull() const& noexcept
 	    requires(!std::is_void_v<T>)
 	{
 		return native_.hasValue() ? native_.value().valueOrNull() : nullptr;
 	}
+
+	// A pointer into a temporary owning result cannot outlive that statement.
+	// Keep value() && for explicit payload extraction, but require a named
+	// owner when callers borrow its storage through the pointer accessor.
+	std::add_pointer_t<T> valueOrNull() && noexcept
+	    requires(!std::is_void_v<T>)
+	= delete;
+
+	std::add_pointer_t<const T> valueOrNull() const&& noexcept
+	    requires(!std::is_void_v<T>)
+	= delete;
 
 private:
 	template<class Factory>

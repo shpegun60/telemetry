@@ -18,7 +18,7 @@ An older green CI or receipt does not qualify a later source tree.
 | --- | --- |
 | reflection, facade | Pinned PFR/compiler probes, normalized reflection boundary, callable rules |
 | types | Supported fixed-width shape, enum dictionary/code semantics and compile refusals |
-| codec | Canonical LE, bool validation, exact lengths, object lifetime and Workspace |
+| [codec](codec/README.md) | Canonical LE, existing-object/scoped decode, bool validation, exact lengths, object lifetime and Workspace |
 | registry | Compile-time deduplication and structural type identity |
 | service, model | Native bindings, local/global/encoded routing and ABI controls |
 | endpoints | Mixed scalar/enum/array/struct Fields and Commands, storage budgets and codegen |

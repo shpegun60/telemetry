@@ -25,6 +25,7 @@ SUPPORT = {
     "ResourceClient": ["lib/resource/protocol/Protocol.cpp"],
     "Ergonomics": ["lib/telemetry/abi/StructuredAbi.cpp"],
     "FlatNative": ["lib/telemetry/abi/StructuredAbi.cpp"],
+    "Codec": [],
     "Encoded": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
 }
 PROJECT = ROOT / "examples/device_integration"
@@ -157,7 +158,7 @@ def main():
                 else:
                     prefix = {"Resources": "Resource", "Encoded": "Encoded",
                               "DeviceIntegration": "Device integration", "Ergonomics": "Ergonomics",
-                              "FlatNative": "Flat native"}[name]
+                              "FlatNative": "Flat native", "Codec": "Codec"}[name]
                     rows = re.findall(r"^" + prefix + r" guide: (\d+) checks passed$", result, re.M)
                     if len(rows) != 1 or int(rows[0]) <= 0:
                         raise RuntimeError(name + ": expected one positive counted report")

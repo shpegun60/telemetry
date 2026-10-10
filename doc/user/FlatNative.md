@@ -52,7 +52,7 @@ Runtime calls вимагають lvalue table/catalog.
 | `status()` | `ServiceCallStatus` | `ServiceCallStatus` |
 | `hasValue()`, explicit `bool` | Routing **і** application success | Routing success **і** present successful const view |
 | `value()` | `T&`, `const T&`, `T&&`, `const T&&` за category result | `const T&` |
-| `valueOrNull()` | `T*` / `const T*`, null на failure | `const T*`, null на failure |
+| `valueOrNull()` | `T*` для `&`, `const T*` для `const&`; null на failure; `&&` / `const&&` видалені | `const T*`, null на failure; temporary view допустимий за зовнішнім lifetime contract |
 | `value_type` | `T` | `T` |
 
 `value()` вимагає успішного result; порушення precondition завершується через
@@ -103,11 +103,33 @@ success, але не створює об'єкта; `valueOrNull()` відсут�
 native result. Callback для великого owning response продовжує використовувати
 `ServiceResult<T>::successFrom(factory)`.
 
+Pointer із owning `ServiceCallResult<T>` можна отримати лише з lvalue result.
+Збережіть result в іменованій змінній і тримайте його живим до останнього
+використання pointer:
+
+```cpp
+auto response = services.callAs<Reply>(id, request);
+const Reply* reply = response.valueOrNull();
+if (reply)
+    use(*reply); // response ще живий.
+```
+
+`services.callAs<Reply>(id, request).valueOrNull()` не компілюється: `&&` та
+`const&&` overloads явно видалені. Це стосується також immediate-use expression,
+який раніше міг укластись у lifetime temporary. Заборона є перевіркою source
+contract, без runtime checks та без зміни storage/layout. Вона не продовжує
+lifetime іменованого result: pointer стає недійсним після його знищення або
+втрати payload. Для owning move-out `std::move(response).value()` лишається
+доступним; `value() &&` та `value() const&&` не змінені.
+
 Borrowed фасад тримає лише view/status і не копіює, не переміщує та не
 знищує `T`. Owner і borrowed response повинні жити до останнього використання
 view; synchronization лишається application responsibility. View не є snapshot.
 Якщо callback повертає reference на Request, сам Request теж має жити достатньо
 довго: використовуйте named request замість temporary для persisted view.
+`services.callBorrowed<Config>(configId).valueOrNull()` лишається допустимим:
+знищення temporary wrapper не знищує зовнішній `Config`. Pointer можна
+використовувати лише доки backing object живий і доступ до нього синхронізовано.
 
 Обидві форми використовують наявний indexed O(1) dispatch. Навіть однакові за
 формою DTO не означають однаковий C++ тип. Descriptor, TypeIds, fingerprint,

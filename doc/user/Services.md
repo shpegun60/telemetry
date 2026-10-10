@@ -404,6 +404,15 @@ selection **та** application success. Спільний `ServiceCallStatus` м�
 `Failed`. Nonvoid `valueOrNull()` safe на кожній відмові та повертає null.
 `value()` потребує success; новий фасад перевіряє цю precondition через `abort`.
 
+Owning `ServiceCallResult<T>::valueOrNull()` доступний лише для `&` / `const&`;
+`&&` / `const&&` overloads видалені. Спочатку збережіть result у змінній:
+`const auto result = services.callAs<Reply>(id, request);`, а потім отримайте
+pointer через `result.valueOrNull()`. Pointer не продовжує lifetime result.
+Навіть immediate-use виклик accessor на owning temporary не компілюється.
+Це source contract без runtime checks чи зміни layout; owning `value() &&`
+для move-out лишається доступним. У borrowed фасаду accessor на temporary
+дозволений, але backing response повинен жити до останнього pointer use.
+
 Response template argument — exact unqualified aggregate або `void` для
 owning form. Borrowed form потребує nonvoid borrowed endpoint і повертає
 лише `const T&`; зміна owner видима через view. Request/Response/ownership

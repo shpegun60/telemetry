@@ -36,6 +36,7 @@ def main():
     report = {"completed": False, "targets": {}, "wire_files": {}, "executions": 0}
     programs = {
         "codec": (["tests/structured/codec/CodecProbe.cpp"], []),
+        "codec-convenience": (["tests/structured/codec/Convenience.cpp"], []),
         "resource": (["tests/resources/CoreCheck.cpp", "lib/resource/protocol/Protocol.cpp"], []),
         "resource-client": (["tests/ergonomics/ResourceClient.cpp",
                              "lib/resource/protocol/Protocol.cpp"], []),

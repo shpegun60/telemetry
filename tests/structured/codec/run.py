@@ -50,7 +50,7 @@ def main() -> None:
         duration = time.perf_counter() - start
         log = f"COMMAND {command!r}\nEXIT {result.returncode}\nSECONDS {duration:.3f}\n{result.stdout}"
         (output / f"{label}.log").write_text(log, encoding="utf-8")
-        if result.returncode == 0 or reason not in result.stdout:
+        if result.returncode == 0 or re.search(reason, result.stdout) is None:
             raise RuntimeError(f"{label} missed its intended diagnostic\n{log}")
         print(f"{label}: expected rejection ({duration:.2f}s)", flush=True)
 
@@ -69,10 +69,12 @@ def main() -> None:
             "-fstack-usage",
         ]
         for optimization in ("O2", "Os", "Og"):
-            for source in ("CodecProbe.cpp", "ResultProbe.cpp", "ArmCodegen.cpp"):
+            for source in ("CodecProbe.cpp", "ResultProbe.cpp", "ArmCodegen.cpp",
+                           "Convenience.cpp", "ArmConvenience.cpp"):
                 stem = Path(source).stem
                 object_path = output / f"{optimization}-{stem}.o"
-                run(flags + [f"-{optimization}", "-c", str(SOURCES / source),
+                extra = ["-fno-elide-constructors"] if stem in ("Convenience", "ArmConvenience") else []
+                run(flags + extra + [f"-{optimization}", "-c", str(SOURCES / source),
                              "-o", str(object_path)], f"{optimization}-{stem}")
 
         for optimization in ("O2", "Os"):
@@ -102,6 +104,26 @@ def main() -> None:
                 print(f"{optimization} {comparison} comparison: {match.group(1)} B stack",
                       flush=True)
 
+            convenience_usage = (output / f"{optimization}-ArmConvenience.su").read_text(
+                encoding="utf-8")
+            # All emitted frames are bounded, including outlined decode helpers.
+            # These are individual frames, not a complete callback call-chain sum.
+            frames = re.findall(r"^([^\n]+)\t(\d+)\t([^\n]+)$", convenience_usage, re.M)
+            if not frames:
+                raise RuntimeError(f"Missing convenience stack records at {optimization}")
+            for symbol, frame, kind in frames:
+                if kind != "static" or int(frame) > 256:
+                    raise RuntimeError(f"{optimization} convenience frame is not bounded: "
+                                       f"{symbol}: {frame} B {kind}")
+            for mode in ("into", "legacy", "scoped", "placement"):
+                for size in (1024, 4096):
+                    symbol = f"convenience_{mode}_{size}"
+                    match = re.search(rf"\b{symbol}\([^\n]*\)\s*\t(\d+)\tstatic",
+                                      convenience_usage)
+                    if match is None:
+                        raise RuntimeError(f"Missing {symbol} convenience stack record")
+                    print(f"{optimization} {symbol}: {match.group(1)} B stack", flush=True)
+
         # The expanded comparison is evidence, not an alternative production
         # path. Its object section must remain larger than the looped codec.
         tool = Path(args.cxx)
@@ -126,13 +148,41 @@ def main() -> None:
                 raise RuntimeError("Array expansion is no longer larger than the loop")
             print(f"{optimization} array decode text: loop {loop_bytes} B, "
                   f"expanded {expanded_bytes} B", flush=True)
+
+        # Retain the full disassembly and undefined-symbol evidence for the
+        # complete convenience lifecycle at every optimization level.
+        def arm_tool(name: str) -> str:
+            candidate = tool.with_name("arm-none-eabi-" + name + tool.suffix)
+            command = str(candidate) if candidate.exists() else shutil.which("arm-none-eabi-" + name)
+            if not command:
+                raise RuntimeError(f"arm-none-eabi-{name} is required")
+            return command
+        for optimization in ("O2", "Os", "Og"):
+            obj = output / f"{optimization}-ArmConvenience.o"
+            run([size_command, "-A", str(obj)], f"size-{optimization}-convenience")
+            assembly = run([arm_tool("objdump"), "-dr", str(obj)],
+                           f"disassembly-{optimization}-convenience")
+            for mode in ("into", "legacy", "scoped", "placement"):
+                for size in (1024, 4096):
+                    if f"<convenience_{mode}_{size}>:" not in assembly:
+                        raise RuntimeError(f"Missing {mode}/{size} convenience disassembly")
+            undefined = run([arm_tool("nm"), "-u", str(obj)],
+                            f"undefined-{optimization}-convenience")
+            if re.search(r"\b(?:_Zn[aw]|malloc|calloc|realloc)", undefined):
+                raise RuntimeError(f"{optimization} convenience path references allocation")
     else:
-        for source in ("CodecProbe.cpp", "NoHeapProbe.cpp", "ResultProbe.cpp"):
+        for source in ("CodecProbe.cpp", "NoHeapProbe.cpp", "ResultProbe.cpp", "Convenience.cpp"):
             stem = Path(source).stem
             program = output / (stem + (".exe" if os.name == "nt" else ""))
-            run(flags + ["-O2", str(SOURCES / source), "-o", str(program)],
+            extra = ["-fno-elide-constructors"] if stem == "Convenience" else []
+            run(flags + extra + ["-O2", str(SOURCES / source), "-o", str(program)],
                 f"compile-{stem}")
-            run([str(program)], f"run-{stem}")
+            execution = run([str(program)], f"run-{stem}")
+            if stem == "Convenience":
+                count = re.search(r"^Codec convenience: (\d+) checks passed$", execution, re.M)
+                if count is None or int(count.group(1)) == 0:
+                    raise RuntimeError("Convenience probe did not report its actual check count")
+                print(execution.strip(), flush=True)
 
     negative_flags = [flag for flag in flags if flag != "-fstack-usage"]
     reject(negative_flags + ["-O2", "-fsyntax-only", str(SOURCES / "ResultNegative.cpp")],
@@ -140,7 +190,20 @@ def main() -> None:
     reject(negative_flags + ["-O2", "-fsyntax-only", str(SOURCES / "CodecNegative.cpp")],
            "negative-dmi-expansion", "DMI construction expands too many members")
 
-    print("Stage 04 codec and workspace checks passed", flush=True)
+    for case in range(1, 11):
+        if case <= 2:
+            reason = "Decode output must be a mutable non-volatile object"
+        elif case <= 6:
+            reason = r"(?:use of deleted function|call to deleted (?:member )?function)"
+        elif case <= 8:
+            reason = r"(?:use of deleted function|call to deleted constructor)"
+        else:
+            reason = r"(?:use of deleted function|overload resolution selected deleted operator)"
+        reject(negative_flags + ["-O2", f"-DCASE={case}", "-fsyntax-only",
+                                 str(SOURCES / "ConvenienceNegative.cpp")],
+               f"negative-convenience-{case}", reason)
+
+    print("Codec and workspace checks passed, including 10 convenience rejections", flush=True)
 
 
 if __name__ == "__main__":

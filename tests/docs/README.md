@@ -1,13 +1,13 @@
 # User-guide example checks
 
-`run.py` compiles the seven complete examples under
+`run.py` compiles the eight complete examples under
 [`examples/user_guide`](../../examples/user_guide) with C++20 and warnings as
 errors, plus the complete multi-file
 [`device_integration`](../../examples/device_integration/README.md) application.
-Host mode executes all eight programs. `Native.cpp` keeps its runtime
+Host mode executes all nine programs. `Native.cpp` keeps its runtime
 assertions enabled through `-UNDEBUG`, as does `QuickStart.cpp`; a preprocessor
 control verifies that `NDEBUG` is absent and `assert` remains defined. The Native example reports
-completion, while Resources, Encoded, Ergonomics, FlatNative and DeviceIntegration report their
+completion, while Resources, Encoded, Ergonomics, FlatNative, Codec and DeviceIntegration report their
 executed check counts.
 The runner records those counts without claiming per-assert counts for Native
 or QuickStart. ResourceClient executes complete client/server operations and
@@ -24,7 +24,7 @@ python tests/docs/run.py --cxx arm-none-eabi-g++ --arm --build-dir build/docs-ar
 
 Select the actual compiler on the machine. `--build-dir` is required and may
 point outside the checkout. Sanitizers are a host execution mode. ARM mode
-compiles and links all eight programs at `-O2` and `-Os` with newlib-nano and
+compiles and links all nine programs at `-O2` and `-Os` with newlib-nano and
 nosys; it executes no image and connects to no board. `--null-checks` retains
 the existing null-check compiler mode in either host or ARM builds.
 
@@ -34,6 +34,10 @@ assertions, build/execution counts, reported conditions and completion state.
 All generated files stay under the supplied output directory. QuickStart,
 Native and Encoded link the compiled telemetry ABI and Model adapter.
 Resources links only the generic resource packet implementation.
+Codec is a standalone header-only example: it requires neither an endpoint
+declaration nor Model/ABI compiled sources. Its counted checks cover nested
+DTO golden bytes, all three decode forms, validation before existing-object
+mutation, scope-bound reservation release and nested LIFO results.
 DeviceIntegration links both compiled telemetry sources and the generic
 resource processor. Its counted checks exercise native operations, canonical
 payloads, resource requests and bounded split/coalesced frame reception.

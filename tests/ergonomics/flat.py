@@ -25,6 +25,8 @@ NEGATIVES = {
        for n in (*range(1, 19), *range(25, 34), 38, 46, 47, 48, 55, 56, 57)},
     **{n: r'(?:use of deleted function|call to deleted (?:member )?function)'
        for n in (*range(19, 25), *range(49, 55))},
+    **{n: r'(?:use of deleted function|call to deleted (?:member )?function).*valueOrNull'
+       for n in range(58, 62)},
     34: r'(?:conversion from|no viable conversion|cannot convert)',
     35: r'(?:cannot convert|no viable conversion)',
     36: r'(?:cannot convert|no viable conversion)',

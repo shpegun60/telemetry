@@ -6,10 +6,12 @@
 [Таблиці й каталоги](TablesAndCatalogs.md) · [Descriptor і Values](DescriptorAndValues.md)
 
 Codec перетворює supported native object у fixed-size little-endian payload.
-`Workspace` надає caller-owned aligned storage для objects, створених під час
-decode або encoded endpoint call. Lease задає lifetime object: bytes можуть
-залишатися у buffer після його завершення, але використовувати старий `T*` вже
-не можна.
+Готовий object можна заповнити через `decode(bytes, object)` без Workspace.
+`Workspace` надає caller-owned aligned storage, коли треба створити новий object
+під час decode або encoded endpoint call. `decode<T>(bytes, workspace)` ховає
+Lease у RAII result `Decoded<T>`; explicit Lease API теж залишається. Bytes можуть
+залишатися у buffer після завершення object lifetime, але старі references та
+pointers використовувати вже не можна.
 
 Public implementation:
 [Codec.hpp](../../lib/telemetry/codec/Codec.hpp),
@@ -22,6 +24,7 @@ Public implementation:
 - [Wire shape](#wire-shape)
 - [Повний standalone приклад](#повний-standalone-приклад)
 - [Public codec API і statuses](#public-codec-api-і-statuses)
+- [Decoded result: status і lifetime](#decoded-result-status-і-lifetime)
 - [Workspace та Lease API](#workspace-та-lease-api)
 - [Alignment, nested leases і lifetime](#alignment-nested-leases-і-lifetime)
 - [Local object budget](#local-object-budget)
@@ -60,8 +63,10 @@ Empty aggregate або `std::array<E,0>` можуть мати `wireSize == 0`, 
 
 ## Повний standalone приклад
 
-Програма кодує 7-byte payload, перевіряє golden bytes і декодує native aggregate
-у scope-bound lease. Для цього прикладу compiled Model adapter не потрібний.
+Програма кодує nested aggregate зі `std::array` у 17-byte payload і показує всі
+три форми decode. Field, Command, Service, Model і compiled sources не потрібні.
+[Повна runnable програма](../../examples/user_guide/Codec.cpp) додатково перевіряє
+golden bytes, незмінність existing object на відмові, insufficient storage та LIFO.
 
 ```cpp
 #include <telemetry/codec/Codec.hpp>
@@ -72,63 +77,67 @@ Empty aggregate або `std::array<E,0>` можуть мати `wireSize == 0`, 
 
 namespace ts = telemetry;
 
-struct State {
-    float voltage;
-    std::uint16_t count;
-    bool enabled;
+struct Channel {
+    std::uint16_t adc;
+    float rms;
+};
+
+struct Measurement {
+    std::array<Channel, 2> channels;
+    std::uint32_t timestamp;
+    bool valid;
 };
 
 int main()
 {
-    static_assert(ts::wireSize<State> == 7);
-    const State source{1.0f, 0x1234, true};
-    std::array<std::byte, ts::wireSize<State>> wire{};
+    static_assert(ts::wireSize<Measurement> == 17);
+    const Measurement source{{{{1234, 220.5f}, {2345, 221.75f}}}, 1000, true};
+    std::array<std::byte, ts::wireSize<Measurement>> wire{};
     assert(ts::encode(source, wire) == ts::CodecStatus::Ok);
 
-    constexpr std::array<std::byte, 7> expected{
-        std::byte{0x00}, std::byte{0x00}, std::byte{0x80}, std::byte{0x3f},
-        std::byte{0x34}, std::byte{0x12}, std::byte{0x01},
-    };
-    assert(wire == expected);
+    // Existing object: decode directly, with validation before mutation.
+    Measurement existing{};
+    assert(ts::decode(wire, existing) == ts::CodecStatus::Ok);
+    assert(existing.timestamp == 1000 && existing.valid);
 
-    std::array<std::byte, ts::scratchBytes<State>> storage{};
+    std::array<std::byte, ts::scratchBytes<Measurement>> storage{};
     ts::Workspace workspace{storage};
     {
-        auto lease = workspace.reserve<State>();
-        assert(lease.valid() && !lease.constructed());
-        State* decoded = nullptr;
+        // New object: result owns its lifetime and reservation, not the bytes.
+        auto result = ts::decode<Measurement>(wire, workspace);
+        assert(result && result.status() == ts::CodecStatus::Ok);
+        assert(result.value().channels[0].adc == 1234);
+    }
+    assert(workspace.used() == 0);
+
+    {
+        // Existing low-level API: caller manages the Lease explicitly.
+        auto lease = workspace.reserve<Measurement>();
+        Measurement* decoded = nullptr;
         assert(ts::decode(wire, lease, decoded) == ts::CodecStatus::Ok);
         assert(decoded == lease.get());
-        assert(decoded->voltage == 1.0f && decoded->count == 0x1234);
-        assert(decoded->enabled);
-
-        State* second = decoded;
-        assert(ts::decode(wire, lease, second) == ts::CodecStatus::InvalidState);
-        assert(second == nullptr);
-        assert(lease.get()->count == 0x1234);
+        assert(decoded->channels[1].rms == 221.75f);
     }
     assert(workspace.used() == 0);
 
+    // An invalid bool at the end does not partially overwrite existing.
     wire.back() = std::byte{2};
-    {
-        auto lease = workspace.reserve<State>();
-        State* decoded = nullptr;
-        assert(ts::decode(wire, lease, decoded) == ts::CodecStatus::InvalidValue);
-        assert(decoded == nullptr && !lease.constructed());
-    }
-    assert(workspace.used() == 0);
+    assert(ts::decode(wire, existing) == ts::CodecStatus::InvalidValue);
+    assert(existing.timestamp == 1000 && existing.valid);
 }
 ```
 
-Lease резервує storage ще до `decode`. Якщо decode відхилено, reservation
-залишається до виходу з lease scope. Після успіху object належить lease; після
-scope exit destructor завершує lifetime і повертає попередній Workspace cursor.
+Для обох Workspace forms reservation передує decode. Якщо вона успішна, але
+decode відхилено, bytes залишаються зарезервованими до destruction result/lease.
+Після успіху scope exit завершує object lifetime і повертає попередній cursor.
 
 ## Public codec API і statuses
 
 | API | Контракт |
 | --- | --- |
 | `encode(const T& value, span<byte> output)` | `output.size()` має дорівнювати `wireSize<T>`; native object і output disjoint |
+| `decode(span<const byte> input, T& output)` | Exact input length; already live mutable nonvolatile supported T; input disjoint від усіх native bytes output, включно з padding |
+| `decode<T>(span<const byte> input, Workspace& workspace)` | Створити new T у Workspace; повернути noncopyable/nonmovable `Decoded<T>`, який утримує reservation і object lifetime |
 | `decode(span<const byte> input, Workspace::Lease<T>& lease, T*& output)` | Exact input length; fresh valid lease; input disjoint від complete Workspace span |
 | `buffersOverlap(a,b)` | Перевіряє overlap двох byte ranges; empty range завжди disjoint |
 | `buffersDisjoint(input,output,workspace)` | Перевіряє всі три pairs; це helper для сильнішого pairwise-disjoint контракту |
@@ -137,24 +146,60 @@ Standalone `encode` не приймає більший output span автома�
 надав великий buffer, передайте `output.first(ts::wireSize<T>)` після своєї capacity
 перевірки. Endpoint read/Service APIs нижче мають інший capacity контракт.
 
-`decode` насамперед присвоює `output = nullptr`, потім перевіряє length, Workspace
+Existing-object decode спочатку перевіряє exact length, overlap і повну canonical
+representation, а вже потім записує всі members. Відмови preflight/representation
+не змінюють semantic values existing object. Це не CPU atomic write і не
+synchronization: application забезпечує exclusive access до object і input
+протягом усього виклику. Decode не перевіряє бізнес-обмеження, тому live
+`device.settings` зазвичай слід змінювати через setter після окремого DTO decode.
+
+Low-level `decode(input, lease, output)` насамперед присвоює `output = nullptr`, потім перевіряє length, Workspace
 overlap, lease capacity та fresh state. Bool validation завершується до object
 construction. Уже constructed lease не використовується для повторного decode;
 створіть новий scope/lease після звільнення попереднього.
 
 | `CodecStatus` | Коли повертається | Дія caller |
 | --- | --- | --- |
-| `Ok` | Exact payload успішно encoded/decoded | Використати bytes або object у межах lease lifetime |
+| `Ok` | Exact payload успішно encoded/decoded | Використати bytes, existing object або новий object у межах result/lease lifetime |
 | `LengthMismatch` | Span size відрізняється від `wireSize<T>` | Перевірити expected shape і payload length |
-| `InvalidValue` | Decode знайшов bool byte поза 0..1 | Повернути application/protocol refusal; object ще не constructed |
+| `InvalidValue` | Decode знайшов bool byte поза 0..1 | Existing object незмінний; new object ще не constructed |
 | `WorkspaceTooSmall` | Decode отримав invalid reservation | Надати достатню aligned capacity або звільнити outer leases |
-| `Overlap` | Encode output перетинає native object або decode input перетинає Workspace | Використати disjoint storage |
+| `Overlap` | Encode output перетинає native object; decode input перетинає existing object або Workspace | Використати disjoint storage |
 | `InvalidState` | Lease вже constructed або внутрішній codec cursor не відповідає exact extent | Для повторного decode створити fresh lease; cursor mismatch вказує на порушення implementation invariant |
 
 Encode length/overlap errors не записують output. Decode preflight/representation
-errors не створюють новий object; output pointer залишається null. При повторному
+errors не створюють new object і не змінюють existing object; low-level output pointer залишається null. При повторному
 decode уже constructed lease повертає `InvalidState`, але його попередній object
 залишається живим до destruction lease.
+
+## Decoded result: status і lifetime
+
+`Decoded<T>` доступний через `<telemetry/codec/Codec.hpp>`. Він утримує
+`Workspace::Lease<T>` і status, але не володіє Workspace чи його backing buffer.
+`T` конструюється безпосередньо у reserved bytes; у result немає другої копії T.
+Повернення immobile result працює через guaranteed prvalue construction C++20.
+
+| `Decoded<T>` API | Значення |
+| --- | --- |
+| `status()` | `CodecStatus` завершеного decode |
+| `hasValue()`, explicit `bool` | True тільки для `CodecStatus::Ok` |
+| `value() &` | Mutable `T&` для успішного named result |
+| `value() const&` | `const T&` для успішного const named result |
+| `value() &&`, `value() const&&` | Видалені: reference не береться прямо з temporary result |
+| Copy/move | Видалені; result лишається у своєму scope |
+| Destructor | Destroy T, якщо він constructed, і release reservation |
+
+Немає nullable pointer accessor; спочатку перевірте result, потім викликайте
+`value()`. Access на failure є порушенням contract і завершується через `abort`.
+Збережене `T&` не продовжує lifetime result. Workspace та backing bytes мають
+жити довше за result і всіх references до його T.
+
+Successful reservation залишається активною навіть для `LengthMismatch`,
+`InvalidValue` або `Overlap`. На відмові T не constructed, але `used()` може
+бути ненульовим до destructor result. Invalid reservation не споживає bytes.
+Для кількох results/explicit leases у тому самому Workspace потрібне LIFO
+destruction незалежно від success status. Для retry у fresh storage завершіть
+попередній result scope.
 
 ## Workspace та Lease API
 
@@ -199,10 +244,10 @@ shape додатково перевіряє `Type<T>` у codec; reservation са
 
 ```cpp
 // Fragment: both leases are released automatically in reverse order.
-std::array<std::byte, ts::scratchBytes<State> + ts::scratchBytes<std::uint64_t>> storage{};
+std::array<std::byte, ts::scratchBytes<Measurement> + ts::scratchBytes<std::uint64_t>> storage{};
 ts::Workspace workspace{storage};
 {
-    auto first = workspace.reserve<State>();
+    auto first = workspace.reserve<Measurement>();
     assert(first.valid());
     const auto outerUsage = workspace.used();
     {
@@ -218,7 +263,7 @@ ts::Workspace workspace{storage};
 assert(workspace.used() == 0);
 ```
 
-Leases звільняються тільки LIFO. Nonmoving lease objects та звичайні nested
+Leases і `Decoded<T>` results звільняються тільки LIFO. Nonmoving objects та звичайні nested
 scopes дають потрібний порядок. Звільнення outer lease раніше за inner порушує
 cursor contract. Не зберігайте decoded pointers після виходу з owning lease
 scope та не destroy backing bytes або Workspace під час активного lease.
@@ -319,7 +364,8 @@ success, і на refusal. Outer caller leases залишаються актив�
 | Шлях | Дозволено | Потрібна disjoint область |
 | --- | --- | --- |
 | Standalone encode | Будь-який valid native object з окремим output | Усі native bytes T, включно з padding, проти output |
-| Standalone decode | Input із окремого receive buffer | Input проти complete Workspace span |
+| Standalone decode у existing object | Input із окремого receive buffer | Input проти native bytes T, включно з padding |
+| Standalone Workspace decode, обидві форми | Input із окремого receive buffer | Input проти complete Workspace span |
 | Endpoint із required scratch | Request/response можуть бути поза Workspace | Wire spans проти complete Workspace span, включно з active outer leases |
 | Fully local endpoint | Wire storage може не бути disjoint із невикористаним Workspace | Borrowed native response усе одно не може перетинати output |
 | Service request/output | Exact або partial overlap між input та output | Required Workspace scratch та actual borrowed response проти wire output |
@@ -338,8 +384,9 @@ Service boundary. Використовуйте його, коли ваш applica
 
 ## Construction та structural limits
 
-Codec заповнює кожний semantic member і не використовує application default
-member initializers для decode. Trivially default-constructible T створюється
+Codec заповнює кожний semantic member і не трактує application default member
+initializers як telemetry metadata. Existing-object decode не конструює T
+повторно й не запускає DMI. Для new T у Workspace trivially default-constructible T створюється
 без зайвої value initialization, після чого members перезаписуються. Для
 aggregate із DMI neutral construction явно задає кожний member перед decode.
 
@@ -366,12 +413,13 @@ references, raw array members, volatile fields і packed member alignment
 
 1. Виберіть aggregate request/response та перевірте його `wireSize<T>` і native
    `sizeof(T)`; application validator визначає допустимі values.
-2. Для standalone codec виділіть exact wire span та fresh lease. Для endpoint
+2. Для standalone codec виділіть exact wire span і виберіть existing object,
+   scoped `Decoded<T>` або explicit fresh lease. Для endpoint
    operations використайте advertised wire/scratch requirements або Model maxima.
 3. Зберіть повний transport payload і викличте checked public boundary.
 4. Перевірте routing/codec status, потім application status. Використовуйте тільки
-   reported `written` bytes і тільки object pointers із живими owning leases.
-5. Завершіть lease scope перед повторним використанням storage; caller
+   reported `written` bytes і тільки references/pointers із живими owning results/leases.
+5. Завершіть result/lease scope перед повторним використанням storage; caller
    synchronization охоплює callback, borrowed response encode і lifetime.
 
 Runtime packet framing та delivery описані у

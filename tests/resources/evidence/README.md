@@ -66,6 +66,21 @@ also passed the historical receipt controls, 27 equivalence mutation controls,
 10 refused relocation mutations and the text-identity controls. This capture
 is offline compile/link evidence and adds no device execution.
 
+The owning-pointer and checked-codec refresh, captured on 2026-10-10 UTC,
+includes the lvalue-only owning `ServiceCallResult::valueOrNull()` contract and
+the additive codec helpers. Its inventory contains 138 library inputs and
+57 fixture inputs; only `ServiceCallResult.hpp` and `Codec.hpp` differ from
+the preceding flat native capture. All twelve raw firmware binaries remain
+identical after the documented Exchange source-path mapping. Six current ELF
+hashes match their retained counterparts; the other six are recorded separately.
+All six original receipt files preserve their raw checkout hashes. The capture
+honestly records starting revision
+`6d6d3bf415e0c7e1ebb5f3c91c6521d38bfc5bb0` and `source_dirty=true`; its input
+manifests identify the actual files compiled. Artifact verification and all
+historical and equivalence mutation controls pass. New API behavior is qualified
+by its separate host and ARM tests; these existing firmware fixtures do not
+instantiate every additive helper. No device was accessed or measured.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -117,7 +132,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261010-flat-native/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261010-owning-pointer/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -170,7 +185,9 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current 2026-10-10 flat runtime native API capture is
+The current owning-pointer and checked-codec capture is
+`C:/Users/admin/Documents/telemetry-validation/20261010-owning-pointer/equivalence`.
+The preceding 2026-10-10 flat runtime native API capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261010-flat-native/equivalence`.
 The 2026-10-05 ergonomic API capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/equivalence/final-source`.

@@ -777,6 +777,13 @@ Command і Service підтримують runtime exact native calls без visi
 success, а `value()` дає сам Response. Nonvoid `valueOrNull()` повертає null
 при будь-якій відмові; borrowed `value()` дає `const Response&`. Для `void`
 є success-only `value()` без payload, але немає `valueOrNull()`.
+Owning `ServiceCallResult<T>::valueOrNull()` має лише `&` / `const&` форми;
+`&&` / `const&&` явно видалені. Збережіть owning result у змінній перед отриманням
+pointer і тримайте result живим під час pointer use. Заборона охоплює також
+immediate-use owning temporary; `value() &&` для move-out не змінений.
+Borrowed temporary wrapper може повернути pointer, оскільки response ним не
+володіється, але lifetime backing object залишається відповідальністю caller.
+Це source contract без runtime checks чи зміни storage/layout.
 `ServiceCallStatus` охоплює `NotFound`, `SignatureMismatch` і application
 відмови; Command status зберігає всі application outcomes та додає routing
 `SignatureMismatch`. Exact Request/Response/ownership checks виконуються
@@ -1038,8 +1045,25 @@ object lifetime при construction, знищує object та повертає r
 
 ### Codec окремо від endpoints
 
-`encode(value, output)` та `decode(input, lease, pointer)` також працюють без
-Field/Command/Service. Decoder отримує вже зарезервований caller-owned Lease;
+Standalone `<telemetry/codec/Codec.hpp>` працює без Field/Command/Service або
+Model. `encode(value, output)` створює canonical bytes, а decode має три форми:
+
+| API | Storage і lifetime |
+| --- | --- |
+| `decode(input, T& output)` | Заповнює вже live mutable object; Workspace не потрібний |
+| `decode<T>(input, workspace)` | Повертає immobile `Decoded<T>`; його scoped Lease керує lifetime нового T у caller storage |
+| `decode(input, lease, pointer)` | Existing low-level API; caller окремо керує reservation та Lease lifetime |
+
+У першій формі exact length, object overlap та вся representation перевіряються
+до mutation, тому malformed input не частково змінює object. Це не CPU atomic
+write і не business validation: синхронізація та застосування конфігурації
+лишаться application responsibility. `Decoded<T>` має `status()`, `hasValue()`,
+explicit `bool` і `value()` тільки для named `&` / `const&` result; rvalue access
+видалено. Result і Workspace storage живуть довше за borrowed reference. Навіть
+failed decode може утримувати reservation до result destruction; усі results
+та explicit leases на одному Workspace звільняються LIFO.
+
+У low-level формі decoder отримує вже зарезервований caller-owned Lease;
 він починає lifetime decoded T і повертає pointer у цей lease:
 
 ```cpp
@@ -1053,8 +1077,8 @@ if (status == telemetry::CodecStatus::Ok) {
 }
 ```
 
-При кожному виклику decode спочатку ставить output pointer у nullptr.
-Обидві standalone codec operations вимагають exact wire length. Decode не
+При кожному low-level decode output pointer спочатку стає nullptr.
+Усі standalone codec operations вимагають exact wire length. Workspace decode не
 дозволяє input overlap із **повним** Workspace storage, навіть якщо input
 не перекриває лише конкретний lease. Один lease не декодується повторно,
 поки він уже містить constructed object. Lease destruction знищує object і
@@ -1071,6 +1095,9 @@ if (status == telemetry::CodecStatus::Ok) {
 
 Standalone decode, ID decomposition та reference-wrapper Service включені
 до [Native.cpp](../../examples/user_guide/Native.cpp), який виконується в CI.
+[Codec.cpp](../../examples/user_guide/Codec.cpp) окремо показує всі три decode
+forms для nested DTO зі `std::array`; contracts описані у
+[Codec and Workspace](CodecAndWorkspace.md).
 
 Default member initializers aggregate не є hook для decoded Request. Codec
 заповнює кожний semantic member із bytes і у nontrivial-default case явно

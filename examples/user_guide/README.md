@@ -12,6 +12,7 @@
 | [Ergonomics.cpp](Ergonomics.cpp) | Runtime native callAs, borrowed Field, причини відмов та flat/While traversal | `StructuredAbi.cpp` |
 | [FlatNative.cpp](FlatNative.cpp) | Command call і Service callAs/callBorrowed з одним result/status; owning, borrowed, void | `StructuredAbi.cpp` |
 | [ResourceClient.cpp](ResourceClient.cpp) | Checked resource request builders і borrowed reply parsers | `Protocol.cpp` |
+| [Codec.cpp](Codec.cpp) | Nested DTO і `std::array`; existing object, RAII Workspace result та low-level Lease decode | Header-only; compiled sources відсутні |
 
 ```sh
 python tests/docs/run.py --cxx g++ --build-dir /tmp/telemetry-doc-examples
@@ -31,6 +32,8 @@ python tests/docs/run.py --cxx g++ --build-dir /tmp/telemetry-doc-examples
 [Transport and Resources](../../doc/user/TransportAndResources.md) паралельно
 з цими програмами. Команди й CI integration описані в
 [documentation checks](../../tests/docs/README.md).
+Standalone encoding/decoding без Model або endpoint declarations описано у
+[Codec and Workspace](../../doc/user/CodecAndWorkspace.md).
 
 Наступний крок після односторінкових програм —
 [device integration](../device_integration/README.md). Він розносить business

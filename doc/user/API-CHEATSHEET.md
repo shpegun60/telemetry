@@ -20,6 +20,7 @@ named objects із [повного прикладу](../../examples/user_guide/N
 - [D. Runtime ID + bytes — transport/backend](#d-runtime-id--bytes--transportbackend)
 - [Який обхід](#який-обхід)
 - [Результати й пам'ять](#результати-й-память)
+- [Standalone codec](#standalone-codec)
 - [Files](#files)
 
 ## Створити
@@ -97,6 +98,13 @@ success, і один `value()` для payload. `status()` — `ServiceCallStatus
 nonvoid `valueOrNull()` повертає null при будь-якій відмові. Borrowed response
 доступний лише як `const T&`; для `void` є success-only `value()` без payload,
 але немає `valueOrNull()`. [Повні mapping та lifetime rules](FlatNative.md).
+
+Owning pointer отримуйте через іменований result: `snapshot.valueOrNull()`.
+Для `ServiceCallResult<T>` accessor дозволений лише на `&` / `const&`, а
+`&&` / `const&&` видалені, включно з immediate-use temporary. Pointer живе
+не довше result; `std::move(snapshot).value()` лишається доступним для move-out.
+Borrowed temporary pointer допустимий, якщо backing object ще живий.
+Захист не додає runtime checks і не змінює old low-level wrappers.
 
 Typed visitors, Field access та наступні low-level calls збережено без змін:
 
@@ -187,6 +195,26 @@ packet із UART/TCP chunks. [Encoded.cpp](../../examples/user_guide/Encoded.cpp
 Encoded default local budget — 32 B; larger objects використовують caller-owned
 `Workspace`. Достатній bound однієї операції — `model.maxScratch()`. Синхронізація
 і LIFO lifetime leases належать caller. Library core не виділяє heap.
+
+## Standalone codec
+
+Fragments нижче використовують вже declared supported `Config`, `bytes` та
+caller-owned `workspace`; повна програма — [Codec.cpp](../../examples/user_guide/Codec.cpp).
+
+```cpp
+Config existing{};
+const auto status = ts::decode(bytes, existing); // No Workspace.
+auto decoded = ts::decode<Config>(bytes, workspace); // Scoped Decoded<Config>.
+if (decoded)
+    use(decoded.value()); // Reference valid only while decoded lives.
+```
+
+Третя, low-level форма `decode(bytes, lease, pointer)` лишається без змін.
+Existing object змінюється тільки після всіх length/overlap/representation
+checks. `Decoded<T>` immobile, accessor на rvalue видалено; Workspace та bytes
+живуть довше за result. Усі results/leases на одному Workspace release LIFO,
+а failed result може утримувати reservation до destruction.
+[Усі signatures і statuses](CodecAndWorkspace.md).
 
 ## Files
 

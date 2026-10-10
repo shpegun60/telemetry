@@ -70,14 +70,21 @@ python tests/ergonomics/flat.py --arm --cxx arm-none-eabi-g++ --build-dir /tmp/t
 FlatCalls checks all routing/application statuses, local/global and empty
 tables/catalogs, exact request/response and ownership selection before callbacks,
 void results, wide/signed/local-enum IDs, empty function/owner slots, borrowed
-address identity, final-storage construction and exceptions. It executes 671
+address identity, final-storage construction and exceptions. It executes 691
 checks with host exceptions enabled; four exception checks are omitted in
 no-exceptions builds. Heap use aborts the host fixture. Deleted copy/move
 payloads and `-fno-elide-constructors` retain the final-storage control.
 
-FlatNegative requires 57 intended diagnostics, including cv/ref/pointer payload
+FlatNegative requires 61 intended diagnostics, including cv/ref/pointer payload
 types, volatile requests, implicit/explicit ID narrowing, rvalue table calls and
-incorrect result factories. FlatScale executes every row in grouped 128/256
+incorrect result factories. Four owning pointer cases require the deleted
+`valueOrNull()` diagnostic for `&&` and `const&&`, through both local and global
+calls. Positive controls retain mutable/const lvalue pointer access, borrowed
+temporary pointer identity and owning `value() &&` move-out. The restriction
+does not extend named-result lifetime; even immediate-use owning temporary
+pointer access is rejected. No runtime checks or storage/layout changes are
+introduced. Existing low-level wrappers keep their contracts.
+FlatScale executes every row in grouped 128/256
 profiles (1,934/3,854 checks). FlatLargeCodegen executes 79 checks for each exact
 1 KiB and 4 KiB response size and checks borrowed pointer identity separately.
 
@@ -88,6 +95,11 @@ frames above 256 B and allocation/hidden-copy references in measured objects.
 Entrypoint instruction bytes and ELF relocation targets are retained separately.
 Only objects built by the current invocation are inspected; an incomplete
 summary replaces any older success before commands start.
+The 2026-10-10/11 owning-pointer hardening capture passes 74 commands and 61
+intended rejections on GCC null-checks and Clang ASan/UBSan, with 6,637 computed
+host checks per mode. CubeIDE GCC 14.3.1 O2/Os/Og passes 103 compile/inspection
+commands and the same 61 rejections. The earlier linked measurement files above
+retain their original 57-rejection/6,617-check capture rather than being relabeled.
 Combined fixture totals contain all three approaches; they are not an estimate
 of incremental production Flash cost. Compilation and `.su` frames do not
 establish device cycles or full call-chain stack depth.

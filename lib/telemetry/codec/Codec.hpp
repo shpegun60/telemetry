@@ -16,6 +16,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -362,6 +363,109 @@ template<class T>
 		return CodecStatus::InvalidState;
 	}
 	return CodecStatus::Ok;
+}
+
+// Decode into an already live object. Check the complete representation before
+// the first assignment, so malformed input leaves output unchanged. This is
+// value validation, not synchronization or application-level validation.
+template<class T>
+[[nodiscard]] CodecStatus decode(std::span<const std::byte> input, T& output) noexcept
+{
+	static_assert(!std::is_const_v<T> && !std::is_volatile_v<T>,
+	              "Decode output must be a mutable non-volatile object");
+	if constexpr (!std::is_const_v<T> && !std::is_volatile_v<T>) {
+		static_assert(Type<T>::kind != TypeKind::Void, "Void has no decoded object");
+		if (input.size() != wireSize<T>)
+			return CodecStatus::LengthMismatch;
+		if (buffersOverlap(input, std::as_bytes(std::span<const T>{std::addressof(output), 1})))
+			return CodecStatus::Overlap;
+
+		codec_detail::Reader validator{input};
+		if (!codec_detail::validValue<T>(validator))
+			return CodecStatus::InvalidValue;
+		if (validator.cursor != input.size())
+			return CodecStatus::InvalidState;
+
+		codec_detail::Reader reader{input};
+		codec_detail::decodeInto(output, reader);
+		return reader.cursor == input.size() ? CodecStatus::Ok : CodecStatus::InvalidState;
+	}
+}
+
+template<class T>
+class Decoded;
+
+template<class T>
+[[nodiscard]] Decoded<T> decode(std::span<const std::byte> input, Workspace& workspace) noexcept;
+
+// Owns one decoded object's lifetime and reservation, not the backing memory.
+// status(): decode outcome; hasValue()/bool: success; value(): lvalue access.
+// Workspace and its storage must outlive this result. Results and other leases
+// sharing it must be destroyed in reverse reservation order, even after failure.
+template<class T>
+class Decoded {
+	static_assert(!std::is_const_v<T> && !std::is_volatile_v<T> && !std::is_reference_v<T>,
+	              "Decoded requires a mutable non-volatile object type");
+
+public:
+	Decoded(const Decoded&) = delete;
+	Decoded& operator=(const Decoded&) = delete;
+	Decoded(Decoded&&) = delete;
+	Decoded& operator=(Decoded&&) = delete;
+
+	[[nodiscard]] CodecStatus status() const noexcept
+	{
+		return status_;
+	}
+
+	[[nodiscard]] bool hasValue() const noexcept
+	{
+		return status_ == CodecStatus::Ok;
+	}
+
+	[[nodiscard]] explicit operator bool() const noexcept
+	{
+		return hasValue();
+	}
+
+	// Failed-result access is a contract violation. No reference can be taken
+	// directly from a temporary result whose lease is about to end.
+	[[nodiscard]] T& value() & noexcept
+	{
+		if (!hasValue())
+			std::abort();
+		return *lease_.get();
+	}
+
+	[[nodiscard]] const T& value() const& noexcept
+	{
+		if (!hasValue())
+			std::abort();
+		return *lease_.get();
+	}
+
+	T& value() && = delete;
+	const T& value() const&& = delete;
+
+private:
+	friend Decoded<T> decode<T>(std::span<const std::byte>, Workspace&) noexcept;
+
+	Decoded(std::span<const std::byte> input, Workspace& workspace) noexcept : lease_(workspace)
+	{
+		T* object = nullptr;
+		status_ = telemetry::decode(input, lease_, object);
+	}
+
+	Workspace::Lease<T> lease_;
+	CodecStatus status_;
+};
+
+// Guaranteed prvalue construction keeps the immobile lease in its final result
+// storage. The T itself is constructed only inside the caller's Workspace.
+template<class T>
+[[nodiscard]] Decoded<T> decode(std::span<const std::byte> input, Workspace& workspace) noexcept
+{
+	return Decoded<T>{input, workspace};
 }
 
 } // namespace telemetry

@@ -92,7 +92,7 @@ ownership, backpressure та recovery; host transport у ньому є fake.
 | Local tables, named groups, PackedId, traversal та indexes | [Tables and catalogs](doc/user/TablesAndCatalogs.md) |
 | Спільний TypeRegistry, ModelView та encoded adapter | [Model](doc/user/Model.md) |
 | Великий проєкт: compiler memory/time, type diversity та module boundaries | [Вимірювання масштабування](doc/Scalability.md) |
-| Canonical bytes, Workspace/Lease, local budget та overlap | [Codec and Workspace](doc/user/CodecAndWorkspace.md) |
+| Canonical bytes, три decode forms, Workspace/Lease, local budget та overlap | [Codec and Workspace](doc/user/CodecAndWorkspace.md) · [Runnable приклад](examples/user_guide/Codec.cpp) |
 | Providers, FileSystem/FileView, cursor і partial READ/WRITE | [Resource files](doc/user/Resources.md) |
 | Immutable descriptor, live Values, fingerprint і buffers | [Descriptor and Values](doc/user/DescriptorAndValues.md) |
 | Exact binary headers/records/default ceilings | [Wire v3.0](doc/WireV3.md) |
