@@ -19,6 +19,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / "examples/user_guide"
 SUPPORT = {
+    "NativeOnly": [],
     "QuickStart": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
     "Native": ["lib/telemetry/abi/StructuredAbi.cpp", "lib/telemetry/model/Adapter.cpp"],
     "Resources": ["lib/resource/protocol/Protocol.cpp"],
@@ -158,7 +159,8 @@ def main():
                 else:
                     prefix = {"Resources": "Resource", "Encoded": "Encoded",
                               "DeviceIntegration": "Device integration", "Ergonomics": "Ergonomics",
-                              "FlatNative": "Flat native", "Codec": "Codec"}[name]
+                              "FlatNative": "Flat native", "Codec": "Codec",
+                              "NativeOnly": "Native only"}[name]
                     rows = re.findall(r"^" + prefix + r" guide: (\d+) checks passed$", result, re.M)
                     if len(rows) != 1 or int(rows[0]) <= 0:
                         raise RuntimeError(name + ": expected one positive counted report")

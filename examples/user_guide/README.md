@@ -5,6 +5,7 @@
 
 | Програма | Що показує | Compiled sources |
 | --- | --- | --- |
+| [NativeOnly.cpp](NativeOnly.cpp) | Один local Field/Command/Service, static/runtime native calls, checked conversions і exact signatures; без Model/Workspace | Header-only; compiled sources відсутні |
 | [QuickStart.cpp](QuickStart.cpp) | Мінімальна mixed Model з головної сторінки | `StructuredAbi.cpp`, `Adapter.cpp` |
 | [Native.cpp](Native.cpp) | Field/Command/Service; типи, всі slots, owning/borrowed outputs, typed та erased traversal | `StructuredAbi.cpp`, `Adapter.cpp` |
 | [Resources.cpp](Resources.cpp) | Flat filesystem, lazy FileView, custom R/W provider, порційний LIST/STAT/READ/WRITE | `Protocol.cpp` |
@@ -28,6 +29,7 @@ python tests/docs/run.py --cxx g++ --build-dir /tmp/telemetry-doc-examples
 нового wire protocol бібліотеки. UART/TCP framing, таймаути, повтори й
 синхронізація залишаються в транспорті застосунку.
 
+Почніть із [API Map](../../doc/user/APIOverview.md), щоб обрати потрібну програму.
 Читайте [Native API](../../doc/user/NativeApi.md) і
 [Transport and Resources](../../doc/user/TransportAndResources.md) паралельно
 з цими програмами. Команди й CI integration описані в

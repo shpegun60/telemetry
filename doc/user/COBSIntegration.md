@@ -2,6 +2,8 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../LICENSE).
 
+[API Overview](APIOverview.md) · [Codec](CodecAndWorkspace.md) · [Resource](Resources.md)
+
 Цей розділ показує, як використати
 [`shpegun60/cobs`](https://github.com/shpegun60/cobs) для framing власних
 telemetry/resource повідомлень. Повна програма та команди збірки — у
@@ -30,6 +32,13 @@ Floating-point payload має IEEE binary32/binary64 representation, bool —
 замінює reflection, TypeRegistry або canonical value encoding. Його
 `append_le/read_le` зручно використовувати для **вашого packet header**,
 а DTO кодувати через `telemetry::encode/decode`.
+
+Standalone codec також можна використати у власному COBS packet без
+Field/Command/Service, Model чи filesystem. Тип payload у такому разі
+визначає ваш application protocol; [Codec guide](CodecAndWorkspace.md)
+показує encode та всі три decode-форми. Наведений нижче runnable приклад
+обирає Model для route Direct і filesystem для route Resource — це його
+application composition, а не обов'язкова залежність COBS framing.
 
 ## Архітектура
 

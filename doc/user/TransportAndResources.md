@@ -1,6 +1,6 @@
 # Файли ресурсів, пакети та encoded доступ
 
-[Посібник](README.md) · [Resource files](Resources.md) ·
+[Посібник](README.md) · [API Overview](APIOverview.md) · [Resource files](Resources.md) ·
 [Descriptor and Values](DescriptorAndValues.md) · [Wire v3.0](../WireV3.md) ·
 [Transport walkthrough](TransportWalkthrough.md)
 
@@ -31,6 +31,7 @@ signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
 - [LIST, STAT, READ та WRITE через generic protocol](#list-stat-read-та-write-через-generic-protocol)
 - [UART/TCP: спочатку повний packet](#uarttcp-спочатку-повний-packet)
 - [Прямі encoded операції Model без файлового шару](#прямі-encoded-операції-model-без-файлового-шару)
+- [Encoded без Model: catalog indexes](#encoded-без-model-catalog-indexes)
 - [Wire значення та перевірка результатів](#wire-значення-та-перевірка-результатів)
 - [Workspace, локальний бюджет та borrowed response](#workspace-локальний-бюджет-та-borrowed-response)
 - [DescriptorFile та ValuesFile у тій самій таблиці](#descriptorfile-та-valuesfile-у-тій-самій-таблиці)
@@ -42,7 +43,8 @@ signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
 | Потреба | Інтерфейс | Що вибирає адресат |
 | --- | --- | --- |
 | Прочитати/змінити C++ значення всередині програми | Нативні таблиці з [Native API](NativeApi.md) | Позиція або packed ID та точний тип |
-| Передати одне значення/виклик як байти | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` | Операція, u32 packed ID, payload |
+| Передати одне значення/виклик як байти без Model | Family catalog `index().readEncoded/writeEncoded/executeEncoded/callEncoded` | Операція, packed ID, payload |
+| Передати те саме через compiled boundary | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` з `ModelView` | Операція, u32 packed ID, payload |
 | Надати набір файлів із власними шляхами | `resource::filesystem(file(path, provider), ...)` | u32 індекс файла |
 | Передати файлові операції як пакети | `resource::protocol::process(view, request, response)` | LIST/STAT/READ/WRITE |
 | Прочитати опис Model та всі його Fields | `resource::telemetry::v3::DescriptorFile` і `ValuesFile` | Файли, додані в звичайну таблицю ресурсів |
@@ -50,7 +52,8 @@ signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
 
 Індекс файла і telemetry packed ID — різні адресні простори. Файловий
 `WRITE` викликає `provider.write()`. `ValuesFile` і `DescriptorFile` мають
-тільки читання; зміну Field, Command та Service маршрутизують до Model.
+тільки читання; зміну Field, Command та Service маршрутизують до encoded
+endpoint indexes або compiled ModelView adapter.
 
 ## Додати файли та встановити шляхи
 
@@ -402,6 +405,9 @@ packet відома harness заздалегідь. Справжній тран�
 ## Прямі encoded операції Model без файлового шару
 
 Коли transport уже має операцію, точний u32 ID та payload, файли не потрібні.
+Encoded access має два шляхи: direct catalog indexes без Model або compiled
+adapter із coherent ModelView. Canonical methods/results/build requirements —
+у [Model: Encoded API](Model.md#encoded-api-catalog-index-або-modelview).
 Повний [Encoded.cpp](../../examples/user_guide/Encoded.cpp) оголошує
 Device, Field/Command/Service tables, catalogs, Model, Workspace та
 реальний `onCompletePacket`, який маршрутизує байти до цих API:
@@ -433,10 +439,11 @@ model.serviceIndex().callEncoded(id, input, output, workspace);
 ```
 
 Compiled Model adapter приймає `ModelView` за значенням і позичає його
-таблиці. Лінкуйте `model/Adapter.cpp` та `abi/StructuredAbi.cpp`, якщо
-використовуєте чотири вільні adapter функції. `.pri` telemetry робить
-це автоматично. Прямі index/header-only native операції цих object files
-самі по собі не потребують.
+таблиці. Чотири вільні functions потребують `model/Adapter.cpp`.
+`abi/StructuredAbi.cpp` потрібний для explicit `requireStructuredAbi()`;
+qmake manifest додає обидва sources. Exact layout tag у adapter symbol та
+explicit guard — різні linked boundaries, а не runtime checks кожного packet.
+Прямі index/header-defined native операції цих object files самі не потребують.
 
 У прикладі застосунок вибрав свій header: `u8 operation + u32 LE ID`,
 потім native payload. Це **тільки формат прикладу**, а не wire protocol
@@ -445,54 +452,58 @@ telemetry чи resource LIST/STAT/READ/WRITE. `onCompletePacket` отримує
 є локальним результатом. Реальний transport явно кодує свій response
 header/status і передає лише успішно записаний payload.
 
+## Encoded без Model: catalog indexes
+
+Transport може отримати тільки потрібні family indexes із application facade:
+
+```cpp
+// Fragments: catalogs, input/output spans and Workspace are already alive.
+auto read = fields.index().readEncoded(id, output, workspace);
+auto write = fields.index().writeEncoded(id, input, workspace);
+auto command = commands.index().executeEncoded(id, input, workspace);
+auto service = services.index().callEncoded(id, input, output, workspace);
+```
+
+`fields`, `commands` і `services` тут — **catalog tables**. Local
+`FieldTable`/`CommandTable`/`ServiceTable` не мають `index()`. Index — невеликий
+copyable borrowed view; facade може повернути його, якщо arrays/owners мають
+стабільний довший lifetime. Model чи registry не створюються заради цього call.
+Endpoint selection і canonical bytes ті самі, що у compiled adapter; transport
+так само визначає framing та response envelope. Вибір між шляхами — про module
+boundary/metadata requirements, а не про інший протокол чи інші callbacks.
+
+Без Model required scratch можна взяти з entry metadata після `index.find(id)`;
+перевірте pointer перед dereference. Field має окремі read/write requirements,
+Command і Service — `scratchBytes`. Для direct index `Adapter.cpp` не потрібний;
+manual explicit ABI guard залишається окремим рішенням module integration.
+
 ## Wire значення та перевірка результатів
 
-Encoded payload має фіксований `telemetry::wireSize<T>`: little-endian
-scalars, underlying enum codes, array elements, struct members у порядку
-декларації. C++ padding, pointers, member names і response wrappers у нього
-не потрапляють. Наприклад, `{uint32_t limit; bool enabled;}` займає
-5 wire байтів навіть якщо `sizeof` C++ об'єкта більше.
-Невідомий representable enum code дозволений; bool byte 2 не дозволений.
-Бізнес-обмеження на limit перевіряє setter після успішного decode.
+Canonical payload shape, exact-length codec та standalone decode forms описані у
+[Codec and Workspace](CodecAndWorkspace.md#wire-shape). Чотири різні encoded
+results, fields/status meaning і refusal ordering мають один reference у
+[Model](Model.md#encoded-результати-й-порядок-перевірок).
 
-Для input потрібна **точна** довжина; no-request Command/Service приймає
-порожній span. Output повинен мати capacity для всього успішного значення
-або Service response. Це перевіряється перед callback, навіть якщо
-callback міг би повернути Busy. Використовуйте тільки перші `written`
-байтів. Значення status не є частиною canonical payload; transport
-передає його окремо у вибраному ним envelope.
+Transport спочатку перевіряє `dispatch`, і тільки при `Ok` — `endpointStatus`,
+якщо відповідний result його має. Field read має лише dispatch і written;
+Field write та Command не мають written. Для read/Service передавайте тільки
+reported payload prefix; status header належить вашому envelope, а не canonical
+T. Не відправляйте memory representation C++ result struct.
 
-| Encoded result | Значення |
-| --- | --- |
-| `EncodedReadResult{dispatch, written}` | Чи прочитано Field та скільки wire байтів готово |
-| `EncodedWriteResult{dispatch, endpointStatus}` | Routing/decode окремо від `WriteResult` setter |
-| `EncodedCommandResult{dispatch, endpointStatus}` | Routing/decode окремо від `CommandResult` callback |
-| `EncodedCallResult{dispatch, endpointStatus, written}` | Routing/codec окремо від `ServiceStatus` та response payload |
-
-Спочатку перевіряйте `dispatch`. `endpointStatus` має зміст лише за
-`dispatch == DispatchStatus::Ok`. `Ok + WriteResult::InvalidValue`
-означає: правильний endpoint викликано з правильним типом, але застосунок
-відхилив значення. `InvalidPayload` означає неправильну довжину, bool
-representation або overlap; callback у типовому decode/preflight випадку
-ще не викликався. Read-only Field повертає
-`Ok + WriteResult::ReadOnly` до декодування input.
-
-Dispatch статуси: `Ok`, `NotFound`, `InvalidPayload`, `BufferTooSmall`,
-`WorkspaceTooSmall`, `InternalError`, `Unavailable`. Порожній late-bound
-target дає dispatch `Unavailable`; callback, який сам повернув
-Unavailable/Busy, дає свій endpoint status після успішного dispatch.
-Service failure не має response payload (`written=0`).
+`Ok + WriteResult::InvalidValue` означає прикладну відмову після decode, тому
+її не слід показувати клієнту як malformed packet. Bad bool чи length mismatch
+відхиляються перед callback; borrowed response overlap може бути виявлений
+пізніше, після getter/Service invocation. Успішний void Service і Service
+refusal обидва можуть мати written=0: count не заміняє status check.
 `CommandResult::Accepted` не створює library queue: queue і встановлення
 завершення належать callback/owner застосунку.
 
 ## Workspace, локальний бюджет та borrowed response
 
-`TELEMETRY_STRUCTURED_LOCAL_BYTES` за замовчуванням дорівнює 32.
-Це бюджет живих payload objects encoded операції, а не межа всього
-stack frame чи native return ABI. Малий owning Field або request може
-поміститися локально. Для owning Service request бере бюджет першим;
-потім перевіряється **повний `ServiceResult<Response>` wrapper**, а не
-тільки `sizeof(Response)`. Більші об'єкти йдуть у Workspace.
+Default local budget, shared Service Request/Result storage та overlap rules
+описані у [Codec and Workspace](CodecAndWorkspace.md#local-object-budget).
+Для transport scratch не є RX/TX buffer; його lifetime не задає lifetime
+відправленого packet. Model дає fresh-operation bound:
 
 ```cpp
 inline std::array<std::byte, model.maxScratch()> storage;
@@ -503,10 +514,9 @@ inline telemetry::Workspace workspace{storage};
 Nested/concurrent операціям потрібна пам'ять для всіх живих leases або
 окремі Workspaces. Лізи звільняються у зворотному порядку. Buffer і
 Workspace позичені, доступ до них та owner state серіалізує застосунок.
-Не розміщуйте request/response всередині scratch span. Повністю локальний
-endpoint Workspace не використовує. Macro задається однаково в усіх
-translation units; compiled ABI boundary виявляє різні layouts/policies
-при лінкуванні.
+Wire buffers мають бути disjoint із Workspace, коли operation використовує
+scratch. Повністю local endpoint Workspace не використовує. Configuration
+macros мають бути однаковими в усіх translation units.
 
 Getter `const T&` і Service `const Response&` чи
 `BorrowedServiceResult<Response>` кодують існуючий const об'єкт. Вони
@@ -530,6 +540,12 @@ Borrowed output мусить бути disjoint із повним native об'є�
 теж не повинен записуватися поверх цього об'єкта. Borrowed view не
 захоплює snapshot і не дає міжпольової coherence. Докладніше —
 [BorrowedNativeValues.md](../BorrowedNativeValues.md).
+
+Це також precondition для **повного** Values READ або Exchange output,
+включно з token/status/packet headers. Перевірка borrowed payload prefix у
+getter thunk не захищає caller від запису власного envelope поверх live object.
+Exchange header не можна розміщувати поверх borrowed response, навіть коли
+сам payload span disjoint. Тримайте окремий TX buffer до завершення send/DMA.
 
 ## DescriptorFile та ValuesFile у тій самій таблиці
 
@@ -614,8 +630,10 @@ Exchange підтримує FieldWrite, Command і Service; Field reading мож
 Загальний resource core потребує тільки `-std=c++20 -Ilib`.
 Для resource packets додайте `lib/resource/protocol/Protocol.cpp`.
 Encoded приклад потребує також include directories `lib/boost_pfr/include`,
-`lib/magic_enum` та `lib/telemetry/model/Adapter.cpp`,
-`lib/telemetry/abi/StructuredAbi.cpp`. Values додає свій
+`lib/magic_enum` та `lib/telemetry/model/Adapter.cpp` для чотирьох ModelView calls.
+Explicit ABI guard додає `lib/telemetry/abi/StructuredAbi.cpp`; звичайний qmake
+manifest і maintained приклади включають обидва sources. Direct catalog-index
+encoded operations не потребують compiled adapter. Values додає свій
 `lib/resource/telemetry/v3/detail/Values.cpp`. `.pri` manifests описані у
 [resource README](../../lib/resource/README.md) та
 [telemetry README](../../lib/telemetry/README.md).

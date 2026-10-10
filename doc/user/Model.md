@@ -2,13 +2,18 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Таблиці й каталоги](TablesAndCatalogs.md) ·
+[Посібник](README.md) · [API Overview](APIOverview.md) · [Таблиці й каталоги](TablesAndCatalogs.md) ·
 [Codec і Workspace](CodecAndWorkspace.md) · [Descriptor і Values](DescriptorAndValues.md)
 
 `Model` збирає Field, Command і Service catalogs та виводить із їхніх C++ типів
 один `TypeRegistry`. Він дає runtime indexes, спільні TypeIds і межі buffer/scratch
 для encoded operations. Значення пристрою залишаються у application owners;
 модель позичає каталоги, а registry описує лише структуру типів.
+
+Це canonical сторінка побудови Model, reflection/type metadata та
+[encoded access](#encoded-api-catalog-index-або-modelview). Для локального
+native доступу Model не створюють; encoded catalog indexes теж працюють
+без Model. Standalone Codec і generic Resource — незалежні сценарії.
 
 Поточна реалізація міститься у [Model.hpp](../../lib/telemetry/model/Model.hpp),
 [Registry.hpp](../../lib/telemetry/type/Registry.hpp) та
@@ -21,6 +26,9 @@
 - [Повний приклад](#повний-приклад)
 - [Model API](#model-api)
 - [Typed access і runtime access](#typed-access-і-runtime-access)
+- [Encoded API: catalog index або ModelView](#encoded-api-catalog-index-або-modelview)
+- [Encoded результати й порядок перевірок](#encoded-результати-й-порядок-перевірок)
+- [Headers, compiled sources та ABI](#headers-compiled-sources-та-abi)
 - [ModelView](#modelview)
 - [TypeRegistry і TypeDescriptor](#typeregistry-і-typedescriptor)
 - [Positional roots і registry roots](#positional-roots-і-registry-roots)
@@ -41,28 +49,42 @@
 | `ModelView` | Позичені runtime indexes і паралельні TypeId catalogs | Передати повну модель до compiled adapter чи provider |
 | `TypeRegistry` | Статичні descriptors точних C++ типів | Призначити TypeIds і описати залежності типів |
 | `reflection` | Member, enum і callable facts | Перевірити payload shape та побудувати structural metadata |
-| Codec | Canonical bytes конкретного native payload | Перетворити native object у bytes або bytes у leased object |
+| Codec | Canonical bytes конкретного native payload | Encode або decode у existing object / scoped Workspace object |
 
 ```mermaid
 flowchart TD
     O[Application state and callbacks] --> D[Native endpoint definitions]
     D --> T[Local tables]
+    T --> N[Native typed access]
     T --> C[Named catalogs]
-    C --> N[Native typed access]
+    C --> N
+    C --> I[Family runtime indexes]
+    I --> E[Checked encoded calls]
     C --> M[Model borrows catalogs]
     M --> R[One static TypeRegistry]
     M --> V[ModelView]
-    V --> E[Checked encoded adapters]
+    V --> E
     V --> P[Descriptor and Values providers]
     F[Reflection facts] --> R
     F --> K[Canonical codec]
     K --> E
+    A[Independent supported C++ DTO] --> K
 ```
 
 Native виклик можна виконати прямо через local table або catalog до створення
-`Model`. Модель потрібна, коли всі families мають узгодити type metadata,
-runtime view або розміри encoded storage. Сам `Model` не має native
+`Model`. Модель потрібна для спільного registry, TypeIds, `ModelView` і
+зручних maxima всіх families; для одного family index вона необов'язкова.
+Сам `Model` не має native
 `read<...>()`, `write<...>()` чи `call<...>()`: ці операції належать tables і catalogs.
+
+| Сценарій | Мінімально потрібні об'єкти |
+| --- | --- |
+| Native local position | Application owner/binding і відповідна local table |
+| Native global packed ID | Ті самі local tables і catalog table відповідної family |
+| Encoded catalog access | Catalog table, її `index()`, wire buffers та Workspace; Model не потрібна |
+| Compiled encoded adapter | Узгоджений `ModelView`, wire buffers та Workspace; звичайний спосіб створення view — `model.view()` |
+| Standalone Codec | Supported native T та bytes; Workspace лише для new-object decode |
+| Generic Resource | Paths/providers і filesystem; telemetry tables та Model не потрібні |
 
 ## Positional roots і registry roots
 
@@ -291,7 +313,62 @@ padding і framing. Порожня family або лише no-request endpoints �
 автоматично. `visit` повертає `bool` вибору: `true` означає, що visitor отримав
 definition. Return value visitor і status окремого endpoint не визначають цей `bool`.
 
-Compiled API із [Adapter.hpp](../../lib/telemetry/model/Adapter.hpp):
+Точні encoded calls та їхні results описані наступним розділом. Native
+methods і conversions — у [Native API](NativeApi.md), [Fields](Fields.md),
+[Commands](Commands.md) та [Services](Services.md).
+
+## Encoded API: catalog index або ModelView
+
+Encoded access працює з runtime endpoint ID та canonical payload bytes.
+Callback залишається тим самим, що у native definition; другого endpoint
+implementation або окремого runtime `EncodedApi` object немає. Framing,
+operation envelope, correlation і delivery визначає застосунок.
+
+### A. Catalog indexes без Model
+
+Local `FieldTable`, `CommandTable` і `ServiceTable` **не мають `index()`**.
+Цей метод належить відповідним **catalog tables**:
+
+| Catalog table | Runtime view | Checked methods |
+| --- | --- | --- |
+| `FieldCatalogTable::index() const&` | `FieldIndex` | `readEncoded(id, output, workspace)`, `writeEncoded(id, input, workspace)` |
+| `CommandCatalogTable::index() const&` | `CommandIndex` | `executeEncoded(id, input, workspace)` |
+| `ServiceCatalogTable::index() const&` | `ServiceIndex` | `callEncoded(id, input, output, workspace)` |
+
+```cpp
+// Fragments: fields/commands/services are named catalog tables.
+auto read = fields.index().readEncoded(id, output, workspace);
+auto write = fields.index().writeEncoded(id, input, workspace);
+auto command = commands.index().executeEncoded(id, input, workspace);
+auto service = services.index().callEncoded(id, input, output, workspace);
+```
+
+Indexes — copyable borrowed views. Catalogs, local tables, names, owners і slots
+живуть довше за їх використання. `index()` з temporary catalog відхиляється;
+копія index не подовжує lifetime arrays. Для checked encoded access до одного
+local row є `localFields[position].readEncoded(...)` / `writeEncoded(...)`,
+`localCommands[position].executeEncoded(...)` і
+`localServices[position].callEncoded(...)`. Тут caller спершу забезпечує
+`position < localTable.size()`, бо `operator[]` не перевіряє bounds.
+
+Index methods приймають integral ID та перевіряють original width до narrowing.
+Від'ємний, ширший за `PackedId` або absent group/entry дає `NotFound`.
+Сам lookup — bounds checks і пряме індексування; обходу назв немає.
+Group і entry — дві zero-based 16-bit positions. Families мають окремі ID spaces.
+TypeId описує тип і не використовується для вибору endpoint.
+
+### B. ModelView і compiled adapter
+
+`model.fieldIndex()` / `commandIndex()` / `serviceIndex()` повертають ті самі
+family views. Якщо transport/module має повний `ModelView`, використовуйте
+чотири public functions із [Adapter.hpp](../../lib/telemetry/model/Adapter.hpp):
+
+| Function | Result |
+| --- | --- |
+| `readFieldEncoded(ModelView, PackedId, span<byte> output, Workspace&)` | `EncodedReadResult` |
+| `writeFieldEncoded(ModelView, PackedId, span<const byte> input, Workspace&)` | `EncodedWriteResult` |
+| `executeCommandEncoded(ModelView, PackedId, span<const byte> input, Workspace&)` | `EncodedCommandResult` |
+| `callServiceEncoded(ModelView, PackedId, span<const byte> input, span<byte> output, Workspace&)` | `EncodedCallResult` |
 
 ```cpp
 // Fragments: model, id and buffers are supplied by the caller.
@@ -304,6 +381,105 @@ auto service = ts::callServiceEncoded(model.view(), id, input, output, workspace
 Ці calls працюють із payload span. Збір повного UART/TCP frame, connection state,
 request correlation та формування transport response виконує application layer;
 див. [Transport walkthrough](TransportWalkthrough.md).
+
+`ModelView` передається за значенням, але позичає arrays. Звичайний спосіб
+отримати coherent view — `model.view()`. Вільні functions приймають уже
+`PackedId` (`u32`): перед передаванням ширшого transport числа його треба перевірити
+самостійно, щоб implicit narrowing не вибрав інший endpoint. Це відрізняється
+від integral-template Index methods, які перевіряють original width самі.
+
+## Encoded результати й порядок перевірок
+
+Ці C++ result structs не є wire headers. Їхні names, fields і типи різні:
+
+| Result | Fields | Як перевіряти |
+| --- | --- | --- |
+| `EncodedReadResult` | `DispatchStatus dispatch`, `uint32_t written` | `dispatch == Ok`; payload займає тільки prefix `[0, written)`; application status немає |
+| `EncodedWriteResult` | `DispatchStatus dispatch`, `WriteResult endpointStatus` | Спершу dispatch, потім setter outcome; `written` немає |
+| `EncodedCommandResult` | `DispatchStatus dispatch`, `CommandResult endpointStatus` | Спершу dispatch, потім callback outcome; `written` немає |
+| `EncodedCallResult` | `DispatchStatus dispatch`, `ServiceStatus endpointStatus`, `uint32_t written` | Спершу dispatch, потім Service outcome і лише reported response prefix |
+
+`endpointStatus` meaningful тільки при `dispatch == Ok`. Його initialized
+success value при dispatch failure не означає успішний callback. Service
+refusal може мати `dispatch == Ok`, `endpointStatus == Busy` і `written == 0`.
+Successful void Service теж має `written == 0`, тому саме count не визначає success.
+
+| `DispatchStatus` | Meaning |
+| --- | --- |
+| `Ok` | Encoded dispatch завершений; оцініть application status, якщо він є |
+| `NotFound` | Integral ID invalid або selected group/entry відсутній |
+| `InvalidPayload` | Невірна exact input length, bool representation або заборонений overlap |
+| `BufferTooSmall` | Output менший за advertised successful wire payload |
+| `WorkspaceTooSmall` | Required scratch/alignment reservation недоступні |
+| `Unavailable` | Compatible getter/setter/callback binding або slot unavailable |
+| `InternalError` | Невідомий Field/Command application status або порушення internal invariant |
+
+| Operation | Input length | Output capacity |
+| --- | --- | --- |
+| Field read | Input відсутній | Не менше `FieldEntry::wireBytes`; решта span не належить reported payload |
+| Writable Field write | Рівно `wireBytes` | Payload output відсутній |
+| Command | Рівно `requestWireBytes`; void request — 0 | Payload output відсутній |
+| Service | Рівно `requestWireBytes`; void request — 0 | Не менше `responseWireBytes`, навіть якщо callback пізніше відмовить |
+
+Порядок refusal важливий для transport diagnostics:
+
+1. Index спочатку вибирає endpoint: `NotFound` перед span/scratch checks.
+2. Read-only Field write повертає `{Ok, ReadOnly}` до input validation.
+   Writable Field перевіряє exact input; Field read — output capacity.
+3. Command перевіряє exact input. Service перевіряє exact input, потім output
+   capacity, потім required Workspace overlap і remaining scratch capacity.
+4. Якщо decoded object leased, reservation capacity/alignment перевіряється
+   до bool validation. Для local object representation перевіряється без reservation.
+   Validation завершена до callback target resolution та invocation.
+5. Empty binding дає dispatch `Unavailable`. Engaged setter/Command/Service,
+   який сам повернув `Unavailable`, має dispatch `Ok` і application status
+   `Unavailable`. Field/Command unknown numeric callback code дає `InternalError`.
+6. Borrowed read/Service actual response address перевіряється проти output payload prefix
+   після getter/callback. Така overlap refusal не відкочує його побічних ефектів.
+
+Для scratch користуйтеся `FieldEntry::readScratchBytes` / `writeScratchBytes`,
+`CommandEntry::scratchBytes` і `ServiceEntry::scratchBytes`, або Model maxima.
+Declared capability і requirements не змінюються від empty slot. Model bound
+достатній для однієї operation на fresh Workspace, не для всіх nested live objects.
+
+Length/capacity checks виконуються на public checked boundary. Внутрішні thin
+thunks уже знають exact extents і використовують shared codec kernel без
+повторного standalone preflight. Не викликайте raw operation pointers у entries
+як public API. Heap немає; local/Workspace storage policy та overlap rules
+мають один canonical опис у [Codec and Workspace](CodecAndWorkspace.md#local-object-budget).
+Fully local endpoint не звертається до Workspace, а використаний scratch має
+бути disjoint від wire buffers. Service input/output overlap дозволений, бо
+Request повністю decoded до response write.
+
+## Headers, compiled sources та ABI
+
+Простий public include — `<telemetry/Telemetry.hpp>`. Для вужчого catalog
+access є `<telemetry/field/FieldCatalogs.hpp>`,
+`<telemetry/command/CommandCatalogs.hpp>` і
+`<telemetry/service/ServiceCatalogs.hpp>`. Compiled API оголошено у
+`<telemetry/model/Adapter.hpp>`. C++20, `lib`, `lib/boost_pfr/include` і
+`lib/magic_enum` — build settings поточного reflection/type backend.
+
+| Access | Compiled source dependency |
+| --- | --- |
+| Catalog index / checked local entry | Header-defined operation; `Adapter.cpp` не потрібний |
+| Чотири ModelView functions | `lib/telemetry/model/Adapter.cpp`; exact layout tag є частиною linked symbol |
+| Явний `requireStructuredAbi()` | `lib/telemetry/abi/StructuredAbi.cpp`, який визначає current specialization |
+
+`telemetry.pri` у стандартному compiled configuration додає обидва `.cpp`
+для зручності. Це не означає, що direct index потребує compiled adapter чи
+що кожний header-only TU автоматично посилається на ABI guard. Для власного
+module boundary guard викликають один раз із живого коду, який linker не
+видаляє; не додають його до кожного native/encoded hot call. Exact tag
+adapter автоматично захищає саме цей compiled boundary. Revision, layout
+і configuration macros мають збігатися між modules; див.
+[Lifetime, synchronization і ABI](#lifetime-synchronization-і-abi).
+
+Повна програма compiled/transport шляху —
+[Encoded.cpp](../../examples/user_guide/Encoded.cpp). Catalog index operations
+того самого набору declarations є у
+[Native.cpp](../../examples/user_guide/Native.cpp). Framing приклади —
+[Transport walkthrough](TransportWalkthrough.md).
 
 ## ModelView
 
@@ -498,18 +674,23 @@ Binding/reset slot не змінює declared capability чи structural shape.
 
 ## Межі та порожні категорії
 
-| Межа | Поточне значення | Де перевіряється |
+| `Limits` member | Поточне значення | Meaning / де перевіряється |
 | --- | ---: | --- |
-| Local entries або catalog groups однієї family | 65 536 | Table/catalog static assertions; кожен component ID має 16 bits |
-| Type count включно з builtins | 4 096 | `TypeRegistry` |
-| Type nesting depth | 32 | Recursive `Type<T>` |
-| Struct members | 256 | `Type<T>` і reflection shape |
-| Array elements | 65 536 | `Type<T>` |
-| Value wire bytes | 1 048 576 | `Type<T>` |
-| Expanded value nodes | 262 144 | `Type<T>` |
-| Descriptor type-record bytes | 4 194 304 | `TypeRegistry` |
-| Загальна кількість enum entries | 65 536 | `TypeRegistry` |
-| Endpoint/name string bytes | 4 096 | Name / reflection validation |
+| `maxTypeCount` | 4 096 | Type count включно з builtins; `TypeRegistry` |
+| `maxTypeDepth` | 32 | Type nesting depth; recursive `Type<T>` |
+| `maxStructMembers` | 256 | Struct members; `Type<T>` і reflection shape |
+| `maxArrayElements` | 65 536 | Array elements; `Type<T>` |
+| `maxValueWireBytes` | 1 048 576 | Value wire bytes; `Type<T>` |
+| `maxExpandedValueNodes` | 262 144 | Expanded value nodes; `Type<T>` |
+| `maxDescriptorBytes` | 4 194 304 | Descriptor bytes; TypeRegistry type-record sum і serialized Descriptor validation |
+| `maxEnumEntriesTotal` | 65 536 | Загальна кількість enum entries; `TypeRegistry` |
+| `maxStringBytes` | 4 096 | Name string bytes; Name / reflection validation |
+| `maxCatalogCountTotal` | 65 536 | Загальна кількість catalogs у serialized descriptor; Descriptor validation |
+| `maxEndpointCountTotal` | 65 536 | Загальна кількість endpoints у serialized descriptor; Descriptor validation |
+
+Local entries або catalog groups однієї family мають окрему positional межу
+65 536: її перевіряють table/catalog static assertions, оскільки кожний component
+packed ID має 16 bits.
 
 Це structural ceilings з [Limits](../../lib/telemetry/type/Traits.hpp).
 Descriptor providers також перевіряють власні aggregate endpoint/catalog і

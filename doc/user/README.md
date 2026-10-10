@@ -3,6 +3,9 @@
 [Репозиторій](../../README.md) · [Індекс документів](../README.md) ·
 [API шпаргалка](API-CHEATSHEET.md) · [Архітектура](../Architecture.md)
 
+**[API Map: оберіть Native / Encoded / Codec / Resource](APIOverview.md)**
+показує потрібні objects, headers, canonical reference та повну програму.
+
 Це вхідна сторінка документації **поточного C++20 API**. Для першої інтеграції
 не потрібно читати звіти агентів або весь план реалізації.
 
@@ -27,7 +30,7 @@
 | 4 | [Device integration example](../../examples/device_integration/README.md) | Готовий проєкт із кількох файлів, CMake та host перевірками |
 | 5 | [Питання та діагностика](Troubleshooting.md) | Рішення типових build, signature, ID, Workspace і transport проблем |
 
-`NativeApi` нижче — reference для всіх форм API. Для першої інтеграції
+`NativeApi` нижче — reference native викликів. Для першої інтеграції
 почніть з кроку 1; повні declarations і callbacks є у runnable programs.
 
 ## Окремі API за сімейством
@@ -46,7 +49,7 @@
 | [Descriptor and Values](DescriptorAndValues.md) | Model metadata, live Fields, fingerprint, buffers і token boundaries | [Wire v3.0](../WireV3.md) |
 | [Resource packet protocol](../../lib/resource/protocol/README.md) | Exact LIST/STAT/READ/WRITE envelopes і errors | [Transport walkthrough](TransportWalkthrough.md) |
 | [COBS integration](COBSIntegration.md) | Real `cobs::Endpoint`, pending TX ownership і повний resource round trip | [COBS example](../../examples/cobs_integration/README.md) |
-| [Native reference](NativeApi.md) | Суцільний повний reference типів, bindings, slots, conversions та views | [API шпаргалка](API-CHEATSHEET.md) |
+| [Native reference](NativeApi.md) | Native calls, bindings, slots, conversions, traversal і lifetime | [API Map](APIOverview.md) |
 
 Окремі сторінки мають API tables, значення результатів і lifetime.
 Зразки statements позначені як fragments; готові translation units та
@@ -56,6 +59,8 @@ project sources наведені у [прикладах](../../examples/user_gui
 
 | Завдання | Де читати | Повна програма |
 | --- | --- | --- |
+| Перші native calls без Model/Workspace | [Native API](NativeApi.md) | [NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp) |
+| Самостійно перетворити struct/array ↔ bytes | [Codec and Workspace](CodecAndWorkspace.md) | [Codec.cpp](../../examples/user_guide/Codec.cpp) |
 | Оголосити Field, Command, Service; працювати з native типами | [Fields](Fields.md), [Commands](Commands.md), [Services](Services.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
 | Локальні/глобальні ID, iteration і indexes | [Tables and catalogs](TablesAndCatalogs.md) | [Native.cpp](../../examples/user_guide/Native.cpp) |
 | Model, TypeRegistry, runtime view та encoded buffers | [Model](Model.md), [Codec and Workspace](CodecAndWorkspace.md) | [Encoded.cpp](../../examples/user_guide/Encoded.cpp) |
@@ -69,26 +74,41 @@ project sources наведені у [прикладах](../../examples/user_gui
 
 ## Три незалежні способи користування
 
+До Native, Encoded і Resource додається **самостійний Codec**. Він працює
+без endpoints. Старий заголовок залишено для сумісності посилань; усі чотири
+маршрути тепер зведено в [API Map](APIOverview.md).
+
 ```mermaid
 flowchart TD
     A[Application C++ objects] --> B[Field / Command / Service tables]
-    B --> C[Catalogs + Model]
-    C --> D[Native typed calls]
-    C --> E[Encoded adapter]
-    C --> F[Descriptor / Values providers]
+    B --> D[Native typed calls]
+    B --> C[Catalogs]
+    C --> D
+    C --> K[Catalog indexes]
+    K --> E[Encoded calls]
+    C --> M[Model + structural registry]
+    M --> V[ModelView + compiled adapter]
+    V --> E
+    M --> F[Descriptor / Values providers]
     G[Custom file providers] --> H[Flat FileSystem]
     F --> H
     H --> I[resource::protocol::process]
     J[Application UART / TCP framing] --> E
     J --> I
+    X[Supported C++ DTO] --> Y[Standalone Codec]
+    Y --> Z[Canonical bytes]
 ```
 
 **Локальна бізнес-логіка:** викликайте native API таблиць/каталогів. Файли,
 протокол і Workspace для звичайних typed викликів не потрібні.
 
 **Власний транспорт без файлів:** після складання повного frame розберіть
-операцію/ID та передайте payload у encoded adapter. Model виконує callback;
+операцію/ID та передайте payload у catalog index або ModelView adapter. Endpoint виконує callback;
 ваш transport відповідає за framing, connection state і delivery.
+
+**Самостійний Codec:** передайте object і byte span у `encode`/`decode`.
+Workspace потрібний лише для форми decode, яка створює object у caller scratch.
+Реальні сигнатури й lifetime є у [Codec довіднику](CodecAndWorkspace.md).
 
 **Файловий інтерфейс:** додайте providers до `resource::filesystem(...)` і
 передайте повний packet у `resource::protocol::process(...)`. Provider може

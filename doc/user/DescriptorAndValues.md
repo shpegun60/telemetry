@@ -2,7 +2,7 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Resource files](Resources.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Resource files](Resources.md) ·
 [V3 provider API](../../lib/resource/telemetry/v3/README.md) · [Wire v3.0](../WireV3.md)
 
 Перед providers прочитайте [Model](Model.md); для payload/scratch capacities
@@ -13,6 +13,18 @@ Values передає live Field values у тому самому порядку.
 providers для незалежного `resource` filesystem; вони не є transport чи
 сховищем application state. Повні Model/provider declarations є у
 [client Device.hpp](../../examples/structured_client/Device.hpp).
+
+Це optional integration для вже наявної Model. Для власного byte/storage file
+почніть із [generic Resource](Resources.md); для одного endpoint payload
+використайте [encoded API](Model.md#encoded-api-catalog-index-або-modelview).
+Descriptor/Values providers не потрібні для native access або standalone codec.
+
+`Descriptor.hpp` і `DescriptorFile.hpp` реалізовані в headers. Values READ
+додатково потребує compiled
+[detail/Values.cpp](../../lib/resource/telemetry/v3/detail/Values.cpp).
+Generic packet доступ також потребує `Protocol.cpp`. Повний список include/link
+inputs для application наведено у
+[GettingStarted](GettingStarted.md#крок-2-підключіть-source-та-include-paths).
 
 ## Навігація
 
@@ -191,6 +203,16 @@ transport із READ payload 512 B дасть BufferTooSmall на цьому Fiel
 Збільшення числа READ calls не розділить token. Descriptor bytes можна
 читати малими chunks довільного розміру.
 
+До EOF потрібна ненульова capacity також для progress header. Навіть коли
+Fields немає й `maxTokenSize()==0`, Values містить свій 24-byte header.
+
+Generic resource protocol v1 додатково обмежує один READ payload до
+`resource::protocol::wire::maxPayloadSize == 65535` B. При його використанні
+перевірте `values.maxTokenSize()` проти цієї межі під час integration/startup:
+token понад 65535 B не вміститься навіть у більший response buffer. Прямий
+`values.read(cursor, output)` не має цього packet-envelope обмеження; для
+такого великого Field application обирає відповідний спосіб передачі.
+
 ## Порційне читання і snapshot
 
 Descriptor cursor — byte offset; READ може закінчитися всередині record
@@ -215,10 +237,11 @@ Client reading algorithm:
    ordering не є вашим application contract.
 2. Прочитати весь descriptor, перевірити version, offsets, counts,
    references, canonical sizes, technical ceilings і fingerprint.
-3. Почати Values cursor=0, зі span capacity ≥ maxTokenSize і envelope budget.
+3. Почати Values cursor=0, зі span capacity ≥ 1 та ≥ maxTokenSize і envelope budget.
 4. Прийняти рівно written bytes та продовжити з returned next.
-5. Звірити Values fingerprint із descriptor перед інтерпретацією tokens;
-   завершити на eof. Обробити status та відсутність progress явно.
+5. Після збору Values header звірити його fingerprint із cached descriptor
+   перед інтерпретацією tokens. Fingerprint належить header файла; READ packet
+   envelope не повторює його. Завершити на eof; обробити status і відсутність progress.
 
 ## Fingerprint та зміни моделі
 
@@ -233,6 +256,14 @@ Fingerprint пов'язує descriptor та Values. Це не checksum live valu
 при connection, новому firmware/model або явній mismatch відмові.
 Offline export має зберігати обидва files. Новий descriptor змінився
 після reordering/name/type/capability зміни — consumer оновлює schema.
+
+Hash обчислюється один раз під час Descriptor construction, у constexpr
+declaration — на compile time. Fingerprint bytes у header під час hashing
+вважаються нульовими; подальші reads повертають уже cached identity.
+Шляхи та declaration order зовнішнього resource filesystem не входять у
+цей descriptor hash. Generic LIST/STAT/READ/WRITE packet не додає fingerprint;
+за потреби одноразове peer узгодження належить application, наприклад
+[Bind/Exchange](../../examples/structured_protocol/README.md).
 
 ## Lifetime, concurrency та помилки
 

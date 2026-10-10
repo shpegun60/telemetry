@@ -1,12 +1,15 @@
 # Runtime native API та зручний обхід
 
-[Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
 [Services](Services.md) · [Runtime без nested results](FlatNative.md) · [Каталоги](TablesAndCatalogs.md) ·
 [Повна runnable програма](../../examples/user_guide/Ergonomics.cpp)
 
 Цей розділ збирає типові операції, для яких не потрібно писати власний typed
 visitor. Всі доповнення працюють із поточними таблицями, positional IDs і
 bindings; encoded wire v3 та правила володіння залишаються спільними.
+Native access нижче не потребує Model або Workspace objects. Початок із
+local tables — [NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp);
+повні public headers і залежності — [Native reference](NativeApi.md).
 
 ## Вибрати API за завданням
 
@@ -15,6 +18,7 @@ bindings; encoded wire v3 та правила володіння залишаю�
 | Прочитати й явно скопіювати/перетворити | `fields.readAs<T>(id)` | `optional<T>` |
 | Те саме з причиною відмови | `fields.readAsResult<T>(id)` | `FieldReadResult<T>` |
 | Отримати const view існуючого значення | `fields.readBorrowed<T>(id)` | `BorrowedValue<T>` |
+| Явно перетворити input і записати Field | `fields.writeAs(id, value)` | `WriteResult` |
 | Виконати Command із native Request | `commands.call(id, request)` | `CommandCallStatus` |
 | Викликати owning Service | `services.callAs<Reply>(id, request)` | `ServiceCallResult<Reply>` |
 | Позичити response Service | `services.callBorrowed<Reply>(id, request)` | `BorrowedServiceCallResult<Reply>` |
@@ -28,6 +32,11 @@ bindings; encoded wire v3 та правила володіння залишаю�
 Для local table замість packed `id` передається local position, включно зі
 scoped position enum. Existing `call<Position/Id>()`, `read<Position/Id>()`,
 `readAs`, `writeAs`, `forEach` і `visit` зберігають свої контракти.
+Field `readAs/readAsResult/writeAs` допускають лише documented checked numeric
+conversions або exact structural T. Command/Service dispatch натомість
+вимагає exact Request/Response/ownership; схожі structs або conversion
+members не роблять signatures сумісними. Це різні операції, а не одна
+generic система implicit conversions.
 
 ## Runtime виклик з одним result
 
@@ -100,6 +109,11 @@ auto noPayload = services.callAs<telemetry::ServiceResult<void>>(notifyId);
 приховує heap або Workspace. Для великих відповідей callback зберігає
 `ServiceResult<T>::successFrom(factory)`; encoded storage budget не змінено.
 Explicit copy/move result користувачем залишається explicit copy/move.
+Будь-який pointer на owned payload потребує живого named result. Старі
+`ServiceResult`, `NativeCallResult` і `FieldReadResult` не відкидають
+temporary `valueOrNull()`; новий guard є лише в owning flat Service result.
+Пояснення pointer levels — [Services](Services.md#low-level-exact-runtime-callas),
+owning Field lifetime — [Fields](Fields.md#runtime-borrowed-read-та-причина-відмови).
 
 ## Borrowed Field та причина невдалого owning read
 
@@ -160,18 +174,13 @@ Flat callbacks отримують metadata rows, не typed definitions чи liv
 
 ## Розміри caller-owned буферів
 
-```cpp
-constexpr auto commandRx = model.maxCommandRequestWireSize();
-constexpr auto serviceRx = model.maxServiceRequestWireSize();
-constexpr auto serviceTx = model.maxServiceResponseWireSize();
-constexpr auto scratchBytes = model.maxScratch();
-```
-
-Це максимуми canonical payload однієї операції, без transport headers,
-framing чи одночасних/nested operations. При constexpr використанні розміри
-обчислюються під час компіляції; runtime query обходить metadata без endpoint
-callbacks. Для resource envelopes використовуйте constants та builders із
-[resource client API](../../lib/resource/protocol/README.md#bounded-client-api).
+Це окреме питання **encoded/transport** access, не вимога native API вище.
+`Model::maxCommandRequestWireSize()`, `maxServiceRequestWireSize()`,
+`maxServiceResponseWireSize()` і `maxScratch()` та їхні compile-time/runtime
+contracts наведені в [Model API](Model.md#model-api). Вони описують одну
+операцію без transport framing; nested operations потребують окремого
+одночасного storage budget. Для resource envelopes використовуйте constants
+та builders із [resource client API](../../lib/resource/protocol/README.md#bounded-client-api).
 
 ## Перевірка
 

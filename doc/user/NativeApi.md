@@ -2,14 +2,20 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
 [Services](Services.md) · [Tables and catalogs](TablesAndCatalogs.md) ·
 [API шпаргалка](API-CHEATSHEET.md)
 
-Це суцільний reference. Для одного API family відкрийте окрему сторінку
-вище; вона пояснює signatures, results, lifetime та веде до повних прикладів.
+Це canonical reference для **Native access**: C++ значень, typed викликів,
+runtime selection і traversal. Для одного endpoint family відкрийте окрему
+сторінку вище. Самостійні [Codec](CodecAndWorkspace.md),
+[Encoded](Model.md#encoded-api-catalog-index-або-modelview) та
+[Resource](Resources.md) мають власні точки входу й контракти.
 
-Цей посібник описує поточний C++20 API у `lib/telemetry`. Робочий приклад
+Цей посібник описує поточний C++20 API у `lib/telemetry`.
+[NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp) — мінімальна повна
+програма з Field, Command і Service, яка **не створює Model, ModelView або
+Workspace**. Для ширшого сценарію
 [Native.cpp](../../examples/user_guide/Native.cpp) містить повну модель, усі
 види slot, owning/borrowed результати, typed traversal і encoded виклики. Його
 можна зібрати як звичайну консольну програму без Qt, мережі та приладу.
@@ -18,12 +24,28 @@
 `ServiceResult`, `ServiceStatus` тощо як скорочення `telemetry::...`; `Device`
 і його state наведені у повному прикладі. `use`, `useName`, `useDefinition` —
 місця для коду consumer, не окремі library functions. Для готової програми,
-яку можна одразу компілювати, використайте саме `Native.cpp`.
+яку можна одразу компілювати, відкрийте один із цих двох прикладів.
 
 Про файли descriptor/values, протокол і підключення транспорту читайте
 [TransportAndResources.md](TransportAndResources.md). Native API також працює
 без цих файлів: таблиця викликає звичайний C++ callback і повертає його native
-тип або відповідний result wrapper.
+тип або відповідний result wrapper. Definitions можна викликати напряму;
+local tables не потребують catalogs, а native global IDs потребують catalogs,
+але не Model. Compile-time type/reflection validation залишається чинною:
+native headers транзитивно включають також type/codec headers. Відсутність
+runtime Model/Workspace не є обіцянкою відсутності цих залежностей або
+автоматичного зменшення Flash.
+
+Публічні headers для local access —
+[`field/FieldTable.hpp`](../../lib/telemetry/field/FieldTable.hpp),
+[`command/CommandTable.hpp`](../../lib/telemetry/command/CommandTable.hpp),
+[`service/ServiceTable.hpp`](../../lib/telemetry/service/ServiceTable.hpp).
+Global access додає відповідні
+[`FieldCatalogs.hpp`](../../lib/telemetry/field/FieldCatalogs.hpp),
+[`CommandCatalogs.hpp`](../../lib/telemetry/command/CommandCatalogs.hpp),
+[`ServiceCatalogs.hpp`](../../lib/telemetry/service/ServiceCatalogs.hpp).
+`<telemetry/Telemetry.hpp>` є загальним umbrella include; він не вимагає
+створення всіх оголошених у ньому objects.
 
 ## Навігація
 
@@ -55,7 +77,7 @@
 | A. Compile-time exact | `read<Id>()`, `write<Id>(value)`, `call<Id>(request)` | Рекомендований application API, коли endpoint відомий компілятору |
 | B. Typed traversal | `forEach(visitor)` | Обійти всі concrete definitions із їхніми native типами |
 | C. Runtime ID, typed endpoint | `readAs<T>`, Command `call`, Service `callAs<Response>` / `callBorrowed<Response>`, `visit(id, visitor)` | Known native type або concrete definition у runtime |
-| D. Erased/encoded | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` | Transport/backend має ID та bytes |
+| D. Erased/encoded | Catalog `index()` або чотири ModelView encoded functions | Окремий byte API для transport/backend; [canonical reference](Model.md#encoded-api-catalog-index-або-modelview) |
 
 Local tables використовують Position замість global Id. Для Field також є
 прямий runtime `readAs<T>/writeAs`, коли caller знає потрібний native тип.
@@ -79,8 +101,9 @@ endpoint operation. [API шпаргалка](API-CHEATSHEET.md) зводить �
 | Service | Виконати запит і отримати відповідь | Нуль аргументів або один aggregate Request | `ServiceResult<Response>` або `BorrowedServiceResult<Response>` |
 
 Кожний endpoint має ім'я та binding. Таблиця містить endpoint у порядку
-оголошення. Каталог групує локальні таблиці; `Model` об'єднує каталоги та
-автоматично будує реєстр усіх структурних типів, що з них досяжні.
+оголошення. Каталог групує локальні таблиці для global IDs. Необов'язкова
+`Model` об'єднує каталоги для спільного structural registry і ModelView
+adapter; native `read/write/call` не проходять через Model.
 
 Мінімальний getter:
 
@@ -663,8 +686,6 @@ inline constexpr telemetry::CommandCatalogTable commands{
 inline constexpr telemetry::ServiceCatalogTable services{
     telemetry::group("queries", localServices),
 };
-inline constexpr telemetry::Model model{fields, commands, services};
-
 constexpr auto voltageId = telemetry::makeId<0, Position::Voltage>();
 auto value = fields.read<voltageId>();
 auto write = fields.write<voltageId>(240.0f);
@@ -672,8 +693,8 @@ auto commandStatus = commands.call<telemetry::makeId<0, 0>()>();
 auto response = services.call<telemetry::makeId<0, 0>()>();
 ```
 
-`group` позичає named lvalue table. Каталог позичає ці таблиці, Model позичає
-lvalue каталоги. Тимчасові каталоги не підходять для Model constructor.
+Ці native global виклики не потребують Model. `group` позичає named lvalue
+table; каталог позичає ці таблиці.
 Для порожніх категорій можна оголосити empty catalog table, а для Fields і
 Commands також є `telemetry::emptyFields` / `telemetry::emptyCommands`.
 
@@ -694,13 +715,10 @@ invalid constant expression відхиляється при компіляції
 input користуйтеся `tryGroupOf(id)` / `tryIndexOf(id)`: це optional форми без
 тихого narrowing. Жодна з цих функцій не встановлює існування endpoint у Model.
 
-`model.types()` повертає `TypeRegistryView`; `model.typeId<T>()` дає compile-time
-ID точного зареєстрованого T. `model.view().fieldTypeId(id)` та
-`commandTypeId(id)` повертають optional TypeId; `serviceTypeIds(id)` — optional
-pair Request/Response. Invalid ID не звужується мовчки до valid position.
-
-Model не є сховищем усіх значень і не знімає snapshot застосунку. Для доступу
-до endpoints використовуйте власні named каталоги або його runtime indexes.
+Коли потрібний спільний registry, descriptors або compiled adapter, додайте
+`telemetry::Model model{fields, commands, services}`. Model позичає lvalue
+каталоги, не зберігає live values і не знімає snapshot. Її `types()`,
+`typeId<T>()`, `view()` та type lookup описані в [Model](Model.md).
 
 | Public object / API | Що належить object, що позичено | Час / callbacks |
 | --- | --- | --- |
@@ -709,7 +727,7 @@ Model не є сховищем усіх значень і не знімає snap
 | Catalog Table / `group` | Каталог описує свої групи та позичає named local tables | Compile-time routing або runtime indexed view |
 | `Model` | Позичає named catalogs, формує спільний structural registry | `view/types/index` не виконують endpoint |
 | `ModelView`, Index, `TypeRegistryView`, metadata descriptors | Borrowed arrays/names/function metadata; lifetime продовжити не можуть | Runtime access; metadata lookup сам не викликає endpoint |
-| `Workspace`, `Lease<T>` | Workspace позичає caller byte span; Lease володіє lifetime constructed T у span | Runtime reserve/construct/destroy, без heap |
+| `Workspace`, `Lease<T>` | Окремий caller scratch для codec/encoded operations | [Codec and Workspace](CodecAndWorkspace.md); native tables не потребують цих objects |
 | `ServiceResult<T>` / `optional<T>` | Власний T, якщо результат успішний | Операції result не виконують endpoint |
 | `NativeCallResult<Result>` | Власний exact endpoint Result лише при successful selection | Selection success не означає application success |
 | `ServiceCallResult<T>` | Власний nested result із owning T лише при application success | Flat `hasValue()` враховує routing та application success |
@@ -954,6 +972,7 @@ Metadata views позичені; вони не є копією application state
 | `CommandCallStatus` | Усі defined `CommandResult` outcomes та `SignatureMismatch`; `NotFound` також охоплює routing absence |
 | `ServiceCallStatus` | `Ok`, `InvalidArgument`, `Unavailable`, `Busy`, `Failed`, `NotFound`, `SignatureMismatch` |
 | `NativeCallStatus` | `Ok`, `NotFound`, `SignatureMismatch`; native selection, не application status |
+| `FieldReadStatus` | `Ok`, `NotFound`, `TypeMismatch`, `Unavailable`, `ConversionFailed`; причина owning `readAsResult` |
 
 Flat status enums описують native runtime outcome і не є wire codes.
 `ServiceCallStatus::Ok` означає successful routing **та** application success;
@@ -965,165 +984,68 @@ Command callback code у flat API дає `Failed`, а low-level `callAs` збе�
 коди. `ArgumentCountMismatch` не означає, що structured Command підтримує
 довільну кількість параметрів: допустима сигнатура визначається при компіляції.
 
-Encoded boundaries мають окремий `DispatchStatus`: `Ok`, `NotFound`,
-`InvalidPayload`, `BufferTooSmall`, `WorkspaceTooSmall`, `InternalError`,
-`Unavailable`. Він описує routing, buffer/codec/storage failure. Перевіряйте
-його **перед** `endpointStatus`: default endpointStatus при dispatch failure
-не означає, що callback виконався.
-
-| Encoded result | Поля |
-| --- | --- |
-| `EncodedReadResult` | `dispatch`, `written` |
-| `EncodedWriteResult` | `dispatch`, `endpointStatus` (`WriteResult`) |
-| `EncodedCommandResult` | `dispatch`, `endpointStatus` (`CommandResult`) |
-| `EncodedCallResult` | `dispatch`, `endpointStatus` (`ServiceStatus`), `written` |
-
-`dispatch == Ok` і `endpointStatus == Busy` є штатною application відмовою.
-`dispatch == Unavailable` означає, що encoded target не був доступний.
-`InternalError` також дозволяє відхилити invalid status, який owner повернув
-через штучний cast поза відомими codes.
+Native statuses не підміняють encoded `DispatchStatus`. Чотири різні encoded
+result types, їхні поля, callback invocation та порядок перевірки dispatch
+описані окремо в [Encoded API](Model.md#encoded-api-catalog-index-або-modelview).
 
 ## 15. Encoded boundaries, Workspace і default 32 bytes
 
-Erased entries знають точні wire lengths. Не викликайте їх внутрішні raw
-function-pointer members напряму; checked API перевіряє spans:
+Цей історичний anchor збережено; canonical byte access тепер описаний у
+[Encoded API](Model.md#encoded-api-catalog-index-або-modelview). Є два способи:
+`FieldCatalogTable/CommandCatalogTable/ServiceCatalogTable::index()` без Model
+та чотири compiled functions із `ModelView`. Local tables не мають `index()`;
+їхні erased rows доступні через `operator[]` після вашої перевірки position.
 
-```cpp
-std::array<std::byte, model.maxScratch()> scratch{};
-telemetry::Workspace workspace{scratch};
-std::array<std::byte, telemetry::wireSize<float>> output{};
+Публічні encoded methods перевіряють lengths, capacity та потрібний scratch
+перед передачею bytes у callback. Не викликайте raw function-pointer members
+entries напряму. Повні signatures, різні result fields, status precedence,
+compiled sources і ABI boundary наведені на canonical сторінці; runnable
+приклад — [Encoded.cpp](../../examples/user_guide/Encoded.cpp). Transport
+frame/envelope є окремим шаром:
+[Transport and Resources](TransportAndResources.md).
 
-auto read = model.fieldIndex().readEncoded(voltageId, output, workspace);
-auto write = model.fieldIndex().writeEncoded(voltageId, input, workspace);
-auto execute = model.commandIndex().executeEncoded(commandId, requestBytes, workspace);
-auto call = model.serviceIndex().callEncoded(serviceId, requestBytes, responseBytes, workspace);
-```
-
-В останніх трьох рядках `input`, `requestBytes`, `responseBytes` — spans або
-byte arrays потрібної форми. Повний приклад із `telemetry::encode` є у
-[Native.cpp](../../examples/user_guide/Native.cpp). Encoded writes/Requests
-вимагають exact input length, reads/Responses — достатню output capacity;
-callback не отримує обрізаний Request. Invalid bool wire representation
-відхиляється до запуску callback. Окремий public `encode<T>` вимагає exact
-output length; це відмінність від endpoint output-capacity API.
-
-Compiled adapter має public convenience functions `readFieldEncoded`,
-`writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded`, які беруть
-`ModelView`. Для них лінкується `model/Adapter.cpp`; точний in-memory ABI tag
-допомагає відхилити змішані layout/configuration під час лінкування. Direct
-index APIs у прикладі не потребують цього compiled forwarding layer.
-
-За замовчуванням `TELEMETRY_STRUCTURED_LOCAL_BYTES` дорівнює 32. Це compile-time
-budget **локальних payload objects encoded операції**, не total stack bound.
-Налаштування має збігатися в усіх translation units executable; задавайте його
-однаково через build flags. Значення 0 відправляє owning payload/Request storage
-у caller Workspace. Воно не означає нуль stack для control variables, callback
-чи caller, і не змінює native owning return policy.
-
-Політика storage:
-
-| Операція | Local/Workspace |
-| --- | --- |
-| Owning Field read | Native T локально, якщо `sizeof(T)` у budget; інакше Workspace |
-| Field write | Decoded T за тим самим size rule |
-| Command | Decoded Request за size rule; absent Request не створює object |
-| Owning Service | Request першим займає local budget; result wrapper має вміститись у залишок; решта у Workspace |
-| Borrowed Field read | Existing T серіалізується прямо; read scratch 0 |
-| Borrowed Service | Storage потрібен лише для Request; existing Response не матеріалізується |
-
-У owning Service враховується розмір result wrapper разом із status/padding,
-не лише `sizeof(Response)`. Request і Result можуть одночасно жити під час
-encoding, тому це спільний local budget. Callback by-value parameter і власні
-локальні objects застосунку не отримують автоматичного stack обмеження.
-
-`telemetry::scratchBytes<T>` дорівнює `sizeof(T) + alignof(T) - 1` — достатньо
-для worst initial alignment byte span. Workspace є caller-owned mutable byte
-storage і не алокує його. Lease резервує aligned object storage, починає
-object lifetime при construction, знищує object та повертає reservation при
-виході зі scope. Живі leases звільняються у зворотному порядку (LIFO).
-Не використовуйте один Workspace одночасно для незалежних викликів.
+Default 32-byte local-object budget стосується **encoded storage**, а не
+native owning results або total stack. Політика owning/borrowed endpoints,
+спільний Request + actual Result budget Service та конфігурація всіх TU
+описані в [Local object budget](CodecAndWorkspace.md#local-object-budget).
+`maxScratch()`, per-family maxima й потреби nested operations —
+у [Model API](Model.md#model-api). Native calls вище не потребують Workspace.
 
 ### Codec окремо від endpoints
 
-Standalone `<telemetry/codec/Codec.hpp>` працює без Field/Command/Service або
-Model. `encode(value, output)` створює canonical bytes, а decode має три форми:
+[Standalone Codec](CodecAndWorkspace.md) працює без definitions, tables або
+Model. Його окремий runnable приклад —
+[Codec.cpp](../../examples/user_guide/Codec.cpp).
 
-| API | Storage і lifetime |
+| API | Призначення |
 | --- | --- |
-| `decode(input, T& output)` | Заповнює вже live mutable object; Workspace не потрібний |
-| `decode<T>(input, workspace)` | Повертає immobile `Decoded<T>`; його scoped Lease керує lifetime нового T у caller storage |
-| `decode(input, lease, pointer)` | Existing low-level API; caller окремо керує reservation та Lease lifetime |
+| `encode(object, bytes)` | Створити canonical bytes |
+| `decode(bytes, existingObject)` | Перевірити й заповнити вже живий mutable T |
+| `decode<T>(bytes, workspace)` | Отримати named immobile `Decoded<T>` із scoped lifetime |
+| `decode(bytes, lease, pointer)` | Керувати reservation та decoded pointer явно |
 
-У першій формі exact length, object overlap та вся representation перевіряються
-до mutation, тому malformed input не частково змінює object. Це не CPU atomic
-write і не business validation: синхронізація та застосування конфігурації
-лишаться application responsibility. `Decoded<T>` має `status()`, `hasValue()`,
-explicit `bool` і `value()` тільки для named `&` / `const&` result; rvalue access
-видалено. Result і Workspace storage живуть довше за borrowed reference. Навіть
-failed decode може утримувати reservation до result destruction; усі results
-та explicit leases на одному Workspace звільняються LIFO.
-
-У low-level формі decoder отримує вже зарезервований caller-owned Lease;
-він починає lifetime decoded T і повертає pointer у цей lease:
-
-```cpp
-std::array<std::byte, telemetry::scratchBytes<Query>> storage;
-telemetry::Workspace decoding{storage};
-auto lease = decoding.reserve<Query>();
-Query* value = nullptr;
-const auto status = telemetry::decode<Query>(queryWire, lease, value);
-if (status == telemetry::CodecStatus::Ok) {
-    // Використати *value тільки поки lease живий.
-}
-```
-
-При кожному low-level decode output pointer спочатку стає nullptr.
-Усі standalone codec operations вимагають exact wire length. Workspace decode не
-дозволяє input overlap із **повним** Workspace storage, навіть якщо input
-не перекриває лише конкретний lease. Один lease не декодується повторно,
-поки він уже містить constructed object. Lease destruction знищує object і
-відновлює попередню reservation; pointer за межами lease scope недійсний.
-
-| `CodecStatus` | Значення |
-| --- | --- |
-| `Ok` | Повна canonical операція завершена |
-| `LengthMismatch` | Span length не дорівнює `wireSize<T>` |
-| `InvalidValue` | Неканонічна representation, зокрема bool не 0/1 |
-| `WorkspaceTooSmall` | Lease не зміг зарезервувати storage |
-| `Overlap` | Заборонений перетин payload/object/storage spans |
-| `InvalidState` | Повторний decode у constructed lease або порушення codec state |
-
-Standalone decode, ID decomposition та reference-wrapper Service включені
-до [Native.cpp](../../examples/user_guide/Native.cpp), який виконується в CI.
-[Codec.cpp](../../examples/user_guide/Codec.cpp) окремо показує всі три decode
-forms для nested DTO зі `std::array`; contracts описані у
-[Codec and Workspace](CodecAndWorkspace.md).
-
-Default member initializers aggregate не є hook для decoded Request. Codec
-заповнює кожний semantic member із bytes і у nontrivial-default case явно
-будує neutral members, щоб application DMI не виконувався. У цьому внутрішньому
-construction шляху є ceiling 1024 expanded construction nodes: складний DMI
-тип може відхилятися, хоча його wire size вкладається в загальний format limit.
-Приберіть непотрібні DMI з wire DTO або поділіть таку форму на менші payloads.
-
-Field має незалежні `readScratchBytes` і `writeScratchBytes`. Getter великого
-T може бути borrowed і вимагати 0 read scratch, але setter того самого Field
-потребує storage для decoded T. `model.maxFieldScratch()` враховує обидва,
-`model.maxCommandScratch()` / `maxServiceScratch()` — відповідні операції,
-`maxScratch()` — максимум для одного виклику. Для вкладених викликів із
-активними outer leases потрібно враховувати сумарний одночасний storage.
-Values provider враховує тільки Field reads; докладніше в transport посібнику.
-
-Input/output не повинні перетинатися з використаним Workspace storage за
-checked boundary contract. Service input і output можуть ділити bytes після
-повного Request decoding. Borrowed payload encoder додатково перевіряє
-перетин усіх native bytes referenced T, включно з padding, із written output
-prefix; overlap повертає `InvalidPayload` без payload writes. Для Values та
-Exchange **повний output buffer**, включно з header/status, має бути disjoint
-від live application objects: це caller precondition, яку payload-only check
-не може встановити до callback.
+Exact lengths, representation validation, overlap, усі `CodecStatus`,
+alignment, DMI-neutral construction ceiling та LIFO contracts залишаються в
+[Codec and Workspace](CodecAndWorkspace.md). `Decoded<T>::value()` доступний
+лише для named `&/const&` result; його result і Workspace backing storage мають
+жити довше за отриману reference. Borrowed output providers мають додаткові
+caller preconditions для **всього** reply buffer, включно з header/status:
+[Descriptor and Values](DescriptorAndValues.md) та
+[Transport and Resources](TransportAndResources.md).
 
 ## 16. Borrowed lifetime і узгоджені дані
+
+Для **owning** result будь-яка reference або pointer на payload потребує
+живого result. Збережіть результат у named variable перед отриманням pointer.
+Новий `ServiceCallResult<T>::valueOrNull()` відхиляє owning temporaries, але
+наявні `ServiceResult<T>`, `NativeCallResult<T>` і `FieldReadResult<T>` цього
+обмеження не мають. Їхній temporary accessor може компілюватися; pointer не
+можна зберігати за межами full expression. `FieldReadResult::operator->()`
+повертає той самий owned pointer. `NativeCallResult<BorrowedServiceResult<T>>`
+володіє inner wrapper: outer `valueOrNull()` вказує на wrapper, а не на
+зовнішній T. Окремі приклади:
+[Field result](Fields.md#runtime-borrowed-read-та-причина-відмови) і
+[Service result](Services.md#5-owning-serviceresult).
 
 Нативний borrowed result живе як view після повернення `read`/`call`.
 Застосунок тримає T живим і стабільним до останнього використання view.
@@ -1166,13 +1088,14 @@ contract; отримуйте data з hardware/atomic storage у звичайні
 
 ```mermaid
 flowchart TD
-    B[Business objects: native methods] --> T[Field / Command / Service + Model]
+    B[Business objects: native methods] --> T[Field / Command / Service definitions]
     T --> N[Native application API]
-    T --> A[Encoded Model adapter]
-    T --> P[Optional descriptor / values providers]
-    P --> F[FileSystem + resource::protocol]
-    R[Application UART / TCP / USB / COBS framing] --> A
-    R --> F
+    T --> L[Optional local tables / catalogs]
+    L --> N
+    L --> I[Catalog indexes: encoded access]
+    L --> M[Optional Model: shared registry / ModelView]
+    M --> A[Compiled encoded adapter]
+    M --> P[Optional descriptor / values providers]
 ```
 
 Declaration не приймає units, min/max, scale, visibility, access rights,
@@ -1188,23 +1111,9 @@ permissions, persistence, queues і transaction lifecycle розміщуютьс
 
 ## 18. Фіксовані ceilings і build assumptions
 
-Поточні compile-time ceilings `telemetry::Limits`:
-
-| Limit | Значення |
-| --- | ---: |
-| `maxTypeDepth` | 32 |
-| `maxTypeCount` | 4096 |
-| `maxStructMembers` | 256 |
-| `maxArrayElements` | 65536 |
-| `maxDescriptorBytes` | 4194304 |
-| `maxStringBytes` | 4096 |
-| `maxEnumEntriesTotal` | 65536 |
-| `maxCatalogCountTotal` | 65536 |
-| `maxEndpointCountTotal` | 65536 |
-| `maxValueWireBytes` | 1048576 |
-| `maxExpandedValueNodes` | 262144 |
-
-Це ceilings supported format/model, а не рекомендований розмір payload для
+Усі 11 compile-time ceilings `telemetry::Limits` зведені в
+[Model: межі](Model.md#межі-та-порожні-категорії). Це acceptance ceilings supported
+format/model, а не рекомендований розмір payload для
 кожного MCU. Transport capacity, RAM, decoder construction complexity та
 час callback/encoding мають власні бюджети. Порівнюйте це з реальним build.
 
@@ -1218,6 +1127,17 @@ checked conversions спираються на IEEE правила, і части
 ## 19. Перевірка прикладу та сила performance evidence
 
 Збирання з кореня репозиторію:
+
+Для мінімального native-only сценарію:
+
+```sh
+g++ -std=c++20 -O2 -Wall -Wextra -Werror -pedantic-errors \
+  -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
+  examples/user_guide/NativeOnly.cpp -o /path/to/artifacts/NativeOnly
+/path/to/artifacts/NativeOnly
+```
+
+Для ширшого прикладу з catalogs, Model та encoded/codec операціями:
 
 ```sh
 g++ -std=c++20 -O2 -Wall -Wextra -Werror -pedantic-errors \

@@ -1,5 +1,8 @@
 # Fields: значення, читання та запис
 
+[API Overview](APIOverview.md) · [Native reference](NativeApi.md) ·
+[Native-only приклад](../../examples/user_guide/NativeOnly.cpp)
+
 `Field` відкриває одне прикладне значення через getter і, за потреби,
 setter. Це може бути напруга, лічильник, режим, масив коефіцієнтів або ціла
 структура налаштувань. Тип визначається C++-сигнатурою getter. Setter приймає
@@ -15,6 +18,13 @@ setter. Це може бути напруга, лічильник, режим, �
 [`<telemetry/Telemetry.hpp>`](../../lib/telemetry/Telemetry.hpp).
 Назви та bindings є частиною declaration; units, допустимі межі, defaults,
 персистентність і synchronization визначає застосунок.
+
+Native FieldDefinition або local `FieldTable` працюють без Model/Workspace;
+catalog потрібний лише для global IDs. Публічні family headers —
+[`<telemetry/field/FieldTable.hpp>`](../../lib/telemetry/field/FieldTable.hpp) і
+[`<telemetry/field/FieldCatalogs.hpp>`](../../lib/telemetry/field/FieldCatalogs.hpp).
+Compile-time supported-type та reflection requirements залишаються чинними;
+дивіться [залежності Native access](NativeApi.md).
 
 ## 1. Повний приклад з native та encoded доступом
 
@@ -285,13 +295,29 @@ else
 
 `FieldReadResult<T>` owns requested `T` лише при `Ok`; `hasValue()` та explicit
 `operator bool` перевіряють цей стан. `value()` / `operator*` вимагають
-`hasValue()`, а `valueOrNull()` safe для обох станів. `operator->` повертає
-той самий optional pointer. Failure не default-constructs `T`; exact owning
+`hasValue()`, а `valueOrNull()` повертає null на failure. `operator->` повертає
+той самий owned pointer. Failure не default-constructs `T`; exact owning
 success будує `T` без intermediate value container. `successFrom(factory)`
 вимагає exact `T` result і будує його в final storage; `failure(status)`
 вимагає один із чотирьох failure statuses. Result wrapper має storage для `T`,
 тому для великого payload без owning copy обирайте `readBorrowed<T>`.
 Ці native statuses не є wire codes і не змінюють encoded dispatch.
+
+Pointer/reference із `FieldReadResult<T>` позичає **його власний** payload.
+Тримайте named result живим до останнього використання pointer:
+
+```cpp
+const auto result = localFields.readAsResult<double>(position);
+if (const double* value = result.valueOrNull())
+    consume(*value); // result усе ще живий.
+```
+
+Поточний `valueOrNull()` не ref-qualified: accessor на temporary може
+компілюватися, але не продовжує lifetime result. Не зберігайте pointer з
+`localFields.readAsResult<double>(position).valueOrNull()` після завершення
+цього full expression. Те саме стосується pointer, отриманого явним викликом
+`operator->()`, та reference з `value()` / `operator*()`. Це відрізняється
+від `BorrowedValue<T>`: там сам T належить зовнішньому owner.
 
 ### Правила `readAs` / `writeAs`
 
@@ -359,6 +385,9 @@ Global `PackedId` має high 16 bits group і low 16 bits local position:
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased iteration, без getter invocation |
 | `operator[](i)` | `const FieldEntry&` або `const FieldCatalog&` | Unchecked; caller requires `i < size()` |
 | `forEach(visitor)` | `void` | Typed declaration traversal |
+| `forEachWhile(visitor)` | `bool` | Typed traversal до exact-`bool` false; true означає повний обхід |
+| `catalogs.forEachEntry(visitor)` | `void` | Packed ID, group name та erased FieldEntry |
+| `catalogs.forEachEntryWhile(visitor)` | `bool` | Такий самий erased обхід до exact-`bool` false |
 | `visit(position_or_id, visitor)` | `bool` | Checked typed selection; callback return ignored |
 | `catalogs.index()` | `FieldIndex` | Copyable borrowed runtime view |
 
@@ -382,6 +411,10 @@ catalog name й compile-time position parameters там не передають�
 Callback має компілюватися для кожного можливого definition. Для різних
 request/value types використовуйте `if constexpr`. Traversal callbacks можуть
 кидати exceptions, якщо вони enabled; endpoint callbacks залишаються noexcept.
+`forEachWhile` має ті самі typed visitor forms, але вимагає exact `bool`.
+`forEachEntry` дає metadata, не live values. Empty обхід завершується true;
+false від останнього visitor також означає requested stop. Повні signatures
+та приклади — [Tables and catalogs](TablesAndCatalogs.md#обійти-definitions-або-metadata).
 
 Публічний `RootTypes` містить один value type на кожен Field у порядку
 оголошення; повтори навмисні. `RootTypes::size` — кількість полів, тому

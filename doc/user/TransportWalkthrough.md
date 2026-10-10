@@ -4,9 +4,10 @@
 
 Цей посібник проходить повний шлях: клієнт готує запит, транспорт збирає
 його з порцій байтів, застосунок викликає потрібний handler і передає відповідь
-назад. Оголошення Device та Model дивіться в [Native API](NativeApi.md).
-Точні контракти окремих викликів зібрані в
-[TransportAndResources.md](TransportAndResources.md).
+назад. Endpoint declarations описані в [Native API](NativeApi.md), metadata
+composition та encoded contracts — у [Model](Model.md#encoded-api-catalog-index-або-modelview).
+[TransportAndResources.md](TransportAndResources.md) пояснює transport/file
+integration; [API Overview](APIOverview.md) допомагає вибрати точку входу.
 
 Можна почати з одного з двох маршрутів:
 
@@ -19,6 +20,11 @@
 методу. Другий додає іменовані файли: готові байти, власне сховище,
 descriptor Model або поточні Field values. Обидва handlers синхронні;
 прийом, відправлення, стан підключення та порції UART/TCP організує застосунок.
+Приклади нижче вибрали compiled ModelView functions. Той самий transport може
+викликати family catalog `index()` без Model; реальні methods та dependencies
+зібрані у [Model: Encoded API](Model.md#encoded-api-catalog-index-або-modelview).
+Canonical payload не є UART/TCP frame: application має відокремити повне
+повідомлення перед будь-яким із цих синхронних викликів.
 
 ## 1. Спочатку визначте межі повідомлення
 
@@ -186,8 +192,8 @@ if (result.dispatch == ts::DispatchStatus::Ok) {
 ```
 
 Config `{400, true}` повертається canonical bytes `90 01 00 00 01`.
-Клієнт декодує їх через [`telemetry::decode`](NativeApi.md#codec-окремо-від-endpoints)
-із caller-owned Lease або відповідний клієнтський codec у `Config`.
+Клієнт декодує їх через [standalone `telemetry::decode`](CodecAndWorkspace.md#public-codec-api-і-statuses):
+у existing `Config`, scoped Workspace result або explicit caller-owned Lease.
 Він перевіряє dispatch status та точну довжину перед decode.
 
 Щоб установити `{900, false}`, клієнт кодує payload `84 03 00 00 00` і надсилає
@@ -322,6 +328,12 @@ inline telemetry::Workspace workspace{scratch};
 від receive buffer, packet output і buffer, який читає UART DMA/socket send.
 `model.maxScratch()` не задає packet capacity; request/response розміри
 визначайте окремо за власним header і `telemetry::wireSize<T>`.
+Ця межа достатня для однієї operation без outer live leases, не для довільної
+кількості nested calls. Для catalog-index шляху без Model використовуйте entry
+`readScratchBytes` / `writeScratchBytes` / `scratchBytes`; scratch потрібно
+рахувати окремо від input/output capacity. Fully local operation може отримати
+Workspace із порожнім backing span. Внутрішні thunks не повторюють public
+length/capacity preflight; не обходьте public checked methods через raw callbacks.
 
 Звичайна схема для одного підключення:
 
@@ -348,7 +360,10 @@ UART receive callback часто позичає DMA buffer, який скоро 
 Серіалізуйте доступ або дайте незалежним активним handlers окремі arrays та
 Workspaces. Власний Device також потребує відповідної синхронізації.
 Borrowed response живе та лишається стабільним, поки encoder читає його.
-Request/output/scratch не розміщуйте поверх цього об'єкта. Об'єкти Model,
+Request/output/scratch не розміщуйте поверх цього об'єкта. Зокрема **весь**
+Values READ або Exchange reply output, включно з headers/status, має бути
+disjoint із live object: internal payload overlap check не перевіряє ваш
+зовнішній envelope. Об'єкти Model,
 catalogs, bindings та paths також повинні залишатися живими за своїми
 позиченими посиланнями; копія view не подовжує їх життя.
 
@@ -694,6 +709,9 @@ Command також викликають provider/callback повторно. Time
 
 У Exchange requestId є correlation, тому його не перевикористовують, поки
 пізня відповідь може надійти для старого запиту. Він не є deduplication key.
+Сам Exchange формує packet header у caller output. Цей **повний** output
+buffer має бути disjoint із application objects, з яких callbacks позичають
+response; окремий payload prefix check не забезпечує цю transport precondition.
 Приклади перевіряються на host без UART/TCP і приладу; команди запуску
 та межі цього підтвердження — у
 [user_guide README](../../examples/user_guide/README.md) та

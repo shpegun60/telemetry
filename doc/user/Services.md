@@ -1,5 +1,8 @@
 # Services: typed request, response і application status
 
+[API Overview](APIOverview.md) · [Native reference](NativeApi.md) ·
+[Native-only приклад](../../examples/user_guide/NativeOnly.cpp)
+
 `Service` відкриває прикладну операцію з відповіддю: одержати snapshot,
 запитати дані каналу, прочитати large cached block, перевірити стан або
 обчислити результат за одним request. Callback має no request або одну
@@ -19,6 +22,13 @@ native call і transport adapter; connection/session/retry state Service
 [`<telemetry/Telemetry.hpp>`](../../lib/telemetry/Telemetry.hpp).
 Для current state без request дивіться [Fields](Fields.md), для action
 тільки зі status — [Commands](Commands.md).
+
+Native definition/local table не потребують Model або Workspace; native
+global IDs додають catalogs. Публічні family headers —
+[`<telemetry/service/ServiceTable.hpp>`](../../lib/telemetry/service/ServiceTable.hpp) і
+[`<telemetry/service/ServiceCatalogs.hpp>`](../../lib/telemetry/service/ServiceCatalogs.hpp).
+Supported DTO та reflection requirements залишаються чинними;
+[Native reference](NativeApi.md) пояснює транзитивні залежності.
 
 ## 1. Повний приклад owning та borrowed responses
 
@@ -260,7 +270,7 @@ runtime null-owner check, але його lifetime обов'язковий.
 | `value() &` | `T&` | Mutable owned payload, precondition engagement |
 | `value() const&` | `const T&` | Const owned payload, precondition engagement |
 | `value() &&` | `T&&` | Move доступ до owned payload, precondition engagement |
-| `valueOrNull()` | `T*` або `const T*` | Safe pointer для success/failure |
+| `valueOrNull()` | `T*` або `const T*` | Owned payload pointer на success, null на failure; result має лишатися живим |
 | Copy/move constructors і assignment | Owning state/payload operations | Copy/move payload коли він engaged; source move не автоматично failure |
 | Destructor | Ends owned `T` lifetime | Failure не destroys неіснуючий payload |
 
@@ -269,6 +279,22 @@ Owning `ServiceResult<T>` не має `operator bool`, `operator*` або
 Payload destructor має бути noexcept. Wrapper copy/move properties залежать
 від payload operations; вони не є універсальною гарантією nothrow.
 Endpoint callback має завершуватися noexcept згідно із declaration contract.
+
+Reference/pointer на owned payload не подовжує lifetime result. Для pointer
+зберігайте named owner:
+
+```cpp
+const auto response = localServices.call<0>();
+if (const auto* value = response.valueOrNull())
+    consume(*value); // response живий до завершення consume.
+```
+
+Наявний `ServiceResult<T>::valueOrNull()` не ref-qualified: accessor на owning
+temporary компілюється, але його pointer не можна зберігати за межами full
+expression. Це не така сама гарантія, як у нового flat
+`ServiceCallResult<T>`, який видаляє rvalue pointer access. `value()` також
+потребує живого result; для owning move-out спочатку перемістіть payload у
+власний object, а не зберігайте reference на temporary wrapper.
 
 Для великої відповіді створюйте payload прямо через `successFrom`:
 
@@ -350,6 +376,9 @@ declaration order. `ServiceCatalogTable` позичає local tables через 
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased rows/catalog iteration |
 | `operator[](i)` | `const ServiceEntry&` / `const ServiceCatalog&` | Unchecked, `i < size()` required |
 | `forEach(visitor)` | `void` | Typed traversal, без implicit execution |
+| `forEachWhile(visitor)` | `bool` | Typed traversal до exact-`bool` false |
+| `catalogs.forEachEntry(visitor)` | `void` | Packed ID, group name та erased ServiceEntry |
+| `catalogs.forEachEntryWhile(visitor)` | `bool` | Erased обхід до exact-`bool` false |
 | `visit(position_or_id, visitor)` | `bool` | Checked typed selection; visitor return ignored |
 | `catalogs.index()` | `ServiceIndex` | Copyable borrowed runtime view |
 
@@ -379,6 +408,10 @@ Local `forEach` callback — ordinary `visitor(definition)` або optional
 а не successful Service response. Visitors повинні компілюватися для всіх
 heterogeneous definitions; exact request/response branch обирайте через
 `if constexpr`.
+`forEachWhile` має ті самі typed callback forms, але вимагає exact `bool`;
+true означає повний обхід, false — requested stop. `forEachEntry` показує
+metadata без response invocation. Приклади й усі traversal contracts —
+[Tables and catalogs](TablesAndCatalogs.md#обійти-definitions-або-metadata).
 
 ### Runtime Service з одним result
 
@@ -480,8 +513,17 @@ Empty compatible slot дає selection `Ok`, всередині —
 що inner wrapper існує: це **не** `result.value().hasValue()` і не application
 success. Наприклад `Ok + ServiceStatus::Busy` має outer `hasValue() == true`,
 inner `hasValue() == false`. `value()` вимагає outer engagement;
-`valueOrNull()` safe для selection failure. Native selection statuses не є
+`valueOrNull()` повертає null для selection failure. Native selection statuses не є
 encoded dispatch або wire codes.
+
+`NativeCallResult<Result>` **володіє Result wrapper**, навіть коли Result є
+`BorrowedServiceResult<T>`. Outer `valueOrNull()` вказує саме на цей wrapper;
+named outer result має жити до останнього використання pointer. Наявні
+accessors допускають temporary, але не продовжують його lifetime.
+`result.value().valueOrNull()` натомість дістає pointer із inner wrapper:
+для owning `ServiceResult<T>` він позичає owned payload, а для
+`BorrowedServiceResult<T>` — зовнішній application T. У другому випадку
+lifetime T визначає owner, а не outer result. Не плутайте ці два pointer levels.
 
 `NativeCallResult<Result>::successFrom(factory)` вимагає exact `Result` і
 будує його прямо в final storage. Runtime dispatch повертає prvalue endpoint

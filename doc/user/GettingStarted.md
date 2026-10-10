@@ -2,12 +2,18 @@
 
 [User guide](README.md) · [Documentation index](../README.md) · [API cheatsheet](API-CHEATSHEET.md)
 
+[API Map](APIOverview.md) допоможе вибрати Native, Encoded, Codec або Resource
+до проходження інтеграції. Якщо потрібний лише DTO ↔ bytes, перейдіть одразу
+до [Codec](CodecAndWorkspace.md) та [Codec.cpp](../../examples/user_guide/Codec.cpp).
+
 Цей маршрут розрахований на програміста, який уже має C++ клас пристрою й хоче
 підключити telemetry до прошивки або desktop-застосунку. Пройдіть його зверху
 донизу один раз; потім використовуйте [шпаргалку](API-CHEATSHEET.md).
 
-Для копіювання є дві повні програми:
+Для копіювання є повні програми:
 
+- [NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp): один local Field,
+  Command і Service; без Model/Workspace, transport чи files.
 - [QuickStart.cpp](../../examples/user_guide/QuickStart.cpp): перші Field,
   Command і Service в одному файлі.
 - [Device integration](../../examples/device_integration/README.md): клас,
@@ -32,7 +38,8 @@
 | Ваш сценарій | Що підключити | Перший виклик |
 | --- | --- | --- |
 | Бізнес-логіка у цій самій програмі | Local tables; каталоги, якщо потрібні global IDs | `localFields.read<0>()` |
-| Власний UART/TCP протокол передає ID та bytes | Таблиці, каталоги, `Model`, encoded adapter | `readFieldEncoded(model.view(), id, output, workspace)` |
+| Власний UART/TCP протокол передає ID та bytes | Каталоги + `index()` **або** `ModelView` adapter; buffers і Workspace | `fieldCatalogs.index().readEncoded(id, output, workspace)` |
+| Треба encode/decode DTO без endpoint-ів | `<telemetry/codec/Codec.hpp>`, object і bytes | `telemetry::decode(bytes, existingObject)` |
 | Клієнт читає файли або ви додаєте settings/log/calibration provider | `resource::FileSystem`; за потреби generic file protocol | `fs[0].read(cursor, output)` |
 | Клієнт має сам дізнатися структуру telemetry | `Model` + Descriptor/Values providers у filesystem | READ `/telemetry/descriptor.bin`, потім READ `/telemetry/values.bin` |
 
@@ -61,7 +68,7 @@
 #include <telemetry/Telemetry.hpp>
 ```
 
-Для першої mixed Model integration додайте до свого build ці два sources:
+Стандартний build для compiled ModelView adapter та явного ABI guard включає:
 
 ```text
 lib/telemetry/abi/StructuredAbi.cpp
@@ -73,10 +80,17 @@ lib/telemetry/model/Adapter.cpp
 boundary, коли він використовується. Не додавайте ті самі sources двічі
 через власний список і `.pri` одночасно.
 
+Local Native та direct catalog index calls не потребують цих `.cpp` самі
+по собі. [NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp) лінкується
+без compiled sources. Explicit `requireStructuredAbi()` — окрема залежність
+від `StructuredAbi.cpp`; стандартний `.pri` вже включає його. Header-only calls
+все одно мають compile-time type/reflection dependencies; це не Flash-size обіцянка.
+
 Додаткові модулі підключаються за потреби:
 
 | Модуль | Include / compiled source |
 | --- | --- |
+| Standalone DTO codec | `<telemetry/codec/Codec.hpp>`, header-only |
 | Generic filesystem і готові bytes | `<resource/Resource.hpp>`, core header-only |
 | LIST/STAT/READ/WRITE packets | `<resource/protocol/Protocol.hpp>`, `lib/resource/protocol/Protocol.cpp` |
 | Telemetry Descriptor/Values files | Headers у `resource/telemetry/v3`, `lib/resource/telemetry/v3/detail/Values.cpp` |

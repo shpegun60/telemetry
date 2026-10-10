@@ -1,5 +1,8 @@
 # Commands: прикладні дії та їхній результат
 
+[API Overview](APIOverview.md) · [Native reference](NativeApi.md) ·
+[Native-only приклад](../../examples/user_guide/NativeOnly.cpp)
+
 `Command` відкриває дію: скинути лічильник, застосувати повний configuration
 block, вибрати канал, почати збереження або передати роботу прикладній черзі.
 Callback повертає `telemetry::CommandResult`. Command не має response payload;
@@ -15,6 +18,13 @@ Request — або відсутній, або одна ordinary aggregate struct
 [`<telemetry/Telemetry.hpp>`](../../lib/telemetry/Telemetry.hpp).
 Declarations складаються з name та binding; прикладна семантика не
 записується в structural descriptor.
+
+Native declaration/local table не потребують Model або Workspace; catalogs
+додають global IDs. Публічні family headers —
+[`<telemetry/command/CommandTable.hpp>`](../../lib/telemetry/command/CommandTable.hpp) і
+[`<telemetry/command/CommandCatalogs.hpp>`](../../lib/telemetry/command/CommandCatalogs.hpp).
+Це не прибирає compile-time type/reflection validation чи транзитивні headers;
+дивіться [Native access dependencies](NativeApi.md).
 
 Для runtime ID використовуйте `commands.call(id[, request])`: результат —
 один `CommandCallStatus`, що охоплює routing та application outcome.
@@ -250,6 +260,9 @@ catalog declaration order задає group position.
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased iteration без execution |
 | `operator[](i)` | `const CommandEntry&` / `const CommandCatalog&` | Unchecked; requires `i < size()` |
 | `forEach(visitor)` | `void` | Typed traversal усіх declarations у порядку |
+| `forEachWhile(visitor)` | `bool` | Typed traversal до exact-`bool` false |
+| `catalogs.forEachEntry(visitor)` | `void` | Packed ID, group name та erased CommandEntry |
+| `catalogs.forEachEntryWhile(visitor)` | `bool` | Erased обхід до exact-`bool` false |
 | `visit(position_or_id, visitor)` | `bool` | Checked typed runtime selection |
 | `catalogs.index()` | `CommandIndex` | Copyable borrowed runtime index |
 
@@ -280,6 +293,10 @@ Local `forEach` приймає `visitor(definition)` або optional typed
 ігнорується: boolean `visit` означає selection, а не execution success.
 Traversal сам по собі не викликає command; command виконається тільки тоді,
 коли ваш visitor викличе `definition.call`.
+`forEachWhile` підтримує ті самі typed visitor forms; `forEachEntry` передає
+metadata, не виконує Command. While-result true означає повний обхід, включно
+з empty table, false — requested stop. Деталі:
+[Tables and catalogs](TablesAndCatalogs.md#обійти-definitions-або-metadata).
 
 ### Typed call з runtime ID
 
@@ -356,7 +373,11 @@ assert(reset.hasValue() && reset.value() == ts::CommandResult::Executed);
 `result.hasValue()` означає доставку `CommandResult`, а не `Executed`.
 `Busy`, `InvalidValue` та `Unavailable` збережено у `result.value()` при
 selection `Ok`; наприклад empty declared slot дає `Ok + Unavailable`.
-`value()` вимагає selection `Ok`; `valueOrNull()` safe також на failure.
+`value()` вимагає selection `Ok`; `valueOrNull()` повертає null на failure.
+Pointer вказує на `CommandResult`, який належить outer result: named result
+має жити до останнього pointer use. Accessor на temporary нині компілюється,
+але pointer не можна зберігати після full expression. Для Command зазвичай
+достатньо скопіювати невеликий enum через `result.value()`.
 Ці native selection statuses не є encoded dispatch чи wire codes.
 
 Local input приймає integer або scoped position enum; packed ID — integral.

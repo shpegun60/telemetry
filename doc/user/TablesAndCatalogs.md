@@ -2,11 +2,13 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Native reference](NativeApi.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Native reference](NativeApi.md) ·
 [API шпаргалка](API-CHEATSHEET.md) · [Архітектура](../Architecture.md)
 
-Наступний рівень над catalogs — [Model](Model.md); canonical byte
-operations і caller-owned scratch описує [Codec and Workspace](CodecAndWorkspace.md).
+Необов'язковий рівень над catalogs — [Model](Model.md). Local native access
+не потребує catalogs або Model; global native IDs потребують catalogs, але
+також не Model. Canonical byte operations і caller-owned scratch описує
+[Codec and Workspace](CodecAndWorkspace.md).
 
 Definition описує один endpoint. Local table зберігає definitions у
 порядку оголошення; catalog table групує named local tables. Ці об'єкти
@@ -14,6 +16,8 @@ Definition описує один endpoint. Local table зберігає definiti
 callbacks. Повний приклад із усіма families —
 [Native.cpp](../../examples/user_guide/Native.cpp); multi-file розкладка —
 [Api.cpp](../../examples/device_integration/Api.cpp).
+Почніть із [NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp), якщо
+потрібні тільки C++ read/write/call без Model, Workspace та encoded dispatch.
 
 ## Навігація
 
@@ -32,10 +36,13 @@ callbacks. Повний приклад із усіма families —
 ```mermaid
 flowchart LR
     O[Application owner / callable / slot] --> D[Endpoint definitions]
+    D --> N[Native C++ read / write / call]
     D --> T[Local table owns definitions and runtime rows]
+    T --> N
     T --> G[Named group borrows local table]
     G --> C[Catalog table owns catalog rows]
-    C --> M[Model borrows catalogs]
+    C --> N
+    C --> M[Optional Model borrows catalogs]
     C --> I[Runtime Index borrows catalog rows]
     M --> R[One reachable TypeRegistry]
 ```
@@ -44,6 +51,8 @@ Field, Command і Service мають окремі table/catalog/index families.
 Table не зберігає копії live device values. Catalog не створює нові
 owners; group позичає named lvalue local table. Model формує спільний
 structural registry, а callable access лишається у declarations/indexes.
+Runtime Index має encoded доступ без Model. Самостійний Codec не потребує
+навіть definitions, а generic Resource не залежить від цього ланцюжка.
 
 ## Оголосити таблиці та каталоги
 
@@ -79,6 +88,7 @@ inline constexpr ts::ServiceTable localServices{ts::service<&snapshot>("Snapshot
 inline constexpr ts::FieldCatalogTable fields{ts::group("state", localFields)};
 inline constexpr ts::CommandCatalogTable commands{ts::group("control", localCommands)};
 inline constexpr ts::ServiceCatalogTable services{ts::group("queries", localServices)};
+// Необов'язково для native викликів: спільний registry / ModelView adapter.
 inline constexpr ts::Model model{fields, commands, services};
 } // namespace table_demo
 ```
@@ -99,6 +109,8 @@ const reference на concrete definition.
 | Field | `read<Position>()` | Exact owning/borrowed getter result |
 | Field | `write<Position>(value)` | Exact setter input; `WriteResult` |
 | Field | `readAs<To, Position>()`, `readAs<To>(position)` | Owning `optional<To>` із checked numeric/exact structural access |
+| Field | `readAsResult<To, Position>()`, `readAsResult<To>(position)` | Owning `FieldReadResult<To>` з причиною відмови |
+| Field | `readBorrowed<T, Position>()`, `readBorrowed<T>(position)` | Exact borrowed getter, `BorrowedValue<T>` без copy/conversion |
 | Field | `writeAs<Position>(value)`, `writeAs(position, value)` | Checked conversion до endpoint T; `WriteResult` |
 | Command | `call<Position>()`, `call<Position>(request)` | `CommandResult` |
 | Command | `call(position[, request])` | Рекомендований runtime `CommandCallStatus` |
@@ -158,6 +170,8 @@ void useLocalTable() {
 | --- | --- | --- |
 | Field | `read<Id>()`, `write<Id>(value)` | Exact getter result / `WriteResult` |
 | Field | `readAs<To, Id>()`, `readAs<To>(id)` | Owning `optional<To>` |
+| Field | `readAsResult<To, Id>()`, `readAsResult<To>(id)` | Owning `FieldReadResult<To>` з причиною відмови |
+| Field | `readBorrowed<T, Id>()`, `readBorrowed<T>(id)` | Exact `BorrowedValue<T>` |
 | Field | `writeAs<Id>(value)`, `writeAs(id, value)` | Checked `WriteResult` |
 | Command | `call<Id>(request)` або `call<Id>()` | `CommandResult` |
 | Command | `call(id[, request])` | Рекомендований runtime `CommandCallStatus` |
@@ -291,6 +305,11 @@ callbacks лишаються `noexcept`. Не обробляйте erased raw fu
 
 ## Runtime indexes
 
+`index()` є тільки у `FieldCatalogTable`, `CommandCatalogTable` і
+`ServiceCatalogTable`, а не в local tables. Цей шлях не потребує Model.
+У local table виберіть erased row через `operator[]` після власної перевірки
+position, потім викличте його checked encoded method.
+
 | Index | Checked method | Input/output |
 | --- | --- | --- |
 | `FieldIndex` | `readEncoded(id, output, workspace)` | `EncodedReadResult` із dispatch та written |
@@ -303,14 +322,17 @@ callbacks лишаються `noexcept`. Не обробляйте erased raw fu
 Index copy позичає ті самі backing rows; він не подовжує lifetime чи
 серіалізує owners. [Encoded.cpp](../../examples/user_guide/Encoded.cpp)
 показує альтернативний compiled Model adapter і перевірку результатів.
+Усі buffer/status/build contracts зведені в
+[Encoded API](Model.md#encoded-api-catalog-index-або-modelview).
 
 ## Lifetime та порядок declarations
 
 Local tables і catalog tables **noncopyable/nonmovable**. Runtime
 contexts/indexes можуть вказувати на їхні власні arrays/definitions.
 Names, owner/callable/slot storage, local tables і catalogs мають жити
-довше за всі views і операції consumers. Borrowing APIs відхиляють
-temporary/xvalue tables, але не можуть подовжити lifetime object,
+довше за всі views і операції consumers. APIs, які позичають table storage
+(`get`, traversal, metadata pointers та `index()`), вимагають lvalue backing
+tables; жодний returned view не може подовжити lifetime object,
 прихованого всередині application helper.
 
 ```text

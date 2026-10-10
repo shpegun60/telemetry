@@ -6,6 +6,9 @@
 [Command/Service: один результат](user/FlatNative.md) ·
 [Wire v3.0](WireV3.md) · [Тести](../tests/README.md)
 
+**[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
+короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.
+
 Цей індекс описує чинний C++20 `telemetry` і wire v3.0. Для першої
 інтеграції почніть із [GettingStarted](user/GettingStarted.md); повні
 програми мають окремі runnable source files. Таблиці нижче ведуть до

@@ -1,6 +1,6 @@
 # Runtime Command/Service: один результат
 
-[Посібник](README.md) · [Commands](Commands.md) · [Services](Services.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Commands](Commands.md) · [Services](Services.md) ·
 [Повна runnable програма](../../examples/user_guide/FlatNative.cpp)
 
 Коли ID відомий лише під час виконання, а native Request/Response відомі в C++,
@@ -24,6 +24,10 @@ auto status = commands.call(commandId, SetPeriod{100});
 Це fragments; declarations, callbacks та assertions зібрані в програмі вище.
 Public include: `<telemetry/Telemetry.hpp>`. Endpoint ID має ті самі правила:
 local table приймає position, global catalogs — packed `u32` ID.
+Model і Workspace objects для цього native API не потрібні. Мінімальні
+local declarations наведені в
+[NativeOnly.cpp](../../examples/user_guide/NativeOnly.cpp); public headers і
+чинні compile-time type/reflection dependencies — у [Native reference](NativeApi.md).
 
 ## Форми виклику
 
@@ -149,6 +153,14 @@ if (detailed.status() == telemetry::NativeCallStatus::Ok) {
 `call<Id>()`, `NativeCallResult`, `ServiceResult` і `BorrowedServiceResult`
 зберігають свої попередні контракти. Flat overloads не конвертують Result у
 payload: exact wrapper і payload overload вибираються однозначно за типом.
+
+Pointer lifetime старих owning wrappers не отримав нового rvalue guard:
+`ServiceResult<T>`, `NativeCallResult<T>` і `FieldReadResult<T>` мають
+unqualified `valueOrNull()`. Для них також тримайте named result живим до
+останнього pointer use; temporary accessor не продовжує lifetime payload.
+Outer `NativeCallResult<BorrowedServiceResult<T>>::valueOrNull()` вказує на
+owned inner wrapper, а не на external T. Два pointer levels та приклади
+описані у [Services](Services.md#low-level-exact-runtime-callas).
 
 [Flat runner](../../tests/ergonomics/README.md) перевіряє status mapping,
 ownership, lifetime, великі response і old/new API compatibility. ARM

@@ -2,7 +2,7 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Model](Model.md) · [Fields](Fields.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Model](Model.md) · [Fields](Fields.md) ·
 [Таблиці й каталоги](TablesAndCatalogs.md) · [Descriptor і Values](DescriptorAndValues.md)
 
 Codec перетворює supported native object у fixed-size little-endian payload.
@@ -19,8 +19,24 @@ Public implementation:
 [StoragePolicy.hpp](../../lib/telemetry/codec/StoragePolicy.hpp).
 Ця сторінка описує поточний C++20 API та фактичні перевірки.
 
+## Коли вибрати Codec
+
+Виберіть standalone codec, коли application уже знає тип `T` і потребує
+тільки `T ↔ bytes`: наприклад, для DTO у власному packet або для збереження
+canonical bytes. Endpoint declarations, таблиці, catalogs, TypeRegistry і Model
+створювати не потрібно. Достатньо `<telemetry/codec/Codec.hpp>` та include paths
+для його поточних reflection dependencies; compiled `.cpp` для цього сценарію
+немає. Якщо bytes мають вибрати Field, Command чи Service за runtime ID,
+перейдіть до [encoded доступу](Model.md#encoded-api-catalog-index-або-modelview).
+
+Сам codec не виділяє heap. Для `decode(bytes, object)` native storage уже
+належить caller; для двох інших decode-форм його надає Workspace. Місце для
+wire bytes у всіх формах також виділяє caller. Codec не збирає packet із
+UART/TCP chunks: передайте повний payload відповідного `T`.
+
 ## Навігація
 
+- [Коли вибрати Codec](#коли-вибрати-codec)
 - [Wire shape](#wire-shape)
 - [Повний standalone приклад](#повний-standalone-приклад)
 - [Public codec API і statuses](#public-codec-api-і-statuses)
@@ -39,6 +55,13 @@ Public implementation:
 native pointers і object bookkeeping не передаються. Для struct bytes ідуть
 у reflected member declaration order, для `std::array` — у element order.
 Кожний scalar leaf кодується самостійно.
+
+Для supported C++20 aggregates reflection facade використовує pinned
+Boost.PFR: він надає compile-time member count, types та доступ до members.
+Для enum dictionaries facade використовує pinned `magic_enum` або explicit
+entries. Codec enum передає underlying integer, а не ім'я чи словник; тому
+decode не вимагає, щоб code входив у named entries. Backend contracts і повний
+набір supported types наведено у [Model: reflection](Model.md).
 
 | Native shape | Canonical payload |
 | --- | --- |
@@ -133,14 +156,20 @@ decode відхилено, bytes залишаються зарезервован
 
 ## Public codec API і statuses
 
-| API | Контракт |
-| --- | --- |
-| `encode(const T& value, span<byte> output)` | `output.size()` має дорівнювати `wireSize<T>`; native object і output disjoint |
-| `decode(span<const byte> input, T& output)` | Exact input length; already live mutable nonvolatile supported T; input disjoint від усіх native bytes output, включно з padding |
-| `decode<T>(span<const byte> input, Workspace& workspace)` | Створити new T у Workspace; повернути noncopyable/nonmovable `Decoded<T>`, який утримує reservation і object lifetime |
-| `decode(span<const byte> input, Workspace::Lease<T>& lease, T*& output)` | Exact input length; fresh valid lease; input disjoint від complete Workspace span |
-| `buffersOverlap(a,b)` | Перевіряє overlap двох byte ranges; empty range завжди disjoint |
-| `buffersDisjoint(input,output,workspace)` | Перевіряє всі три pairs; це helper для сильнішого pairwise-disjoint контракту |
+| API | Результат | Об'єкти та контракт |
+| --- | --- | --- |
+| `encode(const T& value, span<byte> output)` | `CodecStatus` | Existing T належить caller; `output.size()` дорівнює `wireSize<T>`; native object і output disjoint |
+| `decode(span<const byte> input, T& output)` | `CodecStatus` | Existing mutable nonvolatile T належить caller; exact input length; input disjoint від усіх native bytes output, включно з padding; Workspace не потрібний |
+| `decode<T>(span<const byte> input, Workspace& workspace)` | `Decoded<T>` | Новий T створюється у Workspace; noncopyable/nonmovable result утримує reservation і object lifetime, backing bytes належать caller |
+| `decode(span<const byte> input, Workspace::Lease<T>& lease, T*& output)` | `CodecStatus`; на успіху `output` вказує на T у Lease | Новий T створюється у caller-managed fresh valid lease; exact input length; input disjoint від complete Workspace span |
+| `buffersOverlap(a,b)` | `bool` | Перевіряє overlap двох byte ranges; empty range завжди disjoint |
+| `buffersDisjoint(input,output,workspace)` | `bool` | Перевіряє всі три pairs; це helper для сильнішого pairwise-disjoint контракту |
+
+Усі наведені functions — у namespace `telemetry`; public codec operations
+мають `noexcept`. Source object/input bytes і destination залишаються живими
+та синхронізованими протягом виклику. Decode копіює semantic members у native
+object, тому після повернення більше не позичає input bytes. New T у Workspace
+живе до destruction result/lease, а не до destruction receive buffer.
 
 Standalone `encode` не приймає більший output span автоматично. Якщо транспорт
 надав великий buffer, передайте `output.first(ts::wireSize<T>)` після своєї capacity

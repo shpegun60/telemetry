@@ -12,7 +12,8 @@ Field, Command і Service мають одну модель декларації:
 Немає генератора коду, virtual base class або динамічного виділення пам'яті
 в library core. Qt потрібен лише для демонстраційної програми.
 
-**[Посібник користувача](doc/user/README.md)** ·
+**[API Map: Native / Encoded / Codec / Resource](doc/user/APIOverview.md)** ·
+[Посібник користувача](doc/user/README.md) ·
 [Перша інтеграція](doc/user/GettingStarted.md) ·
 [Native API](doc/user/NativeApi.md) ·
 [Транспорт і файли](doc/user/TransportAndResources.md) ·
@@ -86,6 +87,7 @@ ownership, backpressure та recovery; host transport у ньому є fake.
 
 | Потрібно | Окрема сторінка |
 | --- | --- |
+| Вибрати сценарій, public header і готову програму | [API Map](doc/user/APIOverview.md) |
 | Getter/setter, exact/As access і owning/borrowed Field result | [Fields](doc/user/Fields.md) |
 | Application дія, Request, statuses і повторне виконання | [Commands](doc/user/Commands.md) |
 | Request/Response, status та owning/borrowed Service result | [Services](doc/user/Services.md) |
@@ -104,6 +106,11 @@ ownership, backpressure та recovery; host transport у ньому є fake.
 також веде до module references, tests і measured evidence.
 
 ## Почати з готової програми
+
+[NativeOnly.cpp](examples/user_guide/NativeOnly.cpp) — перший local Field,
+Command і Service без створення Model, Workspace чи files. Він перевіряє
+native calls, checked Field conversions та exact Command/Service signatures.
+Для самостійного DTO ↔ bytes є [Codec.cpp](examples/user_guide/Codec.cpp).
 
 [QuickStart.cpp](examples/user_guide/QuickStart.cpp) — повна програма без Qt і
 приладу. Вона оголошує всі три сімейства, збирає Model і викликає native API.
@@ -203,6 +210,9 @@ members у canonical little-endian формі, не C++ padding або raw memor
 
 ## Який API вибрати
 
+[API Map](doc/user/APIOverview.md) показує незалежні маршрути та їхні
+залежності. Таблиця нижче допомагає згадати конкретний виклик.
+
 | Що відомо у цьому місці | Приклад | Результат / поведінка |
 | --- | --- | --- |
 | Локальна позиція compile-time | `localFields.read<0>()`, `write<0>(value)` | Exact native type; concrete callback |
@@ -211,6 +221,7 @@ members у canonical little-endian формі, не C++ padding або raw memor
 | Runtime ID з native definition | `fields.visit(id, visitor)` | Typed visitor; перевірка вибраної definition |
 | Команда/сервіс compile-time | `commands.call<id>(request)`, `services.call<id>(request)` | Native request/result, без wire encoding |
 | ID + bytes отримані з транспорту | `index.readEncoded(...)`, `writeEncoded(...)`, `executeEncoded(...)`, `callEncoded(...)` | Checked canonical decode/callback/encode |
+| C++ DTO ↔ bytes без endpoints | `ts::encode(object, bytes)`, `ts::decode(bytes, object)` | Standalone Codec; ні таблиці, ні Model не потрібні |
 | Обхід concrete definitions | `table.forEach(visitor)`, `catalogs.forEach(visitor)` | Тип callback лишається відомим; getter сам не викликається |
 | Обхід erased entries | `for (const auto& entry : table)` | Descriptor metadata без автоматичного виконання |
 | Обхід файлів | `for (auto file : fs)` | Lazy `FileView`: `index()`, `path()`, explicit operations |
@@ -255,12 +266,15 @@ codec. Перелік типів, enum dictionaries і callback forms докла
 flowchart LR
     A[UART / TCP framing] --> B[Complete packet]
     B --> C[Application encoded adapter]
-    C --> D[Model]
+    C --> D[Catalog indexes]
+    C --> V[ModelView + compiled adapter]
+    V --> D
     B --> E[resource::protocol::process]
     E --> F[Flat FileSystem]
     F --> G[Custom providers]
     F --> H[DescriptorFile / ValuesFile]
-    H --> D
+    H --> M[Model + structural registry]
+    M --> D
 ```
 
 Для файлових packets:
@@ -277,7 +291,7 @@ auto result = resource::protocol::process(device::resources::files(), request, r
 [Resources.cpp](examples/user_guide/Resources.cpp). Для прямого керування
 телеметрією **без файлів** є [Encoded.cpp](examples/user_guide/Encoded.cpp).
 Файловий protocol робить LIST/STAT/READ/WRITE; запис Field або виклик
-Command/Service виконує encoded Model adapter. Descriptor/Values providers
+Command/Service виконує encoded catalog index або ModelView adapter. Descriptor/Values providers
 саме read-only.
 
 TCP/UART chunks спочатку збираються вашим framing layer у повний packet.

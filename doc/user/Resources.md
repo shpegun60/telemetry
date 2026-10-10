@@ -2,7 +2,7 @@
 
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[Посібник](README.md) · [Resource API](../../lib/resource/README.md) ·
+[API Overview](APIOverview.md) · [Посібник](README.md) · [Resource API](../../lib/resource/README.md) ·
 [Transport reference](TransportAndResources.md) · [Descriptor/Values](DescriptorAndValues.md)
 
 `resource` реєструє плоский список імен файлів і callbacks. Provider
@@ -12,8 +12,16 @@ serializer або інше application storage. Реєстрація path не �
 telemetry. Повний runnable приклад —
 [Resources.cpp](../../examples/user_guide/Resources.cpp).
 
+Для local file access достатньо `<resource/Resource.hpp>`: generic core є
+header-only і не потребує telemetry Model, Codec, Workspace чи endpoint tables.
+Packet protocol підключається окремо через
+`<resource/protocol/Protocol.hpp>` із compiled `Protocol.cpp`. Client builders
+та parsers містяться у `<resource/protocol/Client.hpp>` і є header-only.
+Telemetry providers підключайте явно тільки для публікації descriptor/values.
+
 ## Навігація
 
+- [Публічні типи та headers](#публічні-типи-та-headers)
 - [Об'єкти й ownership](#обєкти-й-ownership)
 - [Зареєструвати read-only bytes](#зареєструвати-read-only-bytes)
 - [Provider signatures](#provider-signatures)
@@ -24,6 +32,27 @@ telemetry. Повний runnable приклад —
 - [Status і declared capability](#status-і-declared-capability)
 - [Шлях через packet protocol](#шлях-через-packet-protocol)
 - [Приклади й перевірки](#приклади-й-перевірки)
+
+## Публічні типи та headers
+
+Фабрика `resource::file(path, provider)` повертає `FileEntry`. Для операцій
+користувач отримує `FileView` із filesystem; path не є адресою об'єкта на
+носії і не запускає automatic file creation.
+
+| Public object | Header / source | Роль |
+| --- | --- | --- |
+| `file()`, `FileEntry`, provider concepts | [File.hpp](../../lib/resource/File.hpp) | Зв'язати path із зовнішнім provider; descriptor має private internals |
+| `FileView`, `FileIterator` | [FileView.hpp](../../lib/resource/FileView.hpp) | Позичений доступ до одного file та lazy enumeration |
+| `FileSystem<N>`, `FileSystemView`, `filesystem()` | [FileSystem.hpp](../../lib/resource/FileSystem.hpp) | Fixed descriptor array та runtime facade |
+| `BytesFile` | [BytesFile.hpp](../../lib/resource/BytesFile.hpp) | Read-only provider над зовнішніми bytes |
+| `ChunkWriter` | [ChunkWriter.hpp](../../lib/resource/ChunkWriter.hpp) | Bounded byte output для реалізації власного provider |
+| `Status`, transfer results, spans, indexes/cursor | [Types.hpp](../../lib/resource/Types.hpp) | Спільні типи resource operations |
+| `resource::protocol::process()` | [Protocol.hpp](../../lib/resource/protocol/Protocol.hpp), [Protocol.cpp](../../lib/resource/protocol/Protocol.cpp) | Один повний resource packet → filesystem operation → reply |
+| `resource::protocol::client` | [Client.hpp](../../lib/resource/protocol/Client.hpp) | Request builders і checked borrowed reply parsers |
+
+`<resource/Resource.hpp>` збирає generic headers першої частини таблиці;
+protocol і `resource/telemetry/v3` залишаються окремими explicit includes.
+Спільний namespace не перетворює providers або ChunkWriter на transport.
 
 ## Об'єкти й ownership
 
@@ -89,6 +118,11 @@ Path починається з `/`, не закінчується `/`, не мі
 унікальні. Invalid constexpr definition не компілюється; invalid
 runtime definition порушує контракт і завершує виконання.
 
+Path validation відхиляє ASCII control bytes, зокрема DEL, але не перевіряє
+UTF-8 для решти bytes. Якщо UI чи ваш transport вимагає UTF-8 paths,
+забезпечте це у application. Names telemetry endpoints мають окремий
+UTF-8 contract; він не переноситься автоматично на resource paths.
+
 FileIndex — u32 position в порядку declarations. Path не є tree traversal
 чи автоматичним path lookup backend. Для remote consumer LIST пов'язує
 paths із indexes; локальний consumer може закріпити named index constant.
@@ -108,6 +142,12 @@ Provider має exact return types і `noexcept`. `size()` required;
 `Output` — `span<byte>`. Byte provider часто використовує offset;
 streaming serializer може використовувати свій state. Generic core
 не підмінює returned cursor арифметикою.
+
+Операції синхронні: provider використовує `Input`/`Output` під час виклику,
+а caller не звільняє та не змінює ці bytes до повернення. Якщо backend
+відкладає роботу, він сам копіює потрібні bytes у своє storage перед
+поверненням. `FileEntry`, FileView та filesystem не подовжують lifetime
+buffer і не додають asynchronous transfer state.
 
 Read-only provider може бути const. WRITE можливий лише якщо exact
 операція викликається з реальною constness provider. Файл, що має тільки
@@ -147,6 +187,9 @@ function pointers; opaque `FileEntry` зв'язується через `resource
 input/output. Atomic operation підходить для цілого token, partial — для
 byte-stream prefix. Writer не додає allocation, synchronization чи commit
 до storage backend.
+
+`writeAtomic` означає тільки «весь input або жодного byte» для цього output
+span. Це не CPU atomic operation, lock або filesystem transaction.
 
 ## Filesystem і FileView API
 
@@ -230,6 +273,11 @@ bool readVersionInParts() {
 submitted input завершує transfer; provider вирішує, коли commit завершений.
 Generic core не додає transactions, persistence чи rollback.
 
+`final` та `complete` не є взаємозамінними: перше задає caller, друге повертає
+provider. `complete=true` не означає автоматично `next==size()`; cursor і
+завершення визначає конкретний provider. Його контракт також визначає, чи
+завершення можна подати окремим WRITE із порожнім input.
+
 Provider може прийняти тільки prefix. Збережіть решту input й повторіть
 WRITE з returned `next`; знову подайте final=true, якщо suffix усе ще є
 останнім. Не відкидайте непоглинуті bytes і не робіть cursor += input.size().
@@ -288,6 +336,12 @@ declared read capability. Для enumeration без provider `size()` callback
 приймає **один повний packet** і повертає `Reply{status, written}`.
 Processor підтримує LIST/STAT/READ/WRITE; transport збирає frames,
 визначає delivery/retries й надсилає рівно written bytes.
+
+READ request містить file index і cursor без requested byte count. Capacity
+response визначає доступне місце для provider output; protocol обмежує payload
+до 65535 B. Partial READ/WRITE тут означає частину file transfer у повному
+packet, а не передачу неповного network frame у processor. Жодний resource
+cursor не підміняє UART/TCP frame assembly.
 
 ```text
 Byte stream chunks → application framer → one resource packet
