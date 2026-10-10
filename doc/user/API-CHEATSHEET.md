@@ -5,7 +5,7 @@
 [Fields](Fields.md) · [Commands](Commands.md) · [Services](Services.md) ·
 [Tables and catalogs](TablesAndCatalogs.md) · [Model](Model.md) ·
 [Codec and Workspace](CodecAndWorkspace.md) · [Resources](Resources.md) ·
-[Descriptor and Values](DescriptorAndValues.md)
+[Descriptor and Values](DescriptorAndValues.md) · [Flat runtime API](FlatNative.md)
 
 `namespace ts = telemetry;` далі лише скорочення. Фрагменти використовують
 named objects із [повного прикладу](../../examples/user_guide/Native.cpp).
@@ -76,6 +76,30 @@ fields.forEach([]<std::size_t G, std::size_t I>(
 
 ## C. Runtime ID, typed definition
 
+Рекомендовані runtime calls із одним outcome:
+
+```cpp
+const auto configured = commands.call(ts::makeId<0, 1>(), Configure{device.settings});
+const auto reset = localCommands.call(0); // CommandCallStatus; no request.
+const auto snapshot = services.callAs<Snapshot>(ts::makeId<0, 1>(), Query{0});
+if (snapshot) {
+    const Snapshot& response = snapshot.value();
+    (void)response;
+}
+const auto settings = services.callBorrowed<Settings>(ts::makeId<0, 3>(), Query{0});
+const auto ping = services.callAs<void>(ts::makeId<0, 4>());
+```
+
+`CommandCallStatus` охоплює application outcomes та runtime `NotFound` /
+`SignatureMismatch`; `Accepted` не означає завершення. Service result має
+один `hasValue()` / explicit `bool`, true лише при routing та application
+success, і один `value()` для payload. `status()` — `ServiceCallStatus`;
+nonvoid `valueOrNull()` повертає null при будь-якій відмові. Borrowed response
+доступний лише як `const T&`; для `void` є success-only `value()` без payload,
+але немає `valueOrNull()`. [Повні mapping та lifetime rules](FlatNative.md).
+
+Typed visitors, Field access та наступні low-level calls збережено без змін:
+
 ```cpp
 fields.visit(id, [](const auto& field) { /* concrete definition */ });
 commands.visit(id, [](const auto& command) { /* typed branch */ });
@@ -86,18 +110,18 @@ fields.readAs<double>(id);
 fields.writeAs(id, 240);
 localFields.readAs<double, Position::Voltage>();
 
-// Exact Command request; Result type fixed to CommandResult.
+// Low-level Command: routing та CommandResult окремо.
 const auto configured = commands.callAs(ts::makeId<0, 1>(), Configure{device.settings});
 const auto reset = localCommands.callAs(0); // No request.
 
-// Exact Service result wrapper and exact request type.
+// Low-level Service: exact result wrapper та exact request type.
 const auto snapshot = services.callAs<ts::ServiceResult<Snapshot>>(ts::makeId<0, 1>(), Query{0});
 const auto settings = services.callAs<ts::BorrowedServiceResult<Settings>>(ts::makeId<0, 3>(), Query{0});
 const auto ping = services.callAs<ts::ServiceResult<void>>(ts::makeId<0, 4>()); // No request/payload.
 ```
 
 Numeric `As` conversions checked; struct/array потребують exact C++ type.
-Command `callAs` повертає `NativeCallResult<CommandResult>`; Service
+Low-level Command `callAs` повертає `NativeCallResult<CommandResult>`; Service
 `callAs<Result>` — `NativeCallResult<Result>`. Request і Service result wrapper
 мають точно збігатися з declaration; conversions не виконуються. Input width
 перевіряється до narrowing, table/catalog має бути lvalue.
@@ -134,7 +158,7 @@ packet із UART/TCP chunks. [Encoded.cpp](../../examples/user_guide/Encoded.cpp
 
 ## Результати й пам'ять
 
-| Getter / callback | Native результат |
+| Getter / callback / call form | Native результат |
 | --- | --- |
 | Field `T` | `optional<T>` |
 | Field `const T&` | `BorrowedValue<T>` |
@@ -142,14 +166,18 @@ packet із UART/TCP chunks. [Encoded.cpp](../../examples/user_guide/Encoded.cpp
 | Service `Response` / `ServiceResult<Response>` | `ServiceResult<Response>` |
 | Service `const Response&` / `BorrowedServiceResult<Response>` | `BorrowedServiceResult<Response>` |
 | Service void | `ServiceResult<void>` |
-| Command runtime `callAs` | `NativeCallResult<CommandResult>` |
-| Service runtime `callAs<Result>` | `NativeCallResult<Result>` |
+| Command runtime `call` | `CommandCallStatus` |
+| Owning Service runtime `callAs<Response>` | `ServiceCallResult<Response>` |
+| Borrowed Service runtime `callBorrowed<Response>` | `BorrowedServiceCallResult<Response>` |
+| Low-level Command runtime `callAs` | `NativeCallResult<CommandResult>` |
+| Low-level Service runtime `callAs<Result>` | `NativeCallResult<Result>` |
 
 `readAs<T>` завжди owning copy. Borrowed result позичає existing const object;
-він має лишатися живим і стабільним. Owning Service result перевіряйте через
-`hasValue()/status()`; він не має optional-style `bool/*/->`.
+він має лишатися живим і стабільним. Callback/static owning `ServiceResult`
+перевіряйте через `hasValue()/status()`; цей wrapper не має optional-style
+`bool/*/->`. Flat `ServiceCallResult` підтримує explicit `bool` та один `value()`.
 
-`NativeCallResult::hasValue()` означає доставку exact endpoint result.
+У low-level API `NativeCallResult::hasValue()` означає доставку exact endpoint result.
 Для Service це не означає inner `hasValue()` чи application success:
 перевірте `result.value().status()` та `result.value().hasValue()` перед payload.
 `valueOrNull()` safe також на selection failure. Final-storage

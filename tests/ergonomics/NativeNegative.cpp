@@ -57,7 +57,8 @@ void test()
 #elif CASE == 10
 	(void)std::move(serviceCatalog).callAs<Result>(0, Request{});
 #elif CASE == 11
-	(void)services.callAs<Reply>(0, Request{});
+	// The payload form callAs<Reply>() is valid; raw-pointer output stays invalid.
+	(void)services.callAs<Reply*>(0, Request{});
 #elif CASE == 12
 	(void)services.callAs<const Result>(0, Request{});
 #elif CASE == 13

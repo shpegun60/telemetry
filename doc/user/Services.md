@@ -5,8 +5,11 @@
 обчислити результат за одним request. Callback має no request або одну
 aggregate struct; response також є aggregate struct або Void.
 
-Native call повертає owning `ServiceResult<Response>` або borrowed
-`BorrowedServiceResult<Response>`. Application status відділений від
+Definition та static `call<Id>()` повертають owning `ServiceResult<Response>`
+або borrowed `BorrowedServiceResult<Response>`. Для runtime ID рекомендовано
+`callAs<Response>(id[, request])` чи `callBorrowed<Response>(id[, request])`:
+один result із спільним native status; [Flat runtime API](FlatNative.md).
+У callbacks та encoded API application status відділений від
 encoded routing/codec status. Один і той самий callback працює для direct
 native call і transport adapter; connection/session/retry state Service
 не зберігає.
@@ -335,10 +338,14 @@ declaration order. `ServiceCatalogTable` позичає local tables через 
 | --- | --- | --- |
 | `local.get<Position>()` | `const ServiceDefinition&` | Exact declaration |
 | `local.call<Position>()`, `call<Position>(request)` | Definition `Result` | Static local typed call |
-| `local.callAs<Result>(position[, request])` | `NativeCallResult<Result>` | Checked runtime native call з exact Request/Result |
+| `local.callAs<Response>(position[, request])` | `ServiceCallResult<Response>` | Рекомендований owning runtime виклик; `Response` може бути `void` |
+| `local.callBorrowed<Response>(position[, request])` | `BorrowedServiceCallResult<Response>` | Рекомендований borrowed runtime виклик |
+| `local.callAs<Result>(position[, request])` | `NativeCallResult<Result>` | Low-level exact result wrapper та routing окремо |
 | `catalogs.get<Id>()` | `const ServiceDefinition&` | Static packed-ID declaration |
 | `catalogs.call<Id>()`, `call<Id>(request)` | Definition `Result` | Static global typed call |
-| `catalogs.callAs<Result>(id[, request])` | `NativeCallResult<Result>` | Checked runtime packed-ID native call |
+| `catalogs.callAs<Response>(id[, request])` | `ServiceCallResult<Response>` | Рекомендований owning runtime packed-ID виклик |
+| `catalogs.callBorrowed<Response>(id[, request])` | `BorrowedServiceCallResult<Response>` | Рекомендований borrowed runtime packed-ID виклик |
+| `catalogs.callAs<Result>(id[, request])` | `NativeCallResult<Result>` | Low-level exact result wrapper та routing окремо |
 | `size()`, `empty()` | `size_t`, `bool` | Local entry count / catalog group count |
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased rows/catalog iteration |
 | `operator[](i)` | `const ServiceEntry&` / `const ServiceCatalog&` | Unchecked, `i < size()` required |
@@ -373,7 +380,43 @@ Local `forEach` callback — ordinary `visitor(definition)` або optional
 heterogeneous definitions; exact request/response branch обирайте через
 `if constexpr`.
 
-### Exact runtime `callAs`
+### Runtime Service з одним result
+
+Для Query із першого повного прикладу:
+
+```cpp
+const Query request{1};
+const auto result = services.callAs<Reply>(ts::makeId<0, 1>(), request);
+assert(result && result.status() == ts::ServiceCallStatus::Ok);
+assert(result.value().sequence == 7);
+
+const auto borrowed = localServices.callBorrowed<Reply>(2);
+assert(borrowed && borrowed.valueOrNull() == &device.cached);
+const auto ping = localServices.callAs<void>(3);
+assert(ping);
+ping.value(); // Successful void operation; response object відсутній.
+```
+
+`ServiceCallResult<T>` та `BorrowedServiceCallResult<T>` мають `hasValue()`,
+explicit `bool`, `status()` і `value()`. `bool` true лише при successful
+selection **та** application success. Спільний `ServiceCallStatus` має
+`Ok`, `NotFound`, `SignatureMismatch`, `Unavailable`, `Busy`, `InvalidArgument`,
+`Failed`. Nonvoid `valueOrNull()` safe на кожній відмові та повертає null.
+`value()` потребує success; новий фасад перевіряє цю precondition через `abort`.
+
+Response template argument — exact unqualified aggregate або `void` для
+owning form. Borrowed form потребує nonvoid borrowed endpoint і повертає
+лише `const T&`; зміна owner видима через view. Request/Response/ownership
+mismatch дає `SignatureMismatch` до callback, також для empty slot.
+Binding unavailable чи application refusal дає false result без response.
+Фасад конструює існуючий nested result у final member storage, без додаткового
+response copy/move або heap. Existing borrowed lifetime/synchronization rules
+збережено. Повні signatures: [Flat runtime API](FlatNative.md).
+
+### Low-level exact runtime `callAs`
+
+Наступний API збережено без змін для caller, якому потрібні окремі routing
+і application statuses. Static `call<Position/Id>()` та encoded API теж незмінні.
 
 `callAs<Result>(position_or_id[, request])` повертає `NativeCallResult<Result>`.
 `Result` має бути exact `ServiceResult<Response>`,
@@ -399,7 +442,7 @@ const bool selected = services.visit(id, [&](const auto& definition) {
 });
 ```
 
-Для одного known Request/Result достатньо `callAs`:
+Для одного known Request/Result у low-level формі достатньо `callAs`:
 
 ```cpp
 const Query request{1};

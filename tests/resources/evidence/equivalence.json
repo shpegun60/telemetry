@@ -141,16 +141,16 @@
     "lib/resource/telemetry/v3/detail/Values.cpp": "cdd2a37681426cfb5d3f8f0888d1a47f8f8a4fd6f4a2dbc5b4770dac1d5542d0",
     "lib/resource/telemetry/v3/detail/Values.hpp": "ff6f49aaaa987538f41a7348d16a04399d331fafb052c42399476723cc4eb404",
     "lib/telemetry/LICENSE": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
-    "lib/telemetry/README.md": "0df85d3a7246401a4501889f135c47d3b6466cc653d46dd0dfca92c6a4b7f910",
-    "lib/telemetry/Telemetry.hpp": "72394a644dc9c40a04e26af9106a06c96d6051df13c3486994e8f16baa724edd",
+    "lib/telemetry/README.md": "0e979ce91ef91fe448e658a36cc24515c5cbffbad33be67c2eb0fab8bfd10db9",
+    "lib/telemetry/Telemetry.hpp": "aae6ec47cbf4a303a57532ee934d89fa159b4837873d828c9735355a0c971270",
     "lib/telemetry/abi/StructuredAbi.cpp": "c54422d2ee92eece98ba0f9df0aa4e2b832a784f122bc35f7cbbfeef6334acb9",
     "lib/telemetry/abi/StructuredAbi.hpp": "e23f695de2c1842af43911121686837e91afa63e3ecdfd41e4d38382815a5ea2",
     "lib/telemetry/codec/Codec.hpp": "310c41ddc0c2a227564c41d58b9788c0e284b79d1585d0cda461f893d79c3ed1",
     "lib/telemetry/codec/StoragePolicy.hpp": "a8f82edfc62dba89ab838d79811fce1a40a0df10646d74e4f377ebff3e47688f",
     "lib/telemetry/codec/Workspace.hpp": "e8384049dd431c53bf9ae53f02f8571cea6ba65e47ceba9d0812723039f3f878",
     "lib/telemetry/command/Command.hpp": "a283b2c19d7de0347ecb9e9d6d7efcc5365ab003221528ca47ee994eb9e13565",
-    "lib/telemetry/command/CommandCatalogs.hpp": "9810ff332dab6df6527a0e1eeffddbce0819163097e08035c9ec8598c6a0aac8",
-    "lib/telemetry/command/CommandTable.hpp": "2525f95a7573669a200b706a5bbdb72a6b6e3e5e6239f7e7af1be8d0fbee8539",
+    "lib/telemetry/command/CommandCatalogs.hpp": "c30eb7482bdbabe50d4cd30736709208a3dbcb3d45ef3803709d0b250cbe033a",
+    "lib/telemetry/command/CommandTable.hpp": "6e5b97747d52f6e23c00a593b351992aa67a044a79c2a2d954dadfd2ba4c2959",
     "lib/telemetry/core/Compiler.hpp": "bbc6dc179f48ca3b10410d690447b89a1d2513e9c6ec6ef00648665b3bb303c5",
     "lib/telemetry/core/Id.hpp": "e2c5489a7f12c8370cb925fe7fb78f7d7d31fad68b58aa9ce73c248071b1aeb1",
     "lib/telemetry/detail/Binding.hpp": "41f1fcf97a0a8a310825d99a61818ac1b1d370ccf8b77800d993807b56ea3835",
@@ -179,15 +179,17 @@
     "lib/telemetry/reflection/detail/PfrAdapter.hpp": "6ea719bb5b3d4b340915222522422c8e38c3d7070509402b573a577e5a0e8a0d",
     "lib/telemetry/result/BorrowedServiceResult.hpp": "51c64bc33f5784966c5ef544802c1c2b427298019b8ec4c4893086fd793977fd",
     "lib/telemetry/result/BorrowedValue.hpp": "54aefba7d1c104c9807db9d1a6a94a41b5b6725c0da3582f2377ae24340452f1",
+    "lib/telemetry/result/CommandCallStatus.hpp": "3f5ca6ee0131dcbc532eaabb0574dfd55a6a3df4c89ea90821051d3ce47e7a01",
     "lib/telemetry/result/Dispatch.hpp": "dff827dda7cf7f6d26b066bcd03594e48dec2490b0e709dea57f236241ea1c65",
     "lib/telemetry/result/EndpointResults.hpp": "4c3c6555db9fdd706c1328c4bd0f40d2f85520a8c4c075ce26abcc3e57caa3ca",
     "lib/telemetry/result/EndpointStatus.hpp": "3b336f53c261553ae7caf40f48ce7c35783cb6001ae0145257f4adff1f846b7d",
     "lib/telemetry/result/FieldReadResult.hpp": "dd8b984e4855c19c0bcb3ad5d3088c618a39b058fca7911d2a8daeb83dbfb2ea",
     "lib/telemetry/result/NativeCallResult.hpp": "232b08b3efac27ec57447084e41d20cc4ee9cf8e58c8bfdfbf2569dbd2e0d2e1",
+    "lib/telemetry/result/ServiceCallResult.hpp": "20e32eb409e7e57a146231fa92dc09048fa9a476b95ecf0d5e8f41c124065620",
     "lib/telemetry/result/ServiceResult.hpp": "fde2141dfbb124e2cdbbf99916579b892efe6a1c8ae1c331cfd4f8a1c772db23",
     "lib/telemetry/service/Service.hpp": "1a220f6bbc015bc3dde0e1a27ffeb94458d467206389bed6e814e9379a2b7514",
-    "lib/telemetry/service/ServiceCatalogs.hpp": "5fb617f6f6885635d50d52a491fb965d9f8d09cda4a01d2cb0bb9cd565e13e3f",
-    "lib/telemetry/service/ServiceTable.hpp": "245f509ab340c841a7049492ede5758e465848ac12fd71184db4e1462a8392f4",
+    "lib/telemetry/service/ServiceCatalogs.hpp": "23d7e4b72947681559bea12b8898873bdaa1a63134809fc0d5bba30cd9820932",
+    "lib/telemetry/service/ServiceTable.hpp": "f895bf8cfe6f1dc4985ba2ff9f2e097734867c9183ff148303b495a331f1f7bb",
     "lib/telemetry/slot/README.md": "68974a4b62279f17264b0849cdff274983db2d2f4c5ede7544f64f852faa314a",
     "lib/telemetry/slot/TelemetryContextFunctionSlot.h": "757ae651fff3ead16b93e592c76d18399172122f29e6c2bb8fb60b27ee678c0d",
     "lib/telemetry/slot/TelemetryDelegateRefSlot.h": "481209bac0737afa77382f2a966dd64c5c347efb48dc68b626c59705b95090dd",
@@ -204,7 +206,7 @@
   "format_version": 2,
   "groups": {
     "borrowed": {
-      "current_input_manifest_sha256": "02c59f037a67a36b0416ab8fb162fa071497a2ae2389d344ee5b5446f6bc66a6",
+      "current_input_manifest_sha256": "4b5de9623814edc28b650a432463ef752637dff1af87640b7151ee25def8297d",
       "historical_input_manifest_sha256": "824365521b3502ca66aa17441f860bb5a3c6cb40f7badaef9edc962d92786531",
       "image_manifest_sha256": "2fdb4c28b23c45c3ca9825ac585fcd31a6dfa24d498529859d8c97b9776485bb",
       "macro_prefix_map": null,
@@ -213,7 +215,7 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "descriptor": {
-      "current_input_manifest_sha256": "b22e4249d81e967f30c052545c4cbb153be68886b77f46125e048de243716d10",
+      "current_input_manifest_sha256": "a27cb089010d8f0e0c9e7d62c3b40f9ff722357631993b8eab915e233bc7bb88",
       "historical_input_manifest_sha256": "7531940505a510ad2d02d1324bc6497f7611a45b74dfc8ce45e24670afe6586a",
       "image_manifest_sha256": "343fe0558561b0b4b4c38fb37366d9adb73d76350a588eee8ff12449c1c05e78",
       "macro_prefix_map": null,
@@ -222,16 +224,16 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "exchange": {
-      "current_input_manifest_sha256": "669ff180dbe78ede79371cc984d0d686c427e53b0d8e082cd4477c4998478190",
+      "current_input_manifest_sha256": "4e0a4f265d5bfe23cd7e5f15c7e43940dda79d74d3cb7c88298f1c9338b44950",
       "historical_input_manifest_sha256": "8fb267913faf0d88bff5e154b09885c637381edfc64c5ed8d5dc1ad7432a801d",
       "image_manifest_sha256": "1e18fcf88d4042f629b9579c1033373cc22fa2ee8696beb060447a572f9ab5e7",
-      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-validation\\20261005-ergonomics\\equivalence\\final-source\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
+      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-validation\\20261010-flat-native\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
       "receipt": "tests/structured/exchange/h7s/receipt.json",
       "receipt_lf_sha256": "43cb74c4d5fba4a4634ca03c858ba5015e3bdb9ff7f2dc6a4e7632fc677a882a",
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "mcu": {
-      "current_input_manifest_sha256": "d547efc9ef15a379a400daa8395f87bde9daf0cbcf5e70256ac45d0bc117b213",
+      "current_input_manifest_sha256": "1dc3251fc6d2c7524406e8141c8acea8a9ca825071342cf3f2650ebdc5ed923b",
       "historical_input_manifest_sha256": "0043f7f08e78e69600ccfcd6fa54c74a6c4fe126f12ace1ce038be632354ac10",
       "image_manifest_sha256": "40a10ae237ab61e175398032271b8320dc27eee41e027e36e25fce6ea2938c84",
       "macro_prefix_map": null,
@@ -240,7 +242,7 @@
       "scaffold_manifest_sha256": "ea0e5c36be00383dd9b4b483b5aab8a5206b368a93859180624b9ebc34ff6f92"
     },
     "resources": {
-      "current_input_manifest_sha256": "d3e4f9fcd34ffe50a22ad809404ea217ad5cedd1ee12f395da0e4695f633d1b6",
+      "current_input_manifest_sha256": "ccabfc747b210aaae55ba7a4ef9f5272e49358bbd283ede25895a71b67acd661",
       "historical_input_manifest_sha256": "3f96ceeb9fb65e868643b17608420c49ecfb7c0f04fd6e4988a5beb23f2d78a5",
       "image_manifest_sha256": "2b45d51fc44a009dd5f5af45e0d71009f0c0bda1bbc3db2323139e80ba9b1166",
       "macro_prefix_map": null,
@@ -364,9 +366,9 @@
     "receipt": "tests/structured/mcu/local-receipt.json",
     "receipt_lf_sha256": "00fd1714709f28a338a04d295b80ff2608766cef64be5fab4636dc12185da9c6"
   },
-  "recorded_at_utc": "2026-10-05T19:50:18.522650+00:00",
+  "recorded_at_utc": "2026-10-10T12:49:51.818366+00:00",
   "scope": "current source and byte-identical retained H7S images",
   "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
   "source_dirty": true,
-  "source_head": "e263aa48a5afdb4158d6bb03543a6348de5a387c"
+  "source_head": "00bab7dbcc6fb59e7e3b2c52d5f33aeca7b15192"
 }

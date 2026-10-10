@@ -1,7 +1,7 @@
 # Runtime native API та зручний обхід
 
 [Посібник](README.md) · [Fields](Fields.md) · [Commands](Commands.md) ·
-[Services](Services.md) · [Каталоги](TablesAndCatalogs.md) ·
+[Services](Services.md) · [Runtime без nested results](FlatNative.md) · [Каталоги](TablesAndCatalogs.md) ·
 [Повна runnable програма](../../examples/user_guide/Ergonomics.cpp)
 
 Цей розділ збирає типові операції, для яких не потрібно писати власний typed
@@ -15,8 +15,12 @@ bindings; encoded wire v3 та правила володіння залишаю�
 | Прочитати й явно скопіювати/перетворити | `fields.readAs<T>(id)` | `optional<T>` |
 | Те саме з причиною відмови | `fields.readAsResult<T>(id)` | `FieldReadResult<T>` |
 | Отримати const view існуючого значення | `fields.readBorrowed<T>(id)` | `BorrowedValue<T>` |
-| Виконати Command із native Request | `commands.callAs(id, request)` | `NativeCallResult<CommandResult>` |
-| Викликати Service із відомим exact Result | `services.callAs<Result>(id, request)` | `NativeCallResult<Result>` |
+| Виконати Command із native Request | `commands.call(id, request)` | `CommandCallStatus` |
+| Викликати owning Service | `services.callAs<Reply>(id, request)` | `ServiceCallResult<Reply>` |
+| Позичити response Service | `services.callBorrowed<Reply>(id, request)` | `BorrowedServiceCallResult<Reply>` |
+| Service без response payload | `services.callAs<void>(id[, request])` | `ServiceCallResult<void>` |
+| Окремо прочитати Command routing та application status | Low-level `commands.callAs(id, request)` | `NativeCallResult<CommandResult>` |
+| Окремо прочитати Service routing та application result | Low-level `services.callAs<Result>(id, request)` | `NativeCallResult<Result>` |
 | Обійти typed definitions до зупинки | `table.forEachWhile(visitor)` | `bool`: повний обхід |
 | Обійти плоскі erased rows із ID | `catalogs.forEachEntry(visitor)` | `void` |
 | Те саме до зупинки | `catalogs.forEachEntryWhile(visitor)` | `bool`: повний обхід |
@@ -25,7 +29,38 @@ bindings; encoded wire v3 та правила володіння залишаю�
 scoped position enum. Existing `call<Position/Id>()`, `read<Position/Id>()`,
 `readAs`, `writeAs`, `forEach` і `visit` зберігають свої контракти.
 
-## Native routing та application result
+## Runtime виклик з одним result
+
+```cpp
+const auto status = commands.call(id, Configure{25});
+auto response = services.callAs<Reply>(queryId, request);
+if (response)
+    use(response.value());
+else
+    report(response.status());
+
+auto config = services.callBorrowed<Big>(configId, request);
+if (config)
+    use(config.value());
+```
+
+Для no-request endpoint пропустіть request argument. Owning та borrowed
+Service results мають один `hasValue()` / explicit `bool` і один `value()`:
+успіх означає successful routing **та** application success. `status()` дає
+`ServiceCallStatus`, а `valueOrNull()` повертає null при будь-якій відмові.
+Для `void` є success-only `value()` без payload, але немає `valueOrNull()`.
+`CommandCallStatus` охоплює application outcomes, `NotFound` і
+`SignatureMismatch`; `Accepted` не встановлює completion.
+
+Request, response та owning/borrowed policy мають збігатися точно; mismatch
+не викликає callback. Фасад не додає owning response copy/move чи heap.
+Borrowed `value()` дає `const T&` із попередніми lifetime/synchronization rules.
+Повні статуси та runnable приклад: [Flat runtime API](FlatNative.md).
+
+## Low-level native routing та application result
+
+Наступні форми збережено без змін для окремого доступу до routing та
+application outcome. Для звичайного runtime виклику використовуйте flat API вище.
 
 ```cpp
 auto r = commands.callAs(id, Configure{25});

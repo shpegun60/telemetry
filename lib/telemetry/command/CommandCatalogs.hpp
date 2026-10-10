@@ -316,6 +316,25 @@ public:
 	    requires(sizeof...(Explicit) == 0)
 	void callAs(Id, Args&&...) const&& = delete;
 
+	// Runtime commands flatten the existing exact native dispatch outcome.
+	template<class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0)
+	[[nodiscard]] CommandCallStatus call(Id id) const& noexcept
+	{
+		return result_detail::commandCallStatus(callAs(id));
+	}
+
+	template<class... Explicit, std::integral Id, class Argument>
+	    requires(sizeof...(Explicit) == 0 && !std::is_volatile_v<Argument>)
+	[[nodiscard]] CommandCallStatus call(Id id, const Argument& request) const& noexcept
+	{
+		return result_detail::commandCallStatus(callAs(id, request));
+	}
+
+	template<class... Explicit, std::integral Id, class... Args>
+	    requires(sizeof...(Explicit) == 0)
+	void call(Id, Args&&...) const&& = delete;
+
 	template<auto Id, class... Args>
 	[[nodiscard]] telemetry::CommandResult call(Args&&... args) const noexcept
 	{

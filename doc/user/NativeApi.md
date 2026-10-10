@@ -54,13 +54,16 @@
 | --- | --- | --- |
 | A. Compile-time exact | `read<Id>()`, `write<Id>(value)`, `call<Id>(request)` | Рекомендований application API, коли endpoint відомий компілятору |
 | B. Typed traversal | `forEach(visitor)` | Обійти всі concrete definitions із їхніми native типами |
-| C. Runtime ID, typed endpoint | `readAs<T>`, `callAs` / `callAs<Result>`, `visit(id, visitor)` | Known native type або concrete definition у runtime |
+| C. Runtime ID, typed endpoint | `readAs<T>`, Command `call`, Service `callAs<Response>` / `callBorrowed<Response>`, `visit(id, visitor)` | Known native type або concrete definition у runtime |
 | D. Erased/encoded | `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded`, `callServiceEncoded` | Transport/backend має ID та bytes |
 
 Local tables використовують Position замість global Id. Для Field також є
 прямий runtime `readAs<T>/writeAs`, коли caller знає потрібний native тип.
-Command має exact `callAs(id[, request])`; Service —
-`callAs<Result>(id[, request])`, коли caller знає Request і result wrapper.
+Command має flat `call(id[, request])`; Service —
+`callAs<Response>(id[, request])` та `callBorrowed<Response>(id[, request])`.
+Для окремого routing/application outcome лишаються unchanged low-level
+Command `callAs` і Service `callAs<Result>` із exact result wrapper.
+[Flat runtime API](FlatNative.md) показує один success check та один `value()`.
 **`forEach` і range-for не виконують getter, Command або Service автоматично.**
 `forEach/visit` викликають лише ваш visitor; сам visitor вирішує, чи потрібна
 endpoint operation. [API шпаргалка](API-CHEATSHEET.md) зводить ці виклики.
@@ -709,6 +712,8 @@ Model не є сховищем усіх значень і не знімає snap
 | `Workspace`, `Lease<T>` | Workspace позичає caller byte span; Lease володіє lifetime constructed T у span | Runtime reserve/construct/destroy, без heap |
 | `ServiceResult<T>` / `optional<T>` | Власний T, якщо результат успішний | Операції result не виконують endpoint |
 | `NativeCallResult<Result>` | Власний exact endpoint Result лише при successful selection | Selection success не означає application success |
+| `ServiceCallResult<T>` | Власний nested result із owning T лише при application success | Flat `hasValue()` враховує routing та application success |
+| `BorrowedServiceCallResult<T>` | Const view/status; не володіє T | Flat success check; lifetime response лишається external |
 | `BorrowedValue<T>` / `BorrowedServiceResult<T>` | Адреса існуючого const T, не ownership T | Access потребує live/stable target |
 | Reflection / `Type<T>` / `TypeRegistry<...>` | Compile-time факти й immutable generated metadata | Shape/size/type IDs, без live getter |
 
@@ -762,6 +767,28 @@ Command і Service підтримують runtime exact native calls без visi
 
 | Family | Local / catalog call | Result |
 | --- | --- | --- |
+| Command | `call(position_or_id[, request])` | `CommandCallStatus` |
+| Owning Service | `callAs<Response>(position_or_id[, request])` | `ServiceCallResult<Response>` |
+| Borrowed Service | `callBorrowed<Response>(position_or_id[, request])` | `BorrowedServiceCallResult<Response>` |
+| Void response Service | `callAs<void>(position_or_id[, request])` | `ServiceCallResult<void>` |
+
+Ці рекомендовані форми повертають один native outcome. Для Service один
+`hasValue()` / explicit `bool` означає successful routing та application
+success, а `value()` дає сам Response. Nonvoid `valueOrNull()` повертає null
+при будь-якій відмові; borrowed `value()` дає `const Response&`. Для `void`
+є success-only `value()` без payload, але немає `valueOrNull()`.
+`ServiceCallStatus` охоплює `NotFound`, `SignatureMismatch` і application
+відмови; Command status зберігає всі application outcomes та додає routing
+`SignatureMismatch`. Exact Request/Response/ownership checks виконуються
+до callback, width перевіряється до narrowing. Фасад не додає response
+copy/move чи heap; borrowed lifetime rules ті самі. Повний опис та приклад:
+[Flat runtime API](FlatNative.md).
+
+Наступні low-level форми лишаються без змін для окремого доступу до routing
+та application result; static `call<Position/Id>()` теж зберігає свій API:
+
+| Family | Local / catalog call | Low-level result |
+| --- | --- | --- |
 | Command | `callAs(position_or_id[, request])` | `NativeCallResult<CommandResult>` |
 | Service | `callAs<ServiceResult<Response>>(position_or_id[, request])` | `NativeCallResult<ServiceResult<Response>>` |
 | Borrowed Service | `callAs<BorrowedServiceResult<Response>>(position_or_id[, request])` | `NativeCallResult<BorrowedServiceResult<Response>>` |
@@ -774,7 +801,7 @@ response conversions не виконуються. Service Result — exact wrapp
 бути integer чи scoped position enum; global input — integral packed ID.
 Original width перевіряється до narrowing, table/catalog має бути lvalue.
 
-Наприклад, цей самостійний фрагмент показує local runtime calls:
+Наприклад, цей самостійний фрагмент показує збережені low-level local runtime calls:
 
 ```cpp
 #include <telemetry/Telemetry.hpp>
@@ -917,7 +944,14 @@ Metadata views позичені; вони не є копією application state
 | `WriteResult` | `Applied`, `NotFound`, `ReadOnly`, `InvalidValue`, `Busy`, `Unavailable` |
 | `CommandResult` | `Executed`, `Accepted`, `NotFound`, `Unavailable`, `ArgumentCountMismatch`, `InvalidValue`, `Busy`, `Failed` |
 | `ServiceStatus` | `Ok`, `InvalidArgument`, `Unavailable`, `Busy`, `Failed` |
+| `CommandCallStatus` | Усі defined `CommandResult` outcomes та `SignatureMismatch`; `NotFound` також охоплює routing absence |
+| `ServiceCallStatus` | `Ok`, `InvalidArgument`, `Unavailable`, `Busy`, `Failed`, `NotFound`, `SignatureMismatch` |
 | `NativeCallStatus` | `Ok`, `NotFound`, `SignatureMismatch`; native selection, не application status |
+
+Flat status enums описують native runtime outcome і не є wire codes.
+`ServiceCallStatus::Ok` означає successful routing **та** application success;
+`CommandCallStatus::Accepted` не встановлює completion. Невизначений numeric
+Command callback code у flat API дає `Failed`, а low-level `callAs` зберігає raw code.
 
 Застосунок повертає статус за своєю операцією. Library також повідомляє
 відсутній binding чи invalid native lookup/conversion через відповідні наявні

@@ -292,6 +292,15 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/ergonomics/run.py --build-dir build/ergonomics "${flags[@]}"
+      - name: Flat native Command and Service outcomes
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/ergonomics/flat.py --build-dir build/flat-native "${flags[@]}"
       - name: C++20 structured resource providers
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
@@ -400,6 +409,7 @@ jobs:
             build/structured-freeze/Og
             build/structured-borrowed/
             build/ergonomics/
+            build/flat-native/
           if-no-files-found: ignore
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
@@ -490,6 +500,8 @@ jobs:
       - name: Native runtime and resource client APIs Cortex-M7 checks
         run: |
           python3 tests/ergonomics/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-ergonomics
+      - name: Flat native Cortex-M7 profiles and final response storage
+        run: python3 tests/ergonomics/flat.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-flat-native
       - name: C++20 structured descriptor Cortex-M7 checks
         run: |
           python3 tests/structured/descriptor/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor
@@ -597,6 +609,7 @@ jobs:
             build/arm-structured-borrowed/
             build/arm-structured-borrowed-nullchecks/
             build/arm-ergonomics/
+            build/arm-flat-native/
           if-no-files-found: ignore
 
   endian:

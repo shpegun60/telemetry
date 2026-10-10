@@ -10,6 +10,7 @@
 | [Resources.cpp](Resources.cpp) | Flat filesystem, lazy FileView, custom R/W provider, порційний LIST/STAT/READ/WRITE | `Protocol.cpp` |
 | [Encoded.cpp](Encoded.cpp) | Власний complete-frame adapter без файлів, business validation, великі/borrowed responses | `StructuredAbi.cpp`, `Adapter.cpp` |
 | [Ergonomics.cpp](Ergonomics.cpp) | Runtime native callAs, borrowed Field, причини відмов та flat/While traversal | `StructuredAbi.cpp` |
+| [FlatNative.cpp](FlatNative.cpp) | Command call і Service callAs/callBorrowed з одним result/status; owning, borrowed, void | `StructuredAbi.cpp` |
 | [ResourceClient.cpp](ResourceClient.cpp) | Checked resource request builders і borrowed reply parsers | `Protocol.cpp` |
 
 ```sh

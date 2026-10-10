@@ -101,9 +101,12 @@ const reference на concrete definition.
 | Field | `readAs<To, Position>()`, `readAs<To>(position)` | Owning `optional<To>` із checked numeric/exact structural access |
 | Field | `writeAs<Position>(value)`, `writeAs(position, value)` | Checked conversion до endpoint T; `WriteResult` |
 | Command | `call<Position>()`, `call<Position>(request)` | `CommandResult` |
-| Command | `callAs(position[, request])` | `NativeCallResult<CommandResult>` із checked exact selection |
+| Command | `call(position[, request])` | Рекомендований runtime `CommandCallStatus` |
+| Command | Low-level `callAs(position[, request])` | `NativeCallResult<CommandResult>` із checked exact selection |
 | Service | `call<Position>()`, `call<Position>(request)` | Exact owning/borrowed Service result |
-| Service | `callAs<Result>(position[, request])` | `NativeCallResult<Result>` із exact Request/Result |
+| Service | `callAs<Response>(position[, request])` | Рекомендований owning `ServiceCallResult<Response>`, також для `void` |
+| Service | `callBorrowed<Response>(position[, request])` | Рекомендований `BorrowedServiceCallResult<Response>` const view |
+| Service | Low-level `callAs<Result>(position[, request])` | `NativeCallResult<Result>` із exact Request/Result |
 | Усі | `get<Position>()` | Concrete definition; endpoint не виконується |
 | Усі | `forEach(visitor)` | Ordered typed visitor на кожну definition |
 | Усі | `forEachWhile(visitor)` | Exact-`bool` visitor; false зупиняє обхід, результат означає повний прохід |
@@ -111,7 +114,16 @@ const reference на concrete definition.
 | Усі | `size()`, `empty()`, `data()`, `begin()`, `end()` | Erased rows/metadata; callbacks не викликаються |
 | Усі | `operator[](std::size_t)` | Unchecked erased row; caller забезпечує index < size |
 
-Command runtime `callAs` і Service `callAs<Result>` підтримують один exact
+Для runtime ID використовуйте Command `call`, owning Service `callAs<Response>`
+і borrowed Service `callBorrowed<Response>`. Service має один `hasValue()` /
+explicit `bool` для routing **та** application success, один `value()` та
+спільний `ServiceCallStatus`. Command повертає один `CommandCallStatus`.
+Exact Request/Response/ownership mismatch дає `SignatureMismatch` до callback;
+invalid/absent ID дає `NotFound`. Borrowed lifetime/synchronization rules
+збережено, response copy/move чи heap фасад не додає.
+Signatures та mapping: [Flat runtime API](FlatNative.md).
+
+Збережені low-level Command `callAs` і Service `callAs<Result>` підтримують один exact
 native Request та exact result wrapper caller. `NotFound` означає invalid або
 absent position/ID; `SignatureMismatch` — інший declared Request/Result без
 callback. Selection `Ok` доставляє endpoint result, також `Busy`/`Unavailable`;
@@ -148,9 +160,12 @@ void useLocalTable() {
 | Field | `readAs<To, Id>()`, `readAs<To>(id)` | Owning `optional<To>` |
 | Field | `writeAs<Id>(value)`, `writeAs(id, value)` | Checked `WriteResult` |
 | Command | `call<Id>(request)` або `call<Id>()` | `CommandResult` |
-| Command | `callAs(id[, request])` | `NativeCallResult<CommandResult>` |
+| Command | `call(id[, request])` | Рекомендований runtime `CommandCallStatus` |
+| Command | Low-level `callAs(id[, request])` | `NativeCallResult<CommandResult>` |
 | Service | `call<Id>(request)` або `call<Id>()` | Endpoint-specific Service result |
-| Service | `callAs<Result>(id[, request])` | `NativeCallResult<Result>` |
+| Service | `callAs<Response>(id[, request])` | Рекомендований owning `ServiceCallResult<Response>` |
+| Service | `callBorrowed<Response>(id[, request])` | Рекомендований borrowed `BorrowedServiceCallResult<Response>` |
+| Service | Low-level `callAs<Result>(id[, request])` | `NativeCallResult<Result>` |
 | Усі | `get<Id>()` | Concrete definition у вибраній local table |
 | Усі | `forEach(visitor)` | Group name та concrete definition |
 | Усі | `forEachWhile(visitor)` | Group name та concrete definition; exact-`bool` continuation |

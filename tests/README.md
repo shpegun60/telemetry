@@ -75,6 +75,9 @@ controls and client/server round trips on both targets.
 borrowed reads, detailed read failures, stoppable traversal and bounded resource
 client parsing. ARM profiles compare manual/helper dispatch at 128/256 targets,
 large-response stack frames and unchanged generic protocol codegen.
+Its separate flat-outcome runner qualifies one-level Command/Service results,
+exact owning/borrowed selection, 1/4 KiB final storage and manual/detailed/flat
+128/256-target ARM profiles without changing the existing detailed API gates.
 
 [Scalability checks](scalability/README.md) separate typed-table compilation,
 exact type diversity, erased indexes, resources, visitor objects and module

@@ -155,7 +155,8 @@ public:
 // - forEachEntryWhile(): Visit erased entries until false.
 // - visit(): Select checked ID.
 // - call(): Invoke native service.
-// - callAs(): Select runtime signature.
+// - callAs(): Select runtime owning response or exact result.
+// - callBorrowed(): Select runtime borrowed response.
 template<class... Groups>
 class ServiceCatalogTable {
 	static_assert(sizeof...(Groups) <= idComponentCapacity,
@@ -303,6 +304,52 @@ public:
 	    requires(sizeof...(Explicit) == 0)
 	bool visit(Id, Visitor&&) const&& = delete;
 
+	// Flat access reuses the checked packed-ID route and exact native result.
+	template<class Response, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0 && detail::flatServiceResponse<Response>)
+	[[nodiscard]] ServiceCallResult<Response> callAs(Id id) const& noexcept
+	{
+		return ServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<ServiceResult<Response>>(id);
+		});
+	}
+
+	template<class Response, class... Explicit, std::integral Id, class Argument>
+	    requires(sizeof...(Explicit) == 0 && detail::flatServiceResponse<Response> &&
+	             !std::is_volatile_v<Argument>)
+	[[nodiscard]] ServiceCallResult<Response> callAs(Id id, const Argument& request) const& noexcept
+	{
+		return ServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<ServiceResult<Response>>(id, request);
+		});
+	}
+
+	template<class Response, class... Explicit, std::integral Id>
+	    requires(sizeof...(Explicit) == 0 && detail::flatServiceResponse<Response> &&
+	             !std::is_void_v<Response>)
+	[[nodiscard]] BorrowedServiceCallResult<Response> callBorrowed(Id id) const& noexcept
+	{
+		return BorrowedServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<BorrowedServiceResult<Response>>(id);
+		});
+	}
+
+	template<class Response, class... Explicit, std::integral Id, class Argument>
+	    requires(sizeof...(Explicit) == 0 && detail::flatServiceResponse<Response> &&
+	             !std::is_void_v<Response> && !std::is_volatile_v<Argument>)
+	[[nodiscard]] BorrowedServiceCallResult<Response>
+	callBorrowed(Id id, const Argument& request) const& noexcept
+	{
+		return BorrowedServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<BorrowedServiceResult<Response>>(id, request);
+		});
+	}
+
+	template<class Response, class... Explicit, std::integral Id, class... Args>
+	    requires(sizeof...(Explicit) == 0 && detail::flatServiceResponse<Response> &&
+	             !std::is_void_v<Response>)
+	void callBorrowed(Id, Args&&...) const&& = delete;
+
 	// Keep packed-ID validation before narrowing, then index group and row.
 	template<class Result, class... Explicit, std::integral Id>
 	    requires(sizeof...(Explicit) == 0 && detail::nativeServiceResult<Result>)
@@ -335,7 +382,8 @@ public:
 	}
 
 	template<class Result, class... Explicit, std::integral Id, class... Args>
-	    requires(sizeof...(Explicit) == 0 && detail::nativeServiceResult<Result>)
+	    requires(sizeof...(Explicit) == 0 &&
+	             (detail::nativeServiceResult<Result> || detail::flatServiceResponse<Result>))
 	void callAs(Id, Args&&...) const&& = delete;
 
 	template<auto Id, class... Args>

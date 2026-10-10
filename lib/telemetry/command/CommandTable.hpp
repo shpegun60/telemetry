@@ -23,6 +23,7 @@
 #include "../detail/Encoded.hpp"
 #include "../detail/Traversal.hpp"
 #include "../detail/NativeCall.hpp"
+#include "../result/CommandCallStatus.hpp"
 #include "../type/Registry.hpp"
 #include <telemetry/core/Id.hpp>
 #include <array>
@@ -230,6 +231,26 @@ public:
 	template<class... Explicit, class Position, class... Args>
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
 	void callAs(Position, Args&&...) const&& = delete;
+
+	// Runtime commands expose one outcome; callAs() keeps routing separately.
+	template<class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	[[nodiscard]] CommandCallStatus call(Position position) const& noexcept
+	{
+		return result_detail::commandCallStatus(callAs(position));
+	}
+
+	template<class... Explicit, class Position, class Argument>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             !std::is_volatile_v<Argument>)
+	[[nodiscard]] CommandCallStatus call(Position position, const Argument& request) const& noexcept
+	{
+		return result_detail::commandCallStatus(callAs(position, request));
+	}
+
+	template<class... Explicit, class Position, class... Args>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
+	void call(Position, Args&&...) const&& = delete;
 
 	template<auto Position, class... Args>
 	[[nodiscard]] telemetry::CommandResult call(Args&&... args) const noexcept

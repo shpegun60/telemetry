@@ -50,6 +50,22 @@ original receipts. The final source capture includes the public-method comment
 additions to the command/service tables and catalogs and rebuilds all five
 groups from those exact inputs; its twelve firmware binaries remain identical.
 
+The 2026-10-10 flat runtime native API refresh captures 138 current library
+inputs and the same 57 fixture inputs. All twelve rebuilt raw firmware binaries
+match their retained measured artifacts byte for byte after the documented
+Exchange source-path mapping. Six current ELF files match the retained ELF
+hashes; the six distinct ELF identities are recorded separately. All six
+original receipt files remain unchanged, including their raw checkout bytes.
+The capture records starting revision `00bab7dbcc6fb59e7e3b2c52d5f33aeca7b15192`
+with `source_dirty=true` for the additive change; its manifests identify the
+actual frozen inputs. The new flat result and Command status headers are part
+of that inventory. Existing firmware fixtures qualify the APIs they already
+instantiate; the new flat entrypoints have their own host and ARM checks in
+[the ergonomic suite](../../ergonomics/README.md). The artifact verification
+also passed the historical receipt controls, 27 equivalence mutation controls,
+10 refused relocation mutations and the text-identity controls. This capture
+is offline compile/link evidence and adds no device execution.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -101,7 +117,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/equivalence/final-source'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261010-flat-native/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -154,7 +170,9 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current 2026-10-05 ergonomic API capture is
+The current 2026-10-10 flat runtime native API capture is
+`C:/Users/admin/Documents/telemetry-validation/20261010-flat-native/equivalence`.
+The 2026-10-05 ergonomic API capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261005-ergonomics/equivalence/final-source`.
 The first ergonomic capture remains in the parent `equivalence` directory.
 The earlier 2026-10-05 root-deduplication capture remains at

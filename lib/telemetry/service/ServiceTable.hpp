@@ -23,6 +23,7 @@
 #include "../detail/Encoded.hpp"
 #include "../detail/Traversal.hpp"
 #include "../detail/NativeCall.hpp"
+#include "../result/ServiceCallResult.hpp"
 #include "../type/Registry.hpp"
 
 #include <telemetry/core/Id.hpp>
@@ -102,7 +103,8 @@ struct ServiceEntry {
 // - forEachWhile(): Visit until false.
 // - visit(): Select checked position.
 // - call(): Invoke native service.
-// - callAs(): Select runtime signature.
+// - callAs(): Select runtime owning response or exact result.
+// - callBorrowed(): Select runtime borrowed response.
 template<class... Definitions>
 class ServiceTable {
 	static_assert(sizeof...(Definitions) <= idComponentCapacity,
@@ -231,6 +233,57 @@ public:
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position>)
 	bool visit(Position, Visitor&&) const&& = delete;
 
+	// The flat facade constructs its nested result directly in final storage.
+	// Exact ownership, request and response checks reuse the indexed dispatcher.
+	template<class Response, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             detail::flatServiceResponse<Response>)
+	[[nodiscard]] ServiceCallResult<Response> callAs(Position position) const& noexcept
+	{
+		return ServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<ServiceResult<Response>>(position);
+		});
+	}
+
+	template<class Response, class... Explicit, class Position, class Argument>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             detail::flatServiceResponse<Response> && !std::is_volatile_v<Argument>)
+	[[nodiscard]] ServiceCallResult<Response> callAs(Position position,
+	                                                 const Argument& request) const& noexcept
+	{
+		return ServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<ServiceResult<Response>>(position, request);
+		});
+	}
+
+	template<class Response, class... Explicit, class Position>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             detail::flatServiceResponse<Response> && !std::is_void_v<Response>)
+	[[nodiscard]] BorrowedServiceCallResult<Response>
+	callBorrowed(Position position) const& noexcept
+	{
+		return BorrowedServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<BorrowedServiceResult<Response>>(position);
+		});
+	}
+
+	template<class Response, class... Explicit, class Position, class Argument>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             detail::flatServiceResponse<Response> && !std::is_void_v<Response> &&
+	             !std::is_volatile_v<Argument>)
+	[[nodiscard]] BorrowedServiceCallResult<Response>
+	callBorrowed(Position position, const Argument& request) const& noexcept
+	{
+		return BorrowedServiceCallResult<Response>::fromNative([&]() noexcept {
+			return this->template callAs<BorrowedServiceResult<Response>>(position, request);
+		});
+	}
+
+	template<class Response, class... Explicit, class Position, class... Args>
+	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
+	             detail::flatServiceResponse<Response> && !std::is_void_v<Response>)
+	void callBorrowed(Position, Args&&...) const&& = delete;
+
 	// Runtime selection preserves the exact native Request and Result types.
 	// Ok means an endpoint result was delivered, including application refusal.
 	template<class Result, class... Explicit, class Position>
@@ -265,7 +318,7 @@ public:
 
 	template<class Result, class... Explicit, class Position, class... Args>
 	    requires(sizeof...(Explicit) == 0 && telemetry::detail::isIdInput<Position> &&
-	             detail::nativeServiceResult<Result>)
+	             (detail::nativeServiceResult<Result> || detail::flatServiceResponse<Result>))
 	void callAs(Position, Args&&...) const&& = delete;
 
 	template<auto Position, class... Args>

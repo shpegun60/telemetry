@@ -36,6 +36,7 @@
 | --- | --- | --- |
 | [Fields](Fields.md) | Getter/setter forms, exact/As доступ, owning/borrowed results і callbacks | [Tables and catalogs](TablesAndCatalogs.md) |
 | [Runtime native API та обхід](Ergonomics.md) | callAs, readBorrowed, readAsResult, flat traversal і caller buffer maxima | [Runnable example](../../examples/user_guide/Ergonomics.cpp) |
+| [Command/Service: один runtime result](FlatNative.md) | call, callAs<Reply>, callBorrowed<Reply>, один status/value і exact ownership | [Runnable example](../../examples/user_guide/FlatNative.cpp) |
 | [Commands](Commands.md) | Дії без response payload, Request, Executed/Accepted/refusal і повтори | [Tables and catalogs](TablesAndCatalogs.md) |
 | [Services](Services.md) | Request/Response, status, owning/borrowed результат і encoded reply | [Tables and catalogs](TablesAndCatalogs.md) |
 | [Tables and catalogs](TablesAndCatalogs.md) | Local Position, global PackedId, групи, typed traversal і runtime indexes | [Model](Model.md) |

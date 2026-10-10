@@ -17,6 +17,12 @@ typed/erased `While` traversal stops on false. See the
 [practical guide](../../doc/user/Ergonomics.md) and
 [complete example](../../examples/user_guide/Ergonomics.cpp).
 
+Runtime Command `call(id[, request])` and Service `callAs<Response>` /
+`callBorrowed<Response>` expose one outcome without nested access. See the
+[flat native guide](../../doc/user/FlatNative.md) and
+[runnable example](../../examples/user_guide/FlatNative.cpp). Existing detailed
+`callAs<ServiceResult<Response>>` and static calls remain available.
+
 ## Reading the source
 
 Each authored source file starts with its purpose and the reason its boundary

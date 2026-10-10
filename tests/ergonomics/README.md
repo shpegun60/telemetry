@@ -50,3 +50,48 @@ remain separate and run in CI. No hardware access occurs in this runner.
 summary.json records compiler identity, source head, flags, captured inputs,
 execution output, diagnostics and ARM sections/frames. These are host and
 offline compiler observations, not device cycle or full call-chain measurements.
+
+## One-level Command and Service outcomes
+
+[Flat API guide](../../doc/user/FlatNative.md) ·
+[Runnable example](../../examples/user_guide/FlatNative.cpp) ·
+[Measured comparison](FLAT_RESULTS.md) · [Captured results](flat-results.json)
+
+The additive flat facade has a separate runner. The existing runner above keeps
+its detailed results, traversal and resource-client gates. Run both:
+
+```sh
+python tests/ergonomics/flat.py --cxx g++ --build-dir /tmp/telemetry-flat
+python tests/ergonomics/flat.py --cxx g++ --null-checks --build-dir /tmp/telemetry-flat-null
+python tests/ergonomics/flat.py --cxx clang++-18 --sanitize --build-dir /tmp/telemetry-flat-asan
+python tests/ergonomics/flat.py --arm --cxx arm-none-eabi-g++ --build-dir /tmp/telemetry-flat-arm
+```
+
+FlatCalls checks all routing/application statuses, local/global and empty
+tables/catalogs, exact request/response and ownership selection before callbacks,
+void results, wide/signed/local-enum IDs, empty function/owner slots, borrowed
+address identity, final-storage construction and exceptions. It executes 671
+checks with host exceptions enabled; four exception checks are omitted in
+no-exceptions builds. Heap use aborts the host fixture. Deleted copy/move
+payloads and `-fno-elide-constructors` retain the final-storage control.
+
+FlatNegative requires 57 intended diagnostics, including cv/ref/pointer payload
+types, volatile requests, implicit/explicit ID narrowing, rvalue table calls and
+incorrect result factories. FlatScale executes every row in grouped 128/256
+profiles (1,934/3,854 checks). FlatLargeCodegen executes 79 checks for each exact
+1 KiB and 4 KiB response size and checks borrowed pointer identity separately.
+
+ARM O2/Os/Og builds retain sections, disassembly and individual stack frames for
+manual visitor, existing detailed API and new flat API entrypoints. Large
+optimized old/flat entrypoint code bytes must match. The runner rejects large
+frames above 256 B and allocation/hidden-copy references in measured objects.
+Entrypoint instruction bytes and ELF relocation targets are retained separately.
+Only objects built by the current invocation are inspected; an incomplete
+summary replaces any older success before commands start.
+Combined fixture totals contain all three approaches; they are not an estimate
+of incremental production Flash cost. Compilation and `.su` frames do not
+establish device cycles or full call-chain stack depth.
+
+The retained [12-image relation](../resources/evidence/README.md) separately
+checks the existing firmware paths; `.bin` equality and ELF hashes are reported
+independently. No board is accessed by either ergonomics runner.

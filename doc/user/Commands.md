@@ -16,6 +16,11 @@ Request — або відсутній, або одна ordinary aggregate struct
 Declarations складаються з name та binding; прикладна семантика не
 записується в structural descriptor.
 
+Для runtime ID використовуйте `commands.call(id[, request])`: результат —
+один `CommandCallStatus`, що охоплює routing та application outcome.
+Static `call<Id>()`, callback `CommandResult` і low-level `callAs` збережено
+без змін. Повний опис: [Flat runtime API](FlatNative.md).
+
 ## 1. Повний приклад
 
 Приклад показує no-request action, один validated configuration request,
@@ -235,10 +240,12 @@ catalog declaration order задає group position.
 | `local.get<Position>()` | `const CommandDefinition&` | Exact declaration |
 | `local.call<Position>()` | `CommandResult` | No-request native action |
 | `local.call<Position>(request)` | `CommandResult` | Exact typed native request |
-| `local.callAs(position)`, `callAs(position, request)` | `NativeCallResult<CommandResult>` | Checked runtime native selection з exact request |
+| `local.call(position)`, `call(position, request)` | `CommandCallStatus` | Рекомендований runtime виклик з одним outcome |
+| `local.callAs(position)`, `callAs(position, request)` | `NativeCallResult<CommandResult>` | Low-level routing та application status окремо |
 | `catalogs.get<Id>()` | `const CommandDefinition&` | Static global declaration |
 | `catalogs.call<Id>()`, `call<Id>(request)` | `CommandResult` | Static global native action |
-| `catalogs.callAs(id)`, `callAs(id, request)` | `NativeCallResult<CommandResult>` | Checked runtime packed-ID native action |
+| `catalogs.call(id)`, `call(id, request)` | `CommandCallStatus` | Рекомендований runtime packed-ID виклик |
+| `catalogs.callAs(id)`, `callAs(id, request)` | `NativeCallResult<CommandResult>` | Low-level routing та application status окремо |
 | `size()`, `empty()` | `size_t`, `bool` | Local entry count / catalog group count |
 | `data()`, `begin()`, `end()` | Borrowed row pointers | Erased iteration без execution |
 | `operator[](i)` | `const CommandEntry&` / `const CommandCatalog&` | Unchecked; requires `i < size()` |
@@ -276,6 +283,29 @@ Traversal сам по собі не викликає command; command викон
 
 ### Typed call з runtime ID
 
+Рекомендована форма повертає один status:
+
+```cpp
+const Configure request{40, Mode::Measuring};
+const ts::PackedId id = ts::makeId<0, 1>();
+const auto status = commands.call(id, request);
+assert(status == ts::CommandCallStatus::Executed);
+assert(localCommands.call(0) == ts::CommandCallStatus::Executed);
+```
+
+`CommandCallStatus` зберігає всі defined application outcomes: `Executed`,
+`Accepted`, `NotFound`, `Unavailable`, `ArgumentCountMismatch`, `InvalidValue`,
+`Busy`, `Failed`; routing mismatch додає `SignatureMismatch`. Неприпустимий
+або відсутній ID дає `NotFound`; wrong Request/no-request форма дає
+`SignatureMismatch` до callback. Empty compatible slot дає `Unavailable`.
+Невизначений numeric callback code відображається у `Failed`; low-level
+`callAs` нижче зберігає його raw value. Enum `CommandResult` і wire values
+не змінюються. `Accepted` означає прийняту роботу, без встановленого completion.
+Обидві runtime форми вимагають lvalue table/catalog та перевіряють width
+до narrowing. Детальні mapping rules: [Flat runtime API](FlatNative.md).
+
+### Low-level routing та application status
+
 `callAs(position_or_id[, request])` обирає runtime Command і повертає
 `NativeCallResult<CommandResult>`. Request має точно збігатися з declared
 `Request` після зняття cv/ref; conversions між structs чи numeric members
@@ -303,7 +333,7 @@ const bool selected = commands.visit(id, [&](const auto& definition) {
 `selected == true` ще не означає `Executed`. Traversal visitors не повинні
 бути noexcept, але endpoint callback signatures — повинні.
 
-Та сама операція через `callAs`:
+Та сама операція через збережений low-level `callAs`:
 
 ```cpp
 const Configure request{40, Mode::Measuring};
@@ -411,8 +441,9 @@ owned storage. Він не може зберегти reference на decoded requ
 `EncodedCommandResult` містить `dispatch` та `endpointStatus`; response bytes
 і `written` у ньому відсутні. Спочатку перевірте dispatch. Тільки `Ok`
 дозволяє інтерпретувати endpointStatus. `Ok + Busy/InvalidValue/Failed`
-показує application refusal, а не codec failure. Native callbacks
-повертають status без додаткової нормалізації; encoded execution перевіряє,
+показує application refusal, а не codec failure. Definition/static calls та
+low-level `callAs` зберігають raw callback status; flat runtime `call` застосовує
+mapping до `CommandCallStatus`. Encoded execution перевіряє,
 що callback status є одним із defined enumerators.
 
 `Accepted` не означає завершення. Збережіть queued request у application-owned

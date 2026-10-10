@@ -26,6 +26,8 @@
 #include "result/BorrowedServiceResult.hpp"
 #include "result/BorrowedValue.hpp"
 #include "result/NativeCallResult.hpp"
+#include "result/ServiceCallResult.hpp"
+#include "result/CommandCallStatus.hpp"
 #include "result/FieldReadResult.hpp"
 #include "type/Registry.hpp"
 
