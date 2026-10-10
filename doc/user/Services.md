@@ -270,7 +270,9 @@ runtime null-owner check, але його lifetime обов'язковий.
 | `value() &` | `T&` | Mutable owned payload, precondition engagement |
 | `value() const&` | `const T&` | Const owned payload, precondition engagement |
 | `value() &&` | `T&&` | Move доступ до owned payload, precondition engagement |
-| `valueOrNull()` | `T*` або `const T*` | Owned payload pointer на success, null на failure; result має лишатися живим |
+| `value()` на const rvalue | `const T&` через `const&` overload | Наявна return category; lifetime result не подовжується |
+| `valueOrNull() &`, `valueOrNull() const&` | `T*` або `const T*` | Owned payload pointer на success, null на failure; result має лишатися живим |
+| `valueOrNull() &&`, `valueOrNull() const&&` | Видалені | Pointer із owning temporary не отримується |
 | Copy/move constructors і assignment | Owning state/payload operations | Copy/move payload коли він engaged; source move не автоматично failure |
 | Destructor | Ends owned `T` lifetime | Failure не destroys неіснуючий payload |
 
@@ -284,17 +286,20 @@ Reference/pointer на owned payload не подовжує lifetime result. Дл
 зберігайте named owner:
 
 ```cpp
-const auto response = localServices.call<0>();
+auto response = localServices.call<0>();
 if (const auto* value = response.valueOrNull())
     consume(*value); // response живий до завершення consume.
 ```
 
-Наявний `ServiceResult<T>::valueOrNull()` не ref-qualified: accessor на owning
-temporary компілюється, але його pointer не можна зберігати за межами full
-expression. Це не така сама гарантія, як у нового flat
-`ServiceCallResult<T>`, який видаляє rvalue pointer access. `value()` також
-потребує живого result; для owning move-out спочатку перемістіть payload у
-власний object, а не зберігайте reference на temporary wrapper.
+`ServiceResult<T>::valueOrNull()` має той самий lvalue-only contract, що й
+owning flat `ServiceCallResult<T>`: `&&` / `const&&` overloads явно видалені.
+Це навмисно відхиляє також immediate-use pointer access на temporary, який
+раніше міг бути коректним у межах full expression. Перевірка compile-time,
+без runtime checks чи зміни storage/layout. `value()` зберігає попередні
+return categories; для owning move-out спочатку перемістіть payload у власний
+object через `auto payload = std::move(response).value();`, а не зберігайте
+reference на temporary wrapper. Для const rvalue `ServiceResult<T>` наявний
+`value() const&` повертає `const T&`, а не додає новий move overload.
 
 Для великої відповіді створюйте payload прямо через `successFrom`:
 
@@ -518,12 +523,17 @@ encoded dispatch або wire codes.
 
 `NativeCallResult<Result>` **володіє Result wrapper**, навіть коли Result є
 `BorrowedServiceResult<T>`. Outer `valueOrNull()` вказує саме на цей wrapper;
-named outer result має жити до останнього використання pointer. Наявні
-accessors допускають temporary, але не продовжують його lifetime.
+named outer result має жити до останнього використання pointer. Outer accessor
+доступний лише для `&` / `const&`, а `&&` / `const&&` явно видалені для обох
+видів inner wrapper. Це не змінює `NativeCallResult::value()`: mutable rvalue
+дає `Result&&`, const rvalue — наявний `const Result&&`.
 `result.value().valueOrNull()` натомість дістає pointer із inner wrapper:
 для owning `ServiceResult<T>` він позичає owned payload, а для
 `BorrowedServiceResult<T>` — зовнішній application T. У другому випадку
 lifetime T визначає owner, а не outer result. Не плутайте ці два pointer levels.
+Accessor самого `BorrowedServiceResult<T>` на temporary лишається допустимим,
+бо знищення borrowed wrapper не знищує зовнішній T. Це не подовжує lifetime
+response або Request, на який response може посилатися.
 
 `NativeCallResult<Result>::successFrom(factory)` вимагає exact `Result` і
 будує його прямо в final storage. Runtime dispatch повертає prvalue endpoint

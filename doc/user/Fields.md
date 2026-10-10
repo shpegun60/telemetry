@@ -312,12 +312,28 @@ if (const double* value = result.valueOrNull())
     consume(*value); // result усе ще живий.
 ```
 
-Поточний `valueOrNull()` не ref-qualified: accessor на temporary може
-компілюватися, але не продовжує lifetime result. Не зберігайте pointer з
-`localFields.readAsResult<double>(position).valueOrNull()` після завершення
-цього full expression. Те саме стосується pointer, отриманого явним викликом
-`operator->()`, та reference з `value()` / `operator*()`. Це відрізняється
-від `BorrowedValue<T>`: там сам T належить зовнішньому owner.
+`valueOrNull()` та `operator->()` доступні лише для lvalue result: `&` повертає
+`T*`, `const&` — `const T*`. Їхні `&&` / `const&&` overloads явно видалені.
+Тому `localFields.readAsResult<Config>(position)->limit` не компілюється,
+навіть якщо цей immediate-use expression раніше вкладався в lifetime result.
+Рекомендована форма з перевіркою failure:
+
+```cpp
+const auto result = localFields.readAsResult<Config>(position);
+if (result)
+    consume(result->limit); // result усе ще живий.
+```
+
+Це лише compile-time обмеження pointer access, без runtime checks та зміни
+storage/layout. `value()` і `operator*()` зберігають свої return categories:
+lvalue дає `T&` / `const T&`, mutable rvalue — `T&&`, const rvalue використовує
+наявний `const&` overload і дає `const T&`. Для відомого successful result
+immediate-use `factory().value().member` або `(*factory()).member` лишається
+допустимим. Для move-out збережіть non-const result і створіть власний object
+через `auto value = std::move(result).value();`; збережена reference сама не подовжує
+lifetime payload. Це відрізняється від `BorrowedValue<T>`: там сам T належить
+зовнішньому owner, тому pointer access на temporary view лишається допустимим,
+доки backing object живий.
 
 ### Правила `readAs` / `writeAs`
 

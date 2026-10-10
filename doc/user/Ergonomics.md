@@ -109,9 +109,16 @@ auto noPayload = services.callAs<telemetry::ServiceResult<void>>(notifyId);
 приховує heap або Workspace. Для великих відповідей callback зберігає
 `ServiceResult<T>::successFrom(factory)`; encoded storage budget не змінено.
 Explicit copy/move result користувачем залишається explicit copy/move.
-Будь-який pointer на owned payload потребує живого named result. Старі
-`ServiceResult`, `NativeCallResult` і `FieldReadResult` не відкидають
-temporary `valueOrNull()`; новий guard є лише в owning flat Service result.
+Будь-який pointer на owned payload потребує живого named result.
+`ServiceResult`, `NativeCallResult`, `FieldReadResult` та owning flat Service
+result мають lvalue-only `valueOrNull()`: `&&` / `const&&` overloads видалені.
+Owning Field `operator->()` має те саме обмеження, навіть для immediate-use
+temporary expression. Збережіть result, перевірте success, потім отримайте
+pointer чи використайте arrow. `value()` і Field `operator*()` зберігають
+попередні return categories та rvalue move-out; отримана reference не продовжує
+lifetime. Це source contract без додаткових runtime checks або storage.
+Borrowed wrappers не володіють зовнішнім T: їхній temporary pointer access
+лишається допустимим за lifetime contract backing object.
 Пояснення pointer levels — [Services](Services.md#low-level-exact-runtime-callas),
 owning Field lifetime — [Fields](Fields.md#runtime-borrowed-read-та-причина-відмови).
 

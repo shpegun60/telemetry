@@ -151,13 +151,17 @@ if (detailed.status() == telemetry::NativeCallStatus::Ok) {
 
 `callAs<BorrowedServiceResult<T>>()`, Command `callAs(id[, request])`, static
 `call<Id>()`, `NativeCallResult`, `ServiceResult` і `BorrowedServiceResult`
-зберігають свої попередні контракти. Flat overloads не конвертують Result у
-payload: exact wrapper і payload overload вибираються однозначно за типом.
+зберігають routing, application statuses та ownership. Flat overloads не
+конвертують Result у payload: exact wrapper і payload overload вибираються
+однозначно за типом.
 
-Pointer lifetime старих owning wrappers не отримав нового rvalue guard:
-`ServiceResult<T>`, `NativeCallResult<T>` і `FieldReadResult<T>` мають
-unqualified `valueOrNull()`. Для них також тримайте named result живим до
-останнього pointer use; temporary accessor не продовжує lifetime payload.
+Owning wrappers `ServiceResult<T>`, `NativeCallResult<T>` і `FieldReadResult<T>`
+мають такий самий lvalue-only `valueOrNull()` guard: `&&` / `const&&` видалені.
+Owning Field `operator->()` також недоступний на rvalue result. Guard навмисно
+відхиляє й immediate-use temporary pointer access, без runtime checks чи
+storage/layout change. Для named result lifetime payload усе ще обов'язковий.
+`value()` та Field `operator*()` зберігають попередні return categories й
+mutable rvalue move-out; reference із них не подовжує lifetime result.
 Outer `NativeCallResult<BorrowedServiceResult<T>>::valueOrNull()` вказує на
 owned inner wrapper, а не на external T. Два pointer levels та приклади
 описані у [Services](Services.md#low-level-exact-runtime-callas).

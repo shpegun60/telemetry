@@ -1037,13 +1037,35 @@ caller preconditions для **всього** reply buffer, включно з hea
 
 Для **owning** result будь-яка reference або pointer на payload потребує
 живого result. Збережіть результат у named variable перед отриманням pointer.
-Новий `ServiceCallResult<T>::valueOrNull()` відхиляє owning temporaries, але
-наявні `ServiceResult<T>`, `NativeCallResult<T>` і `FieldReadResult<T>` цього
-обмеження не мають. Їхній temporary accessor може компілюватися; pointer не
-можна зберігати за межами full expression. `FieldReadResult::operator->()`
-повертає той самий owned pointer. `NativeCallResult<BorrowedServiceResult<T>>`
-володіє inner wrapper: outer `valueOrNull()` вказує на wrapper, а не на
-зовнішній T. Окремі приклади:
+Для nonvoid payload `ServiceCallResult<T>`, `ServiceResult<T>`,
+`NativeCallResult<T>` та `FieldReadResult<T>` мають lvalue-only `valueOrNull()`:
+`&` дає mutable pointer,
+`const&` — const pointer, `&&` / `const&&` overloads явно видалені.
+`FieldReadResult::operator->()` повертає той самий owned pointer і має таке саме
+обмеження. Навіть immediate-use pointer access або arrow на owning temporary,
+який раніше вкладався в full expression, тепер відхиляється. Це compile-time
+source contract без runtime checks чи зміни storage/layout.
+
+`value()` та Field `operator*()` не отримали нового обмеження:
+
+| Owning wrapper | `value()` на mutable rvalue | `value()` на const rvalue |
+| --- | --- | --- |
+| `ServiceResult<T>` | `T&&` | `const T&` через наявний `const&` overload |
+| `FieldReadResult<T>` | `T&&` | `const T&` через наявний `const&` overload |
+| `NativeCallResult<T>` | `T&&` | `const T&&` |
+| Nonvoid `ServiceCallResult<T>` | `T&&` | `const T&&` |
+
+Field `operator*()` зберігає відповідні `value()` categories. Move-out у власний
+object на кшталт `auto value = std::move(result).value();` лишається допустимим;
+збереження reference саме по собі не продовжує lifetime result.
+Для відомого success immediate-use `factory().value().member` або
+`(*fieldResultFactory()).member` лишається допустимим. Коли success невідомий,
+збережіть named result і перевірте його перед доступом.
+
+`NativeCallResult<BorrowedServiceResult<T>>` володіє inner wrapper: outer
+`valueOrNull()` вказує на wrapper, а не на зовнішній T, і теж потребує lvalue
+outer result. Accessor contained borrowed wrapper натомість позичає зовнішній
+T; його lifetime задає application owner. Окремі приклади:
 [Field result](Fields.md#runtime-borrowed-read-та-причина-відмови) і
 [Service result](Services.md#5-owning-serviceresult).
 
@@ -1051,6 +1073,9 @@ caller preconditions для **всього** reply buffer, включно з hea
 Застосунок тримає T живим і стабільним до останнього використання view.
 Знищення result не знищує T; копія result не створює snapshot і не подовжує
 lifetime T. Reset/rebind slot не зберігає старий owner.
+Pointer access на temporary `BorrowedValue<T>`, `BorrowedServiceResult<T>` або
+`BorrowedServiceCallResult<T>` лишається допустимим, доки backing T живий:
+ці wrappers не володіють T.
 
 `BorrowedValue<T>::from(value)` та `BorrowedServiceResult<T>::success(value)`
 приймають exact nonvolatile lvalue T або const T. Temporary, `std::move(t)`,

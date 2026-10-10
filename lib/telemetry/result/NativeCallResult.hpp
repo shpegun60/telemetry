@@ -31,6 +31,8 @@ enum class NativeCallStatus : std::uint8_t {
 // successFrom constructs that Result in final union storage, without an
 // intermediate optional, default object or extra move of a large response.
 // Borrowed result wrappers retain their original application lifetimes.
+// valueOrNull() borrows the owned Result object, including when that Result
+// is itself a borrowed view; the pointer accessor requires an lvalue owner.
 // Public methods:
 // - successFrom(): Construct selected result.
 // - failure(): Report selection failure.
@@ -40,7 +42,7 @@ enum class NativeCallStatus : std::uint8_t {
 // - status(): Read selection status.
 // - hasValue(): Check endpoint delivery.
 // - value(): Access endpoint result.
-// - valueOrNull(): Access optional result.
+// - valueOrNull(): Borrow lvalue pointer.
 template<class T>
 class NativeCallResult {
 	static_assert(std::is_same_v<T, std::remove_cvref_t<T>> && !std::is_void_v<T>,
@@ -200,15 +202,18 @@ public:
 		return std::move(storage_.result);
 	}
 
-	[[nodiscard]] T* valueOrNull() noexcept
+	[[nodiscard]] T* valueOrNull() & noexcept
 	{
 		return hasValue() ? std::addressof(storage_.result) : nullptr;
 	}
 
-	[[nodiscard]] const T* valueOrNull() const noexcept
+	[[nodiscard]] const T* valueOrNull() const& noexcept
 	{
 		return hasValue() ? std::addressof(storage_.result) : nullptr;
 	}
+
+	T* valueOrNull() && noexcept = delete;
+	const T* valueOrNull() const&& noexcept = delete;
 
 private:
 	template<class Other>

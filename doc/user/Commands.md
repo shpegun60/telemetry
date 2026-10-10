@@ -375,9 +375,12 @@ assert(reset.hasValue() && reset.value() == ts::CommandResult::Executed);
 selection `Ok`; наприклад empty declared slot дає `Ok + Unavailable`.
 `value()` вимагає selection `Ok`; `valueOrNull()` повертає null на failure.
 Pointer вказує на `CommandResult`, який належить outer result: named result
-має жити до останнього pointer use. Accessor на temporary нині компілюється,
-але pointer не можна зберігати після full expression. Для Command зазвичай
-достатньо скопіювати невеликий enum через `result.value()`.
+має жити до останнього pointer use. `valueOrNull()` доступний лише для `&` /
+`const&`; overloads `&&` / `const&&` явно видалені, також для immediate-use
+виклику на temporary. `value()` зберігає попередні return categories й дозволяє
+move-out із rvalue result. Для Command зазвичай достатньо скопіювати невеликий
+enum через `auto outcome = result.value();`. Pointer guard є compile-time
+обмеженням і не додає runtime checks чи storage.
 Ці native selection statuses не є encoded dispatch чи wire codes.
 
 Local input приймає integer або scoped position enum; packed ID — integral.

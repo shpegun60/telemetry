@@ -81,6 +81,22 @@ historical and equivalence mutation controls pass. New API behavior is qualified
 by its separate host and ARM tests; these existing firmware fixtures do not
 instantiate every additive helper. No device was accessed or measured.
 
+The remaining owning-result pointer refresh was captured on 2026-10-11 local
+time (2026-10-10 UTC). It makes `ServiceResult::valueOrNull()`,
+`NativeCallResult::valueOrNull()` and `FieldReadResult` pointer access lvalue-only;
+payload extraction with `value()` and `operator*()` remains available on rvalues.
+The 138-library-input and 57-fixture inventory differs from the preceding capture
+only in those three result headers. All twelve raw firmware binaries are still
+identical to their retained measured artifacts; six ELF hashes also match, and
+the other six remain separately recorded. All six original receipt files retain
+their raw bytes. The capture records starting revision
+`535e550a5675b5dd4a995b2a933075dae056f653` with `source_dirty=true`, rather than
+claiming a future commit was compiled. Artifact verification and the complete
+historical/equivalence mutation controls pass. Separate CubeIDE GCC 14.3.1
+before/after probes preserve all 19 code/relocation sections, 15 stack frames and
+six result-wrapper size/alignment/triviality profiles at `O2`, `Os` and `Og`.
+These are offline compilation checks, with no new device execution or timing.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -132,7 +148,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261010-owning-pointer/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -185,7 +201,9 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current owning-pointer and checked-codec capture is
+The current remaining-owning-result pointer capture is
+`C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime/equivalence`.
+The preceding owning-pointer and checked-codec capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261010-owning-pointer/equivalence`.
 The preceding 2026-10-10 flat runtime native API capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261010-flat-native/equivalence`.

@@ -51,6 +51,61 @@ summary.json records compiler identity, source head, flags, captured inputs,
 execution output, diagnostics and ARM sections/frames. These are host and
 offline compiler observations, not device cycle or full call-chain measurements.
 
+## Owning result pointer lifetime
+
+ResultAccessors exercises 79 computed runtime conditions and a separate compile-time
+cv/ref matrix for `ServiceResult<T>`, `NativeCallResult<T>` and `FieldReadResult<T>`.
+Owning `valueOrNull()` permits `&`/`const&`; `&&`/`const&&` are deleted, including
+when `NativeCallResult` owns a borrowed-result wrapper. Field `operator->()` has
+the same restriction. Volatile accessor forms remain unavailable. The matrix
+also verifies exact return types and the absence of invented `operator*` or
+`operator->` methods on Service/Native results.
+
+Named mutable/const owners retain pointer identity on success and null on failure.
+Runtime checks count payload construction, destruction, copy and move, preserve
+owning move-out, and retain immediate temporary Field access through `.value().member`
+or `(*makeResult()).member`. Existing `value()` and Field `operator*()` categories
+are unchanged: Service/Field const rvalues return `const T&`, while Native
+const rvalues return `const T&&`. BorrowedValue/BorrowedServiceResult/flat borrowed
+Service temporary pointers continue to address live external backing objects.
+Pointers from named owning results still cannot outlive those results.
+
+ResultAccessorsNegative cases 1–6 reject mutable/const temporary `valueOrNull()`
+on all three owning wrappers. Cases 7–8 reject explicit temporary Field
+`operator->()`, and 9–10 reject ordinary temporary `->member` syntax. C++ cannot
+separate an immediate arrow use from an explicit escaping arrow pointer, so both
+forms require a named result. Every case requires the deleted intended accessor
+diagnostic; all cases remain part of host, sanitized/null-checks and ARM CI through
+this runner. The existing flat and codec runners keep their independent coverage.
+
+For the original lifetime reproduction, build ResultAccessorsNegative.cpp with
+`-DCASE=N -DRUN -fsanitize=address,undefined`, for N=1…8, against the retained
+`111d10c` result headers. The RUN form reads the escaped pointer after the factory
+temporary's full expression; ASan reports the ended payload lifetime. Against the
+current headers those same calls fail compilation before runtime. Generated
+baseline headers, executables and logs belong outside the source tree. Qualification
+logs must identify which headers were used; a current compile refusal is a different
+observation from the historical ASan reproduction.
+
+Local qualification on 2026-10-11 completed against the frozen three-header change:
+
+| Configuration | Runner result |
+| --- | --- |
+| GCC 13.1, normal and `-fno-delete-null-pointer-checks` | Each: 111 commands, 89 intended rejections |
+| Clang 18, ASan/UBSan | 111 commands, 89 intended rejections |
+| CubeIDE ARM GCC 14.3.1, `O2` / `Os` / `Og` | 188 commands, 89 intended rejections; compile/inspection only |
+
+Each host configuration executed all 79 new accessor conditions. All eight
+historical pointer-escape cases reported `stack-use-after-scope` under ASan with
+the `111d10c` headers. Existing flat native, codec/workspace and documentation
+example runners also passed. Separate ARM before/after probes matched 19 code
+and relocation sections, 15 individual stack frames and six wrapper layout/
+triviality profiles at every optimization. The existing twelve firmware binaries
+were rebuilt and remained byte-identical to their retained artifacts; see
+[firmware evidence](../resources/evidence/README.md). No new device execution or
+cycle measurement was performed. Generated logs are retained outside the repository
+at `C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime`.
+
 ## One-level Command and Service outcomes
 
 [Flat API guide](../../doc/user/FlatNative.md) ·
@@ -83,7 +138,8 @@ calls. Positive controls retain mutable/const lvalue pointer access, borrowed
 temporary pointer identity and owning `value() &&` move-out. The restriction
 does not extend named-result lifetime; even immediate-use owning temporary
 pointer access is rejected. No runtime checks or storage/layout changes are
-introduced. Existing low-level wrappers keep their contracts.
+introduced. Existing low-level wrappers keep their status/storage/value categories;
+their pointer lifetime hardening is covered separately above.
 FlatScale executes every row in grouped 128/256
 profiles (1,934/3,854 checks). FlatLargeCodegen executes 79 checks for each exact
 1 KiB and 4 KiB response size and checks borrowed pointer identity separately.

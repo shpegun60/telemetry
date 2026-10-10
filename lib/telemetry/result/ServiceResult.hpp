@@ -52,8 +52,9 @@ inline void requireFailure(ServiceStatus status) noexcept
 
 // Engaged exactly when status_ is Ok; then payload_.value is the active union
 // member. Failure objects never construct T. value() requires engagement,
-// whereas valueOrNull() is safe for either state. This wrapper owns T but does
-// not own objects that T itself merely references.
+// whereas lvalue valueOrNull() is safe for either state. Pointers borrow this
+// result's storage; the pointer accessor requires an lvalue owner. This wrapper
+// owns T but does not own objects that T itself merely references.
 // Public methods:
 // - successFrom(): Construct final response.
 // - success(): Store small response.
@@ -64,7 +65,7 @@ inline void requireFailure(ServiceStatus status) noexcept
 // - status(): Read application status.
 // - hasValue(): Check response lifetime.
 // - value(): Access active response.
-// - valueOrNull(): Access optional pointer.
+// - valueOrNull(): Borrow lvalue pointer.
 template<class T>
 class ServiceResult {
 	static_assert(!std::is_void_v<T> && !std::is_reference_v<T> && !std::is_const_v<T> &&
@@ -183,15 +184,20 @@ public:
 		return std::move(payload_.value);
 	}
 
-	[[nodiscard]] T* valueOrNull() noexcept
+	[[nodiscard]] T* valueOrNull() & noexcept
 	{
 		return hasValue() ? std::addressof(payload_.value) : nullptr;
 	}
 
-	[[nodiscard]] const T* valueOrNull() const noexcept
+	[[nodiscard]] const T* valueOrNull() const& noexcept
 	{
 		return hasValue() ? std::addressof(payload_.value) : nullptr;
 	}
+
+	// Keep value() && for move-out. Borrowing an owned pointer needs a named
+	// result, even when the caller intends to use it only in this expression.
+	T* valueOrNull() && noexcept = delete;
+	const T* valueOrNull() const&& noexcept = delete;
 
 private:
 	// Selects direct success-payload construction in final storage.

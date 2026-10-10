@@ -45,6 +45,14 @@ NATIVE_NEGATIVES = {
     **{n: r'(?:use of deleted function|call to deleted (?:member )?function)' for n in range(7, 11)},
     14: 'NativeCallResult factory must return the exact result type',
 }
+RESULT_ACCESSOR_NEGATIVES = {
+    **{n: r"(?:use of deleted function[^\n]*valueOrNull|call to deleted member function 'valueOrNull')"
+       for n in range(1, 7)},
+    **{n: r"(?:use of deleted function[^\n]*operator->|call to deleted member function 'operator->')"
+       for n in (7, 8)},
+    **{n: r"(?:use of deleted function[^\n]*operator->|overload resolution selected deleted operator '->')"
+       for n in (9, 10)},
+}
 
 
 def digest(path):
@@ -121,7 +129,7 @@ def main():
         run(flags + ['-x', 'c++', '-fsyntax-only', '-'], f'header-{number}',
             input_text=f'#include <{header}>\n')
     opts = ('O2', 'Os', 'Og') if args.arm else ('O2',)
-    positives = ['Basics', 'Traversal', 'Fields', 'NativeCalls', 'ResourceClient']
+    positives = ['Basics', 'Traversal', 'Fields', 'NativeCalls', 'ResourceClient', 'ResultAccessors']
     for opt in opts:
         for name in positives:
             support = [PROTOCOL] if name == 'ResourceClient' else [ABI]
@@ -136,7 +144,8 @@ def main():
                 report['executions'][name] = stdout.strip()
     for filename, diagnostics in [('FieldsNegative.cpp', FIELD_NEGATIVES),
                                   ('TraversalNegative.cpp', TRAVERSAL_NEGATIVES),
-                                  ('NativeNegative.cpp', NATIVE_NEGATIVES)]:
+                                  ('NativeNegative.cpp', NATIVE_NEGATIVES),
+                                  ('ResultAccessorsNegative.cpp', RESULT_ACCESSOR_NEGATIVES)]:
         for case, diagnostic in sorted(diagnostics.items()):
             run(flags + ['-O2', f'-DCASE={case}', '-fsyntax-only', SOURCE / filename],
                 f'negative-{filename[:-4]}-{case}', diagnostic)

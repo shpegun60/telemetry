@@ -38,7 +38,9 @@ enum class FieldReadStatus : std::uint8_t {
 
 // Engaged exactly when status() is Ok. Failed reads never construct T;
 // successful reads explicitly own T and do not extend any lifetime T borrows.
-// Dereferencing requires hasValue(); valueOrNull() is safe on either state.
+// Dereferencing requires hasValue(); lvalue valueOrNull() is safe on either state.
+// Pointer access borrows this result's storage and requires an lvalue owner.
+// Rvalue value()/operator*() retain explicit payload extraction without copying.
 // Public methods:
 // - successFrom(): Construct requested owning value.
 // - failure(): Store native read failure.
@@ -49,9 +51,9 @@ enum class FieldReadStatus : std::uint8_t {
 // - hasValue(): Check owned value lifetime.
 // - operator bool(): Check owned value lifetime.
 // - value(): Access active value.
-// - valueOrNull(): Access optional pointer.
+// - valueOrNull(): Borrow lvalue pointer.
 // - operator*(): Access active value.
-// - operator->(): Access present pointer.
+// - operator->(): Borrow lvalue pointer.
 template<class T>
 class FieldReadResult {
 	static_assert(std::is_object_v<T> && std::is_same_v<T, std::remove_cvref_t<T>>,
@@ -167,15 +169,18 @@ public:
 		return std::move(payload_.value);
 	}
 
-	[[nodiscard]] T* valueOrNull() noexcept
+	[[nodiscard]] T* valueOrNull() & noexcept
 	{
 		return hasValue() ? std::addressof(payload_.value) : nullptr;
 	}
 
-	[[nodiscard]] const T* valueOrNull() const noexcept
+	[[nodiscard]] const T* valueOrNull() const& noexcept
 	{
 		return hasValue() ? std::addressof(payload_.value) : nullptr;
 	}
+
+	T* valueOrNull() && noexcept = delete;
+	const T* valueOrNull() const&& noexcept = delete;
 
 	[[nodiscard]] T& operator*() & noexcept
 	{
@@ -192,15 +197,20 @@ public:
 		return std::move(*this).value();
 	}
 
-	[[nodiscard]] T* operator->() noexcept
+	[[nodiscard]] T* operator->() & noexcept
 	{
 		return valueOrNull();
 	}
 
-	[[nodiscard]] const T* operator->() const noexcept
+	[[nodiscard]] const T* operator->() const& noexcept
 	{
 		return valueOrNull();
 	}
+
+	// C++ cannot distinguish temporary->member from extracting its pointer
+	// with temporary.operator->(). Use a named result or value().member.
+	T* operator->() && noexcept = delete;
+	const T* operator->() const&& noexcept = delete;
 
 private:
 	// Selects direct value construction in final storage.
