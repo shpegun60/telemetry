@@ -104,6 +104,14 @@ Packed array та canonical Descriptor/DescriptorView використовуют
 READ. Для custom streaming source wrapper делегує `read()` разом із cursor/error
 semantics source; DescriptorFile не перевіряє довільні bytes як valid schema.
 
+Увесь `output` span для Descriptor READ має бути disjoint від immutable source
+та його borrowed metadata: packed array, tables і names. Це caller precondition
+для packed та canonical streaming форм, навіть коли READ запише лише частину
+span. Використовуйте окремий transport/output buffer. Runtime alias-check тут
+немає: запис у backing descriptor вже порушував би його immutability, а
+`memmove` не робив би таку зміну дозволеною. Custom streaming source також
+зберігає власні preconditions `read()`.
+
 ## Descriptor API
 
 | Object / API | Тип і значення |
@@ -299,6 +307,48 @@ overlap не дозволяє overlap response з provider source storage.
 Якщо до problem token уже завершено prefix, Values повертає prefix Ok
 і next саме цього token; наступний READ дістається до problem без повторів
 уже викликаних getters. Dispatch/resource/token statuses мають різні domains.
+
+## JavaScript: Number та точні біти
+
+[JS client](../../web/telemetry.js) читає F32/F64 через `DataView` у явному
+little-endian порядку й повертає JavaScript `Number`. Це числовий API:
+
+| Wire type / випадок | JS contract |
+| --- | --- |
+| F32 finite value | Decode дає точне binary32 значення як Number; encode округлює Number до binary32 і відхиляє finite overflow |
+| F64 finite value | Number зберігає binary64 значення |
+| `-0`, `+Infinity`, `-Infinity` | Категорія і знак зберігаються; для negative zero використовуйте `Object.is(value, -0)` |
+| NaN | Decode/encode зберігають числову категорію NaN; точні payload, sign та signaling/quiet bits не гарантуються |
+| U32/S32 | Точні 32-bit integers як Number |
+| U64/S64 | Точні 64-bit integers як BigInt |
+
+Наприклад, F32 bytes `01 00 80 7f` означають signaling NaN із bits
+`0x7f800001`. Після `decodeValue()` → `encodeValue()` JS engine може
+повернути інший NaN, зокрема quiet NaN. Жоден конкретний NaN bit pattern
+після Number round-trip не є частиною контракту. Перевіряйте
+`Number.isNaN(value)` замість порівняння з `NaN`.
+
+Для точного пересилання IEEE-754 representation зберігайте й передавайте
+отримані bytes без float decode/encode:
+
+```js
+const wireBytes = receivedPayload.slice(); // Власна копія потрібних payload bytes.
+const value = ts.decodeFieldValue(model, fieldId, wireBytes); // Для UI / обчислень.
+// Transport передає wireBytes, коли потрібне побайтове відтворення оригіналу.
+```
+
+Інший явний application contract — оголосити raw representation як
+`std::uint32_t` / `std::uint64_t` payload замість F32/F64. У JS це U32 Number
+або U64 BigInt; відповідний integer codec зберігає всі bits, включно з NaN
+payload. Це інший wire type, його не слід підміняти лише на стороні клієнта.
+Самі файли, ресурсні READ replies і transport bytes не змінюють float bits;
+обмеження стосується саме перетворення на Number. C++ canonical codec передає
+наявну floating representation через `std::bit_cast` без JS-перетворення.
+
+[Client tests](../../tests/structured/client/Check.mjs) перевіряють finite
+extrema, subnormal values, negative zero, infinities та кілька positive/negative
+signaling/quiet NaN patterns для F32/F64. Для NaN вони вимагають числову
+категорію, а для U32/U64 relay — точну рівність отриманих bytes.
 
 ## Клієнти й приклади
 

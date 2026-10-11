@@ -58,6 +58,7 @@
 | Зрозуміти межі Model, codec, providers і transport | [Архітектура](Architecture.md) |
 | Реалізувати незалежний descriptor/Values decoder | [Wire v3.0](WireV3.md) |
 | Перенести consumer з попереднього API | [Migration guide](StructuredTelemetryV3MigrationGuide.md) |
+| Оновити headers, accessor types та повністю перезібрати consumer | [Release notes](ReleaseNotes.md) |
 | Зібрати або перевірити конкретний приклад | [Example checks](../tests/docs/README.md), [test index](../tests/README.md) |
 
 ## Повні приклади

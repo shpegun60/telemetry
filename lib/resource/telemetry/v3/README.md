@@ -83,6 +83,15 @@ No explicit `init()` phase is required. `DescriptorFile{descriptorBytes}`
 wraps packed storage; `DescriptorFile{descriptor}` wraps indexed streaming.
 Both borrow a stable immutable lvalue and reject temporary sources.
 
+The entire output span passed to `DescriptorFile::read()` must be disjoint from
+the immutable source and its borrowed metadata, including packed bytes, tables
+and names. This applies to packed and canonical streaming descriptors, even
+when only a prefix of the output will be written. This is a caller precondition,
+without a runtime alias check. Copying into the descriptor's own backing storage
+would violate its immutability; `memmove` would not make that mutation valid.
+Use a separate transport/output buffer. Custom streaming sources also retain
+their own `read()` preconditions.
+
 ## Validation and limits
 
 Names are nonempty valid UTF-8. Factory arguments preserve const array extent

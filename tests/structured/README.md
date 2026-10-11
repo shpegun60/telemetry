@@ -14,6 +14,40 @@ the contracts. Earlier plans/reviews were archived with their original bytes;
 [maintenance notes](../../doc/RepositoryMaintenance.md) identify the archive.
 An older green CI or receipt does not qualify a later source tree.
 
+## Historical stage navigation
+
+The explicit anchors below preserve links from retained qualification
+documents after this index was organized by maintained suite. They locate
+the current tests; they do not assign a newer source identity to old results.
+
+<a id="stage-02-stable-reflection-facade"></a>
+
+Stage 02: [reflection](reflection/run.py) and [facade](facade/run.py).
+
+<a id="stage-03-fixed-wire-types-and-enum-dictionaries"></a>
+
+Stage 03: [fixed wire types and enum dictionaries](types/run.py).
+
+<a id="stage-04-codec-workspace-and-object-lifetime"></a>
+
+Stage 04: [codec, Workspace and object lifetime](codec/README.md).
+
+<a id="stage-05-compile-time-typeregistry"></a>
+
+Stage 05: [compile-time TypeRegistry](registry/run.py).
+
+<a id="stage-06-native-service-binding"></a>
+
+Stage 06: [native Service binding](service/run.py).
+
+<a id="stage-07-service-tables-and-first-encoded-model-path"></a>
+
+Stage 07: [Service tables and encoded Model](model/run.py).
+
+<a id="stage-08-mixed-field-command-and-model"></a>
+
+Stage 08: [mixed Field/Command/Model](endpoints/run.py).
+
 | Suite | Evidence |
 | --- | --- |
 | reflection, facade | Pinned PFR/compiler probes, normalized reflection boundary, callable rules |

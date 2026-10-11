@@ -37,6 +37,9 @@ concept DescriptorSource =
 
 // Source and its borrowed metadata must remain alive and immutable. Use
 // packDescriptor<descriptor>() for a static model; no hash is recomputed here.
+// The entire output span must be disjoint from that source and metadata.
+// Writing into packed bytes, tables or names would violate their immutability,
+// even when the copied slice happens to be disjoint. This is a caller precondition.
 template<detail::DescriptorSource Source>
 // Public methods:
 // - DescriptorFile(): Borrow immutable source.
@@ -61,6 +64,7 @@ public:
 
 	// Both source forms permit byte-offset resume inside a record or string.
 	// Packed reads copy only the fitting prefix; streaming reads delegate it.
+	// Output never aliases the immutable source/metadata; no runtime alias check.
 	[[nodiscard]] ReadResult read(Cursor cursor, Output output) const noexcept
 	{
 		if constexpr (!detail::packedDescriptor<Source>) {

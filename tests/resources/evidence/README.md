@@ -97,6 +97,20 @@ before/after probes preserve all 19 code/relocation sections, 15 stack frames an
 six result-wrapper size/alignment/triviality profiles at `O2`, `Os` and `Og`.
 These are offline compilation checks, with no new device execution or timing.
 
+The 2026-10-11 Descriptor output-contract refresh changes only the
+`DescriptorFile.hpp` comment and v3 provider README in its captured library
+inventory. It retains 138 library inputs and the same 57 fixture inputs.
+All twelve rebuilt raw firmware binaries match the complete retained artifacts,
+their SHA-256 and byte counts after the existing Exchange compiler source-path
+mapping. Six current ELF hashes also match the retained hashes; the other six
+remain separately recorded. All six original receipt texts remain unchanged.
+The capture records the actual starting revision
+`5d2bb937880cb5c47da5399420469803d5ecf8ac` with `source_dirty=true` for the
+documented contract change. Artifact verification, all historical receipt
+controls, 27 equivalence mutations, 10 refused relocation cases and text-identity
+controls pass. This refresh is offline compile/link evidence; none of its
+commands accesses a device or adds a hardware measurement.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -148,7 +162,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261011-audit-closure/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -201,7 +215,9 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current remaining-owning-result pointer capture is
+The current Descriptor output-contract capture is
+`C:/Users/admin/Documents/telemetry-validation/20261011-audit-closure/equivalence`.
+The preceding remaining-owning-result pointer capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime/equivalence`.
 The preceding owning-pointer and checked-codec capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261010-owning-pointer/equivalence`.

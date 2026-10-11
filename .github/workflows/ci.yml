@@ -26,6 +26,12 @@ jobs:
       - name: Verify authored sources without rewriting them
         run: |
           python3 tools/source_style/check.py --clang-format build/source-style-venv/bin/clang-format --self-test
+      - name: Verify Markdown files and local heading navigation
+        run: python3 tools/documentation_navigation/check.py --self-test
+      - name: Verify retained audit hardware receipt controls
+        run: |
+          python3 tests/structured/mcu/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-mcu-receipt.json --self-test --allow-stale-inputs
+          python3 tests/structured/resources/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-resources-receipt.json --self-test
 
   scalability:
     name: Bounded catalogs, type graphs and module integration

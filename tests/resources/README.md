@@ -14,6 +14,18 @@ python tests/resources/run.py --cxx arm-none-eabi-g++ --arm --build-dir build/re
 
 - `CoreCheck.cpp` retains provider, cursor, path, partial-buffer, LIST progress,
   packet-boundary and output-canary checks. LIST never calls `size()`.
+- `BoundaryCheck.cpp` adds an independent reply byte grammar. A fixed-seed
+  corpus tests 34,688 complete, truncated, extended, single-byte-mutated and
+  biased random packets against `parseRead`, `parseList`, `parseStat` and
+  `parseWrite`. Accepted data/path ranges must remain inside the original
+  packet; every validated LIST iterator is exhausted and counted. A further
+  5,000 generated requests check server output canaries, parseable replies,
+  unchanged request bytes and absence of provider callbacks for malformed
+  requests. Positive controls require all provider operations and all four
+  reply parsers to be exercised. Its 306,653 conditions are counted by the
+  host runner; ARM compiles this same body without executing it. This finite
+  deterministic corpus is additional boundary coverage, not an exhaustive
+  proof or a measurement of transport concurrency.
 - `Negative.cpp` has 38 intended compile-time refusals and an executed
   positive binding control. The runner verifies the particular diagnostic;
   a missing unrelated header cannot satisfy a lifetime refusal.
@@ -54,7 +66,7 @@ Compiler, diagnostics, disassembly, sections and symbol logs are retained
 beside the summary. Linked ARM allocation/formatting checks use the same
 newlib-aware controls as the final telemetry qualification suite.
 
-The generic host suite currently executes 9,465 conditions, with 68 intended
+The generic host suite currently executes 316,118 conditions, with 68 intended
 compile-time refusals. ARM has 67 refusals: the external array larger than
 u32 used by the last host control cannot be declared on its 32-bit target.
 
@@ -74,6 +86,21 @@ reader frames, short buffers, lifetime refusals and compiled reader ABI
 checks under GC/LTO. It also builds `DeviceCheck.cpp` with the migrated
 application's two-file resource facade. Generic resource users do not need
 those dependencies.
+
+The encoded endpoint counterpart is
+[`PayloadBoundary.cpp`](../structured/endpoints/PayloadBoundary.cpp), run by
+[`endpoints/run.py`](../structured/endpoints/run.py). Its separate fixed-seed
+10,742-packet corpus checks compiled Model Field/Command/Service dispatch:
+exact request lengths, three canonical bool members, all underlying enum codes,
+no callbacks/state changes for rejected input, untouched output/error bytes,
+missing IDs and preservation of an outer Workspace lease. Each family's
+native state and callback counters are checked immediately, before another
+family can overwrite them; successful Service dispatch also requires its
+application status to be `Ok`. It executes 427,986
+counted conditions; 4,479 inputs are canonical and 2,903 contain an accepted
+unknown enum code. GCC, null-check and Clang sanitizer jobs execute it; the
+ARM runner compiles the body at O2/Os/Og. It adds no production contract or
+application synchronization machinery.
 
 Scalar/v2.1 fixtures and their measurements are historical. Their source is
 available in the pre-migration Git tree `389c995`; they are not part of the

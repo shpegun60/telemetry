@@ -64,6 +64,31 @@ function mutation(offset, edit, reason)
 }
 
 const mixed = models.get('mixed').model;
+// Fixed byte substitutions explore bounded parser input beyond named cases.
+// Recomputing identity makes structural validation, rather than a hash mismatch,
+// decide each descriptor. A valid mutation is allowed; native JS errors are not.
+let descriptorAccepted = 0, descriptorRejected = 0;
+for (const {bytes} of models.values()) {
+	for (let offset = 0; offset < bytes.length; ++offset) {
+		if (offset >= 16 && offset < 24)
+			continue; // rehash() replaces the descriptor fingerprint bytes.
+		for (const mask of [1, 128]) {
+			const changed = bytes.slice();
+			changed[offset] ^= mask;
+			rehash(changed);
+			try {
+				const parsed = codec.parseDescriptor(changed);
+				check(Object.isFrozen(parsed) && parsed.byteLength === changed.length &&
+				      parsed.fingerprint === codec.descriptorFingerprint(changed));
+				++descriptorAccepted;
+			} catch (error) {
+				check(error instanceof codec.TelemetryFormatError);
+				++descriptorRejected;
+			}
+		}
+	}
+}
+check(descriptorAccepted > 0 && descriptorRejected > 0);
 mutation(8, (view, at) => view.setUint16(at, 63, true), /Header size/);
 mutation(10, (view, at) => view.setUint16(at, 1, true), /Header size/);
 mutation(24, (view, at) => view.setUint32(at, 0xffffffff, true), /Type budget/);
@@ -248,6 +273,70 @@ for (const [id, values] of leaves) {
 	reject(() => codec.decodeValue(mixed, id, new Uint8Array(width - 1)), /length/);
 	reject(() => codec.decodeValue(mixed, id, new Uint8Array(width + 1)), /length/);
 }
+
+// Number preserves floating numerical semantics. An engine may quiet or
+// canonicalize NaNs, so do not demand any particular NaN payload/signaling bits.
+// The corresponding integer codec is an exact raw-bit relay when that matters.
+function floatingPatterns(typeId, rawTypeId, patterns)
+{
+	const width = mixed.types[typeId].wireBytes;
+	for (const [bits, expected] of patterns) {
+		const storage = new Uint8Array(width + 5);
+		const bytes = storage.subarray(3, 3 + width);
+		const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+		if (width === 4)
+			view.setUint32(0, bits, true);
+		else
+			view.setBigUint64(0, bits, true);
+		const number = codec.decodeValue(mixed, typeId, bytes);
+		check(Number.isNaN(expected) ? Number.isNaN(number) : Object.is(number, expected));
+		const numericBytes = codec.encodeValue(mixed, typeId, number);
+		if (Number.isNaN(expected))
+			check(Number.isNaN(codec.decodeValue(mixed, typeId, numericBytes)));
+		else
+			equalBytes(numericBytes, bytes);
+		const raw = codec.decodeValue(mixed, rawTypeId, bytes);
+		check(raw === bits);
+		equalBytes(codec.encodeValue(mixed, rawTypeId, raw), bytes);
+	}
+}
+
+floatingPatterns(10, 6, [
+	[ 0x00000000, 0 ],
+	[ 0x80000000, -0 ],
+	[ 0x00000001, 2 ** -149 ],
+	[ 0x007fffff, (2 ** 23 - 1) * 2 ** -149 ],
+	[ 0x00800000, 2 ** -126 ],
+	[ 0x3f800000, 1 ],
+	[ 0x7f7fffff, (2 - 2 ** -23) * 2 ** 127 ],
+	[ 0x7f800000, Infinity ],
+	[ 0xff800000, -Infinity ],
+	[ 0xff7fffff, -(2 - 2 ** -23) * 2 ** 127 ],
+	[ 0x7f800001, NaN ],
+	[ 0x7fc00001, NaN ],
+	[ 0x7fffffff, NaN ],
+	[ 0xff800001, NaN ],
+	[ 0xffc01234, NaN ],
+	[ 0xffffffff, NaN ],
+]);
+floatingPatterns(11, 8, [
+	[ 0x0000000000000000n, 0 ],
+	[ 0x8000000000000000n, -0 ],
+	[ 0x0000000000000001n, Number.MIN_VALUE ],
+	[ 0x000fffffffffffffn, (2 ** 52 - 1) * Number.MIN_VALUE ],
+	[ 0x0010000000000000n, 2 ** -1022 ],
+	[ 0x3ff0000000000000n, 1 ],
+	[ 0x7fefffffffffffffn, Number.MAX_VALUE ],
+	[ 0x7ff0000000000000n, Infinity ],
+	[ 0xfff0000000000000n, -Infinity ],
+	[ 0xffefffffffffffffn, -Number.MAX_VALUE ],
+	[ 0x7ff0000000000001n, NaN ],
+	[ 0x7ff8000000000001n, NaN ],
+	[ 0x7fffffffffffffffn, NaN ],
+	[ 0xfff0000000000001n, NaN ],
+	[ 0xfff8000000001234n, NaN ],
+	[ 0xffffffffffffffffn, NaN ],
+]);
 reject(() => codec.decodeValue(mixed, 1, Uint8Array.of(2)), /bool/);
 reject(() => codec.encodeValue(mixed, 1, 1), /boolean/);
 for (const value of [-1n, 1n << 64n, 42])
@@ -333,6 +422,25 @@ const values = codec.decodeValues(resourcesModel, resourcesBytes);
 check(values.length === 10 && values[0].value === 0x12345678);
 check(Object.is(values[2].value, -0) && values[3].value === -2);
 check(values[8].status === 1 && values[9].status === 1);
+let valuesAccepted = 0, valuesRejected = 0;
+for (let offset = 0; offset < resourcesBytes.length; ++offset) {
+	for (const mask of [1, 128]) {
+		const changed = resourcesBytes.slice();
+		changed[offset] ^= mask;
+		try {
+			const parsed = codec.decodeValues(resourcesModel, changed);
+			check(parsed.length === resourcesModel.fields.length &&
+			      parsed.every((row, index) => row.id === resourcesModel.fields[index].id &&
+			                                   (row.status === 0 ||
+			                                    (row.status === 1 && row.value === undefined))));
+			++valuesAccepted;
+		} catch (error) {
+			check(error instanceof codec.TelemetryFormatError);
+			++valuesRejected;
+		}
+	}
+}
+check(valuesAccepted > 0 && valuesRejected > 0);
 for (let end = 0; end < resourcesBytes.length; ++end)
 	reject(() => codec.decodeValues(resourcesModel, resourcesBytes.subarray(0, end)));
 const changed = resourcesBytes.slice();

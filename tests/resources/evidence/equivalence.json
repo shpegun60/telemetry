@@ -134,8 +134,8 @@
     "lib/resource/resource.pri": "89713fa88bc3c07273a0e823b98a2ad7f19a9c075a68686a01003fd4075ba8ae",
     "lib/resource/telemetry/v3/BinaryFormat.hpp": "c390b148189071a9517b2580b5d5aee9fb9aed19304a16a37043eb173428a830",
     "lib/resource/telemetry/v3/Descriptor.hpp": "c79267bbb10a77fb41dd1b0adc9efd81e90a37d5ecf0a50eed48bc895bb50691",
-    "lib/resource/telemetry/v3/DescriptorFile.hpp": "ac0c36573ca6ed691268523b90c0dee12d40580d80978a2f8fc2b07b9d8a7723",
-    "lib/resource/telemetry/v3/README.md": "5d5fbf3c9cdb7892b3873dc6a1f8e113c8535d102d49214491c1ae01b4ab58b4",
+    "lib/resource/telemetry/v3/DescriptorFile.hpp": "534031178956a70eeddbaadd40ee904581fbbf97b838781c970053a2f53955f2",
+    "lib/resource/telemetry/v3/README.md": "0366dac350c064ead7d3b1cae1a9c72105f2649d871b690418a91f40b89d0962",
     "lib/resource/telemetry/v3/ValuesFile.hpp": "5647eeb9f8c77e267011aa05e8bf1bd82ab0a75466c3c2d5ded0b2c8dbc4d742",
     "lib/resource/telemetry/v3/detail/Segments.hpp": "6ae3b801065e9e3d3f2f2f2ae34f0c7eb09fa5ad0f524eb020bbe276f9c140a8",
     "lib/resource/telemetry/v3/detail/Values.cpp": "cdd2a37681426cfb5d3f8f0888d1a47f8f8a4fd6f4a2dbc5b4770dac1d5542d0",
@@ -206,7 +206,7 @@
   "format_version": 2,
   "groups": {
     "borrowed": {
-      "current_input_manifest_sha256": "be543d5460fddf9cc68b661daaa716094eff8e79567c807f32aa05108a7085b4",
+      "current_input_manifest_sha256": "f5e638c28f632681ca94604478ccf2eb5ebfbc18a17412f31d9965d696e06400",
       "historical_input_manifest_sha256": "824365521b3502ca66aa17441f860bb5a3c6cb40f7badaef9edc962d92786531",
       "image_manifest_sha256": "2fdb4c28b23c45c3ca9825ac585fcd31a6dfa24d498529859d8c97b9776485bb",
       "macro_prefix_map": null,
@@ -215,7 +215,7 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "descriptor": {
-      "current_input_manifest_sha256": "fa8f4cf6dfbdf0094fb57e386b35db5571e675d56a596998d04b8c5408519774",
+      "current_input_manifest_sha256": "e7debcb65883f087ca820dbe079164bcd1a9dfb95ce4e1fccf0f3b3a0b948a06",
       "historical_input_manifest_sha256": "7531940505a510ad2d02d1324bc6497f7611a45b74dfc8ce45e24670afe6586a",
       "image_manifest_sha256": "343fe0558561b0b4b4c38fb37366d9adb73d76350a588eee8ff12449c1c05e78",
       "macro_prefix_map": null,
@@ -224,16 +224,16 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "exchange": {
-      "current_input_manifest_sha256": "4808aad9bd24b9f9315c503850ce382ee3c5decad249a851883285e8df399628",
+      "current_input_manifest_sha256": "6b106351a93cd3b7106c8944d1bfaa7bf84164bca0255dc4483f529dc78dc9d5",
       "historical_input_manifest_sha256": "8fb267913faf0d88bff5e154b09885c637381edfc64c5ed8d5dc1ad7432a801d",
       "image_manifest_sha256": "1e18fcf88d4042f629b9579c1033373cc22fa2ee8696beb060447a572f9ab5e7",
-      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-validation\\20261011-p3-lifetime\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
+      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-validation\\20261011-audit-closure\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
       "receipt": "tests/structured/exchange/h7s/receipt.json",
       "receipt_lf_sha256": "43cb74c4d5fba4a4634ca03c858ba5015e3bdb9ff7f2dc6a4e7632fc677a882a",
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "mcu": {
-      "current_input_manifest_sha256": "380879f05dcfe1836cebc83ba2d947e9707dd82fa4dee048ecc8dedd15e306d3",
+      "current_input_manifest_sha256": "1bb04a5d349af3461a736c9e599282ff2d095c77adc29f3ade5eb46422049fa7",
       "historical_input_manifest_sha256": "0043f7f08e78e69600ccfcd6fa54c74a6c4fe126f12ace1ce038be632354ac10",
       "image_manifest_sha256": "40a10ae237ab61e175398032271b8320dc27eee41e027e36e25fce6ea2938c84",
       "macro_prefix_map": null,
@@ -242,7 +242,7 @@
       "scaffold_manifest_sha256": "ea0e5c36be00383dd9b4b483b5aab8a5206b368a93859180624b9ebc34ff6f92"
     },
     "resources": {
-      "current_input_manifest_sha256": "3f27151095de17c4f72ba3e5a2da400012cad14a6009ad6e1e4906b696ffd929",
+      "current_input_manifest_sha256": "dca3d1838fdc6c6d07d81bbb88584a9876882e3c6e7c4fc641ca9790d7b57a03",
       "historical_input_manifest_sha256": "3f96ceeb9fb65e868643b17608420c49ecfb7c0f04fd6e4988a5beb23f2d78a5",
       "image_manifest_sha256": "2b45d51fc44a009dd5f5af45e0d71009f0c0bda1bbc3db2323139e80ba9b1166",
       "macro_prefix_map": null,
@@ -366,9 +366,9 @@
     "receipt": "tests/structured/mcu/local-receipt.json",
     "receipt_lf_sha256": "00fd1714709f28a338a04d295b80ff2608766cef64be5fab4636dc12185da9c6"
   },
-  "recorded_at_utc": "2026-10-10T22:58:26.557354+00:00",
+  "recorded_at_utc": "2026-10-11T07:47:41.463405+00:00",
   "scope": "current source and byte-identical retained H7S images",
   "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
   "source_dirty": true,
-  "source_head": "535e550a5675b5dd4a995b2a933075dae056f653"
+  "source_head": "5d2bb937880cb5c47da5399420469803d5ecf8ac"
 }

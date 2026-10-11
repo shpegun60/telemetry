@@ -64,7 +64,7 @@ def main():
         p.error('ARM runtime sanitizer is not provided by this runner')
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    counts = {'passed': 0, 'rejected': 0}
+    counts = {'passed': 0, 'rejected': 0, 'payload_conditions': 0}
 
     def run(command, label, failure=''):
         start = time.perf_counter()
@@ -97,13 +97,13 @@ def main():
         flags += ['-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
             '-fno-exceptions', '-fno-rtti', '-ffunction-sections', '-fdata-sections', '-fstack-usage']
     optimizations = ('O2', 'Os', 'Og') if args.arm else ('O2',)
-    probes = ['MixedProbe', 'BindingProbe', 'LargeEndpoints', 'Edges', 'CodecParity', 'CompositeStorage', 'LeafStorage', 'ErasedBoundary']
+    probes = ['MixedProbe', 'BindingProbe', 'LargeEndpoints', 'Edges', 'CodecParity', 'CompositeStorage', 'LeafStorage', 'ErasedBoundary', 'PayloadBoundary']
     if args.arm or os.name != 'nt':
         probes += ['WeakEndpoints']
     for opt in optimizations:
         for name in probes:
             sources = [HERE / (name + '.cpp')]
-            if name == 'MixedProbe':
+            if name in ('MixedProbe', 'PayloadBoundary'):
                 sources += [ADAPTER, ABI]
             if args.arm:
                 for source in sources:
@@ -112,7 +112,13 @@ def main():
             else:
                 exe = output / (name + ('.exe' if os.name == 'nt' else ''))
                 run(flags + ['-'+opt, *sources, '-o', exe], 'compile-'+name)
-                run([exe], 'execute-'+name)
+                result = run([exe], 'execute-'+name)
+                if name == 'PayloadBoundary':
+                    conditions = re.findall(r'^Encoded boundaries: (\d+) checks passed$', result, re.M)
+                    corpus = re.findall(r'^Encoded corpus: (\d+) packets; (\d+) canonical; (\d+) unknown enum codes$', result, re.M)
+                    if conditions != ['427986'] or corpus != [('10742', '4479', '2903')]:
+                        raise RuntimeError('Incomplete or changed encoded boundary corpus')
+                    counts['payload_conditions'] = int(conditions[0])
         # Signature constraints do not change with optimizer choices.
         if opt == 'O2':
             for case, diagnostic in DIAGNOSTICS.items():

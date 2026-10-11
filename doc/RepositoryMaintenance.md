@@ -49,9 +49,13 @@ sources/licenses, review transcripts і `.qtcreator` settings збережені
 у reflection-пробі, приватність внутрішніх даних `FileEntry` та класифікацію
 `const`-каталогів у явно заданих `Model`/`Descriptor`. ARM32 layout descriptor-а
 залишився 16 байтів із вирівнюванням 4 та offsets 0/8/12; перевірки layout
-збережені всередині friend-класу. JS runner тепер перевіряє повний звіт
+збережені всередині friend-класу. У тому проході JS runner перевіряв повний звіт
 `3057 checks / 0 failures / cppInterop=true`, включно з типами й унікальністю
 полів. Нові перевірки звіту не додаються до числа interoperability checks.
+Після аудиту 2026-10-11 поточний strict report має
+`8889 checks / 0 failures / cppInterop=true`; додано float representation та
+bounded descriptor/Values input corpora. Поточний контракт і точна арифметика
+checks описані у [client README](../tests/structured/client/README.md).
 
 Подальші generated outputs цього проходу зберігаються поза checkout.
 Перезбірка дванадцяти історичних H7S images є offline compile/link-перевіркою

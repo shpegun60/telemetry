@@ -52,6 +52,19 @@ Qmake manifests вибирають ці sources; generic resource manifest не
 Exact layout tag на compiled boundary виявляє ABI mismatch при linking.
 Wire version 3.0 від цього має незалежну identity.
 
+### Оновлення result accessor headers
+
+Після lifetime update `5d2bb93` зробіть повну clean/rebuild consumer,
+включно з dependent libraries та precompiled headers. Lvalue ref-qualifiers
+`valueOrNull()` у трьох owning wrappers і `FieldReadResult::operator->()`
+змінюють pointer-to-member-function types та, для out-of-line methods,
+C++ mangled symbols. Layout чи незмінні firmware `.bin` не гарантують
+сумісності зі старими precompiled objects.
+Збережіть result у named lvalue перед pointer access; `value() &&` для
+move-out і borrowed lifetime contract залишаються чинними.
+Конкретні типи accessor та межі сумісності описані у
+[release note](ReleaseNotes.md#повна-чиста-перебудова-consumer).
+
 ## Declarations і callback signatures
 
 | Попередня поведінка | Чинне рішення |

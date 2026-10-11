@@ -36,9 +36,11 @@ values uses the cached descriptor fingerprint; live values are never hashed.
 Scalar representations are bool, Number for integers up to 32 bits/F32/F64,
 and BigInt for U64/S64. Integer range/fractional errors are rejected; F32 is
 rounded to binary32, with finite overflow rejected. NaN/Inf and negative zero
-are supported. A decoded JS NaN does not promise its original payload bits;
-retain the raw bytes for an exact NaN bit-pattern roundtrip. Enum dictionaries
-label values without restricting representable unknown codes. Structs decode
+are supported. A decoded JS NaN does not promise its original payload, sign or
+signaling/quiet bits: a JS engine may quiet or canonicalize it. Retain the raw
+bytes for an exact bit-pattern roundtrip, or declare raw bits as U32/U64 payload
+in the application model. See the [public numerical/raw-bit contract](../../../doc/user/DescriptorAndValues.md#javascript-number-та-точні-біти).
+Enum dictionaries label values without restricting representable unknown codes. Structs decode
 to objects with a null prototype; encoding requires all and only their named
 members. Arrays require exactly the declared length.
 
@@ -71,18 +73,30 @@ not dependencies of the MCU library.
 
 ## Evidence and scope
 
-The runner requires the exact `Check.mjs` report: 3057 integer checks, zero
+The runner requires the exact `Check.mjs` report: 8889 integer checks, zero
 integer failures and `cppInterop: true`, with exactly those three fields.
 One positive and sixteen result mutation controls reject duplicate/missing
 fields, extra fields, wrong types, changed counts and failure statuses. These
 parser controls are separate from the interoperability tally below.
 
-- `Check.mjs`: **3057 counted checks**, including every truncated prefix of
+- `Check.mjs`: **8889 counted checks**, including every truncated prefix of
   three independently frozen descriptors, semantic mutations with recomputed
   fingerprints, resource/depth/expansion bounds, literal/prototype names,
   scalar extrema, unknown enums, arrays/structs/Void and values errors.
   A valid model at the default descriptor ceiling reaches group/entry 65535
   and packed ID `0xffffffff` without signed JS bitwise narrowing.
+  The 2026-10-11 additions contribute **5832 checks**: 128 assertions over 32
+  F32/F64 patterns, 5556 recomputed-fingerprint descriptor mutations, 146 Values
+  byte mutations and two corpus outcome controls. Each byte is substituted with
+  XOR masks `1` and `128` in the three small frozen descriptor fixtures and the
+  73-byte Values fixture. Descriptor fingerprint bytes are excluded because
+  rehashing replaces them. Mutations may remain valid; invalid input must raise
+  `TelemetryFormatError`, and accepted output must retain validated identity,
+  immutable descriptor shape or positional Values rows. Both acceptance and
+  rejection are required in each corpus. This is a finite deterministic corpus,
+  not a claim of exhaustive malformed-input coverage.
+  Floating checks preserve finite/zero/infinity bits, require only numerical
+  NaN semantics, and prove exact U32/U64 relay for every tested representation.
 - `Device.cpp`: C++ generates descriptor, values and native request/response
   bytes. JS reads them and sends its own payloads through real encoded Field,
   Command and Service indexes. All application statuses, unavailable target,
@@ -114,6 +128,14 @@ ABI. The final migration uses `<telemetry/Telemetry.hpp>`, namespace
 `telemetry`, and `resource/telemetry/v3` providers; it keeps the same native
 DTOs and canonical bytes. Whole-program stack and MCU cycle evidence is
 retained separately in [Stage 14 qualification](../mcu/h7s/README.md).
+
+On 2026-10-11 the expanded 8889-check suite passed with portable official
+Node 22.23.3 on MinGW GCC 13.1, the same GCC with null-pointer checks retained,
+and Linux Clang 18 with ASan/UBSan. Each run completed five commands, validated
+two generated descriptors independently and passed all sixteen report-parser
+mutation controls. Production `web/telemetry.js` remained unchanged. Browser
+checks were not rerun for this test/documentation addition; the 20 browser
+checks above describe their recorded earlier run.
 
 ## Final-source hardware evidence, 2026-10-03
 

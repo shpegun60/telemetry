@@ -14,7 +14,7 @@ import subprocess
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-EXPECTED_JS_CHECKS = 3057
+EXPECTED_JS_CHECKS = 8889
 
 
 def client_report(text):
@@ -45,8 +45,9 @@ def report_controls():
                        ('failures', 1), ('failures', False), ('failures', 0.0),
                        ('cppInterop', False), ('cppInterop', 1), ('extra', 0)):
         cases.append(json.dumps({**valid, key: value}))
-    cases += ['{"checks":3057,"checks":3057,"failures":0,"cppInterop":true}',
-              '[3057,0,true]', json.dumps(valid) + ' trailing']
+    cases += [f'{{"checks":{EXPECTED_JS_CHECKS},"checks":{EXPECTED_JS_CHECKS},'
+              '"failures":0,"cppInterop":true}',
+              f'[{EXPECTED_JS_CHECKS},0,true]', json.dumps(valid) + ' trailing']
     for case in cases:
         try:
             client_report(case)

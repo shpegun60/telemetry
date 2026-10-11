@@ -143,6 +143,8 @@ def main():
         def tool(name):
             return compiler.with_name('arm-none-eabi-' + name + compiler.suffix)
         for opt in ('O2', 'Os'):
+            run(flags + ['-' + opt, '-c', HERE / 'BoundaryCheck.cpp',
+                         '-o', output / (opt + '-BoundaryCheck.o')], 'boundary-check-' + opt)
             run(flags + ['-' + opt, '-c', HERE / 'BytesFileCheck.cpp',
                          '-o', output / (opt + '-BytesFileCheck.o')], 'bytes-check-' + opt)
             run(flags + ['-' + opt, '-c', HERE / 'FileViewCheck.cpp',
@@ -172,6 +174,7 @@ def main():
             run([args.size or tool('size'), '-A', image], 'sections-' + opt)
     else:
         for stem, sources in (('CoreCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
+                              ('BoundaryCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
                               ('NoHeapCheck', [ROOT / 'lib/resource/protocol/Protocol.cpp']),
                               ('BytesFileCheck', []),
                               ('FileViewCheck', []),
@@ -180,7 +183,7 @@ def main():
             run(flags + ['-O1' if args.sanitize else '-O2', '-DCASE=0', HERE / (stem + '.cpp'),
                          *sources, '-o', program], 'build-' + stem)
             result = run([program], 'execute-' + stem)
-            expected = {'CoreCheck': 4198, 'NoHeapCheck': 5000, 'BytesFileCheck': 122,
+            expected = {'CoreCheck': 4198, 'BoundaryCheck': 306653, 'NoHeapCheck': 5000, 'BytesFileCheck': 122,
                         'FileViewCheck': 88, 'Negative': 34}[stem]
             report['conditions'] += counted_conditions(result, expected)
         example = output / ('ResourceExample' + ('.exe' if os.name == 'nt' else ''))
