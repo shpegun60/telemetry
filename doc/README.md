@@ -84,6 +84,7 @@ Fenced fragments пояснюють окремий крок; повну прог
 | Late binding | [Slots](../lib/telemetry/slot/README.md) |
 | Незалежний filesystem/providers | [Resource](../lib/resource/README.md) |
 | Packet processor | [Resource protocol](../lib/resource/protocol/README.md) |
+| Запланований RPC provider: wire v1.0, повтори, стани й сеанс | [RpcMailbox specification](RpcMailboxV1.md) — ще не реалізовано |
 | Descriptor/Values provider lifetime і storage | [V3 providers](../lib/resource/telemetry/v3/README.md) |
 | Exact wire constants, default ceilings і goldens | [Wire v3.0](WireV3.md), [freeze manifest](../tests/structured/freeze/contract.json) |
 | JS native payload codec та parser | [Client API](../tests/structured/client/README.md) |
