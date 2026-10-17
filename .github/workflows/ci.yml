@@ -32,6 +32,8 @@ jobs:
         run: |
           python3 tests/structured/mcu/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-mcu-receipt.json --self-test --allow-stale-inputs
           python3 tests/structured/resources/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-resources-receipt.json --self-test
+      - name: Verify retained RPC UART receipt and controls
+        run: python3 tests/structured/rpc/h7s/verify.py --receipt tests/structured/rpc/h7s/receipt.json --self-test
 
   scalability:
     name: Bounded catalogs, type graphs and module integration

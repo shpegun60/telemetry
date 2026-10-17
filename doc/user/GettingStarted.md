@@ -94,6 +94,7 @@ Local Native та direct catalog index calls не потребують цих `.
 | Generic filesystem і готові bytes | `<resource/Resource.hpp>`, core header-only |
 | LIST/STAT/READ/WRITE packets | `<resource/protocol/Protocol.hpp>`, `lib/resource/protocol/Protocol.cpp` |
 | Telemetry Descriptor/Values files | Headers у `resource/telemetry/v3`, `lib/resource/telemetry/v3/detail/Values.cpp` |
+| Optional RPC mailbox | `<resource/telemetry/v3/RpcMailbox.hpp>`, `lib/resource/telemetry/v3/RpcMailbox.cpp`, разом із telemetry sources |
 | Optional Bind/Exchange example | `examples/structured_protocol/Bind.cpp` та `Exchange.cpp`, разом з telemetry sources |
 
 Для qmake достатньо manifests:
@@ -103,10 +104,13 @@ include(path/to/telemetry/lib/telemetry/telemetry.pri)
 
 # Лише якщо потрібні telemetry Descriptor/Values files.
 CONFIG += resource_telemetry
+# Окремо, лише для RPC; можна обрати незалежно від Descriptor/Values.
+# CONFIG += resource_telemetry_rpc
 include(path/to/telemetry/lib/resource/resource.pri)
 ```
 
-Для generic files без telemetry providers `resource_telemetry` не додавайте.
+Для generic files без telemetry providers не додавайте жодного з цих прапорців.
+Descriptor/Values-only збірка з `resource_telemetry` не компілює RPC source.
 Для native telemetry без files не потрібний `resource.pri`.
 Є [готовий CMake example](../../examples/device_integration/CMakeLists.txt);
 це build прикладу, а не вимога переводити вашу прошивку на CMake.

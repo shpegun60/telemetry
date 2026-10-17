@@ -59,7 +59,7 @@ Stage 08: [mixed Field/Command/Model](endpoints/run.py).
 | borrowed | Const-reference Field/Service outputs, view lifetime, slots, overlap, wire parity and ARM codegen |
 | descriptor | Independent binary parser, golden bytes and fingerprint |
 | resources | Streaming/packed DescriptorFile, ValuesFile and application resource facade |
-| [rpc](rpc/README.md) | Optional RpcMailbox transfer/state contract, checked dispatch, duplicate retries, no-heap and bounded ARM roots |
+| [rpc](rpc/README.md) | Optional RpcMailbox transfer/state contract, checked dispatch, duplicate retries, no-heap, bounded ARM roots and separate [H7S UART integration](rpc/h7s/README.md) |
 | traversal | Ordered metadata access, visit/container and runtime readAs/writeAs |
 | exchange | Optional Bind/Exchange consumer framing and refusal before callbacks |
 | client | JS/C++ interoperability, exact BigInt values and browser behavior |

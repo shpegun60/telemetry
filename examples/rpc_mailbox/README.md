@@ -44,6 +44,20 @@ g++ -std=c++20 -O2 -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
 build/rpc-mailbox-example/rpc_mailbox
 ```
 
+For a qmake application, select the independent RPC option before the resource
+manifest. The telemetry manifest remains an explicit dependency:
+
+```qmake
+include(path/to/lib/telemetry/telemetry.pri)
+CONFIG += resource_telemetry_rpc
+include(path/to/lib/resource/resource.pri)
+```
+
+This selects `RpcMailbox.cpp` and generic `Protocol.cpp`, without selecting
+`Values.cpp`. Add `resource_telemetry` alongside `resource_telemetry_rpc` when
+the application also exposes DescriptorFile/ValuesFile. The Descriptor/Values
+option by itself does not compile RPC.
+
 The maintained [RPC checks](../../tests/structured/rpc/README.md) also compile
 and run this example:
 

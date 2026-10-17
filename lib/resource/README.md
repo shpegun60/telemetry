@@ -188,11 +188,19 @@ CONFIG += resource_telemetry
 include(path/to/lib/resource/resource.pri)
 ```
 
+`resource_telemetry` selects Descriptor/Values only. To compile the optional
+RPC mailbox, select `CONFIG += resource_telemetry_rpc` before the resource
+include instead, or add both flags when both provider families are needed.
+Neither flag includes `telemetry.pri` implicitly. Descriptor/Values-only builds
+do not compile `RpcMailbox.cpp`, independently of linker section removal.
+
 Repeated includes add no duplicate sources. For another build system, add
 `lib` to the include path. The generic core needs no source files; compile
 `protocol/Protocol.cpp` for packet handling and
 `telemetry/v3/detail/Values.cpp` for live telemetry values. Select the telemetry
-library separately for that adapter. No manifest includes it in reverse.
+library separately for that adapter. Compile `telemetry/v3/RpcMailbox.cpp`
+only for [RPC mailbox](../../examples/rpc_mailbox/README.md) consumers.
+No manifest includes telemetry in reverse.
 
 ## Ownership and lifetime
 

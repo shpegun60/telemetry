@@ -29,7 +29,8 @@ On Windows select the CubeIDE ARM compiler, not CubeCLT; use the Qt MinGW
 compiler/runtime together. For qmake pass `--make mingw32-make` and the
 installed Qt kit's qmake path. Generated objects/logs go to the selected build
 directory. CI runs this suite in C++20 host, sanitizer, null-check and ARM
-jobs; the Qt job exercises core-only and telemetry-v3 selections.
+jobs; the Qt job exercises core-only, Descriptor/Values, RPC-only and combined
+qmake selections through the same maintained `run_qmake.py` entrypoint.
 
 ## What the checks establish
 
@@ -69,11 +70,21 @@ jobs; the Qt job exercises core-only and telemetry-v3 selections.
   The original Stage 09 `c25c6fa` CI integration failure was caused by a
   recursive legacy sweep selecting those headers without PFR include paths;
   separate header coverage avoids that dependency in resource-only builds.
-- `resources.pro` builds and runs core-only and v3. `.pri` dependencies are
-  explicit; repeated telemetry/resource includes do not duplicate sources.
-  The application facade exposes only `FileSystemView`. The compiled v3
-  reader remains `resource/telemetry/v3/detail/Values.cpp`; resource-only
-  builds do not select telemetry, PFR or the optional protocol example.
+- `resources.pro` builds and runs `MODE=core`, `v3`, `rpc` and `both`.
+  `resource_telemetry` selects only Descriptor/Values; the independent
+  `resource_telemetry_rpc` option selects only RpcMailbox. Both can coexist.
+  `.pri` dependencies are explicit, and repeated telemetry/resource includes
+  do not duplicate sources. The application facade exposes only
+  `FileSystemView` and a plain clock step. The RPC cases execute FieldRead,
+  retained retry and a subsequent transaction through that facade.
+- The qmake runner checks the selected SOURCES manifest, generated
+  SOURCES/OBJECTS variables, actual compiler recipes and physical object
+  files in a fresh per-run object directory. Thus a Descriptor/Values-only
+  build proves `RpcMailbox.cpp` was never compiled, and RPC-only proves
+  `Values.cpp` was never compiled, without relying on linked section removal.
+  Generic core does not select telemetry, PFR or the protocol example. The
+  four selections and their source/object lists are recorded in
+  `qmake-summary.json`; previous generated object directories are preserved.
 
 The first Stage 10 CI run on `a3eb7dc` exposed a stale **legacy** board receipt:
 the optional qmake changes made its recorded `resource.pri` hash differ. A

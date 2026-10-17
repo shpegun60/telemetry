@@ -313,8 +313,10 @@ Request + actual result object разом. Budget змінює storage, не wir
 
 ```qmake
 include(path/to/lib/telemetry/telemetry.pri)
-# Необов'язкові telemetry file providers:
+# Необов'язкові Descriptor/Values providers:
 CONFIG += resource_telemetry
+# Окремо, лише якщо потрібний RPC mailbox:
+# CONFIG += resource_telemetry_rpc
 include(path/to/lib/resource/resource.pri)
 ```
 
@@ -322,6 +324,8 @@ include(path/to/lib/resource/resource.pri)
 [telemetry README](lib/telemetry/README.md). Generic resource headers не
 залежать від telemetry/PFR/Qt; packet processor компілюється окремо.
 `Resource.hpp` не підключає packet protocol або telemetry adapter автоматично.
+Прапорці providers незалежні: Descriptor/Values-only збірка не компілює RPC.
+Для керування через файл є [RpcMailbox example](examples/rpc_mailbox/README.md).
 
 Qt playground: відкрийте [telemetry.pro](telemetry.pro) встановленим Qt 6
 MinGW kit. Він використовує симульовані дані; до приладу не підключається.

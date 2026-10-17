@@ -592,7 +592,10 @@ Underlying tables/metadata та Workspace мають жити протягом �
 ## RpcMailbox через Resource WRITE/READ
 
 Optional [RpcMailbox](../RpcMailboxV1.md) використовує той самий packet
-processor і file array. Повний [host example](../../examples/rpc_mailbox/README.md)
+processor і file array. Його qmake source обирається окремим
+`CONFIG += resource_telemetry_rpc`; Descriptor/Values `resource_telemetry`
+не компілює mailbox. Telemetry manifest підключайте явно.
+Повний [host example](../../examples/rpc_mailbox/README.md)
 публікує `/telemetry/rpc.bin`, складає RPC request у caller-owned bytes,
 передає їх через `client::makeWrite()`, а потім починає READ із zero та
 перевіряє його через `client::parseRead()`. Внутрішні RPC state/statuses —

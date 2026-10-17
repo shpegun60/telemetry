@@ -63,6 +63,10 @@ duplicate/final handling, state polling and checked Model dispatch through the
 existing Resource protocol. They also qualify the integration example,
 allocation traps, temporary-borrow diagnostics and retained Cortex-M7 roots
 with bounded individual frames under O2/Os/Og.
+The separate [H7S UART integration](structured/rpc/h7s/README.md) checks actual
+packets, ACK ordering and duplicate Service/Command requests on the selected
+board. Its session controls simulate application disconnects; Ethernet and
+physical cable-removal behavior require separate integration checks.
 
 [User-guide checks](docs/README.md) compile the complete native, resource and
 encoded examples linked from the [public guide](../doc/user/README.md).

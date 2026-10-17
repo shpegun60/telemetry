@@ -26,7 +26,13 @@ Host mode executes the transfer/dispatch fixture with zero-byte and default
 the [integration example](../../../examples/rpc_mailbox/main.cpp). Standalone
 public headers and intended copy/move/temporary-borrow diagnostics are checked
 independently. Runtime condition totals come from the executed fixtures and
-must agree across the storage/no-heap variants; they are not recorded constants.
+must agree across the storage/no-heap variants. Each fixture must execute at
+least 2,577 checks, the example at least 34, and the host aggregate at least
+7,765. A reduction fails with the named `RPC_COVERAGE_FLOOR` diagnostic;
+increased counts are allowed. The summary retains measured counts separately
+from these minimum expectations. Coverage controls prove that 2,576 fixture
+checks, 33 example checks and an aggregate of 7,764 are rejected, while exact
+minimum and increased counts pass.
 Both modes link real read/write/process references with section garbage
 collection and require a mismatched structured-layout mailbox to fail at all
 three tagged method boundaries.
@@ -47,10 +53,19 @@ The integration example is linked separately for each ARM optimization level.
 Each command writes its exact arguments, exit status and output to the selected
 build directory. `summary.json` records actual commands, intended rejections,
 host executions, executed conditions, compiler identity, controls and ARM
-artifacts. Before building, the runner records Git HEAD, dirty paths and exact
+artifacts. It also records expected coverage minima, the coverage controls and
+whether host coverage was checked; ARM mode does not apply host count minima.
+Before building, the runner records Git HEAD, dirty paths and exact
 hashes of all library inputs (including pinned vendor files), RPC fixtures,
 the opt-in manifest, example, contract and CI workflow. A successful run requires
 the input hashes to remain unchanged through completion. A dirty source tree
 is recorded as such and is not represented as a published commit.
 ARM mode reports zero executed conditions. No board, probe or port is accessed
 by this runner.
+
+The separate [H7S UART integration fixture](h7s/README.md) builds bounded
+images offline and can execute real Resource packets on an explicitly
+authorized board. Its synthetic verifier controls do not establish MCU
+execution; hardware receipts separately record UART checks and complete
+Flash restoration. Its external session controls simulate application
+disconnects and do not establish Ethernet or physical cable-removal behavior.

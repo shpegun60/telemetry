@@ -132,6 +132,24 @@ controls, 27 equivalence mutations, 10 refused relocation cases and the
 text-identity controls pass. No device was accessed, no new MCU measurement was
 generated, and no new CI result is claimed.
 
+The following 2026-10-17 RPC qmake opt-in refresh retains the 141-library-input
+and 57-fixture inventory. Only `lib/resource/resource.pri` and the two Resource
+READMEs differ from the preceding capture. The manifest selects RpcMailbox
+separately with `resource_telemetry_rpc`; DescriptorFile/ValuesFile consumers
+keep `resource_telemetry`. All twelve complete firmware binaries were rebuilt
+with the existing offline runners and remain byte-identical to the actual
+retained artifacts after the documented Exchange compiler source-path mapping.
+Their SHA-256 hashes and lengths match the original receipts; six ELF hashes
+also match and the other six identities are recorded separately. All 198
+library/fixture input hashes remained unchanged through the capture, and all
+22 tracked historical receipt JSON files retain their raw checkout hashes.
+The capture records actual starting revision
+`428ccfd22d953da90107ddc6d9aa4b5c62e0f8ed` with `source_dirty=true`.
+Artifact verification, historical receipt controls, the 27 equivalence mutations,
+10 refused relocation cases and text-identity controls pass. This refresh
+accessed no device and adds no hardware measurement or CI result; it qualifies
+the existing fixtures rather than the separate RPC execution fixture.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -183,7 +201,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261017-rpc-p3-h7s/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -236,12 +254,15 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current additive RpcMailbox capture is
-`C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence`.
+The current RPC qmake opt-in capture is
+`C:/Users/admin/Documents/telemetry-validation/20261017-rpc-p3-h7s/equivalence`.
 Its `freeze-before.json`, `freeze-after.json` and `capture-summary.json` retain
 the source/receipt stability checks and complete image identities alongside
 the original runners' build artifacts; `verify-artifacts.log` records the
-artifact and mutation-control verification. The preceding Descriptor output-contract
+artifact and mutation-control verification. The preceding additive RpcMailbox
+capture remains at
+`C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence`.
+The preceding Descriptor output-contract
 capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261011-audit-closure/equivalence`.
 The preceding remaining-owning-result pointer capture remains at

@@ -363,7 +363,10 @@ LIST/path selection і порційний READ/WRITE. Неповний UART/TCP 
 
 Optional [`RpcMailbox`](../../lib/resource/telemetry/v3/RpcMailbox.hpp)
 публікує FieldWrite, Command, Service і FieldRead через звичайні Resource
-WRITE/READ. Додайте його до `resource::filesystem()` під application path,
+WRITE/READ. Для qmake оберіть `CONFIG += resource_telemetry_rpc` перед
+`resource.pri` та явно підключіть `telemetry.pri`. Цей прапорець незалежний
+від Descriptor/Values `resource_telemetry`; можна обрати обидва.
+Додайте provider до `resource::filesystem()` під application path,
 наприклад `/telemetry/rpc.bin`. На відміну від довільного RAM file,
 WRITE тут збирає цілий request і `final=true` запечатує його; лише наступний
 `process(nowMs)` виконує checked encoded Model operation. `complete=true`

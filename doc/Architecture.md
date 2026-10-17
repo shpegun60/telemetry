@@ -27,13 +27,15 @@ Field/Command/Service та формат descriptor/values v3.0. Приклади
 | `lib/telemetry` | Typed declarations, reflection, type registry, canonical codec, native/encoded доступ і slots | [Telemetry](../lib/telemetry/README.md) |
 | `lib/resource` | Плоскі імена файлів, providers, opaque cursors та lazy file views | [Resource](../lib/resource/README.md) |
 | `lib/resource/protocol` | Обробка одного повного LIST/STAT/READ/WRITE packet | [Resource packets](../lib/resource/protocol/README.md) |
-| `lib/resource/telemetry/v3` | Read-only descriptor та live Values providers для Model | [V3 providers](../lib/resource/telemetry/v3/README.md) |
+| `lib/resource/telemetry/v3` | Descriptor/Values та окремо optional RPC mailbox для Model | [V3 providers](../lib/resource/telemetry/v3/README.md) |
 | `examples/structured_protocol` | Приклад transport-owned Bind/Exchange, connection agreement і request correlation | [Optional protocol](../examples/structured_protocol/README.md) |
 | `web/telemetry.js` | Structural descriptor/values parser, native payload codec для JS | [Client](../tests/structured/client/README.md) |
 
 Generic resource не залежить від telemetry або reflection бібліотек.
 Його filesystem працює з довільними byte providers. `resource_telemetry`
-явно додає v3 providers; telemetry manifest підключається окремо.
+явно додає Descriptor/Values; незалежний `resource_telemetry_rpc` додає
+RpcMailbox. Без другого прапорця RPC source не компілюється. Telemetry
+manifest підключається окремо в обох випадках.
 Bind/Exchange також підключається явно й не є частиною library manifests.
 
 ```mermaid

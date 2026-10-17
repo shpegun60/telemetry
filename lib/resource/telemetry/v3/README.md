@@ -294,7 +294,17 @@ registration, external generation checks, ACK ordering, retry and reply decode.
 
 ## qmake
 
-Select the telemetry provider explicitly; the generic resource core has no PFR dependency.
+Select each provider explicitly. The generic resource core has no PFR dependency,
+and neither option includes the telemetry manifest on the application's behalf.
+
+| CONFIG selection | Compiled resource provider source |
+| --- | --- |
+| Neither flag | None; only generic `protocol/Protocol.cpp` |
+| `resource_telemetry` | `telemetry/v3/detail/Values.cpp` for DescriptorFile/ValuesFile |
+| `resource_telemetry_rpc` | `telemetry/v3/RpcMailbox.cpp` for RpcMailbox |
+| Both flags | Both provider sources |
+
+For DescriptorFile and ValuesFile:
 
 ```qmake
 include(path/to/lib/telemetry/telemetry.pri)
@@ -302,6 +312,12 @@ CONFIG += resource_telemetry
 include(path/to/lib/resource/resource.pri)
 ```
 
-The manifests have no reverse includes. The v3 compiled sources are
-`detail/Values.cpp` and `RpcMailbox.cpp`; both use the telemetry adapter and ABI
-sources supplied by the explicitly included telemetry manifest.
+For RpcMailbox alone, use `CONFIG += resource_telemetry_rpc` in the same
+explicit include sequence. To expose all three providers, set
+`CONFIG += resource_telemetry resource_telemetry_rpc` before including
+`resource.pri`. RPC does not require the Descriptor/Values flag, and
+Descriptor/Values consumers do not compile `RpcMailbox.cpp`.
+
+The manifests have no reverse includes. The explicitly included telemetry
+manifest supplies its compiled Model adapter and ABI sources. Repeated manifest
+includes do not duplicate the selected sources.

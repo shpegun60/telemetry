@@ -6,5 +6,6 @@
 
 #include <resource/FileSystem.hpp>
 resource::FileSystemView deviceResources() noexcept;
+void processDeviceResources(std::uint32_t nowMs) noexcept;
 
 #endif // TELEMETRY_TESTS_STRUCTURED_RESOURCES_DEVICERESOURCES_HPP

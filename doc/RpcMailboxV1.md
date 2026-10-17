@@ -8,6 +8,11 @@
 [`examples/rpc_mailbox`](../examples/rpc_mailbox/README.md). Наявність коду
 не є вимірюванням UART/TCP чи виконанням на MCU.
 
+Для qmake source provider-а обирається незалежним
+`CONFIG += resource_telemetry_rpc` перед `resource.pri`; `telemetry.pri`
+підключається явно. Прапорець `resource_telemetry` самостійно залишає
+Descriptor/Values-only збірку без компіляції RPC.
+
 [Індекс документації](README.md) · [Архітектура](Architecture.md) ·
 [Resource protocol](../lib/resource/protocol/README.md) ·
 [Encoded API](../lib/telemetry/model/Adapter.hpp)

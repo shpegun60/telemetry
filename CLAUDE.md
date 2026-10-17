@@ -9,7 +9,9 @@ and [migration guide](doc/StructuredTelemetryV3MigrationGuide.md).
 - `lib/telemetry`: native Fields/Commands/Services, reflection/type registry,
   canonical LE codec, bounded encoded Model dispatch and slots.
 - `lib/resource`: independent flat filesystem and generic packet protocol;
-  explicit `resource_telemetry` adds `telemetry/v3` providers.
+  `resource_telemetry` selects Descriptor/Values; independent
+  `resource_telemetry_rpc` selects RpcMailbox. Both require an explicit
+  telemetry manifest include.
 - `examples/structured_protocol`: optional transport-owned Bind/Exchange.
 - `app`: simulated Qt playground; `web/telemetry.js`: final v3 JS codec.
 - `lib/delegate`, `lib/boost_pfr`, `lib/magic_enum`: pinned vendor trees.

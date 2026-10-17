@@ -34,6 +34,8 @@ NEGATIVES = {
     'CASE=8': r'(?:deleted[^\n]*RpcMailbox|RpcMailbox[^\n]*deleted)',
 }
 ROOT_SYMBOLS = ('rpc_write', 'rpc_read', 'rpc_process', 'rpc_reset', 'rpc_size', 'rpc_roots')
+COVERAGE_MINIMA = {'Check-0': 2577, 'Check-32': 2577, 'NoHeap-32': 2577,
+                   'example': 34, 'aggregate': 7765}
 
 
 def digest(path):
@@ -58,6 +60,30 @@ def counted(text, label):
     if len(matches) != 1 or int(matches[0][0]) == 0 or int(matches[0][1]) != 0:
         raise RuntimeError(label + ': missing unique positive condition report or nonzero failures')
     return int(matches[0][0])
+
+
+def coverage_floor(actual, minimum, label):
+    """Gate the measured count without replacing it with an expected count."""
+    if actual < minimum:
+        raise RuntimeError(f'RPC_COVERAGE_FLOOR: {label}: measured {actual} checks; minimum {minimum}')
+
+
+def coverage_controls():
+    positives, rejections = [], []
+    for label, minimum in COVERAGE_MINIMA.items():
+        for actual in (minimum, minimum + 1):
+            coverage_floor(actual, minimum, label)
+            positives.append({'label': label, 'measured': actual})
+        try:
+            coverage_floor(minimum - 1, minimum, label)
+        except RuntimeError as error:
+            if not str(error).startswith('RPC_COVERAGE_FLOOR: ' + label + ':'):
+                raise RuntimeError('Coverage control lost its named diagnostic') from error
+            rejections.append({'label': label, 'measured': minimum - 1})
+        else:
+            raise RuntimeError('Reduced runtime coverage accepted: ' + label)
+    return {'positive': len(positives), 'refused': len(rejections),
+            'accepted_counts': positives, 'rejected_counts': rejections}
 
 
 def frames(text, ceiling, required=None, limits=()):
@@ -126,7 +152,10 @@ def main():
     report = {'commands': 0, 'rejections': 0, 'executions': 0, 'conditions': 0,
               'execution': 'compile/link only' if args.arm else 'host',
               'compiler_path': str(compiler), 'compiler_sha256': digest(compiler),
-              'headers': [], 'runtime': {}, 'controls': controls(), 'success': False}
+              'headers': [], 'runtime': {}, 'controls': controls(),
+              'coverage_minima': dict(COVERAGE_MINIMA),
+              'coverage_controls': coverage_controls(), 'coverage_checked': False,
+              'success': False}
 
     def run(command, label, *, diagnostic=None, input_text=None):
         command = list(map(str, command))
@@ -200,6 +229,7 @@ def main():
                 report['runtime'][label] = actual
                 report['conditions'] += actual
                 report['executions'] += 1
+                coverage_floor(actual, COVERAGE_MINIMA[label], label)
             if len(set(totals)) != 1:
                 raise RuntimeError('Storage-policy/no-heap variants executed different condition totals')
             executable = output / ('RpcMailboxExample' + ('.exe' if os.name == 'nt' else ''))
@@ -212,6 +242,9 @@ def main():
             report['runtime']['example'] = int(example_counts[0])
             report['conditions'] += int(example_counts[0])
             report['executions'] += 1
+            coverage_floor(report['runtime']['example'], COVERAGE_MINIMA['example'], 'example')
+            coverage_floor(report['conditions'], COVERAGE_MINIMA['aggregate'], 'aggregate')
+            report['coverage_checked'] = True
         else:
             spec = importlib.util.spec_from_file_location(
                 'rpc_qualification_gates', ROOT / 'tests/structured/qualification/gates.py')

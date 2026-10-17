@@ -23,9 +23,19 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
         $$PWD/protocol/Client.hpp
     SOURCES += $$PWD/protocol/Protocol.cpp
     contains(CONFIG, resource_telemetry) {
-        HEADERS += $$files($$PWD/telemetry/v3/*.hpp, true)
-        SOURCES += $$PWD/telemetry/v3/detail/Values.cpp \
-            $$PWD/telemetry/v3/RpcMailbox.cpp
+        HEADERS += $$PWD/telemetry/v3/BinaryFormat.hpp \
+            $$PWD/telemetry/v3/Descriptor.hpp \
+            $$PWD/telemetry/v3/DescriptorFile.hpp \
+            $$PWD/telemetry/v3/ValuesFile.hpp \
+            $$files($$PWD/telemetry/v3/detail/*.hpp, true)
+        SOURCES += $$PWD/telemetry/v3/detail/Values.cpp
+    }
+    contains(CONFIG, resource_telemetry_rpc) {
+        HEADERS += $$PWD/telemetry/v3/RpcMailbox.hpp \
+            $$PWD/telemetry/v3/RpcWire.hpp
+        SOURCES += $$PWD/telemetry/v3/RpcMailbox.cpp
+    }
+    contains(CONFIG, resource_telemetry)|contains(CONFIG, resource_telemetry_rpc) {
         DISTFILES += $$PWD/telemetry/v3/README.md
     }
     DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/protocol/README.md
