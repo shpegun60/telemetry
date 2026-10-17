@@ -35,6 +35,7 @@ signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
 - [Wire значення та перевірка результатів](#wire-значення-та-перевірка-результатів)
 - [Workspace, локальний бюджет та borrowed response](#workspace-локальний-бюджет-та-borrowed-response)
 - [DescriptorFile та ValuesFile у тій самій таблиці](#descriptorfile-та-valuesfile-у-тій-самій-таблиці)
+- [RpcMailbox через Resource WRITE/READ](#rpcmailbox-через-resource-writeread)
 - [Коли потрібен приклад Bind/Exchange](#коли-потрібен-приклад-bindexchange)
 - [Збірка та що перевіряють приклади](#збірка-та-що-перевіряють-приклади)
 
@@ -48,12 +49,13 @@ signatures та transfer results; [Descriptor/Values](DescriptorAndValues.md)
 | Надати набір файлів із власними шляхами | `resource::filesystem(file(path, provider), ...)` | u32 індекс файла |
 | Передати файлові операції як пакети | `resource::protocol::process(view, request, response)` | LIST/STAT/READ/WRITE |
 | Прочитати опис Model та всі його Fields | `resource::telemetry::v3::DescriptorFile` і `ValuesFile` | Файли, додані в звичайну таблицю ресурсів |
+| Зібрати RPC request, виконати один encoded dispatch і прочитати result | Optional `resource::telemetry::v3::RpcMailbox` | Resource file index, transaction ID, operation та endpoint ID |
 | Узгодити Model перед керівними викликами | Окремий приклад Bind/Exchange | Контекст підключення, який належить транспорту |
 
 Індекс файла і telemetry packed ID — різні адресні простори. Файловий
 `WRITE` викликає `provider.write()`. `ValuesFile` і `DescriptorFile` мають
 тільки читання; зміну Field, Command та Service маршрутизують до encoded
-endpoint indexes або compiled ModelView adapter.
+endpoint indexes, compiled ModelView adapter або optional RpcMailbox.
 
 ## Додати файли та встановити шляхи
 
@@ -400,7 +402,8 @@ packet відома harness заздалегідь. Справжній тран�
 
 Повторний WRITE знову викликає provider. Timeout не доводить, що попередній
 запис не відбувся. Політику повторів, повторюваність операції та облік
-результату визначає застосунок.
+результату визначає застосунок. RpcMailbox має власні правила збережених
+duplicate requests; generic core не переносить їх на інші providers.
 
 ## Прямі encoded операції Model без файлового шару
 
@@ -585,6 +588,38 @@ payload interior дає `InvalidCursor`.
 Underlying tables/metadata та Workspace мають жити протягом усіх читань.
 Формат і lifetime подробиці — у
 [v3 provider README](../../lib/resource/telemetry/v3/README.md).
+
+## RpcMailbox через Resource WRITE/READ
+
+Optional [RpcMailbox](../RpcMailboxV1.md) використовує той самий packet
+processor і file array. Повний [host example](../../examples/rpc_mailbox/README.md)
+публікує `/telemetry/rpc.bin`, складає RPC request у caller-owned bytes,
+передає їх через `client::makeWrite()`, а потім починає READ із zero та
+перевіряє його через `client::parseRead()`. Внутрішні RPC state/statuses —
+окремий шар від зовнішнього Resource status. Client зіставляє transaction ID,
+operation та endpoint, перевіряє Ready, потім dispatch і endpoint status,
+і лише після цього декодує payload canonical codec-ом.
+
+У mailbox немає peer identity або wire session ID. Ingress записує свій
+`connectionGeneration` разом із peer у metadata **кожного** queued packet;
+owner відсікає невідповідні peer/generation до Resource processor. Нове
+з'єднання отримує нове generation, і descriptor fingerprint узгоджується
+перед admission. Generation лишається поза wire. Одне очищення черги не
+захищає від старого кадру, який ingress поставить із затримкою.
+
+Owner періодично передає `process(nowMs)` application clock. Для останнього
+WRITE він спочатку формує та віддає ACK transport-у, а вже наступним кроком
+дозволяє `process()` виконати Pending request. ACK не чекає callback або
+підтвердження доставки. `complete=true` означає seal, а disconnect/reset
+може скасувати Pending без dispatch. Running callback не переривається;
+`resetSession()` у Running є no-op, тому owner повторює reset після повернення.
+
+Збережені bytes дозволяють підтвердити identical retry без нового callback
+в одному admitted session. Після disconnect/reset deduplication history
+втрачається. Якщо результат не отриманий, outcome може бути невідомим;
+повтор неідемпотентної операції в новому сеансі може повторити ефект. Цю
+невизначеність вирішує application. Mailbox не додає mutex, heap, task чи
+паралельну обробку до синхронного Model adapter.
 
 ## Коли потрібен приклад Bind/Exchange
 

@@ -1,12 +1,13 @@
-# Telemetry descriptor and values files (wire 3.0, C++20)
+# Telemetry resource providers (C++20)
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. [MIT](../../LICENSE).
 
-These providers expose the current `telemetry::Model` as an immutable
-descriptor and live native values. `v3` names the binary wire format 3.0; this
-is the unified Model adapter, including borrowed Field outputs. It contains no
-retired Scalar/v2 adapter. The optional control protocol is an application
-example outside both libraries. There is no separate `.pri` here or telemetry
+DescriptorFile and ValuesFile expose the current `telemetry::Model` as an
+immutable descriptor and live native values. `v3` names their binary wire
+format 3.0; this is the unified Model adapter, including borrowed Field
+outputs. Optional RpcMailbox uses its separate RPC wire v1.0 for deferred
+encoded endpoint calls. The independent Bind/Exchange control protocol stays
+an application example. There is no separate `.pri` here or telemetry
 dependency in the generic resource core.
 
 ```cpp
@@ -218,15 +219,78 @@ fingerprint or Values wire layout.
 
 ## Core boundary
 
-These providers adapt an immutable Model to resource files only. They do not
-own peers, readiness, sessions, packet routing, correlation or retry policy.
-The application chooses when it compares the descriptor fingerprint; values
-retain that fingerprint in their header. No Bind is required for local file
-reads or encoded endpoint operations.
+DescriptorFile and ValuesFile adapt an immutable Model to resource files only.
+They do not own peers, readiness, sessions, packet routing, correlation or retry
+policy. The application chooses when it compares the descriptor fingerprint;
+values retain that fingerprint in their header. No Bind is required for local
+file reads or encoded endpoint operations.
 
 The former Bind/Binding/Exchange implementation now lives in the explicitly
 selected [protocol example](../../../../examples/structured_protocol/README.md).
 It is not compiled or exposed by `resource.pri`.
+
+## Optional RpcMailbox
+
+[`RpcMailbox.hpp`](RpcMailbox.hpp) adds one read/write provider for FieldWrite,
+Command, Service and FieldRead through the existing checked encoded Model API.
+[`RpcWire.hpp`](RpcWire.hpp) defines `RpcOperation`, `RpcState`,
+`rpcRequestHeaderBytes=24`, `rpcReplyHeaderBytes=32`,
+`rpcReceiveTimeoutMs=10000`, and the `rpcCursor`, `rpcTransactionId` and
+`rpcOffset` helpers. These are RPC wire v1.0 constants; descriptor wire 3.0,
+Values and generic Resource wire bytes are unchanged.
+
+```cpp
+#include <resource/telemetry/v3/RpcMailbox.hpp>
+
+inline constexpr auto rpcModelView = model.view();
+inline std::array<std::byte, model.maxScratch()> rpcScratch{};
+inline telemetry::Workspace rpcWorkspace{rpcScratch};
+inline std::array<std::byte, 256> rpcRequest{};
+inline std::array<std::byte, 256> rpcResult{};
+inline resource::telemetry::v3::RpcMailbox rpc{
+    rpcModelView, rpcWorkspace, rpcRequest, rpcResult};
+inline const auto rpcFiles = resource::filesystem(
+    resource::file("/telemetry/rpc.bin", rpc));
+```
+
+The constructor requires an exact stable lvalue ModelView (const is allowed)
+and mutable lvalue Workspace. Temporary views, Workspace temporaries and
+conversion proxies are rejected. It borrows those objects and both buffers;
+their addresses, underlying metadata and binding targets must remain valid.
+The mailbox is neither copyable nor movable. Request capacity includes the
+whole 24-byte header and canonical request; result capacity holds only the
+payload. Choose both capacities for the endpoints your application exposes.
+Request capacity outside `[24, UINT32_MAX]` or result capacity above
+`UINT32_MAX-32` is a construction error: constexpr construction fails and
+runtime construction terminates. Buffers, Workspace, mailbox metadata and
+operation spans follow the disjoint-storage preconditions in the
+[RPC contract](../../../../doc/RpcMailboxV1.md).
+
+`write()` copies a contiguous fragment or acknowledges an identical retry.
+Accepted final seals Pending without invoking application code. One later
+`process(nowMs)` transitions Running, makes at most one encoded dispatch
+attempt, and retains its Ready result. `read()` returns a whole 32-byte status
+header and an optional result payload; `size()` is the current logical read
+record length. Check state before dispatch/endpoint statuses. `resetSession()`
+discards logical request/result state and the high-water ID outside Running;
+it is a no-op during an active callback. Storage is not zero-filled on reset
+or timeout. Request retries retain exact bytes until a new request, timeout
+or session reset makes them inaccessible.
+
+One serialized application owner admits one client session, agrees the
+descriptor fingerprint, and hands the final WRITE ACK to its transport before
+calling `process()` for Pending. The provider has no heap allocation, mutex,
+atomic state, task or transport identity. Ingress attaches an external
+`connectionGeneration` to each queued packet; the owner rejects stale metadata
+before the Resource processor. Clearing only the queue is insufficient when
+old ingress can enqueue later. Generation is never an RPC wire field.
+
+`complete=true` is receipt/seal, not guaranteed execution after disconnect or
+reset. A lost result can leave an unknown outcome; retrying a non-idempotent
+operation in a new session can repeat its effect. Deduplication is confined to
+the currently retained admitted session. The complete
+[host example](../../../../examples/rpc_mailbox/README.md) demonstrates file
+registration, external generation checks, ACK ordering, retry and reply decode.
 
 ## qmake
 
@@ -238,4 +302,6 @@ CONFIG += resource_telemetry
 include(path/to/lib/resource/resource.pri)
 ```
 
-The manifests have no reverse includes. The v3 compiled reader is `detail/Values.cpp`.
+The manifests have no reverse includes. The v3 compiled sources are
+`detail/Values.cpp` and `RpcMailbox.cpp`; both use the telemetry adapter and ABI
+sources supplied by the explicitly included telemetry manifest.

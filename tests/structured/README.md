@@ -59,6 +59,7 @@ Stage 08: [mixed Field/Command/Model](endpoints/run.py).
 | borrowed | Const-reference Field/Service outputs, view lifetime, slots, overlap, wire parity and ARM codegen |
 | descriptor | Independent binary parser, golden bytes and fingerprint |
 | resources | Streaming/packed DescriptorFile, ValuesFile and application resource facade |
+| [rpc](rpc/README.md) | Optional RpcMailbox transfer/state contract, checked dispatch, duplicate retries, no-heap and bounded ARM roots |
 | traversal | Ordered metadata access, visit/container and runtime readAs/writeAs |
 | exchange | Optional Bind/Exchange consumer framing and refusal before callbacks |
 | client | JS/C++ interoperability, exact BigInt values and browser behavior |
@@ -77,6 +78,7 @@ python tests/structured/endpoints/run.py --cxx g++ --build-dir build/endpoints
 python tests/structured/endpoints/run.py --cxx clang++-18 --sanitize --build-dir build/endpoints-san
 python tests/structured/endpoints/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/endpoints-arm
 python tests/structured/client/run.py --node node --build-dir build/client
+python tests/structured/rpc/run.py --cxx g++ --build-dir build/rpc
 python tests/structured/mcu/receipt.py verify tests/structured/mcu/local-receipt.json --self-test
 python tests/structured/mcu/h7s/verify.py --self-test
 ```

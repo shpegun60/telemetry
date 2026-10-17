@@ -318,6 +318,23 @@ jobs:
           if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
           if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
           python3 tests/structured/resources/run.py --build-dir build/structured-resources "${flags[@]}"
+      - name: C++20 RPC mailbox transfer and dispatch
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/rpc/run.py --build-dir build/structured-rpc "${flags[@]}"
+      - name: Retain RPC mailbox host evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpc-${{ matrix.cxx }}-${{ matrix.mode }}
+          path: build/structured-rpc/
+          if-no-files-found: error
       - name: C++20 structured typed traversal and native As access
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
@@ -514,6 +531,19 @@ jobs:
           python3 tests/structured/descriptor/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-descriptor-nullchecks
       - name: C++20 structured resource Cortex-M7 checks
         run: python3 tests/structured/resources/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-resources
+      - name: C++20 RPC mailbox Cortex-M7 qualification
+        run: |
+          python3 tests/structured/rpc/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc
+          python3 tests/structured/rpc/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc-nullchecks
+      - name: Retain RPC mailbox ARM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpc-cortex-m7
+          path: |
+            build/arm-structured-rpc/
+            build/arm-structured-rpc-nullchecks/
+          if-no-files-found: error
       - name: C++20 structured typed traversal Cortex-M7 checks
         run: |
           python3 tests/structured/traversal/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-traversal

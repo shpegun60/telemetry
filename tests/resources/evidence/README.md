@@ -1,4 +1,4 @@
-# Resource readability changes: retained H7S image equivalence
+# Current Resource sources: retained H7S image equivalence
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
@@ -111,6 +111,27 @@ controls, 27 equivalence mutations, 10 refused relocation cases and text-identit
 controls pass. This refresh is offline compile/link evidence; none of its
 commands accesses a device or adds a hardware measurement.
 
+The 2026-10-17 additive RpcMailbox refresh captures 141 current library inputs
+and the same 57 historical fixture inputs. The library inventory adds
+`RpcMailbox.hpp`, `RpcMailbox.cpp` and `RpcWire.hpp`, and records the changed
+provider README and explicit `resource_telemetry` source manifest. All twelve
+complete raw firmware binaries were rebuilt with CubeIDE GCC 14.3.1 and match
+the actual retained artifacts byte for byte, including their SHA-256 hashes
+and byte counts, after the existing Exchange compiler source-path mapping.
+Six ELF hashes also match their retained counterparts; the other six current
+ELF identities remain separately recorded. The library and fixture hashes were
+checked before and after all five build groups and remained unchanged. All
+22 tracked receipt JSON files, including the six original receipts referenced
+by this record, retain their raw checkout hashes. The source capture records
+actual starting revision `7e848eca6f3a9588680f7a2a5296685492f58563` and
+`source_dirty=true`; the manifests identify the compiled inputs. These existing
+fixtures do not instantiate the additive mailbox API. Its behavior and offline
+ARM checks belong to [the RPC suite](../../structured/rpc/README.md). This is
+file-only compile/link evidence. Artifact verification, the historical receipt
+controls, 27 equivalence mutations, 10 refused relocation cases and the
+text-identity controls pass. No device was accessed, no new MCU measurement was
+generated, and no new CI result is claimed.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -162,7 +183,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261011-audit-closure/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -215,7 +236,13 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current Descriptor output-contract capture is
+The current additive RpcMailbox capture is
+`C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence`.
+Its `freeze-before.json`, `freeze-after.json` and `capture-summary.json` retain
+the source/receipt stability checks and complete image identities alongside
+the original runners' build artifacts; `verify-artifacts.log` records the
+artifact and mutation-control verification. The preceding Descriptor output-contract
+capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261011-audit-closure/equivalence`.
 The preceding remaining-owning-result pointer capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261011-p3-lifetime/equivalence`.

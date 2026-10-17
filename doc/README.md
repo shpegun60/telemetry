@@ -69,6 +69,7 @@
 | [Device integration](../examples/device_integration/README.md) | Business class, public facade, tables у `.cpp` та bounded stream receiver |
 | [COBS integration](../examples/cobs_integration/README.md) | Реальний sibling COBS endpoint, client/server resource exchange, TX backpressure і recovery на host |
 | [Custom resources](../examples/resources/README.md) | Додати providers із власними paths |
+| [RPC mailbox](../examples/rpc_mailbox/README.md) | RPC через file table, зовнішній connectionGeneration, ACK до dispatch та checked reply |
 | [Structured client](../examples/structured_client/README.md) | JS parser/codec, browser та Qt consumer |
 | [Optional Bind/Exchange](../examples/structured_protocol/README.md) | Descriptor agreement і control envelope, якими володіє application |
 
@@ -84,7 +85,7 @@ Fenced fragments пояснюють окремий крок; повну прог
 | Late binding | [Slots](../lib/telemetry/slot/README.md) |
 | Незалежний filesystem/providers | [Resource](../lib/resource/README.md) |
 | Packet processor | [Resource protocol](../lib/resource/protocol/README.md) |
-| Запланований RPC provider: wire v1.0, повтори, стани й сеанс | [RpcMailbox specification](RpcMailboxV1.md) — ще не реалізовано |
+| Optional RPC provider: wire v1.0, повтори, стани й сеанс | [RpcMailbox contract](RpcMailboxV1.md), [host example](../examples/rpc_mailbox/README.md) |
 | Descriptor/Values provider lifetime і storage | [V3 providers](../lib/resource/telemetry/v3/README.md) |
 | Exact wire constants, default ceilings і goldens | [Wire v3.0](WireV3.md), [freeze manifest](../tests/structured/freeze/contract.json) |
 | JS native payload codec та parser | [Client API](../tests/structured/client/README.md) |

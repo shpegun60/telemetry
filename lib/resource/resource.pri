@@ -24,7 +24,8 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
     SOURCES += $$PWD/protocol/Protocol.cpp
     contains(CONFIG, resource_telemetry) {
         HEADERS += $$files($$PWD/telemetry/v3/*.hpp, true)
-        SOURCES += $$PWD/telemetry/v3/detail/Values.cpp
+        SOURCES += $$PWD/telemetry/v3/detail/Values.cpp \
+            $$PWD/telemetry/v3/RpcMailbox.cpp
         DISTFILES += $$PWD/telemetry/v3/README.md
     }
     DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/protocol/README.md

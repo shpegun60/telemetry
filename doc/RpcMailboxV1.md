@@ -1,13 +1,12 @@
 # RpcMailbox: wire-контракт v1.0 і стани
 
-**Статус: погоджена специфікація для реалізації, не готовий API.**
-На момент написання `RpcMailbox` у репозиторії відсутній. Цей документ
-визначає наступний окремий provider; він не змінює чинні Telemetry v3.0,
-Resource v1, DescriptorFile, ValuesFile або optional Bind/Exchange example.
-
-Нормативні слова «має», «дозволено» та «відхиляємо» визначають поведінку
-майбутньої реалізації. Наведені методи provider-а — цільовий інтерфейс,
-а не фрагмент, який уже можна зібрати.
+**Статус: реалізований optional provider, RPC wire v1.0.**
+[`RpcMailbox`](../lib/resource/telemetry/v3/RpcMailbox.hpp) підключається явно;
+він не змінює чинні Telemetry v3.0, Resource v1, DescriptorFile, ValuesFile
+або optional Bind/Exchange example. Нормативні слова «має», «дозволено» та
+«відхиляємо» визначають контракт реалізації. Повний runnable host-приклад —
+[`examples/rpc_mailbox`](../examples/rpc_mailbox/README.md). Наявність коду
+не є вимірюванням UART/TCP чи виконанням на MCU.
 
 [Індекс документації](README.md) · [Архітектура](Architecture.md) ·
 [Resource protocol](../lib/resource/protocol/README.md) ·
@@ -70,11 +69,22 @@ Timeout не скидає його. Поточний збережений reques
 
 Disconnect, reboot або заміна Model завершують сеанс. Application припиняє
 admission старого peer, видаляє його пакети й серіалізовано викликає
-цільовий `resetSession()`. Він скидає стан, high-water mark і результат.
+`resetSession()`. Він скидає стан, high-water mark і результат.
 Receiving/Pending можна скасувати без callback. Running не переривається:
 спочатку закінчується активний виклик, потім виконується reset. Новий peer
 не успадковує старі binding, bytes або ID. Cursor не відрізняє два сеанси;
 старі кадри має виключити транспортна інтеграція.
+
+Практичний спосіб — зовнішній `connectionGeneration` у metadata кожного
+queued packet поряд із peer identity. Ingress прив'язує generation до
+конкретного з'єднання під час приймання кадру; owner перевіряє його **до**
+`resource::protocol::process()`. Після disconnect нове з'єднання отримує
+нове generation. Лише очистити чергу недостатньо: старий ingress callback
+може поставити свій кадр пізніше. Не призначайте поточне generation старому
+кадру під час dequeue. Generation не є полем Resource або RPC wire і не
+змінює cursor; правило його неповторення, admission і черги належать
+application. Приклад показує відмову старому generation навіть для того
+самого peer identity та повторно використаного transactionId.
 
 ## 3. Формат запиту: 24 bytes
 
@@ -152,6 +162,12 @@ complete = accepted final=true
 поточний загальний `receivedBytes`. Старий ACK може бути відтворений без
 зберігання історії всіх меж пакетів. `complete=true` означає, що request
 запечатаний для виконання; це не підтвердження завершення callback.
+Воно також не гарантує майбутнього виконання: disconnect/resetSession у
+Pending може відкинути request до dispatch. Відсутність результату після
+розриву не дає клієнту визначити, чи callback уже виконався. Повтор
+неідемпотентної операції в новому сеансі може повторити її прикладний ефект;
+такий outcome треба з'ясовувати засобами application, а не припускати успіх
+або відсутність виконання за ACK чи timeout.
 
 Усі помилки provider-а зберігають вхідний cursor, повертають `consumed=0`,
 `complete=false` і не змінюють стан, buffers, результат або high-water mark.
@@ -340,6 +356,7 @@ stateDiagram-v2
 | Будь-який | READ | Стан незмінний; status/result або cursor error |
 | Будь-який | Некоректний WRITE | Стан, bytes і highWaterId незмінні |
 | Не Running | resetSession | Idle, highWaterId=0, request/result видалені |
+| Running | resetSession | No-op; owner викликає reset після повернення активного callback |
 
 Окремі explicit стани Failed/Cancelled не вводяться. Невдалий encoded call
 завершується Ready з його status. Timeout скасовує тільки Receiving.
@@ -348,15 +365,25 @@ Pending/Ready не мають прихованого timer, який повто�
 
 ## 7. Час, ACK і виконання
 
-Цільовий provider interface:
+Provider interface (`resource::telemetry::v3`, header
+`<resource/telemetry/v3/RpcMailbox.hpp>`):
 
-```text
-u32 size() const noexcept
-ReadResult read(Cursor, Output) const noexcept
-WriteResult write(Cursor, Input, bool final) noexcept
-void process(u32 nowMs) noexcept
-void resetSession() noexcept
+```cpp
+RpcMailbox(const telemetry::ModelView& model, telemetry::Workspace& workspace,
+           resource::Output requestStorage, resource::Output resultStorage) noexcept;
+RpcState state() const noexcept;
+resource::FileSize size() const noexcept;
+resource::ReadResult read(resource::Cursor, resource::Output) const noexcept;
+resource::WriteResult write(resource::Cursor, resource::Input, bool final) noexcept;
+void process(std::uint32_t nowMs) noexcept;
+void resetSession() noexcept;
 ```
+
+`RpcState` має значення Idle/Receiving/Pending/Running/Ready з таблиці вище.
+ModelView та Workspace передаються як іменовані stable lvalues; temporary
+або приховане перетворення не створює їхнього довгого lifetime. Mailbox
+позичає ці об'єкти, tables, binding targets і buffers. Зберігайте їх на
+стабільних адресах протягом усіх operations.
 
 `process(nowMs)` отримує application clock у milliseconds. Тип clock — u32
 із природним modulo wrap. Application передає послідовний час без довільних
@@ -388,8 +415,10 @@ loop не може водночас відповідати на мережеви
 status визначений, але він не обіцяє паралельної обробки або обмеженого часу
 відповіді. Серіалізований вкладений read чи duplicate write у Running може
 лише читати зафіксований стан/request; нове виконання, recursive process,
-reset і знищення mailbox під активним callback заборонені. Звернення з іншої
-task потребує зовнішньої синхронізації; provider її не додає.
+`resetSession()` у Running є no-op і не відкладає reset автоматично; owner
+повторює його після повернення callback. Знищення mailbox під активним
+callback заборонене. Звернення з іншої task потребує зовнішньої
+синхронізації; provider її не додає.
 
 ## 8. Buffers і preflight
 
@@ -400,9 +429,13 @@ Workspace. Provider позичає їх на весь свій lifetime. У requ
 
 Request buffer має capacity щонайменше 24 і не більше UINT32_MAX bytes.
 Result payload capacity не перевищує UINT32_MAX-32, щоб логічний read size
-також лишався u32. Обидва buffers, Workspace і mailbox metadata не
+також лишався u32. Порушення цих capacity bounds є construction error:
+constexpr construction не компілюється, runtime construction завершує
+виконання. Обидва buffers, Workspace і mailbox metadata не
 перекриваються. Request bytes зберігаються до приймання наступного request
 або reset; використовувати їх як result storage не можна.
+Timeout/reset відкидають логічну доступність bytes, а не очищають великі
+buffers нулями. Старі bytes не входять у жодний доступний status/result.
 
 Input/output spans Resource дійсні лише під час read/write. WRITE копіює
 байти у request buffer до повернення; посилання на DMA/RX packet не
@@ -490,21 +523,23 @@ WRITE коректний новий tx=127, cursor=0
   -> нова транзакція
 ```
 
-## 10. План реалізації і критерії приймання
+## 10. Реалізація і критерії перевірки
 
-1. Додати optional provider поряд з telemetry resource adapters. Generic
-   Resource core, encoded endpoint ABI, descriptors і Values не змінюються.
-2. Реалізувати explicit LE header helpers і state machine з caller-owned
-   buffers; спочатку перевірити transfer на fake dispatch без HAL/RTOS.
-3. Підключити чотири existing compiled Model operations. Перевірити рівно
-   один dispatch attempt, а також callback count 0/1 для відповідних випадків.
-4. Додати compilable приклад file table і однопотокового owner loop, що
-   містить час, чергу, peer admission, ACK-before-process та disconnect reset.
-5. Додати client-side складання/читання RPC через чинний Resource client;
-   client зіставляє tx, endpoint і operation, відрізняє state від status.
-6. Пройти host GCC, Clang ASan/UBSan, retained-null-check configuration,
-   ARM O2/Os/Og codegen/stack/no-heap і перевірку незмінності старих goldens.
-   Hardware qualification — окремий доказ після software перевірок.
+Optional provider використовує caller-owned buffers і чинні чотири compiled
+Model operations. Generic Resource core, encoded endpoint ABI, descriptor
+та Values wire contracts залишаються окремими. Compilable
+[host-приклад](../examples/rpc_mailbox/README.md) містить file table,
+bounded чергу з peer/generation metadata, clock, ACK-before-process,
+disconnect reset і client-side Resource builders/parsers. Клієнт зіставляє
+tx, endpoint та operation і перевіряє Ready до status bytes.
+
+Таблиця нижче визначає потрібне покриття, а не стверджує проходження всіх
+toolchain gates. Чинні команди й отримані результати належать
+[test index](../tests/README.md). Host execution, Clang ASan/UBSan,
+retained-null-check configuration, ARM O2/Os/Og compile/codegen/stack/no-heap
+і незмінність старих goldens перевіряються окремо. Hardware qualification
+потребує окремого доказу; цей документ не додає MCU receipt або нового
+CI result.
 
 Обов'язкові сценарії для тестів:
 
@@ -519,7 +554,7 @@ WRITE коректний новий tx=127, cursor=0
 | READ | Pending snapshot EOF; перехід у Ready; цілі headers, partial payload, повторне читання, старий cursor, size/EOF узгоджені |
 | Model | FieldRead/Write, Void/Request Command, Void/Response Service, unknown ID, readonly, invalid bool, empty slots, application Busy/Accepted |
 | Storage | Request/result/scratch capacity і alignment, guard bytes, відсутність heap та непотрібних великих stack copies |
-| Сеанс | Відхилення чужого peer, disconnect до dispatch, disconnect після callback, drain старих frames перед повторним ID |
+| Сеанс | Відхилення чужого peer і старого connectionGeneration, disconnect до dispatch, disconnect після callback, старі frames перед повторним ID |
 
 Немає гарантії exactly-once після reboot або resetSession, кількох peer в
 одному mailbox, переривання Running callback, автоматичного retry, dedupe

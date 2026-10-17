@@ -58,6 +58,12 @@ independent flat filesystem, lazy `FileView`, borrowed `BytesFile` and
 [v3 provider checks](structured/resources/README.md) validate descriptor/value
 providers and the application's resource facade separately.
 
+[RPC mailbox checks](structured/rpc/README.md) execute fragmented requests,
+duplicate/final handling, state polling and checked Model dispatch through the
+existing Resource protocol. They also qualify the integration example,
+allocation traps, temporary-borrow diagnostics and retained Cortex-M7 roots
+with bounded individual frames under O2/Os/Og.
+
 [User-guide checks](docs/README.md) compile the complete native, resource and
 encoded examples linked from the [public guide](../doc/user/README.md).
 Host mode executes the examples with assertions enabled; ARM mode compiles

@@ -17,7 +17,8 @@ header-only і не потребує telemetry Model, Codec, Workspace чи endp
 Packet protocol підключається окремо через
 `<resource/protocol/Protocol.hpp>` із compiled `Protocol.cpp`. Client builders
 та parsers містяться у `<resource/protocol/Client.hpp>` і є header-only.
-Telemetry providers підключайте явно тільки для публікації descriptor/values.
+Telemetry providers підключайте явно для публікації descriptor/values або
+optional RPC mailbox; generic resource core від них не залежить.
 
 ## Навігація
 
@@ -31,6 +32,7 @@ Telemetry providers підключайте явно тільки для публ
 - [Write, consumed та final](#write-consumed-та-final)
 - [Status і declared capability](#status-і-declared-capability)
 - [Шлях через packet protocol](#шлях-через-packet-protocol)
+- [RPC mailbox як read/write provider](#rpc-mailbox-як-readwrite-provider)
 - [Приклади й перевірки](#приклади-й-перевірки)
 
 ## Публічні типи та headers
@@ -357,6 +359,39 @@ flags і error envelopes належать
 LIST/path selection і порційний READ/WRITE. Неповний UART/TCP chunk
 не передається прямо у processor.
 
+## RPC mailbox як read/write provider
+
+Optional [`RpcMailbox`](../../lib/resource/telemetry/v3/RpcMailbox.hpp)
+публікує FieldWrite, Command, Service і FieldRead через звичайні Resource
+WRITE/READ. Додайте його до `resource::filesystem()` під application path,
+наприклад `/telemetry/rpc.bin`. На відміну від довільного RAM file,
+WRITE тут збирає цілий request і `final=true` запечатує його; лише наступний
+`process(nowMs)` виконує checked encoded Model operation. `complete=true`
+не доводить завершення callback або майбутнього виконання після disconnect.
+
+Mailbox позичає stable lvalue `ModelView`, mutable lvalue `Workspace` і два
+неперекривні caller-owned byte buffers. Request storage тримає весь request
+із 24-byte header; result storage — лише payload. `size()` означає поточний
+read record: 32 bytes status або 32 bytes плюс Ready payload, не request
+capacity. READ починається з cursor zero, і state перевіряється до statuses.
+EOF status snapshot у Pending не означає, що RPC завершився.
+
+Одна application task володіє mailbox та admission одного сеансу. Перед
+`resource::protocol::process()` вона перевіряє peer та зовнішній
+`connectionGeneration` із queue metadata; generation не додається у wire.
+Вона віддає final WRITE ACK transport-у до виклику `process()` для Pending.
+На disconnect відключає старий ingress, змінює generation і серіалізовано
+викликає `resetSession()` поза активним callback. Queue clear без generation
+не відсікає кадр, який старий ingress поставить пізніше.
+
+Повтори того самого збереженого request не викликають callback удруге в
+цьому сеансі. Після розриву результат операції може бути невідомим, а retry
+неідемпотентної дії в новому сеансі може повторити її ефект. Повні bytes,
+capacity/lifetime rules і межі deduplication — у
+[RPC v1.0 contract](../RpcMailboxV1.md). Compilable
+[host example](../../examples/rpc_mailbox/README.md) показує file array,
+bounded queue, owner steps, delayed old-generation rejection і client decode.
+
 ## Приклади й перевірки
 
 | Потрібно | Приклад / contract |
@@ -366,5 +401,6 @@ LIST/path selection і порційний READ/WRITE. Неповний UART/TCP 
 | Resource packets через реальний COBS endpoint | [COBS integration](COBSIntegration.md), [host example](../../examples/cobs_integration/README.md) |
 | Власні paths/providers без telemetry | [Custom resources](../../examples/resources/README.md) |
 | Read-only Model descriptor/live values | [Descriptor and Values](DescriptorAndValues.md) |
+| RPC через Resource WRITE/READ з однією owner task | [RPC mailbox example](../../examples/rpc_mailbox/README.md), [wire contract](../RpcMailboxV1.md) |
 | Exact local API/provider signatures | [Resource README](../../lib/resource/README.md) |
 | Run examples / independent resource suite | [Example checks](../../tests/docs/README.md), [resource checks](../../tests/resources/README.md) |
