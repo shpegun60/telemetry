@@ -35,7 +35,20 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
             $$PWD/telemetry/v3/RpcWire.hpp
         SOURCES += $$PWD/telemetry/v3/RpcMailbox.cpp
     }
-    contains(CONFIG, resource_telemetry)|contains(CONFIG, resource_telemetry_rpc) {
+    contains(CONFIG, resource_telemetry_rpc_client) {
+        HEADERS += $$PWD/telemetry/v3/RpcClient.hpp \
+            $$PWD/telemetry/v3/RpcWire.hpp
+        SOURCES += $$PWD/telemetry/v3/RpcClient.cpp
+    }
+    # Pool users explicitly select this header-only module and the existing
+    # server module. Selecting the server alone never exposes a pool dependency.
+    contains(CONFIG, resource_telemetry_rpc_sessions) {
+        !contains(CONFIG, resource_telemetry_rpc) {
+            error(resource_telemetry_rpc_sessions requires resource_telemetry_rpc)
+        }
+        HEADERS += $$PWD/telemetry/v3/RpcSessionPool.hpp
+    }
+    contains(CONFIG, resource_telemetry)|contains(CONFIG, resource_telemetry_rpc)|contains(CONFIG, resource_telemetry_rpc_client)|contains(CONFIG, resource_telemetry_rpc_sessions) {
         DISTFILES += $$PWD/telemetry/v3/README.md
     }
     DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/protocol/README.md

@@ -99,6 +99,8 @@ ownership, backpressure та recovery; host transport у ньому є fake.
 | Immutable descriptor, live Values, fingerprint і buffers | [Descriptor and Values](doc/user/DescriptorAndValues.md) |
 | Exact binary headers/records/default ceilings | [Wire v3.0](doc/WireV3.md) |
 | Complete LIST/STAT/READ/WRITE packet processor | [Resource protocol](lib/resource/protocol/README.md) |
+| Typed remote Field/Command/Service без ручного TRPC header | [RpcClient](doc/RpcClientV1.md) · [Приклад](examples/rpc_client/README.md) |
+| Кілька незалежних клієнтів одного Model | [RpcSessionPool](doc/RpcSessionsV1.md) · [Приклад](examples/rpc_multi_session/README.md) |
 | Реальний COBS Endpoint із telemetry resource packets | [COBS integration](doc/user/COBSIntegration.md) |
 
 У кожній API сторінці є сигнатури, meaning результатів, lifetime та
@@ -326,6 +328,13 @@ include(path/to/lib/resource/resource.pri)
 `Resource.hpp` не підключає packet protocol або telemetry adapter автоматично.
 Прапорці providers незалежні: Descriptor/Values-only збірка не компілює RPC.
 Для керування через файл є [RpcMailbox example](examples/rpc_mailbox/README.md).
+Для typed вихідних викликів є [RpcClient](doc/RpcClientV1.md), а для N
+незалежних server sessions — [RpcSessionPool](doc/RpcSessionsV1.md).
+Client-only qmake підключає явний `lib/telemetry/codec/codec.pri` і
+`CONFIG += resource_telemetry_rpc_client` перед `resource.pri`; server-only
+збірка не компілює `RpcClient.cpp`. Файли й transport залишаються optional.
+Результати перевірок і межі доказів зібрано в
+[RPC extensions qualification](doc/RpcExtensionsQualification.md).
 
 Qt playground: відкрийте [telemetry.pro](telemetry.pro) встановленим Qt 6
 MinGW kit. Він використовує симульовані дані; до приладу не підключається.

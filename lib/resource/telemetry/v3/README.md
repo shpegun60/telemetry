@@ -10,6 +10,30 @@ encoded endpoint calls. The independent Bind/Exchange control protocol stays
 an application example. There is no separate `.pri` here or telemetry
 dependency in the generic resource core.
 
+## Optional RPC modules
+
+| Component | Role | qmake selection | Contract and example |
+| --- | --- | --- | --- |
+| `RpcMailbox` | One incoming deferred transaction | `resource_telemetry_rpc` | [Wire/state contract](../../../../doc/RpcMailboxV1.md), [server example](../../../../examples/rpc_mailbox/README.md) |
+| `RpcClient` | One outgoing typed transaction, retries and decoding | `resource_telemetry_rpc_client` | [Client API](../../../../doc/RpcClientV1.md), [loopback example](../../../../examples/rpc_client/README.md) |
+| `RpcSessionPool<N>` | Bounded ownership of N existing mailboxes | `resource_telemetry_rpc_sessions` plus server flag | [Session API](../../../../doc/RpcSessionsV1.md), [four clients](../../../../examples/rpc_multi_session/README.md) |
+
+Server/full applications explicitly include `telemetry/telemetry.pri` first.
+Client-only applications explicitly include the header-only
+`telemetry/codec/codec.pri` instead. Then select the desired flags before
+including `resource/resource.pri`. Descriptor/Values still use
+`resource_telemetry`. Repeated manifest inclusion adds no duplicate sources.
+The [qmake fixture](../../../../tests/structured/resources/README.md) builds all
+eight maintained combinations and checks the actual source/object selections.
+
+The client has no local Model or mailbox dependency. The pool copies only its
+bindings; each mailbox owns separate caller-provided request/result storage.
+One serialized owner can share a Model and Workspace. Connection identity,
+generation, reply pairing, framing and ACK handoff belong to application;
+none is added to RPC wire v1.0 or Resource v1. Application agrees on endpoint
+types once before admitting a session. `trustedRpcMapping` is that explicit
+application assertion, not an automatic descriptor check.
+
 ```cpp
 #include <resource/telemetry/v3/Descriptor.hpp>
 

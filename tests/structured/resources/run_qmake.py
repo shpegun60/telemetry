@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
-"""Build core, descriptor/Values, RPC and combined qmake selections. MIT."""
+"""Build independent resource, RPC client/server/session qmake selections. MIT."""
 import argparse
 from collections import Counter
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import time
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def input_hashes():
+    paths = [path for directory in (ROOT / 'lib', HERE)
+             for path in directory.rglob('*')
+             if path.is_file() and '__pycache__' not in path.parts]
+    paths.append(ROOT / '.github/workflows/ci.yml')
+    return {path.relative_to(ROOT).as_posix(): digest(path) for path in sorted(paths)}
 
 
 def cpp_names(text):
@@ -31,8 +46,20 @@ def main():
     parser.add_argument('--make', default='make')
     parser.add_argument('--build-dir', type=Path, required=True)
     args = parser.parse_args()
+    output = args.build_dir.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    provenance = dict(
+        source_head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
+        source_dirty=subprocess.check_output(
+            ['git', 'status', '--porcelain=v1', '--untracked-files=all'], cwd=ROOT, text=True).splitlines(),
+        input_sha256=input_hashes(), success=False,
+        tools={name: dict(path=str(Path(shutil.which(command) or command).absolute()),
+                         sha256=digest(Path(shutil.which(command) or command)))
+               for name, command in (('qmake', args.qmake), ('make', args.make))})
+    receipt = output / 'qmake-inputs.json'
+    receipt.write_text(json.dumps(provenance, indent=2) + '\n', encoding='utf-8')
     summary = {}
-    for mode in ('core', 'v3', 'rpc', 'both'):
+    for mode in ('core', 'v3', 'rpc', 'both', 'client', 'client_server', 'sessions', 'all'):
         out = args.build_dir.resolve() / mode; out.mkdir(parents=True, exist_ok=True)
         # A fresh object directory proves absence without deleting historical
         # outputs or mistaking a stale object from an older manifest for input.
@@ -50,9 +77,10 @@ def main():
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         (out / 'execute.log').write_text(execution.stdout, encoding='utf-8')
         expected = {'QmakeCheck.cpp', 'DeviceResources.cpp', 'Protocol.cpp'}
-        if mode != 'core': expected |= {'StructuredAbi.cpp', 'Adapter.cpp'}
-        if mode in ('v3', 'both'): expected.add('Values.cpp')
-        if mode in ('rpc', 'both'): expected.add('RpcMailbox.cpp')
+        if mode not in ('core', 'client'): expected |= {'StructuredAbi.cpp', 'Adapter.cpp'}
+        if mode in ('v3', 'both', 'all'): expected.add('Values.cpp')
+        if mode in ('rpc', 'both', 'client_server', 'sessions', 'all'): expected.add('RpcMailbox.cpp')
+        if mode in ('client', 'client_server', 'all'): expected.add('RpcClient.cpp')
 
         # These counts also prove repeated .pri inclusion did not duplicate
         # any source. There is no link-time section-GC assumption in this gate.
@@ -89,10 +117,22 @@ def main():
             paths = '\n'.join(re.findall(r'^INCPATH\s*=.*$', makefiles, re.M))
             assert 'boost_pfr' not in paths
         assert 'telemetry/serialization/TelemetryJson.cpp' not in makefiles.replace('\\', '/')
+        selected_headers = (out / 'selected-headers.txt').read_text().replace('\\', '/')
+        pool_header_selected = '/RpcSessionPool.hpp' in selected_headers
+        if pool_header_selected != (mode in ('sessions', 'all')):
+            raise RuntimeError(f'{mode}: session pool header was not explicitly selected')
         summary[mode] = dict(sources=selected, objects=built, object_dir=str(objects),
-                             compile_recipes=compiled.splitlines())
+                             compile_recipes=compiled.splitlines(),
+                             session_pool_header=pool_header_selected,
+                             execution='host runtime')
         print(mode + ': build/run/source/object checks passed', flush=True)
     (args.build_dir.resolve() / 'qmake-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
+    provenance['input_sha256_after'] = input_hashes()
+    provenance['inputs_unchanged'] = provenance['input_sha256'] == provenance['input_sha256_after']
+    provenance['success'] = provenance['inputs_unchanged']
+    receipt.write_text(json.dumps(provenance, indent=2) + '\n', encoding='utf-8')
+    if not provenance['inputs_unchanged']:
+        raise RuntimeError('Qmake qualification inputs changed during the run')
 
 
 if __name__ == '__main__':

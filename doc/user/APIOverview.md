@@ -22,6 +22,12 @@ Model/Definitions нижче — спільна основа для endpoints т
 не потребує навіть Field/Command/Service. Generic Resource працює без telemetry;
 Descriptor/Values — окремі providers, які додаються за потреби.
 
+Для віддалених typed викликів поверх Resource є optional
+[RpcClient](../RpcClientV1.md): він формує WRITE/READ, повторює незмінні
+пакети та збирає відповідь. На сервері [RpcSessionPool](../RpcSessionsV1.md)
+керує N окремими mailbox-ами. Application передає повні frames і час,
+підтверджує handoff та зіставляє replies; транспорт до бібліотеки не додається.
+
 ## Залежності та точки входу
 
 ```mermaid

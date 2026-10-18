@@ -591,6 +591,14 @@ Underlying tables/metadata та Workspace мають жити протягом �
 
 ## RpcMailbox через Resource WRITE/READ
 
+Готовий [RpcClient](../RpcClientV1.md) автоматизує request header, exact-byte
+retry, status polling і typed decode без TCP/UART залежності. Application
+доставляє повні відповідні replies з local generation/request ticket.
+Для N серверних каналів [RpcSessionPool](../RpcSessionsV1.md) вибирає окремий
+mailbox/filesystem і відкриває callback gate після підтвердження відповідного
+final WRITE ACK. На одному multiplexed transport pairing/serialization
+залишається application contract; нових полів у Resource/RPC wire немає.
+
 Optional [RpcMailbox](../RpcMailboxV1.md) використовує той самий packet
 processor і file array. Його qmake source обирається окремим
 `CONFIG += resource_telemetry_rpc`; Descriptor/Values `resource_telemetry`

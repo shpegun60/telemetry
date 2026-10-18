@@ -170,6 +170,26 @@ no board execution, timing measurements or coverage for delegate paths that
 these existing fixtures do not instantiate. Original hardware receipts remain
 unchanged.
 
+The following 2026-10-18 optional RpcClient/SessionPool refresh captures 145
+library inputs and the same 57 fixture inputs from starting revision
+`aff0f15edc9148850dd2235ee7e59908a1ced14d`, honestly recorded with
+`source_dirty=true`. Four additive library files introduce the client, pool
+and codec-only qmake selection; the existing Resource manifest and two provider
+READMEs are also captured. All twelve complete raw firmware binaries match
+the actual retained artifacts byte for byte, with the original SHA-256 hashes
+and byte counts, after the same Exchange compiler source-path mapping. Six ELF
+hashes match too, and the remaining six current ELF identities are recorded
+separately. All 202 library/fixture input hashes remain unchanged before and
+after the five build groups, and all 23 tracked historical receipt JSON files
+preserve their raw checkout hashes. These old fixtures do not instantiate the
+new optional APIs; their behavior is covered by the separate
+[client](../../structured/rpc_client/README.md) and
+[session](../../structured/rpc_sessions/README.md) suites. This is offline
+compile/link evidence with no device execution or new timing measurements.
+Both the artifact verification and plain CI verification pass, including the
+historical receipt controls, 27 equivalence mutations, 10 refused relocation
+cases and the text-identity controls.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -221,7 +241,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/.codex/artifacts/delegate-v1.2.1-telemetry-ci-fix-2026-10-18/equivalence'
+$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261018-rpc-extensions/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -274,7 +294,14 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current tiny_delegate v1.2.1 capture is
+The current optional RpcClient/SessionPool capture is
+`C:/Users/admin/Documents/telemetry-validation/20261018-rpc-extensions/equivalence`.
+Its `freeze-before.json`, `freeze-after.json` and `capture-summary.json` retain
+the complete source/receipt stability checks and image identities alongside the
+original runners' build artifacts. `artifact-manifest.json` inventories the
+retained files by raw byte count and SHA-256; `verify-artifacts.log` and
+`verify-ci.log` record artifact and source/control verification respectively.
+The preceding tiny_delegate v1.2.1 capture is
 `C:/Users/admin/.codex/artifacts/delegate-v1.2.1-telemetry-ci-fix-2026-10-18/equivalence`.
 Its parent directory's `freeze-before.json`, `freeze-after.json` and
 `capture-summary.json` retain the source/receipt stability checks and complete

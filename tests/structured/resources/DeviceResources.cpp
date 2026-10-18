@@ -7,6 +7,12 @@
 #include <resource/telemetry/v3/RpcMailbox.hpp>
 #include <telemetry/model/Model.hpp>
 #endif
+#ifdef WITH_RPC_CLIENT
+#include <resource/telemetry/v3/RpcClient.hpp>
+#endif
+#ifdef WITH_RPC_SESSIONS
+#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#endif
 
 namespace {
 // Independent generic byte provider proves the core-only build needs no telemetry types.
@@ -71,3 +77,40 @@ void processDeviceResources(std::uint32_t nowMs) noexcept
 	(void)nowMs;
 #endif
 }
+
+#ifdef WITH_RPC_CLIENT
+bool exerciseDeviceRpcClient() noexcept
+{
+	using namespace resource::telemetry::v3;
+	std::array<std::byte, 24> request{};
+	std::array<std::byte, 4> result{};
+	std::array<std::byte, 64> packet{};
+	RpcClient client{0, request, result, packet};
+	if (client.startSession(1) != RpcClientStatus::Ok ||
+	    client.beginReadField(FieldEndpoint<std::uint32_t>{0, trustedRpcMapping}) !=
+	        RpcClientStatus::Ok)
+		return false;
+	client.process(0);
+	const auto outgoing = client.nextPacket();
+	if (!outgoing || !client.onSendAccepted(outgoing.generation, outgoing.requestId))
+		return false;
+	client.loseSession(1);
+	return !client.active();
+}
+#endif
+
+#ifdef WITH_RPC_SESSIONS
+bool exerciseDeviceRpcSessions() noexcept
+{
+	using namespace resource::telemetry::v3;
+	std::array<RpcSessionBinding, 1> bindings{RpcSessionBinding{
+	    rpcMailbox, files.view(), static_cast<resource::FileIndex>(files.view().fileCount() - 1)}};
+	RpcSessionPool<1> pool{bindings};
+	const auto admitted = pool.acquire({17, 1, 0});
+	if (admitted.status != RpcSessionStatus::Ok || !pool.valid(admitted.session))
+		return false;
+	const auto processed = pool.process(10, 0);
+	return processed.status == RpcSessionStatus::Ok && processed.dispatched == 0 &&
+	       pool.release(admitted.session) == RpcSessionStatus::Ok && !pool.valid(admitted.session);
+}
+#endif

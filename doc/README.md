@@ -53,6 +53,8 @@
 | Custom files, providers і cursors | [Resource files](user/Resources.md) |
 | Model descriptor, Values, fingerprint і whole-token READ | [Descriptor and Values](user/DescriptorAndValues.md) |
 | LIST/STAT/READ/WRITE, framing та transport integration | [Transport and resources](user/TransportAndResources.md) |
+| Typed remote виклики, retry та caller-owned result decode | [RpcClient v1](RpcClientV1.md) |
+| N mailbox, session handles, ACK gate і спільний Workspace | [RpcSessionPool v1](RpcSessionsV1.md) |
 | З'єднати telemetry resources і реальний COBS endpoint | [COBS integration](user/COBSIntegration.md) |
 | Повернути `const T&` без owning copy і забезпечити lifetime | [Borrowed native values](BorrowedNativeValues.md) |
 | Зрозуміти межі Model, codec, providers і transport | [Архітектура](Architecture.md) |
@@ -70,6 +72,8 @@
 | [COBS integration](../examples/cobs_integration/README.md) | Реальний sibling COBS endpoint, client/server resource exchange, TX backpressure і recovery на host |
 | [Custom resources](../examples/resources/README.md) | Додати providers із власними paths |
 | [RPC mailbox](../examples/rpc_mailbox/README.md) | RPC через file table, зовнішній connectionGeneration, ACK до dispatch та checked reply |
+| [Typed RPC client](../examples/rpc_client/README.md) | Begin/decode API, реальні Resource packets і втрачений ACK |
+| [Multi-session RPC](../examples/rpc_multi_session/README.md) | Незалежні mailbox-и, generation/release, спільний Model та serialized Workspace |
 | [Structured client](../examples/structured_client/README.md) | JS parser/codec, browser та Qt consumer |
 | [Optional Bind/Exchange](../examples/structured_protocol/README.md) | Descriptor agreement і control envelope, якими володіє application |
 
@@ -86,6 +90,7 @@ Fenced fragments пояснюють окремий крок; повну прог
 | Незалежний filesystem/providers | [Resource](../lib/resource/README.md) |
 | Packet processor | [Resource protocol](../lib/resource/protocol/README.md) |
 | Optional RPC provider: wire v1.0, повтори, стани й сеанс | [RpcMailbox contract](RpcMailboxV1.md), [host example](../examples/rpc_mailbox/README.md) |
+| Optional typed caller і server session manager | [RpcClient](RpcClientV1.md), [RpcSessionPool](RpcSessionsV1.md) |
 | Descriptor/Values provider lifetime і storage | [V3 providers](../lib/resource/telemetry/v3/README.md) |
 | Exact wire constants, default ceilings і goldens | [Wire v3.0](WireV3.md), [freeze manifest](../tests/structured/freeze/contract.json) |
 | JS native payload codec та parser | [Client API](../tests/structured/client/README.md) |
@@ -105,6 +110,7 @@ ARM compile/link/disassembly та H7S execution — окремі види док
 | [MCU harness](../tests/structured/mcu/README.md), [H7S contract](../tests/structured/mcu/h7s/README.md), [results](../tests/structured/mcu/h7s/RESULTS.md) | Mixed/Scale scenarios, captured source, image bounds і повне Flash restore/readback |
 | [Descriptor](../tests/structured/descriptor/h7s/README.md), [Values](../tests/structured/resources/h7s/README.md), [Exchange](../tests/structured/exchange/h7s/README.md) | Окремі H7S receipts для відповідних consumers |
 | [Resource image equivalence](../tests/resources/evidence/README.md) | File-only звірка з retained images; це не новий hardware run |
+| [RpcClient / sessions qualification](RpcExtensionsQualification.md) | API, фінальна host/ARM матриця, пам'ять та незмінність попередніх firmware bytes |
 | [Stage 15 freeze checkpoint](StructuredTelemetryV3FreezeQualification.md) | Історичний baseline contract і його exact-SHA verification |
 | [Stage 20 qualification checkpoint](StructuredTelemetryV3FinalQualification.md) | Закритий migration baseline, тодішні software/H7S inputs і publication gate |
 | [Pre-borrowed receipt archive](evidence/pre-borrowed/README.md) | Exact попередні receipts/validators, відокремлені від оновлених input sets |

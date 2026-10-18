@@ -337,6 +337,27 @@ jobs:
           name: rpc-${{ matrix.cxx }}-${{ matrix.mode }}
           path: build/structured-rpc/
           if-no-files-found: error
+      - name: Typed RPC client and static session ownership
+        if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
+        env:
+          CXX: ${{ matrix.cxx }}
+          MODE: ${{ matrix.mode }}
+        shell: bash
+        run: |
+          flags=()
+          if [ "$MODE" = sanitized ]; then flags+=(--sanitize); fi
+          if [ "$MODE" = nullchecks ]; then flags+=(--null-checks); fi
+          python3 tests/structured/rpc_client/run.py --build-dir build/structured-rpc-client "${flags[@]}"
+          python3 tests/structured/rpc_sessions/run.py --build-dir build/structured-rpc-sessions "${flags[@]}"
+      - name: Retain RPC extension host evidence
+        if: always() && (matrix.standard == 'c++20' || matrix.mode == 'sanitized')
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpc-extensions-${{ matrix.cxx }}-${{ matrix.mode }}
+          path: |
+            build/structured-rpc-client/
+            build/structured-rpc-sessions/
+          if-no-files-found: error
       - name: C++20 structured typed traversal and native As access
         if: matrix.standard == 'c++20' || matrix.mode == 'sanitized'
         env:
@@ -546,6 +567,23 @@ jobs:
             build/arm-structured-rpc/
             build/arm-structured-rpc-nullchecks/
           if-no-files-found: error
+      - name: Typed RPC client and static sessions Cortex-M7 qualification
+        run: |
+          python3 tests/structured/rpc_client/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc-client
+          python3 tests/structured/rpc_client/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc-client-nullchecks
+          python3 tests/structured/rpc_sessions/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc-sessions
+          python3 tests/structured/rpc_sessions/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-rpc-sessions-nullchecks
+      - name: Retain RPC extension ARM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpc-extensions-cortex-m7
+          path: |
+            build/arm-structured-rpc-client/
+            build/arm-structured-rpc-client-nullchecks/
+            build/arm-structured-rpc-sessions/
+            build/arm-structured-rpc-sessions-nullchecks/
+          if-no-files-found: error
       - name: C++20 structured typed traversal Cortex-M7 checks
         run: |
           python3 tests/structured/traversal/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-traversal
@@ -696,6 +734,13 @@ jobs:
         run: build/qt/telemetry_playground -platform offscreen --smoke-test
       - name: Independent resource qmake configurations
         run: python3 tests/structured/resources/run_qmake.py --qmake qmake6 --build-dir build/resource-qmake
+      - name: Retain eight independent qmake selection manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resource-qmake-selections
+          path: build/resource-qmake/
+          if-no-files-found: error
       - name: Explicit structured protocol example qmake
         run: |
           mkdir -p build/example-qmake

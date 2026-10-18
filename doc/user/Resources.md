@@ -361,6 +361,12 @@ LIST/path selection і порційний READ/WRITE. Неповний UART/TCP 
 
 ## RPC mailbox як read/write provider
 
+Для автоматичного typed формування запитів і decode відповіді використовуйте
+[RpcClient](../RpcClientV1.md). Для кількох допущених клієнтів —
+[RpcSessionPool](../RpcSessionsV1.md): кожен slot має власний mailbox і
+FileSystemView, однаковий `/telemetry/rpc.bin` може вести до різних providers.
+Generic filesystem і Resource wire при цьому не змінюються.
+
 Optional [`RpcMailbox`](../../lib/resource/telemetry/v3/RpcMailbox.hpp)
 публікує FieldWrite, Command, Service і FieldRead через звичайні Resource
 WRITE/READ. Для qmake оберіть `CONFIG += resource_telemetry_rpc` перед

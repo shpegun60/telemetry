@@ -69,6 +69,8 @@ project sources наведені у [прикладах](../../examples/user_gui
 | Прийняти UART/TCP frame і звернутися до Model без файлів | [Транспорт і ресурси](TransportAndResources.md) | [Encoded.cpp](../../examples/user_guide/Encoded.cpp) |
 | Descriptor/Values та browser decoding | [Descriptor and Values](DescriptorAndValues.md) | [Клієнти](../../examples/structured_client/README.md) |
 | Узгодити descriptor один раз на з'єднання | [Bind/Exchange example](../../examples/structured_protocol/README.md) | [Транспорт і ресурси](TransportAndResources.md) |
+| Типізовано викликати віддалений endpoint | [RpcClient](../RpcClientV1.md) | [Typed client](../../examples/rpc_client/README.md) |
+| Обслуговувати кілька незалежних RPC-сеансів | [RpcSessionPool](../RpcSessionsV1.md) | [Multi-session setup](../../examples/rpc_multi_session/README.md) |
 | Передати resource packets через чинний COBS endpoint | [COBS integration](COBSIntegration.md) | [Cobs example](../../examples/cobs_integration/README.md) |
 | Зібрати й виконати приклади | [Приклади посібника](../../examples/user_guide/README.md) | [Runner](../../tests/docs/README.md) |
 

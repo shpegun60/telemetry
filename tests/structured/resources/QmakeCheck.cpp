@@ -40,6 +40,12 @@ int main()
 	processDeviceResources(3);
 	assert(files.read(rpcIndex, 0, bytes).eof && bytes[32] == std::byte{43});
 #endif
+#ifdef WITH_RPC_CLIENT
+	assert(exerciseDeviceRpcClient());
+#endif
+#ifdef WITH_RPC_SESSIONS
+	assert(exerciseDeviceRpcSessions());
+#endif
 	assert(position == files.fileCount());
 	(void)bytes;
 }

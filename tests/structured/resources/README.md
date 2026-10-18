@@ -29,8 +29,8 @@ On Windows select the CubeIDE ARM compiler, not CubeCLT; use the Qt MinGW
 compiler/runtime together. For qmake pass `--make mingw32-make` and the
 installed Qt kit's qmake path. Generated objects/logs go to the selected build
 directory. CI runs this suite in C++20 host, sanitizer, null-check and ARM
-jobs; the Qt job exercises core-only, Descriptor/Values, RPC-only and combined
-qmake selections through the same maintained `run_qmake.py` entrypoint.
+jobs; the Qt job exercises eight independent qmake selections through the same
+maintained `run_qmake.py` entrypoint.
 
 ## What the checks establish
 
@@ -70,21 +70,32 @@ qmake selections through the same maintained `run_qmake.py` entrypoint.
   The original Stage 09 `c25c6fa` CI integration failure was caused by a
   recursive legacy sweep selecting those headers without PFR include paths;
   separate header coverage avoids that dependency in resource-only builds.
-- `resources.pro` builds and runs `MODE=core`, `v3`, `rpc` and `both`.
+- `resources.pro` preserves `MODE=core`, `v3`, `rpc` and `both`, and also builds
+  and runs `client`, `client_server`, `sessions` and `all`.
   `resource_telemetry` selects only Descriptor/Values; the independent
-  `resource_telemetry_rpc` option selects only RpcMailbox. Both can coexist.
-  `.pri` dependencies are explicit, and repeated telemetry/resource includes
+  `resource_telemetry_rpc` option selects only RpcMailbox.
+  `resource_telemetry_rpc_client` selects only the new compiled RpcClient;
+  `resource_telemetry_rpc_sessions` explicitly selects the header-only pool
+  and requires the server option. The client-only consumer explicitly includes
+  the header-only `telemetry/codec/codec.pri` manifest and compiles no Model
+  adapter, structured ABI source, Values provider or mailbox implementation.
+  Full server consumers explicitly include `telemetry.pri`. Repeated manifests
   do not duplicate sources. The application facade exposes only
-  `FileSystemView` and a plain clock step. The RPC cases execute FieldRead,
-  retained retry and a subsequent transaction through that facade.
+  `FileSystemView`, a plain clock step and bounded feature smoke functions.
+  The RPC server cases execute FieldRead, retained retry and a subsequent
+  transaction through that facade; client and pool selections also invoke
+  their actual public APIs.
 - The qmake runner checks the selected SOURCES manifest, generated
   SOURCES/OBJECTS variables, actual compiler recipes and physical object
   files in a fresh per-run object directory. Thus a Descriptor/Values-only
   build proves `RpcMailbox.cpp` was never compiled, and RPC-only proves
   `Values.cpp` was never compiled, without relying on linked section removal.
   Generic core does not select telemetry, PFR or the protocol example. The
-  four selections and their source/object lists are recorded in
-  `qmake-summary.json`; previous generated object directories are preserved.
+  eight selections, their source/object lists and explicit pool-header selection
+  are recorded in `qmake-summary.json`; previous generated object directories
+  are preserved. `qmake-inputs.json` records the tool executables, Git state and
+  exact library/fixture/workflow hashes; successful completion requires unchanged
+  input hashes throughout the run.
 
 The first Stage 10 CI run on `a3eb7dc` exposed a stale **legacy** board receipt:
 the optional qmake changes made its recorded `resource.pri` hash differ. A

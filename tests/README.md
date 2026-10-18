@@ -63,6 +63,13 @@ duplicate/final handling, state polling and checked Model dispatch through the
 existing Resource protocol. They also qualify the integration example,
 allocation traps, temporary-borrow diagnostics and retained Cortex-M7 roots
 with bounded individual frames under O2/Os/Og.
+The separate [typed-client suite](structured/rpc_client/README.md) checks
+canonical begin/decode, exact packet retry, malformed replies, local type
+identity, caller-buffered large objects and uncertain outcomes. The
+[session suite](structured/rpc_sessions/README.md) checks independent N=1/2/4
+mailboxes, local generation/tickets, deferred release and bounded scheduling.
+Both exercise actual Resource packets on host and compile retained ARM roots;
+neither establishes additional device execution.
 The separate [H7S UART integration](structured/rpc/h7s/README.md) checks actual
 packets, ACK ordering and duplicate Service/Command requests on the selected
 board. Its session controls simulate application disconnects; Ethernet and

@@ -7,6 +7,14 @@ client. The provider supplies its bytes. No operating-system filesystem,
 directory tree, storage allocation or telemetry model is created by declaring
 that path.
 
+Optional Telemetry integrations are separate modules:
+[Descriptor/Values and deferred RPC server](telemetry/v3/README.md),
+[typed asynchronous RpcClient](../../doc/RpcClientV1.md), and
+[bounded RpcSessionPool](../../doc/RpcSessionsV1.md).
+The generic file core does not depend on them. A client-only qmake application
+explicitly includes `telemetry/codec/codec.pri` and selects
+`resource_telemetry_rpc_client`; it does not compile the server Model adapter.
+
 ```cpp
 #include <resource/Resource.hpp>
 
