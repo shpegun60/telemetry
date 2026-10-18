@@ -110,9 +110,9 @@
     "lib/boost_pfr/include/boost/pfr/traits_fwd.hpp": "dc75f37c001d33707110eaaee90b1dff8b6d4efe1719142b677d5c4c4b21af54",
     "lib/boost_pfr/include/boost/pfr/tuple_size.hpp": "b4e65002af093af2749490d26dd171757162474454384188dd7aec78eb04540e",
     "lib/delegate/LICENSE": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
-    "lib/delegate/README.md": "12aa1c8fab8761eb78cfdc293bf5cb01c881413a282cdb318cf7fa4b597d9df9",
+    "lib/delegate/README.md": "553598b442a9f73631ea14c92d302fdfa510a511c5983d65d0a6668e463db69a",
     "lib/delegate/delegate.pri": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
-    "lib/delegate/tiny_delegate.hpp": "4664d6d36ea8f0b2b38286473e1a244fb74ccb992dafa22b61a4376d4171f359",
+    "lib/delegate/tiny_delegate.hpp": "b9bc65327969a766ed3e076f2665add228145b6349508e30ada02222ed4d2e69",
     "lib/magic_enum/LICENSE": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
     "lib/magic_enum/README.md": "8d9a7f6e8311642aad1a7be54d61f8a8c65f0f1d1f9e4ad29a4aacf35406c601",
     "lib/magic_enum/magic_enum.hpp": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
@@ -209,7 +209,7 @@
   "format_version": 2,
   "groups": {
     "borrowed": {
-      "current_input_manifest_sha256": "49a4abdba3c1e34ca8cfe1195a6111e0235cc416d83148784d36d19c5714fa7f",
+      "current_input_manifest_sha256": "382b33c891486b42b504ab606b01a522138d044d4a7439850f50c27e83e0b390",
       "historical_input_manifest_sha256": "824365521b3502ca66aa17441f860bb5a3c6cb40f7badaef9edc962d92786531",
       "image_manifest_sha256": "2fdb4c28b23c45c3ca9825ac585fcd31a6dfa24d498529859d8c97b9776485bb",
       "macro_prefix_map": null,
@@ -218,7 +218,7 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "descriptor": {
-      "current_input_manifest_sha256": "ea5913fed7e671b225f72fb50ed474d621b9136cdc300db983ad180290d6da17",
+      "current_input_manifest_sha256": "8a1cd186668c2c6faca79b3c9feeb0a145bb233cc2d27081d9a4143ca34746de",
       "historical_input_manifest_sha256": "7531940505a510ad2d02d1324bc6497f7611a45b74dfc8ce45e24670afe6586a",
       "image_manifest_sha256": "343fe0558561b0b4b4c38fb37366d9adb73d76350a588eee8ff12449c1c05e78",
       "macro_prefix_map": null,
@@ -227,16 +227,16 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "exchange": {
-      "current_input_manifest_sha256": "e635cb166e824c1ee3eb5f81e6c9eff133400648631cb2424ae08e6617fb6895",
+      "current_input_manifest_sha256": "0bac772274eb67d554ac4b3fd12267c62ecfb4eafc9a769d2f2f8790e7d1c375",
       "historical_input_manifest_sha256": "8fb267913faf0d88bff5e154b09885c637381edfc64c5ed8d5dc1ad7432a801d",
       "image_manifest_sha256": "1e18fcf88d4042f629b9579c1033373cc22fa2ee8696beb060447a572f9ab5e7",
-      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\Documents\\telemetry-validation\\20261017-rpc-p3-h7s\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
+      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\.codex\\artifacts\\delegate-v1.2.1-telemetry-ci-fix-2026-10-18\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
       "receipt": "tests/structured/exchange/h7s/receipt.json",
       "receipt_lf_sha256": "43cb74c4d5fba4a4634ca03c858ba5015e3bdb9ff7f2dc6a4e7632fc677a882a",
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "mcu": {
-      "current_input_manifest_sha256": "8f7ffb4184b96c1e24091724b824bc32afecfbc441256ef85723ec928206d606",
+      "current_input_manifest_sha256": "374cba008f5cff3f82ad5582926bec010d942e01b89dd6435128cdc756dfc8af",
       "historical_input_manifest_sha256": "0043f7f08e78e69600ccfcd6fa54c74a6c4fe126f12ace1ce038be632354ac10",
       "image_manifest_sha256": "40a10ae237ab61e175398032271b8320dc27eee41e027e36e25fce6ea2938c84",
       "macro_prefix_map": null,
@@ -245,7 +245,7 @@
       "scaffold_manifest_sha256": "ea0e5c36be00383dd9b4b483b5aab8a5206b368a93859180624b9ebc34ff6f92"
     },
     "resources": {
-      "current_input_manifest_sha256": "a002888fbeac28d462b137420e363fb09e430384cee8bbadc8c2d1c905cc2ccb",
+      "current_input_manifest_sha256": "2dd8ca24377ad35dd2c6d7d795f5e0b0cc0386c0d3811a0301ee2f580d8017eb",
       "historical_input_manifest_sha256": "3f96ceeb9fb65e868643b17608420c49ecfb7c0f04fd6e4988a5beb23f2d78a5",
       "image_manifest_sha256": "2b45d51fc44a009dd5f5af45e0d71009f0c0bda1bbc3db2323139e80ba9b1166",
       "macro_prefix_map": null,
@@ -369,9 +369,9 @@
     "receipt": "tests/structured/mcu/local-receipt.json",
     "receipt_lf_sha256": "00fd1714709f28a338a04d295b80ff2608766cef64be5fab4636dc12185da9c6"
   },
-  "recorded_at_utc": "2026-10-17T21:47:13.317096+00:00",
+  "recorded_at_utc": "2026-10-18T07:43:02.828059+00:00",
   "scope": "current source and byte-identical retained H7S images",
   "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
-  "source_dirty": true,
-  "source_head": "428ccfd22d953da90107ddc6d9aa4b5c62e0f8ed"
+  "source_dirty": false,
+  "source_head": "f615775bf3dd4c7c4e12ac047e60b111e52ce0dd"
 }

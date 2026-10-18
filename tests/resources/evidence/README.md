@@ -150,6 +150,26 @@ Artifact verification, historical receipt controls, the 27 equivalence mutations
 accessed no device and adds no hardware measurement or CI result; it qualifies
 the existing fixtures rather than the separate RPC execution fixture.
 
+The 2026-10-18 tiny_delegate v1.2.1 refresh rebuilds all five groups and twelve
+images from the clean published revision
+`f615775bf3dd4c7c4e12ac047e60b111e52ce0dd`. The capture honestly records that
+starting revision with `source_dirty=false`; its 141 library and 57 fixture
+input hashes identify the compiled sources. Only `lib/delegate/README.md` and
+`lib/delegate/tiny_delegate.hpp` differ from the preceding input inventory.
+Every complete raw firmware binary matches its retained measured artifact,
+SHA-256 and byte count after the existing Exchange compiler source-path mapping.
+Six ELF hashes also match; the other six current ELF identities are recorded
+separately. All 198 library/fixture LF input hashes remain unchanged through
+the capture, and all 23 tracked receipt JSON files retain their raw checkout
+identities. Artifact verification and
+the plain CI verification both pass, including the historical receipt controls,
+27 equivalence mutations, 10 refused relocation cases and text-identity controls.
+The four archived Stage08 receipt self-tests also pass. This offline capture
+uses the same CubeIDE GCC 14.3.1 executable and retained Cube scaffolds. It adds
+no board execution, timing measurements or coverage for delegate paths that
+these existing fixtures do not instantiate. Original hardware receipts remain
+unchanged.
+
 This establishes identical firmware bytes for these existing fixtures after
 the resource formatting, include and namespace changes, private `FileEntry`
 encapsulation, and cv classification fixes in `Model` and v3 descriptor metadata.
@@ -201,7 +221,7 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261017-rpc-p3-h7s/equivalence'
+$evidenceOutput = 'C:/Users/admin/.codex/artifacts/delegate-v1.2.1-telemetry-ci-fix-2026-10-18/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
@@ -254,12 +274,16 @@ python tests/resources/evidence/verify.py capture \
 No command above supplies `--run`, an adapter serial, a serial port or a device
 programmer. The historical capture layout used `build/borrowed`; archival
 preserves that relative layout under the external generated-builds directory.
-The current RPC qmake opt-in capture is
+The current tiny_delegate v1.2.1 capture is
+`C:/Users/admin/.codex/artifacts/delegate-v1.2.1-telemetry-ci-fix-2026-10-18/equivalence`.
+Its parent directory's `freeze-before.json`, `freeze-after.json` and
+`capture-summary.json` retain the source/receipt stability checks and complete
+image identities alongside the original runners' build artifacts;
+`verify-artifacts.log` records the
+artifact and mutation-control verification. The preceding RPC qmake opt-in
+capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261017-rpc-p3-h7s/equivalence`.
-Its `freeze-before.json`, `freeze-after.json` and `capture-summary.json` retain
-the source/receipt stability checks and complete image identities alongside
-the original runners' build artifacts; `verify-artifacts.log` records the
-artifact and mutation-control verification. The preceding additive RpcMailbox
+The preceding additive RpcMailbox
 capture remains at
 `C:/Users/admin/Documents/telemetry-validation/20261017-rpc-mailbox/equivalence`.
 The preceding Descriptor output-contract
