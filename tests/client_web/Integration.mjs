@@ -149,6 +149,10 @@ try {
 			if (packet[0] === 4 && packet[13] === 1 && !dropped) {
 				dropped = packet.slice();
 				return new Promise((resolve, reject) => {
+					if (context.signal.aborted) {
+						reject(Error('ACK omitted'));
+						return;
+					}
 					context.signal.addEventListener('abort', () => reject(Error('ACK omitted')),
 					                                {once : true});
 				});

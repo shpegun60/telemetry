@@ -20,6 +20,7 @@ deliver expire Decoder Finish Pending Result m_device m_pending m_timer
 m_nextToken m_session m_ready m_timeout
 snapshotInput setInputEngine m_inputEngine requestActive
 setTransportHandoffTracking transportHandoffAccepted m_trackHandoff
+commitTransportHandoff
 qApp qGuiApp qAppName
 qint8 quint8 qint16 quint16 qint32 quint32 qint64 quint64 qsizetype qlonglong qulonglong ushort
 signals slots emit foreach forever qml qmlAttachedProperties
@@ -103,11 +104,13 @@ HEADER = r'''
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 #include <QtCore/QString>
+#include <QtCore/QThread>
 #include <QtCore/QTimer>
 #include <QtCore/QVariant>
 #include <QtQml/qqmlregistration.h>
 #include <QtQml/QJSEngine>
 #include <functional>
+#include <cstddef>
 
 namespace @NS@::qml {
 @QT_NAMES@
@@ -175,6 +178,25 @@ Q_SIGNALS:
                       quint32 requestType, quint32 responseType, QByteArray payload);
     void operationFinished(QString token, QVariantMap result);
 private:
+    template<class, std::size_t, std::size_t> friend class DeviceClientAdapter;
+    // The generated adapter supplies ONLY its non-reentrant core permission
+    // check. No event pumping or API mutation is allowed inside this callback.
+    // Commit once both checks pass in this owner-thread operation. A second
+    // deadline check after core success would move uncertainty into the core.
+    template<class Permit>
+    bool commitTransportHandoff(const QString& token, quint32 epoch, Permit&& permit) {
+        if (!requestActive(token, epoch)) return false;
+        auto it = m_pending.find(token);
+        if (it->handoffAccepted) return false;
+        QPointer<DeviceApi> alive(this);
+        if (!permit() || !alive) return false;
+        // Defensive lifetime/session guards, not a second deadline gate.
+        if (!m_ready || m_session != epoch) return false;
+        it = m_pending.find(token);
+        if (it == m_pending.end() || it->session != epoch || !it->offered || it->handoffAccepted) return false;
+        it->handoffAccepted = true;
+        return true;
+    }
     struct Pending {
         quint32 session;
         int operation;

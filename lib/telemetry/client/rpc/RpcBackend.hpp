@@ -193,6 +193,8 @@ public:
 		// missing pre-handoff gate; a post-send failure cannot undo the transfer.
 		if (!client_.onSendAccepted(generation, requestId))
 			return false;
+		// Each physical send consumes its gate, including an identical ACK-loss retry.
+		preparedRequest_ = 0;
 		if (finalWrite(packet))
 			finalPrepared_ = true;
 		if (missingGate) {

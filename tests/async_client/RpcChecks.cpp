@@ -276,6 +276,87 @@ static void retryAndMissingGate() noexcept
 	CHECK(h.backend.recoveryRequired() && h.backend.result().status == Status::OutcomeUnknown);
 }
 
+static tc::Packet lostAcknowledgementRetry(Harness& h, bool read,
+                                           std::uint32_t timeoutMs = 30) noexcept
+{
+	CHECK(h.backend.start({read ? Operation::FieldRead : Operation::Command,
+	                       read ? 0u : 1u,
+	                       {},
+	                       read ? 5u : 0u,
+	                       timeoutMs},
+	                      h.now) == Status::Ok);
+	const auto first = h.backend.nextPacket();
+	CHECK(first && first.mayExecute);
+	std::array<std::byte, 40> saved{};
+	std::copy(first.bytes.begin(), first.bytes.end(), saved.begin());
+	CHECK(h.exchange(true, false)); // The operation executes, but its WRITE ACK is lost.
+	CHECK((read ? device.reads : device.commands) == 1);
+	h.now += 3;
+	h.backend.process(h.now);
+	const auto retry = h.backend.nextPacket();
+	CHECK(retry && retry.requestId == first.requestId && retry.session == first.session);
+	CHECK(retry.bytes.size() == first.bytes.size());
+	CHECK(std::equal(retry.bytes.begin(), retry.bytes.end(), saved.begin()));
+	return retry;
+}
+
+static void retryRequiresFreshGate(bool read) noexcept
+{
+	device = {};
+	Harness h;
+	const auto retry = lostAcknowledgementRetry(h, read);
+	CHECK(!h.backend.onSendAccepted(retry.session, retry.requestId));
+	CHECK(h.backend.completed() && h.backend.recoveryRequired());
+	CHECK(h.backend.result().status == (read ? Status::MalformedReply : Status::OutcomeUnknown));
+	if (!h.backend.completed() || !h.backend.recoveryRequired())
+		return;
+	CHECK(!h.backend.nextPacket());
+	CHECK(!h.backend.onReply(h.response, retry.session, retry.requestId));
+	h.recover(2);
+	CHECK(h.backend.start({Operation::Command, 1, {}, 0}, h.now) == Status::Ok);
+	const auto fresh = h.backend.nextPacket();
+	CHECK(fresh && fresh.session != retry.session);
+	CHECK(!h.backend.prepareHandoff(retry.session, retry.requestId));
+	CHECK(!h.backend.onSendAccepted(retry.session, retry.requestId));
+	h.run();
+	CHECK(h.backend.result().executed() && device.commands == (read ? 1u : 2u));
+}
+
+static void retryWithFreshGate(bool read) noexcept
+{
+	device = {};
+	Harness h;
+	(void)lostAcknowledgementRetry(h, read);
+	CHECK(h.exchange()); // A new gate authorizes the same request ID and exact bytes.
+	h.run();
+	CHECK(h.backend.result().succeeded() && !h.backend.recoveryRequired());
+	CHECK((read ? device.reads : device.commands) == 1); // The duplicate never redispatches.
+}
+
+static void retryAfterInvalidation(bool read, Status reason) noexcept
+{
+	device = {};
+	Harness h;
+	const auto retry = lostAcknowledgementRetry(h, read, 6);
+	if (reason == Status::Timeout)
+		h.now = 6; // Only prepareHandoff observes the expired overall deadline.
+	else if (reason == Status::SessionLost)
+		h.backend.close();
+	else
+		h.backend.cancel(reason);
+	CHECK(!h.backend.prepareHandoff(retry.session, retry.requestId));
+	CHECK(!h.backend.onSendAccepted(retry.session, retry.requestId));
+	CHECK(h.backend.completed() && h.backend.recoveryRequired());
+	CHECK(h.backend.result().status == (read ? reason : Status::OutcomeUnknown));
+	CHECK((read ? device.reads : device.commands) == 1);
+	CHECK(!h.backend.nextPacket());
+	h.recover(2);
+	CHECK(h.backend.start({Operation::Command, 1, {}, 0}, h.now) == Status::Ok);
+	CHECK(!h.backend.onReply(h.response, retry.session, retry.requestId));
+	h.run();
+	CHECK(h.backend.result().executed() && device.commands == (read ? 1u : 2u));
+}
+
 int main()
 {
 	operations();
@@ -285,6 +366,13 @@ int main()
 	withheldAcknowledgement(false);
 	withheldAcknowledgement(true);
 	retryAndMissingGate();
+	retryRequiresFreshGate(false);
+	retryRequiresFreshGate(true);
+	for (const bool read : {false, true}) {
+		retryWithFreshGate(read);
+		for (const auto reason : {Status::Timeout, Status::Cancelled, Status::SessionLost})
+			retryAfterInvalidation(read, reason);
+	}
 	std::printf("async_rpc checks=%u failures=%u\n", checks, failures);
 	return failures ? 1 : 0;
 }

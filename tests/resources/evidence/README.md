@@ -365,3 +365,16 @@ Encoded v1 envelope; their behavior belongs to the separate
 [web client](../../client_web/README.md) and
 [QML](../../codegen_qml/README.md) qualifications. This refresh adds no device
 execution, hardware timing measurement or physical transport qualification.
+
+The subsequent 2026-10-18 RPC handoff and web transport lifetime followup repeats
+the offline capture with 165 library and 57 fixture inputs at starting revision
+`39b9749e7d653228a20d09edffa73de15d5bec96`, honestly recorded with
+`source_dirty=true`. Five fresh runner builds again produce twelve firmware
+binaries identical to the retained bytes, SHA-256 and lengths; six ELF hashes
+also match. All 222 source hashes, 23 historical receipt files and 24 retained
+binary/ELF files remain unchanged through capture and verification. The new
+`freeze-before.json`, `freeze-after.json`, `binary-comparisons.json`,
+`capture-summary.json` and verifier logs are retained at
+`C:/Users/admin/.codex/artifacts/telemetry-async-review-2026-10-18/equivalence`.
+These fixtures still do not instantiate the asynchronous clients; this relation
+adds no device execution or coverage of their transport paths.

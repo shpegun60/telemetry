@@ -161,13 +161,13 @@
     "lib/telemetry/client/client.pri": "322f2e03fbe32f183babbe4e2604221dc7db90793a680b90ae9179f9adf4246c",
     "lib/telemetry/client/compat/resource/telemetry/v3/RpcClient.hpp": "e517982de4b42379d347996e4d25103847d817fedc233254207c869393aba0d4",
     "lib/telemetry/client/encoded/EncodedBackend.hpp": "51ecb0caf3271c4a7bd18173fdbf40edda949204f3c72e40d8f5d480b023dfc0",
-    "lib/telemetry/client/rpc/RpcBackend.hpp": "5d3b01f7260b99fd585cb75245567279c267826827f821b30a9c7603f445bdd0",
+    "lib/telemetry/client/rpc/RpcBackend.hpp": "d214025b61ebc474d5dd7e2964781e980d5a3781c5af8c1a8a9fcbdeb51684e6",
     "lib/telemetry/client/rpc/RpcClient.cpp": "f5c106a206af11b762f000303c7b058467d546f55b27d11ff97e44e59a94d454",
     "lib/telemetry/client/rpc/RpcClient.hpp": "a44120d18ef592862f1578351882d43256a2de597c55d67772b0e82cb9af784a",
-    "lib/telemetry/client/web/Client.d.ts": "f2a4f79bf430e53a7f01c1d6867907d0ab7d31c0b88d226a54136b2803a99ecb",
-    "lib/telemetry/client/web/Client.js": "d221a1787d99c43860c2b3b9139210a6d0ce7a5dceeb82c23311f5e947a9cc42",
-    "lib/telemetry/client/web/Client.ts": "97075dd56b96a47118cb30edbd70c1f1e7cf3e00782931c55a224c93fcd31742",
-    "lib/telemetry/client/web/README.md": "915c8b2353ff0476207d09340a0b9f840288620d678fe8fc0ed24167165a8350",
+    "lib/telemetry/client/web/Client.d.ts": "67161f7202acb500f870fbedeeda226e4ae73137bcb56ae1e84d0915b5a41ed4",
+    "lib/telemetry/client/web/Client.js": "7b0a30441eb131253bbb798a246fa88e59ea5e61148e34197d9a7f90ca294ae5",
+    "lib/telemetry/client/web/Client.ts": "59214431953205f162f62dea931adbbb60f2b68893f16c5279954fdcf96c4167",
+    "lib/telemetry/client/web/README.md": "e8dc053df6c81a1852d4790fde0594ec66bf1695a53d4e7a028ef939684453cf",
     "lib/telemetry/client/web/build.py": "de4e4cf1c3768979c6aea572dc10eac3521997a602afd95f5ef946834550eee1",
     "lib/telemetry/client/web/package.json": "86f0206a14378e837ed85648a2a851ea84e016de74de328ff262262107ab7332",
     "lib/telemetry/codec/Codec.hpp": "4d962dc80e53398ba859678dce7483f2a0a191800370635cf783ea402fef32f0",
@@ -233,7 +233,7 @@
   "format_version": 2,
   "groups": {
     "borrowed": {
-      "current_input_manifest_sha256": "0b171dbacc53ae0c165c77d1cab9b34eae7cfb1ae2a6bc1203fa499dfc032feb",
+      "current_input_manifest_sha256": "eb1ed828425f8ee73125dc6ce9cb06e0161d97679b78cbe10aa2ac36fc054336",
       "historical_input_manifest_sha256": "824365521b3502ca66aa17441f860bb5a3c6cb40f7badaef9edc962d92786531",
       "image_manifest_sha256": "2fdb4c28b23c45c3ca9825ac585fcd31a6dfa24d498529859d8c97b9776485bb",
       "macro_prefix_map": null,
@@ -242,7 +242,7 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "descriptor": {
-      "current_input_manifest_sha256": "51abce335b930c9150792454a88b11910dd66d9120f6e97e3a8e037645a500fb",
+      "current_input_manifest_sha256": "379d0632f2d86ef7f33fff03c70eca4b1c067485e72e76014f3149629be447b6",
       "historical_input_manifest_sha256": "7531940505a510ad2d02d1324bc6497f7611a45b74dfc8ce45e24670afe6586a",
       "image_manifest_sha256": "343fe0558561b0b4b4c38fb37366d9adb73d76350a588eee8ff12449c1c05e78",
       "macro_prefix_map": null,
@@ -251,16 +251,16 @@
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "exchange": {
-      "current_input_manifest_sha256": "e8aef9b7263ec5303c2002f852e4f2605625a9f560ce9db6f22b57bcfcc0eecc",
+      "current_input_manifest_sha256": "35c055dbb3dd89098f9b15e533f6c29fde1030450cc7026e6cb34d3301ba829f",
       "historical_input_manifest_sha256": "8fb267913faf0d88bff5e154b09885c637381edfc64c5ed8d5dc1ad7432a801d",
       "image_manifest_sha256": "1e18fcf88d4042f629b9579c1033373cc22fa2ee8696beb060447a572f9ab5e7",
-      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\.codex\\artifacts\\telemetry-async-client-2026-10-18\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
+      "macro_prefix_map": "-fmacro-prefix-map=C:\\Users\\admin\\.codex\\artifacts\\telemetry-async-review-2026-10-18\\equivalence\\exchange\\inputs=C:\\Users\\admin\\Documents\\my_workspace\\stm32\\triol\\power_analyzer\\telemetry\\build\\borrowed\\h7s-own-exchange-live\\inputs",
       "receipt": "tests/structured/exchange/h7s/receipt.json",
       "receipt_lf_sha256": "43cb74c4d5fba4a4634ca03c858ba5015e3bdb9ff7f2dc6a4e7632fc677a882a",
       "scaffold_manifest_sha256": "de770e3b44b865970b67b91c6192dcc25339a51a4446ae5dd83ffc15375e354d"
     },
     "mcu": {
-      "current_input_manifest_sha256": "bbc5cf65b8011072b9227830e9607c481c6e88e2fe4eb6e219363a869d501f18",
+      "current_input_manifest_sha256": "a8b6d4ba66d36e971c165926c1cc1c457652f5f6f838728b4224bbb5f6693a65",
       "historical_input_manifest_sha256": "0043f7f08e78e69600ccfcd6fa54c74a6c4fe126f12ace1ce038be632354ac10",
       "image_manifest_sha256": "40a10ae237ab61e175398032271b8320dc27eee41e027e36e25fce6ea2938c84",
       "macro_prefix_map": null,
@@ -269,7 +269,7 @@
       "scaffold_manifest_sha256": "ea0e5c36be00383dd9b4b483b5aab8a5206b368a93859180624b9ebc34ff6f92"
     },
     "resources": {
-      "current_input_manifest_sha256": "42d03bced630e7ded73a2c92cbdae6bf7028ed71edf5898ced5c7084c6cf29cd",
+      "current_input_manifest_sha256": "71b6ad69eb9d41c6c88337db39def8f4e3d72a36603677e1a62e9d90ec995a78",
       "historical_input_manifest_sha256": "3f96ceeb9fb65e868643b17608420c49ecfb7c0f04fd6e4988a5beb23f2d78a5",
       "image_manifest_sha256": "2b45d51fc44a009dd5f5af45e0d71009f0c0bda1bbc3db2323139e80ba9b1166",
       "macro_prefix_map": null,
@@ -393,9 +393,9 @@
     "receipt": "tests/structured/mcu/local-receipt.json",
     "receipt_lf_sha256": "00fd1714709f28a338a04d295b80ff2608766cef64be5fab4636dc12185da9c6"
   },
-  "recorded_at_utc": "2026-10-18T19:00:15.186848+00:00",
+  "recorded_at_utc": "2026-10-18T19:51:22.313420+00:00",
   "scope": "current source and byte-identical retained H7S images",
   "sealed_code_head": "7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3",
   "source_dirty": true,
-  "source_head": "becf751ade63b269ac97b7622f3a9460d2861d31"
+  "source_head": "39b9749e7d653228a20d09edffa73de15d5bec96"
 }

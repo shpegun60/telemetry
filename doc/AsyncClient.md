@@ -76,6 +76,8 @@ accepts the complete packet. Partial writes do not qualify. The port's copy
 remains alive and unchanged until the driver releases it, including after a
 client timeout, reset or disconnect. TX release and endpoint completion are
 independent events. Deliver complete replies through `client.onReply()`.
+Every physical send, including a same-transaction RPC retry with the same
+request ID, requires a fresh `prepareHandoff()` permission.
 
 ## Backends and recovery
 
@@ -133,6 +135,12 @@ For JS/TS add `--client-runtime` to the normal generator command; codec modules
 remain usable independently. Promise results follow the same statuses, with
 `cancel()` on each returned Promise. C++ uses fixed-width integers, JS uses
 `bigint`, and existing QML conversion rules keep wide integers as decimal text.
+JS cancellation completes the logical request without declaring the transport
+idle. The next backend invocation waits for actual I/O release; a checked reply
+can complete successfully while its `WireResult.released` fence still retains
+the transport. After `close()`, `drained` also waits for this release. See the
+[web runtime contract](../lib/telemetry/client/web/README.md) for explicit
+confirmation after an application has closed and drained an old session.
 
 The [bare-metal example](../examples/async_client/README.md),
 [C++ qualification](../tests/async_client/README.md), and

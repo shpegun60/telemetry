@@ -99,6 +99,7 @@ export interface WireResult {
     readonly dispatch: number;
     readonly endpointStatus: number;
     readonly payload: Uint8Array;
+    readonly released?: Promise<void>;
 }
 export interface ExchangeContext {
     readonly session: number;
@@ -112,6 +113,7 @@ export interface BackendContext extends ExchangeContext {
 }
 export interface Backend {
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
+    confirmSessionClosed?(generation: number): boolean;
 }
 export interface ClientOptions {
     readonly backend: Backend;
@@ -130,6 +132,7 @@ export declare class DeviceClient {
     private readonly timeout;
     private pending;
     private active?;
+    private invocation?;
     private epoch;
     private fingerprint;
     private lastEpoch;
@@ -141,6 +144,7 @@ export declare class DeviceClient {
     private timer?;
     private scheduled;
     private pumping;
+    private confirming;
     constructor(options: ClientOptions);
     get session(): number;
     get ready(): boolean;
@@ -148,6 +152,7 @@ export declare class DeviceClient {
     get recoveryGeneration(): number;
     get pendingCount(): number;
     get snapshotBytes(): number;
+    get drained(): boolean;
     openSession(generation: number, header: ByteInput): boolean;
     confirmSessionClosed(generation: number): boolean;
     resetSession(): void;
@@ -169,9 +174,11 @@ export declare class DeviceClient {
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void | Promise<void>;
 export declare class EncodedBackend implements Backend {
     private readonly send;
+    private execution?;
     private waiting?;
     constructor(send: EncodedSend);
     static fromExchange(exchange: Exchange): EncodedBackend;
+    confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     receive(input: ByteInput): boolean;
 }
@@ -219,6 +226,7 @@ export declare class RpcBackend implements Backend {
     private readonly options;
     private executing?;
     constructor(exchange: Exchange, options?: RpcBackendOptions);
+    confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     private run;
     private delay;

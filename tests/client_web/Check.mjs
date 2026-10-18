@@ -21,8 +21,11 @@ function controlled(options = {})
 {
 	const clock = new FakeClock(), starts = [];
 	const backend = {
-		execute : (request, context) =>
-		    new Promise(resolve => starts.push({request, context, resolve}))
+		execute : (request, context) => new Promise(resolve => {
+		    // This fake owns no physical I/O; abort therefore makes it quiescent.
+		    context.signal.addEventListener('abort', () => resolve({}), {once : true});
+		    starts.push({request, context, resolve});
+		})
 	};
 	const client = new DeviceClient({
 		backend,
@@ -300,8 +303,12 @@ for (const [operation, fragmentBytes, expected] of [[ 2, 24, Status.Cancelled ],
 	} else {
 		truth(client.ready);
 		equal(client.session, 1);
+		client.resetSession();
+		truth(client.confirmSessionClosed(1));
+		truth(client.openSession(2, header));
 	}
-	// A transport Promise that never settles does not hold the logical FIFO open.
+	// Only the explicit assertion that the old physical transport closed/drained
+	// permits a fresh session while its obsolete Promise remains unresolved.
 	const second = client.read(bindings()[4]);
 	await flush();
 	equal(packets.length, 2);

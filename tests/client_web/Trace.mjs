@@ -96,6 +96,8 @@ export async function runTrace(runtime, test)
 		    events.push(`START ${runtime.Operations[request.operation]} ${request.endpointId} ${
 				hex(request.payload) || '-'}`);
 		    return new Promise(resolve => {
+			    // The trace backend has no physical I/O to drain after abort.
+			    context.signal.addEventListener('abort', () => resolve({}), {once : true});
 			    active = {request, context, resolve};
 		    });
 		}

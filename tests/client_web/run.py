@@ -95,7 +95,8 @@ def main():
             expected[test['name']] = output.strip().splitlines()
         for label, module in (('js', ROOT / 'lib/telemetry/client/web/Client.js'),
                               ('ts', runtime / 'Client.js')):
-            counted([args.node, HERE / 'Check.mjs', module], 'web-' + label, 330)
+            counted([args.node, HERE / 'Check.mjs', module], 'web-' + label, 332)
+            counted([args.node, HERE / 'Lifetime.mjs', module], 'lifetime-' + label, 335)
             traces = run([args.node, HERE / 'Trace.mjs', module], 'traces-' + label)
             for line in traces.splitlines():
                 test = json.loads(line)

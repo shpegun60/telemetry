@@ -108,6 +108,9 @@ export interface WireResult {
 	readonly dispatch: number;
 	readonly endpointStatus: number;
 	readonly payload: Uint8Array;
+	// A checked outcome can precede physical release. Resolve/reject both mean quiescent,
+	// without changing the known endpoint outcome. Backend cleanup must precede settlement.
+	readonly released?: Promise<void>;
 }
 export interface ExchangeContext {
 	readonly session: number;
@@ -122,7 +125,10 @@ export interface BackendContext extends ExchangeContext {
 	handoff(mayExecute: boolean): boolean;
 }
 export interface Backend {
+	// Settlement releases physical I/O, unless a checked result supplies released.
 	execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
+	// Application asserts this aborted session's transport has actually closed/drained.
+	confirmSessionClosed?(generation: number): boolean;
 }
 
 class BackendFailure extends Error {
@@ -177,6 +183,7 @@ export class DeviceClient {
 	private readonly timeout: number;
 	private pending: Pending[] = [];
 	private active?: Pending;
+	private invocation?: Pending;
 	private epoch = 0;
 	private fingerprint = 0n;
 	private lastEpoch = 0;
@@ -188,6 +195,7 @@ export class DeviceClient {
 	private timer?: unknown;
 	private scheduled = false;
 	private pumping = false;
+	private confirming = false;
 
 	constructor(options: ClientOptions)
 	{
@@ -233,11 +241,16 @@ export class DeviceClient {
 		return this.payloadBytes;
 	}
 
+	get drained(): boolean
+	{
+		return this.stopped && this.pending.length === 0 && !this.invocation;
+	}
+
 	// Caller opens a fresh physical session and supplies its admitted descriptor header.
 	openSession(generation: number, header: ByteInput): boolean
 	{
-		if (this.stopped || this.recoveryRequired || this.pending.length || !u32(generation) ||
-		    generation === 0 || generation <= this.lastEpoch)
+		if (this.stopped || this.confirming || this.recoveryRequired || this.pending.length ||
+		    this.invocation || !u32(generation) || generation === 0 || generation <= this.lastEpoch)
 			return false;
 		let matches = false;
 		let declared: Uint8Array;
@@ -260,8 +273,29 @@ export class DeviceClient {
 	// Re-admitting a header alone never makes an uncertain old session safe.
 	confirmSessionClosed(generation: number): boolean
 	{
-		if (!this.recoveryRequired || generation !== this.recoveryEpoch || this.pending.length)
+		if (this.confirming || this.admitted || !this.epoch || generation !== this.epoch ||
+		    this.pending.length ||
+		    (this.invocation && (this.invocation.request.session !== generation ||
+		                         !this.invocation.controller.signal.aborted)))
 			return false;
+		this.confirming = true;
+		try {
+			const confirm = this.backend.confirmSessionClosed;
+			if (confirm) {
+				const confirmed: unknown = confirm.call(this.backend, generation);
+				if (confirmed !== true) {
+					// Refuse async/truthy hooks; observe a rejected async hook without trusting it.
+					Promise.resolve(confirmed).catch(() => {
+					                                 });
+					return false;
+				}
+			}
+		} catch {
+			return false;
+		} finally {
+			this.confirming = false;
+		}
+		this.invocation = undefined;
 		this.recoveryEpoch = 0;
 		return true;
 	}
@@ -437,8 +471,8 @@ export class DeviceClient {
 				if (!pending.done && now >= pending.deadline)
 					this.finish(pending, Status.Timeout);
 			}
-			if (!this.active && this.ready && this.pending.length) {
-				const pending = this.active = this.pending[0];
+			if (!this.active && !this.invocation && this.ready && this.pending.length) {
+				const pending = this.invocation = this.active = this.pending[0];
 				const context: BackendContext = {
 					session : pending.request.session,
 					requestId : pending.request.requestId,
@@ -456,6 +490,10 @@ export class DeviceClient {
 					    return true;
 					}
 				};
+				const release = () => {
+					if (this.invocation === pending)
+						this.invocation = undefined;
+				};
 				Promise.resolve()
 				    .then(() => {
 					    if (pending.done)
@@ -464,8 +502,21 @@ export class DeviceClient {
 				    })
 				    .then(
 				        wire => {
-					        if (pending.done)
+					        const released = wire?.released;
+					        if (released) {
+						        const quiescent = () => {
+							        release();
+							        this.schedule();
+						        };
+						        Promise.resolve(released).then(quiescent, quiescent);
+					        } else {
+						        release();
+					        }
+					        if (pending.done) {
+						        if (!released)
+							        this.schedule();
 						        return;
+					        }
 					        if (this.clock.now() >= pending.deadline) {
 						        this.finish(pending, Status.Timeout);
 						        return;
@@ -488,10 +539,13 @@ export class DeviceClient {
 					        }
 				        },
 				        error => {
+					        release();
 					        if (!pending.done)
 						        this.finish(pending, error instanceof BackendFailure
 						                                 ? error.status
 						                                 : Status.TransportError);
+					        else
+						        this.schedule();
 				        });
 			}
 		} finally {
@@ -568,6 +622,7 @@ export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void
 
 // Complete frames only. The port owns framing and exposes received frames via receive().
 export class EncodedBackend implements Backend {
+	private execution?: {context: BackendContext};
 	private waiting?: {
 		request: WireRequest; context : BackendContext; resolve : (value: WireResult) => void;
 		reject : (error: unknown) => void
@@ -586,11 +641,19 @@ export class EncodedBackend implements Backend {
 		return backend;
 	}
 
-	execute(request: WireRequest, context: BackendContext): Promise<WireResult>
+	confirmSessionClosed(generation: number): boolean
 	{
-		if (this.waiting)
-			return Promise.reject(
-			    new BackendFailure(Status.Busy, 'Encoded backend already active'));
+		if (this.execution && (this.execution.context.session !== generation ||
+		                       !this.execution.context.signal.aborted))
+			return false;
+		this.execution = undefined;
+		return true;
+	}
+
+	async execute(request: WireRequest, context: BackendContext): Promise<WireResult>
+	{
+		if (this.execution)
+			throw new BackendFailure(Status.Busy, 'Encoded backend already active');
 		const packet = new Uint8Array(32 + request.payload.length),
 		      data = new DataView(packet.buffer);
 		data.setUint32(0, 0x31514554, true);
@@ -602,7 +665,9 @@ export class EncodedBackend implements Backend {
 		data.setUint32(20, request.payload.length, true);
 		data.setUint32(24, request.responseBytes, true);
 		packet.set(request.payload, 32);
-		return new Promise((resolve, reject) => {
+		const execution = this.execution = {context};
+		let transfer: Promise<unknown> = Promise.resolve();
+		const response = new Promise<WireResult>((resolve, reject) => {
 			const waiting = {request, context, resolve, reject};
 			this.waiting = waiting;
 			context.signal.addEventListener('abort', () => {
@@ -618,17 +683,33 @@ export class EncodedBackend implements Backend {
 				return;
 			}
 			try {
-				Promise.resolve(this.send(packet, context)).catch(error => {
+				transfer = Promise.resolve(this.send(packet, context));
+				transfer.catch(error => {
 					if (this.waiting === waiting) {
 						this.waiting = undefined;
 						reject(error);
 					}
 				});
 			} catch (error) {
-				this.waiting = undefined;
+				if (this.waiting === waiting)
+					this.waiting = undefined;
 				reject(error);
 			}
 		});
+		const release = () => {
+			if (this.execution === execution)
+				this.execution = undefined;
+		};
+		try {
+			const wire = await response;
+			// Preserve a checked outcome even while the send still owns physical I/O.
+			// Cleanup must precede the client's release handler and next FIFO invocation.
+			return {...wire, released : transfer.then(release, release)};
+		} catch (error) {
+			// Abort requests cancellation; only settlement proves the port released its bytes/I/O.
+			await transfer.then(release, release);
+			throw error;
+		}
 	}
 
 	receive(input: ByteInput): boolean
@@ -960,7 +1041,7 @@ export interface RpcBackendOptions extends Omit<RpcOptions, 'transactionId'> {
 // terminal outcome is quarantined by DeviceClient; a fresh request is never a retry.
 export class RpcBackend implements Backend {
 	private readonly options: RpcBackendOptions;
-	private executing?: object;
+	private executing?: {context: BackendContext};
 
 	constructor(private readonly exchange: Exchange, options: RpcBackendOptions = {})
 	{
@@ -978,6 +1059,15 @@ export class RpcBackend implements Backend {
 		integer(options.maxReplyBytes ?? 1048576, 32, 0xffffffff, 'Reply capacity');
 	}
 
+	confirmSessionClosed(generation: number): boolean
+	{
+		if (this.executing && (this.executing.context.session !== generation ||
+		                       !this.executing.context.signal.aborted))
+			return false;
+		this.executing = undefined;
+		return true;
+	}
+
 	async execute(request: WireRequest, context: BackendContext): Promise<WireResult>
 	{
 		if (this.executing)
@@ -985,17 +1075,15 @@ export class RpcBackend implements Backend {
 		if (request.payload.length > (this.options.maxRequestBytes ?? 1048576) - 24 ||
 		    request.responseBytes > (this.options.maxReplyBytes ?? 1048576) - 32)
 			throw new BackendFailure(Status.BufferTooSmall, 'RPC request/result capacity');
-		const execution = {};
+		const execution = {context};
 		this.executing = execution;
 		const release = () => {
 			if (this.executing === execution)
 				this.executing = undefined;
 		};
-		context.signal.addEventListener('abort', release, {once : true});
 		try {
 			return await this.run(request, context);
 		} finally {
-			context.signal.removeEventListener('abort', release);
 			release();
 		}
 	}
@@ -1075,6 +1163,7 @@ export class RpcBackend implements Backend {
 			const ownedPacket = packet.slice();
 			const controller = new AbortController();
 			let done = false;
+			let interrupted: {error: unknown}|undefined;
 			const settle = (error?: unknown, reply?: ByteInput, failed = true) => {
 				if (done)
 					return;
@@ -1082,18 +1171,23 @@ export class RpcBackend implements Backend {
 				context.clock.clearTimeout(timer);
 				context.signal.removeEventListener('abort', abort);
 				controller.abort();
-				if (failed)
-					reject(error);
+				if (interrupted || failed)
+					reject(interrupted ? interrupted.error : error);
 				else
 					resolve(reply!);
 			};
-			const abort = () => settle(new BackendFailure(Status.Cancelled, 'RPC cancelled'));
+			const interrupt = (error: unknown) => {
+				interrupted ??= {error};
+				context.clock.clearTimeout(timer);
+				controller.abort();
+			};
+			const abort = () => interrupt(new BackendFailure(Status.Cancelled, 'RPC cancelled'));
 			const timer = context.clock.setTimeout(
-			    () => settle(new BackendFailure(Status.Timeout, 'RPC ACK timeout')),
+			    () => interrupt(new BackendFailure(Status.Timeout, 'RPC ACK timeout')),
 			    this.options.ackTimeoutMs ?? 1000);
 			context.signal.addEventListener('abort', abort, {once : true});
 			if (context.signal.aborted) {
-				abort();
+				settle(new BackendFailure(Status.Cancelled, 'RPC cancelled'));
 				return;
 			}
 			if (!context.handoff(mayExecute)) {

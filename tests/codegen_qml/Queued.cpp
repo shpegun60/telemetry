@@ -8,6 +8,7 @@
 #include <QSignalSpy>
 #include <cstdio>
 #include <stdexcept>
+#include <utility>
 
 namespace cf = codegen_fixture;
 namespace qa = device_api::qml;
@@ -47,6 +48,98 @@ static void events()
 	QCoreApplication::processEvents();
 }
 
+// Advance the real backend clock precisely inside the final permission call,
+// after the QML precheck. No event delivery or API mutation is involved.
+struct HandoffClockBackend final : tc::Backend {
+	tc::Backend& backend;
+	std::uint32_t& now;
+	std::uint32_t advanceOnPrepare = 0;
+
+	HandoffClockBackend(tc::Backend& value, std::uint32_t& clock) : backend(value), now(clock)
+	{}
+
+	tc::Status start(tc::RequestView request, std::uint32_t value) noexcept override
+	{
+		return backend.start(request, value);
+	}
+
+	void process(std::uint32_t value) noexcept override
+	{
+		backend.process(value);
+	}
+
+	bool completed() const noexcept override
+	{
+		return backend.completed();
+	}
+
+	tc::ResultView result() const noexcept override
+	{
+		return backend.result();
+	}
+
+	void releaseResult() noexcept override
+	{
+		backend.releaseResult();
+	}
+
+	void cancel(tc::Status reason) noexcept override
+	{
+		backend.cancel(reason);
+	}
+
+	bool ready() const noexcept override
+	{
+		return backend.ready();
+	}
+
+	bool recoveryRequired() const noexcept override
+	{
+		return backend.recoveryRequired();
+	}
+
+	std::uint32_t session() const noexcept override
+	{
+		return backend.session();
+	}
+
+	bool openSession(std::uint32_t value) noexcept override
+	{
+		return backend.openSession(value);
+	}
+
+	bool confirmSessionClosed(std::uint32_t value) noexcept override
+	{
+		return backend.confirmSessionClosed(value);
+	}
+
+	void close() noexcept override
+	{
+		backend.close();
+	}
+
+	tc::Packet nextPacket() noexcept override
+	{
+		return backend.nextPacket();
+	}
+
+	bool prepareHandoff(std::uint32_t session, std::uint32_t request) noexcept override
+	{
+		now += std::exchange(advanceOnPrepare, 0);
+		return backend.prepareHandoff(session, request);
+	}
+
+	bool onSendAccepted(std::uint32_t session, std::uint32_t request) noexcept override
+	{
+		return backend.onSendAccepted(session, request);
+	}
+
+	bool onReply(tc::Input bytes, std::uint32_t session, std::uint32_t request) noexcept override
+	{
+		return backend.onReply(bytes, session, request);
+	}
+};
+
 struct Harness {
 	qa::DeviceApi api;
 	std::uint32_t now = 0;
@@ -64,7 +157,8 @@ struct Harness {
 	tc::Clock clock{this, [](void* self) noexcept {
 		                return static_cast<Harness*>(self)->now;
 	                }};
-	tc::rpc::RpcBackend backend{native, clock};
+	tc::rpc::RpcBackend rpcBackend{native, clock};
+	HandoffClockBackend backend{rpcBackend, now};
 	qa::DeviceClientAdapter<qa::DeviceApi, 3, 256> adapter{api, backend, clock};
 	QSignalSpy finished{&api, &qa::DeviceApi::operationFinished};
 
@@ -129,6 +223,88 @@ struct Harness {
 		check(finished.size() == qsizetype(count), "exactly one completion per token");
 	}
 };
+
+static void handoffDeadlineRace()
+{
+	Harness h;
+	h.api.setRequestTimeoutMs(5000);
+	const auto calls = client_example::device.calls;
+	const auto token = invoke(h.api.device(), "reset");
+	events();
+	const auto packet = h.adapter.nextPacket();
+	check(packet && packet.mayExecute, "deadline race reaches final WRITE permission");
+	h.backend.advanceOnPrepare = 6000;
+	check(!h.adapter.prepareHandoff(packet.session, packet.requestId),
+	      "deadline crossing inside core gate refuses all transport handoff");
+	check(!h.native.active() && !h.adapter.recoveryRequired(),
+	      "never-permitted final WRITE retains certain nonexecution");
+	// Reset immediately, before the core's queued Timeout delivery. A rejected
+	// joint permission must not leave QML's mayExecute bit set in this interval.
+	h.api.resetSession();
+	events();
+	check(h.result(token).value("errorKind").toString() == QStringLiteral("Cancelled"),
+	      "rejected core handoff never turns session reset into OutcomeUnknown");
+	check(client_example::device.calls == calls, "rejected handoff executes no callback");
+}
+
+static void acceptedHandoffRemainsUnknown()
+{
+	Harness h;
+	const auto calls = client_example::device.calls;
+	const auto token = invoke(h.api.device(), "reset");
+	events();
+	const auto packet = h.adapter.nextPacket();
+	check(packet && packet.mayExecute, "accepted case reaches final WRITE");
+	std::copy(packet.bytes.begin(), packet.bytes.end(), h.copy.begin());
+	check(h.adapter.prepareHandoff(packet.session, packet.requestId),
+	      "joint final handoff permitted");
+	check(h.adapter.prepareHandoff(packet.session, packet.requestId),
+	      "same transaction reuses Qt permission with fresh core gate");
+	check(h.adapter.onSendAccepted(packet.session, packet.requestId),
+	      "actual complete packet accepted");
+	const auto reply =
+	    h.pool.handle(h.remote, tc::Input{h.copy}.first(packet.bytes.size()), h.reply);
+	check(reply.status == rpc::RpcSessionStatus::Ok && reply.ticket.serial != 0,
+	      "actual server receives final WRITE");
+	check(h.pool.replyAccepted(h.remote, reply.ticket) == rpc::RpcSessionStatus::Ok,
+	      "actual server commits ACK and executes callback");
+	(void)h.pool.process(h.now);
+	check(client_example::device.calls == calls + 1, "one permitted native effect executed");
+	// The response is withheld. Later deadline/session events cannot undo that
+	// possible effect or turn a successful joint permission back into NotSent.
+	h.now += 6000;
+	check(!h.adapter.prepareHandoff(packet.session, packet.requestId),
+	      "later expired permission cannot erase an earlier possible handoff");
+	h.api.resetSession();
+	events();
+	check(h.result(token).value("errorKind").toString() == QStringLiteral("OutcomeUnknown"),
+	      "true handoff keeps OutcomeUnknown after deadline and session reset");
+	check(h.adapter.recoveryRequired(), "true final WRITE timeout still requires remote recovery");
+}
+
+static void qtDeadlineRefusesBeforeCore()
+{
+	Harness h;
+	h.api.setRequestTimeoutMs(50);
+	const auto calls = client_example::device.calls;
+	const auto token = invoke(h.api.device(), "reset");
+	events();
+	const auto packet = h.adapter.nextPacket();
+	check(packet && packet.mayExecute, "Qt expiry case reaches final WRITE");
+	QThread::msleep(75);
+	h.backend.advanceOnPrepare = 6000;
+	check(!h.adapter.prepareHandoff(packet.session, packet.requestId),
+	      "expired Qt deadline refuses permission before core callback");
+	check(h.backend.advanceOnPrepare == 6000 && h.now == 0,
+	      "expired Qt precheck never calls backend permission");
+	h.adapter.process(h.now);
+	QCoreApplication::sendPostedEvents(&h.api, QEvent::MetaCall);
+	events();
+	check(h.result(token).value("errorKind").toString() == QStringLiteral("Timeout"),
+	      "expired Qt precheck remains Timeout without send");
+	check(client_example::device.calls == calls && !h.adapter.recoveryRequired(),
+	      "Qt refusal executes no effect and creates no uncertain recovery");
+}
 
 int main(int argc, char** argv)
 {
@@ -196,6 +372,9 @@ int main(int argc, char** argv)
 		check(h.result(expired).value("errorKind").toString() == QStringLiteral("Timeout"),
 		      "expired unsent queued request keeps Timeout ahead of Qt timer");
 		check(client_example::device.calls == 3, "expired queued command never executed");
+		handoffDeadlineRace();
+		acceptedHandoffRemainsUnknown();
+		qtDeadlineRefusesBeforeCore();
 		std::printf("QML queued checks=%u packets=%u\n", checks, packets);
 		return 0;
 	} catch (const std::exception& error) {

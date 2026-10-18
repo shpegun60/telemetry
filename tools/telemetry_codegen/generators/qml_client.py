@@ -135,8 +135,14 @@ public:
         auto it = active();
         if (it == pending_.end() || !api_ || !api_->requestActive(it.key(), it->session)) return false;
         if (packet.mayExecute && !it->handedOff) {
-            if (!api_->transportHandoffAccepted(it.key(), it->session)) return false;
-            it->handedOff = true;
+            // The API checks its deadline first; the core then makes the final
+            // permission decision. Refusal never commits Qt's mayExecute bit.
+            const bool accepted = api_->commitTransportHandoff(it.key(), it->session,
+                [this, session, requestId]() noexcept {
+                    return client_.prepareHandoff(session, requestId);
+                });
+            if (accepted) it->handedOff = true;
+            return accepted;
         }
         return client_.prepareHandoff(session, requestId);
     }
