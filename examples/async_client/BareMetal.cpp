@@ -1,6 +1,6 @@
 /* Generated SDK client in a cooperative board loop. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #include <device_api/ClientBindings.hpp>
-#include <telemetry/client/encoded/EncodedBackend.hpp>
+#include <integration/encoded/Backend.hpp>
 #include <algorithm>
 
 namespace cl = telemetry::client;
@@ -23,7 +23,7 @@ static std::array<std::byte, 1024> tx{}, response{}, portTx{}, portRx{};
 static cl::Clock clientClock{nullptr, +[](void*) noexcept {
 	                             return board_millis();
                              }};
-static cl::EncodedBackend backend{tx, response, clientClock};
+static ::telemetry::integration::encoded::EncodedBackend backend{tx, response, clientClock};
 static api::client::DeviceClient<4, 256> client{backend, clientClock};
 static unsigned completed = 0, failed = 0;
 

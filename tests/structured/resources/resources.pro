@@ -17,8 +17,8 @@ equals(MODE, rpc)|equals(MODE, both)|equals(MODE, client_server)|equals(MODE, se
 equals(MODE, client)|equals(MODE, client_server)|equals(MODE, all) {
     CONFIG += telemetry_client_rpc
     DEFINES += WITH_RPC_CLIENT
-    include($$PWD/../../../lib/telemetry/client/client.pri)
-    include($$PWD/../../../lib/telemetry/client/client.pri)
+    include($$PWD/../../../lib/client/client.pri)
+    include($$PWD/../../../lib/client/client.pri)
 }
 equals(MODE, sessions)|equals(MODE, all) {
     CONFIG += resource_telemetry_rpc_sessions
@@ -36,7 +36,9 @@ equals(MODE, client) {
     include($$PWD/../../../lib/telemetry/telemetry.pri)
 }
 include($$PWD/../../../lib/resource/resource.pri)
+include($$PWD/../../../lib/integration/integration.pri)
 include($$PWD/../../../lib/resource/resource.pri)
+include($$PWD/../../../lib/integration/integration.pri)
 
 # This is the actual qmake SOURCES list after repeated manifest inclusion.
 # The runner also inspects generated OBJECTS, compile recipes and built files.

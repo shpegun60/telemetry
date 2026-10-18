@@ -8,11 +8,11 @@
 #pragma once
 
 #include "../../examples/structured_client/Device.hpp"
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 
 namespace codegen_fixture {
+namespace rs = ::resource::telemetry::v3;
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 namespace ex = client_example;
 
 struct Empty {};
@@ -99,8 +99,8 @@ inline constexpr ts::CommandCatalogTable commands{ts::group("device", ex::localC
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", ex::localServices),
                                                   ts::group("edge", edgeServices)};
 inline constexpr ts::Model model{fields, commands, services};
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline std::array<std::byte, model.maxScratch()> scratch{};
 inline ts::Workspace workspace{scratch};
 } // namespace codegen_fixture

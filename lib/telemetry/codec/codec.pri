@@ -1,14 +1,11 @@
-# Explicit header-only canonical codec and type dependencies. MIT.
-# Client-only consumers include this before resource.pri; no Model adapter or
-# compiled layout boundary is selected by this independent manifest.
+# Native codec and reflection, without Model runtime. MIT.
 isEmpty(TELEMETRY_CODEC_PRI_INCLUDED) {
     TELEMETRY_CODEC_PRI_INCLUDED = 1
+    include($$PWD/../../common/common.pri)
     CONFIG -= c++11 c++14 c++17
     CONFIG += c++20
-    INCLUDEPATH += $$PWD/../.. $$PWD/../../boost_pfr/include $$PWD/../../magic_enum
-    HEADERS += $$files($$PWD/*.hpp) \
-        $$files($$PWD/../type/*.hpp) \
-        $$files($$PWD/../reflection/*.hpp) \
-        $$PWD/../core/Compiler.hpp
-    DISTFILES += $$PWD/../README.md $$PWD/../LICENSE
+    INCLUDEPATH += $$PWD/../../boost_pfr/include $$PWD/../../magic_enum
+    HEADERS += $$files($$PWD/../../telemetry/codec/*.hpp) \
+        $$PWD/../../telemetry/type/Traits.hpp \
+        $$files($$PWD/../../telemetry/reflection/*.hpp, true)
 }

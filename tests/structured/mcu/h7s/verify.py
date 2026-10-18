@@ -34,7 +34,7 @@ REQUIRED_INPUTS = {
     'tests/structured/qualification/Encoded.cpp', 'tests/structured/traversal/Fixture.hpp',
     'tests/structured/mcu/h7s/StackCall.S',
     'lib/telemetry/model/Adapter.cpp', 'lib/telemetry/abi/StructuredAbi.cpp',
-    'lib/resource/telemetry/v3/detail/Values.cpp',
+    'lib/integration/telemetry/v3/detail/Values.cpp',
     'tests/h7s_support/build.py',
 }
 MIXED = (

@@ -97,7 +97,7 @@ Fenced fragments пояснюють окремий крок; повну прог
 | Packet processor | [Resource protocol](../lib/resource/protocol/README.md) |
 | Optional RPC provider: wire v1.0, повтори, стани й сеанс | [RpcMailbox contract](RpcMailboxV1.md), [host example](../examples/rpc_mailbox/README.md) |
 | Optional typed caller і server session manager | [RpcClient](RpcClientV1.md), [RpcSessionPool](RpcSessionsV1.md) |
-| Descriptor/Values provider lifetime і storage | [V3 providers](../lib/resource/telemetry/v3/README.md) |
+| Descriptor/Values provider lifetime і storage | [V3 providers](../lib/integration/telemetry/v3/README.md) |
 | Exact wire constants, default ceilings і goldens | [Wire v3.0](WireV3.md), [freeze manifest](../tests/structured/freeze/contract.json) |
 | JS native payload codec та parser | [Client API](../tests/structured/client/README.md) |
 

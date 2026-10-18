@@ -5,7 +5,7 @@
 
 ## Призначення та межа модулів
 
-`resource::telemetry::v3::RpcClient` виконує один вихідний RPC за раз.
+`telemetry::client::rpc::RpcClient` виконує один вихідний RPC за раз.
 Він кодує typed Request, формує Resource WRITE/READ, перевіряє ACK,
 опитує стан, збирає відповідь і декодує її через наявний Telemetry Codec.
 Application передає повні пакети, час та підтвердження передачі.
@@ -24,7 +24,7 @@ Baseline реалізації цього розширення —
 ## Підключення
 
 ```cpp
-#include <telemetry/client/rpc/RpcClient.hpp>
+#include <client/rpc/RpcClient.hpp>
 namespace rpc = resource::telemetry::v3;
 ```
 
@@ -35,15 +35,14 @@ Model Adapter чи RpcMailbox. Для qmake використовуйте окр�
 
 ```qmake
 CONFIG += telemetry_client_rpc
-include(path/to/lib/telemetry/client/client.pri)
+include(path/to/lib/client/client.pri)
 ```
 
 `client.pri` підключає header-only Codec та компілює лише
-`lib/telemetry/client/rpc/RpcClient.cpp`. Generic `Protocol.cpp` потрібний
+`lib/client/rpc/RpcClient.cpp`. Generic `Protocol.cpp` потрібний
 окремо для серверного `resource::protocol::process()`.
-Symbols `resource::telemetry::v3` збережені; новий namespace
-`telemetry::client::rpc` надає aliases. Старий include path доступний лише
-через явно доданий `lib/telemetry/client/compat` include root.
+The RPC client and its endpoint/status types are defined in
+`telemetry::client::rpc`. Include `<client/rpc/RpcClient.hpp>`.
 
 `beginEncoded(operation, id, payload, responseBytes)` копіює вже перевірений
 canonical payload до request buffer. Цей raw entry point довіряє admission
@@ -92,9 +91,9 @@ server-side reply packet забезпечує application; це не result stor
 struct Add { std::uint32_t value; };
 struct Report { std::uint32_t total; };
 
-constexpr rpc::ServiceEndpoint<Add, Report> add{0, rpc::trustedRpcMapping};
-constexpr rpc::CommandEndpoint<> stop{0, rpc::trustedRpcMapping};
-constexpr rpc::FieldEndpoint<float> voltage{0, rpc::trustedRpcMapping};
+constexpr ::telemetry::client::rpc::ServiceEndpoint<Add, Report> add{0, ::telemetry::client::rpc::trustedRpcMapping};
+constexpr ::telemetry::client::rpc::CommandEndpoint<> stop{0, ::telemetry::client::rpc::trustedRpcMapping};
+constexpr ::telemetry::client::rpc::FieldEndpoint<float> voltage{0, ::telemetry::client::rpc::trustedRpcMapping};
 ```
 
 Packed endpoint ID — `u32`. Однаковий числовий ID у різних сімействах має

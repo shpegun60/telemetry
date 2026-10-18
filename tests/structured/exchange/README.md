@@ -7,7 +7,7 @@ and their `.pri` files do not select or require this protocol. Packet-only
 statuses are owned by the example; endpoint statuses remain in telemetry.
 The hardware figures/receipt below were refreshed on 2026-10-03 against
 the protocol-relocation snapshot. They predate the final `telemetry` namespace
-and `resource/telemetry/v3` path migration; they are historical measurements.
+and `integration/telemetry/v3` path migration; they are historical measurements.
 Current C++ declarations use `<telemetry/Telemetry.hpp>` and namespace
 `telemetry`. The original receipt is preserved in the
 [Stage 11 archive](../../../doc/evidence/pre-unification/stage11/receipt.json).

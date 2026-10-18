@@ -21,8 +21,8 @@ target_sources(telemetry_qml_check PRIVATE
     "${TELEMETRY_ROOT}/lib/telemetry/abi/StructuredAbi.cpp"
     "${TELEMETRY_ROOT}/lib/telemetry/model/Adapter.cpp"
     "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"
-    "${TELEMETRY_ROOT}/lib/resource/telemetry/v3/RpcMailbox.cpp"
-    "${TELEMETRY_ROOT}/lib/telemetry/client/rpc/RpcClient.cpp")
+    "${TELEMETRY_ROOT}/lib/integration/telemetry/v3/RpcMailbox.cpp"
+    "${TELEMETRY_ROOT}/lib/client/rpc/RpcClient.cpp")
 target_link_libraries(telemetry_qml_check PRIVATE telemetry_qml_device_api
     telemetry_qml_device_apiplugin Qt6::Quick Qt6::Test)
 qt_import_qml_plugins(telemetry_qml_check)
@@ -36,6 +36,6 @@ target_sources(telemetry_qml_queued PRIVATE
     "${TELEMETRY_ROOT}/lib/telemetry/abi/StructuredAbi.cpp"
     "${TELEMETRY_ROOT}/lib/telemetry/model/Adapter.cpp"
     "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"
-    "${TELEMETRY_ROOT}/lib/resource/telemetry/v3/RpcMailbox.cpp"
-    "${TELEMETRY_ROOT}/lib/telemetry/client/rpc/RpcClient.cpp")
+    "${TELEMETRY_ROOT}/lib/integration/telemetry/v3/RpcMailbox.cpp"
+    "${TELEMETRY_ROOT}/lib/client/rpc/RpcClient.cpp")
 target_link_libraries(telemetry_qml_queued PRIVATE telemetry_qml_device_api Qt6::Test)

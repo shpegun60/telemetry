@@ -3,8 +3,8 @@
 #include "Fixture.hpp"
 
 namespace qualification {
-inline constexpr rs::Descriptor descriptor{fixture::model};
-inline constexpr auto packed = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{fixture::model};
+inline constexpr auto packed = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr rs::ValuesFile values{descriptor, sharedWorkspace};
 
 ts::ModelView modelView() noexcept

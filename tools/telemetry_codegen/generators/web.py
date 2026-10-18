@@ -415,6 +415,6 @@ def generate_ts(schema, client_runtime=False) -> dict[str, str]:
 def _client_files(target, extensions):
     """Copy the optional self-contained runtime; codecs keep no runtime import."""
     from pathlib import Path
-    runtime = Path(__file__).resolve().parents[3] / "lib/telemetry/client/web"
+    runtime = Path(__file__).resolve().parents[3] / "lib/client/web"
     return {f"{target}/client.{extension}": (runtime / f"Client.{extension}").read_text(encoding="utf-8")
             for extension in extensions}

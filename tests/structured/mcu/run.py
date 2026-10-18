@@ -26,7 +26,7 @@ EXPECTED_PROBE_CHECKS = {'Mixed': 12230, 'Scale': 2316}
 LIBRARY = [ROOT / name for name in (
     'lib/telemetry/model/Adapter.cpp',
     'lib/telemetry/abi/StructuredAbi.cpp',
-    'lib/resource/telemetry/v3/detail/Values.cpp')]
+    'lib/integration/telemetry/v3/detail/Values.cpp')]
 
 
 def bodies(assembly):

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "uart_bench.h"
-#include <resource/telemetry/v3/RpcMailbox.cpp>
+#include <integration/telemetry/v3/RpcMailbox.cpp>
 
 extern "C" {
 BenchCounter g_bench_usart_irq{};

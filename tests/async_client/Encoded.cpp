@@ -486,8 +486,8 @@ int main(int argc, char** argv)
 	(void)argc;
 	(void)argv;
 #endif
-	static_assert(!std::is_copy_constructible_v<client::EncodedBackend>);
-	static_assert(!std::is_move_constructible_v<client::EncodedBackend>);
+	static_assert(!std::is_copy_constructible_v<::telemetry::integration::encoded::EncodedBackend>);
+	static_assert(!std::is_move_constructible_v<::telemetry::integration::encoded::EncodedBackend>);
 	goldenWire();
 	realModel();
 	rejectsBeforeEffects();

@@ -5,7 +5,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. Own code: [MIT](LICENSE).
 `telemetry` defines native typed Fields, Commands and Services, their local
 tables and global catalogs, and one mixed `Model`. The Model derives an
 immutable type registry from all three families. The optional
-[`resource::telemetry::v3` providers](../resource/telemetry/v3/README.md) expose
+[`resource::telemetry::v3` providers](../integration/telemetry/v3/README.md) expose
 the canonical descriptor and values files; the [JavaScript codec](../../web/telemetry.js)
 decodes those wire types. Applications own transport framing, connection
 state, synchronization and request correlation.

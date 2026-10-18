@@ -95,7 +95,7 @@ def main():
     flags += ['-I' + str(ROOT / name) for name in ('lib', 'lib/boost_pfr/include', 'lib/magic_enum')]
     sources = [ROOT / 'lib/telemetry/abi/StructuredAbi.cpp',
                ROOT / 'lib/telemetry/model/Adapter.cpp',
-               ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp']
+               ROOT / 'lib/integration/telemetry/v3/detail/Values.cpp']
     suffix = '.exe' if os.name == 'nt' else ''
     for source, name in (('Device.cpp', 'client-device'), ('Resources.cpp', 'client-resources')):
         program = out / (name + suffix)

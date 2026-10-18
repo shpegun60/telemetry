@@ -38,6 +38,6 @@ generic packet operations, pass `files.view()` to
 UART/TCP framing remains the caller's responsibility.
 
 For telemetry, add the existing
-[DescriptorFile and ValuesFile](../../lib/resource/telemetry/v3/README.md)
+[DescriptorFile and ValuesFile](../../lib/integration/telemetry/v3/README.md)
 providers as additional entries in the same table. Generic and telemetry files
 need no separate registries or different path syntax.

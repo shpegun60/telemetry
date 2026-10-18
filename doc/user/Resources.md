@@ -53,7 +53,7 @@ optional RPC mailbox; generic resource core від них не залежить.
 | `resource::protocol::client` | [Packets.hpp](../../lib/resource/protocol/Packets.hpp) | Request builders і checked borrowed reply parsers |
 
 `<resource/Resource.hpp>` збирає generic headers першої частини таблиці;
-protocol і `resource/telemetry/v3` залишаються окремими explicit includes.
+protocol і `integration/telemetry/v3` залишаються окремими explicit includes.
 Спільний namespace не перетворює providers або ChunkWriter на transport.
 
 ## Об'єкти й ownership
@@ -367,7 +367,7 @@ LIST/path selection і порційний READ/WRITE. Неповний UART/TCP 
 FileSystemView, однаковий `/telemetry/rpc.bin` може вести до різних providers.
 Generic filesystem і Resource wire при цьому не змінюються.
 
-Optional [`RpcMailbox`](../../lib/resource/telemetry/v3/RpcMailbox.hpp)
+Optional [`RpcMailbox`](../../lib/integration/telemetry/v3/RpcMailbox.hpp)
 публікує FieldWrite, Command, Service і FieldRead через звичайні Resource
 WRITE/READ. Для qmake оберіть `CONFIG += resource_telemetry_rpc` перед
 `resource.pri` та явно підключіть `telemetry.pri`. Цей прапорець незалежний

@@ -12,7 +12,7 @@ sys.path.insert(0, str(HERE.parent))
 from rpc_extension import run_suite
 
 SOURCES = {
-    'mailbox': ROOT / 'lib/resource/telemetry/v3/RpcMailbox.cpp',
+    'mailbox': ROOT / 'lib/integration/telemetry/v3/RpcMailbox.cpp',
     'protocol': ROOT / 'lib/resource/protocol/Protocol.cpp',
     'adapter': ROOT / 'lib/telemetry/model/Adapter.cpp',
     'abi': ROOT / 'lib/telemetry/abi/StructuredAbi.cpp',
@@ -29,9 +29,9 @@ NEGATIVES = {
 }
 SPEC = dict(
     name='rpc-sessions', here=HERE, description=__doc__, prefix='rpc sessions',
-    headers=('resource/telemetry/v3/RpcSessionPool.hpp',),
+    headers=('integration/telemetry/v3/RpcSessionPool.hpp',),
     sources=SOURCES, runtime_sources=SOURCES, negatives=NEGATIVES,
-    example_sources={**SOURCES, 'client': ROOT / 'lib/telemetry/client/rpc/RpcClient.cpp'},
+    example_sources={**SOURCES, 'client': ROOT / 'lib/client/rpc/RpcClient.cpp'},
     roots=('rpc_sessions_acquire', 'rpc_sessions_handle', 'rpc_sessions_reply_accepted',
            'rpc_sessions_process', 'rpc_sessions_release', 'rpc_sessions_roots'),
     entry='rpc_sessions_roots', arm_define='RPC_SESSIONS_ARM_PROBE',

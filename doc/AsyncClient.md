@@ -83,7 +83,7 @@ request ID, requires a fresh `prepareHandoff()` permission.
 
 Encoded request/reply v1 adds an independent 32-byte LE envelope; it changes
 neither Descriptor v3 nor RPC v1. Every operation receives a status response.
-The server uses [EncodedDispatcher](../lib/resource/telemetry/v3/EncodedDispatcher.hpp)
+The server uses [EncodedDispatcher](../lib/integration/encoded/Dispatcher.hpp)
 to call existing Model Encoded operations. Session, request, operation, endpoint,
 lengths and statuses are checked. It has no retry or server deduplication;
 delivering the same request twice may execute it twice.
@@ -139,7 +139,7 @@ JS cancellation completes the logical request without declaring the transport
 idle. The next backend invocation waits for actual I/O release; a checked reply
 can complete successfully while its `WireResult.released` fence still retains
 the transport. After `close()`, `drained` also waits for this release. See the
-[web runtime contract](../lib/telemetry/client/web/README.md) for explicit
+[web runtime contract](../lib/client/web/README.md) for explicit
 confirmation after an application has closed and drained an old session.
 
 The [bare-metal example](../examples/async_client/README.md),

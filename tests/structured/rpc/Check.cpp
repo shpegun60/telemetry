@@ -74,8 +74,9 @@ static void wireAndRead() noexcept
 {
 	resetDevice();
 	Harness<> h;
-	CHECK(rpc::rpcRequestHeaderBytes == 24 && rpc::rpcReplyHeaderBytes == 32);
-	CHECK(rpc::rpcReceiveTimeoutMs == 10000);
+	CHECK(::telemetry::protocol::rpc::rpcRequestHeaderBytes == 24 &&
+	      ::telemetry::protocol::rpc::rpcReplyHeaderBytes == 32);
+	CHECK(::telemetry::protocol::rpc::rpcReceiveTimeoutMs == 10000);
 	const auto idle = snapshot(h.mailbox, State::Idle, 0);
 	CHECK(get32(idle, 12) == 0 && get32(idle, 24) == 0 && get32(idle, 28) == 0);
 	Golden value{};

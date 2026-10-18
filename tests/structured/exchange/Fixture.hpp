@@ -6,8 +6,8 @@
 
 #include <structured_protocol/Bind.hpp>
 #include <structured_protocol/Exchange.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <resource/FileSystem.hpp>
 #include <algorithm>
 #include <array>
@@ -137,8 +137,8 @@ inline constexpr ts::CommandCatalogTable commands{ts::group("device", localComma
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", localServices)};
 inline constexpr ts::Model model{fields, commands, services};
 inline constexpr auto view = model.view();
-inline constexpr resource::telemetry::v3::Descriptor descriptor{model};
-inline constexpr auto packed = resource::telemetry::v3::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto packed = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr resource::telemetry::v3::DescriptorFile descriptorFile{packed};
 
 // Test helpers deliberately do not use the protocol implementation's helpers.

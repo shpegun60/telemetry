@@ -9,8 +9,8 @@
  * queued generation and requestId with the complete reply. No transport send
  * proves remote receipt. Call process() with current time before events.
  */
-#include <telemetry/client/rpc/RpcClient.hpp>
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <client/rpc/RpcClient.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <telemetry/model/Model.hpp>
 #include <algorithm>
@@ -76,7 +76,8 @@ static std::array<std::byte, 28> clientRequest;
 static std::array<std::byte, 4> clientResult;
 static std::array<std::byte, 48> outgoing;
 static std::array<std::byte, 80> incoming;
-static rpc::RpcClient client{0, clientRequest, clientResult, outgoing, {4, 200, 1, 3}};
+static ::telemetry::client::rpc::RpcClient client{
+    0, clientRequest, clientResult, outgoing, {4, 200, 1, 3}};
 
 static unsigned checks = 0, failures = 0;
 static std::uint32_t clockMs = 0;
@@ -137,11 +138,11 @@ static void complete() noexcept
 // supplies a simulated remote fingerprint; it does not fetch a descriptor.
 // A deployment provisions its expected shared schema and obtains the offered
 // fingerprint through its admitted connection before constructing bindings.
-static rpc::RpcClientStatus admitSharedSchema(std::uint64_t expected, std::uint64_t offered,
-                                              std::uint32_t generation) noexcept
+static ::telemetry::client::rpc::RpcClientStatus
+admitSharedSchema(std::uint64_t expected, std::uint64_t offered, std::uint32_t generation) noexcept
 {
 	if (expected != offered)
-		return rpc::RpcClientStatus::NoSession;
+		return ::telemetry::client::rpc::RpcClientStatus::NoSession;
 	return client.startSession(generation);
 }
 
@@ -149,30 +150,37 @@ int main()
 {
 	// These mappings assert the application's shared schema agreement for this
 	// session. They do not fetch or validate a remote descriptor.
-	constexpr rpc::ServiceEndpoint<Add, Report> add{0, rpc::trustedRpcMapping};
-	constexpr rpc::FieldEndpoint<std::uint32_t> total{0, rpc::trustedRpcMapping};
-	constexpr rpc::CommandEndpoint<> clear{0, rpc::trustedRpcMapping};
+	constexpr ::telemetry::client::rpc::ServiceEndpoint<Add, Report> add{
+	    0, ::telemetry::client::rpc::trustedRpcMapping};
+	constexpr ::telemetry::client::rpc::FieldEndpoint<std::uint32_t> total{
+	    0, ::telemetry::client::rpc::trustedRpcMapping};
+	constexpr ::telemetry::client::rpc::CommandEndpoint<> clear{
+	    0, ::telemetry::client::rpc::trustedRpcMapping};
 	constexpr std::uint64_t expectedFingerprint = 0x534348454d410001ULL;
 	check(admitSharedSchema(expectedFingerprint, expectedFingerprint ^ 1, 1) ==
-	      rpc::RpcClientStatus::NoSession);
-	check(client.beginService(add, Add{7}) == rpc::RpcClientStatus::NoSession);
+	      ::telemetry::client::rpc::RpcClientStatus::NoSession);
+	check(client.beginService(add, Add{7}) == ::telemetry::client::rpc::RpcClientStatus::NoSession);
 	check(admitSharedSchema(expectedFingerprint, expectedFingerprint, 1) ==
-	      rpc::RpcClientStatus::Ok);
-	check(client.beginService(add, Add{7}) == rpc::RpcClientStatus::Ok);
+	      ::telemetry::client::rpc::RpcClientStatus::Ok);
+	check(client.beginService(add, Add{7}) == ::telemetry::client::rpc::RpcClientStatus::Ok);
 	complete();
 	check(droppedAcks == 1 && !retryExpected && device.serviceCalls == 1);
 	Report report{};
-	check(client.decodeResult(report).status == rpc::RpcClientStatus::Ok && report.total == 7);
-	check(client.beginWriteField(total, std::uint32_t{42}) == rpc::RpcClientStatus::Ok);
+	check(client.decodeResult(report).status == ::telemetry::client::rpc::RpcClientStatus::Ok &&
+	      report.total == 7);
+	check(client.beginWriteField(total, std::uint32_t{42}) ==
+	      ::telemetry::client::rpc::RpcClientStatus::Ok);
 	complete();
-	check(client.beginReadField(total) == rpc::RpcClientStatus::Ok);
+	check(client.beginReadField(total) == ::telemetry::client::rpc::RpcClientStatus::Ok);
 	complete();
 	std::uint32_t value = 0;
-	check(client.decodeResult(value).status == rpc::RpcClientStatus::Ok && value == 42);
+	check(client.decodeResult(value).status == ::telemetry::client::rpc::RpcClientStatus::Ok &&
+	      value == 42);
 	float sameSize = 123;
-	check(client.decodeResult(sameSize).status == rpc::RpcClientStatus::WrongType &&
+	check(client.decodeResult(sameSize).status ==
+	          ::telemetry::client::rpc::RpcClientStatus::WrongType &&
 	      sameSize == 123);
-	check(client.beginCommand(clear) == rpc::RpcClientStatus::Ok);
+	check(client.beginCommand(clear) == ::telemetry::client::rpc::RpcClientStatus::Ok);
 	complete();
 	check(device.total == 0);
 	std::printf("rpc_client checks=%u failures=%u\n", checks, failures);

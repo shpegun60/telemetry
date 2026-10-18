@@ -7,7 +7,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. MIT.
 Workspace. Its header is 24 bytes: `TVL3`, major/minor, field count, file size
 and the cached u64 descriptor fingerprint. This last field was added at the
 user's request during Stage 10; it identifies a schema, not live payload
-integrity. The active providers live in `resource/telemetry/v3` and namespace
+integrity. The active providers live in `integration/telemetry/v3` and namespace
 `resource::telemetry::v3`; their native endpoints use `<telemetry/Telemetry.hpp>`
 and namespace `telemetry`. Descriptor v3.0 bytes remain unchanged. Legacy
 v2.1 providers and their decoder are retired.
@@ -65,7 +65,7 @@ maintained `run_qmake.py` entrypoint.
   section. ARM stack gates are 104 B at O2/Os and 128 B at Og per emitted frame,
   covering the reader, wrappers and 4 KiB Field thunk; these are not a total
   call-chain proof or a bound on an application's arbitrary getter.
-- All optional `resource/telemetry/v3` headers compile alone with their own
+- All optional `integration/telemetry/v3` headers compile alone with their own
   dependencies. The generic resource header suite stays independent of PFR.
   The original Stage 09 `c25c6fa` CI integration failure was caused by a
   recursive legacy sweep selecting those headers without PFR include paths;
@@ -74,7 +74,7 @@ maintained `run_qmake.py` entrypoint.
   and runs `client`, `client_server`, `sessions` and `all`.
   `resource_telemetry` selects only Descriptor/Values; the independent
   `resource_telemetry_rpc` option selects only RpcMailbox.
-  `telemetry_client_rpc` in the independent `telemetry/client/client.pri`
+  `telemetry_client_rpc` in the independent `client/client.pri`
   manifest selects the compiled RpcClient;
   `resource_telemetry_rpc_sessions` explicitly selects the header-only pool
   and requires the server option. The client-only consumer explicitly includes

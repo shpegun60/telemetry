@@ -28,7 +28,7 @@ static auto readRecord(Harness<N>& h, rpc::RpcSessionHandle session,
 	CHECK(read.reply.written >= resource::protocol::wire::chunkReplyHeaderSize);
 	const auto parsed = pc::parseRead(Input{output}.first(read.reply.written));
 	CHECK(parsed && !parsed.shortError && parsed.response.status == resource::Status::Ok);
-	CHECK(parsed.response.data.size() >= rpc::rpcReplyHeaderBytes);
+	CHECK(parsed.response.data.size() >= ::telemetry::protocol::rpc::rpcReplyHeaderBytes);
 	return parsed.response;
 }
 
@@ -90,7 +90,7 @@ static void admission() noexcept
 	const auto reused = h.pool.acquire({0, 0, 0});
 	CHECK(reused.status == Status::Ok && reused.session.index == 0);
 	CHECK(reused.session.generation == 2 && !h.pool.valid(sessions[0]));
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Idle);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
 }
 
 template<std::size_t N>
@@ -110,13 +110,14 @@ static void independentTransactions() noexcept
 		CHECK(ack.ticket.serial != 0 && ack.ticket.index == i);
 		const auto parsed = pc::parseWrite(Input{output}.first(ack.reply.written), bytes.size());
 		CHECK(parsed && parsed.response.complete && parsed.response.consumed == bytes.size());
-		CHECK(first.calls == 0 && h.slot(i).mailbox.state() == rpc::RpcState::Pending);
+		CHECK(first.calls == 0 &&
+		      h.slot(i).mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending);
 		tickets[i] = ack.ticket;
 	}
 	CHECK(h.pool.process(100, SIZE_MAX).dispatched == 0 && first.calls == 0);
 	for (std::size_t i = 0; i < N; ++i) {
 		const auto record = readRecord(h, sessions[i], output);
-		CHECK(record.data[21] == std::byte(rpc::RpcState::Pending));
+		CHECK(record.data[21] == std::byte(::telemetry::protocol::rpc::RpcState::Pending));
 		CHECK(h.pool.replyAccepted(sessions[i], {}) == Status::StaleReply);
 		if (N > 1)
 			CHECK(h.pool.replyAccepted(sessions[i], tickets[(i + 1) % N]) == Status::StaleReply);
@@ -136,12 +137,12 @@ static void independentTransactions() noexcept
 	for (std::size_t i = 0; i < N; ++i) {
 		accumulated += static_cast<std::uint32_t>(i + 1);
 		const auto record = readRecord(h, sessions[i], output);
-		CHECK(record.data[21] == std::byte(rpc::RpcState::Ready));
+		CHECK(record.data[21] == std::byte(::telemetry::protocol::rpc::RpcState::Ready));
 		CHECK(record.data[22] == std::byte(ts::DispatchStatus::Ok));
 		CHECK(record.data[23] == std::byte(ts::ServiceStatus::Ok));
 		Report value{};
-		CHECK(ts::decode(record.data.subspan(rpc::rpcReplyHeaderBytes), value) ==
-		      ts::CodecStatus::Ok);
+		CHECK(ts::decode(record.data.subspan(::telemetry::protocol::rpc::rpcReplyHeaderBytes),
+		                 value) == ts::CodecStatus::Ok);
 		CHECK(value.value == accumulated && record.eof);
 		const auto retry =
 		    submit(h.pool, sessions[i], request(static_cast<std::uint32_t>(i + 1)), output);
@@ -160,7 +161,7 @@ static void independentTransactions() noexcept
 	CHECK(h.pool.replyAccepted(replacement, tickets[0]) == Status::StaleReply);
 	for (std::size_t i = 1; i < N; ++i) {
 		const auto record = readRecord(h, sessions[i], output);
-		CHECK(record.data[21] == std::byte(rpc::RpcState::Ready));
+		CHECK(record.data[21] == std::byte(::telemetry::protocol::rpc::RpcState::Ready));
 	}
 	CHECK(h.pool.replyAccepted(replacement, newAck.ticket) == Status::Ok);
 	CHECK(h.pool.process(106, SIZE_MAX).dispatched == 1 && first.calls == N + 1);
@@ -178,12 +179,12 @@ static void acknowledgementGates() noexcept
 	CHECK(h.pool.process(1).dispatched == 0);
 	const auto shortAck = submit(h.pool, a, bytes, Output{out}.first(13));
 	CHECK(shortAck.reply.status == resource::Status::BufferTooSmall && shortAck.ticket.serial == 0);
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Idle);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
 	const auto firstAck = submit(h.pool, a, bytes, out);
 	CHECK(firstAck.ticket.serial != 0 && first.calls == 0);
 	CHECK(h.pool.process(2).dispatched == 0);
 	const auto read = readRecord(h, a, out);
-	CHECK(read.data[21] == std::byte(rpc::RpcState::Pending));
+	CHECK(read.data[21] == std::byte(::telemetry::protocol::rpc::RpcState::Pending));
 	CHECK(h.pool.process(3, SIZE_MAX).dispatched == 0);
 	const std::array<std::byte, 1> extra{std::byte{0x44}};
 	const auto otherFile = submit(h.pool, a, extra, out, 0, true, 1);
@@ -233,19 +234,21 @@ static void fragmentedAndTimed() noexcept
 	const auto bytes = request(3);
 	const auto firstPart = submit(h.pool, b, Input{bytes}.first(24), output, 0, false);
 	CHECK(firstPart.reply.status == resource::Status::Ok && firstPart.ticket.serial == 0);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Receiving);
-	CHECK(h.pool.process(100 + rpc::rpcReceiveTimeoutMs - 1, 0).dispatched == 0);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Receiving);
-	CHECK(h.pool.process(100 + rpc::rpcReceiveTimeoutMs, 0).dispatched == 0);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Idle);
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Pending && first.calls == 0);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Receiving);
+	CHECK(h.pool.process(100 + ::telemetry::protocol::rpc::rpcReceiveTimeoutMs - 1, 0).dispatched ==
+	      0);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Receiving);
+	CHECK(h.pool.process(100 + ::telemetry::protocol::rpc::rpcReceiveTimeoutMs, 0).dispatched == 0);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending && first.calls == 0);
 	CHECK(submit(h.pool, b, bytes, output).reply.status == resource::Status::CursorExpired);
 	const auto bytes2 = request(3, 2);
 	CHECK(submit(h.pool, b, Input{bytes2}.first(24), output, 0, false).reply.status ==
 	      resource::Status::Ok);
-	const auto finalPart =
-	    submit(h.pool, b, Input{bytes2}.subspan(24), output, rpc::rpcCursor(2, 24), true);
-	CHECK(finalPart.ticket.serial != 0 && h.b.mailbox.state() == rpc::RpcState::Pending);
+	const auto finalPart = submit(h.pool, b, Input{bytes2}.subspan(24), output,
+	                              ::telemetry::protocol::rpc::rpcCursor(2, 24), true);
+	CHECK(finalPart.ticket.serial != 0 &&
+	      h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending);
 	CHECK(h.pool.process(20000, SIZE_MAX).dispatched == 0);
 	CHECK(h.pool.replyAccepted(b, finalPart.ticket) == Status::Ok);
 	CHECK(h.pool.process(20001).dispatched == 1 && first.calls == 1 && first.value == 3);
@@ -256,10 +259,10 @@ static void fragmentedAndTimed() noexcept
 	CHECK(h.pool.process(UINT32_MAX - 100).dispatched == 0);
 	CHECK(submit(h.pool, b2, Input{bytes}.first(24), output, 0, false).reply.status ==
 	      resource::Status::Ok);
-	CHECK(h.pool.process(rpc::rpcReceiveTimeoutMs - 102).dispatched == 0);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Receiving);
-	CHECK(h.pool.process(rpc::rpcReceiveTimeoutMs - 101).dispatched == 0);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Idle);
+	CHECK(h.pool.process(::telemetry::protocol::rpc::rpcReceiveTimeoutMs - 102).dispatched == 0);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Receiving);
+	CHECK(h.pool.process(::telemetry::protocol::rpc::rpcReceiveTimeoutMs - 101).dispatched == 0);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
 }
 
 static Harness<2>* runningHarness = nullptr;
@@ -268,14 +271,14 @@ static rpc::RpcSessionHandle runningSession{}, otherSession{};
 static void duringCallback() noexcept
 {
 	auto& h = *runningHarness;
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Running);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Running);
 	CHECK(h.pool.process(9, 2).status == Status::Reentrant);
 	CHECK(h.pool.acquire({99, 1, 0}).status == Status::Reentrant);
 	std::array<std::byte, 16> output{};
 	CHECK(h.pool.handle(otherSession, {}, output).status == Status::Reentrant);
 	CHECK(h.pool.release(runningSession) == Status::Closing);
 	CHECK(!h.pool.valid(runningSession));
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Running);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Running);
 	CHECK(h.pool.release(runningSession) == Status::InvalidSession);
 	CHECK(h.pool.acquire({99, 2, 0}).status == Status::Reentrant);
 	CHECK(first.depth == 1 && first.calls == 1);
@@ -300,12 +303,13 @@ static void reentrancyAndModels() noexcept
 	CHECK(stepped.status == Status::Ok && stepped.dispatched == 2);
 	CHECK(first.calls == 1 && second.calls == 1 && first.maxDepth == 1 && second.maxDepth == 1);
 	CHECK(first.value == 7 && second.value == 20);
-	CHECK(h.a.mailbox.state() == rpc::RpcState::Idle);
-	CHECK(h.b.mailbox.state() == rpc::RpcState::Ready);
+	CHECK(h.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
+	CHECK(h.b.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Ready);
 	CHECK(h.pool.valid(otherSession));
 	const auto record = readRecord(h, otherSession, output);
 	Report report{};
-	CHECK(ts::decode(record.data.subspan(rpc::rpcReplyHeaderBytes), report) == ts::CodecStatus::Ok);
+	CHECK(ts::decode(record.data.subspan(::telemetry::protocol::rpc::rpcReplyHeaderBytes),
+	                 report) == ts::CodecStatus::Ok);
 	CHECK(report.value == 20);
 	const auto reused = h.pool.acquire({1, 2, 0});
 	CHECK(reused.status == Status::Ok && reused.session.index == 0);

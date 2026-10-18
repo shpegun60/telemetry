@@ -1,6 +1,6 @@
 /* Hex complete-frame subprocess bridge to the persistent actual Model. MIT. */
 #include "EncodedFixture.hpp"
-#include <resource/telemetry/v3/Descriptor.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
 #include <cstdio>
 #include <cstring>
 
@@ -20,8 +20,8 @@ static int digit(char value) noexcept
 int main(int argc, char** argv)
 {
 	if (argc == 3 && std::strcmp(argv[1], "--descriptor") == 0) {
-		static constexpr server::Descriptor descriptor{model};
-		static constexpr auto bytes = server::packDescriptor<descriptor>();
+		static constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+		static constexpr auto bytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 		auto* output = std::fopen(argv[2], "wb");
 		if (output == nullptr)
 			return 5;

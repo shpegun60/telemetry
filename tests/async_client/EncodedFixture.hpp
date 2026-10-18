@@ -3,8 +3,8 @@
 #define TELEMETRY_TESTS_ASYNC_CLIENT_ENCODED_FIXTURE_HPP
 #pragma once
 
-#include <resource/telemetry/v3/EncodedDispatcher.hpp>
-#include <telemetry/client/encoded/EncodedBackend.hpp>
+#include <integration/encoded/Dispatcher.hpp>
+#include <integration/encoded/Backend.hpp>
 #include <telemetry/model/Model.hpp>
 #include <array>
 #include <algorithm>
@@ -13,7 +13,7 @@ namespace encoded_fixture {
 namespace ts = telemetry;
 namespace client = ts::client;
 namespace wire = ts::protocol::encoded;
-namespace server = resource::telemetry::v3;
+namespace server = ::telemetry::integration::encoded;
 using Input = std::span<const std::byte>;
 using Output = std::span<std::byte>;
 
@@ -167,12 +167,13 @@ struct Harness {
 	ts::Workspace workspace{scratch};
 	std::array<std::byte, 1024> tx{}, result{}, port{}, reply{};
 	std::uint32_t now = 0;
-	client::EncodedBackend backend{tx, result,
-	                               client::Clock{this,
-	                                             +[](void* self) noexcept {
-		                                             return static_cast<Harness*>(self)->now;
-	                                             }},
-	                               10};
+	::telemetry::integration::encoded::EncodedBackend backend{
+	    tx, result,
+	    client::Clock{this,
+	                  +[](void* self) noexcept {
+		                  return static_cast<Harness*>(self)->now;
+	                  }},
+	    10};
 };
 } // namespace encoded_fixture
 #endif // TELEMETRY_TESTS_ASYNC_CLIENT_ENCODED_FIXTURE_HPP

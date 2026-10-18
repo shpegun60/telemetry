@@ -2,7 +2,7 @@
 #ifndef TELEMETRY_TESTS_ASYNC_CLIENT_FIXTURE_HPP
 #define TELEMETRY_TESTS_ASYNC_CLIENT_FIXTURE_HPP
 #pragma once
-#include <telemetry/client/ThreadSafeClient.hpp>
+#include <client/ThreadSafeClient.hpp>
 #include <atomic>
 #include <cstring>
 

@@ -102,7 +102,7 @@ int main()
 		      edgeGenerated == edgeNative);
 	}
 	const auto binding =
-	    api::rpc::binding(api::motor::commands::Apply, resource::telemetry::v3::trustedRpcMapping);
+	    api::rpc::binding(api::motor::commands::Apply, ::telemetry::client::rpc::trustedRpcMapping);
 	CHECK(binding.id == api::motor::commands::Apply.id);
 #endif
 	std::printf("codegen standalone checks=%u failures=%u\n", checks, failures);

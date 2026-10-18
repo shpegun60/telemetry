@@ -4,14 +4,14 @@
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 #include "Fixture.hpp"
-#include <resource/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
 #include <algorithm>
 
 #ifndef MCU_SCALE
 namespace mcu {
 namespace {
 using namespace fixture;
-inline constexpr rs::Descriptor descriptor{model};
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
 // Cache borrowed views as a real transport consumer does. Constructing a
 // temporary ModelView for every probe would measure test setup as dispatch.
 inline constexpr auto view = model.view();

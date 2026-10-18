@@ -4,16 +4,16 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry/client/rpc/RpcClient.hpp>
+#include <client/rpc/RpcClient.hpp>
 #include "../rpc/Fixture.hpp"
 #include <resource/protocol/Protocol.hpp>
 #include <resource/protocol/Packets.hpp>
 #include <cstdio>
 
 using namespace rpc_fixture;
-using Client = rpc::RpcClient;
-using CS = rpc::RpcClientStatus;
-using ClientState = rpc::RpcClientState;
+using Client = ::telemetry::client::rpc::RpcClient;
+using CS = ::telemetry::client::rpc::RpcClientStatus;
+using ClientState = ::telemetry::client::rpc::RpcClientState;
 namespace pc = resource::protocol::client;
 static unsigned checks = 0, failures = 0;
 
@@ -28,13 +28,20 @@ static void check(bool condition, unsigned line) noexcept
 
 #define CHECK(value) check(bool(value), __LINE__)
 
-inline constexpr rpc::FieldEndpoint<Config> configField{0, rpc::trustedRpcMapping};
-inline constexpr rpc::FieldEndpoint<Big> bigField{3, rpc::trustedRpcMapping};
-inline constexpr rpc::CommandEndpoint<Config> configure{0, rpc::trustedRpcMapping};
-inline constexpr rpc::CommandEndpoint<> resetCommand{1, rpc::trustedRpcMapping};
-inline constexpr rpc::ServiceEndpoint<Config, Config> echo{0, rpc::trustedRpcMapping};
-inline constexpr rpc::ServiceEndpoint<void, void> ping{1, rpc::trustedRpcMapping};
-inline constexpr rpc::ServiceEndpoint<Config, Big> large{3, rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::FieldEndpoint<Config> configField{
+    0, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::FieldEndpoint<Big> bigField{
+    3, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::CommandEndpoint<Config> configure{
+    0, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::CommandEndpoint<> resetCommand{
+    1, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::ServiceEndpoint<Config, Config> echo{
+    0, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::ServiceEndpoint<void, void> ping{
+    1, ::telemetry::client::rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::ServiceEndpoint<Config, Big> large{
+    3, ::telemetry::client::rpc::trustedRpcMapping};
 
 template<std::size_t Packet = 64, std::size_t Result = ts::wireSize<Big>>
 struct ClientHarness {
@@ -52,7 +59,7 @@ struct ClientHarness {
 		CHECK(client.startSession(1) == CS::Ok);
 	}
 
-	auto receive(rpc::RpcClientPacket pending) noexcept
+	auto receive(::telemetry::client::rpc::RpcClientPacket pending) noexcept
 	{
 		CHECK(bool(pending));
 		CHECK(pending.generation == 1);
@@ -173,7 +180,8 @@ static void statuses() noexcept
 	}
 	device.serviceStatus = S::Ok;
 	ClientHarness<> h;
-	CHECK(h.client.beginCommand(rpc::CommandEndpoint<>{0xffffu, rpc::trustedRpcMapping}) == CS::Ok);
+	CHECK(h.client.beginCommand(::telemetry::client::rpc::CommandEndpoint<>{
+	          0xffffu, ::telemetry::client::rpc::trustedRpcMapping}) == CS::Ok);
 	h.run();
 	CHECK(h.client.diagnostic().dispatch == ts::DispatchStatus::NotFound);
 	CHECK(h.client.diagnostic().endpointStatus == 0);
@@ -205,7 +213,8 @@ static void retriesAndPending() noexcept
 	                        repeat.requestId));
 	packet = h.client.nextPacket();
 	CHECK(packet.bytes[13] == std::byte{1});
-	CHECK(pc::detail::load<resource::Cursor>(packet.bytes, 5) == rpc::rpcCursor(1, 24));
+	CHECK(pc::detail::load<resource::Cursor>(packet.bytes, 5) ==
+	      ::telemetry::protocol::rpc::rpcCursor(1, 24));
 	CHECK(h.client.onSendAccepted(packet.generation, packet.requestId));
 	const auto finalAck = resource::protocol::process(h.files.view(), packet.bytes, h.response);
 	CHECK(finalAck.status == R::Ok && h.server.mailbox.state() == State::Pending);
@@ -384,8 +393,10 @@ static void largeRequest() noexcept
 	CHECK(client.startSession(1) == CS::Ok);
 	value.bytes.front() = 31;
 	value.bytes.back() = 74;
-	CHECK(client.beginCommand(rpc::CommandEndpoint<Huge>{0, rpc::trustedRpcMapping}, value) ==
-	      CS::Ok);
+	CHECK(client.beginCommand(
+	          ::telemetry::client::rpc::CommandEndpoint<Huge>{
+	              0, ::telemetry::client::rpc::trustedRpcMapping},
+	          value) == CS::Ok);
 	value.bytes.front() = 99;
 	std::uint32_t offset = 0;
 	for (unsigned fragment = 0; fragment != 2; ++fragment) {
@@ -395,12 +406,12 @@ static void largeRequest() noexcept
 		CHECK(count == (fragment == 0 ? 65535 : 4489));
 		CHECK(p.bytes[13] == std::byte(fragment == 1));
 		CHECK(pc::detail::load<resource::Cursor>(p.bytes, 5) ==
-		      (fragment == 0 ? 0 : rpc::rpcCursor(1, offset)));
+		      (fragment == 0 ? 0 : ::telemetry::protocol::rpc::rpcCursor(1, offset)));
 		std::copy_n(p.bytes.begin() + 16, count, captured.begin() + offset);
 		CHECK(client.onSendAccepted(1, p.requestId));
 		offset += count;
 		std::array<std::byte, 14> ack{};
-		pc::detail::store(Output{ack}, 1, rpc::rpcCursor(1, offset));
+		pc::detail::store(Output{ack}, 1, ::telemetry::protocol::rpc::rpcCursor(1, offset));
 		pc::detail::store(Output{ack}, 9, std::uint32_t(count));
 		ack[13] = std::byte(fragment == 1);
 		CHECK(client.onReply(ack, 1, p.requestId));
@@ -450,13 +461,14 @@ static void readRetryAndRepresentation() noexcept
 	// A scalar field tests exact local type identity independent of wire size.
 	// This simulated remote reply carries the existing canonical Codec bytes.
 	ClientHarness<> scalar;
-	constexpr rpc::FieldEndpoint<float> floatField{0, rpc::trustedRpcMapping};
+	constexpr ::telemetry::client::rpc::FieldEndpoint<float> floatField{
+	    0, ::telemetry::client::rpc::trustedRpcMapping};
 	CHECK(scalar.client.beginReadField(floatField) == CS::Ok);
 	scalar.receive(scalar.client.nextPacket());
 	const auto read = scalar.client.nextPacket();
 	CHECK(scalar.client.onSendAccepted(1, read.requestId));
 	std::array<std::byte, 48> encoded{};
-	pc::detail::store(Output{encoded}, 1, rpc::rpcCursor(1, 36));
+	pc::detail::store(Output{encoded}, 1, ::telemetry::protocol::rpc::rpcCursor(1, 36));
 	encoded[9] = std::byte{1};
 	pc::detail::store(Output{encoded}, 10, std::uint16_t{36});
 	pc::detail::store(Output{encoded}, 12, std::uint32_t{0x53505254});
@@ -540,7 +552,8 @@ static void enumArraysAndAgreement() noexcept
 		std::array<std::int16_t, 3> values;
 	};
 
-	constexpr rpc::CommandEndpoint<Typed> command{0, rpc::trustedRpcMapping};
+	constexpr ::telemetry::client::rpc::CommandEndpoint<Typed> command{
+	    0, ::telemetry::client::rpc::trustedRpcMapping};
 	std::array<std::byte, 32> request{};
 	std::array<std::byte, 1> result{};
 	std::array<std::byte, 48> outgoing{};
@@ -578,11 +591,12 @@ static void headerOnlyReady() noexcept
 		CHECK(h.client.onReply(header, 1, packet.requestId));
 		CHECK(h.client.state() == ClientState::ReadReady && h.client.resultBytes().empty());
 		packet = h.client.nextPacket();
-		CHECK(pc::detail::load<resource::Cursor>(packet.bytes, 5) == rpc::rpcCursor(1, 32));
+		CHECK(pc::detail::load<resource::Cursor>(packet.bytes, 5) ==
+		      ::telemetry::protocol::rpc::rpcCursor(1, 32));
 		if (zeroProgress) {
 			CHECK(h.client.onSendAccepted(1, packet.requestId));
 			std::array<std::byte, 12> empty{};
-			pc::detail::store(Output{empty}, 1, rpc::rpcCursor(1, 32));
+			pc::detail::store(Output{empty}, 1, ::telemetry::protocol::rpc::rpcCursor(1, 32));
 			CHECK(h.client.onReply(empty, 1, packet.requestId));
 			CHECK(h.client.diagnostic().cause == CS::MalformedReply &&
 			      h.client.status() == CS::OutcomeUnknown);

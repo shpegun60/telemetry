@@ -12,17 +12,17 @@
 #include "../demo/DemoCatalog.h"
 #include <resource/Resource.hpp>
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 
 namespace {
 namespace v3 = resource::telemetry::v3;
 
 // Immutable metadata is constructed at compile time. The value provider
 // borrows caller-owned scratch and does not require a later init() phase.
-inline constexpr v3::Descriptor descriptor{demo::model};
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{demo::model};
 static_assert(descriptor.valid(), "The resource descriptor must describe a valid model");
-inline constexpr auto descriptorBytes = v3::packDescriptor<descriptor>();
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr v3::DescriptorFile descriptorFile{descriptorBytes};
 
 // Grow with the model instead of guessing a scratch capacity. This bound also

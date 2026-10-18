@@ -1,6 +1,6 @@
 /* Counted raw/native and portable-backend RPC integration. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
-#include <telemetry/client/rpc/RpcBackend.hpp>
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/rpc/Backend.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include "../structured/rpc/Fixture.hpp"
 #include <cstdio>
 
@@ -33,11 +33,12 @@ struct Harness {
 	rpc::RpcSessionHandle handle = pool.acquire({10, 1, 0}).session;
 	std::array<std::byte, 256> request{}, result{};
 	std::array<std::byte, 40> packet{};
-	rpc::RpcClient native{0, request, result, packet, {3, 40, 1, 1}};
+	::telemetry::client::rpc::RpcClient native{0, request, result, packet, {3, 40, 1, 1}};
 	std::uint32_t now = 0;
-	tc::rpc::RpcBackend backend{native, {this, [](void* self) noexcept {
-		                                     return static_cast<Harness*>(self)->now;
-	                                     }}};
+	::telemetry::integration::rpc::RpcBackend backend{native,
+	                                                  {this, [](void* self) noexcept {
+		                                                   return static_cast<Harness*>(self)->now;
+	                                                   }}};
 	std::array<std::byte, 48> response{};
 	std::array<std::byte, 40> portCopy{};
 
@@ -118,7 +119,8 @@ static void operations() noexcept
 	Config value{};
 	CHECK(telemetry::decode(h.backend.result().payload, value) == telemetry::CodecStatus::Ok);
 	CHECK(value.value == 91 && !value.enabled && device.reads == 1);
-	CHECK(h.native.decodeResult(value).status == rpc::RpcClientStatus::WrongType);
+	CHECK(h.native.decodeResult(value).status ==
+	      ::telemetry::client::rpc::RpcClientStatus::WrongType);
 	h.backend.releaseResult();
 	CHECK(h.backend.start({Operation::Command, 1, {}, 0}, h.now) == Status::Ok);
 	h.run();
@@ -153,20 +155,21 @@ static void operations() noexcept
 static void rawPreflight() noexcept
 {
 	Harness h;
-	CHECK(h.native.beginEncoded(static_cast<rpc::RpcOperation>(0), 0, {}, 0) ==
-	      rpc::RpcClientStatus::InvalidRequest);
+	CHECK(h.native.beginEncoded(static_cast<::telemetry::protocol::rpc::RpcOperation>(0), 0, {},
+	                            0) == ::telemetry::client::rpc::RpcClientStatus::InvalidRequest);
 	const auto bytes = encoded({1, true});
-	CHECK(h.native.beginEncoded(rpc::RpcOperation::FieldRead, 0, bytes, 5) ==
-	      rpc::RpcClientStatus::InvalidRequest);
-	CHECK(h.native.beginEncoded(rpc::RpcOperation::Command, 0, bytes, 1) ==
-	      rpc::RpcClientStatus::InvalidRequest);
-	CHECK(h.native.beginEncoded(rpc::RpcOperation::Service, 0, h.request, 5) ==
-	      rpc::RpcClientStatus::BufferTooSmall);
-	CHECK(h.native.beginEncoded(rpc::RpcOperation::Service, 0, tc::Input{h.result}.first(5), 5) ==
-	      rpc::RpcClientStatus::Overlap);
-	CHECK(h.native.beginEncoded(rpc::RpcOperation::Service, 0, bytes, 300) ==
-	      rpc::RpcClientStatus::BufferTooSmall);
-	CHECK(h.native.state() == rpc::RpcClientState::Idle);
+	CHECK(h.native.beginEncoded(::telemetry::protocol::rpc::RpcOperation::FieldRead, 0, bytes, 5) ==
+	      ::telemetry::client::rpc::RpcClientStatus::InvalidRequest);
+	CHECK(h.native.beginEncoded(::telemetry::protocol::rpc::RpcOperation::Command, 0, bytes, 1) ==
+	      ::telemetry::client::rpc::RpcClientStatus::InvalidRequest);
+	CHECK(h.native.beginEncoded(::telemetry::protocol::rpc::RpcOperation::Service, 0, h.request,
+	                            5) == ::telemetry::client::rpc::RpcClientStatus::BufferTooSmall);
+	CHECK(h.native.beginEncoded(::telemetry::protocol::rpc::RpcOperation::Service, 0,
+	                            tc::Input{h.result}.first(5),
+	                            5) == ::telemetry::client::rpc::RpcClientStatus::Overlap);
+	CHECK(h.native.beginEncoded(::telemetry::protocol::rpc::RpcOperation::Service, 0, bytes, 300) ==
+	      ::telemetry::client::rpc::RpcClientStatus::BufferTooSmall);
+	CHECK(h.native.state() == ::telemetry::client::rpc::RpcClientState::Idle);
 }
 
 static void freshDeadlineGate() noexcept
@@ -230,7 +233,7 @@ static void withheldAcknowledgement(bool read) noexcept
 	if (!read)
 		CHECK(h.exchange());
 	CHECK(h.exchange(false)); // Final WRITE ACK reaches client, but server handoff is unconfirmed.
-	CHECK(h.mailbox.state() == rpc::RpcState::Pending);
+	CHECK(h.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending);
 	for (unsigned i = 0; i != 60 && !h.backend.completed(); ++i) {
 		if (!h.exchange(false)) {
 			(void)h.pool.process(h.now);
@@ -239,7 +242,8 @@ static void withheldAcknowledgement(bool read) noexcept
 	}
 	CHECK(h.backend.completed() && h.backend.recoveryRequired());
 	CHECK(h.backend.result().status == (read ? Status::Timeout : Status::OutcomeUnknown));
-	CHECK(h.mailbox.state() == rpc::RpcState::Pending && rpc_fixture::callbacks() == 0);
+	CHECK(h.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending &&
+	      rpc_fixture::callbacks() == 0);
 	const auto existing = h.pool.acquire({10, 1, 0});
 	CHECK(existing.status == rpc::RpcSessionStatus::Existing && existing.session == h.handle);
 	h.recover(2);

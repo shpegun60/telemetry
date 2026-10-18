@@ -1,7 +1,7 @@
 # RpcMailbox host integration
 
 [`main.cpp`](main.cpp) is a complete C++20 host program for the optional
-[`RpcMailbox`](../../lib/resource/telemetry/v3/RpcMailbox.hpp) provider. It
+[`RpcMailbox`](../../lib/integration/telemetry/v3/RpcMailbox.hpp) provider. It
 publishes `/telemetry/rpc.bin` in a normal Resource file array, sends a Service
 request through the existing Resource client/server, and decodes its Ready
 reply. The [RPC v1.0 contract](../../doc/RpcMailboxV1.md) owns the wire bytes,
@@ -39,7 +39,7 @@ mkdir -p build/rpc-mailbox-example
 g++ -std=c++20 -O2 -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
   examples/rpc_mailbox/main.cpp lib/resource/protocol/Protocol.cpp \
   lib/telemetry/model/Adapter.cpp lib/telemetry/abi/StructuredAbi.cpp \
-  lib/resource/telemetry/v3/RpcMailbox.cpp \
+  lib/integration/telemetry/v3/RpcMailbox.cpp \
   -o build/rpc-mailbox-example/rpc_mailbox
 build/rpc-mailbox-example/rpc_mailbox
 ```

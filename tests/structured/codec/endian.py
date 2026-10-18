@@ -44,7 +44,7 @@ def main():
                         "tests/structured/descriptor/Other.cpp"],
                        ["mixed.bin", "edge.bin", "empty.bin"]),
         "values": (["tests/structured/resources/Check.cpp", "lib/resource/protocol/Protocol.cpp",
-                    "lib/resource/telemetry/v3/detail/Values.cpp"],
+                    "lib/integration/telemetry/v3/detail/Values.cpp"],
                    ["values-descriptor.bin", "values.bin"]),
     }
     inputs = [path for path in (ROOT / "lib").rglob("*")

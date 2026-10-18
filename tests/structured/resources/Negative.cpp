@@ -18,10 +18,10 @@ Provider bad{Packed{}};
 #elif CASE == 3
 Provider bad{{}};
 #elif CASE == 4
-rs::DescriptorFile bad{rs::Descriptor{model}};
+rs::DescriptorFile bad{::telemetry::descriptor::Descriptor{model}};
 #elif CASE == 5
 using Streaming = std::remove_cv_t<decltype(streamedFile)>;
-Streaming bad{rs::Descriptor{model}};
+Streaming bad{::telemetry::descriptor::Descriptor{model}};
 #elif CASE == 6
 rs::ValuesFile bad{descriptor, ts::Workspace{{}}};
 #elif CASE == 7

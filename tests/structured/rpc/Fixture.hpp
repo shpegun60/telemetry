@@ -3,7 +3,7 @@
 #define TELEMETRY_TESTS_STRUCTURED_RPC_FIXTURE_HPP
 #pragma once
 
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <resource/File.hpp>
 #include <telemetry/model/Model.hpp>
 #include <telemetry/model/Adapter.hpp>
@@ -18,8 +18,8 @@ namespace rpc = resource::telemetry::v3;
 using resource::Input;
 using resource::Output;
 using R = resource::Status;
-using Op = rpc::RpcOperation;
-using State = rpc::RpcState;
+using Op = ::telemetry::protocol::rpc::RpcOperation;
+using State = ::telemetry::protocol::rpc::RpcState;
 using W = ts::WriteResult;
 using C = ts::CommandResult;
 using S = ts::ServiceStatus;

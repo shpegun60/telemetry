@@ -24,7 +24,7 @@ BUDGETS = (0, 16, 32, 64)
 COUNTS = {'Result': 24, 'Native': 125 if os.name == 'nt' else 127,
           'Encoded': 201, 'Status': 215, 'Wire': 27, 'AddressProbe': 53}
 LIBRARY = ('lib/telemetry/model/Adapter.cpp', 'lib/telemetry/abi/StructuredAbi.cpp',
-           'lib/resource/telemetry/v3/detail/Values.cpp')
+           'lib/integration/telemetry/v3/detail/Values.cpp')
 GATES = 'tests/structured/qualification/gates.py'
 SYMBOL_CONTROL = 'tests/structured/qualification/SymbolControl.cpp'
 FACTORY = r'(?:no matching|no viable|constraints not satisfied|deleted).*\b{}\b'

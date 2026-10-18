@@ -10,11 +10,10 @@
 #pragma once
 
 #include "../endpoints/MixedFixture.hpp"
-#include <resource/telemetry/v3/Descriptor.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
 
 namespace descriptor_fixture {
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 
 // Empty reflected shape verifies zero-size type records and canonical field tokens.
 struct Empty {};
@@ -79,14 +78,14 @@ inline constexpr ts::FieldCatalogTable fields{ts::group("motor", fixture::mixedF
 inline constexpr ts::ServiceCatalogTable services{ts::group("motor", fixture::localServices),
                                                   ts::group("extra", extraServices)};
 inline constexpr ts::Model model{fields, fixture::commands, services};
-inline constexpr rs::Descriptor mixed{fixture::model};
-inline constexpr rs::Descriptor edge{model};
+inline constexpr ::telemetry::descriptor::Descriptor mixed{fixture::model};
+inline constexpr ::telemetry::descriptor::Descriptor edge{model};
 inline constexpr ts::ServiceCatalogTable<> noServices{};
 inline constexpr ts::Model emptyModel{ts::emptyFields, ts::emptyCommands, noServices};
-inline constexpr rs::Descriptor empty{emptyModel};
-inline constexpr auto mixedBytes = rs::packDescriptor<mixed>();
-inline constexpr auto edgeBytes = rs::packDescriptor<edge>();
-inline constexpr auto emptyBytes = rs::packDescriptor<empty>();
+inline constexpr ::telemetry::descriptor::Descriptor empty{emptyModel};
+inline constexpr auto mixedBytes = ::telemetry::descriptor::packDescriptor<mixed>();
+inline constexpr auto edgeBytes = ::telemetry::descriptor::packDescriptor<edge>();
+inline constexpr auto emptyBytes = ::telemetry::descriptor::packDescriptor<empty>();
 static_assert(mixed.valid() && edge.valid() && empty.valid());
 static_assert(decltype(model)::typeId<fixture::MotorConfig>() == 15);
 
@@ -94,9 +93,9 @@ static_assert(decltype(model)::typeId<fixture::MotorConfig>() == 15);
 // Classification must match the deduced Model without changing wire identity.
 using ExactCvModel = ts::Model<decltype(fields), decltype(fixture::commands), decltype(services)>;
 inline constexpr ExactCvModel exactCvModel{fields, fixture::commands, services};
-inline constexpr rs::Descriptor exactCvDescriptor{exactCvModel};
+inline constexpr ::telemetry::descriptor::Descriptor exactCvDescriptor{exactCvModel};
 static_assert(exactCvDescriptor.valid() && exactCvDescriptor.fingerprint() == edge.fingerprint());
-static_assert(rs::packDescriptor<exactCvDescriptor>() == edgeBytes);
+static_assert(::telemetry::descriptor::packDescriptor<exactCvDescriptor>() == edgeBytes);
 } // namespace descriptor_fixture
 
 #endif // TELEMETRY_TESTS_STRUCTURED_DESCRIPTOR_FIXTURE_HPP

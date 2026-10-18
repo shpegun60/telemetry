@@ -14,7 +14,7 @@
 #pragma once
 
 #include <resource/FileSystem.hpp>
-#include "Wire.hpp"
+#include <resource/protocol/Wire.hpp>
 
 namespace resource::protocol {
 struct Reply {

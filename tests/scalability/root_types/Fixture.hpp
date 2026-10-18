@@ -12,7 +12,7 @@
 #pragma once
 
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -229,8 +229,8 @@ inline constexpr ts::ServiceTable<> emptyService{};
 inline constexpr ts::ServiceCatalogTable services{
     ts::group("first", serviceA), ts::group("empty", emptyService), ts::group("last", serviceB)};
 inline constexpr ts::Model model{fields, commands, services};
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline std::array<std::byte, 128> scratch{};
 inline ts::Workspace workspace{scratch};
 inline constexpr rs::ValuesFile values{descriptor, workspace};

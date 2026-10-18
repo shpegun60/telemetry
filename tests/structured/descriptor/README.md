@@ -2,7 +2,7 @@
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 
-Implementation: [resource/telemetry/v3](../../../lib/resource/telemetry/v3/README.md),
+Implementation: [integration/telemetry/v3](../../../lib/integration/telemetry/v3/README.md),
 using the native API in `<telemetry/Telemetry.hpp>` and namespace `telemetry`.
 This slice implements v3.0 descriptor bytes and identity, without ValuesFile,
 Bind/Exchange, transport integration or a client UI.

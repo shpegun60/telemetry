@@ -26,7 +26,7 @@ exactly the same packet/ticket without a second application callback. Short
 example deadlines keep that simulation bounded; production defaults differ.
 
 ```cpp
-constexpr rpc::ServiceEndpoint<Add, Report> add{0, rpc::trustedRpcMapping};
+constexpr ::telemetry::client::rpc::ServiceEndpoint<Add, Report> add{0, ::telemetry::client::rpc::trustedRpcMapping};
 client.startSession(1); // after application schema agreement/admission
 client.beginService(add, Add{7});
 // Feed time, send acceptance and replies from your application event loop.
@@ -49,8 +49,8 @@ From the repository root, with a C++20 compiler on PATH:
 mkdir -p build/rpc-client-example
 g++ -std=c++20 -O2 -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
   examples/rpc_client/main.cpp lib/resource/protocol/Protocol.cpp \
-  lib/telemetry/client/rpc/RpcClient.cpp \
-  lib/resource/telemetry/v3/RpcMailbox.cpp \
+  lib/client/rpc/RpcClient.cpp \
+  lib/integration/telemetry/v3/RpcMailbox.cpp \
   lib/telemetry/model/Adapter.cpp lib/telemetry/abi/StructuredAbi.cpp \
   -o build/rpc-client-example/rpc_client
 build/rpc-client-example/rpc_client
@@ -62,7 +62,7 @@ Its loopback requires server sources; a real **client-only** qmake project uses:
 
 ```qmake
 CONFIG += telemetry_client_rpc
-include(path/to/lib/telemetry/client/client.pri)
+include(path/to/lib/client/client.pri)
 ```
 
 That selects only `RpcClient.cpp` and header-only Codec dependencies, without

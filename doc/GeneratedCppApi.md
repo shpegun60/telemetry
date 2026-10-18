@@ -78,7 +78,7 @@ admits the peer schema for the current session, then explicitly asserts trust:
 ```cpp
 namespace rpc = resource::telemetry::v3;
 client.beginService(device_api::rpc::binding(
-    device_api::device::services::Inspect, rpc::trustedRpcMapping), request);
+    device_api::device::services::Inspect, ::telemetry::client::rpc::trustedRpcMapping), request);
 // Drive process/nextPacket/onSendAccepted/onReply as documented by RpcClient.
 // Once completed, client.decodeResult(response) enforces its status/type gate.
 ```

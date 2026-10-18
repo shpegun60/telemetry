@@ -3,7 +3,7 @@
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 [Індекс](README.md) · [Архітектура](Architecture.md) ·
-[V3 providers](../lib/resource/telemetry/v3/README.md) ·
+[V3 providers](../lib/integration/telemetry/v3/README.md) ·
 [Transport guide](user/TransportAndResources.md)
 
 Це чинний binary contract `descriptor.bin` і `values.bin`. Його constants,
@@ -217,7 +217,7 @@ Array=1+N×element nodes. Overflow і ceiling перевіряються пер�
 Descriptor і JS client підтримують явні profiles у своїх documented
 interfaces. Profile не дозволяє unsupported wire types; client з нижчими
 ceilings явно відхиляє завелику модель. Деталі профілів — у
-[provider guide](../lib/resource/telemetry/v3/README.md#validation-and-limits).
+[provider guide](../lib/integration/telemetry/v3/README.md#validation-and-limits).
 
 ## Values header і tokens
 
@@ -284,7 +284,7 @@ Parallel reads, зокрема через копії provider, потребую�
 Workspace або зовнішньої серіалізації.
 
 Чинні includes, приклад `packDescriptor` та file registration наведені
-у [provider guide](../lib/resource/telemetry/v3/README.md).
+у [provider guide](../lib/integration/telemetry/v3/README.md).
 [JS client](../tests/structured/client/README.md) незалежно перевіряє
 descriptor graph, canonical sizes, fingerprint і Values tokens.
 Transport framing, resource packet header та контрольні запити — окремі

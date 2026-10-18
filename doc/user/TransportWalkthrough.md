@@ -602,13 +602,13 @@ transaction або відновлення попередніх settings. Якщ�
 До тієї самої таблиці можна додати providers поточної Model:
 
 ```cpp
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 
 namespace rs = resource::telemetry::v3;
 
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
 inline constexpr rs::ValuesFile valuesFile{descriptor, workspace};
 
@@ -637,7 +637,7 @@ Values викликає getter, тільки коли його token поміщ�
 усієї Model або freeze конфігурації має забезпечити застосунок. Unavailable
 Field має свій token status та zero payload; клієнт не декодує ці zeros як
 реальне значення. Повний формат і read-scratch bound — у
-[v3 provider README](../../lib/resource/telemetry/v3/README.md).
+[v3 provider README](../../lib/integration/telemetry/v3/README.md).
 
 `DescriptorFile` та `ValuesFile` не мають `write()`, тому WRITE до них дає
 `NotWritable`. Зміна Config виконується через encoded Field write або через

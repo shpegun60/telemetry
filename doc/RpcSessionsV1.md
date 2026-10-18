@@ -41,7 +41,7 @@ Pool — server-side належністю slot. Жодна з цих сутно�
 ## Статичні bindings
 
 ```cpp
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 namespace rpc = resource::telemetry::v3;
 
 // mailboxA/B, їхні buffers та filesA/B створено заздалегідь.

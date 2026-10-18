@@ -6,7 +6,7 @@
 #include <semphr.h>
 #include <task.h>
 #include <device_api/ClientBindings.hpp>
-#include <telemetry/client/ThreadSafeClient.hpp>
+#include <client/ThreadSafeClient.hpp>
 #include <array>
 #include <atomic>
 

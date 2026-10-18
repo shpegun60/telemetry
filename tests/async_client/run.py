@@ -69,8 +69,8 @@ def main():
         flags += ['-g', '-fsanitize=thread', '-fno-omit-frame-pointer']
     suffix = '.exe' if os.name == 'nt' else ''
     native = ['lib/telemetry/model/Adapter.cpp', 'lib/telemetry/abi/StructuredAbi.cpp']
-    encoded = ['lib/resource/telemetry/v3/EncodedDispatcher.cpp', *native]
-    rpc = ['lib/telemetry/client/rpc/RpcClient.cpp', 'lib/resource/telemetry/v3/RpcMailbox.cpp',
+    encoded = ['lib/integration/encoded/Dispatcher.cpp', *native]
+    rpc = ['lib/client/rpc/RpcClient.cpp', 'lib/integration/telemetry/v3/RpcMailbox.cpp',
            'lib/resource/protocol/Protocol.cpp', *native]
 
     def executable(stem, source, sources=(), extra=(), arguments=()):

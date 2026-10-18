@@ -12,3 +12,4 @@ SOURCES += $$PWD/QtSmoke.cpp
 HEADERS += $$PWD/Device.hpp
 include($$PWD/../../lib/telemetry/telemetry.pri)
 include($$PWD/../../lib/resource/resource.pri)
+include($$PWD/../../lib/integration/integration.pri)

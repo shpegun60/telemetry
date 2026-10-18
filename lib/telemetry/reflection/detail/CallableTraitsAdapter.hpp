@@ -18,7 +18,7 @@
 #define TELEMETRY_CALLABLE_TRAITS_ADAPTER_HPP
 #pragma once
 
-#include <telemetry/slot/TelemetrySlotTraits.h>
+#include <common/SlotTraits.hpp>
 
 #include <cstddef>
 #include <functional>

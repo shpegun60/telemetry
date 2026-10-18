@@ -1,8 +1,8 @@
 /* Paired owning/borrowed type identity, descriptor and whole-value resources. MIT. */
 #include "Fixture.hpp"
 #include "Check.hpp"
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <algorithm>
 #include <cstring>
 #ifndef BORROWED_ARM
@@ -56,9 +56,9 @@ inline constexpr ts::ServiceCatalogTable wrappedCatalogs{ts::group("services", w
 inline constexpr ts::Model ownModel{ownFields, ts::emptyCommands, ownCatalogs};
 inline constexpr ts::Model borrowModel{borrowFields, ts::emptyCommands, borrowCatalogs};
 inline constexpr ts::Model wrappedModel{borrowFields, ts::emptyCommands, wrappedCatalogs};
-inline constexpr rs::Descriptor ownDescriptor{ownModel};
-inline constexpr rs::Descriptor borrowDescriptor{borrowModel};
-inline constexpr rs::Descriptor wrappedDescriptor{wrappedModel};
+inline constexpr ::telemetry::descriptor::Descriptor ownDescriptor{ownModel};
+inline constexpr ::telemetry::descriptor::Descriptor borrowDescriptor{borrowModel};
+inline constexpr ::telemetry::descriptor::Descriptor wrappedDescriptor{wrappedModel};
 inline std::array<std::byte, 65540> scratch{};
 inline ts::Workspace owningWorkspace{std::span{scratch}.subspan(1)};
 inline ts::Workspace emptyWorkspace{std::span<std::byte>{}};
@@ -120,12 +120,14 @@ int main(int argc, char** argv)
 	      ownDescriptor.fingerprint() == wrappedDescriptor.fingerprint());
 	std::array<std::byte, ownDescriptor.size()> ownDescription{}, borrowedDescription{},
 	    wrappedDescription{};
-	auto a = ownDescriptor.read(0, ownDescription);
-	auto b = borrowDescriptor.read(0, borrowedDescription);
+	const auto descriptorA = ownDescriptor.read(0, ownDescription);
+	const auto descriptorB = borrowDescriptor.read(0, borrowedDescription);
 	const auto wrapped = wrappedDescriptor.read(0, wrappedDescription);
-	check(a.status == resource::Status::Ok && b.status == resource::Status::Ok &&
-	      wrapped.status == resource::Status::Ok && a.eof && b.eof && wrapped.eof &&
-	      ownDescription == borrowedDescription && ownDescription == wrappedDescription);
+	check(descriptorA.status == ::telemetry::descriptor::ReadStatus::Ok &&
+	      descriptorB.status == ::telemetry::descriptor::ReadStatus::Ok &&
+	      wrapped.status == ::telemetry::descriptor::ReadStatus::Ok && descriptorA.eof &&
+	      descriptorB.eof && wrapped.eof && ownDescription == borrowedDescription &&
+	      ownDescription == wrappedDescription);
 	for (unsigned i = 0; i < 4; ++i)
 		check(ownModel.view().fieldTypeId(i) == borrowModel.view().fieldTypeId(i));
 	check(borrowValues.requiredWorkspace() == 0 && borrowModel.maxFieldScratch() == 65536 &&
@@ -134,10 +136,10 @@ int main(int argc, char** argv)
 	      borrowValues.fieldCount() == 4 && borrowValues.maxTokenSize() == 65537);
 	oracle();
 	config.reads = kib4.reads = kib64.reads = 0;
-	a = ownValues.read(0, ownBytes);
+	auto a = ownValues.read(0, ownBytes);
 	check(a.status == resource::Status::Ok && a.eof && a.written == valuesSize &&
 	      ownBytes == expected && owningWorkspace.used() == 0);
-	b = borrowValues.read(0, borrowBytes);
+	auto b = borrowValues.read(0, borrowBytes);
 	check(b.status == resource::Status::Ok && b.eof && b.written == valuesSize &&
 	      borrowBytes == expected && emptyWorkspace.used() == 0);
 	check(config.reads == 2 && kib4.reads == 2 && kib64.reads == 2 && ownBytes == borrowBytes);

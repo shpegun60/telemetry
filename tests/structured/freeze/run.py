@@ -109,22 +109,25 @@ def manifest_assertions(contract):
     """Keep the readable manifest tied to actual constants, never sizeof(C++ rows)."""
     wire = contract['wire']
     lines = ['#include <telemetry/Telemetry.hpp>',
-             '#include <resource/telemetry/v3/BinaryFormat.hpp>']
+             '#include <telemetry/descriptor/Format.hpp>',
+             '#include <integration/telemetry/v3/ValuesFormat.hpp>']
     for key, name in (('major', 'binaryMajor'), ('minor', 'binaryMinor'),
                       ('descriptor_header_bytes', 'descriptorHeaderBytes'),
                       ('values_header_bytes', 'valuesHeaderBytes'),
                       ('record_header_bytes', 'recordHeaderBytes'), ('record_version', 'recordVersion')):
-        lines.append(f'static_assert(resource::telemetry::v3::{name} == {int(wire[key])});')
+        owner = 'resource::telemetry::v3' if name == 'valuesHeaderBytes' else 'telemetry::descriptor'
+        lines.append(f'static_assert({owner}::{name} == {int(wire[key])});')
     for key, name in (('record_kinds', 'RecordKind'), ('categories', 'Category'),
                       ('capabilities', 'Capability'), ('value_status', 'ValueStatus')):
         for entry, code in wire[key].items():
-            lines.append(f'static_assert(static_cast<unsigned>(resource::telemetry::v3::{name}::{entry}) == {int(code)});')
+            owner = 'resource::telemetry::v3' if name == 'ValueStatus' else 'telemetry::descriptor'
+            lines.append(f'static_assert(static_cast<unsigned>({owner}::{name}::{entry}) == {int(code)});')
     for key, name in (('type_kinds', 'TypeKind'), ('scalar_codes', 'ScalarCode')):
         for entry, code in wire[key].items():
             lines.append(f'static_assert(static_cast<unsigned>(telemetry::{name}::{entry}) == {int(code)});')
     for key, name in (('basis', 'fingerprintBasis'), ('prime', 'fingerprintPrime')):
         value = int(wire['fingerprint'][key], 16)
-        lines.append(f'static_assert(resource::telemetry::v3::{name} == {value}ULL);')
+        lines.append(f'static_assert(telemetry::descriptor::{name} == {value}ULL);')
     lines += [f'static_assert(telemetry::structuredAbiRevision == {int(contract["structured_abi_revision"])});',
               f'static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES == {int(contract["default_local_object_bytes"])});']
     for name in LIMIT_NAMES:

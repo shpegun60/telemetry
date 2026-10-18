@@ -27,7 +27,7 @@ API не надаються. Нове підключення починайте 
 | `lib/telemetry_structured/Structured.hpp` | `<telemetry/Telemetry.hpp>` із `lib` в include paths |
 | `telemetry::structured` | `telemetry`; `namespace ts = telemetry` може бути application alias |
 | `structured.pri` | `lib/telemetry/telemetry.pri` |
-| `lib/resource/structured/` | `<resource/telemetry/v3/...>` |
+| `lib/resource/structured/` | `<integration/telemetry/v3/...>` |
 | `resource::structured` | `resource::telemetry::v3` |
 | `resource_structured`, `resource_telemetry_v3` | Явний `CONFIG += resource_telemetry` перед `resource.pri` |
 | `telemetry_no_json`, старий JSON/v2 backend | Configuration прибрана; consumer використовує native API чи v3 codec |
@@ -37,7 +37,7 @@ API не надаються. Нове підключення починайте 
 `lib/magic_enum`. Compiled telemetry sources —
 `lib/telemetry/abi/StructuredAbi.cpp` і `lib/telemetry/model/Adapter.cpp`.
 Resource packet layer додає `lib/resource/protocol/Protocol.cpp`; v3 Values
-provider — `lib/resource/telemetry/v3/detail/Values.cpp`.
+provider — `lib/integration/telemetry/v3/detail/Values.cpp`.
 
 Qmake manifests вибирають ці sources; generic resource manifest не
 підключає telemetry назад. Optional

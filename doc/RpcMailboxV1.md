@@ -1,7 +1,7 @@
 # RpcMailbox: wire-контракт v1.0 і стани
 
 **Статус: реалізований optional provider, RPC wire v1.0.**
-[`RpcMailbox`](../lib/resource/telemetry/v3/RpcMailbox.hpp) підключається явно;
+[`RpcMailbox`](../lib/integration/telemetry/v3/RpcMailbox.hpp) підключається явно;
 він не змінює чинні Telemetry v3.0, Resource v1, DescriptorFile, ValuesFile
 або optional Bind/Exchange example. Нормативні слова «має», «дозволено» та
 «відхиляємо» визначають контракт реалізації. Повний runnable host-приклад —
@@ -371,7 +371,7 @@ Pending/Ready не мають прихованого timer, який повто�
 ## 7. Час, ACK і виконання
 
 Provider interface (`resource::telemetry::v3`, header
-`<resource/telemetry/v3/RpcMailbox.hpp>`):
+`<integration/telemetry/v3/RpcMailbox.hpp>`):
 
 ```cpp
 RpcMailbox(const telemetry::ModelView& model, telemetry::Workspace& workspace,

@@ -557,8 +557,8 @@ Exchange header не можна розміщувати поверх borrowed res
 
 ```cpp
 namespace rs = resource::telemetry::v3;
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
 inline constexpr rs::ValuesFile valuesFile{descriptor, workspace};
 inline constinit const auto telemetryFiles = resource::filesystem(
@@ -587,7 +587,7 @@ payload interior дає `InvalidCursor`.
 нульовим, навіть якщо великий Field setter потребує decoded storage.
 Underlying tables/metadata та Workspace мають жити протягом усіх читань.
 Формат і lifetime подробиці — у
-[v3 provider README](../../lib/resource/telemetry/v3/README.md).
+[v3 provider README](../../lib/integration/telemetry/v3/README.md).
 
 ## RpcMailbox через Resource WRITE/READ
 
@@ -680,7 +680,7 @@ Encoded приклад потребує також include directories `lib/boos
 Explicit ABI guard додає `lib/telemetry/abi/StructuredAbi.cpp`; звичайний qmake
 manifest і maintained приклади включають обидва sources. Direct catalog-index
 encoded operations не потребують compiled adapter. Values додає свій
-`lib/resource/telemetry/v3/detail/Values.cpp`. `.pri` manifests описані у
+`lib/integration/telemetry/v3/detail/Values.cpp`. `.pri` manifests описані у
 [resource README](../../lib/resource/README.md) та
 [telemetry README](../../lib/telemetry/README.md).
 

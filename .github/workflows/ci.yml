@@ -11,6 +11,49 @@ permissions:
   contents: read
 
 jobs:
+  modules:
+    name: Independent installed modules (${{ matrix.cxx }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++, clang++-18]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host and offline ARM tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-18 cmake ninja-build gcc-arm-none-eabi \
+            binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Sealed headers, relocation, negative compilation and linking
+        shell: bash
+        run: |
+          options=()
+          if [[ '${{ matrix.cxx }}' == 'clang++-18' ]]; then options+=(--sanitize); fi
+          python3 -B tests/modules/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/modules" "${options[@]}"
+          python3 -B tests/encoded_dispatch/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/encoded-core" "${options[@]}"
+          python3 -B tests/descriptor_core/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/descriptor-core" "${options[@]}"
+          python3 -B tests/client_module/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/client-module"
+      - name: Installed Cortex-M7 modules compile and link
+        if: matrix.cxx == 'g++'
+        run: python3 -B tests/modules/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/modules-arm"
+      - name: Retain module qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules-${{ matrix.cxx }}
+          path: |
+            ${{ runner.temp }}/modules/
+            ${{ runner.temp }}/modules-arm/
+            ${{ runner.temp }}/encoded-core/
+            ${{ runner.temp }}/descriptor-core/
+            ${{ runner.temp }}/client-module/
+          if-no-files-found: error
+
   async-client:
     name: Portable async client (${{ matrix.cxx }})
     runs-on: ubuntu-24.04

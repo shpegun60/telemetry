@@ -6,6 +6,7 @@ CONFIG += c++20 warn_on resource_telemetry
 
 include(lib/telemetry/telemetry.pri)
 include(lib/resource/resource.pri)
+include(lib/integration/integration.pri)
 INCLUDEPATH += $$PWD/app
 
 SOURCES += \

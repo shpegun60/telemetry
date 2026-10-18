@@ -4,7 +4,7 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <telemetry/client/rpc/RpcClient.hpp>
+#include <client/rpc/RpcClient.hpp>
 #include <array>
 namespace rpc = resource::telemetry::v3;
 
@@ -19,7 +19,7 @@ struct Report {
 static std::array<std::byte, 28> request;
 static std::array<std::byte, 4096> result;
 static std::array<std::byte, 64> packet;
-static rpc::RpcClient client{0, request, result, packet};
+static ::telemetry::client::rpc::RpcClient client{0, request, result, packet};
 static Report report;
 static std::array<std::byte, 80> incoming;
 
@@ -34,7 +34,9 @@ extern "C" unsigned rpc_client_begin(unsigned value) noexcept
 {
 	(void)client.startSession(value);
 	return unsigned(client.beginService(
-	    rpc::ServiceEndpoint<Request, Report>{0, rpc::trustedRpcMapping}, Request{value}));
+	    ::telemetry::client::rpc::ServiceEndpoint<Request, Report>{
+	        0, ::telemetry::client::rpc::trustedRpcMapping},
+	    Request{value}));
 }
 
 extern "C" unsigned rpc_client_packet() noexcept

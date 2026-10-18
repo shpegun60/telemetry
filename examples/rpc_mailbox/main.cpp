@@ -10,7 +10,7 @@
 #include <resource/FileSystem.hpp>
 #include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <telemetry/Telemetry.hpp>
 #include <algorithm>
 #include <array>
@@ -87,7 +87,8 @@ std::uint32_t get32(resource::Input bytes, std::size_t offset) noexcept
 	return value;
 }
 
-using Request = std::array<std::byte, rs::rpcRequestHeaderBytes + ts::wireSize<Add>>;
+using Request =
+    std::array<std::byte, ::telemetry::protocol::rpc::rpcRequestHeaderBytes + ts::wireSize<Add>>;
 
 Request makeRequest(std::uint32_t transactionId, const Add& request) noexcept
 {
@@ -100,8 +101,9 @@ Request makeRequest(std::uint32_t transactionId, const Add& request) noexcept
 	put32(bytes, 8, transactionId);
 	put32(bytes, 12, AddId);
 	put32(bytes, 16, ts::wireSize<Add>);
-	bytes[20] = std::byte(rs::RpcOperation::Service);
-	check(ts::encode(request, resource::Output{bytes}.subspan(rs::rpcRequestHeaderBytes)) ==
+	bytes[20] = std::byte(::telemetry::protocol::rpc::RpcOperation::Service);
+	check(ts::encode(request, resource::Output{bytes}.subspan(
+	                              ::telemetry::protocol::rpc::rpcRequestHeaderBytes)) ==
 	      ts::CodecStatus::Ok);
 	return bytes;
 }
@@ -200,7 +202,7 @@ public:
 	void step(std::uint32_t nowMs) noexcept
 	{
 		// A Pending request here had its final ACK handed off on an earlier step.
-		const bool dispatched = mailbox.state() == rs::RpcState::Pending;
+		const bool dispatched = mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending;
 		mailbox.process(nowMs);
 		// A callback can take time. Return to the application's clock before
 		// accepting another WRITE rather than stamping it with this old nowMs.
@@ -260,11 +262,11 @@ int main()
 	const auto ack = client::parseWrite(transport.lastReply(), request.size());
 	check(ack && !ack.shortError && ack.response.status == resource::Status::Ok);
 	check(ack.response.consumed == request.size() && ack.response.complete);
-	check(ack.response.next == rs::rpcCursor(Tx, request.size()));
-	check(mailbox.state() == rs::RpcState::Pending && counter.calls == 0);
+	check(ack.response.next == ::telemetry::protocol::rpc::rpcCursor(Tx, request.size()));
+	check(mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending && counter.calls == 0);
 
 	owner.step(13); // Only now may the Service run.
-	check(mailbox.state() == rs::RpcState::Ready && counter.calls == 1);
+	check(mailbox.state() == ::telemetry::protocol::rpc::RpcState::Ready && counter.calls == 1);
 	queue.push(currentPacket); // Lost ACK retry in the same admitted session.
 	owner.step(14);
 	const auto repeatedAck = client::parseWrite(transport.lastReply(), request.size());
@@ -279,22 +281,25 @@ int main()
 	const auto parsed = client::parseRead(transport.lastReply());
 	check(parsed && !parsed.shortError && parsed.response.status == resource::Status::Ok);
 	const auto record = parsed.response.data; // Borrowed until transport reply changes.
-	check(parsed.response.eof && record.size() == rs::rpcReplyHeaderBytes + 4);
+	check(parsed.response.eof &&
+	      record.size() == ::telemetry::protocol::rpc::rpcReplyHeaderBytes + 4);
 	check(record[0] == std::byte{'T'} && record[1] == std::byte{'R'} &&
 	      record[2] == std::byte{'P'} && record[3] == std::byte{'S'});
 	check(record[4] == std::byte{1} && record[5] == std::byte{} && record[6] == std::byte{} &&
 	      record[7] == std::byte{});
 	check(get32(record, 8) == Tx && get32(record, 12) == AddId && get32(record, 16) == 4);
-	check(record[20] == std::byte(rs::RpcOperation::Service));
-	check(record[21] == std::byte(rs::RpcState::Ready)); // Check state before statuses.
+	check(record[20] == std::byte(::telemetry::protocol::rpc::RpcOperation::Service));
+	check(record[21] ==
+	      std::byte(::telemetry::protocol::rpc::RpcState::Ready)); // Check state before statuses.
 	check(record[22] == std::byte(ts::DispatchStatus::Ok) &&
 	      record[23] == std::byte(ts::ServiceStatus::Ok));
 	check(get32(record, 24) == request.size() && get32(record, 28) == request.size());
 	Report result{};
-	check(ts::decode(record.subspan(rs::rpcReplyHeaderBytes), result) == ts::CodecStatus::Ok);
+	check(ts::decode(record.subspan(::telemetry::protocol::rpc::rpcReplyHeaderBytes), result) ==
+	      ts::CodecStatus::Ok);
 	check(result.value == 7 && counter.value == 7 && counter.calls == 1);
 	owner.disconnect();
-	check(mailbox.state() == rs::RpcState::Idle);
+	check(mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
 #ifndef RPC_ARM_PROBE
 	std::printf("RPC mailbox example: %u checks, stale/foreign packets rejected, "
 	            "one callback, result=%u\n",

@@ -13,7 +13,6 @@
 
 namespace df = descriptor_fixture;
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 std::uint64_t descriptorOtherFingerprint() noexcept;
 const std::byte* descriptorOtherBytes() noexcept;
 
@@ -26,8 +25,9 @@ void checkReads(const Descriptor& descriptor, const std::array<std::byte, N>& ex
 			out.fill(std::byte{0xa5});
 			const auto r = descriptor.read(offset, std::span{out}.first(chunk));
 			const auto count = std::min(chunk, N - offset);
-			assert(r.status == (chunk == 0 && offset != N ? resource::Status::BufferTooSmall
-			                                              : resource::Status::Ok));
+			assert(r.status == (chunk == 0 && offset != N
+			                        ? ::telemetry::descriptor::ReadStatus::BufferTooSmall
+			                        : ::telemetry::descriptor::ReadStatus::Ok));
 			assert(r.written == count && r.next == offset + count &&
 			       r.eof == (offset + count == N));
 			assert(std::equal(out.begin(), out.begin() + count, expected.begin() + offset));
@@ -38,21 +38,22 @@ void checkReads(const Descriptor& descriptor, const std::array<std::byte, N>& ex
 	}
 	for (std::size_t chunk = 1; chunk <= 129; ++chunk) {
 		std::array<std::byte, N> complete{};
-		resource::Cursor cursor = 0;
+		::telemetry::descriptor::Cursor cursor = 0;
 		while (cursor != N) {
 			const auto r = descriptor.read(
 			    cursor, std::span{complete}.subspan(cursor, std::min(chunk, N - cursor)));
-			assert(r.status == resource::Status::Ok && r.next > cursor);
+			assert(r.status == ::telemetry::descriptor::ReadStatus::Ok && r.next > cursor);
 			cursor = r.next;
 		}
 		assert(complete == expected);
 	}
-	for (const auto bad : {resource::Cursor{N + 1}, resource::Cursor{1} << 32,
-	                       std::numeric_limits<resource::Cursor>::max()}) {
+	for (const auto bad :
+	     {::telemetry::descriptor::Cursor{N + 1}, ::telemetry::descriptor::Cursor{1} << 32,
+	      std::numeric_limits<::telemetry::descriptor::Cursor>::max()}) {
 		out.fill(std::byte{0xa5});
 		auto r = descriptor.read(bad, out);
-		assert(r.status == resource::Status::InvalidCursor && r.next == bad && r.written == 0 &&
-		       !r.eof);
+		assert(r.status == ::telemetry::descriptor::ReadStatus::InvalidCursor && r.next == bad &&
+		       r.written == 0 && !r.eof);
 		assert(out[0] == std::byte{0xa5});
 	}
 }
@@ -62,7 +63,7 @@ auto readAll(const Descriptor& d)
 {
 	std::array<std::byte, df::edge.size() + 128> bytes{};
 	auto r = d.read(0, bytes);
-	assert(r.status == resource::Status::Ok && r.eof && r.written == d.size());
+	assert(r.status == ::telemetry::descriptor::ReadStatus::Ok && r.eof && r.written == d.size());
 	return bytes;
 }
 
@@ -89,7 +90,7 @@ int main(int argc, char** argv)
 	const ts::FieldCatalogTable b{ts::group("motor", originalFields)};
 	const ts::Model ma{a, ts::emptyCommands, df::noServices};
 	const ts::Model mb{b, ts::emptyCommands, df::noServices};
-	const rs::Descriptor da{ma}, db{mb};
+	const ::telemetry::descriptor::Descriptor da{ma}, db{mb};
 	assert(da.fingerprint() == db.fingerprint() && readAll(da) == readAll(db));
 	assert(other.reads == 0);
 
@@ -99,7 +100,7 @@ int main(int argc, char** argv)
 		++df::calls;
 		return telemetry::WriteResult::Applied;
 	});
-	const rs::Descriptor rebound{df::model};
+	const ::telemetry::descriptor::Descriptor rebound{df::model};
 	assert(rebound.fingerprint() == df::edge.fingerprint() && readAll(rebound) == before);
 	df::getter.reset();
 	df::setter.reset();
@@ -108,20 +109,20 @@ int main(int argc, char** argv)
 	const ts::FieldTable ro{ts::field<&fixture::Device::config>("Config", fixture::device)};
 	const ts::FieldCatalogTable rc{ts::group("motor", ro)};
 	const ts::Model rm{rc, ts::emptyCommands, df::noServices};
-	const rs::Descriptor rd{rm};
+	const ::telemetry::descriptor::Descriptor rd{rm};
 	assert(rd.fingerprint() != da.fingerprint());
 
 	// Duplicate names are scoped to category/catalog. Runtime construction
 	// returns an invalid descriptor without publishing partially built data.
 	const ts::FieldCatalogTable duplicate{ts::group("same", ro), ts::group("same", otherFields)};
 	const ts::Model duplicateModel{duplicate, ts::emptyCommands, df::noServices};
-	const rs::Descriptor invalid{duplicateModel};
-	assert(invalid.error() == rs::DescriptorError::DuplicateName && invalid.size() == 0 &&
-	       invalid.fingerprint() == 0);
+	const ::telemetry::descriptor::Descriptor invalid{duplicateModel};
+	assert(invalid.error() == ::telemetry::descriptor::DescriptorError::DuplicateName &&
+	       invalid.size() == 0 && invalid.fingerprint() == 0);
 	std::array<std::byte, 8> scratch{};
 	const auto failure = invalid.read(17, scratch);
-	assert(failure.status == resource::Status::InvalidData && failure.next == 17 &&
-	       failure.written == 0);
+	assert(failure.status == ::telemetry::descriptor::ReadStatus::InvalidData &&
+	       failure.next == 17 && failure.written == 0);
 
 	// Mutable C-string buffers may have spare capacity; names are borrowed
 	// and remain immutable throughout each descriptor's lifetime.
@@ -129,7 +130,7 @@ int main(int argc, char** argv)
 	const ts::FieldTable renamed{ts::field<&fixture::Device::config>(label, fixture::device)};
 	const ts::FieldCatalogTable renamedCatalogs{ts::group("motor", renamed)};
 	const ts::Model renamedModel{renamedCatalogs, ts::emptyCommands, df::noServices};
-	const rs::Descriptor renamedDescriptor{renamedModel};
+	const ::telemetry::descriptor::Descriptor renamedDescriptor{renamedModel};
 	assert(renamedDescriptor.fingerprint() != rd.fingerprint());
 
 	// Resume inside a maximal-length label without scanning its prefix.
@@ -138,11 +139,12 @@ int main(int argc, char** argv)
 	const ts::FieldTable longRow{ts::field<&df::read<std::uint32_t>>(longName.data())};
 	const ts::FieldCatalogTable longCatalog{ts::group("long", longRow)};
 	const ts::Model longModel{longCatalog, ts::emptyCommands, df::noServices};
-	const rs::Descriptor longDescriptor{longModel};
+	const ::telemetry::descriptor::Descriptor longDescriptor{longModel};
 	for (auto cursor = longDescriptor.size() - ts::Limits::maxStringBytes;
 	     cursor < longDescriptor.size(); ++cursor) {
 		auto r = longDescriptor.read(cursor, std::span{scratch}.first(1));
-		assert(r.status == resource::Status::Ok && r.written == 1 && scratch[0] == std::byte{'x'});
+		assert(r.status == ::telemetry::descriptor::ReadStatus::Ok && r.written == 1 &&
+		       scratch[0] == std::byte{'x'});
 	}
 	assert(df::calls == 0);
 

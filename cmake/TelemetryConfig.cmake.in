@@ -1,0 +1,11 @@
+# Relocatable module exports. MIT.
+@PACKAGE_INIT@
+include("${CMAKE_CURRENT_LIST_DIR}/TelemetryTargets.cmake")
+foreach(component IN LISTS Telemetry_FIND_COMPONENTS)
+    if(TARGET Telemetry::${component})
+        set(Telemetry_${component}_FOUND TRUE)
+    else()
+        set(Telemetry_${component}_FOUND FALSE)
+    endif()
+endforeach()
+check_required_components(Telemetry)

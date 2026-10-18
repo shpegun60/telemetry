@@ -1,7 +1,7 @@
 /* Host board port for the unchanged bare-metal client loop. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #include "../codegen/Device.hpp"
-#include <telemetry/client/ClientResult.hpp>
-#include <resource/telemetry/v3/EncodedDispatcher.hpp>
+#include <client/ClientResult.hpp>
+#include <integration/encoded/Dispatcher.hpp>
 #include <algorithm>
 
 namespace cl = telemetry::client;
@@ -39,7 +39,7 @@ bool board_txAvailable(std::size_t) noexcept
 
 bool board_beginPacket(cl::Input bytes, std::uint32_t session, std::uint32_t request) noexcept
 {
-	const auto result = resource::telemetry::v3::dispatchEncoded(
+	const auto result = telemetry::integration::encoded::dispatchEncoded(
 	    codegen_fixture::model.view(), codegen_fixture::workspace, session, bytes, reply);
 	if (!result)
 		return false;

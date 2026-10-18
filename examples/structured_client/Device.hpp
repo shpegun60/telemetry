@@ -14,8 +14,8 @@
 #pragma once
 
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <array>
 #include <limits>
 
@@ -130,8 +130,8 @@ inline constexpr ts::FieldCatalogTable fields{ts::group("device", localFields)};
 inline constexpr ts::CommandCatalogTable commands{ts::group("device", localCommands)};
 inline constexpr ts::ServiceCatalogTable services{ts::group("device", localServices)};
 inline constexpr ts::Model model{fields, commands, services};
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 
 // The desktop fake owns its scratch explicitly, just like an MCU integrator.
 inline std::array<std::byte, 2048> scratch;

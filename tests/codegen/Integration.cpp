@@ -20,7 +20,7 @@ namespace cf = codegen_fixture;
 namespace ex = client_example;
 namespace api = device_api;
 namespace rpc = resource::telemetry::v3;
-using CS = rpc::RpcClientStatus;
+using CS = ::telemetry::client::rpc::RpcClientStatus;
 using Config = api::device::types::Config;
 using Request = api::device::types::InspectRequest;
 using Response = api::device::types::InspectResponse;
@@ -301,7 +301,8 @@ struct Harness {
 	std::array<std::byte, 53> reply{};  // Real response fragmentation, including header.
 	rpc::RpcMailbox mailbox{model, workspace, serverRequest, serverResult};
 	resource::FileSystem<1> files{std::array{resource::file("/rpc", mailbox)}};
-	rpc::RpcClient client{0, clientRequest, clientResult, packet, {5, 1000, 1, 2}};
+	::telemetry::client::rpc::RpcClient client{
+	    0, clientRequest, clientResult, packet, {5, 1000, 1, 2}};
 	std::uint32_t now = 0, generation = 1;
 	unsigned packets = 0;
 
@@ -320,7 +321,8 @@ struct Harness {
 		CHECK(admit(std::span(cf::descriptorBytes).first(64), 1));
 	}
 
-	auto deliver(rpc::RpcClientPacket pending, bool acceptReply = true) noexcept
+	auto deliver(::telemetry::client::rpc::RpcClientPacket pending,
+	             bool acceptReply = true) noexcept
 	{
 		CHECK(bool(pending) && pending.generation == generation);
 		CHECK(client.onSendAccepted(pending.generation, pending.requestId));
@@ -352,7 +354,7 @@ static void remote()
 	ex::device = {};
 	cf::edge = {};
 	Harness h;
-	const auto trust = rpc::trustedRpcMapping;
+	const auto trust = ::telemetry::client::rpc::trustedRpcMapping;
 	CHECK(h.client.beginReadField(api::rpc::binding(api::device::fields::Config, trust)) == CS::Ok);
 	h.run();
 	Config config{};
@@ -412,7 +414,7 @@ static void pendingRetryAndSessions()
 {
 	ex::device = {};
 	cf::edge = {};
-	const auto trust = rpc::trustedRpcMapping;
+	const auto trust = ::telemetry::client::rpc::trustedRpcMapping;
 	Harness h;
 	CHECK(h.client.beginService(api::rpc::binding(api::edge::services::Good, trust)) == CS::Ok);
 	// Deliver the WRITE and pending READ without letting the application dispatch.
@@ -421,7 +423,8 @@ static void pendingRetryAndSessions()
 	pending = h.client.nextPacket();
 	h.deliver(pending);
 	Empty empty{};
-	CHECK(h.mailbox.state() == rpc::RpcState::Pending && cf::edge.calls == 0);
+	CHECK(h.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending &&
+	      cf::edge.calls == 0);
 	CHECK(!h.client.completed() && h.client.resultBytes().empty());
 	CHECK(h.client.decodeResult(empty).status == CS::ResultUnavailable);
 	h.mailbox.process(++h.now);
@@ -446,7 +449,7 @@ static void pendingRetryAndSessions()
 		const auto reply =
 		    resource::protocol::process(retry.files.view(), pending.bytes, retry.reply);
 		CHECK(reply.status == resource::Status::Ok);
-		if (retry.mailbox.state() != rpc::RpcState::Pending) {
+		if (retry.mailbox.state() != ::telemetry::protocol::rpc::RpcState::Pending) {
 			CHECK(retry.client.onReply(std::span(retry.reply).first(reply.written),
 			                           pending.generation, pending.requestId));
 			continue;

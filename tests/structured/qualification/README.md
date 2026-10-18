@@ -5,7 +5,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 This suite combines the existing heterogeneous/4 KiB model, a separately
 compiled metadata provider, two application consumers and all four compiled
 encoded boundaries. The final API uses `<telemetry/Telemetry.hpp>` and
-namespace `telemetry`, with optional providers under `resource/telemetry/v3`.
+namespace `telemetry`, with optional providers under `integration/telemetry/v3`.
 It adds integration evidence without replacing the
 Stage 04–12 type, lifetime, codec, wire, storage and native codegen gates.
 

@@ -74,7 +74,7 @@ int main()
 	static constexpr ts::FieldCatalogTable shiftedFields{ts::group("device", shiftedRows)};
 	static constexpr ts::Model shiftedModel{shiftedFields, commands, services};
 	static constexpr auto shiftedView = shiftedModel.view();
-	static constexpr resource::telemetry::v3::Descriptor shiftedDescriptor{shiftedModel};
+	static constexpr ::telemetry::descriptor::Descriptor shiftedDescriptor{shiftedModel};
 	static_assert(shiftedDescriptor.fingerprint() != descriptor.fingerprint());
 	rs::Binding changed;
 	const auto callbacks = callbackCount();

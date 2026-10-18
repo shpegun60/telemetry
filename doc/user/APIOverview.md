@@ -252,7 +252,7 @@ telemetry C++20 API. Generic Resource потребує лише `lib`.
 | Standalone Codec | `<telemetry/codec/Codec.hpp>` | Header-only |
 | Generic files/providers | `<resource/Resource.hpp>` | Header-only |
 | Resource packets | `<resource/protocol/Protocol.hpp>`; client `<resource/protocol/Packets.hpp>` | `lib/resource/protocol/Protocol.cpp` для `process()`; client helpers header-only |
-| Telemetry files | `<resource/telemetry/v3/DescriptorFile.hpp>`, `<resource/telemetry/v3/ValuesFile.hpp>` | `lib/resource/telemetry/v3/detail/Values.cpp` для Values; Descriptor header-only |
+| Telemetry files | `<integration/telemetry/v3/DescriptorFile.hpp>`, `<integration/telemetry/v3/ValuesFile.hpp>` | `lib/integration/telemetry/v3/detail/Values.cpp` для Values; Descriptor header-only |
 
 Header-only тут описує compiled-source requirement. Native headers можуть
 транзитивно включати codec/type/reflection headers; це не обіцянка автоматичного

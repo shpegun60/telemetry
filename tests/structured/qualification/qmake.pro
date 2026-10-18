@@ -8,4 +8,5 @@ TEMPLATE = app
 TARGET = structured_qualification
 include(../../../lib/telemetry/telemetry.pri)
 include(../../../lib/resource/resource.pri)
+include(../../../lib/integration/integration.pri)
 SOURCES += Check.cpp Provider.cpp Typed.cpp Encoded.cpp

@@ -36,7 +36,7 @@ CPP_PURPOSE = """/*
 """
 COMMON = r"""
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -44,7 +44,6 @@ COMMON = r"""
 #include <span>
 #include <type_traits>
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 enum class Mode : std::uint8_t { Off = 1, On = 5, Auto = 9 };
 // An explicit three-entry dictionary keeps enum discovery cost constant.
 template<> struct telemetry::reflection::EnumReflection<Mode> {
@@ -97,8 +96,8 @@ inline constexpr ts::FieldCatalogTable fields{ts::group("group", rows)};
 inline constexpr ts::ServiceCatalogTable<> services{};
 inline constexpr ts::Model model{fields, ts::emptyCommands, services};
 using Registry = decltype(model)::Registry;
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto packed = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto packed = ::telemetry::descriptor::packDescriptor<descriptor>();
 static_assert(descriptor.valid());
 static_assert(model.maxFieldWireSize() == 23);
 static_assert(model.maxScratch() == 0); // 28-byte DTO fits the frozen 32-byte local budget.
@@ -197,7 +196,7 @@ def boundary_sources():
             ("maxDescriptorBytes", "descriptor.size() - 1", "profile-bytes-short", False)):
         text = model[:model.index("int main()")]
         text += f"struct Profile : ts::Limits {{ static constexpr unsigned {member} = {value}; }};\n"
-        text += "using Checked = rs::Descriptor<std::remove_cv_t<decltype(fields)>, ts::EmptyEndpointCatalog, "
+        text += "using Checked = ::telemetry::descriptor::Descriptor<std::remove_cv_t<decltype(fields)>, ts::EmptyEndpointCatalog, "
         text += "std::remove_cv_t<decltype(services)>, Profile>;\nconstexpr Checked checked{model};\n"
         text += "static_assert(checked.valid());\n"
         text += "static_assert(checked.size() == descriptor.size());\n"

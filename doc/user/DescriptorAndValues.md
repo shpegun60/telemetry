@@ -3,7 +3,7 @@
 Автори: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 [API Overview](APIOverview.md) · [Посібник](README.md) · [Resource files](Resources.md) ·
-[V3 provider API](../../lib/resource/telemetry/v3/README.md) · [Wire v3.0](../WireV3.md)
+[V3 provider API](../../lib/integration/telemetry/v3/README.md) · [Wire v3.0](../WireV3.md)
 
 Перед providers прочитайте [Model](Model.md); для payload/scratch capacities
 та lifetime leases є окремий [Codec and Workspace](CodecAndWorkspace.md).
@@ -21,7 +21,7 @@ Descriptor/Values providers не потрібні для native access або st
 
 `Descriptor.hpp` і `DescriptorFile.hpp` реалізовані в headers. Values READ
 додатково потребує compiled
-[detail/Values.cpp](../../lib/resource/telemetry/v3/detail/Values.cpp).
+[detail/Values.cpp](../../lib/integration/telemetry/v3/detail/Values.cpp).
 Generic packet доступ також потребує `Protocol.cpp`. Повний список include/link
 inputs для application наведено у
 [GettingStarted](GettingStarted.md#крок-2-підключіть-source-та-include-paths).
@@ -67,18 +67,18 @@ Services і Commands описані в descriptor, але Values містить 
 [Device.hpp](../../examples/structured_client/Device.hpp):
 
 ```cpp
-#include <resource/telemetry/v3/Descriptor.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
 
 namespace rs = resource::telemetry::v3;
-inline constexpr rs::Descriptor descriptor{model};
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
 static_assert(descriptor.valid());
 
 // Option 1: stream directly from immutable metadata.
 inline constexpr rs::DescriptorFile streamedDescriptor{descriptor};
 
 // Option 2: serialize during compilation and serve immutable packed bytes.
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr rs::DescriptorFile packedDescriptor{descriptorBytes};
 ```
 
@@ -93,8 +93,8 @@ linked program може залишити лише byte array. Actual sections/Fl
 перевіряйте через `valid()`/`error()` перед опублікуванням provider.
 DescriptorFile позичає конкретний lvalue source: packed
 `std::array<std::byte, N>` або об'єкт з exact const/noexcept operations
-`resource::FileSize size() const noexcept` і
-`resource::ReadResult read(resource::Cursor, resource::Output) const noexcept`.
+`std::uint32_t size() const noexcept` і
+`telemetry::descriptor::ReadResult read(telemetry::descriptor::Cursor, telemetry::descriptor::Output) const noexcept`.
 Тому source може бути streaming Descriptor, named DescriptorView чи власний
 сумісний immutable provider. Source і вся borrowed metadata живуть довше
 за DescriptorFile та reads. Temporary source, включно з результатом
@@ -114,18 +114,23 @@ span. Використовуйте окремий transport/output buffer. Runti
 
 ## Descriptor API
 
+The builder and view belong to `telemetry::descriptor`; direct reads use
+`ReadStatus`. Only `DescriptorFile` maps these outcomes to `resource::Status`.
+Integration contains the file adapter and live Values, with no Descriptor facade
+or former include entry points.
+
 | Object / API | Тип і значення |
 | --- | --- |
-| `rs::Descriptor{model}` | Metadata/offset index і cached fingerprint для Model |
+| `::telemetry::descriptor::Descriptor{model}` | Metadata/offset index і cached fingerprint для Model |
 | `descriptor.valid()` | `bool`: model metadata прийнята |
 | `descriptor.error()` | `DescriptorError`, причина відмови construction |
 | `descriptor.size()` | `uint32_t`, повний canonical descriptor byte count |
 | `descriptor.fingerprint()` | `uint64_t`, cached FNV-1a identity |
 | `descriptor.fieldIndex()` | Borrowed FieldIndex, без getter call |
 | `descriptor.view()` | Borrowed DescriptorView, лише із lvalue descriptor |
-| `descriptor.read(cursor, output)` | `ReadResult`, byte-offset READ |
+| `descriptor.read(cursor, output)` | `telemetry::descriptor::ReadResult`, byte-offset READ |
 | `Descriptor::segmentCount` / `indexBytes` | Compile-time число emission segments без sentinel; byte size index включає один sentinel: `(segmentCount + 1) * sizeof(Segment)` |
-| `rs::packDescriptor<descriptor>()` | Consteval packed byte array |
+| `::telemetry::descriptor::packDescriptor<descriptor>()` | Consteval packed byte array |
 | `rs::DescriptorFile{source}` | Read-only generic resource provider |
 | `descriptorFile.size()` / `read(cursor, output)` | FileSize / ReadResult; ті самі byte-offset правила |
 | `DescriptorView::size/fingerprint/error/read` | Runtime borrowed facade; owner Descriptor живе довше |
@@ -162,14 +167,14 @@ consumer має також include/link sources з
 
 ```cpp
 #include <resource/FileSystem.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <array>
 
 namespace rs = resource::telemetry::v3;
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline constexpr rs::DescriptorFile descriptorFile{descriptorBytes};
 
 inline std::array<std::byte, model.maxFieldScratch()> scratch{};
@@ -356,7 +361,7 @@ signaling/quiet NaN patterns для F32/F64. Для NaN вони вимагаю�
 | --- | --- |
 | Mixed reflected DTOs, immutable descriptor та Values | [Device.hpp](../../examples/structured_client/Device.hpp), [client README](../../examples/structured_client/README.md) |
 | Незалежний JS parser/codec, U64/S64 BigInt і shape-driven payload | [Client API](../../tests/structured/client/README.md), [telemetry.js](../../web/telemetry.js) |
-| Provider internals, exact default/profile contracts і qmake | [V3 README](../../lib/resource/telemetry/v3/README.md) |
+| Provider internals, exact default/profile contracts і qmake | [V3 README](../../lib/integration/telemetry/v3/README.md) |
 | Exact bytes/header/record/fingerprint reference | [Wire v3.0](../WireV3.md) |
 | Host, sanitizer, ARM та H7S доказові межі | [Descriptor checks](../../tests/structured/descriptor/README.md), [Values checks](../../tests/structured/resources/README.md) |
 | Receive framing, LIST і file transfer | [Transport walkthrough](TransportWalkthrough.md) |

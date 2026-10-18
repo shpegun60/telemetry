@@ -21,7 +21,7 @@ SOURCE = r'''// Generated optional adapter over the portable asynchronous queue.
 
 @PUSH@
 #include <@PATH@/Schema.hpp>
-#include <telemetry/client/DeviceClient.hpp>
+#include <client/DeviceClient.hpp>
 
 namespace @NS@::qml {
 @QT_NAMES@

@@ -5,7 +5,7 @@
  */
 #include "Device.hpp"
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
 #include <charconv>
 #include <fstream>
 #include <iostream>

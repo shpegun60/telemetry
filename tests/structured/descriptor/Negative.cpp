@@ -6,7 +6,6 @@
  */
 #include "Fixture.hpp"
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 namespace df = descriptor_fixture;
 #if CASE == 1
 constexpr auto bad = ts::field<&df::read<std::uint32_t>>("bad\0tail");
@@ -29,14 +28,14 @@ inline constexpr ts::FieldTable rows{ts::field<&df::read<int>>("x"),
                                      ts::field<&df::read<int>>("x")};
 inline constexpr ts::FieldCatalogTable catalogs{ts::group("g", rows)};
 inline constexpr ts::Model model{catalogs, ts::emptyCommands, df::noServices};
-constexpr rs::Descriptor bad{model};
+constexpr ::telemetry::descriptor::Descriptor bad{model};
 #elif CASE == 10
 inline constexpr ts::FieldCatalogTable catalogs{ts::group("g", df::extraFields),
                                                 ts::group("g", df::noFields)};
 inline constexpr ts::Model model{catalogs, ts::emptyCommands, df::noServices};
-constexpr rs::Descriptor bad{model};
+constexpr ::telemetry::descriptor::Descriptor bad{model};
 #elif CASE == 11
-auto bad = rs::Descriptor{df::model}.view();
+auto bad = ::telemetry::descriptor::Descriptor{df::model}.view();
 #else
 struct Profile : ts::Limits {
 #if CASE == 12
@@ -66,8 +65,8 @@ struct Profile : ts::Limits {
 #endif
 };
 
-constexpr rs::Descriptor<std::remove_cv_t<decltype(df::fields)>,
-                         std::remove_cv_t<decltype(fixture::commands)>,
-                         std::remove_cv_t<decltype(df::services)>, Profile>
+constexpr ::telemetry::descriptor::Descriptor<std::remove_cv_t<decltype(df::fields)>,
+                                              std::remove_cv_t<decltype(fixture::commands)>,
+                                              std::remove_cv_t<decltype(df::services)>, Profile>
     bad{df::model};
 #endif

@@ -12,7 +12,7 @@ from check_values import check
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
-READER = ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp'
+READER = ROOT / 'lib/integration/telemetry/v3/detail/Values.cpp'
 PROTOCOL = ROOT / 'lib/resource/protocol/Protocol.cpp'
 
 
@@ -56,7 +56,7 @@ def main():
 
     # This owns the optional adapter's self-contained header coverage. The
     # Generic resource checks do not impose PFR on resource-only users.
-    headers = sorted((ROOT / 'lib/resource/telemetry/v3').rglob('*.hpp'))
+    headers = sorted((ROOT / 'lib/integration/telemetry/v3').rglob('*.hpp'))
     if not headers:
         raise RuntimeError('Optional provider header coverage is empty')
     for i, header in enumerate(headers):

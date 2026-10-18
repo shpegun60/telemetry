@@ -44,7 +44,7 @@ def main():
     if out.exists() and any(out.iterdir()):
         parser.error('Use a fresh output directory to preserve previous evidence')
     required = ('lib/telemetry/Telemetry.hpp', 'lib/telemetry/model/Adapter.cpp',
-                'lib/resource/telemetry/v3/detail/Values.cpp')
+                'lib/integration/telemetry/v3/detail/Values.cpp')
     if not all((source / name).is_file() for name in required):
         parser.error('Source root must contain the unified telemetry/resource library')
     before = args.before_dir.resolve() if args.before_dir else None
@@ -115,7 +115,7 @@ def main():
     report['flags'] = flags
     image = out / ('root-types.exe' if os.name == 'nt' else 'root-types')
     run([compiler, *flags, FIXTURE / 'Check.cpp', source / 'lib/telemetry/model/Adapter.cpp',
-         source / 'lib/resource/telemetry/v3/detail/Values.cpp', '-o', image], 'compile')
+         source / 'lib/integration/telemetry/v3/detail/Values.cpp', '-o', image], 'compile')
     result = json.loads(run([image], 'execute'))
     expected = dict(checks=4995, value_read_cases=680, fields=8, commands=6, services=7,
                     type_count=19, values_bytes=67)

@@ -23,8 +23,8 @@ are unchanged. No new device execution is claimed.
 
 | Files | Responsibility |
 | --- | --- |
-| `lib/telemetry/client/rpc/RpcClient.hpp`, `.cpp` | Typed bindings, one asynchronous transaction, packet scheduling, diagnostics and caller-owned decode |
-| `lib/resource/telemetry/v3/RpcSessionPool.hpp` | Fixed bindings, admission handles, generation/ticket checks, ACK gate, bounded dispatch and release |
+| `lib/client/rpc/RpcClient.hpp`, `.cpp` | Typed bindings, one asynchronous transaction, packet scheduling, diagnostics and caller-owned decode |
+| `lib/integration/telemetry/v3/RpcSessionPool.hpp` | Fixed bindings, admission handles, generation/ticket checks, ACK gate, bounded dispatch and release |
 | `lib/telemetry/codec/codec.pri`, `lib/resource/resource.pri` | Independent header-only Codec and client/server/pool selections |
 | `tests/structured/rpc_client/`, `rpc_sessions/`, `rpc_extension.py` | Runtime, no-heap, negative, exhaustion, ODR and offline ARM gates |
 | `examples/rpc_client/`, `rpc_multi_session/` | Executable typed calls and four-session integration |
@@ -42,11 +42,11 @@ replyAccepted/process/release and their distinct statuses.
 namespace rpc = resource::telemetry::v3;
 struct Add { std::uint32_t amount; };
 struct Report { std::uint32_t total; };
-constexpr rpc::ServiceEndpoint<Add, Report> add{0, rpc::trustedRpcMapping};
+constexpr ::telemetry::client::rpc::ServiceEndpoint<Add, Report> add{0, ::telemetry::client::rpc::trustedRpcMapping};
 // After application schema agreement and connection admission:
 client.process(nowMs);
 const auto admitted = client.startSession(1);
-if (admitted == rpc::RpcClientStatus::Ok) {
+if (admitted == ::telemetry::client::rpc::RpcClientStatus::Ok) {
     const auto started = client.beginService(add, Add{7});
     // Check started; feed sends/replies and inspect diagnostic()/decodeResult().
 }

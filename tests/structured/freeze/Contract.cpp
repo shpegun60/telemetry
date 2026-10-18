@@ -1,7 +1,8 @@
 /* Current public API, wire constants, default ceilings and dependency-pin contract.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #include "../traversal/Fixture.hpp"
-#include <resource/telemetry/v3/BinaryFormat.hpp>
+#include <telemetry/descriptor/Format.hpp>
+#include <integration/telemetry/v3/ValuesFormat.hpp>
 #include <concepts>
 #ifndef FREEZE_ARM
 #include <cstdio>
@@ -18,21 +19,23 @@ static_assert(std::same_as<ts::TypeId, std::uint32_t>);
 static_assert(telemetry::makeId(2u, 7u) == 0x00020007u);
 static_assert(ts::structuredAbiRevision == 6);
 static_assert(TELEMETRY_STRUCTURED_LOCAL_BYTES == 32);
-static_assert(rs::binaryMajor == 3 && rs::binaryMinor == 0);
-static_assert(rs::descriptorHeaderBytes == 64 && rs::valuesHeaderBytes == 24);
-static_assert(rs::recordVersion == 1 && rs::recordHeaderBytes == 8);
-static_assert(rs::fingerprintBasis == 0xcbf29ce484222325ULL);
-static_assert(rs::fingerprintPrime == 0x100000001b3ULL);
-static_assert(static_cast<unsigned>(rs::RecordKind::Type) == 1);
-static_assert(static_cast<unsigned>(rs::RecordKind::Catalog) == 2);
-static_assert(static_cast<unsigned>(rs::RecordKind::Field) == 3);
-static_assert(static_cast<unsigned>(rs::RecordKind::Command) == 4);
-static_assert(static_cast<unsigned>(rs::RecordKind::Service) == 5);
-static_assert(static_cast<unsigned>(rs::Category::Field) == 1);
-static_assert(static_cast<unsigned>(rs::Category::Command) == 2);
-static_assert(static_cast<unsigned>(rs::Category::Service) == 3);
-static_assert(static_cast<unsigned>(rs::Capability::Readable) == 1);
-static_assert(static_cast<unsigned>(rs::Capability::Writable) == 2);
+static_assert(::telemetry::descriptor::binaryMajor == 3 &&
+              ::telemetry::descriptor::binaryMinor == 0);
+static_assert(::telemetry::descriptor::descriptorHeaderBytes == 64 && rs::valuesHeaderBytes == 24);
+static_assert(::telemetry::descriptor::recordVersion == 1 &&
+              ::telemetry::descriptor::recordHeaderBytes == 8);
+static_assert(::telemetry::descriptor::fingerprintBasis == 0xcbf29ce484222325ULL);
+static_assert(::telemetry::descriptor::fingerprintPrime == 0x100000001b3ULL);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::RecordKind::Type) == 1);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::RecordKind::Catalog) == 2);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::RecordKind::Field) == 3);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::RecordKind::Command) == 4);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::RecordKind::Service) == 5);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::Category::Field) == 1);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::Category::Command) == 2);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::Category::Service) == 3);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::Capability::Readable) == 1);
+static_assert(static_cast<unsigned>(::telemetry::descriptor::Capability::Writable) == 2);
 static_assert(static_cast<unsigned>(rs::ValueStatus::Ok) == 0);
 static_assert(static_cast<unsigned>(rs::ValueStatus::Unavailable) == 1);
 static_assert(static_cast<unsigned>(ts::TypeKind::Void) == 0);

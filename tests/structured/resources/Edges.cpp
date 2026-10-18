@@ -19,7 +19,7 @@ Large large() noexcept
 constexpr ts::FieldTable largeTable{ts::field<&large>("Large")};
 constexpr ts::FieldCatalogTable largeFields{ts::group("large", largeTable)};
 constexpr ts::Model largeModel{largeFields, ts::emptyCommands, services};
-constexpr rs::Descriptor largeDescriptor{largeModel};
+constexpr ::telemetry::descriptor::Descriptor largeDescriptor{largeModel};
 std::array<std::byte, largeModel.maxFieldScratch()> largeStorage;
 ts::Workspace largeWorkspace{largeStorage};
 constexpr rs::ValuesFile largeValues{largeDescriptor, largeWorkspace};
@@ -45,7 +45,7 @@ constexpr ts::FieldTable numeric{ts::field<&u64>("U64"), ts::field<&s64>("S64"),
                                  ts::field<&nan>("NaN")};
 constexpr ts::FieldCatalogTable numericFields{ts::group("numeric", numeric)};
 constexpr ts::Model numericModel{numericFields, ts::emptyCommands, services};
-constexpr rs::Descriptor numericDescriptor{numericModel};
+constexpr ::telemetry::descriptor::Descriptor numericDescriptor{numericModel};
 std::array<std::byte, numericModel.maxFieldScratch()> numericStorage;
 ts::Workspace numericWorkspace{numericStorage};
 constexpr rs::ValuesFile numbers{numericDescriptor, numericWorkspace};
@@ -53,10 +53,11 @@ constexpr rs::ValuesFile numbers{numericDescriptor, numericWorkspace};
 using ExactCvNumericModel =
     ts::Model<decltype(numericFields), decltype(ts::emptyCommands), decltype(services)>;
 constexpr ExactCvNumericModel exactCvNumericModel{numericFields, ts::emptyCommands, services};
-constexpr rs::Descriptor exactCvNumericDescriptor{exactCvNumericModel};
+constexpr ::telemetry::descriptor::Descriptor exactCvNumericDescriptor{exactCvNumericModel};
 constexpr rs::ValuesFile exactCvNumbers{exactCvNumericDescriptor, numericWorkspace};
-static_assert(exactCvNumericDescriptor.valid() && rs::packDescriptor<exactCvNumericDescriptor>() ==
-                                                      rs::packDescriptor<numericDescriptor>());
+static_assert(exactCvNumericDescriptor.valid() &&
+              ::telemetry::descriptor::packDescriptor<exactCvNumericDescriptor>() ==
+                  ::telemetry::descriptor::packDescriptor<numericDescriptor>());
 static_assert(exactCvNumbers.size() == numbers.size() &&
               exactCvNumbers.requiredWorkspace() == numbers.requiredWorkspace() &&
               exactCvNumbers.maxTokenSize() == numbers.maxTokenSize());
@@ -106,7 +107,7 @@ int main()
 	const ts::FieldTable badTable{ts::field<&u64>(invalidName), ts::field<&s64>(invalidName)};
 	const ts::FieldCatalogTable badFields{ts::group("bad", badTable)};
 	const ts::Model badModel{badFields, ts::emptyCommands, services};
-	const rs::Descriptor badDescriptor{badModel};
+	const ::telemetry::descriptor::Descriptor badDescriptor{badModel};
 	assert(!badDescriptor.valid());
 	rs::ValuesFile rejected{badDescriptor, workspace};
 	assert(rejected.size() == 0 && rejected.fingerprint() == 0);

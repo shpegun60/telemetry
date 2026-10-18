@@ -1,8 +1,8 @@
 /* One generated QML facade, one bounded FIFO and one real RPC mailbox. MIT. */
 #include "../codegen/Device.hpp"
 #include <DeviceClientAdapter.hpp>
-#include <telemetry/client/rpc/RpcBackend.hpp>
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/rpc/Backend.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <QCoreApplication>
 #include <QEvent>
 #include <QSignalSpy>
@@ -153,11 +153,11 @@ struct Harness {
 	resource::FileSystem<1> files{resource::filesystem(resource::file("/rpc", mailbox))};
 	rpc::RpcSessionPool<1> pool{std::array{rpc::RpcSessionBinding{mailbox, files.view()}}};
 	rpc::RpcSessionHandle remote = pool.acquire({1, 1, 0}).session;
-	rpc::RpcClient native{0, clientRequest, clientResponse, packet};
+	::telemetry::client::rpc::RpcClient native{0, clientRequest, clientResponse, packet};
 	tc::Clock clock{this, [](void* self) noexcept {
 		                return static_cast<Harness*>(self)->now;
 	                }};
-	tc::rpc::RpcBackend rpcBackend{native, clock};
+	::telemetry::integration::rpc::RpcBackend rpcBackend{native, clock};
 	HandoffClockBackend backend{rpcBackend, now};
 	qa::DeviceClientAdapter<qa::DeviceApi, 3, 256> adapter{api, backend, clock};
 	QSignalSpy finished{&api, &qa::DeviceApi::operationFinished};

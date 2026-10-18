@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/detail/Values.hpp>
-#include <resource/telemetry/v3/detail/Segments.hpp>
+#include <integration/telemetry/v3/detail/Values.hpp>
+#include <telemetry/descriptor/detail/Segments.hpp>
 #include <cstdint>
 
 extern "C" {
@@ -15,7 +15,7 @@ extern const std::uint32_t scalability_layout[]{sizeof(telemetry::FieldEntry),
                                                 sizeof(telemetry::FieldCatalog),
                                                 sizeof(telemetry::ModelView),
                                                 sizeof(resource::telemetry::v3::detail::ValueToken),
-                                                sizeof(resource::telemetry::v3::detail::Segment)};
+                                                sizeof(::telemetry::descriptor::detail::Segment)};
 
 const telemetry::FieldEntry* scalability_find(const telemetry::FieldIndex& index,
                                               telemetry::PackedId id) noexcept

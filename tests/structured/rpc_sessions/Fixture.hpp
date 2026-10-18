@@ -3,7 +3,7 @@
 #define TELEMETRY_TESTS_STRUCTURED_RPC_SESSIONS_FIXTURE_HPP
 #pragma once
 
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <telemetry/Telemetry.hpp>
 #include <algorithm>
 #include <array>
@@ -152,7 +152,8 @@ inline void put(Output output, std::size_t at, U value) noexcept
 
 inline auto request(std::uint32_t amount, std::uint32_t tx = 1) noexcept
 {
-	std::array<std::byte, rpc::rpcRequestHeaderBytes + ts::wireSize<Add>> output{};
+	std::array<std::byte, ::telemetry::protocol::rpc::rpcRequestHeaderBytes + ts::wireSize<Add>>
+	    output{};
 	output[0] = std::byte{'T'};
 	output[1] = std::byte{'R'};
 	output[2] = std::byte{'P'};
@@ -161,8 +162,9 @@ inline auto request(std::uint32_t amount, std::uint32_t tx = 1) noexcept
 	put(output, 8, tx);
 	put(output, 12, AddId);
 	put(output, 16, std::uint32_t{ts::wireSize<Add>});
-	output[20] = std::byte(rpc::RpcOperation::Service);
-	(void)ts::encode(Add{amount}, Output{output}.subspan(rpc::rpcRequestHeaderBytes));
+	output[20] = std::byte(::telemetry::protocol::rpc::RpcOperation::Service);
+	(void)ts::encode(Add{amount},
+	                 Output{output}.subspan(::telemetry::protocol::rpc::rpcRequestHeaderBytes));
 	return output;
 }
 

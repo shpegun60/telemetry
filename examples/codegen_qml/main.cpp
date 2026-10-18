@@ -7,12 +7,12 @@
 #include "../../tests/codegen/Device.hpp"
 #include <DeviceApi.hpp>
 #include <DeviceClientAdapter.hpp>
-#include <telemetry/client/rpc/RpcBackend.hpp>
-#include <telemetry/client/encoded/EncodedBackend.hpp>
-#include <resource/telemetry/v3/EncodedDispatcher.hpp>
+#include <integration/rpc/Backend.hpp>
+#include <integration/encoded/Backend.hpp>
+#include <integration/encoded/Dispatcher.hpp>
 #include <resource/FileSystem.hpp>
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QPointer>
@@ -51,14 +51,14 @@ struct Loopback {
 	rpc::RpcSessionPool<1> pool{std::array{rpc::RpcSessionBinding{mailbox, files.view()}}};
 	rpc::RpcSessionHandle remote{};
 	quint32 remoteGeneration = 0;
-	rpc::RpcClient native{0, clientRequest, clientResponse, packet};
+	::telemetry::client::rpc::RpcClient native{0, clientRequest, clientResponse, packet};
 	QElapsedTimer elapsed;
 	telemetry::client::Clock clock{this, [](void* self) noexcept {
 		                               return static_cast<quint32>(
 		                                   static_cast<Loopback*>(self)->elapsed.elapsed());
 	                               }};
-	telemetry::client::rpc::RpcBackend rpcBackend{native, clock};
-	telemetry::client::EncodedBackend encodedBackend{encodedTx, encodedResult, clock};
+	telemetry::integration::rpc::RpcBackend rpcBackend{native, clock};
+	telemetry::integration::encoded::EncodedBackend encodedBackend{encodedTx, encodedResult, clock};
 	telemetry::client::Backend& backend;
 	qa::DeviceClientAdapter<> adapter;
 	QTimer timer;
@@ -155,8 +155,8 @@ struct Loopback {
 					return false;
 				written = result.reply.written;
 			} else {
-				const auto result =
-				    rpc::dispatchEncoded(model, workspace, pending.session, copied, reply);
+				const auto result = ::telemetry::integration::encoded::dispatchEncoded(
+				    model, workspace, pending.session, copied, reply);
 				if (!result)
 					return false;
 				written = result.written;

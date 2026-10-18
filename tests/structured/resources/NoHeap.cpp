@@ -66,7 +66,7 @@ void operator delete[](void*, std::size_t, std::align_val_t) noexcept
 
 int main()
 {
-	const resource::telemetry::v3::Descriptor descriptor{fixture::bigModel};
+	const ::telemetry::descriptor::Descriptor descriptor{fixture::bigModel};
 	const resource::telemetry::v3::ValuesFile values{descriptor, fixture::bigWorkspace};
 	std::array<std::byte, fixture::bigValues.size()> buffer;
 	const auto result = values.read(0, buffer);

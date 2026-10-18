@@ -12,8 +12,8 @@
 #include <span>
 
 namespace mcu {
+namespace rs = ::resource::telemetry::v3;
 namespace ts = telemetry;
-namespace rs = resource::telemetry::v3;
 
 inline constexpr unsigned rows = 128;
 inline constexpr unsigned repeats = 7;

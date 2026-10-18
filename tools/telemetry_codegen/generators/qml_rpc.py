@@ -38,10 +38,10 @@ namespace @NS@::qml {
 // responsibilities. process() is nonblocking; use a timer/event-loop callback.
 template<class Api = DeviceApi>
 class RpcAdapter final : public QObject {
-    using Client = ::resource::telemetry::v3::RpcClient;
-    using Status = ::resource::telemetry::v3::RpcClientStatus;
-    using State = ::resource::telemetry::v3::RpcClientState;
-    using Packet = ::resource::telemetry::v3::RpcClientPacket;
+    using Client = ::telemetry::client::rpc::RpcClient;
+    using Status = ::telemetry::client::rpc::RpcClientStatus;
+    using State = ::telemetry::client::rpc::RpcClientState;
+    using Packet = ::telemetry::client::rpc::RpcClientPacket;
 
 public:
     explicit RpcAdapter(Api& api, Client& client, QObject* parent = nullptr)
@@ -409,7 +409,7 @@ def generate(schema):
             rows.append(f"            if ({condition}) {{\n"
                         '                fail(token, session, QStringLiteral("Protocol"), QStringLiteral("Endpoint type metadata mismatch"));\n'
                         "                return;\n            }\n")
-            binding = f"::{ns}::rpc::binding({name}, ::resource::telemetry::v3::trustedRpcMapping)"
+            binding = f"::{ns}::rpc::binding({name}, ::telemetry::client::rpc::trustedRpcMapping)"
             if request == 0:
                 rows.append(f"            started(token, session, operation, client_.{method}({binding}));\n")
             else:

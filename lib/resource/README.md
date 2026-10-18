@@ -7,14 +7,11 @@ client. The provider supplies its bytes. No operating-system filesystem,
 directory tree, storage allocation or telemetry model is created by declaring
 that path.
 
-Optional Telemetry integrations are separate modules:
-[Descriptor/Values and deferred RPC server](telemetry/v3/README.md),
-[typed asynchronous RpcClient](../../doc/RpcClientV1.md), and
-[bounded RpcSessionPool](../../doc/RpcSessionsV1.md).
-The generic file core does not depend on them. The independent client runtime
-lives in `telemetry/client`, outside Resource. Client-only applications select
-`telemetry_client_rpc` in `telemetry/client/client.pri`; no server Model adapter
-is compiled.
+Optional model providers are owned by
+[Integration](../integration/telemetry/v3/README.md).
+The generic file core and its build manifest have no Telemetry or Client
+dependency. See the [module boundaries](../../doc/Modules.md) for explicit
+adapter selection.
 
 ```cpp
 #include <resource/Resource.hpp>
@@ -276,7 +273,7 @@ It owns no cursor and permits overlapping input/output spans.
 
 See [resource tests](../../tests/resources/README.md), the
 [packet protocol](protocol/README.md), and
-[telemetry adapters](telemetry/v3/README.md).
+[telemetry adapters](../integration/telemetry/v3/README.md).
 
 The compact result ABI uses 16-byte ReadResult/WriteResult and 8-byte FileStat
 on ARM32. Constructors take `{status, cursor, count, finished}` independently

@@ -25,7 +25,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
-#include <telemetry/core/Compiler.hpp>
+#include <common/Compiler.hpp>
 
 namespace telemetry {
 

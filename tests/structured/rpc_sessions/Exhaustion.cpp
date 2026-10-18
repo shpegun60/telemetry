@@ -1,7 +1,7 @@
 /* Isolated access-control probe for the real u32 exhaustion branches. MIT. */
 // Preload every dependency before changing access control in this one header.
 // This executable has exactly one pool-definition TU; no mixed-definition ODR.
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <array>
@@ -11,7 +11,7 @@
 #pragma clang diagnostic ignored "-Wkeyword-macro"
 #endif
 #define private public
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #undef private
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -65,7 +65,7 @@ int main()
 	check(result.ticket.serial == 0);
 	const auto exhausted = submit(serial.pool, session, request(1, 2), output);
 	check(exhausted.status == Status::Exhausted && exhausted.reply.written == 0);
-	check(serial.a.mailbox.state() == rpc::RpcState::Ready);
+	check(serial.a.mailbox.state() == ::telemetry::protocol::rpc::RpcState::Ready);
 	check(serial.pool.process(2).dispatched == 0);
 	check(serial.pool.replyAccepted(session, ack.ticket) == Status::StaleReply);
 	check(serial.pool.release(session) == Status::Ok);

@@ -24,7 +24,7 @@ ARM = ['-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16', '-mfloat-abi=hard',
 SCOPE = 'H7S execution and DWT/PSP measurements'
 LIBRARY = ('lib/telemetry/model/Adapter.cpp',
            'lib/telemetry/abi/StructuredAbi.cpp',
-           'lib/resource/telemetry/v3/detail/Values.cpp')
+           'lib/integration/telemetry/v3/detail/Values.cpp')
 CHECK_FLASH_SECTIONS = runpy.run_path(str(ROOT / 'tests/h7s_support/build.py'))['check_flash_sections']
 
 

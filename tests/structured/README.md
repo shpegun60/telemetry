@@ -5,7 +5,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. MIT license.
 These are the maintained C++20 suites for the final `telemetry` library.
 The directory name records their development sequence; it does not identify
 a second public library. Current includes use `telemetry/Telemetry.hpp`,
-providers use `resource/telemetry/v3`, and the JS codec is `web/telemetry.js`.
+providers use `integration/telemetry/v3`, and the JS codec is `web/telemetry.js`.
 
 The [current architecture](../../doc/Architecture.md),
 [wire contract](../../doc/WireV3.md) and

@@ -5,7 +5,7 @@
 [Індекс](README.md) · [Посібник](user/README.md) · [API](../lib/telemetry/README.md) ·
 [Wire v3.0](WireV3.md) · [Перевірки](../tests/README.md)
 
-Це карта чинної реалізації: один C++20 модуль `telemetry`, native
+Це карта чинної реалізації: незалежні [модулі](Modules.md), native
 Field/Command/Service та формат descriptor/values v3.0. Приклади, команди
 збирання й порядок першого підключення — у [посібнику](user/README.md).
 
@@ -24,20 +24,23 @@ Field/Command/Service та формат descriptor/values v3.0. Приклади
 
 | Модуль | Його відповідальність | Вхідний документ |
 | --- | --- | --- |
-| `lib/telemetry` | Typed declarations, reflection, type registry, canonical codec, native/encoded доступ і slots | [Telemetry](../lib/telemetry/README.md) |
-| `lib/resource` | Плоскі імена файлів, providers, opaque cursors та lazy file views | [Resource](../lib/resource/README.md) |
-| `lib/resource/protocol` | Обробка одного повного LIST/STAT/READ/WRITE packet | [Resource packets](../lib/resource/protocol/README.md) |
-| `lib/resource/telemetry/v3` | Descriptor/Values, optional RPC mailbox, typed client і session pool | [V3 providers](../lib/resource/telemetry/v3/README.md) |
-| `examples/structured_protocol` | Приклад transport-owned Bind/Exchange, connection agreement і request correlation | [Optional protocol](../examples/structured_protocol/README.md) |
-| `web/telemetry.js` | Structural descriptor/values parser, native payload codec для JS | [Client](../tests/structured/client/README.md) |
+| `lib/telemetry` | Typed declarations, reflection, type registry, canonical codec, native/encoded доступ, slots і Descriptor core | [Telemetry](../lib/telemetry/README.md) |
+| `lib/resource` | Плоскі імена файлів, providers, opaque cursors, lazy file views і LIST/STAT/READ/WRITE packet protocol | [Resource](../lib/resource/README.md) |
+| `lib/client` | Async FIFO client, portable callbacks/deadlines і optional native RPC packet engine | [Client](../lib/client/README.md) |
+| `lib/integration` | Необов’язкові Descriptor/Values providers, TEQ1 server, RPC mailbox/session pool і client backends | [Модулі](Modules.md) |
+| `tools/telemetry_codegen` | Host tool: Descriptor → C++/JS/TS/Qt SDK | [Generator](CodeGenerator.md) |
+
+`lib/wire` і `lib/common` містять спільні byte contracts та callable utilities.
+Це низькорівневі залежності п’яти модулів, без Model/Resource runtime.
+[Bind/Exchange](../examples/structured_protocol/README.md) залишається прикладом,
+а [web parser](../tests/structured/client/README.md) — споживачем Descriptor/Values.
 
 Generic resource не залежить від telemetry або reflection бібліотек.
 Його filesystem працює з довільними byte providers. `resource_telemetry`
 явно додає Descriptor/Values; незалежний `resource_telemetry_rpc` додає
-RpcMailbox. Незалежний `telemetry_client_rpc` у `telemetry/client/client.pri`
-додає тільки клієнт і header-only Codec. Session pool
-підключається своїм header і server module. Telemetry
-manifest підключається окремо для серверного Model adapter.
+RpcMailbox. Незалежний `telemetry_client_rpc` у `client/client.pri`
+додає тільки клієнт і header-only Codec. Integration manifest
+підключає залежності вибраних адаптерів; session pool додає server module.
 Bind/Exchange також підключається явно й не є частиною library manifests.
 
 ```mermaid

@@ -15,8 +15,8 @@ target_include_directories(codegen_native PUBLIC "${TELEMETRY_ROOT}/lib"
     "${TELEMETRY_ROOT}/lib/boost_pfr/include" "${TELEMETRY_ROOT}/lib/magic_enum")
 add_library(codegen_rpc_runtime STATIC
     "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"
-    "${TELEMETRY_ROOT}/lib/resource/telemetry/v3/RpcMailbox.cpp"
-    "${TELEMETRY_ROOT}/lib/telemetry/client/rpc/RpcClient.cpp")
+    "${TELEMETRY_ROOT}/lib/integration/telemetry/v3/RpcMailbox.cpp"
+    "${TELEMETRY_ROOT}/lib/client/rpc/RpcClient.cpp")
 target_link_libraries(codegen_rpc_runtime PUBLIC codegen_native)
 add_executable(codegen_export Export.cpp)
 target_link_libraries(codegen_export PRIVATE codegen_native)

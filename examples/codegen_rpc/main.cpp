@@ -5,7 +5,7 @@
  */
 #include "../structured_client/Device.hpp"
 #include <device_api/RpcBindings.hpp>
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <cstdio>
 
@@ -22,8 +22,9 @@ int main()
 	constexpr auto view = ex::model.view();
 	rpc::RpcMailbox mailbox{view, ex::workspace, serverRequest, serverResult};
 	resource::FileSystem files{std::array{resource::file("/rpc", mailbox)}};
-	rpc::RpcClient client{0, clientRequest, clientResult, packet, {5, 1000, 2, 2}};
-	if (client.startSession(1) != rpc::RpcClientStatus::Ok)
+	::telemetry::client::rpc::RpcClient client{
+	    0, clientRequest, clientResult, packet, {5, 1000, 2, 2}};
+	if (client.startSession(1) != ::telemetry::client::rpc::RpcClientStatus::Ok)
 		return 2;
 	std::array<std::byte, telemetry::wireSize<ex::Request>> bytes{};
 	if (telemetry::encode(ex::request, bytes) != telemetry::CodecStatus::Ok)
@@ -32,8 +33,9 @@ int main()
 	if (api::codec::decode(bytes, request) != api::codec::Status::Ok)
 		return 4;
 	// This explicit trust assertion follows per-peer/session schema admission.
-	const auto endpoint = api::rpc::binding(api::device::services::Inspect, rpc::trustedRpcMapping);
-	if (client.beginService(endpoint, request) != rpc::RpcClientStatus::Ok)
+	const auto endpoint = api::rpc::binding(api::device::services::Inspect,
+	                                        ::telemetry::client::rpc::trustedRpcMapping);
+	if (client.beginService(endpoint, request) != ::telemetry::client::rpc::RpcClientStatus::Ok)
 		return 5;
 	for (unsigned now = 0; client.active() && now < 200; ++now) {
 		client.process(now);
@@ -50,7 +52,8 @@ int main()
 		mailbox.process(now);
 	}
 	api::device::types::InspectResponse response{};
-	if (!client.completed() || client.decodeResult(response).status != rpc::RpcClientStatus::Ok ||
+	if (!client.completed() ||
+	    client.decodeResult(response).status != ::telemetry::client::rpc::RpcClientStatus::Ok ||
 	    response.checksum != 263168)
 		return 8;
 	std::printf("codegen_rpc checksum=%u checks=8 failures=0\n", response.checksum);

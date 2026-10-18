@@ -94,7 +94,7 @@ ABI symbol із довгим template tag не треба замінювати �
 
 Для missing `resource::protocol::process` додайте
 `lib/resource/protocol/Protocol.cpp`. Для live Values provider додайте
-`lib/resource/telemetry/v3/detail/Values.cpp`.
+`lib/integration/telemetry/v3/detail/Values.cpp`.
 
 ## field() або command() видає великий template diagnostic
 

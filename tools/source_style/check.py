@@ -20,7 +20,7 @@ FORMATTED_SOURCE = {".h", ".hpp", ".cpp", ".c", ".js", ".mjs"}
 CLANG_FORMAT_VERSION = "22.1.8"
 # Exact compiler output from Client.ts; web/build.py verifies TypeScript 5.9.3
 # reproduction. Reformatting that output would break its independent byte gate.
-COMPILER_OUTPUT = {"lib/telemetry/client/web/Client.js"}
+COMPILER_OUTPUT = {"lib/client/web/Client.js"}
 
 
 def maintained_files():

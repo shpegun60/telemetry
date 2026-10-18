@@ -9,7 +9,7 @@
 #include "Composition.hpp"
 #include "Runtime.hpp"
 #include <resource/FileSystem.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
 #include <cstdint>
 #include <cstdlib>
 
@@ -21,7 +21,7 @@ constinit const auto fileTable =
 
 const auto& descriptor() noexcept
 {
-	static const resource::telemetry::v3::Descriptor value{composition::model};
+	static const ::telemetry::descriptor::Descriptor value{composition::model};
 	if (!value.valid()) {
 		std::abort();
 	}

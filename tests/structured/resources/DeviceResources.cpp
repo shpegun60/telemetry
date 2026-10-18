@@ -4,14 +4,14 @@
 #include "Fixture.hpp"
 #endif
 #ifdef WITH_RPC
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include <telemetry/model/Model.hpp>
 #endif
 #ifdef WITH_RPC_CLIENT
-#include <telemetry/client/rpc/RpcClient.hpp>
+#include <client/rpc/RpcClient.hpp>
 #endif
 #ifdef WITH_RPC_SESSIONS
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #endif
 
 namespace {
@@ -81,7 +81,7 @@ void processDeviceResources(std::uint32_t nowMs) noexcept
 #ifdef WITH_RPC_CLIENT
 bool exerciseDeviceRpcClient() noexcept
 {
-	using namespace resource::telemetry::v3;
+	using namespace ::telemetry::client::rpc;
 	std::array<std::byte, 24> request{};
 	std::array<std::byte, 4> result{};
 	std::array<std::byte, 64> packet{};

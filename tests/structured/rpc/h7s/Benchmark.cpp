@@ -6,7 +6,7 @@
  */
 #include <resource/Resource.hpp>
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/RpcMailbox.hpp>
+#include <integration/telemetry/v3/RpcMailbox.hpp>
 #include "main.h"
 #include "usart.h"
 #include <algorithm>
@@ -222,7 +222,7 @@ void consume() noexcept
 	++packets;
 	// Receive can wait; a newly consumed WRITE needs the current owner tick.
 	// A held Pending request remains behind its successful final ACK.
-	if (mailbox.state() != rpc::RpcState::Pending)
+	if (mailbox.state() != ::telemetry::protocol::rpc::RpcState::Pending)
 		mailbox.process(HAL_GetTick());
 	const bool command =
 	    payload.size() >= 5 && payload[0] == std::byte{4} && load32(payload.data() + 1) == 0;
@@ -275,7 +275,7 @@ extern "C" void bench_init()
 extern "C" void bench_loop()
 {
 	// A completed callback returns before another packet receives a fresh tick.
-	if (mailbox.state() == rpc::RpcState::Pending) {
+	if (mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending) {
 		if (!executionHeld && writeAckComplete) {
 			mailbox.process(HAL_GetTick());
 			return;

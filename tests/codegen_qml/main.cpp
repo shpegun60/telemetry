@@ -6,7 +6,7 @@
 #include <DeviceApi.hpp>
 #include <QmlRpcAdapter.hpp>
 #include <resource/protocol/Protocol.hpp>
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QFile>
@@ -182,12 +182,13 @@ static void rpcLifetimes(const QByteArray& header)
 	for (int scenario = 0; scenario < 5; ++scenario) {
 		std::array<std::byte, 4096> request{}, response{};
 		std::array<std::byte, 64> packet{};
-		rpc::RpcClient client{0, request, response, packet};
+		::telemetry::client::rpc::RpcClient client{0, request, response, packet};
 		auto api = std::make_unique<qa::DeviceApi>();
 		check(api->admitDescriptor(header), "RPC lifecycle admission");
 		QSignalSpy finished(api.get(), &qa::DeviceApi::operationFinished);
 		auto adapter = std::make_unique<qa::RpcAdapter<>>(*api, client);
-		check(adapter->beginSession() == rpc::RpcClientStatus::Ok, "RPC lifecycle session");
+		check(adapter->beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "RPC lifecycle session");
 		api->setRequestTimeoutMs(scenario < 2 ? 20 : 5000);
 		const auto token =
 		    scenario == 0 ? invoke(api->device(), "refreshConfig") : invoke(api->device(), "reset");
@@ -208,7 +209,8 @@ static void rpcLifetimes(const QByteArray& header)
 		if (scenario == 1) {
 			QThread::msleep(30);
 			check(!adapter->nextPacket(), "expired unsent RPC produced a packet");
-			check(client.diagnostic().status == rpc::RpcClientStatus::Cancelled,
+			check(client.diagnostic().status ==
+			          ::telemetry::client::rpc::RpcClientStatus::Cancelled,
 			      "unsent RPC did not retain exact native cancellation evidence");
 			QCoreApplication::sendPostedEvents(api.get(), QEvent::MetaCall);
 			refused(await(finished, token), "OutcomeUnknown");
@@ -441,9 +443,10 @@ static void knownRpcReplyBeforeDelivery(const QByteArray& header)
 		constexpr auto view = cf::model.view();
 		rpc::RpcMailbox mailbox{view, cf::workspace, serverRequest, serverResponse};
 		resource::FileSystem files{std::array{resource::file("/rpc", mailbox)}};
-		rpc::RpcClient native{0, request, response, packet};
+		::telemetry::client::rpc::RpcClient native{0, request, response, packet};
 		qa::RpcAdapter<> adapter{api, native};
-		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "known RPC result session");
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "known RPC result session");
 		QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
 		const auto token = scenario == 0   ? invoke(api.device(), "reset")
 		                   : scenario == 1 ? invoke(api.edge(), "accept", QVariantMap{})
@@ -517,13 +520,14 @@ QtObject {
 		const auto admitted = pool.acquire(connection);
 		check(admitted.status == rpc::RpcSessionStatus::Ok, "pool initial acquire");
 		auto handle = admitted.session;
-		rpc::RpcClientOptions options;
+		::telemetry::client::rpc::RpcClientOptions options;
 		options.ackTimeoutMs = 5;
-		rpc::RpcClient client{0, request, response, packetStorage, options};
+		::telemetry::client::rpc::RpcClient client{0, request, response, packetStorage, options};
 		qa::RpcAdapter adapter{*api, client};
 		if (tracking)
 			check(adapter.enableHandoffTracking(), "adapter handoff opt-in");
-		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "pool client session");
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "pool client session");
 		const auto callsBefore = client_example::device.calls;
 		const auto token = qmlInvoke(root.get(), "command");
 		QCoreApplication::sendPostedEvents(api, QEvent::MetaCall);
@@ -561,8 +565,10 @@ QtObject {
 		      "native retry handoff evidence");
 		// Do not call replyAccepted, and do not deliver this WRITE ACK to the
 		// client: transport has not accepted the server's reply storage.
-		check(mailbox.state() == rpc::RpcState::Pending, "withheld ACK not Pending");
-		check(pool.process(100000).dispatched == 0 && mailbox.state() == rpc::RpcState::Pending,
+		check(mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending,
+		      "withheld ACK not Pending");
+		check(pool.process(100000).dispatched == 0 &&
+		          mailbox.state() == ::telemetry::protocol::rpc::RpcState::Pending,
 		      "Pending mailbox aged out or dispatched without ACK");
 		check(client_example::device.calls == callsBefore, "withheld ACK executed command");
 		const auto existing = pool.acquire(connection);
@@ -583,7 +589,8 @@ QtObject {
 		if (executed) {
 			check(pool.replyAccepted(handle, retryAck.ticket) == rpc::RpcSessionStatus::Ok,
 			      "old final ACK transport acceptance");
-			check(pool.process(200001).dispatched == 1 && mailbox.state() == rpc::RpcState::Ready,
+			check(pool.process(200001).dispatched == 1 &&
+			          mailbox.state() == ::telemetry::protocol::rpc::RpcState::Ready,
 			      "accepted old final ACK did not execute server command");
 		}
 		const auto callsAfterOld = callsBefore + (executed ? 1u : 0u);
@@ -605,17 +612,20 @@ QtObject {
 		                       oldRequestId),
 		      "quarantined old reply accepted");
 		check(api->admitDescriptor(header), "local-only re-admission");
-		check(adapter.beginSession() == rpc::RpcClientStatus::NoSession && !adapter.nextPacket(),
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::NoSession &&
+		          !adapter.nextPacket(),
 		      "local generation alone cleared remote recovery obligation");
 		refused(await(finished, qmlInvoke(root.get(), "command")), "Transport");
-		check(mailbox.state() == (executed ? rpc::RpcState::Ready : rpc::RpcState::Pending) &&
+		check(mailbox.state() == (executed ? ::telemetry::protocol::rpc::RpcState::Ready
+		                                   : ::telemetry::protocol::rpc::RpcState::Pending) &&
 		          client_example::device.calls == callsAfterOld,
 		      "quarantine replayed or reset the remote command");
 		// The host excludes/drains ingress for the old connection before this
 		// release. Old bytes are never relabelled as a new admitted connection.
 		const auto oldHandle = handle;
 		check(pool.release(oldHandle) == rpc::RpcSessionStatus::Ok, "release old remote session");
-		check(mailbox.state() == rpc::RpcState::Idle, "release did not clear Pending mailbox");
+		check(mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle,
+		      "release did not clear Pending mailbox");
 		const auto fresh = pool.acquire({17, 2, 0});
 		check(fresh.status == rpc::RpcSessionStatus::Ok &&
 		          fresh.session.generation != oldHandle.generation,
@@ -631,7 +641,8 @@ QtObject {
 		check(!adapter.confirmSessionClosed(oldGeneration),
 		      "duplicate closure confirmation accepted");
 		check(api->admitDescriptor(header), "fresh peer descriptor admission");
-		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "fresh client session");
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "fresh client session");
 		check(!adapter.nextPacket() && client_example::device.calls == callsAfterOld,
 		      "session recovery automatically replayed abandoned command");
 		api->setRequestTimeoutMs(5000);
@@ -674,14 +685,15 @@ static void trackedAdapterHandoffs(const QByteArray& header)
 	for (int scenario = 0; scenario < 3; ++scenario) {
 		std::array<std::byte, 4096> request{}, response{};
 		std::array<std::byte, 64> packet{};
-		rpc::RpcClient client{0, request, response, packet};
+		::telemetry::client::rpc::RpcClient client{0, request, response, packet};
 		qa::DeviceApi api;
 		check(api.admitDescriptor(header), "tracked adapter admission");
 		api.setRequestTimeoutMs(200);
 		QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
 		qa::RpcAdapter adapter{api, client};
 		check(adapter.enableHandoffTracking(), "tracked adapter enable");
-		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "tracked adapter session");
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "tracked adapter session");
 		const auto token = invoke(api.device(), "reset");
 		QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
 		QCoreApplication::sendPostedEvents(&adapter, QEvent::MetaCall);
@@ -705,7 +717,8 @@ static void trackedAdapterHandoffs(const QByteArray& header)
 		check(adapter.recoveryRequired() == (scenario != 0),
 		      "tracked adapter recovery classification");
 		if (scenario == 0)
-			check(api.ready() && client.diagnostic().status == rpc::RpcClientStatus::Cancelled,
+			check(api.ready() && client.diagnostic().status ==
+			                         ::telemetry::client::rpc::RpcClientStatus::Cancelled,
 			      "certainly unsent timeout damaged current admitted session");
 		else
 			spin([&] {
@@ -716,16 +729,18 @@ static void trackedAdapterHandoffs(const QByteArray& header)
 	// forget a previous unknown transaction merely because its Api token is gone.
 	std::array<std::byte, 4096> request{}, response{};
 	std::array<std::byte, 64> packet{};
-	rpc::RpcClient client{0, request, response, packet};
-	check(client.startSession(1) == rpc::RpcClientStatus::Ok, "retained native session");
-	check(client.beginCommand(rpc::CommandEndpoint<void>{1, rpc::trustedRpcMapping}) ==
-	          rpc::RpcClientStatus::Ok,
+	::telemetry::client::rpc::RpcClient client{0, request, response, packet};
+	check(client.startSession(1) == ::telemetry::client::rpc::RpcClientStatus::Ok,
+	      "retained native session");
+	check(client.beginCommand(::telemetry::client::rpc::CommandEndpoint<void>{
+	          1, ::telemetry::client::rpc::trustedRpcMapping}) ==
+	          ::telemetry::client::rpc::RpcClientStatus::Ok,
 	      "retained native command");
 	const auto outgoing = client.nextPacket();
 	check(bool(outgoing) && client.onSendAccepted(outgoing.generation, outgoing.requestId),
 	      "retained final native handoff");
 	client.loseSession(outgoing.generation);
-	check(client.status() == rpc::RpcClientStatus::OutcomeUnknown,
+	check(client.status() == ::telemetry::client::rpc::RpcClientStatus::OutcomeUnknown,
 	      "retained native unknown evidence");
 	qa::DeviceApi api;
 	check(api.admitDescriptor(header), "retained API admission");
@@ -737,7 +752,8 @@ static void trackedAdapterHandoffs(const QByteArray& header)
 	});
 	check(!adapter.confirmSessionClosed(1) && adapter.confirmSessionClosed(0),
 	      "unknown-generation recovery sentinel");
-	check(api.admitDescriptor(header) && adapter.beginSession() == rpc::RpcClientStatus::Ok,
+	check(api.admitDescriptor(header) &&
+	          adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
 	      "retained-state explicit closure could not reopen session");
 }
 
@@ -999,9 +1015,10 @@ int main(int argc, char** argv)
 		constexpr auto view = cf::model.view();
 		rpc::RpcMailbox mailbox{view, cf::workspace, req, res};
 		resource::FileSystem files{std::array{resource::file("/rpc", mailbox)}};
-		rpc::RpcClient client{0, clientReq, clientRes, packetStorage};
+		::telemetry::client::rpc::RpcClient client{0, clientReq, clientRes, packetStorage};
 		qa::RpcAdapter adapter{*api, client};
-		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "RPC session begin");
+		check(adapter.beginSession() == ::telemetry::client::rpc::RpcClientStatus::Ok,
+		      "RPC session begin");
 		quint32 now = 0;
 		unsigned packets = 0;
 		const auto pump = [&] {

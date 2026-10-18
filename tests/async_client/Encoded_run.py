@@ -16,7 +16,7 @@ import time
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-SOURCES = [ROOT / 'lib/resource/telemetry/v3/EncodedDispatcher.cpp',
+SOURCES = [ROOT / 'lib/integration/encoded/Dispatcher.cpp',
            ROOT / 'lib/telemetry/model/Adapter.cpp',
            ROOT / 'lib/telemetry/abi/StructuredAbi.cpp']
 INCLUDES = [ROOT / 'lib', ROOT / 'lib/boost_pfr/include', ROOT / 'lib/magic_enum']

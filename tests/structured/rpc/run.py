@@ -17,12 +17,12 @@ import time
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 SOURCES = {
-    'mailbox': ROOT / 'lib/resource/telemetry/v3/RpcMailbox.cpp',
+    'mailbox': ROOT / 'lib/integration/telemetry/v3/RpcMailbox.cpp',
     'protocol': ROOT / 'lib/resource/protocol/Protocol.cpp',
     'adapter': ROOT / 'lib/telemetry/model/Adapter.cpp',
     'abi': ROOT / 'lib/telemetry/abi/StructuredAbi.cpp',
 }
-HEADERS = ('resource/telemetry/v3/RpcWire.hpp', 'resource/telemetry/v3/RpcMailbox.hpp')
+HEADERS = ('wire/RpcWire.hpp', 'integration/telemetry/v3/RpcMailbox.hpp')
 NEGATIVES = {
     'RPC_NEG_COPY': r'(?:deleted[^\n]*RpcMailbox|RpcMailbox[^\n]*deleted)',
     'RPC_NEG_MOVE': r'(?:deleted[^\n]*RpcMailbox|RpcMailbox[^\n]*deleted)',

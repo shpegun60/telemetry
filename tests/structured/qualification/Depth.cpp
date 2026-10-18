@@ -1,7 +1,7 @@
 /* Compile-time growth with recursive reflected structs, without changing core.
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT. */
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
 
 namespace ts = telemetry;
 
@@ -25,8 +25,8 @@ inline constexpr ts::FieldCatalogTable fields{ts::group("depth", table)};
 inline constexpr ts::CommandCatalogTable<> commands{};
 inline constexpr ts::ServiceCatalogTable<> services{};
 inline constexpr ts::Model model{fields, commands, services};
-inline constexpr resource::telemetry::v3::Descriptor descriptor{model};
-inline constexpr auto bytes = resource::telemetry::v3::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto bytes = ::telemetry::descriptor::packDescriptor<descriptor>();
 static_assert(ts::wireSize<Nested<DEPTH>> == 4);
 
 extern "C" unsigned depth_byte(unsigned index) noexcept

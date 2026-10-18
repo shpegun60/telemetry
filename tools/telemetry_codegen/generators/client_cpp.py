@@ -9,7 +9,7 @@ def generate(schema):
     text = f'''/* Generated asynchronous bindings. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #pragma once
 #include "Codec.hpp"
-#include <telemetry/client/DeviceClient.hpp>
+#include <client/DeviceClient.hpp>
 #include <algorithm>
 
 namespace {schema.namespace}::client {{

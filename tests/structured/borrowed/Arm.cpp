@@ -1,6 +1,6 @@
 /* Real Cortex-M7 native/encoded roots. No execution or device access here. MIT. */
 #include "Fixture.hpp"
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <cstdint>
 
 #if defined(BORROWED_FRAME_CONTROL)
@@ -46,7 +46,7 @@ inline constexpr ts::FieldCatalogTable fieldCatalogs{ts::group("fields", fields)
 inline constexpr ts::ServiceCatalogTable serviceCatalogs{ts::group("services", services)};
 inline constexpr ts::ServiceCatalogTable wrappedCatalogs{ts::group("services", wrappedServices)};
 inline constexpr ts::Model model{fieldCatalogs, ts::emptyCommands, serviceCatalogs};
-inline constexpr ::resource::telemetry::v3::Descriptor descriptor{model};
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
 inline std::array<std::byte, 256> scratch{};
 inline ts::Workspace workspace{scratch};
 inline constexpr ::resource::telemetry::v3::ValuesFile values{descriptor, workspace};

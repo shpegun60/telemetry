@@ -367,19 +367,19 @@ namespace rpc {
 // The caller supplies the explicit trust assertion after its own schema admission.
 // Existing RpcClient performs encoding/decoding through Telemetry Codec, not this standalone codec.
 template<class T> [[nodiscard]] auto binding(endpoint::Field<T> endpoint,
-    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    ::telemetry::client::rpc::TrustedRpcMapping trust) noexcept {
     static_assert(::telemetry::wireSize<T> == codec::wireSize<T>);
-    return ::resource::telemetry::v3::FieldEndpoint<T>{endpoint.id, trust};
+    return ::telemetry::client::rpc::FieldEndpoint<T>{endpoint.id, trust};
 }
 template<class Q> [[nodiscard]] auto binding(endpoint::Command<Q> endpoint,
-    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    ::telemetry::client::rpc::TrustedRpcMapping trust) noexcept {
     static_assert(::telemetry::wireSize<Q> == codec::wireSize<Q>);
-    return ::resource::telemetry::v3::CommandEndpoint<Q>{endpoint.id, trust};
+    return ::telemetry::client::rpc::CommandEndpoint<Q>{endpoint.id, trust};
 }
 template<class Q, class R> [[nodiscard]] auto binding(endpoint::Service<Q, R> endpoint,
-    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    ::telemetry::client::rpc::TrustedRpcMapping trust) noexcept {
     static_assert(::telemetry::wireSize<Q> == codec::wireSize<Q> && ::telemetry::wireSize<R> == codec::wireSize<R>);
-    return ::resource::telemetry::v3::ServiceEndpoint<Q, R>{endpoint.id, trust};
+    return ::telemetry::client::rpc::ServiceEndpoint<Q, R>{endpoint.id, trust};
 }
 } // namespace rpc
 """
@@ -545,7 +545,7 @@ def generate(schema):
         root + "Endpoints.hpp": _endpoints(schema),
         root + "Codec.hpp": _codec(schema, reachable),
         root + "TelemetryBindings.hpp": _telemetry_bindings(schema, reachable),
-        root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <telemetry/client/rpc/RpcClient.hpp>\n') + RPC + suffix,
+        root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <client/rpc/RpcClient.hpp>\n') + RPC + suffix,
         root + "EncodedBindings.hpp": _header(schema, "EncodedBindings", '#include "Codec.hpp"\n#include <telemetry/model/Adapter.hpp>\n') + ENCODED.replace("@NS@", schema.namespace) + suffix,
     }
     from . import client_cpp

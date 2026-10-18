@@ -4,8 +4,8 @@
 #define TELEMETRY_TESTS_STRUCTURED_RESOURCES_FIXTURE_HPP
 #pragma once
 
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <resource/FileSystem.hpp>
 #include <bit>
 
@@ -110,8 +110,8 @@ inline constexpr ts::FieldCatalogTable fields{
     ts::group("first", first), ts::group("empty", emptyTable), ts::group("rest", rest)};
 inline constexpr ts::ServiceCatalogTable<> services{};
 inline constexpr ts::Model model{fields, ts::emptyCommands, services};
-inline constexpr rs::Descriptor descriptor{model};
-inline constexpr auto packed = rs::packDescriptor<descriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto packed = ::telemetry::descriptor::packDescriptor<descriptor>();
 inline std::array<std::byte, model.maxFieldScratch()> storage;
 inline ts::Workspace workspace{storage};
 inline constexpr rs::ValuesFile values{descriptor, workspace};
@@ -126,17 +126,18 @@ inline constexpr std::array<std::uint32_t, 11> offsets{24, 29, 31, 40, 43, 51, 5
 static_assert(values.size() == 73 && values.fieldCount() == 10 && values.maxTokenSize() == 9);
 static_assert(values.fingerprint() == descriptor.fingerprint());
 inline constexpr ts::Model emptyModel{ts::emptyFields, ts::emptyCommands, services};
-inline constexpr rs::Descriptor emptyDescriptor{emptyModel};
+inline constexpr ::telemetry::descriptor::Descriptor emptyDescriptor{emptyModel};
 inline constexpr rs::ValuesFile emptyValues{emptyDescriptor, workspace};
 static_assert(emptyValues.size() == 24 && emptyValues.fieldCount() == 0);
 
 using ExactCvEmptyModel =
     ts::Model<decltype(ts::emptyFields), decltype(ts::emptyCommands), decltype(services)>;
 inline constexpr ExactCvEmptyModel exactCvEmptyModel{ts::emptyFields, ts::emptyCommands, services};
-inline constexpr rs::Descriptor exactCvEmptyDescriptor{exactCvEmptyModel};
+inline constexpr ::telemetry::descriptor::Descriptor exactCvEmptyDescriptor{exactCvEmptyModel};
 inline constexpr rs::ValuesFile exactCvEmptyValues{exactCvEmptyDescriptor, workspace};
-static_assert(exactCvEmptyDescriptor.valid() && rs::packDescriptor<exactCvEmptyDescriptor>() ==
-                                                    rs::packDescriptor<emptyDescriptor>());
+static_assert(exactCvEmptyDescriptor.valid() &&
+              ::telemetry::descriptor::packDescriptor<exactCvEmptyDescriptor>() ==
+                  ::telemetry::descriptor::packDescriptor<emptyDescriptor>());
 static_assert(exactCvEmptyValues.size() == emptyValues.size() &&
               exactCvEmptyValues.fieldCount() == 0 && exactCvEmptyValues.requiredWorkspace() == 0 &&
               exactCvEmptyValues.fingerprint() == emptyValues.fingerprint());
@@ -153,7 +154,7 @@ inline constexpr ts::FieldTable bigTable{ts::field<&readCounter>("Small"),
                                          ts::field<&readBig>("Big")};
 inline constexpr ts::FieldCatalogTable bigFields{ts::group("big", bigTable)};
 inline constexpr ts::Model bigModel{bigFields, ts::emptyCommands, services};
-inline constexpr rs::Descriptor bigDescriptor{bigModel};
+inline constexpr ::telemetry::descriptor::Descriptor bigDescriptor{bigModel};
 inline std::array<std::byte, bigModel.maxFieldScratch()> bigStorage;
 inline ts::Workspace bigWorkspace{bigStorage};
 inline constexpr rs::ValuesFile bigValues{bigDescriptor, bigWorkspace};

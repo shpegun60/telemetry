@@ -7,7 +7,6 @@
 #include "Fixture.hpp"
 #include <algorithm>
 namespace df = descriptor_fixture;
-namespace rs = resource::telemetry::v3;
 
 #if defined(PACKED_ONLY)
 inline constexpr auto image = df::edgeBytes;
@@ -17,20 +16,20 @@ extern "C" const void* descriptor_storage() noexcept
 	return image.data();
 }
 
-extern "C" __attribute__((noinline)) resource::ReadResult
-descriptor_read(resource::Cursor cursor, std::span<std::byte> output) noexcept
+extern "C" __attribute__((noinline)) ::telemetry::descriptor::ReadResult
+descriptor_read(::telemetry::descriptor::Cursor cursor, std::span<std::byte> output) noexcept
 {
 	if (cursor > image.size())
-		return {resource::Status::InvalidCursor, cursor};
+		return {::telemetry::descriptor::ReadStatus::InvalidCursor, cursor};
 	if (cursor == image.size())
-		return {resource::Status::Ok, cursor, 0, true};
+		return {::telemetry::descriptor::ReadStatus::Ok, cursor, 0, true};
 	if (output.empty())
-		return {resource::Status::BufferTooSmall, cursor};
+		return {::telemetry::descriptor::ReadStatus::BufferTooSmall, cursor};
 	const auto count = std::min(output.size(), image.size() - static_cast<std::size_t>(cursor));
 	for (std::size_t i = 0; i < count; ++i)
 		output[i] = image[cursor + i];
-	return {resource::Status::Ok, cursor + count, static_cast<resource::FileSize>(count),
-	        cursor + count == image.size()};
+	return {::telemetry::descriptor::ReadStatus::Ok, cursor + count,
+	        static_cast<std::uint32_t>(count), cursor + count == image.size()};
 }
 #else
 extern "C" const void* descriptor_storage() noexcept
@@ -38,8 +37,8 @@ extern "C" const void* descriptor_storage() noexcept
 	return &df::edge;
 }
 
-extern "C" __attribute__((noinline)) resource::ReadResult
-descriptor_read(resource::Cursor cursor, std::span<std::byte> output) noexcept
+extern "C" __attribute__((noinline)) ::telemetry::descriptor::ReadResult
+descriptor_read(::telemetry::descriptor::Cursor cursor, std::span<std::byte> output) noexcept
 {
 	return df::edge.read(cursor, output);
 }

@@ -122,7 +122,7 @@ def main():
             image = out / (f'resources-{rows}' + ('.exe' if os.name == 'nt' else ''))
             extras = ['-g', '-fno-omit-frame-pointer', '-fsanitize=address,undefined',
                       '-fno-sanitize-recover=all'] if args.sanitize else []
-            source = ROOT / 'lib/resource/telemetry/v3/detail/Values.cpp'
+            source = ROOT / 'lib/integration/telemetry/v3/detail/Values.cpp'
             run([*flags, '-O1' if args.sanitize else '-O2', f'-DROWS={rows}', *extras,
                  ROOT / 'tests/scalability/Resources.cpp', source, '-o', image], f'compile-{rows}')
             profile = json.loads(run([image], f'execute-{rows}'))

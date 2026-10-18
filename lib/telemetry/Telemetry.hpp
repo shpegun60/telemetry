@@ -20,6 +20,7 @@
 
 #include "codec/Codec.hpp"
 #include "model/Adapter.hpp"
+#include "encoded/Dispatcher.hpp"
 #include "model/Model.hpp"
 #include "reflection/Reflection.hpp"
 #include "result/ServiceResult.hpp"

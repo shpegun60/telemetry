@@ -9,9 +9,9 @@
  * have the same size as constexpr instances but reside in host local storage.
  */
 #include <telemetry/Telemetry.hpp>
-#include <resource/telemetry/v3/Descriptor.hpp>
-#include <resource/telemetry/v3/DescriptorFile.hpp>
-#include <resource/telemetry/v3/ValuesFile.hpp>
+#include <telemetry/descriptor/Descriptor.hpp>
+#include <integration/telemetry/v3/DescriptorFile.hpp>
+#include <integration/telemetry/v3/ValuesFile.hpp>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -62,8 +62,8 @@ inline constexpr auto table = makeTable(std::make_index_sequence<ROWS>{});
 inline constexpr ts::FieldCatalogTable fields{ts::group("scale", table)};
 inline constexpr ts::ServiceCatalogTable services{};
 inline constexpr ts::Model model{fields, ts::emptyCommands, services};
-inline constexpr rv::Descriptor staticDescriptor{model};
-inline constexpr auto packedBytes = rv::packDescriptor<staticDescriptor>();
+inline constexpr ::telemetry::descriptor::Descriptor staticDescriptor{model};
+inline constexpr auto packedBytes = ::telemetry::descriptor::packDescriptor<staticDescriptor>();
 using Descriptor = std::remove_cv_t<decltype(staticDescriptor)>;
 using Model = std::remove_cv_t<decltype(model)>;
 inline ts::Workspace workspace{std::span<std::byte>{}};
@@ -90,8 +90,9 @@ bool verifyChunks(const Descriptor& file, std::span<const std::byte> expected, u
 	while (used < output.size()) {
 		const auto room = std::min<std::size_t>(capacity, output.size() - used);
 		const auto result = file.read(used, std::span{output}.subspan(used, room));
-		if (result.status != resource::Status::Ok || result.written == 0 || result.written > room ||
-		    result.next != used + result.written || result.eof != (result.next == output.size()))
+		if (result.status != decltype(result.status)::Ok || result.written == 0 ||
+		    result.written > room || result.next != used + result.written ||
+		    result.eof != (result.next == output.size()))
 			return false;
 		used += result.written;
 	}
@@ -106,7 +107,7 @@ std::uint64_t consume(const File& file, unsigned capacity)
 	std::uint64_t bytes = 0;
 	while (cursor < file.size()) {
 		const auto result = file.read(cursor, std::span{buffer}.first(capacity));
-		if (result.status != resource::Status::Ok || result.next <= cursor)
+		if (result.status != decltype(result.status)::Ok || result.next <= cursor)
 			return 0;
 		// A compiler memory input keeps produced bytes materialized even when
 		// the caller only accumulates lengths. This emits no checksum loop and
@@ -159,7 +160,8 @@ int main()
 	require(values.maxTokenSize() == 5 && model.maxScratch() == 0);
 	std::vector<std::byte> bytes(descriptor->size());
 	const auto all = descriptor->read(0, bytes);
-	require(all.status == resource::Status::Ok && all.eof && bytes.size() == packedBytes.size());
+	require(all.status == ::telemetry::descriptor::ReadStatus::Ok && all.eof &&
+	        bytes.size() == packedBytes.size());
 	require(std::equal(bytes.begin(), bytes.end(), packedBytes.begin()));
 	require(verifyChunks(*descriptor, packedBytes, 128));
 	require(verifyChunks(*descriptor, packedBytes, 512));

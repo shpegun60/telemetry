@@ -42,7 +42,7 @@ Stage 20 baseline. Його [receipts і validators](evidence/pre-borrowed/READM
   використовують caller-owned Workspace. Source, ABI та wire compatibility
   зі старою бібліотекою не надається.
 - Generic resource core лишається незалежним. V3 providers розташовані у
-  `lib/resource/telemetry/v3`; optional Bind/Exchange і clients — окремі
+  `lib/integration/telemetry/v3`; optional Bind/Exchange і clients — окремі
   consumers. Frozen descriptor/values bytes та 11 technical ceilings
   не змінено заради міграції.
 

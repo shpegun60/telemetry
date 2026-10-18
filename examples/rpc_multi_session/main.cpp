@@ -8,8 +8,8 @@
  * outside ordinary Resource packets. Two independent connections and two
  * channels on a third connection share one serialized Model/Workspace owner.
  */
-#include <telemetry/client/rpc/RpcClient.hpp>
-#include <resource/telemetry/v3/RpcSessionPool.hpp>
+#include <client/rpc/RpcClient.hpp>
+#include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <telemetry/model/Model.hpp>
 #include <algorithm>
 #include <array>
@@ -47,8 +47,8 @@ inline constexpr ts::ServiceTable serviceTable{ts::service<&Counter::add>("Add",
 inline constexpr ts::ServiceCatalogTable services{ts::group("counter", serviceTable)};
 inline constexpr ts::Model model{ts::emptyFields, ts::emptyCommands, services};
 inline constexpr auto view = model.view();
-inline constexpr rpc::ServiceEndpoint<Add, Report> AddService{ts::makeId<0, 0>(),
-                                                              rpc::trustedRpcMapping};
+inline constexpr ::telemetry::client::rpc::ServiceEndpoint<Add, Report> AddService{
+    ts::makeId<0, 0>(), ::telemetry::client::rpc::trustedRpcMapping};
 std::array<std::byte, model.maxScratch()> scratch{};
 ts::Workspace workspace{scratch};
 
@@ -71,7 +71,8 @@ struct Channel {
 	std::array<std::byte, 28> request{};
 	std::array<std::byte, 4> result{};
 	std::array<std::byte, 64> outgoing{};
-	rpc::RpcClient client{0, request, result, outgoing, rpc::RpcClientOptions{4, 200, 1, 3}};
+	::telemetry::client::rpc::RpcClient client{
+	    0, request, result, outgoing, ::telemetry::client::rpc::RpcClientOptions{4, 200, 1, 3}};
 	rpc::RpcSessionHandle session{};
 	std::uint32_t connection = 0;
 	std::uint32_t channel = 0;
@@ -178,7 +179,8 @@ void resultIs(Channel& channel, std::uint32_t expected) noexcept
 	check(channel.client.diagnostic().endpointStatus ==
 	      static_cast<unsigned>(ts::ServiceStatus::Ok));
 	Report result{};
-	check(channel.client.decodeResult(result).status == rpc::RpcClientStatus::Ok);
+	check(channel.client.decodeResult(result).status ==
+	      ::telemetry::client::rpc::RpcClientStatus::Ok);
 	check(result.total == expected);
 }
 } // namespace example
@@ -196,8 +198,10 @@ int main()
 		    sessions.acquire({connection.id, connection.generation, channel.channel});
 		check(acquired.status == rpc::RpcSessionStatus::Ok);
 		channel.session = acquired.session;
-		check(channel.client.startSession(connection.generation) == rpc::RpcClientStatus::Ok);
-		check(channel.client.beginService(AddService, Add{Amounts[i]}) == rpc::RpcClientStatus::Ok);
+		check(channel.client.startSession(connection.generation) ==
+		      ::telemetry::client::rpc::RpcClientStatus::Ok);
+		check(channel.client.beginService(AddService, Add{Amounts[i]}) ==
+		      ::telemetry::client::rpc::RpcClientStatus::Ok);
 	}
 	check(sessions.acquire({404, 1, 0}).status == rpc::RpcSessionStatus::NoCapacity);
 	complete();
@@ -207,7 +211,8 @@ int main()
 		resultIs(channels[i], Totals[i]);
 	const auto previous = channels[0].session;
 	check(sessions.release(previous) == rpc::RpcSessionStatus::Ok);
-	check(!sessions.valid(previous) && slots[0].mailbox.state() == rpc::RpcState::Idle);
+	check(!sessions.valid(previous) &&
+	      slots[0].mailbox.state() == ::telemetry::protocol::rpc::RpcState::Idle);
 	channels[0].client.loseSession(1);
 	connections[0].generation = 2; // Admission excludes generation 1 before reuse.
 	const auto reacquired = sessions.acquire({101, 2, 0});
@@ -219,15 +224,16 @@ int main()
 	          .status == rpc::RpcSessionStatus::InvalidSession);
 	check(sessions.replyAccepted(reacquired.session, oldTicket) ==
 	      rpc::RpcSessionStatus::StaleReply);
-	check(channels[0].client.startSession(2) == rpc::RpcClientStatus::Ok);
-	check(channels[0].client.beginService(AddService, Add{5}) == rpc::RpcClientStatus::Ok);
+	check(channels[0].client.startSession(2) == ::telemetry::client::rpc::RpcClientStatus::Ok);
+	check(channels[0].client.beginService(AddService, Add{5}) ==
+	      ::telemetry::client::rpc::RpcClientStatus::Ok);
 	complete();
 	check(counter.calls == 5 && counter.total == 53);
 	resultIs(channels[0], 53);
 	for (std::size_t i = 1; i < channels.size(); ++i) {
 		resultIs(channels[i], Totals[i]);
 		check(sessions.valid(channels[i].session));
-		check(slots[i].mailbox.state() == rpc::RpcState::Ready);
+		check(slots[i].mailbox.state() == ::telemetry::protocol::rpc::RpcState::Ready);
 	}
 #ifndef RPC_SESSIONS_ARM_PROBE
 	std::printf("RPC sessions example: %u checks, four independent channels, "

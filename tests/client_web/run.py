@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 
 
 def snapshot():
-    roots = ('lib/telemetry', 'lib/resource', 'tests/client_web', 'tests/async_client',
+    roots = ('lib/telemetry', 'lib/resource', 'lib/client', 'lib/common', 'lib/wire', 'lib/integration', 'tests/client_web', 'tests/async_client',
              'tests/codegen', 'tools/telemetry_codegen', 'examples/structured_client',
              'examples/client_web', 'examples/codegen_web', 'lib/delegate',
              'lib/boost_pfr/include', 'lib/magic_enum')
@@ -84,7 +84,7 @@ def main():
         run([*tsc, '--version'], 'tsc-version')
         run([args.cxx, '--version'], 'compiler-version')
         runtime = build / 'compiled'
-        run([sys.executable, ROOT / 'lib/telemetry/client/web/build.py', '--node', args.node,
+        run([sys.executable, ROOT / 'lib/client/web/build.py', '--node', args.node,
              '--tsc', args.tsc, '--output', runtime], 'single-source-runtime')
         trace = build / ('trace' + suffix)
         run([*flags, ROOT / 'tests/async_client/Trace.cpp', '-o', trace], 'compile-cpp-traces')
@@ -93,7 +93,7 @@ def main():
         for test in tests:
             output = run([trace], 'cpp-trace-' + test['name'], input='\n'.join(test['actions']) + '\n')
             expected[test['name']] = output.strip().splitlines()
-        for label, module in (('js', ROOT / 'lib/telemetry/client/web/Client.js'),
+        for label, module in (('js', ROOT / 'lib/client/web/Client.js'),
                               ('ts', runtime / 'Client.js')):
             counted([args.node, HERE / 'Check.mjs', module], 'web-' + label, 332)
             counted([args.node, HERE / 'Lifetime.mjs', module], 'lifetime-' + label, 335)
@@ -106,7 +106,7 @@ def main():
                 report['traces'].append(dict(runtime=label, name=test['name'], events=test['events']))
         bridge = build / ('encoded-bridge' + suffix)
         run([*flags, ROOT / 'tests/async_client/EncodedBridge.cpp',
-             ROOT / 'lib/resource/telemetry/v3/EncodedDispatcher.cpp', adapter, abi, '-o', bridge],
+             ROOT / 'lib/integration/encoded/Dispatcher.cpp', adapter, abi, '-o', bridge],
             'compile-encoded-bridge')
         descriptor = build / 'encoded-descriptor.bin'
         run([bridge, '--descriptor', descriptor], 'encoded-descriptor')
@@ -120,8 +120,8 @@ def main():
         run([*cli, 'generate', native / 'descriptor.bin', '--targets', 'js,ts', '--client-runtime', '--output', rpc], 'generate-rpc')
         rpc_bridge = build / ('rpc-bridge' + suffix)
         run([*flags, ROOT / 'tests/codegen/Bridge.cpp', abi, adapter,
-             ROOT / 'lib/resource/protocol/Protocol.cpp', ROOT / 'lib/resource/telemetry/v3/RpcMailbox.cpp',
-             ROOT / 'lib/telemetry/client/rpc/RpcClient.cpp', '-o', rpc_bridge], 'compile-rpc-bridge')
+             ROOT / 'lib/resource/protocol/Protocol.cpp', ROOT / 'lib/integration/telemetry/v3/RpcMailbox.cpp',
+             ROOT / 'lib/client/rpc/RpcClient.cpp', '-o', rpc_bridge], 'compile-rpc-bridge')
         for mode, sdk, desc, executable in (('encoded', encoded, descriptor, bridge),
                 ('rpc', rpc, native / 'descriptor.bin', rpc_bridge)):
             compiled = sdk / 'ts-compiled'
@@ -153,10 +153,10 @@ def main():
                 (legacy / 'runtime').mkdir(exist_ok=True)
                 for name in ('transport.mjs', 'transport.d.mts'):
                     text = (ROOT / 'examples/codegen_web' / name).read_text().replace(
-                        '../../lib/telemetry/client/web/Client.js', './runtime/Client.js')
+                        '../../lib/client/web/Client.js', './runtime/Client.js')
                     (legacy / name).write_text(text)
                 for name in ('Client.js', 'Client.d.ts'):
-                    shutil.copy2(ROOT / 'lib/telemetry/client/web' / name, legacy / 'runtime' / name)
+                    shutil.copy2(ROOT / 'lib/client/web' / name, legacy / 'runtime' / name)
                 run([*tsc, legacy / 'client.ts', '--strict', '--target', 'ES2022',
                      '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--noEmit'],
                     'compile-legacy-example')

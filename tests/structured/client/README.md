@@ -125,7 +125,7 @@ its existing correlation/wrap/disconnect suite, not made mandatory here.
 This is desktop correctness/integration evidence, not new MCU timing.
 Stage 12 originally changed no library C++/qmake input, wire format or endpoint
 ABI. The final migration uses `<telemetry/Telemetry.hpp>`, namespace
-`telemetry`, and `resource/telemetry/v3` providers; it keeps the same native
+`telemetry`, and `integration/telemetry/v3` providers; it keeps the same native
 DTOs and canonical bytes. Whole-program stack and MCU cycle evidence is
 retained separately in [Stage 14 qualification](../mcu/h7s/README.md).
 

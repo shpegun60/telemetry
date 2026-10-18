@@ -60,7 +60,7 @@ def main() -> int:
     source_paths += list((ROOT / "tests/codegen_qml/probes").glob("*"))
     source_paths += [ROOT / name for name in ("tests/codegen/Device.hpp", "tests/codegen/Producer.cpp",
                                              "examples/structured_client/Device.hpp")]
-    for directory in ("lib/telemetry", "lib/resource"):
+    for directory in ("lib/telemetry", "lib/resource", "lib/client", "lib/common", "lib/wire", "lib/integration"):
         source_paths += [path for path in (ROOT / directory).rglob("*")
                          if path.suffix in (".hpp", ".h", ".cpp")]
     for path in sorted(source_paths):

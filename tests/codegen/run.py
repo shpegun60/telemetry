@@ -30,6 +30,7 @@ def source_snapshot():
     roots = ("tools/telemetry_codegen", "tests/codegen", "tests/structured/descriptor",
              "examples/structured_client", "examples/codegen_cpp", "examples/codegen_encoded",
              "examples/codegen_rpc", "examples/codegen_web", "lib/telemetry", "lib/resource",
+             "lib/client", "lib/common", "lib/wire", "lib/integration",
              "lib/delegate", "lib/boost_pfr/include", "lib/magic_enum")
     extensions = {".py", ".cpp", ".h", ".hpp", ".js", ".mjs", ".mts", ".ts", ".hex", ".json"}
     return {str(path.relative_to(ROOT)).replace("\\", "/"): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -138,8 +139,8 @@ def main():
     abi = ROOT / "lib/telemetry/abi/StructuredAbi.cpp"
     native_sources = [abi, ROOT / "lib/telemetry/model/Adapter.cpp",
                       ROOT / "lib/resource/protocol/Protocol.cpp",
-                      ROOT / "lib/resource/telemetry/v3/RpcMailbox.cpp",
-                      ROOT / "lib/telemetry/client/rpc/RpcClient.cpp"]
+                      ROOT / "lib/integration/telemetry/v3/RpcMailbox.cpp",
+                      ROOT / "lib/client/rpc/RpcClient.cpp"]
 
     def compile_program(source, name, extra=(), sdk=None):
         executable = build / (name + (".exe" if os.name == "nt" else ""))
@@ -339,11 +340,11 @@ def main():
         for name in ("transport.mjs", "transport.d.mts"):
             # Relocate the thin compatibility adapter, preserving the canonical runtime.
             text = (ROOT / "examples/codegen_web" / name).read_text().replace(
-                "../../lib/telemetry/client/web/Client.js", "./runtime/Client.js")
+                "../../lib/client/web/Client.js", "./runtime/Client.js")
             (example / name).write_text(text)
         (example / "runtime").mkdir(exist_ok=True)
         for name in ("Client.js", "Client.d.ts"):
-            shutil.copy2(ROOT / "lib/telemetry/client/web" / name, example / "runtime" / name)
+            shutil.copy2(ROOT / "lib/client/web" / name, example / "runtime" / name)
         publish(render(load_schema(descriptor.read_bytes()), ("js",)), example / "generated")
         example_compiled = example / "compiled"
         run([*tsc, "--strict", "--target", "ES2022", "--module", "NodeNext",
