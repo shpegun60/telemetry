@@ -1,10 +1,9 @@
 # tiny_delegate dependency
 
 This directory contains the header and MIT license from
-[tiny_delegate](https://github.com/shpegun60/delegate/tree/4a570f8d36e3bae72c02ec431b0918cb439e1be4),
-commit `4a570f8d36e3bae72c02ec431b0918cb439e1be4`, the untagged 2026-10-18
-audit follow-up to v1.2.0. There are no local header changes relative to that
-commit.
+[tiny_delegate v1.2.1](https://github.com/shpegun60/delegate/releases/tag/v1.2.1),
+commit `813acab020fe9ef28fe7024989fb8d99c09a1b43`. There are no local header
+changes relative to that release.
 
 `delegate.pri` adds the header and its include directory to a qmake consumer.
 Telemetry's compact Getter/Setter implementation does not depend on this header.
