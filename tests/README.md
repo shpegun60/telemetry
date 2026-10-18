@@ -4,6 +4,10 @@ The active checks use the final C++20 telemetry API. Core tests do not require
 Qt. The resource, protocol and client suites have separate runners; the CI
 matrix also builds Cortex-M7 objects and the Qt playground and client.
 
+The [Qt/QML generator suite](codegen_qml/README.md) executes the optional Qt
+module in a real QML runtime, with native Encoded operations, existing RpcClient
+and strict lossless QVariant conversions. Its builds stay outside the source tree.
+
 The optional [code generator suite](codegen/README.md) independently executes
 generated C++ and JS/TS through direct Encoded and Resource/RPC paths, with
 native canonical fixtures, strict TypeScript, sanitizers and offline ARM reports.

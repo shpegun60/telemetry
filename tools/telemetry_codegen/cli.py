@@ -24,7 +24,7 @@ from .schema import load_schema
 
 MANIFEST = "manifest.json"
 FORMAT = "telemetry-codegen-owned-output-v1"
-TARGETS = ("cpp", "js", "ts")
+TARGETS = ("cpp", "js", "ts", "qml")
 
 
 def _json(value):
@@ -44,7 +44,7 @@ def _path(name):
 def _targets(value):
     names = value.split(",") if isinstance(value, str) else list(value)
     if not names or any(name not in TARGETS for name in names):
-        raise ValueError("targets must be a comma-separated selection of cpp,ts,js")
+        raise ValueError("targets must be a comma-separated selection of cpp,ts,js,qml")
     return tuple(sorted(set(names)))
 
 
@@ -71,10 +71,11 @@ def render(schema, targets):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
     files, seen = {}, set()
-    for target in targets:
-        module = importlib.import_module(".generators." + ("cpp" if target == "cpp" else "web"),
+    effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
+    for target in effective:
+        module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
                                          __package__)
-        generate = getattr(module, "generate" if target == "cpp" else "generate_" + target)
+        generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
         result = generate(schema)
         if not isinstance(result, dict):
             raise ValueError("generator must return a relative-path/text dictionary")
@@ -92,6 +93,9 @@ def render(schema, targets):
                     descriptor_wire_version=[3, 0], generator_version=__version__,
                     options={"namespace": schema.namespace, "targets": list(targets)},
                     generated_files=hashes, generated_symbol_mapping=symbol_mapping(schema))
+    if "qml" in targets:
+        from .generators.qml import symbol_mapping as qml_symbols
+        manifest["generated_symbol_mapping"]["qml"] = qml_symbols(schema)
     files[MANIFEST] = _json(manifest).encode("utf-8")
     return files
 

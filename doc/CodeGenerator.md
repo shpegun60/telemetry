@@ -17,7 +17,10 @@ python3 -m tools.telemetry_codegen generate descriptor.bin --targets cpp,ts,js -
 python3 -m tools.telemetry_codegen generate descriptor.bin --targets cpp,ts,js --namespace device_api --output /tmp/device-sdk --check
 ```
 
-`--targets` accepts a comma-separated selection of `cpp`, `ts`, `js`.
+`--targets` accepts a comma-separated selection of `cpp`, `ts`, `js`, `qml`.
+The optional [Qt/QML target](GeneratedQmlApi.md) uses the existing C++ DTOs and
+codecs and automatically includes the unchanged `cpp` output. Qt is needed only
+to build that module, not to run the generator. The default remains `cpp,ts,js`.
 `--namespace` is a valid ASCII C++ namespace, optionally nested with `::`.
 It changes C++ namespaces and their directory paths. JS/TS expose named catalog
 exports from `device.js`/`device.ts` instead of an extra namespace wrapper.
@@ -29,6 +32,7 @@ For the default namespace the outputs are:
 | C++ | `cpp/device_api/Types.hpp`, `Schema.hpp`, `Endpoints.hpp`, `Codec.hpp`, `TelemetryBindings.hpp`, `EncodedBindings.hpp`, `RpcBindings.hpp` |
 | JavaScript | `js/device.js`, `js/device.d.ts` |
 | TypeScript | `ts/device.ts` |
+| QML (optional) | `qml/DeviceApi.hpp`, `DeviceApi.cpp`, `QmlValues.hpp`, `QmlInput.hpp`, `QmlRpcAdapter.hpp`, `CMakeLists.txt` |
 | Receipt | `manifest.json` |
 
 The receipt records generator version, descriptor SHA-256, schema fingerprint,
@@ -37,7 +41,7 @@ mapping. Type IDs remain the original descriptor IDs. Definitions include the
 endpoint-reachable dependency closure; arrays use loops instead of expanding
 one expression per element. Void support is retained even in an empty schema.
 
-The validated immutable IR is shared by both backends. The production parser
+The validated immutable IR is shared by all backends. The production parser
 is the existing independently tested parser promoted from
 `tests/structured/descriptor/parser.py`; that path remains a compatibility
 facade. There is one Python parser implementation.
@@ -88,6 +92,8 @@ and [schema admission](GeneratedSchemaCompatibility.md). Runnable examples:
 [Encoded](../examples/codegen_encoded/README.md),
 [RpcClient](../examples/codegen_rpc/README.md),
 [web](../examples/codegen_web/README.md).
+The [QML example](../examples/codegen_qml/README.md) runs the same Qt interface
+with a direct Encoded adapter or the existing `RpcClient` and Resource server.
 
 The [repeatable suite](../tests/codegen/README.md) executes native canonical
 fixtures, generated C++, generated JS and actual TS-compiled JS, direct Encoded

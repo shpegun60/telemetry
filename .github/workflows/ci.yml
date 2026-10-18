@@ -783,6 +783,30 @@ jobs:
             build/cobs-big/
           if-no-files-found: error
 
+  qml-codegen:
+    name: Generated Qt QML SDK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt host development and QML runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build qt6-base-dev qt6-declarative-dev \
+            qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtquick-controls \
+            qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtqml-workerscript
+      - name: Generate, build and execute QML with Encoded and existing RpcClient
+        run: |
+          python3 tests/codegen_qml/run.py --build-dir "$RUNNER_TEMP/codegen-qml" \
+            --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Retain source, tool, build and runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-qml-sdk
+          path: ${{ runner.temp }}/codegen-qml/
+          if-no-files-found: error
+
   qt:
     name: Qt playground
     runs-on: ubuntu-24.04
