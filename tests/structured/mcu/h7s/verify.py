@@ -25,6 +25,10 @@ ARM_FLAGS = {'-std=c++20', '-mcpu=cortex-m7', '-mthumb', '-mfpu=fpv5-d16',
              '-mfloat-abi=hard', '-fno-exceptions', '-fno-rtti',
              '-ffunction-sections', '-fdata-sections'}
 SOURCE_SUFFIXES = {'.h', '.hpp', '.cpp', '.c', '.pri', '.py', '.S'}
+VALUES_SOURCE = 'lib/integration/telemetry/v3/detail/Values.cpp'
+# Historical device receipts preserve the source layout actually measured.
+# This is accepted only for recorded coverage, never as current-tree evidence.
+RECORDED_VALUES_SOURCE = 'lib/resource/telemetry/v3/detail/Values.cpp'
 REQUIRED_INPUTS = {
     'tests/structured/mcu/Fixture.hpp', 'tests/structured/mcu/Mixed.cpp',
     'tests/structured/mcu/Scale.cpp', 'tests/structured/mcu/h7s/Benchmark.cpp',
@@ -34,7 +38,7 @@ REQUIRED_INPUTS = {
     'tests/structured/qualification/Encoded.cpp', 'tests/structured/traversal/Fixture.hpp',
     'tests/structured/mcu/h7s/StackCall.S',
     'lib/telemetry/model/Adapter.cpp', 'lib/telemetry/abi/StructuredAbi.cpp',
-    'lib/integration/telemetry/v3/detail/Values.cpp',
+    VALUES_SOURCE,
     'tests/h7s_support/build.py',
 }
 MIXED = (
@@ -409,6 +413,15 @@ def verify_artifacts(receipt, directory):
                 'Retained full Flash backup/readback changed: ' + name)
 
 
+def require_build_inputs(manifest, *, current):
+    """Require one complete recorded layout without rewriting its path/hash keys."""
+    require((REQUIRED_INPUTS - {VALUES_SOURCE}).issubset(manifest),
+            'Source manifest omits a required build input')
+    values_sources = {VALUES_SOURCE, RECORDED_VALUES_SOURCE}.intersection(manifest)
+    require(values_sources == {VALUES_SOURCE} if current else len(values_sources) == 1,
+            'Source manifest omits or mixes the required Values build input')
+
+
 def verify(receipt, *, current=True, artifacts=None):
     require(type(receipt['format_version']) is int and receipt['format_version'] == 1 and receipt['scope'] == SCOPE,
             'Wrong hardware receipt format/scope')
@@ -426,7 +439,7 @@ def verify(receipt, *, current=True, artifacts=None):
             valid_hash(receipt['compiler_sha256']), 'Wrong/missing CubeIDE compiler identity')
     hash_manifest(receipt['input_lf_sha256'], 'Missing source manifest')
     hash_manifest(receipt['scaffold_lf_sha256'], 'Missing Cube scaffold manifest')
-    require(REQUIRED_INPUTS.issubset(receipt['input_lf_sha256']), 'Source manifest omits a required build input')
+    require_build_inputs(receipt['input_lf_sha256'], current=current)
     if current:
         require(receipt['input_lf_sha256'] == inputs(), 'Receipt source inputs differ from the current tree')
     require(any(path.startswith('Boot/Core/Src/') for path in receipt['scaffold_lf_sha256']) and
@@ -524,6 +537,14 @@ def self_test(receipt):
           lambda r: r['input_lf_sha256'].pop('tests/structured/mcu/h7s/verify.py'))
     alter('missing library input while others remain',
           lambda r: r['input_lf_sha256'].pop('lib/telemetry/model/Adapter.cpp'))
+    values_source = next(path for path in (VALUES_SOURCE, RECORDED_VALUES_SOURCE)
+                         if path in receipt['input_lf_sha256'])
+    other_values_source = (RECORDED_VALUES_SOURCE if values_source == VALUES_SOURCE
+                           else VALUES_SOURCE)
+    alter('missing Values input while others remain',
+          lambda r: r['input_lf_sha256'].pop(values_source))
+    alter('mixed Values source layouts', lambda r: r['input_lf_sha256'].__setitem__(
+          other_values_source, r['input_lf_sha256'][values_source]))
     alter('missing library snapshot member', lambda r: r['images'][0]['library_sources'].pop(
           'lib/telemetry/model/Adapter.cpp'))
     alter('missing startup source while others remain', lambda r: r['scaffold_lf_sha256'].pop(
@@ -595,7 +616,26 @@ def self_test(receipt):
         except (ValueError, KeyError, IndexError, TypeError, struct.error):
             continue
         raise AssertionError('Invalid receipt mutation accepted: ' + label)
-    return dict(rejected_mutations=len(mutations))
+    # Exercise the path-layout boundary directly, independently of the later
+    # full-tree hash and per-image provenance checks.
+    canonical = dict(receipt['input_lf_sha256'])
+    hashed = canonical.pop(values_source)
+    canonical[VALUES_SOURCE] = hashed
+    recorded = dict(canonical)
+    recorded[RECORDED_VALUES_SOURCE] = recorded.pop(VALUES_SOURCE)
+    for manifest, current in ((canonical, True), (canonical, False), (recorded, False)):
+        require_build_inputs(manifest, current=current)
+    mixed = {**canonical, RECORDED_VALUES_SOURCE: hashed}
+    missing = dict(canonical)
+    missing.pop(VALUES_SOURCE)
+    for manifest, current in ((recorded, True), (mixed, True), (mixed, False), (missing, False)):
+        try:
+            require_build_inputs(manifest, current=current)
+        except ValueError:
+            continue
+        raise AssertionError('Invalid source layout accepted')
+    return dict(rejected_mutations=len(mutations), source_layout_accepted=3,
+                source_layout_rejected=4)
 
 
 def json_object(pairs):

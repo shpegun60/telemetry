@@ -29,8 +29,12 @@ The program writes three exact artifacts: `descriptor.bin`, `values.bin` and
 `type-ids.bin`. The last contains canonical u32 identities for every endpoint and
 the shared registry. No native pointer addresses, C++ padding or ELF symbol
 names enter these files. Before/after comparison requires identical fixture
-source hashes; only the new-alias assertion macro differs. ELF SHA is retained
-for input evidence but is not expected to stay unchanged.
+source hashes. The runner selects the historical Resource or current Integration
+include/source layout from the selected checkout and records it in the receipt.
+A test-only macro selects that layout and its descriptor namespace; the
+new-alias assertion macro independently enables the optimized-root controls.
+No library compatibility facade or copied implementation is added. ELF SHA is
+retained for input evidence but is not expected to stay unchanged.
 
 Run from the checkout, using a pristine external archive for the baseline:
 

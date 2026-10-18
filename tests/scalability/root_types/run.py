@@ -43,10 +43,22 @@ def main():
         parser.error('Generated files must remain outside the source checkout/archive')
     if out.exists() and any(out.iterdir()):
         parser.error('Use a fresh output directory to preserve previous evidence')
-    required = ('lib/telemetry/Telemetry.hpp', 'lib/telemetry/model/Adapter.cpp',
-                'lib/integration/telemetry/v3/detail/Values.cpp')
+    required = ('lib/telemetry/Telemetry.hpp', 'lib/telemetry/model/Adapter.cpp')
     if not all((source / name).is_file() for name in required):
-        parser.error('Source root must contain the unified telemetry/resource library')
+        parser.error('Source root must contain the telemetry library')
+    layouts = (
+        ('modular', 'lib/integration/telemetry/v3/detail/Values.cpp',
+         'lib/integration/telemetry/v3/ValuesFile.hpp',
+         'lib/telemetry/descriptor/Descriptor.hpp'),
+        ('historical', 'lib/resource/telemetry/v3/detail/Values.cpp',
+         'lib/resource/telemetry/v3/ValuesFile.hpp',
+         'lib/resource/telemetry/v3/Descriptor.hpp'),
+    )
+    layout = next((entry for entry in layouts
+                   if all((source / name).is_file() for name in entry[1:])), None)
+    if layout is None:
+        parser.error('Source root lacks a complete modular or historical descriptor/values layout')
+    layout_name, values_source, _, _ = layout
     before = args.before_dir.resolve() if args.before_dir else None
     if before:
         if not all((before / name).is_file() for name in (*ARTIFACTS, 'summary.json')):
@@ -66,6 +78,7 @@ def main():
     library_hashes = {str(path.relative_to(source)): digest(path) for path in inputs}
     fixture_hashes = {path.name: digest(path) for path in (FIXTURE / 'Fixture.hpp', FIXTURE / 'Check.cpp')}
     report = dict(completed=False, source_root=str(source), expect_new=args.expect_new,
+                  source_layout=layout_name, values_source=values_source,
                   sanitize=args.sanitize, optimization=args.optimization,
                   library_hashes=library_hashes, fixture_hashes=fixture_hashes,
                   runner_sha256=digest(Path(__file__)), compiler_sha256=digest(compiler),
@@ -107,6 +120,7 @@ def main():
     flags = ['-std=c++20', '-' + args.optimization, '-Wall', '-Wextra', '-Werror',
              '-pedantic-errors', '-fdiagnostics-color=never',
              '-DTELEMETRY_TEST_REGISTRY_ROOTS=' + str(int(args.expect_new)),
+             '-DTELEMETRY_TEST_MODULAR_LAYOUT=' + str(int(layout_name == 'modular')),
              '-I' + str(source / 'lib'), '-I' + str(source / 'lib/boost_pfr/include'),
              '-I' + str(source / 'lib/magic_enum'), '-I' + str(source / 'lib/delegate')]
     if args.sanitize:
@@ -115,7 +129,7 @@ def main():
     report['flags'] = flags
     image = out / ('root-types.exe' if os.name == 'nt' else 'root-types')
     run([compiler, *flags, FIXTURE / 'Check.cpp', source / 'lib/telemetry/model/Adapter.cpp',
-         source / 'lib/integration/telemetry/v3/detail/Values.cpp', '-o', image], 'compile')
+         source / values_source, '-o', image], 'compile')
     result = json.loads(run([image], 'execute'))
     expected = dict(checks=4995, value_read_cases=680, fields=8, commands=6, services=7,
                     type_count=19, values_bytes=67)

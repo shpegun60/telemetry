@@ -12,7 +12,14 @@
 #pragma once
 
 #include <telemetry/Telemetry.hpp>
+#ifndef TELEMETRY_TEST_MODULAR_LAYOUT
+#define TELEMETRY_TEST_MODULAR_LAYOUT 1
+#endif
+#if TELEMETRY_TEST_MODULAR_LAYOUT
 #include <integration/telemetry/v3/ValuesFile.hpp>
+#else
+#include <resource/telemetry/v3/ValuesFile.hpp>
+#endif
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +32,11 @@
 namespace root_types_fixture {
 namespace ts = ::telemetry;
 namespace rs = ::resource::telemetry::v3;
+#if TELEMETRY_TEST_MODULAR_LAYOUT
+namespace descriptor_api = ::telemetry::descriptor;
+#else
+namespace descriptor_api = ::resource::telemetry::v3;
+#endif
 
 // Shared dependency; code and ready occupy three canonical bytes.
 struct Leaf {
@@ -229,8 +241,8 @@ inline constexpr ts::ServiceTable<> emptyService{};
 inline constexpr ts::ServiceCatalogTable services{
     ts::group("first", serviceA), ts::group("empty", emptyService), ts::group("last", serviceB)};
 inline constexpr ts::Model model{fields, commands, services};
-inline constexpr ::telemetry::descriptor::Descriptor descriptor{model};
-inline constexpr auto descriptorBytes = ::telemetry::descriptor::packDescriptor<descriptor>();
+inline constexpr descriptor_api::Descriptor descriptor{model};
+inline constexpr auto descriptorBytes = descriptor_api::packDescriptor<descriptor>();
 inline std::array<std::byte, 128> scratch{};
 inline ts::Workspace workspace{scratch};
 inline constexpr rs::ValuesFile values{descriptor, workspace};
@@ -279,7 +291,7 @@ static_assert(legacyModel.types().count == model.types().count);
 static_assert(legacyModel.typeId<Query>() == model.typeId<Query>());
 
 #if TELEMETRY_TEST_REGISTRY_ROOTS
-// Only the new alias assertions differ between baseline and optimized builds.
+// New-alias controls leave endpoint definitions and expected wire data unchanged.
 static_assert(std::is_same_v<typename decltype(fieldA)::RegistryRootTypes,
                              ts::detail::TypeList<Packet, SameShape, Mode>>);
 static_assert(std::is_same_v<typename decltype(fieldB)::RegistryRootTypes,
