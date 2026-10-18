@@ -236,7 +236,8 @@ static void rpcLifetimes(const QByteArray& header)
 	}
 }
 
-static void handoffClassification(const QByteArray& header, const QByteArray& configBytes)
+static void handoffClassification(const QByteArray& header, const QByteArray& configBytes,
+                                  const QByteArray& responseBytes)
 {
 	// The legacy default remains conservative. Opt-in callers must obtain the
 	// owner-thread gate before allowing a transport to execute/send the request.
@@ -306,28 +307,176 @@ static void handoffClassification(const QByteArray& header, const QByteArray& co
 	QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
 	check(api.transportHandoffAccepted(token, api.session()), "read handoff gate");
 	refused(await(finished, token), "Timeout");
-	// Completion may already have removed Pending while its public signal is
-	// queued. A session change in that interval cannot claim a known mutation
-	// was cancelled before execution, nor publish a stale read into the cache.
-	for (int scenario = 0; scenario < 3; ++scenario) {
-		qa::DeviceApi completed;
-		check(completed.admitDescriptor(header), "queued completion admission");
-		QSignalSpy result(&completed, &qa::DeviceApi::operationFinished);
-		const auto pending = scenario == 0   ? invoke(completed.device(), "refreshConfig")
-		                     : scenario == 1 ? invoke(completed.device(), "reset")
-		                                     : invoke(completed.edge(), "accept", QVariantMap{});
-		const auto epoch = completed.session();
-		QCoreApplication::sendPostedEvents(&completed, QEvent::MetaCall);
-		completed.complete(pending, epoch, 0, scenario == 2 ? 1 : 0,
-		                   scenario == 0 ? configBytes : QByteArray{});
-		completed.resetSession();
-		const auto evidence = await(result, pending);
-		refused(evidence, scenario == 0 ? "Cancelled" : "OutcomeUnknown");
-		check(evidence.value("dispatchStatus").toInt() == 0 &&
-		          evidence.value("endpointStatus").toInt() == (scenario == 2 ? 1 : 0),
-		      "queued completion lost exact native status evidence");
-		check(!completed.device()->property("configValid").toBool(),
-		      "stale completion repopulated read cache");
+	qa::DeviceApi seed;
+	check(seed.admitDescriptor(header), "known completion input admission");
+	QSignalSpy seeded(&seed, &qa::DeviceApi::operationFinished);
+	const auto initial = invoke(seed.device(), "refreshConfig");
+	QCoreApplication::sendPostedEvents(&seed, QEvent::MetaCall);
+	seed.complete(initial, seed.session(), 0, 0, configBytes);
+	const auto config = await(seeded, initial).value("value").toMap();
+	check(!config.isEmpty(), "known completion typed input");
+	const QVariantMap request{{"config", config}, {"multiplier", 4}};
+	// Once complete() has checked the result, a later session change cannot
+	// erase known success/Accepted or its value. Cache freshness is independent.
+	for (bool readmit : {false, true}) {
+		for (int scenario = 0; scenario < 7; ++scenario) {
+			qa::DeviceApi completed;
+			check(completed.admitDescriptor(header), "queued completion admission");
+			QSignalSpy result(&completed, &qa::DeviceApi::operationFinished);
+			QSignalSpy changed(completed.device(), &qa::Group_0Api::configChanged);
+			const auto pending = scenario == 0   ? invoke(completed.device(), "reset")
+			                     : scenario == 1 ? invoke(completed.edge(), "accept", QVariantMap{})
+			                     : scenario == 2 ? invoke(completed.device(), "refreshConfig")
+			                     : scenario == 3 ? invoke(completed.device(), "writeConfig", config)
+			                     : scenario == 4 ? invoke(completed.device(), "inspect", request)
+			                     : scenario == 5 ? invoke(completed.edge(), "good")
+			                                     : invoke(completed.device(), "ping");
+			const auto epoch = completed.session();
+			QCoreApplication::sendPostedEvents(&completed, QEvent::MetaCall);
+			completed.complete(pending, epoch, 0, scenario == 1 ? 1 : 0,
+			                   scenario == 2   ? configBytes
+			                   : scenario == 4 ? responseBytes
+			                                   : QByteArray{});
+			completed.resetSession();
+			if (readmit)
+				check(completed.admitDescriptor(header), "new peer admitted before old delivery");
+			const auto evidence = await(result, pending);
+			if (scenario == 1) {
+				check(!evidence.value("success").toBool() && evidence.value("accepted").toBool() &&
+				          evidence.value("errorKind").toString().isEmpty(),
+				      "known Accepted survives reset without claiming Executed");
+			} else {
+				success(evidence);
+			}
+			check(evidence.value("dispatchStatus").toInt() == 0 &&
+			          evidence.value("endpointStatus").toInt() == (scenario == 1 ? 1 : 0),
+			      "queued completion lost exact native status evidence");
+			if (scenario == 2)
+				check(evidence.value("value").toMap() == config,
+				      "known read retains checked value");
+			if (scenario == 4)
+				check(evidence.value("value").toMap().value("config").toMap() == config &&
+				          evidence.value("value").toMap().value("checksum").toUInt() == 263168,
+				      "known Service retains checked response value");
+			if (scenario == 5)
+				check(evidence.value("value").isValid() &&
+				          evidence.value("value").toMap().isEmpty(),
+				      "known empty Service keeps value distinct from Void");
+			if (scenario == 6)
+				check(!evidence.value("value").isValid(), "known Void Service keeps no value");
+			check(!completed.device()->configValid() && !completed.device()->config().isValid() &&
+			          changed.isEmpty(),
+			      "old completion has no new-session cache side effect");
+			QCoreApplication::sendPostedEvents(&completed, QEvent::MetaCall);
+			check(result.isEmpty(), "checked old result delivered exactly once");
+		}
+	}
+}
+
+static void knownWriteCannotClearNewCache(const QByteArray& header, const QByteArray& configBytes)
+{
+	qa::DeviceApi api;
+	check(api.admitDescriptor(header), "old write cache admission");
+	QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
+	const auto seed = invoke(api.device(), "refreshConfig");
+	QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+	api.complete(seed, api.session(), 0, 0, configBytes);
+	const auto config = await(finished, seed).value("value");
+	const auto oldWrite = invoke(api.device(), "writeConfig", config);
+	QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+	api.complete(oldWrite, api.session(), 0, 0, {});
+	api.resetSession();
+	check(api.admitDescriptor(header), "fresh read cache admission");
+	QSignalSpy changed(api.device(), &qa::Group_0Api::configChanged);
+
+	struct BeforeDelivery final : QObject {
+		std::function<void()> before;
+
+		bool eventFilter(QObject*, QEvent* event) override
+		{
+			if (event->type() == QEvent::MetaCall && before) {
+				auto action = std::exchange(before, {});
+				action();
+			}
+			return false;
+		}
+	} filter;
+
+	QVariant freshValue;
+	filter.before = [&] {
+		// The old write delivery is already on the event stack. Nested delivery
+		// can populate a fresh peer cache before that old finish callback runs.
+		auto native = client_example::initial;
+		native.gain = 3.5f;
+		std::array<std::byte, ts::wireSize<client_example::Config>> bytes{};
+		check(ts::encode(native, bytes) == ts::CodecStatus::Ok, "fresh native config encoding");
+		const auto read = invoke(api.device(), "refreshConfig");
+		QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+		api.complete(read, api.session(), 0, 0,
+		             QByteArray(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
+		QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+		check(api.device()->configValid() && changed.size() == 1,
+		      "fresh cache exists before old write finishes");
+		freshValue = api.device()->config();
+		check(freshValue.toMap().value("gain").toFloat() == 3.5f,
+		      "fresh peer cache has a distinct checked value");
+	};
+	api.installEventFilter(&filter);
+	QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+	api.removeEventFilter(&filter);
+	check(!filter.before, "old delivery interception executed");
+	check(api.device()->configValid() && api.device()->config() == freshValue &&
+	          changed.size() == 1,
+	      "old successful write cannot invalidate new-session cache");
+	success(await(finished, oldWrite));
+}
+
+static void knownRpcReplyBeforeDelivery(const QByteArray& header)
+{
+	for (int scenario = 0; scenario != 3; ++scenario) {
+		qa::DeviceApi api;
+		check(api.admitDescriptor(header), "known RPC result admission");
+		std::array<std::byte, 4096> request{}, response{}, serverRequest{}, serverResponse{};
+		std::array<std::byte, 64> packet{}, copied{}, reply{};
+		constexpr auto view = cf::model.view();
+		rpc::RpcMailbox mailbox{view, cf::workspace, serverRequest, serverResponse};
+		resource::FileSystem files{std::array{resource::file("/rpc", mailbox)}};
+		rpc::RpcClient native{0, request, response, packet};
+		qa::RpcAdapter<> adapter{api, native};
+		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "known RPC result session");
+		QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
+		const auto token = scenario == 0   ? invoke(api.device(), "reset")
+		                   : scenario == 1 ? invoke(api.edge(), "accept", QVariantMap{})
+		                                   : invoke(api.edge(), "good");
+		for (std::uint32_t now = 0; now != 400 && !native.completed(); ++now) {
+			QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+			QCoreApplication::sendPostedEvents(&adapter, QEvent::MetaCall);
+			adapter.process(now);
+			mailbox.process(now);
+			if (const auto next = adapter.nextPacket()) {
+				std::copy(next.bytes.begin(), next.bytes.end(), copied.begin());
+				check(adapter.prepareHandoff(next.generation, next.requestId),
+				      "known RPC permission");
+				check(adapter.onSendAccepted(next.generation, next.requestId), "known RPC handoff");
+				const auto result = resource::protocol::process(
+				    files.view(), resource::Input{copied}.first(next.bytes.size()), reply);
+				check(result.status == resource::Status::Ok, "known RPC server reply");
+				mailbox.process(now);
+				check(adapter.onReply(resource::Input{reply}.first(result.written), next.generation,
+				                      next.requestId),
+				      "known RPC checked reply");
+			}
+		}
+		check(native.completed() && finished.isEmpty(),
+		      "RPC checked result precedes queued public notification");
+		api.resetSession();
+		const auto result = await(finished, token);
+		if (scenario == 1)
+			check(result.value("accepted").toBool() && !result.value("success").toBool() &&
+			          result.value("errorKind").toString().isEmpty(),
+			      "RPC checked Accepted survives reset before public notification");
+		else
+			success(result);
 	}
 }
 
@@ -602,6 +751,7 @@ int main(int argc, char** argv)
 		const auto descriptor = fixture(directory, "descriptor.bin");
 		const auto configBytes = fixture(directory, "config.bin");
 		const auto requestBytes = fixture(directory, "request.bin");
+		const auto responseBytes = fixture(directory, "response.bin");
 		QQmlEngine engine;
 		QQmlComponent component(&engine);
 		component.loadUrl(QUrl(QStringLiteral("qrc:/qt/qml/Telemetry/Tests/Smoke.qml")));
@@ -913,7 +1063,9 @@ int main(int argc, char** argv)
 		check(client_example::device.calls == callsBefore,
 		      "queued stale request replayed after reset");
 		rpcLifetimes(descriptor.left(64));
-		handoffClassification(descriptor.left(64), configBytes);
+		handoffClassification(descriptor.left(64), configBytes, responseBytes);
+		knownWriteCannotClearNewCache(descriptor.left(64), configBytes);
+		knownRpcReplyBeforeDelivery(descriptor.left(64));
 		pooledRecovery(engine, descriptor.left(64));
 		trackedAdapterHandoffs(descriptor.left(64));
 		qobject_cast<QQuickItem*>(root.get())->setParentItem(nullptr);

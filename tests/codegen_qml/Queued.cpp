@@ -306,6 +306,33 @@ static void qtDeadlineRefusesBeforeCore()
 	      "Qt refusal executes no effect and creates no uncertain recovery");
 }
 
+static void knownQueuedReplyBeforeDelivery()
+{
+	for (int scenario = 0; scenario != 3; ++scenario) {
+		Harness h;
+		const auto token = scenario == 0   ? invoke(h.api.device(), "reset")
+		                   : scenario == 1 ? invoke(h.api.edge(), "accept", QVariantMap{})
+		                                   : invoke(h.api.edge(), "good");
+		events();
+		check(h.adapter.pending() == 1, "known queued result submitted");
+		for (unsigned step = 0; step != 400 && h.adapter.pending() != 0; ++step)
+			h.pump();
+		check(h.adapter.pending() == 0 && h.finished.isEmpty(),
+		      "core checked completion precedes queued public notification");
+		h.api.resetSession();
+		events();
+		const auto result = h.result(token);
+		if (scenario == 1)
+			check(result.value("accepted").toBool() && !result.value("success").toBool() &&
+			          result.value("errorKind").toString().isEmpty(),
+			      "queued checked Accepted survives reset before public notification");
+		else
+			check(result.value("success").toBool(),
+			      "queued checked success survives reset before public notification");
+		check(h.finished.size() == 1, "one checked queued notification after reset");
+	}
+}
+
 int main(int argc, char** argv)
 {
 	QCoreApplication app(argc, argv);
@@ -375,6 +402,7 @@ int main(int argc, char** argv)
 		handoffDeadlineRace();
 		acceptedHandoffRemainsUnknown();
 		qtDeadlineRefusesBeforeCore();
+		knownQueuedReplyBeforeDelivery();
 		std::printf("QML queued checks=%u packets=%u\n", checks, packets);
 		return 0;
 	} catch (const std::exception& error) {

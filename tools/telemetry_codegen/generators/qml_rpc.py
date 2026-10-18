@@ -336,11 +336,10 @@ private:
         const auto api = api_;
         const int dispatch = static_cast<int>(diagnostic.dispatch);
         const int endpoint = diagnostic.endpointStatus;
+        // Same owner thread: settle the checked result before a later reset.
+        // Api::complete queues public notifications/cache side effects itself.
         if (api)
-            QMetaObject::invokeMethod(api, [api, token, session, dispatch, endpoint, payload] {
-                if (api)
-                    api->complete(token, session, dispatch, endpoint, payload);
-            }, Qt::QueuedConnection);
+            api->complete(token, session, dispatch, endpoint, payload);
     }
 
     void submit(const QString& token, quint32 session, int operation, quint32 id,

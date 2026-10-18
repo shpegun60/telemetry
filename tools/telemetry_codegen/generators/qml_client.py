@@ -196,8 +196,8 @@ private:
         }, Qt::QueuedConnection);
     }
     void finished(const QString& token, quint32 session, const ::telemetry::client::ResultView& result) {
-        // Retain a terminal token until Api consumes its queued completion.
-        // A repeated requestReady in that interval must never enqueue it again.
+        // Retain a terminal token until the next owner process cleans it up.
+        // A repeated requestReady must never enqueue it again.
         auto found = pending_.find(token);
         auto status = result.status;
         // Qt's monotonic deadline may expire before its timer is delivered,
@@ -215,9 +215,9 @@ private:
         const QByteArray payload{reinterpret_cast<const char*>(result.payload.data()),
                                  static_cast<qsizetype>(result.payload.size())};
         const int dispatch = result.dispatch, endpoint = result.endpointStatus;
-        if (api) QMetaObject::invokeMethod(api, [api, token, session, dispatch, endpoint, payload] {
-            if (api) api->complete(token, session, dispatch, endpoint, payload);
-        }, Qt::QueuedConnection);
+        // We already share Api's owner thread. Fix the checked result now;
+        // complete() itself queues all public notifications/cache side effects.
+        if (api) api->complete(token, session, dispatch, endpoint, payload);
     }
     static bool metadata(int operation, quint32 id, quint32 requestType, quint32 responseType,
                          qsizetype inputBytes, quint32& responseBytes) noexcept {

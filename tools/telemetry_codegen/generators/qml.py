@@ -372,12 +372,8 @@ QString DeviceApi::submit(int operation, quint32 id, quint32 requestType, quint3
 }
 void DeviceApi::deliver(const QString& token, Pending pending, Result result) {
     QMetaObject::invokeMethod(this, [this, token, pending = std::move(pending), result = std::move(result)]() mutable {
-        if ((result.success || result.accepted) && pending.session != m_session) {
-            result.success = result.accepted = false;
-            result.value.clear();
-            result.errorKind = pending.operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Cancelled");
-            result.message = QStringLiteral("Completion belongs to an earlier session; its effect is not undone");
-        }
+        // Terminal evidence was fixed on the owner thread. Session freshness
+        // gates field cache changes, never the already checked public result.
         QPointer<DeviceApi> alive(this);
         pending.finish(token, result);
         if (alive) Q_EMIT operationFinished(token, ::@NS@::qml::resultMap(result, pending.operation, pending.id));
@@ -527,12 +523,13 @@ def _group_source(schema, group):
             req_id = "endpoint.valueTypeId" if operation == 1 else ("endpoint.requestTypeId" if request else "0")
             resp_id = "endpoint.valueTypeId" if operation == 4 else ("endpoint.responseTypeId" if response else "0")
             resp_bytes = "endpoint.valueBytes" if operation == 4 else ("endpoint.responseBytes" if response else "0")
+            cache_epoch = ", epoch = m_device->session()" if operation in (1, 4) else ""
             rows.append(f"    return m_device->submit({operation}, endpoint.id, {req_id}, {resp_id}, std::move(payload), {resp_bytes},\n"
-                        f"        {_decoder(schema, response)},\n        [self = QPointer<{name}>(this)](const QString& token, const Result& result) {{\n            if (!self) return;\n")
+                        f"        {_decoder(schema, response)},\n        [self = QPointer<{name}>(this){cache_epoch}](const QString& token, const Result& result) {{\n            if (!self) return;\n")
             if operation == 4:
-                rows.append(f"            if (result.success) {{ self->m_{stem} = result.value; self->m_{stem}Valid = true; Q_EMIT self->{stem}Changed(); if (!self) return; }}\n")
+                rows.append(f"            if (result.success && self->m_device->ready() && self->m_device->session() == epoch) {{ self->m_{stem} = result.value; self->m_{stem}Valid = true; Q_EMIT self->{stem}Changed(); if (!self) return; }}\n")
             if operation == 1:
-                rows.append(f"            if (result.success && (self->m_{stem}Valid || self->m_{stem}.isValid())) {{ self->m_{stem}.clear(); self->m_{stem}Valid = false; Q_EMIT self->{stem}Changed(); if (!self) return; }}\n")
+                rows.append(f"            if (result.success && self->m_device->ready() && self->m_device->session() == epoch && (self->m_{stem}Valid || self->m_{stem}.isValid())) {{ self->m_{stem}.clear(); self->m_{stem}Valid = false; Q_EMIT self->{stem}Changed(); if (!self) return; }}\n")
             rows.append(f"            Q_EMIT self->{stem}Finished(token, result.success, result.accepted, result.value, result.errorKind, result.message);\n"
                         "        }, error);\n}\n")
     return "".join(rows)

@@ -107,6 +107,15 @@ must carry the original token and session; stale and repeated completions are
 ignored. The API permits up to 64 pending requests and one pending operation
 per endpoint family/ID; Field read and write share that pending slot.
 
+Once `complete()` validates a reply on the owner thread, its result is fixed.
+A reset before the queued completion signals does not change that result or its
+decoded value. An adapter's completion handler calls `complete()` directly on
+that thread once its checked result is available; completion signals remain queued.
+Field cache updates still require the original session to be
+current and ready: an old read cannot populate a new session's cache, and an
+old write cannot invalidate it. A worker-thread completion queued before reset
+but validated afterward remains stale and is ignored.
+
 The application transport receives:
 
 ```cpp

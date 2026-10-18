@@ -48,6 +48,42 @@ jobs:
             ${{ runner.temp }}/async-encoded/
           if-no-files-found: error
 
+  async-client-tsan:
+    name: MPSC ThreadSanitizer (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TSAN_OPTIONS: halt_on_error=1:exitcode=66
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Clang and its sanitizer runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-18 libclang-rt-18-dev binutils
+      - name: Core queue and MPSC publication, cancellation and close/drain
+        run: |
+          python3 -B tests/async_client/run.py --cxx clang++-18 --thread-sanitize \
+            --build-dir "$RUNNER_TEMP/async-client-tsan"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          directory = Path(os.environ['RUNNER_TEMP']) / 'async-client-tsan'
+          report = json.loads((directory / 'summary.json').read_text())
+          assert report['passed'] and report['checks'].get('core', 0) >= 115
+          assert report['compile_contracts'] == {'positive': 1, 'expected_rejections': 7}
+          symbols = subprocess.check_output(['nm', str(directory / 'core')], text=True)
+          assert '__tsan_init' in symbols and '__tsan_write4' in symbols
+          PY
+      - name: Retain ThreadSanitizer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: async-client-tsan
+          path: ${{ runner.temp }}/async-client-tsan/
+          if-no-files-found: error
+
   async-client-web:
     name: Shared C++ JS TS async contracts
     runs-on: ubuntu-24.04

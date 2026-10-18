@@ -3,7 +3,7 @@
 ```sh
 python3 tests/async_client/run.py --build-dir /tmp/telemetry-async --arm-cxx arm-none-eabi-g++
 python3 tests/async_client/run.py --build-dir /tmp/telemetry-async-asan --cxx clang++-18 --sanitize
-python3 tests/async_client/run.py --build-dir /tmp/telemetry-async-tsan --thread-sanitize
+python3 tests/async_client/run.py --build-dir /tmp/telemetry-async-tsan --cxx clang++-18 --thread-sanitize
 python3 tests/async_client/Encoded_run.py --build-dir /tmp/telemetry-encoded --no-heap
 ```
 
@@ -12,6 +12,16 @@ reentrancy, stale handles, queued/active cancellation, enqueue deadlines and
 clock wrap. Four producers enqueue/cancel against one owner; a delayed private
 producer reservation overlaps close and explicit drain. `NoHeap.cpp` repeats
 owner lifecycle checks with allocation trapped.
+
+The dedicated `MPSC ThreadSanitizer (Linux)` [CI job](../../.github/workflows/ci.yml)
+uses Ubuntu 24.04 and Clang 18. The existing `--thread-sanitize` mode runs the
+core lifecycle/MPSC executable and compile-time contracts; it does not combine
+TSan with address/undefined sanitizers or run the backend, noheap or ARM gates.
+CI requires the positive core check count and instrumented TSan symbols, and
+retains compiler commands, runtime output and source hashes. A runtime startup
+failure fails the job; the job does not change ASLR, suppress reports or turn
+failures into skips. TSan covers the executed host interleavings, not every
+possible schedule or a physical board's ISR/RTOS behavior.
 
 Real backend checks call actual Model Encoded operations and an actual
 RpcSessionPool, including all four operations, Accepted, partial requests,

@@ -31,6 +31,12 @@ timeouts. RPC storage forces request/result fragmentation and wrong-generation
 replies are rejected. The admission check compares the exact declared 64-byte
 header; it does not authenticate a peer or hash a remote descriptor body.
 
+Known-result regressions reset or readmit the session between checked completion
+and queued public delivery. Executed and Accepted results retain their status
+and decoded values, including through both generated adapters. Separate cache
+checks prevent old reads from populating a new session and old writes from
+invalidating its confirmed value, including during nested event processing.
+
 `summary.json` records commands, return codes, source hashes and timestamps;
 individual logs contain build and runtime evidence. Outputs must be outside the
 repository. A passing host run does not qualify a physical device or transport.
