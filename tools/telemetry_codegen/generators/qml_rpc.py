@@ -28,6 +28,7 @@ PREFIX = r'''// Generated optional QML adapter for the existing RpcClient. Do no
 
 @SHIELD_PUSH@
 #include <@PATH@/RpcBindings.hpp>
+#include <resource/protocol/Wire.hpp>
 
 namespace @NS@::qml {
 
@@ -39,6 +40,7 @@ template<class Api = DeviceApi>
 class RpcAdapter final : public QObject {
     using Client = ::resource::telemetry::v3::RpcClient;
     using Status = ::resource::telemetry::v3::RpcClientStatus;
+    using State = ::resource::telemetry::v3::RpcClientState;
     using Packet = ::resource::telemetry::v3::RpcClientPacket;
 
 public:
@@ -53,6 +55,13 @@ public:
             }, Qt::QueuedConnection);
         QObject::connect(&api, &Api::sessionChanged, this,
             [this] { (void)beginSession(); }, Qt::QueuedConnection);
+        // The native generation is deliberately private. Retained non-idle
+        // state requires explicit remote closure before this adapter can reuse
+        // it; zero means its previous local generation is unknown here.
+        if (client_.state() != State::Idle) {
+            if (client_.active()) client_.reset();
+            requireRecovery(0);
+        }
     }
 
     ~RpcAdapter() override
@@ -62,19 +71,47 @@ public:
         loseSession(session_);
     }
 
-    // Admission is declared by Api::admitDescriptor(), never by an RPC packet.
-    // A new admitted session receives a fresh RpcClient generation. No request
-    // is replayed across generations, including an OutcomeUnknown invocation.
+    [[nodiscard]] bool recoveryRequired() const noexcept { return recovery_; }
+    [[nodiscard]] quint32 recoveryGeneration() const noexcept { return recoveryGeneration_; }
+
+    // The application has excluded/drained old frames and released the remote
+    // session (for RpcSessionPool: release/drain, then acquire a fresh handle).
+    // This confirmation only removes a gate. Admit a fresh header separately;
+    // it never replays an invocation or asserts that its old effect was undone.
+    [[nodiscard]] bool confirmSessionClosed(quint32 generation)
+    {
+        ownerThread();
+        if (!recovery_ || generation != recoveryGeneration_ || client_.active()) return false;
+        recovery_ = false;
+        recoveryGeneration_ = 0;
+        return true;
+    }
+
+    // Opt in before requests. In this mode prepareHandoff() MUST be called
+    // before the transport may accept a complete packet, not after sending it.
+    [[nodiscard]] bool enableHandoffTracking()
+    {
+        ownerThread();
+        if (!api_ || !token_.isEmpty() || !api_->setTransportHandoffTracking(true)) return false;
+        trackedHandoff_ = true;
+        return true;
+    }
+
+    // A local generation alone does not reopen/reset a remote mailbox. Once a
+    // previous admitted native session ends, explicit closure is mandatory.
     [[nodiscard]] Status beginSession()
     {
         ownerThread();
         cancelInactive();
+        if (recovery_) return Status::NoSession;
         const bool ready = api_ && api_->ready();
         const auto next = ready ? api_->session() : 0;
         if (session_ != 0 && session_ != next) {
-            client_.loseSession(session_);
+            const auto previous = session_;
+            client_.loseSession(previous);
             settle();
-            session_ = 0;
+            requireRecovery(previous);
+            return Status::NoSession;
         }
         if (!ready)
             return Status::NoSession;
@@ -89,7 +126,7 @@ public:
     void process(quint32 nowMs)
     {
         ownerThread();
-        (void)beginSession();
+        if (beginSession() != Status::Ok) return;
         client_.process(nowMs);
         settle();
     }
@@ -97,17 +134,47 @@ public:
     [[nodiscard]] Packet nextPacket()
     {
         ownerThread();
-        (void)beginSession();
+        if (beginSession() != Status::Ok) return {};
         auto packet = client_.nextPacket();
         settle();
         return packet;
     }
 
+    [[nodiscard]] bool prepareHandoff(quint32 generation, quint32 requestId)
+    {
+        ownerThread();
+        if (beginSession() != Status::Ok || token_.isEmpty()) return false;
+        const auto packet = client_.nextPacket();
+        if (!packet || packet.generation != generation || packet.requestId != requestId) return false;
+        if (!api_ || !api_->requestActive(token_, tokenSession_)) return false;
+        if (finalWrite(packet) && !finalPrepared_) {
+            if (trackedHandoff_ && !api_->transportHandoffAccepted(token_, tokenSession_)) return false;
+            // Monotonic within this invocation, including identical retries.
+            // Recovery must also honor the interval before onSendAccepted().
+            finalPrepared_ = true;
+        }
+        return true;
+    }
+
     [[nodiscard]] bool onSendAccepted(quint32 generation, quint32 requestId)
     {
         ownerThread();
-        (void)beginSession();
+        if (recovery_) return false;
+        const auto packet = client_.nextPacket();
+        if (!packet || packet.generation != generation || packet.requestId != requestId) return false;
+        const bool missingGate = trackedHandoff_ && finalWrite(packet) && !finalPrepared_;
+        // Actual handoff already happened: record it before a deadline/session
+        // check can cancel the native request and discard that evidence.
         const bool accepted = client_.onSendAccepted(generation, requestId);
+        if (!accepted) return false;
+        if (finalWrite(packet)) finalPrepared_ = true;
+        if (missingGate) {
+            client_.loseSession(generation);
+            settle();
+            requireRecovery(generation);
+            return false; // Contract violation; sending cannot be undone here.
+        }
+        (void)beginSession();
         settle();
         return accepted;
     }
@@ -115,7 +182,7 @@ public:
     [[nodiscard]] bool onReply(::resource::Input reply, quint32 generation, quint32 requestId)
     {
         ownerThread();
-        (void)beginSession();
+        if (beginSession() != Status::Ok) return false;
         const bool consumed = client_.onReply(reply, generation, requestId);
         settle();
         return consumed;
@@ -130,13 +197,7 @@ public:
             return;
         client_.loseSession(generation);
         settle();
-        session_ = 0;
-        const auto api = api_;
-        if (api)
-            QMetaObject::invokeMethod(api, [api, generation] {
-                if (api && api->ready() && api->session() == generation)
-                    api->resetSession();
-            }, Qt::QueuedConnection);
+        requireRecovery(generation);
     }
 
 private:
@@ -152,9 +213,40 @@ private:
             // Api has ended this invocation (or its deadline elapsed). It owns
             // the timeout/reset result. Stop future handoffs and retain the
             // native Cancelled/OutcomeUnknown diagnostic without a replay.
+            // If expiry has occurred but Api's timer has not run, settle its
+            // correct deadline outcome before the queued admission reset.
+            const bool unknown = operation_ != 4 && (!trackedHandoff_ || finalPrepared_);
+            fail(token_, tokenSession_, unknown ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Timeout"),
+                 QStringLiteral("Request ended before another packet handoff; no replay"));
             client_.reset();
             token_.clear();
+            if (finalPrepared_ || client_.status() == Status::OutcomeUnknown)
+                requireRecovery(session_);
         }
+    }
+
+    static bool finalWrite(const Packet& packet) noexcept
+    {
+        return packet.bytes.size() >= ::resource::protocol::wire::writeRequestHeaderSize &&
+               packet.bytes[0] == std::byte(::resource::protocol::Op::Write) &&
+               packet.bytes[13] == std::byte{1};
+    }
+
+    void requireRecovery(quint32 generation)
+    {
+        if (recovery_) return;
+        recovery_ = true;
+        recoveryGeneration_ = generation;
+        session_ = 0;
+        if (generation != 0) client_.loseSession(generation);
+        const auto api = api_;
+        const auto epoch = api ? api->session() : 0;
+        // Terminal failure was queued first by settle()/cancelInactive().
+        // A later re-admission cannot clear this adapter's closure obligation.
+        if (api)
+            QMetaObject::invokeMethod(api, [api, epoch] {
+                if (api && api->ready() && api->session() == epoch) api->resetSession();
+            }, Qt::QueuedConnection);
     }
 
     static QString failureKind(Status status)
@@ -188,6 +280,7 @@ private:
         token_ = token;
         tokenSession_ = session;
         operation_ = operation;
+        finalPrepared_ = false;
     }
 
     template<class Q, class Start>
@@ -220,10 +313,14 @@ private:
         token_.clear();
         const auto diagnostic = client_.diagnostic();
         if (!client_.completed() || diagnostic.status != Status::Ok) {
-            fail(token, session, failureKind(diagnostic.status),
+            const auto kind = operation_ == 4 && diagnostic.status == Status::OutcomeUnknown ? failureKind(diagnostic.cause) :
+                finalPrepared_ && operation_ != 4 ? QStringLiteral("OutcomeUnknown") : failureKind(diagnostic.status);
+            fail(token, session, kind,
                  QStringLiteral("RpcClient status=%1 cause=%2 resource=%3 codec=%4")
                      .arg(static_cast<int>(diagnostic.status)).arg(static_cast<int>(diagnostic.cause))
                      .arg(static_cast<int>(diagnostic.resourceStatus)).arg(static_cast<int>(diagnostic.codec)));
+            if (finalPrepared_ || diagnostic.status == Status::OutcomeUnknown)
+                requireRecovery(session);
             return;
         }
         if (static_cast<int>(diagnostic.operation) != operation_) {
@@ -283,6 +380,8 @@ SUFFIX = r'''
     QString token_;
     quint32 tokenSession_ = 0;
     int operation_ = 0;
+    bool trackedHandoff_ = false, finalPrepared_ = false, recovery_ = false;
+    quint32 recoveryGeneration_ = 0;
 };
 } // namespace @NS@::qml
 '''

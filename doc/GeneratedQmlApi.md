@@ -131,11 +131,26 @@ on the API's owner thread before starting a queued request. For worker-owned
 dispatch, carry the owned job and its session/cancellation policy across that
 boundary. A timeout after handoff does not undo a callback or a device action.
 
+By default, emitting `requestReady` conservatively means a mutation might execute.
+A transport with exclusive ownership can opt into precise handoff tracking using
+`setTransportHandoffTracking(true)` before any request is pending. Every consumer
+of `requestReady` must then comply: call
+`transportHandoffAccepted(token, session)` on the owner thread immediately before
+the first action that permits execution, such as invoking a native callback,
+enqueuing an irrevocable worker job, or handing bytes to the transport. It is a
+one-shot gate: if it returns false, do not execute or send the request. Marking
+handoff after sending, or having a second legacy sender on the same API, breaks
+this guarantee. The setter refuses changes while requests are pending.
+
 `requestTimeoutMs` defaults to 5000 and accepts 1 through 300000. Local input,
 admission and capacity failures finish asynchronously without sending a
-request. Expired reads report Timeout. An already handed-off mutation can
-report OutcomeUnknown because its effect may have occurred. Session loss and
-cancellation preserve this distinction. No automatic operation retry or
+request. Expired reads report Timeout. In precise mode an expired mutation that
+never passed its handoff gate also reports Timeout, and reset cancels it.
+An already handed-off mutation can report OutcomeUnknown because its effect may
+have occurred; legacy mode makes that conservative assumption at `requestReady`.
+Session loss and cancellation preserve this distinction. `fail(kind, message)`
+trusts the transport's evidence: do not claim cancellation or nonexecution after
+a mutation may have executed. No automatic operation retry or
 replay occurs across sessions; the application decides how to reconcile an
 unknown outcome.
 
@@ -145,11 +160,23 @@ the client and its caller-owned request, response and packet buffers must
 outlive the adapter. API, adapter and client use one owner thread. This adapter
 performs no blocking I/O. The application drives `process(nowMs)` from an event
 loop and exchanges complete packets through `nextPacket()`,
-`onSendAccepted(generation, requestId)` and
+`prepareHandoff(generation, requestId)`, `onSendAccepted(generation, requestId)` and
 `onReply(bytes, generation, requestId)`. Report complete packet handoff before
 processing another UI/session event, and preserve the packet's generation and
 request ID when delivering its reply. Framing, partial socket writes and
 received-frame assembly remain the transport's responsibility.
+
+Use `adapter.enableHandoffTracking()` before requests to enable the precise
+mode for this transport. For each offered packet, call `prepareHandoff` before
+the transport accepts any bytes; false means the packet must not be sent.
+Only the final Resource WRITE can seal the RPC request, so that packet passes
+the API's one-shot execution gate. Identical retries of that invocation retain
+the gate; a new invocation starts with a fresh gate. Call `onSendAccepted` only
+after complete packet handoff. The adapter keeps the pre-handoff evidence even
+if a deadline or reset occurs before that callback. Calling `onSendAccepted`
+without the required preparation in precise mode closes local admission and
+requires recovery; it cannot undo bytes already sent or repair a prior false
+timeout result. The default adapter retains legacy conservative behavior.
 
 The adapter maps generated operation/ID/type metadata to the existing typed
 `beginReadField`, `beginWriteField`, `beginCommand` and `beginService` methods.
@@ -168,6 +195,35 @@ the same while the borrowed client still exists. Expired or cancelled API
 requests cannot start later from an old queued signal; active requests are
 stopped at packet/event boundaries before another handoff. The adapter never
 replays an OutcomeUnknown invocation on a new peer.
+
+Ending an existing native session, abandoning a prepared final WRITE, or a
+native OutcomeUnknown latches `recoveryRequired()`. `recoveryGeneration()`
+identifies that adapter-local generation. Packet/begin APIs remain blocked;
+admitting another header alone cannot clear the latch. The application must
+exclude old frames and close/drain the actual remote session, then call
+`confirmSessionClosed(oldGeneration)` and admit a newly obtained matching
+header. Confirmation returns false for the wrong generation, only removes the
+local gate, and never replays work or asserts that a prior effect was undone.
+
+For `RpcSessionPool`, release the old handle and wait for a Running callback's
+Closing state to drain before acquiring a fresh connection handle. Calling
+`acquire` for the same active key returns Existing and does not clear Pending.
+The exact final WRITE reply must have been handed off before `replyAccepted`;
+without that acknowledgement the pool deliberately holds Pending and does not
+dispatch it. A local RpcClient generation change does not release the server
+handle or reset its transaction high-water mark. Even a read request uses an
+RPC WRITE envelope, so a read timeout can require session recovery while its
+UI result remains Timeout. Pool handle generations and API/client generations
+are separate identities.
+
+Construct an adapter with a fresh client, or with a known closed remote session
+and coordinated native generation history. Retained non-idle client state
+causes a conservative recovery latch with generation zero, which must be
+confirmed explicitly. A caller can erase native evidence by resetting the
+client to Idle; the adapter cannot inspect its private session/generation state
+afterward. Recreating an adapter or client never substitutes for closing the
+remote session. Recreating the API also restarts its epoch counter, so use a
+fresh client unless the application coordinates a strictly newer epoch.
 
 A direct Encoded transport can instead use the existing native
 `readFieldEncoded`, `writeFieldEncoded`, `executeCommandEncoded` and

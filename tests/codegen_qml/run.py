@@ -115,7 +115,7 @@ def main() -> int:
         if not counts:
             raise RuntimeError("runtime produced no qualification counts")
         summary["qml_checks"], summary["rpc_packets"] = map(int, counts.groups())
-        if summary["qml_checks"] < 650 or summary["rpc_packets"] < 40:
+        if summary["qml_checks"] < 1234 or summary["rpc_packets"] < 40:
             raise RuntimeError("runtime did not execute the current QML/RPC qualification floor")
         run([sys.executable, ROOT / "tests/codegen_qml/probes/run.py", "--build-dir", output / "probes",
              "--qt-prefix", args.qt_prefix, "--cxx", args.cxx, "--cmake", args.cmake,

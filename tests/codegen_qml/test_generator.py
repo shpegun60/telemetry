@@ -44,7 +44,10 @@ class QmlGeneratorTests(unittest.TestCase):
         names = ["Voltage", "voltage", "voltageChanged", "refreshVoltage", "m_device",
                  "objectName", "signals", "slots", "property", "μ", "__proto__", "1x"]
         groups = ((("device", [(2, name, 3) for name in names]),
-                   ("m_pending", [(2, "ready")]), ("pending", [(2, "session")])),
+                   ("m_pending", [(2, "ready")]), ("pending", [(2, "session")]),
+                   ("setTransportHandoffTracking", [(2, "transportHandoffAccepted")]),
+                   ("transportHandoffAccepted", [(2, "setTransportHandoffTracking")]),
+                   ("trackHandoff", [(2, "m_trackHandoff")])),
                   (("device", [(12, "Voltage"), (0, "resetSession")]),),
                   (("device", [(12, "Voltage", 12), (0, "refreshVoltage", 0)]),))
         schema = load_schema(descriptor([golden.struct_type(12, 0, [])], groups), "company::device_api")

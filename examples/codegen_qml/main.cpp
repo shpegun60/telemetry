@@ -9,6 +9,7 @@
 #include <QmlRpcAdapter.hpp>
 #include <resource/FileSystem.hpp>
 #include <resource/protocol/Protocol.hpp>
+#include <resource/telemetry/v3/RpcSessionPool.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QPointer>
@@ -18,8 +19,10 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <span>
+#include <utility>
 
 namespace cf = codegen_fixture;
 namespace qa = device_api::qml;
@@ -35,6 +38,8 @@ static void direct(qa::DeviceApi& api, const QString& token, quint32 session, in
                    quint32 id, const QByteArray& payload)
 {
 	if (!api.requestActive(token, session))
+		return;
+	if (!api.transportHandoffAccepted(token, session))
 		return;
 	constexpr auto capacity =
 	    std::max(cf::model.maxFieldWireSize(), cf::model.maxServiceResponseWireSize());
@@ -101,21 +106,26 @@ struct RpcLoopback {
 	telemetry::ModelView model{cf::model.view()};
 	rpc::RpcMailbox mailbox{model, workspace, request, response};
 	resource::FileSystem<1> files{std::array{resource::file("/rpc", mailbox)}};
+	rpc::RpcSessionPool<1> pool{std::array{rpc::RpcSessionBinding{mailbox, files.view()}}};
+	rpc::RpcSessionHandle remote{};
+	quint32 remoteGeneration = 0;
 	rpc::RpcClient client{0, clientRequest, clientResponse, packet};
 	qa::RpcAdapter<> adapter;
 	QTimer timer;
 	QElapsedTimer clock;
+	QPointer<qa::DeviceApi> api;
+	QByteArray header;
+	bool recovering = false;
 
-	explicit RpcLoopback(qa::DeviceApi& api, QCoreApplication& app) : adapter(api, client)
+	explicit RpcLoopback(qa::DeviceApi& deviceApi, QCoreApplication& app, QByteArray schemaHeader)
+	    : adapter(deviceApi, client), api(&deviceApi), header(std::move(schemaHeader))
 	{
-		QObject::connect(
-		    &api, &qa::DeviceApi::sessionChanged, &adapter,
-		    [this] {
-			    mailbox.resetSession();
-		    },
-		    Qt::QueuedConnection);
+		if (!openRemote() || !adapter.enableHandoffTracking())
+			QTimer::singleShot(0, &app, [&app] {
+				app.exit(1);
+			});
 		QObject::connect(&timer, &QTimer::timeout, &adapter, [this, &app] {
-			if (!pump())
+			if (!pump(app))
 				app.exit(1);
 		});
 		timer.setInterval(1);
@@ -123,21 +133,62 @@ struct RpcLoopback {
 		timer.start();
 	}
 
-	bool pump()
+	bool openRemote()
+	{
+		if (remoteGeneration == std::numeric_limits<quint32>::max())
+			return false;
+		const auto result = pool.acquire({1, ++remoteGeneration, 0});
+		if (result.status != rpc::RpcSessionStatus::Ok)
+			return false;
+		remote = result.session;
+		return true;
+	}
+
+	bool pump(QCoreApplication& app)
 	{
 		const auto now = static_cast<quint32>(clock.elapsed());
 		adapter.process(now);
+		if (adapter.recoveryRequired()) {
+			if (!recovering) {
+				recovering = true;
+				// Queue AFTER the adapter's terminal result/reset callbacks. The
+				// application owns server closure; a local generation cannot do it.
+				QMetaObject::invokeMethod(
+				    &adapter,
+				    [this, &app] {
+					    const auto generation = adapter.recoveryGeneration();
+					    if (pool.release(remote) != rpc::RpcSessionStatus::Ok || !openRemote() ||
+					        !adapter.confirmSessionClosed(generation) || !api ||
+					        !api->admitDescriptor(header)) {
+						    app.exit(1);
+						    return;
+					    }
+					    recovering = false;
+					    // A new user invocation is required. No pending operation replays.
+				    },
+				    Qt::QueuedConnection);
+			}
+			return true;
+		}
+		(void)pool.process(now);
 		if (const auto pending = adapter.nextPacket()) {
+			if (!adapter.prepareHandoff(pending.generation, pending.requestId))
+				return true; // Deadline/reset denied handoff; never send these bytes.
 			if (!adapter.onSendAccepted(pending.generation, pending.requestId))
 				return false;
-			const auto result = resource::protocol::process(files.view(), pending.bytes, reply);
-			if (result.status != resource::Status::Ok)
+			const auto result = pool.handle(remote, pending.bytes, reply);
+			if (result.status != rpc::RpcSessionStatus::Ok ||
+			    result.reply.status != resource::Status::Ok)
 				return false;
-			if (!adapter.onReply(std::span(reply).first(result.written), pending.generation,
+			// The loopback's stable reply buffer has accepted this exact ACK.
+			if (result.ticket.serial != 0 &&
+			    pool.replyAccepted(remote, result.ticket) != rpc::RpcSessionStatus::Ok)
+				return false;
+			if (!adapter.onReply(std::span(reply).first(result.reply.written), pending.generation,
 			                     pending.requestId))
 				return false;
 		}
-		mailbox.process(now);
+		(void)pool.process(now);
 		return true;
 	}
 };
@@ -181,8 +232,10 @@ int main(int argc, char** argv)
 	api->setInputEngine(&engine);
 	std::unique_ptr<RpcLoopback> loopback;
 	if (useRpc)
-		loopback = std::make_unique<RpcLoopback>(*api, app);
-	else
+		loopback = std::make_unique<RpcLoopback>(*api, app, descriptor.left(64));
+	else {
+		if (!api->setTransportHandoffTracking(true))
+			return 1;
 		QObject::connect(
 		    api, &qa::DeviceApi::requestReady, api,
 		    [guard = QPointer<qa::DeviceApi>(api)](QString token, quint32 session, int operation,
@@ -192,6 +245,7 @@ int main(int argc, char** argv)
 				    direct(*guard, token, session, operation, id, payload);
 		    },
 		    Qt::QueuedConnection);
+	}
 	if (!api->admitDescriptor(descriptor.left(64)))
 		return 1;
 	if (smoke) {

@@ -19,6 +19,7 @@ requestReady operationFinished complete fail submit invalidate DeviceApi
 deliver expire Decoder Finish Pending Result m_device m_pending m_timer
 m_nextToken m_session m_ready m_timeout
 snapshotInput setInputEngine m_inputEngine requestActive
+setTransportHandoffTracking transportHandoffAccepted m_trackHandoff
 qApp qGuiApp qAppName
 qint8 quint8 qint16 quint16 qint32 quint32 qint64 quint64 qsizetype qlonglong qulonglong ushort
 signals slots emit foreach forever qml qmlAttachedProperties
@@ -150,6 +151,11 @@ public:
     void setInputEngine(QJSEngine* engine) { m_inputEngine = engine; }
     bool snapshotInput(const QVariant& input, QVariant& output, QString& error) const;
     bool requestActive(const QString& token, quint32 session) const;
+    // Opt in before any pending work; existing transports remain conservative.
+    bool setTransportHandoffTracking(bool enabled);
+    // Owner-thread permission BEFORE accepting a job that may execute/send.
+    // A false result forbids that handoff; one token receives permission once.
+    bool transportHandoffAccepted(const QString& token, quint32 session);
 @GROUP_GETTERS@
     // Admission is declared schema identity, not authentication or a body hash.
     Q_INVOKABLE bool admitDescriptor(const QByteArray& header);
@@ -177,7 +183,8 @@ private:
         Decoder decoder;
         Finish finish;
         QDeadlineTimer deadline;
-        bool dispatched = false;
+        bool offered = false, handoffTracked = false, handoffAccepted = false;
+        bool mayExecute() const noexcept { return offered && (!handoffTracked || handoffAccepted); }
     };
     void deliver(const QString& token, Pending pending, Result result);
     void expire();
@@ -188,6 +195,7 @@ private:
     quint64 m_nextToken = 0;
     quint32 m_session = 0;
     bool m_ready = false;
+    bool m_trackHandoff = false;
     int m_timeout = 5000;
 @GROUP_MEMBERS@
 };
@@ -243,7 +251,20 @@ bool DeviceApi::snapshotInput(const QVariant& value, QVariant& output, QString& 
 bool DeviceApi::requestActive(const QString& token, quint32 epoch) const {
     if (QThread::currentThread() != thread() || !m_ready || epoch != m_session) return false;
     const auto it = m_pending.constFind(token);
-    return it != m_pending.cend() && it->session == epoch && it->dispatched && !it->deadline.hasExpired();
+    return it != m_pending.cend() && it->session == epoch && it->offered && !it->deadline.hasExpired();
+}
+bool DeviceApi::setTransportHandoffTracking(bool enabled) {
+    if (QThread::currentThread() != thread() || !m_pending.isEmpty()) return false;
+    m_trackHandoff = enabled;
+    return true;
+}
+bool DeviceApi::transportHandoffAccepted(const QString& token, quint32 epoch) {
+    if (QThread::currentThread() != thread() || !m_ready || epoch != m_session) return false;
+    auto it = m_pending.find(token);
+    if (it == m_pending.end() || it->session != epoch || !it->offered ||
+        it->deadline.hasExpired() || it->handoffAccepted) return false;
+    it->handoffAccepted = true;
+    return true;
 }
 void DeviceApi::setRequestTimeoutMs(int value) {
     if (value < 1 || value > 300000 || value == m_timeout) return;
@@ -271,7 +292,7 @@ void DeviceApi::resetSession() {
     if (!alive) return;
     for (auto it = pending.cbegin(); it != pending.cend(); ++it) {
         Result result;
-        result.errorKind = it->dispatched && it->operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Cancelled");
+        result.errorKind = it->mayExecute() && it->operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Cancelled");
         result.message = QStringLiteral("Session ended; no operation is replayed");
         deliver(it.key(), it.value(), result);
     }
@@ -294,6 +315,7 @@ QString DeviceApi::submit(int operation, quint32 id, quint32 requestType, quint3
     const auto epoch = m_session;
     const auto key = QString::number(operation == 4 ? 1 : operation) + QLatin1Char(':') + QString::number(id);
     Pending pending{epoch, operation, id, responseBytes, key, std::move(decoder), std::move(finish), QDeadlineTimer(m_timeout)};
+    pending.handoffTracked = m_trackHandoff;
     Result refusal;
     if (!validationError.isEmpty()) {
         refusal.errorKind = QStringLiteral("Validation");
@@ -321,7 +343,7 @@ QString DeviceApi::submit(int operation, quint32 id, quint32 requestType, quint3
         auto it = m_pending.find(token);
         if (it == m_pending.end() || it->session != epoch || m_session != epoch || !m_ready) return;
         if (it->deadline.hasExpired()) { fail(token, epoch, QStringLiteral("Timeout"), QStringLiteral("Deadline expired before transport dispatch")); return; }
-        it->dispatched = true;
+        it->offered = true;
         Q_EMIT requestReady(token, epoch, operation, id, requestType, responseType, payload);
     }, Qt::QueuedConnection);
     return token;
@@ -331,8 +353,8 @@ void DeviceApi::deliver(const QString& token, Pending pending, Result result) {
         if ((result.success || result.accepted) && pending.session != m_session) {
             result.success = result.accepted = false;
             result.value.clear();
-            result.errorKind = QStringLiteral("Cancelled");
-            result.message = QStringLiteral("Completion belongs to an earlier session");
+            result.errorKind = pending.operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Cancelled");
+            result.message = QStringLiteral("Completion belongs to an earlier session; its effect is not undone");
         }
         QPointer<DeviceApi> alive(this);
         pending.finish(token, result);
@@ -345,9 +367,9 @@ void DeviceApi::complete(const QString& token, quint32 epoch, int dispatch, int 
         return;
     }
     auto it = m_pending.find(token);
-    if (it == m_pending.end() || it->session != epoch || epoch != m_session || !it->dispatched) return;
+    if (it == m_pending.end() || it->session != epoch || epoch != m_session || !it->offered) return;
     if (it->deadline.hasExpired()) {
-        fail(token, epoch, it->operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Timeout"),
+        fail(token, epoch, it->mayExecute() && it->operation != 4 ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Timeout"),
              QStringLiteral("Completion arrived after the request deadline"));
         return;
     }
@@ -394,7 +416,7 @@ void DeviceApi::expire() {
     for (const auto& token : tokens) {
         auto it = m_pending.constFind(token);
         if (it == m_pending.cend() || !it->deadline.hasExpired()) continue;
-        const bool unknown = it->dispatched && it->operation != 4;
+        const bool unknown = it->mayExecute() && it->operation != 4;
         fail(token, it->session, unknown ? QStringLiteral("OutcomeUnknown") : QStringLiteral("Timeout"),
              QStringLiteral("Request deadline expired; no retry was issued"));
     }

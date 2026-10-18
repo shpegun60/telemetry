@@ -6,6 +6,7 @@
 #include <DeviceApi.hpp>
 #include <QmlRpcAdapter.hpp>
 #include <resource/protocol/Protocol.hpp>
+#include <resource/telemetry/v3/RpcSessionPool.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEvent>
 #include <QtCore/QFile>
@@ -233,6 +234,362 @@ static void rpcLifetimes(const QByteArray& header)
 			});
 		}
 	}
+}
+
+static void handoffClassification(const QByteArray& header, const QByteArray& configBytes)
+{
+	// The legacy default remains conservative. Opt-in callers must obtain the
+	// owner-thread gate before allowing a transport to execute/send the request.
+	for (bool tracking : {false, true}) {
+		for (bool handed : {false, true}) {
+			for (bool reset : {false, true}) {
+				qa::DeviceApi api;
+				check(api.admitDescriptor(header), "handoff admission");
+				check(api.setTransportHandoffTracking(tracking), "set initial handoff mode");
+				api.setRequestTimeoutMs(200);
+				QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
+				const auto token = invoke(api.device(), "reset");
+				const auto epoch = api.session();
+				check(!api.transportHandoffAccepted(token, epoch), "unoffered gate accepted");
+				check(!api.setTransportHandoffTracking(!tracking), "pending mode changed");
+				QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+				check(api.requestActive(token, epoch), "offered request inactive");
+				check(!api.transportHandoffAccepted(token, epoch + 1), "wrong-epoch gate accepted");
+				if (handed) {
+					check(api.transportHandoffAccepted(token, epoch), "owner handoff refused");
+					check(!api.transportHandoffAccepted(token, epoch),
+					      "duplicate gate authorized replay");
+				}
+				if (reset)
+					api.resetSession();
+				else {
+					QThread::msleep(250);
+					check(!api.transportHandoffAccepted(token, epoch), "expired gate accepted");
+				}
+				const bool unknown = !tracking || handed;
+				refused(await(finished, token), unknown ? "OutcomeUnknown"
+				                                : reset ? "Cancelled"
+				                                        : "Timeout");
+				check(!api.transportHandoffAccepted(token, epoch),
+				      "terminal token authorized handoff");
+				check(api.setTransportHandoffTracking(!tracking), "settled mode could not change");
+			}
+		}
+	}
+	{
+		qa::DeviceApi owner;
+		check(owner.admitDescriptor(header) && owner.setTransportHandoffTracking(true),
+		      "owner-thread gate admission");
+		QSignalSpy finished(&owner, &qa::DeviceApi::operationFinished);
+		const auto token = invoke(owner.device(), "reset");
+		const auto epoch = owner.session();
+		QCoreApplication::sendPostedEvents(&owner, QEvent::MetaCall);
+		bool workerGate = true, workerMode = true;
+		std::thread worker([&] {
+			workerGate = owner.transportHandoffAccepted(token, epoch);
+			workerMode = owner.setTransportHandoffTracking(false);
+		});
+		worker.join();
+		check(!workerGate && !workerMode, "worker bypassed owner-thread gate");
+		check(owner.transportHandoffAccepted(token, epoch),
+		      "owner gate refused after worker rejection");
+		owner.resetSession();
+		refused(await(finished, token), "OutcomeUnknown");
+	}
+	// A tracked read never becomes an indeterminate mutation after handoff.
+	qa::DeviceApi api;
+	check(api.admitDescriptor(header), "read handoff admission");
+	check(api.setTransportHandoffTracking(true), "read handoff mode");
+	api.setRequestTimeoutMs(200);
+	QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
+	const auto token = invoke(api.device(), "refreshConfig");
+	QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+	check(api.transportHandoffAccepted(token, api.session()), "read handoff gate");
+	refused(await(finished, token), "Timeout");
+	// Completion may already have removed Pending while its public signal is
+	// queued. A session change in that interval cannot claim a known mutation
+	// was cancelled before execution, nor publish a stale read into the cache.
+	for (int scenario = 0; scenario < 3; ++scenario) {
+		qa::DeviceApi completed;
+		check(completed.admitDescriptor(header), "queued completion admission");
+		QSignalSpy result(&completed, &qa::DeviceApi::operationFinished);
+		const auto pending = scenario == 0   ? invoke(completed.device(), "refreshConfig")
+		                     : scenario == 1 ? invoke(completed.device(), "reset")
+		                                     : invoke(completed.edge(), "accept", QVariantMap{});
+		const auto epoch = completed.session();
+		QCoreApplication::sendPostedEvents(&completed, QEvent::MetaCall);
+		completed.complete(pending, epoch, 0, scenario == 2 ? 1 : 0,
+		                   scenario == 0 ? configBytes : QByteArray{});
+		completed.resetSession();
+		const auto evidence = await(result, pending);
+		refused(evidence, scenario == 0 ? "Cancelled" : "OutcomeUnknown");
+		check(evidence.value("dispatchStatus").toInt() == 0 &&
+		          evidence.value("endpointStatus").toInt() == (scenario == 2 ? 1 : 0),
+		      "queued completion lost exact native status evidence");
+		check(!completed.device()->property("configValid").toBool(),
+		      "stale completion repopulated read cache");
+	}
+}
+
+static void pooledRecovery(QQmlEngine& engine, const QByteArray& header)
+{
+	// Use QML-created backends and QML-issued non-idempotent commands, with the
+	// actual native client and ACK-gated server pool, rather than a fake reply.
+	for (int scenario = 0; scenario < 5; ++scenario) {
+		const bool tracking = scenario == 4 || (scenario & 1) != 0;
+		const bool reset = (scenario & 2) != 0;
+		const bool executed = scenario == 4;
+		QQmlComponent component(&engine);
+		component.setData(R"QML(import QtQml
+import Telemetry.Generated.device_api
+QtObject {
+    property DeviceApi api: DeviceApi {}
+    function command() { return api.device.reset() }
+}
+
+)QML",
+		                  QUrl());
+		std::unique_ptr<QObject> root(component.create());
+		if (!root)
+			std::cerr << component.errorString().toStdString();
+		check(bool(root), "recovery QML component creation");
+		auto* api = qobject_cast<qa::DeviceApi*>(root->property("api").value<QObject*>());
+		check(api != nullptr, "recovery QML backend");
+		check(api->admitDescriptor(header), "pool schema admission");
+		api->setRequestTimeoutMs(200);
+		QSignalSpy finished(api, &qa::DeviceApi::operationFinished);
+		std::array<std::byte, 4096> serverRequest{}, serverResponse{}, request{}, response{};
+		std::array<std::byte, 64> packetStorage{}, reply{}, oldPacket{};
+		constexpr auto view = cf::model.view();
+		rpc::RpcMailbox mailbox{view, cf::workspace, serverRequest, serverResponse};
+		resource::FileSystem files{std::array{resource::file("/rpc", mailbox)}};
+		rpc::RpcSessionPool<1> pool{std::array{rpc::RpcSessionBinding{mailbox, files.view()}}};
+		const rpc::RpcConnectionKey connection{17, 1, 0};
+		const auto admitted = pool.acquire(connection);
+		check(admitted.status == rpc::RpcSessionStatus::Ok, "pool initial acquire");
+		auto handle = admitted.session;
+		rpc::RpcClientOptions options;
+		options.ackTimeoutMs = 5;
+		rpc::RpcClient client{0, request, response, packetStorage, options};
+		qa::RpcAdapter adapter{*api, client};
+		if (tracking)
+			check(adapter.enableHandoffTracking(), "adapter handoff opt-in");
+		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "pool client session");
+		const auto callsBefore = client_example::device.calls;
+		const auto token = qmlInvoke(root.get(), "command");
+		QCoreApplication::sendPostedEvents(api, QEvent::MetaCall);
+		QCoreApplication::sendPostedEvents(&adapter, QEvent::MetaCall);
+		const auto outgoing = adapter.nextPacket();
+		check(bool(outgoing), "pool command packet");
+		check(outgoing.bytes.size() == 40 && outgoing.bytes[13] == std::byte{1},
+		      "void command did not use one final WRITE");
+		check(adapter.prepareHandoff(outgoing.generation, outgoing.requestId),
+		      "prepare final WRITE");
+		check(adapter.prepareHandoff(outgoing.generation, outgoing.requestId),
+		      "same packet preparation not retry-safe");
+		std::copy(outgoing.bytes.begin(), outgoing.bytes.end(), oldPacket.begin());
+		const auto oldSize = outgoing.bytes.size();
+		const auto oldGeneration = outgoing.generation;
+		const auto oldRequestId = outgoing.requestId;
+		check(pool.process(0).dispatched == 0, "pool dispatched before ingress");
+		const auto held = pool.handle(handle, outgoing.bytes, reply);
+		check(held.status == rpc::RpcSessionStatus::Ok &&
+		          held.reply.status == resource::Status::Ok && held.ticket.serial != 0,
+		      "final WRITE did not produce ACK ticket");
+		check(adapter.onSendAccepted(oldGeneration, oldRequestId), "final WRITE handoff evidence");
+		adapter.process(6);
+		const auto retry = adapter.nextPacket();
+		check(bool(retry) && retry.bytes.size() == oldSize &&
+		          std::equal(retry.bytes.begin(), retry.bytes.end(), oldPacket.begin()),
+		      "native final WRITE retry changed request bytes");
+		check(adapter.prepareHandoff(retry.generation, retry.requestId),
+		      "one-shot API gate prevented same-transaction transport retry");
+		const auto retryAck = pool.handle(handle, retry.bytes, reply);
+		check(retryAck.reply.status == resource::Status::Ok && retryAck.ticket.serial != 0 &&
+		          retryAck.ticket != held.ticket,
+		      "final WRITE retry did not replace ACK ticket");
+		check(adapter.onSendAccepted(retry.generation, retry.requestId),
+		      "native retry handoff evidence");
+		// Do not call replyAccepted, and do not deliver this WRITE ACK to the
+		// client: transport has not accepted the server's reply storage.
+		check(mailbox.state() == rpc::RpcState::Pending, "withheld ACK not Pending");
+		check(pool.process(100000).dispatched == 0 && mailbox.state() == rpc::RpcState::Pending,
+		      "Pending mailbox aged out or dispatched without ACK");
+		check(client_example::device.calls == callsBefore, "withheld ACK executed command");
+		const auto existing = pool.acquire(connection);
+		check(existing.status == rpc::RpcSessionStatus::Existing && existing.session == handle,
+		      "same-key acquire unexpectedly reopened Pending session");
+		// Concrete pre-fix liveness condition: a larger transaction in this
+		// same admitted server context is rejected while the old one is Pending.
+		auto newPacket = oldPacket;
+		const auto transaction =
+		    resource::protocol::client::detail::load<std::uint32_t>(std::span{oldPacket}, 24);
+		resource::protocol::client::detail::store(std::span{newPacket}, 24, transaction + 1);
+		const auto blocked = pool.handle(handle, std::span{newPacket}.first(oldSize), reply);
+		check(blocked.status == rpc::RpcSessionStatus::Ok &&
+		          blocked.reply.status == resource::Status::InvalidData,
+		      "higher transaction bypassed retained Pending request");
+		check(pool.process(200000).dispatched == 0 && client_example::device.calls == callsBefore,
+		      "rejected next transaction executed a command");
+		if (executed) {
+			check(pool.replyAccepted(handle, retryAck.ticket) == rpc::RpcSessionStatus::Ok,
+			      "old final ACK transport acceptance");
+			check(pool.process(200001).dispatched == 1 && mailbox.state() == rpc::RpcState::Ready,
+			      "accepted old final ACK did not execute server command");
+		}
+		const auto callsAfterOld = callsBefore + (executed ? 1u : 0u);
+		check(client_example::device.calls == callsAfterOld, "old command effect evidence");
+		if (reset)
+			api->resetSession();
+		else
+			QThread::msleep(250);
+		check(!adapter.nextPacket(), "abandoned Pending request retained a sendable packet");
+		refused(await(finished, token), "OutcomeUnknown");
+		spin([&] {
+			return !api->ready();
+		});
+		check(adapter.recoveryRequired() && adapter.recoveryGeneration() == oldGeneration,
+		      "abandoned final WRITE did not require exact session recovery");
+		check(!adapter.confirmSessionClosed(oldGeneration + 1),
+		      "wrong recovery generation accepted");
+		check(!adapter.onReply(std::span{reply}.first(held.reply.written), oldGeneration,
+		                       oldRequestId),
+		      "quarantined old reply accepted");
+		check(api->admitDescriptor(header), "local-only re-admission");
+		check(adapter.beginSession() == rpc::RpcClientStatus::NoSession && !adapter.nextPacket(),
+		      "local generation alone cleared remote recovery obligation");
+		refused(await(finished, qmlInvoke(root.get(), "command")), "Transport");
+		check(mailbox.state() == (executed ? rpc::RpcState::Ready : rpc::RpcState::Pending) &&
+		          client_example::device.calls == callsAfterOld,
+		      "quarantine replayed or reset the remote command");
+		// The host excludes/drains ingress for the old connection before this
+		// release. Old bytes are never relabelled as a new admitted connection.
+		const auto oldHandle = handle;
+		check(pool.release(oldHandle) == rpc::RpcSessionStatus::Ok, "release old remote session");
+		check(mailbox.state() == rpc::RpcState::Idle, "release did not clear Pending mailbox");
+		const auto fresh = pool.acquire({17, 2, 0});
+		check(fresh.status == rpc::RpcSessionStatus::Ok &&
+		          fresh.session.generation != oldHandle.generation,
+		      "fresh remote handle not acquired");
+		handle = fresh.session;
+		check(pool.handle(oldHandle, std::span{oldPacket}.first(oldSize), reply).status ==
+		          rpc::RpcSessionStatus::InvalidSession,
+		      "old remote handle admitted delayed frame");
+		check(pool.replyAccepted(handle, held.ticket) == rpc::RpcSessionStatus::StaleReply,
+		      "old ACK ticket opened new session dispatch gate");
+		check(adapter.confirmSessionClosed(oldGeneration) && !adapter.recoveryRequired(),
+		      "explicit remote closure confirmation");
+		check(!adapter.confirmSessionClosed(oldGeneration),
+		      "duplicate closure confirmation accepted");
+		check(api->admitDescriptor(header), "fresh peer descriptor admission");
+		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "fresh client session");
+		check(!adapter.nextPacket() && client_example::device.calls == callsAfterOld,
+		      "session recovery automatically replayed abandoned command");
+		api->setRequestTimeoutMs(5000);
+		quint32 now = 200001;
+		const auto pump = [&] {
+			adapter.process(now++);
+			(void)pool.process(now);
+			if (const auto packet = adapter.nextPacket()) {
+				check(adapter.prepareHandoff(packet.generation, packet.requestId),
+				      "fresh packet preparation");
+				const auto result = pool.handle(handle, packet.bytes, reply);
+				check(result.status == rpc::RpcSessionStatus::Ok, "fresh pool ingress");
+				check(adapter.onSendAccepted(packet.generation, packet.requestId),
+				      "fresh request handoff");
+				if (result.ticket.serial)
+					check(pool.replyAccepted(handle, result.ticket) == rpc::RpcSessionStatus::Ok,
+					      "fresh final ACK handoff");
+				(void)pool.process(now);
+				check(adapter.onReply(std::span{reply}.first(result.reply.written),
+				                      packet.generation, packet.requestId),
+				      "fresh RPC reply");
+			}
+		};
+		adapter.process(now);
+		const auto freshToken = qmlInvoke(root.get(), "command");
+		check(freshToken != token, "recovery reused abandoned user token");
+		success(await(finished, freshToken, pump));
+		check(client_example::device.calls == callsAfterOld + 1,
+		      "fresh user command not executed exactly once");
+		for (int i = 0; i < 5; ++i) {
+			QCoreApplication::processEvents();
+			pump();
+		}
+		check(client_example::device.calls == callsAfterOld + 1, "completion replayed command");
+	}
+}
+
+static void trackedAdapterHandoffs(const QByteArray& header)
+{
+	for (int scenario = 0; scenario < 3; ++scenario) {
+		std::array<std::byte, 4096> request{}, response{};
+		std::array<std::byte, 64> packet{};
+		rpc::RpcClient client{0, request, response, packet};
+		qa::DeviceApi api;
+		check(api.admitDescriptor(header), "tracked adapter admission");
+		api.setRequestTimeoutMs(200);
+		QSignalSpy finished(&api, &qa::DeviceApi::operationFinished);
+		qa::RpcAdapter adapter{api, client};
+		check(adapter.enableHandoffTracking(), "tracked adapter enable");
+		check(adapter.beginSession() == rpc::RpcClientStatus::Ok, "tracked adapter session");
+		const auto token = invoke(api.device(), "reset");
+		QCoreApplication::sendPostedEvents(&api, QEvent::MetaCall);
+		QCoreApplication::sendPostedEvents(&adapter, QEvent::MetaCall);
+		const auto offered = adapter.nextPacket();
+		check(bool(offered), "tracked adapter offered packet");
+		if (scenario == 1) {
+			// A caller that reports actual handoff without preparing violated the
+			// opt-in contract; that cannot erase already accepted native evidence.
+			check(!adapter.onSendAccepted(offered.generation, offered.requestId),
+			      "unprepared handoff reported valid");
+		} else {
+			if (scenario == 2)
+				check(adapter.prepareHandoff(offered.generation, offered.requestId),
+				      "prepared transport interval");
+			QThread::msleep(250);
+			check(!adapter.prepareHandoff(offered.generation, offered.requestId),
+			      "expired packet gate authorized send");
+			check(!adapter.nextPacket(), "expired tracked token left sendable packet");
+		}
+		refused(await(finished, token), scenario == 0 ? "Timeout" : "OutcomeUnknown");
+		check(adapter.recoveryRequired() == (scenario != 0),
+		      "tracked adapter recovery classification");
+		if (scenario == 0)
+			check(api.ready() && client.diagnostic().status == rpc::RpcClientStatus::Cancelled,
+			      "certainly unsent timeout damaged current admitted session");
+		else
+			spin([&] {
+				return !api.ready();
+			});
+	}
+	// Reconstructing an adapter around retained native state must not silently
+	// forget a previous unknown transaction merely because its Api token is gone.
+	std::array<std::byte, 4096> request{}, response{};
+	std::array<std::byte, 64> packet{};
+	rpc::RpcClient client{0, request, response, packet};
+	check(client.startSession(1) == rpc::RpcClientStatus::Ok, "retained native session");
+	check(client.beginCommand(rpc::CommandEndpoint<void>{1, rpc::trustedRpcMapping}) ==
+	          rpc::RpcClientStatus::Ok,
+	      "retained native command");
+	const auto outgoing = client.nextPacket();
+	check(bool(outgoing) && client.onSendAccepted(outgoing.generation, outgoing.requestId),
+	      "retained final native handoff");
+	client.loseSession(outgoing.generation);
+	check(client.status() == rpc::RpcClientStatus::OutcomeUnknown,
+	      "retained native unknown evidence");
+	qa::DeviceApi api;
+	check(api.admitDescriptor(header), "retained API admission");
+	qa::RpcAdapter adapter{api, client};
+	check(adapter.recoveryRequired() && adapter.recoveryGeneration() == 0 && !adapter.nextPacket(),
+	      "new adapter bypassed retained native recovery obligation");
+	spin([&] {
+		return !api.ready();
+	});
+	check(!adapter.confirmSessionClosed(1) && adapter.confirmSessionClosed(0),
+	      "unknown-generation recovery sentinel");
+	check(api.admitDescriptor(header) && adapter.beginSession() == rpc::RpcClientStatus::Ok,
+	      "retained-state explicit closure could not reopen session");
 }
 
 int main(int argc, char** argv)
@@ -556,6 +913,9 @@ int main(int argc, char** argv)
 		check(client_example::device.calls == callsBefore,
 		      "queued stale request replayed after reset");
 		rpcLifetimes(descriptor.left(64));
+		handoffClassification(descriptor.left(64), configBytes);
+		pooledRecovery(engine, descriptor.left(64));
+		trackedAdapterHandoffs(descriptor.left(64));
 		qobject_cast<QQuickItem*>(root.get())->setParentItem(nullptr);
 		std::cout << "QML checks=" << checks << " RPC packets=" << packets << '\n';
 		return 0;
