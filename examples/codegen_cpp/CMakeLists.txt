@@ -16,7 +16,7 @@ target_include_directories(codegen_native PUBLIC "${TELEMETRY_ROOT}/lib"
 add_library(codegen_rpc_runtime STATIC
     "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"
     "${TELEMETRY_ROOT}/lib/resource/telemetry/v3/RpcMailbox.cpp"
-    "${TELEMETRY_ROOT}/lib/resource/telemetry/v3/RpcClient.cpp")
+    "${TELEMETRY_ROOT}/lib/telemetry/client/rpc/RpcClient.cpp")
 target_link_libraries(codegen_rpc_runtime PUBLIC codegen_native)
 add_executable(codegen_export Export.cpp)
 target_link_libraries(codegen_export PRIVATE codegen_native)

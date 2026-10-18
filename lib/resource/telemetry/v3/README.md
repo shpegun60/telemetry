@@ -15,13 +15,13 @@ dependency in the generic resource core.
 | Component | Role | qmake selection | Contract and example |
 | --- | --- | --- | --- |
 | `RpcMailbox` | One incoming deferred transaction | `resource_telemetry_rpc` | [Wire/state contract](../../../../doc/RpcMailboxV1.md), [server example](../../../../examples/rpc_mailbox/README.md) |
-| `RpcClient` | One outgoing typed transaction, retries and decoding | `resource_telemetry_rpc_client` | [Client API](../../../../doc/RpcClientV1.md), [loopback example](../../../../examples/rpc_client/README.md) |
 | `RpcSessionPool<N>` | Bounded ownership of N existing mailboxes | `resource_telemetry_rpc_sessions` plus server flag | [Session API](../../../../doc/RpcSessionsV1.md), [four clients](../../../../examples/rpc_multi_session/README.md) |
 
 Server/full applications explicitly include `telemetry/telemetry.pri` first.
-Client-only applications explicitly include the header-only
-`telemetry/codec/codec.pri` instead. Then select the desired flags before
-including `resource/resource.pri`. Descriptor/Values still use
+The independent client runtime uses `telemetry_client_rpc` in its own
+`telemetry/client/client.pri`; see the [client API](../../../../doc/RpcClientV1.md).
+Server applications select the desired flags before including
+`resource/resource.pri`. Descriptor/Values still use
 `resource_telemetry`. Repeated manifest inclusion adds no duplicate sources.
 The [qmake fixture](../../../../tests/structured/resources/README.md) builds all
 eight maintained combinations and checks the actual source/object selections.

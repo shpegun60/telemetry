@@ -77,6 +77,22 @@ def consumer_source(schema):
 
 
 class WebGenerationTests(unittest.TestCase):
+    def test_optional_async_client_preserves_standalone_codecs(self):
+        from tools.telemetry_codegen.cli import render
+        data = bytes.fromhex((ROOT / "tests/structured/descriptor/mixed.hex").read_text())
+        schema = load_schema(data)
+        plain = render(schema, ("js", "ts"))
+        optional = render(schema, ("js", "ts"), client_runtime=True)
+        for path, content in plain.items():
+            if path != "manifest.json":
+                self.assertEqual(optional[path], content)
+        self.assertEqual(set(optional) - set(plain),
+                         {"js/client.js", "js/client.d.ts", "ts/client.ts"})
+        self.assertNotIn("import ", optional["js/device.js"].decode())
+        self.assertNotIn("import ", optional["js/client.js"].decode())
+        with self.assertRaisesRegex(ValueError, "requires a js or ts"):
+            render(schema, ("cpp",), client_runtime=True)
+
     def test_determinism_and_output_contract(self):
         for name in ("empty", "mixed", "edge"):
             data = bytes.fromhex((ROOT / "tests/structured/descriptor" / (name + ".hex")).read_text())

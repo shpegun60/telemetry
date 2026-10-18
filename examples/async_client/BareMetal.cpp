@@ -1,0 +1,84 @@
+/* Generated SDK client in a cooperative board loop. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
+#include <device_api/ClientBindings.hpp>
+#include <telemetry/client/encoded/EncodedBackend.hpp>
+#include <algorithm>
+
+namespace cl = telemetry::client;
+namespace api = device_api;
+// Implement these thin functions in the board port. They run in the main loop.
+// RX IRQs publish events; callbacks and client methods never run in an IRQ.
+extern void board_init() noexcept;
+extern std::uint32_t board_millis() noexcept;
+extern cl::Input board_verifiedDescriptorHeader() noexcept;
+extern bool board_running() noexcept;
+extern void board_poll() noexcept;
+extern bool board_txAvailable(std::size_t bytes) noexcept;
+extern bool board_beginPacket(cl::Input bytes, std::uint32_t session,
+                              std::uint32_t request) noexcept;
+extern bool board_pollReply(cl::Output storage, std::size_t& bytes, std::uint32_t& session,
+                            std::uint32_t& request) noexcept;
+extern void board_closeSession() noexcept;
+
+static std::array<std::byte, 1024> tx{}, response{}, portTx{}, portRx{};
+static cl::Clock clientClock{nullptr, +[](void*) noexcept {
+	                             return board_millis();
+                             }};
+static cl::EncodedBackend backend{tx, response, clientClock};
+static api::client::DeviceClient<4, 256> client{backend, clientClock};
+static unsigned completed = 0, failed = 0;
+
+static void step() noexcept
+{
+	board_poll();
+	std::size_t count = 0;
+	std::uint32_t session = 0, request = 0;
+	if (board_pollReply(portRx, count, session, request))
+		(void)client.onReply(cl::Input{portRx}.first(count), session, request);
+	client.process(board_millis());
+	const auto packet = client.nextPacket();
+	if (packet && packet.bytes.size() <= portTx.size() && board_txAvailable(packet.bytes.size())) {
+		// Port-owned bytes stay stable until board_txAvailable() reports release.
+		std::copy(packet.bytes.begin(), packet.bytes.end(), portTx.begin());
+		if (client.prepareHandoff(packet.session, packet.requestId)) {
+			if (board_beginPacket(cl::Input{portTx}.first(packet.bytes.size()), packet.session,
+			                      packet.requestId))
+				(void)client.onSendAccepted(packet.session, packet.requestId);
+			else
+				backend.cancel(cl::Status::TransportError);
+		}
+	}
+}
+
+int main()
+{
+	board_init();
+	if (client.admitDescriptor(board_verifiedDescriptorHeader(), 1) != cl::Status::Ok)
+		return 1;
+	// Three logical requests share one active Encoded exchange and one byte pool.
+	auto one = client.read(api::device::fields::Config, [](const auto& result) noexcept {
+		if (!result.hasValue())
+			++failed;
+		++completed;
+	});
+	api::device::types::Config config{};
+	config.gain = 2.0f;
+	auto two = client.write(api::device::fields::Config, config, [](const auto& result) noexcept {
+		if (!result)
+			++failed;
+		++completed;
+	});
+	auto three = client.read(api::device::fields::Config, [](const auto& result) noexcept {
+		if (!result.hasValue() || result.value().gain != 2.0f)
+			++failed;
+		++completed;
+	});
+	if (!one || !two || !three)
+		return 2;
+	while (board_running() && completed != 3)
+		step();
+	client.close();
+	while (!client.drained())
+		step();
+	board_closeSession();
+	return failed || completed != 3 ? 3 : 0;
+}

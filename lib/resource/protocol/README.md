@@ -63,7 +63,7 @@ layer. Clients check status, byte count, progress and completion on every reply.
 
 ## Bounded client API
 
-Include `<resource/protocol/Client.hpp>` for the header-only
+Include `<resource/protocol/Packets.hpp>` for the header-only
 `resource::protocol::client` API. Packet sizes and operation codes are shared
 with `process` through `<resource/protocol/Wire.hpp>`:
 `wire::listRequestSize=9`, `statRequestSize=5`, `readRequestSize=13`,

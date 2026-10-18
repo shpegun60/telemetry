@@ -154,7 +154,42 @@ a mutation may have executed. No automatic operation retry or
 replay occurs across sessions; the application decides how to reconcile an
 unknown outcome.
 
-Including `QmlRpcAdapter.hpp` adds the optional
+The optional `DeviceClientAdapter.hpp` connects `DeviceApi` to the common
+bounded [DeviceClient](AsyncClient.md) execution queue. Its constructor takes
+`(api, backend, clock)`; select `RpcBackend(nativeRpcClient, clock)` or
+`EncodedBackend(txStorage, resultStorage, clock)`. API, adapter, backend and
+borrowed buffers use one owner thread. `DeviceClientAdapter<Api, N, PayloadBytes>`
+defaults to eight records and one shared 4096-byte payload pool. Its token map
+is pending/completed correlation bookkeeping, not a second execution FIFO.
+Queue and payload exhaustion explicitly report `QueueFull` and `PayloadFull`.
+Do not also attach the legacy RPC adapter or another requestReady sender.
+
+Drive `process(nowMs)`, obtain `nextPacket()`, copy its bytes into bounded
+port-owned storage, and call `prepareHandoff(packet.session, packet.requestId)`
+before the port can send. A false result forbids the transfer. Report
+`onSendAccepted(session, requestId)` after complete packet handoff and deliver
+the paired reply through `onReply(bytes, session, requestId)`. The adapter gates
+the QML operation's handoff only when `packet.mayExecute` is true: a complete
+Encoded request or the final RPC WRITE. Repeated RPC packets retain the same
+transaction and one-shot permission. Every gate uses a fresh clock/deadline;
+an expired unsent request reports Timeout, independently of Qt timer ordering.
+Transport acceptance, TX/DMA buffer release and endpoint completion remain
+separate events. The backend may reuse its own outgoing storage after timeout;
+the port must retain its copy until the driver releases it.
+
+Session recovery is explicit for both backends. Stop old traffic, drain/exclude
+port copies and close the actual remote session before
+`confirmSessionClosed(recoveryGeneration())`, then admit a newly observed exact
+header. For RPC, release/drain the old pool handle and acquire a fresh connection;
+local API admission cannot reset its server state. Read failures may retain
+Timeout while still requiring remote session recovery. No queued invocation
+is replayed after recovery. On shutdown stop producers, call `close()`, and keep
+owner processing until `drained()` before destroying the adapter. This lifetime
+precondition keeps accepted callbacks alive through their single completion.
+The [runnable example](../examples/codegen_qml/README.md) uses this same adapter
+and FIFO for both actual Encoded and RPC loopbacks.
+
+Including `QmlRpcAdapter.hpp` instead adds the legacy single-active optional
 `RpcAdapter<Api=DeviceApi>`. It borrows the existing `RpcClient` exclusively;
 the client and its caller-owned request, response and packet buffers must
 outlive the adapter. API, adapter and client use one owner thread. This adapter
@@ -182,7 +217,7 @@ The adapter maps generated operation/ID/type metadata to the existing typed
 `beginReadField`, `beginWriteField`, `beginCommand` and `beginService` methods.
 It decodes the standalone request bytes into the exact generated DTO and uses
 `RpcBindings.hpp`; RpcClient continues to use its existing native Codec.
-There is no new raw-payload RpcClient entry point. Responses are copied before
+This legacy adapter uses typed RpcClient entry points. Responses are copied before
 queued completion and pass the API's status, length and DTO validation.
 Its single active invocation means additional concurrent requests receive a
 Busy transport result. Existing RpcClient packet retries remain within the

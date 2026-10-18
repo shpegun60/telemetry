@@ -518,7 +518,7 @@ def _group_source(schema, group):
 
 def generate(schema):
     """The qml target depends on the byte-identical existing cpp target."""
-    from . import qml_js, qml_rpc
+    from . import qml_js, qml_rpc, qml_client
     qml_macros.validate_namespace(schema)
     groups = layout(schema)
     include = schema.namespace.replace("::", "/")
@@ -564,4 +564,5 @@ target_link_libraries({target} PUBLIC Qt6::Core Qt6::Qml)
     return {"qml/DeviceApi.hpp": header, "qml/DeviceApi.cpp": source,
             "qml/QmlValues.hpp": qml_values.generate(schema),
             "qml/QmlInput.hpp": qml_js.generate(schema),
-            "qml/QmlRpcAdapter.hpp": qml_rpc.generate(schema), "qml/CMakeLists.txt": cmake}
+            "qml/QmlRpcAdapter.hpp": qml_rpc.generate(schema),
+            "qml/DeviceClientAdapter.hpp": qml_client.generate(schema), "qml/CMakeLists.txt": cmake}

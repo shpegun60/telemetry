@@ -11,9 +11,10 @@ Optional Telemetry integrations are separate modules:
 [Descriptor/Values and deferred RPC server](telemetry/v3/README.md),
 [typed asynchronous RpcClient](../../doc/RpcClientV1.md), and
 [bounded RpcSessionPool](../../doc/RpcSessionsV1.md).
-The generic file core does not depend on them. A client-only qmake application
-explicitly includes `telemetry/codec/codec.pri` and selects
-`resource_telemetry_rpc_client`; it does not compile the server Model adapter.
+The generic file core does not depend on them. The independent client runtime
+lives in `telemetry/client`, outside Resource. Client-only applications select
+`telemetry_client_rpc` in `telemetry/client/client.pri`; no server Model adapter
+is compiled.
 
 ```cpp
 #include <resource/Resource.hpp>

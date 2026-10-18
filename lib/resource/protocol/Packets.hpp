@@ -1,5 +1,5 @@
 /**
- * @file Client.hpp
+ * @file Packets.hpp
  * @brief Bounded request builders and checked, borrowed resource replies.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * License: MIT; see ../LICENSE.

@@ -124,7 +124,7 @@ def main():
     report['flags'] = flags
     new_headers = ['telemetry/result/NativeCallResult.hpp', 'telemetry/detail/NativeCall.hpp',
                    'telemetry/result/FieldReadResult.hpp', 'resource/protocol/Wire.hpp',
-                   'resource/protocol/Client.hpp']
+                   'resource/protocol/Packets.hpp']
     for number, header in enumerate(new_headers):
         run(flags + ['-x', 'c++', '-fsyntax-only', '-'], f'header-{number}',
             input_text=f'#include <{header}>\n')

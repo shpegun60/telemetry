@@ -1,5 +1,7 @@
 # Telemetry
 
+[Asynchronous client: FIFO, RPC/Encoded, STM32, Qt/QML and JS/TS](doc/AsyncClient.md).
+
 [![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](lib/telemetry/README.md)
 [![Reflection](https://img.shields.io/badge/reflection-Boost.PFR-blueviolet)](doc/Architecture.md)
@@ -339,8 +341,8 @@ include(path/to/lib/resource/resource.pri)
 Для керування через файл є [RpcMailbox example](examples/rpc_mailbox/README.md).
 Для typed вихідних викликів є [RpcClient](doc/RpcClientV1.md), а для N
 незалежних server sessions — [RpcSessionPool](doc/RpcSessionsV1.md).
-Client-only qmake підключає явний `lib/telemetry/codec/codec.pri` і
-`CONFIG += resource_telemetry_rpc_client` перед `resource.pri`; server-only
+Client-only qmake підключає `lib/telemetry/client/client.pri` із
+`CONFIG += telemetry_client_rpc`; server-only
 збірка не компілює `RpcClient.cpp`. Файли й transport залишаються optional.
 Результати перевірок і межі доказів зібрано в
 [RPC extensions qualification](doc/RpcExtensionsQualification.md).

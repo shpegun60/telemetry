@@ -20,7 +20,7 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
     # and the application's telemetry control protocol remain separate.
     HEADERS += $$PWD/protocol/Protocol.hpp \
         $$PWD/protocol/Wire.hpp \
-        $$PWD/protocol/Client.hpp
+        $$PWD/protocol/Packets.hpp
     SOURCES += $$PWD/protocol/Protocol.cpp
     contains(CONFIG, resource_telemetry) {
         HEADERS += $$PWD/telemetry/v3/BinaryFormat.hpp \
@@ -35,10 +35,10 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
             $$PWD/telemetry/v3/RpcWire.hpp
         SOURCES += $$PWD/telemetry/v3/RpcMailbox.cpp
     }
-    contains(CONFIG, resource_telemetry_rpc_client) {
-        HEADERS += $$PWD/telemetry/v3/RpcClient.hpp \
-            $$PWD/telemetry/v3/RpcWire.hpp
-        SOURCES += $$PWD/telemetry/v3/RpcClient.cpp
+    contains(CONFIG, resource_telemetry_encoded) {
+        HEADERS += $$PWD/telemetry/v3/EncodedDispatcher.hpp \
+            $$PWD/../telemetry/protocol/EncodedWire.hpp
+        SOURCES += $$PWD/telemetry/v3/EncodedDispatcher.cpp
     }
     # Pool users explicitly select this header-only module and the existing
     # server module. Selecting the server alone never exposes a pool dependency.
@@ -48,7 +48,7 @@ isEmpty(RESOURCE_PRI_INCLUDED) {
         }
         HEADERS += $$PWD/telemetry/v3/RpcSessionPool.hpp
     }
-    contains(CONFIG, resource_telemetry)|contains(CONFIG, resource_telemetry_rpc)|contains(CONFIG, resource_telemetry_rpc_client)|contains(CONFIG, resource_telemetry_rpc_sessions) {
+    contains(CONFIG, resource_telemetry)|contains(CONFIG, resource_telemetry_rpc)|contains(CONFIG, resource_telemetry_rpc_sessions) {
         DISTFILES += $$PWD/telemetry/v3/README.md
     }
     DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/protocol/README.md

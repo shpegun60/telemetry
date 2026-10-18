@@ -67,16 +67,18 @@ def symbol_mapping(schema):
     return {"endpoints": [asdict(endpoint) for endpoint in schema.endpoints], "types": types}
 
 
-def render(schema, targets):
+def render(schema, targets, client_runtime=False):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
+    if client_runtime and not set(targets) & {"js", "ts"}:
+        raise ValueError("--client-runtime requires a js or ts target")
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
     for target in effective:
         module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
                                          __package__)
         generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
-        result = generate(schema)
+        result = generate(schema, client_runtime=True) if client_runtime and target in ("js", "ts") else generate(schema)
         if not isinstance(result, dict):
             raise ValueError("generator must return a relative-path/text dictionary")
         for name, content in result.items():
@@ -93,6 +95,8 @@ def render(schema, targets):
                     descriptor_wire_version=[3, 0], generator_version=__version__,
                     options={"namespace": schema.namespace, "targets": list(targets)},
                     generated_files=hashes, generated_symbol_mapping=symbol_mapping(schema))
+    if client_runtime:
+        manifest["options"]["client_runtime"] = True
     if "qml" in targets:
         from .generators.qml import symbol_mapping as qml_symbols
         manifest["generated_symbol_mapping"]["qml"] = qml_symbols(schema)
@@ -270,6 +274,7 @@ def main(argv=None):
     generate = subcommands.add_parser("generate", help="generate owned SDK output without a device")
     generate.add_argument("descriptor")
     generate.add_argument("--targets", default="cpp,ts,js")
+    generate.add_argument("--client-runtime", action="store_true", help="include optional JS/TS asynchronous FIFO client")
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
@@ -296,7 +301,7 @@ def main(argv=None):
                              type_count=len(schema.types), endpoint_count=len(schema.endpoints),
                              symbols=symbol_mapping(schema))), end="")
         else:
-            files = render(schema, _targets(args.targets))
+            files = render(schema, _targets(args.targets), client_runtime=args.client_runtime)
             publish(files, args.output, args.check)
             print(("Verified " if args.check else "Generated ") + str(len(files) - 1) + " files")
         return 0

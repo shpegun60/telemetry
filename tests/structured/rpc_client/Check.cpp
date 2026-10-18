@@ -4,10 +4,10 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 #include "../rpc/Fixture.hpp"
 #include <resource/protocol/Protocol.hpp>
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <cstdio>
 
 using namespace rpc_fixture;

@@ -49,7 +49,7 @@ From the repository root, with a C++20 compiler on PATH:
 mkdir -p build/rpc-client-example
 g++ -std=c++20 -O2 -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
   examples/rpc_client/main.cpp lib/resource/protocol/Protocol.cpp \
-  lib/resource/telemetry/v3/RpcClient.cpp \
+  lib/telemetry/client/rpc/RpcClient.cpp \
   lib/resource/telemetry/v3/RpcMailbox.cpp \
   lib/telemetry/model/Adapter.cpp lib/telemetry/abi/StructuredAbi.cpp \
   -o build/rpc-client-example/rpc_client
@@ -61,15 +61,14 @@ compiles and executes this example and checks its measured condition count.
 Its loopback requires server sources; a real **client-only** qmake project uses:
 
 ```qmake
-include(path/to/lib/telemetry/codec/codec.pri)
-CONFIG += resource_telemetry_rpc_client
-include(path/to/lib/resource/resource.pri)
+CONFIG += telemetry_client_rpc
+include(path/to/lib/telemetry/client/client.pri)
 ```
 
-That selects `RpcClient.cpp` and generic `Protocol.cpp`, without
+That selects only `RpcClient.cpp` and header-only Codec dependencies, without
 `RpcMailbox.cpp`, Model Adapter or StructuredAbi. For a project also serving
-RPC, include `telemetry/telemetry.pri` instead of `codec.pri`, and add
-`resource_telemetry_rpc`.
+RPC, also include `telemetry/telemetry.pri`, select `resource_telemetry_rpc`,
+and include `resource/resource.pri` for the server.
 
 The full [buffer, retry, type and lifetime rules](../../doc/RpcClientV1.md)
 also cover large caller-owned results and Workspace leases. Host loopback and

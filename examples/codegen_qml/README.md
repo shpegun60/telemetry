@@ -63,35 +63,41 @@ than JavaScript BigInt or a runtime descriptor parser. QML maps/lists are
 snapshotted and checked before dispatch; conversion failures finish with
 `Validation` without transport I/O.
 
-The direct handler enables precise handoff tracking and checks both
-`requestActive(token, session)` and the one-shot
-`transportHandoffAccepted(token, session)` immediately before
-calling the real `readFieldEncoded`, `writeFieldEncoded`,
-`executeCommandEncoded`, or `callServiceEncoded` function. It uses disjoint
-payload/output/workspace storage and forwards actual dispatch, family endpoint
-status, and written bytes. These fixture callbacks are small synchronous work;
-an application with slow callbacks should place its transport work on a worker
-and define its cancellation/handoff policy.
+Both modes use the optional generated `DeviceClientAdapter.hpp` and the SAME
+portable `DeviceClient` execution FIFO (8 requests and a shared 4096-byte payload
+pool by default). The adapter's token map only correlates QML completions; it is
+not another execution queue. Full queues explicitly finish with `QueueFull`.
+The older single-active `QmlRpcAdapter.hpp` remains an optional compatibility
+adapter; this example uses the new common queue.
 
-The RPC mode enables the adapter's precise handoff tracking and drives the
-optional generated `QmlRpcAdapter.hpp` and the existing
-caller-buffered `RpcClient` from a 1 ms event-loop timer. It exchanges complete
-Resource frames through the actual session pool/mailbox, including request fragmentation through
-the 48-byte packet buffer, and pairs replies by session generation/request ID.
-The borrowed client and all packet/workspace buffers outlive the adapter. Packet
-preparation, handoff and the loopback reply occur in the same callback, without yielding to
-another UI event. A successful final WRITE reply receives the pool's exact
-`replyAccepted` ticket before dispatch. If recovery becomes required, a queued
-application callback releases the old pool handle, acquires a fresh connection,
-confirms closure, and admits that loopback's header again. It never resubmits the
-old operation; a user must invoke another request. The native fixture callbacks
-cannot be Running across those event-loop callbacks, so release drains
-immediately. A physical server must also handle a Closing release that waits
-for an already Running callback.
+Default mode exchanges Encoded request/reply v1 packets through `EncodedBackend`
+and the actual native `EncodedDispatcher`. RPC mode drives the existing
+caller-buffered `RpcClient` through `RpcBackend`, one mailbox and
+`RpcSessionPool<1>`, including fragmentation through the 48-byte packet buffer.
+Both modes preserve routing, endpoint and codec outcomes. An Encoded response
+confirms the reported outcome; this simple protocol supplies no server dedup
+ledger or automatic retries. Existing RPC retries retain the same transaction.
 
-There is no blocking I/O or nested event loop. For a physical
-transport, the application supplies serial/socket framing and the packet
-handoff/reply callbacks; session loss never automatically replays an operation.
+A 1 ms event-loop timer drives the owner. The port first copies each complete
+packet into bounded port-owned storage, calls `prepareHandoff(session,
+requestId)` before sending, and reports `onSendAccepted` only after complete
+handoff. Partial writes, DMA buffer release and an endpoint response are
+separate events on a physical transport. All borrowed backend buffers outlive
+the adapter. Native fixture callbacks are small synchronous work; slow callbacks
+belong behind an application worker boundary with its own admission policy.
+
+A successful final RPC WRITE reply receives the exact pool `replyAccepted`
+ticket before dispatch. If recovery is required, the application drains cancelled
+FIFO completions, excludes old packet copies, releases the actual old pool
+handle, acquires a fresh connection, confirms closure and obtains/adopts a matching
+header again. Local generation changes do not clear the server mailbox. No old
+operation is resubmitted. This fixture cannot remain Running between loopback
+ticks; a physical server must also drain a Closing callback before reuse.
+
+Shutdown first stops the timer/producer, calls `close()` and continues owner
+processing until `drained()`. Adapter destruction requires that drain and no
+executing callback. Physical ports must also stop or drain their DMA/socket
+copies. There is no blocking I/O or nested event loop.
 
 This example binary links both native dispatch and RPC implementation files.
 The generated main QML module has no mandatory RPC dependency. See

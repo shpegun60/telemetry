@@ -8,7 +8,7 @@
  */
 
 #include <resource/FileSystem.hpp>
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <resource/telemetry/v3/RpcMailbox.hpp>
 #include <telemetry/Telemetry.hpp>

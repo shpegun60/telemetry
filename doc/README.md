@@ -9,7 +9,8 @@
 [Генератор C++/TS/JS SDK](CodeGenerator.md) ·
 [Generated C++](GeneratedCppApi.md) · [Generated JS/TS](GeneratedTsJsApi.md) ·
 [Generated Qt/QML](GeneratedQmlApi.md) ·
-[Schema compatibility](GeneratedSchemaCompatibility.md)
+[Schema compatibility](GeneratedSchemaCompatibility.md) ·
+[Asynchronous client](AsyncClient.md)
 
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.

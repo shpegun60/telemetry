@@ -99,7 +99,7 @@ def main():
             'resource/Types.hpp', 'resource/File.hpp', 'resource/FileSystem.hpp',
             'resource/FileView.hpp', 'resource/BytesFile.hpp', 'resource/Resource.hpp',
             'resource/ChunkWriter.hpp', 'resource/protocol/Protocol.hpp',
-            'resource/protocol/Wire.hpp', 'resource/protocol/Client.hpp'}:
+            'resource/protocol/Wire.hpp', 'resource/protocol/Packets.hpp'}:
         raise RuntimeError('Generic resource header coverage changed')
     for index, header in enumerate(headers):
         relative = header.relative_to(ROOT / 'lib').as_posix()

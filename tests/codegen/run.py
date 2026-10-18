@@ -139,7 +139,7 @@ def main():
     native_sources = [abi, ROOT / "lib/telemetry/model/Adapter.cpp",
                       ROOT / "lib/resource/protocol/Protocol.cpp",
                       ROOT / "lib/resource/telemetry/v3/RpcMailbox.cpp",
-                      ROOT / "lib/resource/telemetry/v3/RpcClient.cpp"]
+                      ROOT / "lib/telemetry/client/rpc/RpcClient.cpp"]
 
     def compile_program(source, name, extra=(), sdk=None):
         executable = build / (name + (".exe" if os.name == "nt" else ""))
@@ -335,14 +335,23 @@ def main():
         # generated runtime's native Bridge session (IDs1..5 belong to that session).
         example = build / "web-example"
         example.mkdir(exist_ok=True)
-        for name in ("client.ts", "transport.mjs", "transport.d.mts"):
-            shutil.copy2(ROOT / "examples/codegen_web" / name, example / name)
+        shutil.copy2(ROOT / "examples/codegen_web/client.ts", example / "client.ts")
+        for name in ("transport.mjs", "transport.d.mts"):
+            # Relocate the thin compatibility adapter, preserving the canonical runtime.
+            text = (ROOT / "examples/codegen_web" / name).read_text().replace(
+                "../../lib/telemetry/client/web/Client.js", "./runtime/Client.js")
+            (example / name).write_text(text)
+        (example / "runtime").mkdir(exist_ok=True)
+        for name in ("Client.js", "Client.d.ts"):
+            shutil.copy2(ROOT / "lib/telemetry/client/web" / name, example / "runtime" / name)
         publish(render(load_schema(descriptor.read_bytes()), ("js",)), example / "generated")
         example_compiled = example / "compiled"
         run([*tsc, "--strict", "--target", "ES2022", "--module", "NodeNext",
              "--moduleResolution", "NodeNext", "--outDir", example_compiled,
              example / "client.ts"], "compile-example-ts")
         shutil.copy2(example / "transport.mjs", example_compiled / "transport.mjs")
+        (example_compiled / "runtime").mkdir(exist_ok=True)
+        shutil.copy2(example / "runtime/Client.js", example_compiled / "runtime/Client.js")
         example_runtime = example_compiled / "generated/js"
         example_runtime.mkdir(parents=True, exist_ok=True)
         shutil.copy2(example / "generated/js/device.js", example_runtime / "device.js")

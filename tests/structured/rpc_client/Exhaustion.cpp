@@ -21,12 +21,12 @@
 #pragma clang diagnostic ignored "-Wkeyword-macro"
 #endif
 #define private public
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 #undef private
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
-#include <resource/telemetry/v3/RpcClient.cpp>
+#include <telemetry/client/rpc/RpcClient.cpp>
 #include <array>
 #include <cstdio>
 

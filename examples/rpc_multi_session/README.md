@@ -39,7 +39,7 @@ Build and run from the repository root:
 mkdir -p build/rpc-multi-session-example
 g++ -std=c++20 -O2 -Ilib -Ilib/boost_pfr/include -Ilib/magic_enum \
   examples/rpc_multi_session/main.cpp lib/resource/protocol/Protocol.cpp \
-  lib/resource/telemetry/v3/RpcClient.cpp \
+  lib/telemetry/client/rpc/RpcClient.cpp \
   lib/resource/telemetry/v3/RpcMailbox.cpp \
   lib/telemetry/model/Adapter.cpp lib/telemetry/abi/StructuredAbi.cpp \
   -o build/rpc-multi-session-example/rpc_multi_session
@@ -50,7 +50,8 @@ For qmake:
 
 ```qmake
 include(path/to/lib/telemetry/telemetry.pri)
-CONFIG += resource_telemetry_rpc resource_telemetry_rpc_client resource_telemetry_rpc_sessions
+CONFIG += resource_telemetry_rpc telemetry_client_rpc resource_telemetry_rpc_sessions
+include(path/to/lib/telemetry/client/client.pri)
 include(path/to/lib/resource/resource.pri)
 ```
 

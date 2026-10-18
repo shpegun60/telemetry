@@ -11,7 +11,7 @@ ROOT = HERE.parents[2]
 sys.path.insert(0, str(HERE.parent))
 from rpc_extension import run_suite
 
-CLIENT = ROOT / 'lib/resource/telemetry/v3/RpcClient.cpp'
+CLIENT = ROOT / 'lib/telemetry/client/rpc/RpcClient.cpp'
 SOURCES = {'client': CLIENT}
 RUNTIME_SOURCES = {
     **SOURCES,
@@ -35,7 +35,7 @@ NEGATIVES = {
 }
 SPEC = dict(
     name='rpc-client', here=HERE, description=__doc__, prefix='rpc_client',
-    headers=('resource/telemetry/v3/RpcClient.hpp', 'resource/telemetry/v3/RpcWire.hpp'),
+    headers=('telemetry/client/rpc/RpcClient.hpp', 'resource/telemetry/v3/RpcWire.hpp'),
     sources=SOURCES, runtime_sources=RUNTIME_SOURCES, negatives=NEGATIVES,
     roots=('rpc_client_begin', 'rpc_client_packet', 'rpc_client_accepted', 'rpc_client_reply',
            'rpc_client_process', 'rpc_client_decode', 'rpc_client_reset', 'rpc_client_roots'),

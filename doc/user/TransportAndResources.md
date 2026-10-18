@@ -320,7 +320,7 @@ Resource статуси: `Ok`, `InvalidFile`, `NotReadable`, `NotWritable`,
 
 ### Клієнт: зібрати request і перевірити response
 
-`<resource/protocol/Client.hpp>` надає header-only API у
+`<resource/protocol/Packets.hpp>` надає header-only API у
 `resource::protocol::client`. Усі builders приймають caller-owned `Output`
 першим аргументом:
 

@@ -9,7 +9,7 @@
  * queued generation and requestId with the complete reply. No transport send
  * proves remote receipt. Call process() with current time before events.
  */
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 #include <resource/telemetry/v3/RpcMailbox.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <telemetry/model/Model.hpp>

@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "RpcClient.hpp"
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <algorithm>
 #include <cstring>
 
@@ -98,6 +98,28 @@ RpcClientStatus RpcClient::preflight(std::uint32_t request, std::uint32_t respon
 		return RpcClientStatus::BufferTooSmall;
 	if (overlapsStorage(source))
 		return RpcClientStatus::Overlap;
+	return RpcClientStatus::Ok;
+}
+
+RpcClientStatus RpcClient::beginEncoded(RpcOperation operation, std::uint32_t id, Input payload,
+                                        std::uint32_t responseBytes) noexcept
+{
+	if (operation != RpcOperation::FieldWrite && operation != RpcOperation::Command &&
+	    operation != RpcOperation::Service && operation != RpcOperation::FieldRead)
+		return RpcClientStatus::InvalidRequest;
+	if ((operation == RpcOperation::FieldRead && !payload.empty()) ||
+	    ((operation == RpcOperation::FieldWrite || operation == RpcOperation::Command) &&
+	     responseBytes != 0))
+		return RpcClientStatus::InvalidRequest;
+	if (payload.size() > UINT32_MAX)
+		return RpcClientStatus::BufferTooSmall;
+	const auto bytes = static_cast<std::uint32_t>(payload.size());
+	const auto status = preflight(bytes, responseBytes, payload);
+	if (status != RpcClientStatus::Ok)
+		return status;
+	if (!payload.empty())
+		std::memcpy(request_.data() + rpcRequestHeaderBytes, payload.data(), payload.size());
+	begin(operation, id, bytes, responseBytes, nullptr);
 	return RpcClientStatus::Ok;
 }
 

@@ -74,10 +74,11 @@ maintained `run_qmake.py` entrypoint.
   and runs `client`, `client_server`, `sessions` and `all`.
   `resource_telemetry` selects only Descriptor/Values; the independent
   `resource_telemetry_rpc` option selects only RpcMailbox.
-  `resource_telemetry_rpc_client` selects only the new compiled RpcClient;
+  `telemetry_client_rpc` in the independent `telemetry/client/client.pri`
+  manifest selects the compiled RpcClient;
   `resource_telemetry_rpc_sessions` explicitly selects the header-only pool
   and requires the server option. The client-only consumer explicitly includes
-  the header-only `telemetry/codec/codec.pri` manifest and compiles no Model
+  that client manifest, which selects its codec dependencies, and compiles no Model
   adapter, structured ABI source, Values provider or mailbox implementation.
   Full server consumers explicitly include `telemetry.pri`. Repeated manifests
   do not duplicate sources. The application facade exposes only

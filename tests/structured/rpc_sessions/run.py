@@ -31,7 +31,7 @@ SPEC = dict(
     name='rpc-sessions', here=HERE, description=__doc__, prefix='rpc sessions',
     headers=('resource/telemetry/v3/RpcSessionPool.hpp',),
     sources=SOURCES, runtime_sources=SOURCES, negatives=NEGATIVES,
-    example_sources={**SOURCES, 'client': ROOT / 'lib/resource/telemetry/v3/RpcClient.cpp'},
+    example_sources={**SOURCES, 'client': ROOT / 'lib/telemetry/client/rpc/RpcClient.cpp'},
     roots=('rpc_sessions_acquire', 'rpc_sessions_handle', 'rpc_sessions_reply_accepted',
            'rpc_sessions_process', 'rpc_sessions_release', 'rpc_sessions_roots'),
     entry='rpc_sessions_roots', arm_define='RPC_SESSIONS_ARM_PROBE',

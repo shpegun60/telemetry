@@ -52,7 +52,7 @@ class CppTests(unittest.TestCase):
         schema = focused_schema()
         first = generate(schema)
         self.assertEqual(first, generate(schema))
-        self.assertEqual(len(first), 7)
+        self.assertEqual(len(first), 8)
         for name in ("Types", "Schema", "Endpoints", "Codec"):
             text = first[f"cpp/sdk/device/{name}.hpp"]
             self.assertNotIn("#include <telemetry/", text)

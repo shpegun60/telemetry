@@ -16,7 +16,7 @@ telemetry. Повний runnable приклад —
 header-only і не потребує telemetry Model, Codec, Workspace чи endpoint tables.
 Packet protocol підключається окремо через
 `<resource/protocol/Protocol.hpp>` із compiled `Protocol.cpp`. Client builders
-та parsers містяться у `<resource/protocol/Client.hpp>` і є header-only.
+та parsers містяться у `<resource/protocol/Packets.hpp>` і є header-only.
 Telemetry providers підключайте явно для публікації descriptor/values або
 optional RPC mailbox; generic resource core від них не залежить.
 
@@ -50,7 +50,7 @@ optional RPC mailbox; generic resource core від них не залежить.
 | `ChunkWriter` | [ChunkWriter.hpp](../../lib/resource/ChunkWriter.hpp) | Bounded byte output для реалізації власного provider |
 | `Status`, transfer results, spans, indexes/cursor | [Types.hpp](../../lib/resource/Types.hpp) | Спільні типи resource operations |
 | `resource::protocol::process()` | [Protocol.hpp](../../lib/resource/protocol/Protocol.hpp), [Protocol.cpp](../../lib/resource/protocol/Protocol.cpp) | Один повний resource packet → filesystem operation → reply |
-| `resource::protocol::client` | [Client.hpp](../../lib/resource/protocol/Client.hpp) | Request builders і checked borrowed reply parsers |
+| `resource::protocol::client` | [Packets.hpp](../../lib/resource/protocol/Packets.hpp) | Request builders і checked borrowed reply parsers |
 
 `<resource/Resource.hpp>` збирає generic headers першої частини таблиці;
 protocol і `resource/telemetry/v3` залишаються окремими explicit includes.

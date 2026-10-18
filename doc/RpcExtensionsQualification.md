@@ -23,7 +23,7 @@ are unchanged. No new device execution is claimed.
 
 | Files | Responsibility |
 | --- | --- |
-| `lib/resource/telemetry/v3/RpcClient.hpp`, `.cpp` | Typed bindings, one asynchronous transaction, packet scheduling, diagnostics and caller-owned decode |
+| `lib/telemetry/client/rpc/RpcClient.hpp`, `.cpp` | Typed bindings, one asynchronous transaction, packet scheduling, diagnostics and caller-owned decode |
 | `lib/resource/telemetry/v3/RpcSessionPool.hpp` | Fixed bindings, admission handles, generation/ticket checks, ACK gate, bounded dispatch and release |
 | `lib/telemetry/codec/codec.pri`, `lib/resource/resource.pri` | Independent header-only Codec and client/server/pool selections |
 | `tests/structured/rpc_client/`, `rpc_sessions/`, `rpc_extension.py` | Runtime, no-heap, negative, exhaustion, ODR and offline ARM gates |

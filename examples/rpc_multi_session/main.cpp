@@ -8,7 +8,7 @@
  * outside ordinary Resource packets. Two independent connections and two
  * channels on a third connection share one serialized Model/Workspace owner.
  */
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 #include <resource/telemetry/v3/RpcSessionPool.hpp>
 #include <telemetry/model/Model.hpp>
 #include <algorithm>

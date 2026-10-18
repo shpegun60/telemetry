@@ -539,12 +539,15 @@ def generate(schema):
     reachable = _reachable(schema)
     root = "cpp/" + schema.namespace.replace("::", "/") + "/"
     suffix = f"}} // namespace {schema.namespace}\n"
-    return {
+    result = {
         root + "Types.hpp": _types(schema, reachable),
         root + "Schema.hpp": _schema(schema),
         root + "Endpoints.hpp": _endpoints(schema),
         root + "Codec.hpp": _codec(schema, reachable),
         root + "TelemetryBindings.hpp": _telemetry_bindings(schema, reachable),
-        root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <resource/telemetry/v3/RpcClient.hpp>\n') + RPC + suffix,
+        root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <telemetry/client/rpc/RpcClient.hpp>\n') + RPC + suffix,
         root + "EncodedBindings.hpp": _header(schema, "EncodedBindings", '#include "Codec.hpp"\n#include <telemetry/model/Adapter.hpp>\n') + ENCODED.replace("@NS@", schema.namespace) + suffix,
     }
+    from . import client_cpp
+    result.update(client_cpp.generate(schema))
+    return result

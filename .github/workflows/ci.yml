@@ -11,6 +11,66 @@ permissions:
   contents: read
 
 jobs:
+  async-client:
+    name: Portable async client (${{ matrix.cxx }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++, clang++-18]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install host and bare-metal compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-18 gcc-arm-none-eabi \
+            binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+      - name: Core, noheap, real backends and unchanged bare-metal loop
+        shell: bash
+        run: |
+          options=()
+          if [[ '${{ matrix.cxx }}' == 'g++' ]]; then
+            options+=(--arm-cxx arm-none-eabi-g++)
+          else
+            options+=(--sanitize)
+          fi
+          python3 -B tests/async_client/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/async-client" "${options[@]}"
+          python3 -B tests/async_client/Encoded_run.py --cxx '${{ matrix.cxx }}' \
+            --no-heap --build-dir "$RUNNER_TEMP/async-encoded"
+      - name: Retain portable client evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: async-client-${{ matrix.cxx }}
+          path: |
+            ${{ runner.temp }}/async-client/
+            ${{ runner.temp }}/async-encoded/
+          if-no-files-found: error
+
+  async-client-web:
+    name: Shared C++ JS TS async contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the pinned TypeScript compiler
+        run: npm install --prefix "$RUNNER_TEMP/async-tools" typescript@5.9.3 --no-audit --no-fund
+      - name: Strict TS, emitted JS, shared traces and real Encoded/RPC servers
+        run: |
+          python3 -B tests/client_web/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/async-client-web"
+      - name: Retain cross-language evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: async-client-web
+          path: ${{ runner.temp }}/async-client-web/
+          if-no-files-found: error
+
   source-style:
     name: Source comments, guards and pinned formatting
     runs-on: ubuntu-24.04

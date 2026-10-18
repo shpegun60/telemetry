@@ -8,7 +8,7 @@
 #include <telemetry/model/Model.hpp>
 #endif
 #ifdef WITH_RPC_CLIENT
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 #endif
 #ifdef WITH_RPC_SESSIONS
 #include <resource/telemetry/v3/RpcSessionPool.hpp>

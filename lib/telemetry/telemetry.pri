@@ -13,7 +13,9 @@ isEmpty(TELEMETRY_STRUCTURED_PRI_INCLUDED) {
     CONFIG -= c++11 c++14 c++17
     CONFIG += c++20
     INCLUDEPATH += $$PWD/.. $$PWD/../boost_pfr/include $$PWD/../magic_enum
-    HEADERS += $$files($$PWD/*.hpp, true) $$files($$PWD/slot/*.h, true)
+    TELEMETRY_NATIVE_HEADERS = $$files($$PWD/*.hpp, true)
+    TELEMETRY_NATIVE_HEADERS -= $$files($$PWD/client/*.hpp, true)
+    HEADERS += $$TELEMETRY_NATIVE_HEADERS $$files($$PWD/slot/*.h, true)
     SOURCES += $$PWD/abi/StructuredAbi.cpp $$PWD/model/Adapter.cpp
     DISTFILES += $$PWD/README.md $$PWD/LICENSE $$PWD/slot/README.md
 }

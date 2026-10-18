@@ -14,7 +14,7 @@
 #define RESOURCE_TELEMETRY_V3_RPC_CLIENT_HPP
 #pragma once
 
-#include "RpcWire.hpp"
+#include <resource/telemetry/v3/RpcWire.hpp>
 #include <telemetry/codec/Codec.hpp>
 #include <telemetry/result/Dispatch.hpp>
 #include <telemetry/result/EndpointStatus.hpp>
@@ -91,7 +91,8 @@ enum class RpcClientStatus : std::uint8_t {
 	ResourceError,
 	WrongType,
 	ResultUnavailable,
-	OutcomeUnknown
+	OutcomeUnknown,
+	InvalidRequest
 };
 
 enum class RpcClientState : std::uint8_t {
@@ -172,6 +173,10 @@ public:
 
 	[[nodiscard]] RpcClientStatus startSession(std::uint32_t generation,
 	                                           std::uint32_t lastTransactionId = 0) noexcept;
+	// The caller has already validated the schema and encoded this exact payload.
+	// Raw results are available through resultBytes(), never typed decodeResult().
+	[[nodiscard]] RpcClientStatus beginEncoded(RpcOperation operation, std::uint32_t id,
+	                                           Input payload, std::uint32_t responseBytes) noexcept;
 	void process(std::uint32_t nowMs) noexcept;
 	[[nodiscard]] RpcClientPacket nextPacket() noexcept;
 	[[nodiscard]] bool onSendAccepted(std::uint32_t generation, std::uint32_t requestId) noexcept;
@@ -330,4 +335,21 @@ private:
 };
 
 } // namespace resource::telemetry::v3
+
+// Preserve existing class symbols while exposing the independent client module.
+namespace telemetry::client::rpc {
+using ::resource::telemetry::v3::TrustedRpcMapping;
+using ::resource::telemetry::v3::trustedRpcMapping;
+using ::resource::telemetry::v3::FieldEndpoint;
+using ::resource::telemetry::v3::CommandEndpoint;
+using ::resource::telemetry::v3::ServiceEndpoint;
+using ::resource::telemetry::v3::RpcClientStatus;
+using ::resource::telemetry::v3::RpcClientState;
+using ::resource::telemetry::v3::RpcClientOptions;
+using ::resource::telemetry::v3::RpcClientPacket;
+using ::resource::telemetry::v3::RpcClientDiagnostic;
+using ::resource::telemetry::v3::RpcClientDecodeResult;
+using ::resource::telemetry::v3::RpcClient;
+using ::resource::telemetry::v3::RpcOperation;
+} // namespace telemetry::client::rpc
 #endif // RESOURCE_TELEMETRY_V3_RPC_CLIENT_HPP

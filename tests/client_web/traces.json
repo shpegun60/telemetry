@@ -1,0 +1,8 @@
+[
+  {"name":"fifo_three", "actions":["OPEN 1","SUB a 2 11 100","SUB b 2 22 100","SUB c 4 0 100","HANDOFF","REPLY 0 0 -","HANDOFF","REPLY 0 1 -","HANDOFF","REPLY 0 0 33"]},
+  {"name":"bounded_overflow", "actions":["OPEN 1","SUB a 2 11 100","SUB b 2 22 100","SUB c 2 33 100","SUB d 2 44 100","CANCEL b","SUB e 2 55 100","CANCEL a","CANCEL c","CANCEL e"]},
+  {"name":"queued_deadline", "actions":["OPEN 1","SUB a 2 11 100","SUB b 2 22 5","SUB c 2 33 100","ADVANCE 5","HANDOFF","REPLY 0 0 -","HANDOFF","REPLY 0 0 -"]},
+  {"name":"active_cancel_recovery", "actions":["OPEN 1","SUB a 2 11 100","SUB b 2 22 100","HANDOFF","CANCEL a","SUB c 2 33 100","OPEN 2","CONFIRM 1","OPEN 2","SUB d 2 44 100","HANDOFF","REPLY 0 0 -"]},
+  {"name":"read_timeout_recovery", "actions":["OPEN 1","SUB a 4 0 10","SUB b 2 22 100","HANDOFF","ADVANCE 10","SUB c 4 0 100","CONFIRM 1","OPEN 2","SUB d 3 44 100","HANDOFF","REPLY 0 0 55"]},
+  {"name":"unsent_timeout", "actions":["OPEN 1","SUB a 2 11 5","SUB b 2 22 100","ADVANCE 5","HANDOFF","REPLY 0 0 -"]}
+]

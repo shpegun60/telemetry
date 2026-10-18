@@ -13,7 +13,7 @@
 #pragma once
 
 #include "RpcMailbox.hpp"
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <array>
 #include <limits>

@@ -338,3 +338,30 @@ of where its artifact files are now stored. These local artifact directories are
 retained evidence, not a permanent downloadable archive. Changing a source hash
 requires another honest capture or a new hardware qualification; a successful
 historical coverage check alone cannot update the current relation.
+
+The 2026-10-18 portable asynchronous client refresh captures 165 library inputs
+and the same 57 fixture inputs after moving RpcClient into the optional client
+module and introducing the neutral Resource packet helper. All five existing
+runners rebuilt twelve complete images without `--run`, using the authenticated
+retained Cube scaffolds and the same CubeIDE GCC 14.3.1 compiler. Every raw
+firmware binary matches its actual retained artifact byte for byte, with equal
+SHA-256 and length, after the documented Exchange compiler source-path mapping.
+Six current ELF hashes also match; all current and retained ELF hashes remain
+recorded separately. All 222 source hashes remain unchanged through the
+capture. All 23 tracked historical receipt files and all 24 retained binary/ELF
+files preserve their original bytes. The record honestly identifies starting revision
+`becf751ade63b269ac97b7622f3a9460d2861d31` with `source_dirty=true`.
+
+This latest capture is retained at
+`C:/Users/admin/.codex/artifacts/telemetry-async-client-2026-10-18/equivalence`.
+Its `freeze-before.json`, `freeze-after.json`, `binary-comparisons.json` and
+`capture-summary.json` retain source stability, historical byte preservation
+and twelve independent complete-byte comparisons. `capture-commands.json`,
+the five build logs, `verify-artifacts.log` and `verify-ci.log` record the
+offline commands and successful artifact, historical and mutation controls.
+These firmware fixtures do not instantiate the new asynchronous clients or
+Encoded v1 envelope; their behavior belongs to the separate
+[portable client](../../async_client/README.md),
+[web client](../../client_web/README.md) and
+[QML](../../codegen_qml/README.md) qualifications. This refresh adds no device
+execution, hardware timing measurement or physical transport qualification.

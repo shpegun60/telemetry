@@ -18,6 +18,9 @@ VENDOR = ("lib/boost_pfr/", "lib/magic_enum/", "lib/delegate/", "doc/evidence/")
 SOURCE = {".h", ".hpp", ".cpp", ".c", ".js", ".mjs", ".py", ".pri", ".pro", ".yml", ".sh", ".S"}
 FORMATTED_SOURCE = {".h", ".hpp", ".cpp", ".c", ".js", ".mjs"}
 CLANG_FORMAT_VERSION = "22.1.8"
+# Exact compiler output from Client.ts; web/build.py verifies TypeScript 5.9.3
+# reproduction. Reformatting that output would break its independent byte gate.
+COMPILER_OUTPUT = {"lib/telemetry/client/web/Client.js"}
 
 
 def maintained_files():
@@ -144,7 +147,7 @@ def main():
                 failures.append(name + ": missing leading file-purpose documentation")
         elif not stripped.startswith("#"):
             failures.append(name + ": missing leading file-purpose comment")
-        if formatter and path.suffix in FORMATTED_SOURCE:
+        if formatter and path.suffix in FORMATTED_SOURCE and name not in COMPILER_OUTPUT:
             formatted += 1
             if not formatting_matches(formatter, path, text):
                 failures.append(name + f": differs from clang-format {CLANG_FORMAT_VERSION}")

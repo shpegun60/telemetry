@@ -2,7 +2,7 @@
 // Preload every dependency before changing access control in this one header.
 // This executable has exactly one pool-definition TU; no mixed-definition ODR.
 #include <resource/telemetry/v3/RpcMailbox.hpp>
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <array>
 #include <limits>

@@ -15,8 +15,10 @@ equals(MODE, rpc)|equals(MODE, both)|equals(MODE, client_server)|equals(MODE, se
     DEFINES += WITH_RPC
 }
 equals(MODE, client)|equals(MODE, client_server)|equals(MODE, all) {
-    CONFIG += resource_telemetry_rpc_client
+    CONFIG += telemetry_client_rpc
     DEFINES += WITH_RPC_CLIENT
+    include($$PWD/../../../lib/telemetry/client/client.pri)
+    include($$PWD/../../../lib/telemetry/client/client.pri)
 }
 equals(MODE, sessions)|equals(MODE, all) {
     CONFIG += resource_telemetry_rpc_sessions

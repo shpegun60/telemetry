@@ -34,10 +34,10 @@ Field/Command/Service та формат descriptor/values v3.0. Приклади
 Generic resource не залежить від telemetry або reflection бібліотек.
 Його filesystem працює з довільними byte providers. `resource_telemetry`
 явно додає Descriptor/Values; незалежний `resource_telemetry_rpc` додає
-RpcMailbox. Незалежний `resource_telemetry_rpc_client` додає тільки клієнт;
-client-only використовує явний header-only codec manifest. Session pool
+RpcMailbox. Незалежний `telemetry_client_rpc` у `telemetry/client/client.pri`
+додає тільки клієнт і header-only Codec. Session pool
 підключається своїм header і server module. Telemetry
-manifest підключається окремо в обох випадках.
+manifest підключається окремо для серверного Model adapter.
 Bind/Exchange також підключається явно й не є частиною library manifests.
 
 ```mermaid

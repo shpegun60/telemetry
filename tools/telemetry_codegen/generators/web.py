@@ -236,19 +236,21 @@ def _enum_expression(schema, row) -> str:
     return "Object.freeze({" + ", ".join(entries) + "})"
 
 
-def _endpoint_expression(endpoint) -> str:
+def _endpoint_expression(schema, endpoint) -> str:
     parts = [f"id: {endpoint.id}", f"category: {endpoint.category}",
              f"catalogName: {_quote(endpoint.catalog_name)}", f"name: {_quote(endpoint.name)}"]
     if endpoint.category == 1:
         i = endpoint.value_type
         parts += [f"valueTypeId: {i}", f"capabilities: {endpoint.capabilities}",
-                  f"read: Object.freeze({{operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, decode: _decode_{i}}})"]
+                  f"read: Object.freeze({{fingerprint, operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, requestBytes: 0, responseBytes: {schema.types[i]['wire']}, decode: _decode_{i}}})"]
         if endpoint.capabilities == 3:
-            parts.append(f"write: Object.freeze({{operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, encode: _encode_{i}, encodeInto: _encodeInto_{i}}})")
+            parts.append(f"write: Object.freeze({{fingerprint, operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, requestBytes: {schema.types[i]['wire']}, responseBytes: 0, encode: _encode_{i}, encodeInto: _encodeInto_{i}}})")
     else:
         i = endpoint.request_type
         operation = "Command" if endpoint.category == 2 else "Service"
-        parts += [f"operation: Operation.{operation}", f"requestTypeId: {i}",
+        parts += ["fingerprint", f"operation: Operation.{operation}", f"requestTypeId: {i}",
+                  f"requestBytes: {schema.types[i]['wire']}",
+                  f"responseBytes: {schema.types[endpoint.response_type]['wire'] if endpoint.category == 3 else 0}",
                   f"encode: _encode_{i}", f"encodeInto: _encodeInto_{i}"]
         if endpoint.category == 3:
             parts += [f"responseTypeId: {endpoint.response_type}",
@@ -313,7 +315,7 @@ def _runtime_exports(schema, typed: bool) -> list[str]:
             lines.append(start)
             for endpoint in endpoints:
                 if endpoint.category == category:
-                    lines.append(f"    [{_quote(endpoint.symbol)}]: {_endpoint_expression(endpoint)},")
+                    lines.append(f"    [{_quote(endpoint.symbol)}]: {_endpoint_expression(schema, endpoint)},")
             lines.append("  });" if typed else "  }),")
         lines.append("}" if typed else "});")
         if typed:
@@ -361,12 +363,14 @@ def _declarations(schema) -> str:
                 i = endpoint.value_type if category == 1 else endpoint.request_type
                 if category == 1:
                     fields += [f"readonly valueTypeId: {i}", f"readonly capabilities: {endpoint.capabilities}",
-                               f"readonly read: Readonly<{{operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; decode: ValueCodec<Type_{i}>['decode']}}>" ]
+                               f"readonly read: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; requestBytes: 0; responseBytes: {schema.types[i]['wire']}; decode: ValueCodec<Type_{i}>['decode']}}>" ]
                     if endpoint.capabilities == 3:
-                        fields.append(f"readonly write: Readonly<{{operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']}}>")
+                        fields.append(f"readonly write: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; requestBytes: {schema.types[i]['wire']}; responseBytes: 0; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']}}>")
                 else:
                     operation = "Command" if category == 2 else "Service"
-                    fields += [f"readonly operation: '{operation}'", f"readonly requestTypeId: {i}",
+                    fields += ["readonly fingerprint: typeof fingerprint", f"readonly operation: '{operation}'", f"readonly requestTypeId: {i}",
+                               f"readonly requestBytes: {schema.types[i]['wire']}",
+                               f"readonly responseBytes: {schema.types[endpoint.response_type]['wire'] if category == 3 else 0}",
                                f"readonly encode: ValueCodec<Type_{i}>['encode']",
                                f"readonly encodeInto: ValueCodec<Type_{i}>['encodeInto']"]
                     if category == 3:
@@ -392,11 +396,25 @@ def _runtime(schema, typed: bool) -> str:
     return "\n".join(lines) + "\n"
 
 
-def generate_js(schema) -> dict[str, str]:
+def generate_js(schema, client_runtime=False) -> dict[str, str]:
     """Return plain ESM plus declarations, without runtime descriptor parsing."""
-    return {"js/device.js": _runtime(schema, False), "js/device.d.ts": _declarations(schema)}
+    files = {"js/device.js": _runtime(schema, False), "js/device.d.ts": _declarations(schema)}
+    if client_runtime:
+        files.update(_client_files("js", ("js", "d.ts")))
+    return files
 
 
-def generate_ts(schema) -> dict[str, str]:
+def generate_ts(schema, client_runtime=False) -> dict[str, str]:
     """Return strict ES2022 TypeScript, sharing all runtime codec statements."""
-    return {"ts/device.ts": _runtime(schema, True)}
+    files = {"ts/device.ts": _runtime(schema, True)}
+    if client_runtime:
+        files.update(_client_files("ts", ("ts",)))
+    return files
+
+
+def _client_files(target, extensions):
+    """Copy the optional self-contained runtime; codecs keep no runtime import."""
+    from pathlib import Path
+    runtime = Path(__file__).resolve().parents[3] / "lib/telemetry/client/web"
+    return {f"{target}/client.{extension}": (runtime / f"Client.{extension}").read_text(encoding="utf-8")
+            for extension in extensions}

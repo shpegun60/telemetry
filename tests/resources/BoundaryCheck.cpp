@@ -8,7 +8,7 @@
  * and random corpora exercise the public boundaries; they are not exhaustive.
  */
 #include <resource/FileSystem.hpp>
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <algorithm>
 #include <array>

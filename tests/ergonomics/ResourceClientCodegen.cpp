@@ -1,6 +1,6 @@
 // Resource READ builder equivalence against explicit little-endian bytes.
 // Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 
 namespace client = resource::protocol::client;
 

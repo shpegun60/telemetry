@@ -2,7 +2,7 @@
 // Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 #include <resource/BytesFile.hpp>
 #include <resource/FileSystem.hpp>
-#include <resource/protocol/Client.hpp>
+#include <resource/protocol/Packets.hpp>
 #include <resource/protocol/Protocol.hpp>
 #include <algorithm>
 #include <array>

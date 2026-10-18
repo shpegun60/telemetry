@@ -24,23 +24,33 @@ Baseline реалізації цього розширення —
 ## Підключення
 
 ```cpp
-#include <resource/telemetry/v3/RpcClient.hpp>
+#include <telemetry/client/rpc/RpcClient.hpp>
 namespace rpc = resource::telemetry::v3;
 ```
 
 Клієнт залежить від Codec і типів статусів, але не потребує локального Model,
-Model Adapter чи RpcMailbox. Для qmake використовуйте окремий codec manifest
+Model Adapter чи RpcMailbox. Для qmake використовуйте окремий client manifest
 і client flag; точний runnable setup наведено в [прикладі](../examples/rpc_client/README.md).
 Не додавайте `RpcMailbox.cpp` до client-only firmware.
 
 ```qmake
-include(path/to/lib/telemetry/codec/codec.pri)
-CONFIG += resource_telemetry_rpc_client
-include(path/to/lib/resource/resource.pri)
+CONFIG += telemetry_client_rpc
+include(path/to/lib/telemetry/client/client.pri)
 ```
 
-`codec.pri` додає тільки headers/include paths. Client flag компілює
-`RpcClient.cpp` поруч із generic `Protocol.cpp`; server flag незалежний.
+`client.pri` підключає header-only Codec та компілює лише
+`lib/telemetry/client/rpc/RpcClient.cpp`. Generic `Protocol.cpp` потрібний
+окремо для серверного `resource::protocol::process()`.
+Symbols `resource::telemetry::v3` збережені; новий namespace
+`telemetry::client::rpc` надає aliases. Старий include path доступний лише
+через явно доданий `lib/telemetry/client/compat` include root.
+
+`beginEncoded(operation, id, payload, responseBytes)` копіює вже перевірений
+canonical payload до request buffer. Цей raw entry point довіряє admission
+і type mapping; результат доступний через `resultBytes()`, а
+`decodeResult<T>()` відмовляє через відсутність typed identity. Typed `begin*`
+методи зберігають чинну поведінку. Bounded FIFO над engine надає
+[DeviceClient](AsyncClient.md).
 
 ## Власність і пам'ять
 
