@@ -1,0 +1,402 @@
+"""Static, transport-independent JavaScript/TypeScript value codecs.
+
+Both runtime targets are emitted from the same statements. Descriptor member
+keys remain literal property keys; normalized names are only public symbols.
+Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+"""
+from __future__ import annotations
+
+import json
+import struct
+
+
+def _quote(value: str) -> str:
+    return json.dumps(value, ensure_ascii=True)
+
+
+def _type_name(type_id: int) -> str:
+    return f"Type_{type_id}"
+
+
+def _integer_literal(value: int, big: bool) -> str:
+    return str(value) + ("n" if big else "")
+
+
+def _is_big(schema, type_id: int) -> bool:
+    row = schema.types[type_id]
+    if row["kind"] == 2:
+        row = schema.types[row["underlying"]]
+    return row["kind"] == 1 and row["code"] in (8, 9)
+
+
+def _aliases(endpoint):
+    for label, type_id in ((endpoint.value_alias, endpoint.value_type),
+                           (endpoint.request_alias, endpoint.request_type),
+                           (endpoint.response_alias, endpoint.response_type)):
+        if label:
+            yield label, type_id
+
+
+def _groups(schema):
+    groups = {}
+    for endpoint in schema.endpoints:
+        groups.setdefault(endpoint.group, []).append(endpoint)
+    return groups
+
+
+def _reachable_types(schema):
+    """Keep positional IDs while dropping definitions unreachable from endpoints."""
+    pending = [0]
+    for endpoint in schema.endpoints:
+        pending += [endpoint.value_type, endpoint.request_type, endpoint.response_type]
+    reached = set()
+    while pending:
+        type_id = pending.pop()
+        if type_id in reached:
+            continue
+        reached.add(type_id)
+        row = schema.types[type_id]
+        if row["kind"] == 2:
+            pending.append(row["underlying"])
+        elif row["kind"] == 3:
+            pending += [child for child, _ in row["members"]]
+        elif row["kind"] == 4:
+            pending.append(row["element"])
+    return tuple(schema.types[type_id] for type_id in sorted(reached))
+
+
+def _types(schema) -> list[str]:
+    lines = [
+        "export type ByteInput = ArrayBuffer | ArrayBufferView;",
+        "export interface ValueCodec<T> {",
+        "  readonly wireBytes: number;",
+        "  encode(value: T): Uint8Array;",
+        "  /** May write an aggregate prefix before a later member is rejected. */",
+        "  encodeInto(value: T, output: ByteInput): void;",
+        "  decode(input: ByteInput): T;",
+        "}",
+    ]
+    scalars = {1: "boolean", 8: "bigint", 9: "bigint"}
+    for row in _reachable_types(schema):
+        name = _type_name(row["id"])
+        kind = row["kind"]
+        if kind == 0:
+            value = "undefined"
+        elif kind == 1:
+            value = scalars.get(row["code"], "number")
+        elif kind == 2:
+            value = _type_name(row["underlying"])
+        elif kind == 4:
+            value = (f"ReadonlyArray<{_type_name(row['element'])}> & "
+                     f"{{ readonly length: {row['count']} }}")
+        else:
+            lines.append(f"export interface {name} {{")
+            for child, member in row["members"]:
+                lines.append(f"  {_quote(member)}: {_type_name(child)};")
+            lines.append("}")
+            continue
+        lines.append(f"export type {name} = {value};")
+    return lines
+
+
+def _helpers(typed: bool) -> list[str]:
+    a = lambda annotation: annotation if typed else ""
+    return [
+        "export class TelemetryCodecError extends Error {",
+        f"  constructor(reason{a(': string')}) {{ super(reason); this.name = 'TelemetryCodecError'; }}",
+        "}",
+        f"function _require(condition{a(': unknown')}, reason{a(': string')}){a(': asserts condition')} {{",
+        "  if (!condition) throw new TelemetryCodecError(reason);",
+        "}",
+        f"function _view(input{a(': ByteInput')}){a(': DataView')} {{",
+        "  if (input instanceof DataView) return input;",
+        "  if (input instanceof ArrayBuffer) return new DataView(input);",
+        "  if (ArrayBuffer.isView(input)) return new DataView(input.buffer, input.byteOffset, input.byteLength);",
+        "  throw new TelemetryCodecError('Expected an ArrayBuffer or byte view');",
+        "}",
+        f"function _object(value{a(': unknown')}, count{a(': number')}){a(': asserts value is Record<string, unknown>')} {{",
+        "  _require(value !== null && typeof value === 'object' && !Array.isArray(value), 'Struct requires an object');",
+        "  _require(Object.keys(value).length === count, 'Exact struct member count');",
+        "}",
+        f"function _number(value{a(': unknown')}, minimum{a(': number')}, maximum{a(': number')}){a(': void')} {{",
+        "  _require(typeof value === 'number' && Number.isInteger(value) && value >= minimum && value <= maximum, 'Integer representation range');",
+        "}",
+        f"function _bigint(value{a(': unknown')}, minimum{a(': bigint')}, maximum{a(': bigint')}){a(': void')} {{",
+        "  _require(typeof value === 'bigint' && value >= minimum && value <= maximum, 'U64/S64 requires BigInt in representation range');",
+        "}",
+    ]
+
+
+def _scalar_checks(row) -> list[str]:
+    kind = row["kind"]
+    if kind == 0:
+        return ["_require(value === undefined, 'Void has no value');"]
+    if kind == 1:
+        code = row["code"]
+        if code == 1:
+            return ["_require(typeof value === 'boolean', 'Bool requires a boolean');"]
+        if code in (10, 11):
+            result = ["_require(typeof value === 'number', 'Float requires a Number');"]
+            if code == 10:
+                result.append("_require(!Number.isFinite(value) || Number.isFinite(Math.fround(value)), 'F32 representation overflow');")
+            return result
+        bits = row["wire"] * 8
+        signed = code in (3, 5, 7, 9)
+        minimum = -(1 << (bits - 1)) if signed else 0
+        maximum = (1 << (bits - 1)) - 1 if signed else (1 << bits) - 1
+        big = code in (8, 9)
+        helper = "_bigint" if big else "_number"
+        return [f"{helper}(value, {_integer_literal(minimum, big)}, {_integer_literal(maximum, big)});"]
+    raise ValueError("scalar checks require Void or Scalar")
+
+
+_ACCESSORS = {1: "Uint8", 2: "Uint8", 3: "Int8", 4: "Uint16", 5: "Int16",
+              6: "Uint32", 7: "Int32", 8: "BigUint64", 9: "BigInt64",
+              10: "Float32", 11: "Float64"}
+
+
+def _write_body(schema, row) -> list[str]:
+    kind = row["kind"]
+    if kind == 0:
+        return _scalar_checks(row)
+    if kind == 1:
+        code = row["code"]
+        value = "value ? 1 : 0" if code == 1 else "value"
+        endian = ", true" if row["wire"] > 1 else ""
+        return _scalar_checks(row) + [f"view.set{_ACCESSORS[code]}(offset, {value}{endian});"]
+    if kind == 2:
+        return [f"_write_{row['underlying']}(view, offset, value);"]
+    if kind == 4:
+        size = schema.types[row["element"]]["wire"]
+        return [f"_require(Array.isArray(value) && value.length === {row['count']}, 'Exact array length');",
+                f"for (let i = 0; i < {row['count']}; ++i) _write_{row['element']}(view, offset + i * {size}, value[i]);"]
+    result, offset = [f"_object(value, {len(row['members'])});"], 0
+    for child, member in row["members"]:
+        result.append(f"_require(Object.hasOwn(value, {_quote(member)}), 'Missing struct member');")
+        result.append(f"_write_{child}(view, offset + {offset}, value[{_quote(member)}]);")
+        offset += schema.types[child]["wire"]
+    return result
+
+
+def _read_body(schema, row, typed: bool) -> list[str]:
+    kind = row["kind"]
+    if kind == 0:
+        return ["return undefined;"]
+    if kind == 1:
+        code = row["code"]
+        if code == 1:
+            return ["const value = view.getUint8(offset);",
+                    "_require(value <= 1, 'Invalid bool representation');", "return value !== 0;"]
+        endian = ", true" if row["wire"] > 1 else ""
+        return [f"return view.get{_ACCESSORS[code]}(offset{endian});"]
+    if kind == 2:
+        return [f"return _read_{row['underlying']}(view, offset);"]
+    if kind == 4:
+        child = row["element"]
+        annotation = f": {_type_name(child)}[]" if typed else ""
+        cast = f" as {_type_name(row['id'])}" if typed else ""
+        return [f"const result{annotation} = new Array({row['count']});",
+                f"for (let i = 0; i < {row['count']}; ++i) result[i] = _read_{child}(view, offset + i * {schema.types[child]['wire']});",
+                f"return result{cast};"]
+    cast = f" as {_type_name(row['id'])}" if typed else ""
+    result, offset = [f"const result = Object.create(null){cast};"], 0
+    for child, member in row["members"]:
+        result.append(f"result[{_quote(member)}] = _read_{child}(view, offset + {offset});")
+        offset += schema.types[child]["wire"]
+    return result + ["return result;"]
+
+
+def _codec_functions(schema, typed: bool) -> list[str]:
+    a = lambda annotation: annotation if typed else ""
+    lines = []
+    for row in _reachable_types(schema):
+        i, name, size = row["id"], _type_name(row["id"]), row["wire"]
+        lines.append(f"function _write_{i}(view{a(': DataView')}, offset{a(': number')}, value{a(': ' + name)}){a(': void')} {{")
+        lines += ["  " + line for line in _write_body(schema, row)]
+        lines += ["}", f"function _read_{i}(view{a(': DataView')}, offset{a(': number')}){a(': ' + name)} {{"]
+        lines += ["  " + line for line in _read_body(schema, row, typed)]
+        lines += ["}", f"function _encodeInto_{i}(value{a(': ' + name)}, output{a(': ByteInput')}){a(': void')} {{",
+                  "  const view = _view(output);",
+                  f"  _require(view.byteLength === {size}, 'Exact value payload length');",
+                  f"  _write_{i}(view, 0, value);", "}",
+                  f"function _encode_{i}(value{a(': ' + name)}){a(': Uint8Array')} {{",
+                  f"  const bytes = new Uint8Array({size});", f"  _encodeInto_{i}(value, bytes);",
+                  "  return bytes;", "}",
+                  f"function _decode_{i}(input{a(': ByteInput')}){a(': ' + name)} {{",
+                  "  const view = _view(input);",
+                  f"  _require(view.byteLength === {size}, 'Exact value payload length');",
+                  f"  return _read_{i}(view, 0);", "}"]
+    return lines
+
+
+def _enum_expression(schema, row) -> str:
+    big = _is_big(schema, row["id"])
+    entries = [f"[{_quote(symbol)}]: {_integer_literal(code, big)}"
+               for symbol, (code, _) in zip(schema.enum_names[row["id"]], row["entries"])]
+    return "Object.freeze({" + ", ".join(entries) + "})"
+
+
+def _endpoint_expression(endpoint) -> str:
+    parts = [f"id: {endpoint.id}", f"category: {endpoint.category}",
+             f"catalogName: {_quote(endpoint.catalog_name)}", f"name: {_quote(endpoint.name)}"]
+    if endpoint.category == 1:
+        i = endpoint.value_type
+        parts += [f"valueTypeId: {i}", f"capabilities: {endpoint.capabilities}",
+                  f"read: Object.freeze({{operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, decode: _decode_{i}}})"]
+        if endpoint.capabilities == 3:
+            parts.append(f"write: Object.freeze({{operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, encode: _encode_{i}, encodeInto: _encodeInto_{i}}})")
+    else:
+        i = endpoint.request_type
+        operation = "Command" if endpoint.category == 2 else "Service"
+        parts += [f"operation: Operation.{operation}", f"requestTypeId: {i}",
+                  f"encode: _encode_{i}", f"encodeInto: _encodeInto_{i}"]
+        if endpoint.category == 3:
+            parts += [f"responseTypeId: {endpoint.response_type}",
+                      f"decodeResponse: _decode_{endpoint.response_type}"]
+    return "Object.freeze({" + ", ".join(parts) + "})"
+
+
+def _runtime_exports(schema, typed: bool) -> list[str]:
+    a = lambda annotation: annotation if typed else ""
+    raw, counts = schema.raw, []
+    for catalogs, endpoints in zip(raw["catalogs"], raw["endpoints"]):
+        counts.extend((len(catalogs), len(endpoints)))
+    header = struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, raw["total"],
+                         schema.fingerprint, len(schema.types), *counts, *raw["offsets"])
+    lines = [f"export const fingerprint = {schema.fingerprint}n;",
+             f"export const descriptorSha256 = {_quote(schema.descriptor_sha256)};",
+             "export const wireVersion = Object.freeze({major: 3, minor: 0});",
+             "export const Operation = Object.freeze({FieldRead: 'FieldRead', FieldWrite: 'FieldWrite', Command: 'Command', Service: 'Service'}" + a(" as const") + ");",
+             f"export function assertCompatibleFingerprint(peer{a(': bigint')}){a(': void')} {{",
+             "  _require(typeof peer === 'bigint' && peer === fingerprint, 'Descriptor fingerprint mismatch');",
+             "}",
+             "const _descriptorHeader = Object.freeze([" + ", ".join(str(byte) for byte in header) + "]);",
+             "// Compares declared header identity only; does not authenticate a peer or hash the body.",
+             f"export function matchesHeader(input{a(': ByteInput')}){a(': boolean')} {{",
+             "  const view = _view(input);",
+             "  if (view.byteLength !== 64) return false;",
+             "  for (let i = 0; i < 64; ++i) if (view.getUint8(i) !== _descriptorHeader[i]) return false;",
+             "  return true;",
+             "}", "export const codecs = Object.freeze({"]
+    for row in _reachable_types(schema):
+        i = row["id"]
+        expression = f"Object.freeze({{wireBytes: {row['wire']}, encode: _encode_{i}, encodeInto: _encodeInto_{i}, decode: _decode_{i}}})"
+        lines.append(f"  {_type_name(i)}: {expression},")
+    lines += ["});", "export const enums = Object.freeze({"]
+    for row in _reachable_types(schema):
+        if row["kind"] == 2:
+            lines.append(f"  {_type_name(row['id'])}: {_enum_expression(schema, row)},")
+    lines.append("});")
+    categories = {1: "fields", 2: "commands", 3: "services"}
+    for group, endpoints in _groups(schema).items():
+        aliases = dict(alias for endpoint in endpoints for alias in _aliases(endpoint))
+        if typed:
+            lines += [f"export namespace {group} {{", "  export namespace types {"]
+            for alias, type_id in aliases.items():
+                source = "enums" if schema.types[type_id]["kind"] == 2 else "codecs"
+                lines += [f"    export type {alias} = {_type_name(type_id)};",
+                          f"    export const {alias} = {source}.{_type_name(type_id)};"]
+            # A runtime marker keeps empty types namespaces identical to JS.
+            if not aliases:
+                lines.append("    export const _empty = undefined;")
+            lines.append("  }")
+        else:
+            lines += [f"export const {group} = Object.freeze({{", "  types: Object.freeze({"]
+            for alias, type_id in aliases.items():
+                source = "enums" if schema.types[type_id]["kind"] == 2 else "codecs"
+                lines.append(f"    [{_quote(alias)}]: {source}.{_type_name(type_id)},")
+            if not aliases:
+                lines.append("    _empty: undefined,")
+            lines.append("  }),")
+        for category, category_name in categories.items():
+            start = f"  export const {category_name} = Object.freeze({{" if typed else f"  {category_name}: Object.freeze({{"
+            lines.append(start)
+            for endpoint in endpoints:
+                if endpoint.category == category:
+                    lines.append(f"    [{_quote(endpoint.symbol)}]: {_endpoint_expression(endpoint)},")
+            lines.append("  });" if typed else "  }),")
+        lines.append("}" if typed else "});")
+        if typed:
+            lines += [f"Object.freeze({group}.types);", f"Object.freeze({group});"]
+    return lines
+
+
+def _declarations(schema) -> str:
+    lines = ["// Generated telemetry v3.0 contract. SPDX-License-Identifier: MIT."]
+    lines += _types(schema)
+    lines += ["export declare class TelemetryCodecError extends Error { constructor(reason: string); }",
+              f"export declare const fingerprint: {schema.fingerprint}n;",
+              "export declare const descriptorSha256: string;",
+              "export declare const wireVersion: Readonly<{major: 3; minor: 0}>;",
+              "export declare const Operation: Readonly<{FieldRead: 'FieldRead'; FieldWrite: 'FieldWrite'; Command: 'Command'; Service: 'Service'}>;",
+              "export declare function assertCompatibleFingerprint(peer: bigint): void;",
+              "export declare function matchesHeader(input: ByteInput): boolean;",
+              "export declare const codecs: Readonly<{"]
+    for row in _reachable_types(schema):
+        lines.append(f"  {_type_name(row['id'])}: ValueCodec<{_type_name(row['id'])}>;")
+    lines += ["}>;", "export declare const enums: Readonly<{"]
+    for row in _reachable_types(schema):
+        if row["kind"] == 2:
+            fields = "; ".join(f"readonly {_quote(symbol)}: {_integer_literal(code, _is_big(schema, row['id']))}"
+                               for symbol, (code, _) in zip(schema.enum_names[row["id"]], row["entries"]))
+            lines.append(f"  {_type_name(row['id'])}: Readonly<{{{fields}}}>;")
+    lines.append("}>;")
+    for group, endpoints in _groups(schema).items():
+        lines += [f"export declare namespace {group} {{", "  namespace types {"]
+        aliases = dict(alias for endpoint in endpoints for alias in _aliases(endpoint))
+        for alias, type_id in aliases.items():
+            source = "enums" if schema.types[type_id]["kind"] == 2 else "codecs"
+            lines += [f"    type {alias} = {_type_name(type_id)};",
+                      f"    const {alias}: typeof {source}.{_type_name(type_id)};"]
+        if not aliases:
+            lines.append("    const _empty: undefined;")
+        lines.append("  }")
+        for category, category_name in ((1, "fields"), (2, "commands"), (3, "services")):
+            lines.append(f"  const {category_name}: Readonly<{{")
+            for endpoint in endpoints:
+                if endpoint.category != category:
+                    continue
+                fields = [f"readonly id: {endpoint.id}", f"readonly category: {category}",
+                          "readonly catalogName: string", "readonly name: string"]
+                i = endpoint.value_type if category == 1 else endpoint.request_type
+                if category == 1:
+                    fields += [f"readonly valueTypeId: {i}", f"readonly capabilities: {endpoint.capabilities}",
+                               f"readonly read: Readonly<{{operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; decode: ValueCodec<Type_{i}>['decode']}}>" ]
+                    if endpoint.capabilities == 3:
+                        fields.append(f"readonly write: Readonly<{{operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']}}>")
+                else:
+                    operation = "Command" if category == 2 else "Service"
+                    fields += [f"readonly operation: '{operation}'", f"readonly requestTypeId: {i}",
+                               f"readonly encode: ValueCodec<Type_{i}>['encode']",
+                               f"readonly encodeInto: ValueCodec<Type_{i}>['encodeInto']"]
+                    if category == 3:
+                        fields += [f"readonly responseTypeId: {endpoint.response_type}",
+                                   f"readonly decodeResponse: ValueCodec<Type_{endpoint.response_type}>['decode']"]
+                lines.append(f"    readonly {_quote(endpoint.symbol)}: Readonly<{{{'; '.join(fields)}}}>;")
+            lines.append("  }>;")
+        lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def _runtime(schema, typed: bool) -> str:
+    lines = ["// Generated telemetry v3.0 codec. SPDX-License-Identifier: MIT.",
+             "// Pure payloads only: transport status envelopes are owned by the application.",
+             "// Arrays are ordinary JS arrays. Decoded aggregates own their data.",
+             "// Aggregate encodeInto may write a prefix before a later member is rejected.",
+             "// encodeInto reuses caller payload storage; DataView output also reuses its view."]
+    if typed:
+        lines += _types(schema)
+    lines += _helpers(typed)
+    lines += _codec_functions(schema, typed)
+    lines += _runtime_exports(schema, typed)
+    return "\n".join(lines) + "\n"
+
+
+def generate_js(schema) -> dict[str, str]:
+    """Return plain ESM plus declarations, without runtime descriptor parsing."""
+    return {"js/device.js": _runtime(schema, False), "js/device.d.ts": _declarations(schema)}
+
+
+def generate_ts(schema) -> dict[str, str]:
+    """Return strict ES2022 TypeScript, sharing all runtime codec statements."""
+    return {"ts/device.ts": _runtime(schema, True)}

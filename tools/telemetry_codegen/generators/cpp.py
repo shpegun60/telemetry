@@ -1,0 +1,550 @@
+"""Emit standalone C++20 DTOs/codecs and separately selected integration helpers.
+
+The validated schema is used only while generating source. Runtime code has no
+descriptor graph, native offset table, allocation or transport state machine.
+Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
+"""
+
+import struct
+
+
+SCALARS = {
+    1: "bool", 2: "std::uint8_t", 3: "std::int8_t", 4: "std::uint16_t",
+    5: "std::int16_t", 6: "std::uint32_t", 7: "std::int32_t",
+    8: "std::uint64_t", 9: "std::int64_t", 10: "float", 11: "double",
+}
+
+
+def _type(type_id):
+    return f"detail::Type_{type_id}"
+
+
+def _reachable(schema):
+    pending = [0]
+    for endpoint in schema.endpoints:
+        pending.extend((endpoint.value_type, endpoint.request_type, endpoint.response_type))
+    found = set()
+    while pending:
+        index = pending.pop()
+        if index in found:
+            continue
+        found.add(index)
+        item = schema.types[index]
+        if item["kind"] == 2:
+            pending.append(item["underlying"])
+        elif item["kind"] == 3:
+            pending.extend(child for child, _ in item["members"])
+        elif item["kind"] == 4:
+            pending.append(item["element"])
+    return tuple(sorted(found))
+
+
+def _literal(value):
+    if value == -(1 << 63):
+        return "(-9223372036854775807LL - 1)"
+    return f"{value}{'ULL' if value >= 0 else 'LL'}"
+
+
+def _string(value):
+    # Escape every UTF-8 byte; neither compiler encoding nor adjacent hex digits
+    # may change the descriptor's original dictionary labels.
+    return '"' + ''.join(f"\\x{byte:02x}" for byte in value.encode("utf-8")) + '"'
+
+
+def _header(schema, name, includes):
+    return ("// Generated from a validated Telemetry Descriptor v3. Do not edit.\n"
+            f"// Descriptor SHA-256: {schema.descriptor_sha256}\n"
+            "// SPDX-License-Identifier: MIT\n#pragma once\n\n" + includes +
+            f"\nnamespace {schema.namespace} {{\n")
+
+
+def _types(schema, reachable):
+    rows = [_header(schema, "Types", "#include <array>\n#include <cstdint>\n"), "namespace detail {\n"]
+    for index in reachable:
+        item = schema.types[index]
+        name = f"Type_{index}"
+        kind = item["kind"]
+        if kind == 0:
+            rows.append(f"using {name} = void;\n")
+        elif kind == 1:
+            rows.append(f"using {name} = {SCALARS[item['code']]};\n")
+        elif kind == 2:
+            rows.append(f"enum class {name} : Type_{item['underlying']} {{\n")
+            for (value, _), symbol in zip(item["entries"], schema.enum_names[index]):
+                rows.append(f"    {symbol} = {_literal(value)},\n")
+            rows.append("};\n")
+        elif kind == 3:
+            rows.append(f"struct {name} {{\n")
+            for (child, _), symbol in zip(item["members"], schema.member_names[index]):
+                rows.append(f"    Type_{child} {symbol};\n")
+            rows.append("};\n")
+        elif kind == 4:
+            rows.append(f"using {name} = std::array<Type_{item['element']}, {item['count']}>;\n")
+    rows.append("} // namespace detail\n")
+    aliases = {}
+    for endpoint in schema.endpoints:
+        group = aliases.setdefault(endpoint.group, {})
+        for alias, index in ((endpoint.value_alias, endpoint.value_type),
+                             (endpoint.request_alias, endpoint.request_type),
+                             (endpoint.response_alias, endpoint.response_type)):
+            if alias:
+                group[alias] = index
+    for group, entries in aliases.items():
+        rows.append(f"\nnamespace {group}::types {{\n")
+        for alias, index in entries.items():
+            rows.append(f"using {alias} = {_type(index)};\n")
+        rows.append(f"}} // namespace {group}::types\n")
+    rows.append(f"}} // namespace {schema.namespace}\n")
+    return "".join(rows)
+
+
+def _schema(schema):
+    raw = schema.raw
+    counts = []
+    for catalogs, endpoints in zip(raw["catalogs"], raw["endpoints"]):
+        counts.extend((len(catalogs), len(endpoints)))
+    header = struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, raw["total"],
+                         schema.fingerprint, len(schema.types), *counts, *raw["offsets"])
+    values = ", ".join(f"std::byte{{0x{byte:02x}}}" for byte in header)
+    return (_header(schema, "Schema", "#include <array>\n#include <cstddef>\n#include <cstdint>\n#include <span>\n") +
+            f"namespace schema {{\ninline constexpr std::uint16_t major = 3, minor = 0;\n"
+            f"inline constexpr std::uint64_t fingerprint = 0x{schema.fingerprint:016x}ULL;\n"
+            f'inline constexpr char descriptorSha256[] = "{schema.descriptor_sha256}";\n'
+            f"inline constexpr std::array<std::byte, 64> descriptorHeader{{{values}}};\n"
+            "// Declared header identity only: no body hash check or peer authentication.\n"
+            "[[nodiscard]] constexpr bool matchesHeader(std::span<const std::byte> bytes) noexcept\n"
+            "{\n    if (bytes.size() != descriptorHeader.size()) return false;\n"
+            "    for (std::size_t i = 0; i < bytes.size(); ++i)\n"
+            "        if (bytes[i] != descriptorHeader[i]) return false;\n"
+            "    return true;\n}\n} // namespace schema\n"
+            f"}} // namespace {schema.namespace}\n")
+
+
+ENDPOINTS = r"""
+namespace endpoint {
+enum class Category : std::uint8_t { Field = 1, Command = 2, Service = 3 };
+enum class Operation : std::uint8_t { FieldWrite = 1, Command = 2, Service = 3, FieldRead = 4 };
+template<class T> struct Field {
+    static_assert(!std::is_void_v<T>);
+    using Value = T;
+    static constexpr Category category = Category::Field;
+    static constexpr Operation readOperation = Operation::FieldRead, writeOperation = Operation::FieldWrite;
+    std::uint32_t id, valueTypeId, valueBytes;
+    std::uint8_t capabilities;
+    std::uint64_t fingerprint = schema::fingerprint;
+    [[nodiscard]] constexpr bool readable() const noexcept { return (capabilities & 1) != 0; }
+    [[nodiscard]] constexpr bool writable() const noexcept { return (capabilities & 2) != 0; }
+};
+template<class Q = void> struct Command {
+    using Request = Q;
+    using Response = void;
+    static constexpr Category category = Category::Command;
+    static constexpr Operation operation = Operation::Command;
+    std::uint32_t id, requestTypeId, requestBytes;
+    static constexpr std::uint32_t responseBytes = 0;
+    std::uint64_t fingerprint = schema::fingerprint;
+};
+template<class Q, class R> struct Service {
+    using Request = Q;
+    using Response = R;
+    static constexpr Category category = Category::Service;
+    static constexpr Operation operation = Operation::Service;
+    std::uint32_t id, requestTypeId, responseTypeId, requestBytes, responseBytes;
+    std::uint64_t fingerprint = schema::fingerprint;
+};
+} // namespace endpoint
+"""
+
+
+def _endpoints(schema):
+    rows = [_header(schema, "Endpoints", '#include "Types.hpp"\n#include "Schema.hpp"\n#include <type_traits>\n'), ENDPOINTS]
+    for endpoint in schema.endpoints:
+        category = ("", "fields", "commands", "services")[endpoint.category]
+        rows.append(f"\nnamespace {endpoint.group}::{category} {{\n")
+        if endpoint.category == 1:
+            index = endpoint.value_type
+            signature = f"Field<{_type(index)}>"
+            arguments = f"{endpoint.id}, {index}, {schema.types[index]['wire']}, {endpoint.capabilities}"
+        elif endpoint.category == 2:
+            index = endpoint.request_type
+            signature = f"Command<{_type(index)}>"
+            arguments = f"{endpoint.id}, {index}, {schema.types[index]['wire']}"
+        else:
+            q, r = endpoint.request_type, endpoint.response_type
+            signature = f"Service<{_type(q)}, {_type(r)}>"
+            arguments = f"{endpoint.id}, {q}, {r}, {schema.types[q]['wire']}, {schema.types[r]['wire']}"
+        rows.append(f"inline constexpr endpoint::{signature} {endpoint.symbol}{{{arguments}}};\n")
+        rows.append(f"}} // namespace {endpoint.group}::{category}\n")
+    rows.append(f"}} // namespace {schema.namespace}\n")
+    return "".join(rows)
+
+
+PRIMITIVES = r"""
+static_assert(CHAR_BIT == 8, "Canonical bytes require eight-bit char");
+static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559 &&
+              std::numeric_limits<float>::digits == 24, "IEEE binary32 required");
+static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559 &&
+              std::numeric_limits<double>::digits == 53, "IEEE binary64 required");
+namespace codec_detail {
+struct Reader {
+    std::span<const std::byte> bytes;
+    std::size_t cursor = 0;
+    template<class U> U integer() noexcept {
+        if constexpr (std::endian::native == std::endian::little) {
+            // Leaf copies permit unaligned bytes; aggregate padding is never copied.
+            U value;
+            std::memcpy(&value, bytes.data() + cursor, sizeof(U));
+            cursor += sizeof(U);
+            return value;
+        }
+        U value = 0;
+        for (std::size_t i = 0; i < sizeof(U); ++i)
+            value = static_cast<U>(value | (static_cast<U>(std::to_integer<unsigned>(bytes[cursor++])) << (8 * i)));
+        return value;
+    }
+};
+struct Writer {
+    std::span<std::byte> bytes;
+    std::size_t cursor = 0;
+    template<class U> void integer(U value) noexcept {
+        if constexpr (std::endian::native == std::endian::little) {
+            std::memcpy(bytes.data() + cursor, &value, sizeof(U));
+            cursor += sizeof(U);
+            return;
+        }
+        for (std::size_t i = 0; i < sizeof(U); ++i)
+            bytes[cursor++] = std::byte(static_cast<unsigned char>(value >> (8 * i)));
+    }
+};
+inline bool overlap(std::span<const std::byte> a, std::span<const std::byte> b) noexcept {
+    if (a.empty() || b.empty()) return false;
+    const auto before = std::less<const std::byte*>{};
+    return before(a.data(), b.data() + b.size()) && before(b.data(), a.data() + a.size());
+}
+template<class T> struct Adapter {
+    static_assert(std::is_integral_v<T> && !std::is_same_v<T, bool>, "Unsupported codec type");
+    static_assert(sizeof(T) == 1 || sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8);
+    static_assert(!std::is_signed_v<T> || std::numeric_limits<T>::lowest() == -std::numeric_limits<T>::max() - 1,
+                  "Two's-complement integer range required");
+    using U = std::make_unsigned_t<T>;
+    static constexpr std::size_t bytes = sizeof(T);
+    static void write(const T& value, Writer& out) noexcept {
+        if constexpr (std::is_signed_v<T>) out.integer(std::bit_cast<U>(value));
+        else out.integer(static_cast<U>(value));
+    }
+    static bool valid(Reader& in) noexcept { in.cursor += bytes; return true; }
+    static void read(Reader& in, T& value) noexcept {
+        const U bits = in.integer<U>();
+        if constexpr (std::is_signed_v<T>) value = std::bit_cast<T>(bits);
+        else value = static_cast<T>(bits);
+    }
+};
+template<> struct Adapter<void> { static constexpr std::size_t bytes = 0; };
+template<> struct Adapter<bool> {
+    static constexpr std::size_t bytes = 1;
+    static void write(const bool& value, Writer& out) noexcept { out.integer<std::uint8_t>(value ? 1 : 0); }
+    static bool valid(Reader& in) noexcept { return in.integer<std::uint8_t>() <= 1; }
+    static void read(Reader& in, bool& value) noexcept { value = in.integer<std::uint8_t>() != 0; }
+};
+template<class T, class U> struct Floating {
+    static constexpr std::size_t bytes = sizeof(U);
+    static void write(const T& value, Writer& out) noexcept { out.integer(std::bit_cast<U>(value)); }
+    static bool valid(Reader& in) noexcept { in.cursor += bytes; return true; }
+    static void read(Reader& in, T& value) noexcept { value = std::bit_cast<T>(in.integer<U>()); }
+};
+template<> struct Adapter<float> : Floating<float, std::uint32_t> {};
+template<> struct Adapter<double> : Floating<double, std::uint64_t> {};
+template<class T, std::size_t N> struct Adapter<std::array<T, N>> {
+    static constexpr std::size_t bytes = N * Adapter<T>::bytes;
+    static void write(const std::array<T, N>& value, Writer& out) noexcept {
+        for (const auto& element : value) Adapter<T>::write(element, out);
+    }
+    static bool valid(Reader& in) noexcept {
+        for (std::size_t i = 0; i < N; ++i) if (!Adapter<T>::valid(in)) return false;
+        return true;
+    }
+    static void read(Reader& in, std::array<T, N>& value) noexcept {
+        for (auto& element : value) Adapter<T>::read(in, element);
+    }
+};
+"""
+
+
+CODEC = r"""
+} // namespace codec_detail
+namespace codec {
+enum class Status : std::uint8_t { Ok, LengthMismatch, InvalidValue, Overlap, InvalidState };
+template<class T> inline constexpr std::size_t wireSize = codec_detail::Adapter<T>::bytes;
+template<class T> [[nodiscard]] Status encode(const T& value, std::span<std::byte> output) noexcept {
+    static_assert(!std::is_volatile_v<T> && !std::is_void_v<T>);
+    if (output.size() != wireSize<T>) return Status::LengthMismatch;
+    if (codec_detail::overlap(std::as_bytes(std::span<const T>{std::addressof(value), 1}), output))
+        return Status::Overlap;
+    codec_detail::Writer writer{output};
+    codec_detail::Adapter<T>::write(value, writer);
+    return writer.cursor == output.size() ? Status::Ok : Status::InvalidState;
+}
+// Input is stable for the whole call. Validate completely before modifying output.
+template<class T> [[nodiscard]] Status decode(std::span<const std::byte> input, T& output) noexcept {
+    static_assert(!std::is_const_v<T> && !std::is_volatile_v<T> && !std::is_void_v<T>);
+    if (input.size() != wireSize<T>) return Status::LengthMismatch;
+    if (codec_detail::overlap(input, std::as_bytes(std::span<T>{std::addressof(output), 1})))
+        return Status::Overlap;
+    codec_detail::Reader validator{input};
+    if (!codec_detail::Adapter<T>::valid(validator)) return Status::InvalidValue;
+    if (validator.cursor != input.size()) return Status::InvalidState;
+    codec_detail::Reader reader{input};
+    codec_detail::Adapter<T>::read(reader, output);
+    return reader.cursor == input.size() ? Status::Ok : Status::InvalidState;
+}
+template<class T> [[nodiscard]] Status encode(endpoint::Field<T>, const T& value, std::span<std::byte> output) noexcept {
+    return encode(value, output);
+}
+template<class Q> requires (!std::is_void_v<Q>)
+[[nodiscard]] Status encode(endpoint::Command<Q>, const Q& value, std::span<std::byte> output) noexcept {
+    return encode(value, output);
+}
+inline Status encode(endpoint::Command<void>, std::span<std::byte> output) noexcept {
+    return output.empty() ? Status::Ok : Status::LengthMismatch;
+}
+template<class Q, class R> requires (!std::is_void_v<Q>)
+[[nodiscard]] Status encode(endpoint::Service<Q, R>, const Q& value, std::span<std::byte> output) noexcept {
+    return encode(value, output);
+}
+template<class R> [[nodiscard]] Status encode(endpoint::Service<void, R>, std::span<std::byte> output) noexcept {
+    return output.empty() ? Status::Ok : Status::LengthMismatch;
+}
+template<class T> [[nodiscard]] Status decodeResponse(endpoint::Field<T>, std::span<const std::byte> input, T& output) noexcept {
+    return decode(input, output);
+}
+template<class Q, class R> requires (!std::is_void_v<R>)
+[[nodiscard]] Status decodeResponse(endpoint::Service<Q, R>, std::span<const std::byte> input, R& output) noexcept {
+    return decode(input, output);
+}
+template<class Q> [[nodiscard]] Status decodeResponse(endpoint::Service<Q, void>, std::span<const std::byte> input) noexcept {
+    return input.empty() ? Status::Ok : Status::LengthMismatch;
+}
+} // namespace codec
+"""
+
+
+def _codec(schema, reachable):
+    includes = ('#include "Endpoints.hpp"\n#include <bit>\n#include <climits>\n#include <cstddef>\n#include <cstring>\n'
+                '#include <functional>\n#include <limits>\n#include <memory>\n#include <span>\n#include <type_traits>\n')
+    rows = [_header(schema, "Codec", includes), PRIMITIVES]
+    for index in reachable:
+        item = schema.types[index]
+        kind = item["kind"]
+        if kind not in (2, 3):
+            continue
+        name = _type(index)
+        rows.append(f"template<> struct Adapter<{name}> {{\n"
+                    f"    static constexpr std::size_t bytes = {item['wire']};\n")
+        if kind == 2:
+            underlying = _type(item["underlying"])
+            rows.extend((f"    static void write(const {name}& value, Writer& out) noexcept {{ Adapter<{underlying}>::write(static_cast<{underlying}>(value), out); }}\n",
+                         f"    static bool valid(Reader& in) noexcept {{ return Adapter<{underlying}>::valid(in); }}\n",
+                         f"    static void read(Reader& in, {name}& value) noexcept {{ {underlying} raw; Adapter<{underlying}>::read(in, raw); value = static_cast<{name}>(raw); }}\n"))
+        else:
+            members = tuple(zip(item["members"], schema.member_names[index]))
+            rows.append(f"    static void write(const {name}& value, Writer& out) noexcept {{\n")
+            rows.append("        (void)value; (void)out;\n")
+            for (child, _), symbol in members:
+                rows.append(f"        Adapter<{_type(child)}>::write(value.{symbol}, out);\n")
+            rows.append("    }\n    static bool valid(Reader& in) noexcept {\n        (void)in;\n        return ")
+            rows.append(" && ".join(f"Adapter<{_type(child)}>::valid(in)" for (child, _), _ in members) or "true")
+            rows.append(f";\n    }}\n    static void read(Reader& in, {name}& value) noexcept {{\n        (void)in; (void)value;\n")
+            for (child, _), symbol in members:
+                rows.append(f"        Adapter<{_type(child)}>::read(in, value.{symbol});\n")
+            rows.append("    }\n")
+        rows.append("};\n")
+    rows.extend((CODEC, f"}} // namespace {schema.namespace}\n"))
+    return "".join(rows)
+
+
+RPC = r"""
+namespace rpc {
+// The caller supplies the explicit trust assertion after its own schema admission.
+// Existing RpcClient performs encoding/decoding through Telemetry Codec, not this standalone codec.
+template<class T> [[nodiscard]] auto binding(endpoint::Field<T> endpoint,
+    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    static_assert(::telemetry::wireSize<T> == codec::wireSize<T>);
+    return ::resource::telemetry::v3::FieldEndpoint<T>{endpoint.id, trust};
+}
+template<class Q> [[nodiscard]] auto binding(endpoint::Command<Q> endpoint,
+    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    static_assert(::telemetry::wireSize<Q> == codec::wireSize<Q>);
+    return ::resource::telemetry::v3::CommandEndpoint<Q>{endpoint.id, trust};
+}
+template<class Q, class R> [[nodiscard]] auto binding(endpoint::Service<Q, R> endpoint,
+    ::resource::telemetry::v3::TrustedRpcMapping trust) noexcept {
+    static_assert(::telemetry::wireSize<Q> == codec::wireSize<Q> && ::telemetry::wireSize<R> == codec::wireSize<R>);
+    return ::resource::telemetry::v3::ServiceEndpoint<Q, R>{endpoint.id, trust};
+}
+} // namespace rpc
+"""
+
+
+def _telemetry_bindings(schema, reachable):
+    rows = ["// Generated optional Telemetry Codec interoperability. SPDX-License-Identifier: MIT\n",
+            "#pragma once\n#include \"Types.hpp\"\n#include <telemetry/reflection/Enum.hpp>\n\n",
+            "// Include before using generated enums with Telemetry Codec.\n",
+            "namespace telemetry::reflection {\n"]
+    for index in reachable:
+        item = schema.types[index]
+        if item["kind"] != 2:
+            continue
+        name = "::" + schema.namespace + "::" + _type(index)
+        rows.append(f"template<> struct EnumReflection<{name}> {{\n")
+        if not item["entries"]:
+            rows.append(f"    inline static constexpr auto entries = enumEntries<{name}>();\n")
+        else:
+            rows.append("    inline static constexpr auto entries = enumEntries(\n")
+            entries = [f"        enumEntry({name}::{symbol}, {_string(label)})"
+                       for (_, label), symbol in zip(item["entries"], schema.enum_names[index])]
+            rows.append(",\n".join(entries) + ");\n")
+        rows.append("};\n")
+    rows.append("} // namespace telemetry::reflection\n")
+    return "".join(rows)
+
+
+ENCODED = r"""
+namespace encoded {
+// No schema admission or transport behavior is implied. Buffers/Workspace remain caller owned.
+// Wire buffers must be disjoint from the complete Workspace storage, including live leases.
+// Native request/response objects may occupy live leases when the wire buffers are separate.
+struct Outcome {
+    endpoint::Operation operation;
+    bool dispatched = false;
+    ::telemetry::DispatchStatus dispatch = ::telemetry::DispatchStatus::InternalError;
+    std::uint8_t endpointStatus = 0;
+    std::uint32_t written = 0;
+    ::@NS@::codec::Status codec = ::@NS@::codec::Status::Ok;
+    [[nodiscard]] bool ok() const noexcept {
+        return dispatched && dispatch == ::telemetry::DispatchStatus::Ok && endpointStatus == 0 &&
+               codec == ::@NS@::codec::Status::Ok;
+    }
+    // Accepted schedules command work; it does not establish physical completion.
+    [[nodiscard]] bool commandAccepted() const noexcept {
+        return operation == endpoint::Operation::Command && dispatched &&
+               dispatch == ::telemetry::DispatchStatus::Ok &&
+               endpointStatus == static_cast<std::uint8_t>(::telemetry::CommandResult::Accepted) &&
+               codec == ::@NS@::codec::Status::Ok;
+    }
+};
+inline Outcome from(endpoint::Operation operation, ::telemetry::EncodedReadResult result) noexcept {
+    return {operation, true, result.dispatch, 0, result.written};
+}
+inline Outcome from(endpoint::Operation operation, ::telemetry::EncodedWriteResult result) noexcept {
+    return {operation, true, result.dispatch, static_cast<std::uint8_t>(result.endpointStatus), 0};
+}
+inline Outcome from(endpoint::Operation operation, ::telemetry::EncodedCommandResult result) noexcept {
+    return {operation, true, result.dispatch, static_cast<std::uint8_t>(result.endpointStatus), 0};
+}
+inline Outcome from(::telemetry::EncodedCallResult result) noexcept {
+    return {endpoint::Operation::Service, true, result.dispatch, static_cast<std::uint8_t>(result.endpointStatus), result.written};
+}
+template<class T> Outcome decode(Outcome result, std::span<const std::byte> bytes, T& output) noexcept {
+    if (!result.ok()) return result;
+    if (result.written != codec::wireSize<T> || result.written > bytes.size())
+        result.codec = codec::Status::LengthMismatch;
+    else result.codec = codec::decode(bytes.first(result.written), output);
+    return result;
+}
+inline Outcome decodeVoid(Outcome result) noexcept {
+    if (result.ok() && result.written != 0) result.codec = codec::Status::LengthMismatch;
+    return result;
+}
+template<class T> Outcome readField(::telemetry::ModelView model, endpoint::Field<T> endpoint,
+    std::span<std::byte> wireOutput, ::telemetry::Workspace& workspace, T& output) noexcept {
+    Outcome result{endpoint::Operation::FieldRead};
+    if (codec_detail::overlap(wireOutput, workspace.storage()) ||
+        codec_detail::overlap(wireOutput, std::as_bytes(std::span<T>{std::addressof(output), 1}))) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    return decode(from(result.operation, ::telemetry::readFieldEncoded(model, endpoint.id, wireOutput, workspace)), wireOutput, output);
+}
+template<class T> Outcome writeField(::telemetry::ModelView model, endpoint::Field<T> endpoint,
+    const T& value, std::span<std::byte> wireInput, ::telemetry::Workspace& workspace) noexcept {
+    Outcome result{endpoint::Operation::FieldWrite};
+    if (codec_detail::overlap(wireInput, workspace.storage())) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    result.codec = codec::encode(value, wireInput);
+    if (result.codec != codec::Status::Ok) return result;
+    return from(result.operation, ::telemetry::writeFieldEncoded(model, endpoint.id, wireInput, workspace));
+}
+template<class Q> requires (!std::is_void_v<Q>)
+Outcome executeCommand(::telemetry::ModelView model, endpoint::Command<Q> endpoint,
+    const Q& request, std::span<std::byte> wireInput, ::telemetry::Workspace& workspace) noexcept {
+    Outcome result{endpoint::Operation::Command};
+    if (codec_detail::overlap(wireInput, workspace.storage())) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    result.codec = codec::encode(request, wireInput);
+    if (result.codec != codec::Status::Ok) return result;
+    return from(result.operation, ::telemetry::executeCommandEncoded(model, endpoint.id, wireInput, workspace));
+}
+inline Outcome executeCommand(::telemetry::ModelView model, endpoint::Command<void> endpoint,
+    ::telemetry::Workspace& workspace) noexcept {
+    return from(endpoint::Operation::Command, ::telemetry::executeCommandEncoded(model, endpoint.id, {}, workspace));
+}
+template<class Q, class R> requires (!std::is_void_v<Q> && !std::is_void_v<R>)
+Outcome callService(::telemetry::ModelView model, endpoint::Service<Q, R> endpoint,
+    const Q& request, std::span<std::byte> wireInput, std::span<std::byte> wireOutput,
+    ::telemetry::Workspace& workspace, R& output) noexcept {
+    Outcome result{endpoint::Operation::Service};
+    const auto object = std::as_bytes(std::span<R>{std::addressof(output), 1});
+    if (codec_detail::overlap(wireInput, workspace.storage()) ||
+        codec_detail::overlap(wireOutput, workspace.storage()) ||
+        codec_detail::overlap(wireInput, object) || codec_detail::overlap(wireOutput, object) ||
+        codec_detail::overlap(wireOutput, std::as_bytes(std::span<const Q>{std::addressof(request), 1}))) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    result.codec = codec::encode(request, wireInput);
+    if (result.codec != codec::Status::Ok) return result;
+    return decode(from(::telemetry::callServiceEncoded(model, endpoint.id, wireInput, wireOutput, workspace)), wireOutput, output);
+}
+template<class R> requires (!std::is_void_v<R>)
+Outcome callService(::telemetry::ModelView model, endpoint::Service<void, R> endpoint,
+    std::span<std::byte> wireOutput, ::telemetry::Workspace& workspace, R& output) noexcept {
+    Outcome result{endpoint::Operation::Service};
+    if (codec_detail::overlap(wireOutput, workspace.storage()) ||
+        codec_detail::overlap(wireOutput, std::as_bytes(std::span<R>{std::addressof(output), 1}))) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    return decode(from(::telemetry::callServiceEncoded(model, endpoint.id, {}, wireOutput, workspace)), wireOutput, output);
+}
+template<class Q> requires (!std::is_void_v<Q>)
+Outcome callService(::telemetry::ModelView model, endpoint::Service<Q, void> endpoint,
+    const Q& request, std::span<std::byte> wireInput, ::telemetry::Workspace& workspace) noexcept {
+    Outcome result{endpoint::Operation::Service};
+    if (codec_detail::overlap(wireInput, workspace.storage())) {
+        result.codec = codec::Status::Overlap; return result;
+    }
+    result.codec = codec::encode(request, wireInput);
+    if (result.codec != codec::Status::Ok) return result;
+    return decodeVoid(from(::telemetry::callServiceEncoded(model, endpoint.id, wireInput, {}, workspace)));
+}
+inline Outcome callService(::telemetry::ModelView model, endpoint::Service<void, void> endpoint,
+    ::telemetry::Workspace& workspace) noexcept {
+    return decodeVoid(from(::telemetry::callServiceEncoded(model, endpoint.id, {}, {}, workspace)));
+}
+} // namespace encoded
+"""
+
+
+def generate(schema):
+    """Return deterministic relative-path/source pairs, without writing files."""
+    reachable = _reachable(schema)
+    root = "cpp/" + schema.namespace.replace("::", "/") + "/"
+    suffix = f"}} // namespace {schema.namespace}\n"
+    return {
+        root + "Types.hpp": _types(schema, reachable),
+        root + "Schema.hpp": _schema(schema),
+        root + "Endpoints.hpp": _endpoints(schema),
+        root + "Codec.hpp": _codec(schema, reachable),
+        root + "TelemetryBindings.hpp": _telemetry_bindings(schema, reachable),
+        root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <resource/telemetry/v3/RpcClient.hpp>\n') + RPC + suffix,
+        root + "EncodedBindings.hpp": _header(schema, "EncodedBindings", '#include "Codec.hpp"\n#include <telemetry/model/Adapter.hpp>\n') + ENCODED.replace("@NS@", schema.namespace) + suffix,
+    }

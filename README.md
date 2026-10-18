@@ -9,8 +9,13 @@
 **Native C++20 телеметрія для мікроконтролерів:** прив'яжіть звичайний getter,
 setter або метод класу; типи, wire codec і спільний реєстр формуються автоматично.
 Field, Command і Service мають одну модель декларації: **назва + binding**.
-Немає генератора коду, virtual base class або динамічного виділення пам'яті
+Native API не потребує генератора коду, virtual base class або динамічного виділення пам'яті
 в library core. Qt потрібен лише для демонстраційної програми.
+
+Необов'язковий [host-side генератор C++/TS/JS SDK](doc/CodeGenerator.md) читає
+Descriptor v3.0 та створює готові типи, endpoint contracts і standalone кодеки.
+Вони працюють із власним транспортом, Encoded API або чинним RpcClient;
+оригінальні структури STM32 та wire-контракти залишаються чинними.
 
 **[API Map: Native / Encoded / Codec / Resource](doc/user/APIOverview.md)** ·
 [Посібник користувача](doc/user/README.md) ·

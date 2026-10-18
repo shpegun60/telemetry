@@ -4,6 +4,11 @@ The active checks use the final C++20 telemetry API. Core tests do not require
 Qt. The resource, protocol and client suites have separate runners; the CI
 matrix also builds Cortex-M7 objects and the Qt playground and client.
 
+The optional [code generator suite](codegen/README.md) independently executes
+generated C++ and JS/TS through direct Encoded and Resource/RPC paths, with
+native canonical fixtures, strict TypeScript, sanitizers and offline ARM reports.
+Its build directory must be outside the repository.
+
 Run the shared ID, slot and numeric checks from the repository root:
 
 ```sh

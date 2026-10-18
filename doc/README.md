@@ -6,6 +6,10 @@
 [Command/Service: один результат](user/FlatNative.md) ·
 [Wire v3.0](WireV3.md) · [Тести](../tests/README.md)
 
+[Генератор C++/TS/JS SDK](CodeGenerator.md) ·
+[Generated C++](GeneratedCppApi.md) · [Generated JS/TS](GeneratedTsJsApi.md) ·
+[Schema compatibility](GeneratedSchemaCompatibility.md)
+
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.
 

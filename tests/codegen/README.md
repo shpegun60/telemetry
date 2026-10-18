@@ -1,0 +1,38 @@
+# Code generator qualification
+
+From the repository root, with a C++20 compiler, Node 22 and TypeScript 5.9.3:
+
+```sh
+python3 tests/codegen/run.py --cxx g++ --node node --tsc /path/to/typescript/bin/tsc --arm-cxx arm-none-eabi-g++ --build-dir /tmp/telemetry-codegen-gcc
+python3 tests/codegen/run.py --cxx clang++-18 --node node --tsc /path/to/typescript/bin/tsc --sanitize --build-dir /tmp/telemetry-codegen-sanitized
+python3 -m unittest discover -s tests/codegen -p 'test_*.py' -v
+```
+
+Add `--browser-python /path/to/playwright-venv/bin/python` to execute both emitted
+JS and TS-compiled ESM in actual Chromium. Install the pinned CI browser tooling
+into a separate environment with `pip install playwright==1.63.0` followed by
+`python -m playwright install --with-deps chromium`.
+
+All builds, generated SDKs, logs and `summary.json` remain outside the repository.
+The runner downloads no tools and flashes no hardware. Standalone C++ compilation
+deliberately has no Telemetry/PFR/magic_enum include paths. A second translation
+unit exercises header linking. The optional native path checks explicit sparse
+and 64-bit enum dictionaries. Direct Encoded and existing RpcClient integration
+execute against an actual native Model; the RPC path includes fragmentation,
+retry identity, one-shot execution and session/schema admission.
+
+The native producer exports real Descriptor and canonical Config/Request/
+Response/all-scalar/empty payloads. Both emitted JS and TS-compiled JS execute
+against these bytes, the independent existing browser codec, direct Encoded
+dispatch and Resource/RpcMailbox. Hostile names, integer limits, bool validation,
+float semantics, offset views, arrays, open enum values, immutable metadata,
+failed empty responses and malformed protocol envelopes have explicit checks.
+Parser and publication controls include mutations, corrupted fingerprints,
+readonly `--check`, modified/unowned output refusal, link traversal and rollback.
+
+Counted execution floors are enforced by the runner. Compilation results and
+runtime counts are separate. Benchmark records compare the same generated DTO
+through native/generated codecs and retain checksums. Optional ARM measurements
+record sections, undefined symbols and compiler stack reports. These are
+compiler/host observations, not measured hardware speed or whole-firmware RAM.
+Existing frozen golden files and historical hardware receipts remain unchanged.

@@ -457,6 +457,7 @@ jobs:
             build/ergonomics/
             build/flat-native/
           if-no-files-found: ignore
+
       - name: Verify retained hardware evidence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
         run: |
@@ -469,6 +470,71 @@ jobs:
           python3 tests/structured/exchange/h7s/verify.py --self-test
           python3 tests/resources/evidence/verify.py verify --self-test
 
+  codegen:
+    name: Generated SDK (${{ matrix.compiler }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: g++
+            mode: release
+          - compiler: clang++-18
+            mode: sanitized
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned TypeScript
+        run: npm install --prefix "$RUNNER_TEMP/codegen-tools" typescript@5.9.3 --no-audit --no-fund
+      - name: Install host compiler and example tools
+        run: sudo apt-get update && sudo apt-get install -y clang-18 ninja-build qt6-base-dev
+      - name: Install offline ARM and browser tools
+        if: matrix.mode == 'release'
+        run: |
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          python3 -m venv "$RUNNER_TEMP/codegen-browser"
+          "$RUNNER_TEMP/codegen-browser/bin/pip" install playwright==1.63.0
+          "$RUNNER_TEMP/codegen-browser/bin/python" -m playwright install --with-deps chromium
+      - name: Execute generated C++ and JS/TS through both API paths
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          if [ '${{ matrix.mode }}' = release ]; then
+            options+=(--arm-cxx arm-none-eabi-g++ --browser-python "$RUNNER_TEMP/codegen-browser/bin/python")
+          fi
+          python3 tests/codegen/run.py --cxx '${{ matrix.compiler }}' \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/codegen-${{ matrix.mode }}" "${options[@]}"
+      - name: Build and execute separate CMake and qmake consumers
+        if: matrix.mode == 'release'
+        run: |
+          cmake -S examples/codegen_cpp -B "$RUNNER_TEMP/codegen-cmake" -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/codegen-cmake" -j2
+          ctest --test-dir "$RUNNER_TEMP/codegen-cmake" --output-on-failure
+          mkdir -p "$RUNNER_TEMP/codegen-qmake"
+          cd "$RUNNER_TEMP/codegen-qmake"
+          qmake6 "$GITHUB_WORKSPACE/examples/codegen_cpp/codegen_cpp.pro" CODEGEN_SDK="$RUNNER_TEMP/codegen-cmake/generated"
+          make -j2
+          ./codegen_cpp
+      - name: Retain generated SDK qualification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codegen-${{ matrix.mode }}
+          path: |
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.json
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.log
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.su
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.elf
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/generated/manifest.json
+            ${{ runner.temp }}/codegen-${{ matrix.mode }}/native/descriptor.bin
+          if-no-files-found: ignore
   arm:
     name: Cortex-M7 compile and link
     runs-on: ubuntu-24.04
@@ -702,6 +768,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y g++-s390x-linux-gnu qemu-user
       - name: Canonical codec, resource client, Descriptor and Values bytes
         run: python3 tests/structured/codec/endian.py --build-dir build/endian
+      - name: Generated standalone codec on real little and big endian
+        run: python3 tests/codegen/endian.py --build-dir "$RUNNER_TEMP/codegen-endian"
       - name: COBS telemetry/resource on a real big-endian target
         run: python3 tests/cobs/run.py --cxx s390x-linux-gnu-g++ --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu --expect-big-endian --cobs-root build/dependencies/cobs --build-dir build/cobs-big
       - name: Retain endian execution and byte equivalence evidence
@@ -711,6 +779,7 @@ jobs:
           name: little-big-endian
           path: |
             build/endian/
+            ${{ runner.temp }}/codegen-endian/
             build/cobs-big/
           if-no-files-found: error
 
