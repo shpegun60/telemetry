@@ -332,7 +332,7 @@ include(path/to/lib/telemetry/telemetry.pri)
 CONFIG += resource_telemetry
 # Окремо, лише якщо потрібний RPC mailbox:
 # CONFIG += resource_telemetry_rpc
-include(path/to/lib/resource/resource.pri)
+include(path/to/lib/integration/integration.pri)
 ```
 
 Для іншого build system додайте include paths і compiled sources з
@@ -376,7 +376,8 @@ objdump не є виміром cycles/live stack: [H7S qualification](tests/stru
 | Папка | Призначення |
 | --- | --- |
 | `lib/telemetry` | Єдиний public namespace `telemetry`: reflection, types, codec, endpoint tables, Model |
-| `lib/resource` | Flat files, `resource::protocol`, optional `telemetry/v3` providers |
+| `lib/resource` | Flat files and `resource::protocol` |
+| `lib/integration` | Optional Descriptor/Values providers, RPC/TEQ1 servers and client backends |
 | `web` | Strict descriptor/value codec для JavaScript |
 | `examples` | Native, resource, protocol та Qt/browser clients |
 | `doc/user` | Актуальний посібник користувача |

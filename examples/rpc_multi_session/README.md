@@ -49,10 +49,9 @@ build/rpc-multi-session-example/rpc_multi_session
 For qmake:
 
 ```qmake
-include(path/to/lib/telemetry/telemetry.pri)
-CONFIG += resource_telemetry_rpc telemetry_client_rpc resource_telemetry_rpc_sessions
+CONFIG += telemetry_client_rpc resource_telemetry_rpc_sessions
 include(path/to/lib/client/client.pri)
-include(path/to/lib/resource/resource.pri)
+include(path/to/lib/integration/integration.pri)
 ```
 
 Descriptor/Values can be added independently with `resource_telemetry`.

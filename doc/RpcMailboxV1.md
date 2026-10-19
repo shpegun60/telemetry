@@ -9,8 +9,9 @@
 не є вимірюванням UART/TCP чи виконанням на MCU.
 
 Для qmake source provider-а обирається незалежним
-`CONFIG += resource_telemetry_rpc` перед `resource.pri`; `telemetry.pri`
-підключається явно. Прапорець `resource_telemetry` самостійно залишає
+`CONFIG += resource_telemetry_rpc` перед `lib/integration/integration.pri`;
+цей manifest підключає Telemetry і Resource dependencies. Прапорець
+`resource_telemetry` самостійно залишає
 Descriptor/Values-only збірку без компіляції RPC.
 
 [Індекс документації](README.md) · [Архітектура](Architecture.md) ·

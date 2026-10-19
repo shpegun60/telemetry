@@ -29,7 +29,7 @@ API не надаються. Нове підключення починайте 
 | `structured.pri` | `lib/telemetry/telemetry.pri` |
 | `lib/resource/structured/` | `<integration/telemetry/v3/...>` |
 | `resource::structured` | `resource::telemetry::v3` |
-| `resource_structured`, `resource_telemetry_v3` | Явний `CONFIG += resource_telemetry` перед `resource.pri` |
+| `resource_structured`, `resource_telemetry_v3` | Явний `CONFIG += resource_telemetry` перед `lib/integration/integration.pri` |
 | `telemetry_no_json`, старий JSON/v2 backend | Configuration прибрана; consumer використовує native API чи v3 codec |
 | `web/telemetryStructured.js` | `web/telemetry.js` |
 
@@ -39,8 +39,8 @@ API не надаються. Нове підключення починайте 
 Resource packet layer додає `lib/resource/protocol/Protocol.cpp`; v3 Values
 provider — `lib/integration/telemetry/v3/detail/Values.cpp`.
 
-Qmake manifests вибирають ці sources; generic resource manifest не
-підключає telemetry назад. Optional
+Integration qmake manifest вибирає provider sources та їхні Telemetry/Resource
+dependencies; generic resource manifest не підключає telemetry назад. Optional
 [protocol.pri](../examples/structured_protocol/protocol.pri) додається явно.
 Повні portable/qmake/CMake кроки й готовий project наведені у
 [GettingStarted](user/GettingStarted.md#крок-2-підключіть-source-та-include-paths)

@@ -602,7 +602,8 @@ final WRITE ACK. На одному multiplexed transport pairing/serialization
 Optional [RpcMailbox](../RpcMailboxV1.md) використовує той самий packet
 processor і file array. Його qmake source обирається окремим
 `CONFIG += resource_telemetry_rpc`; Descriptor/Values `resource_telemetry`
-не компілює mailbox. Telemetry manifest підключайте явно.
+не компілює mailbox. Після вибору прапорців підключіть
+`lib/integration/integration.pri`, який додає Telemetry і Resource dependencies.
 Повний [host example](../../examples/rpc_mailbox/README.md)
 публікує `/telemetry/rpc.bin`, складає RPC request у caller-owned bytes,
 передає їх через `client::makeWrite()`, а потім починає READ із zero та

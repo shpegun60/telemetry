@@ -169,14 +169,13 @@ resource/
   BytesFile.hpp, ChunkWriter.hpp byte-array provider and output utility
   resource.pri                   one qmake manifest
   protocol/                      generic packet operations
-  telemetry/v3/                  current Model adapter, wire format 3.0
 ```
 
 The generic core depends only on the C++20 standard library. It has no
 compiled sources, Qt, PFR, allocation, RTTI or virtual base class. Including
 `Resource.hpp` does not select a packet protocol or a telemetry adapter.
-`telemetry/v3` is the current adapter; the directory version names its frozen
-wire format, not a retired Scalar model.
+Model providers live separately in `lib/integration/telemetry/v3`; the directory
+version names their frozen wire format, not a retired Scalar model.
 
 For qmake:
 
@@ -186,27 +185,28 @@ include(path/to/lib/resource/resource.pri)
 ```
 
 This manifest lists the generic headers and compiles `protocol/Protocol.cpp`
-once. Enable telemetry providers explicitly, before the resource include:
+once. Enable telemetry providers explicitly through Integration:
 
 ```qmake
-include(path/to/lib/telemetry/telemetry.pri)
 CONFIG += resource_telemetry
-include(path/to/lib/resource/resource.pri)
+include(path/to/lib/integration/integration.pri)
 ```
 
 `resource_telemetry` selects Descriptor/Values only. To compile the optional
-RPC mailbox, select `CONFIG += resource_telemetry_rpc` before the resource
+RPC mailbox, select `CONFIG += resource_telemetry_rpc` before the Integration
 include instead, or add both flags when both provider families are needed.
-Neither flag includes `telemetry.pri` implicitly. Descriptor/Values-only builds
+Integration includes the selected providers' Telemetry and Resource dependencies.
+Descriptor/Values-only builds
 do not compile `RpcMailbox.cpp`, independently of linker section removal.
 
 Repeated includes add no duplicate sources. For another build system, add
 `lib` to the include path. The generic core needs no source files; compile
-`protocol/Protocol.cpp` for packet handling and
-`telemetry/v3/detail/Values.cpp` for live telemetry values. Select the telemetry
-library separately for that adapter. Compile `telemetry/v3/RpcMailbox.cpp`
+`lib/resource/protocol/Protocol.cpp` for packet handling and
+`lib/integration/telemetry/v3/detail/Values.cpp` for live telemetry values.
+Link the Telemetry compiled adapter and ABI sources for that adapter. Compile
+`lib/integration/telemetry/v3/RpcMailbox.cpp`
 only for [RPC mailbox](../../examples/rpc_mailbox/README.md) consumers.
-No manifest includes telemetry in reverse.
+The generic Resource manifest does not select Telemetry or Integration.
 
 ## Ownership and lifetime
 

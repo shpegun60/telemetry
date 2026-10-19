@@ -67,8 +67,8 @@ include(path/to/lib/client/client.pri)
 
 That selects only `RpcClient.cpp` and header-only Codec dependencies, without
 `RpcMailbox.cpp`, Model Adapter or StructuredAbi. For a project also serving
-RPC, also include `telemetry/telemetry.pri`, select `resource_telemetry_rpc`,
-and include `resource/resource.pri` for the server.
+RPC, select `resource_telemetry_rpc` and include
+`lib/integration/integration.pri` for the server and its dependencies.
 
 The full [buffer, retry, type and lifetime rules](../../doc/RpcClientV1.md)
 also cover large caller-owned results and Workspace leases. Host loopback and

@@ -370,7 +370,8 @@ Generic filesystem і Resource wire при цьому не змінюються.
 Optional [`RpcMailbox`](../../lib/integration/telemetry/v3/RpcMailbox.hpp)
 публікує FieldWrite, Command, Service і FieldRead через звичайні Resource
 WRITE/READ. Для qmake оберіть `CONFIG += resource_telemetry_rpc` перед
-`resource.pri` та явно підключіть `telemetry.pri`. Цей прапорець незалежний
+`lib/integration/integration.pri`, який підключає Telemetry і Resource dependencies.
+Цей прапорець незалежний
 від Descriptor/Values `resource_telemetry`; можна обрати обидва.
 Додайте provider до `resource::filesystem()` під application path,
 наприклад `/telemetry/rpc.bin`. На відміну від довільного RAM file,

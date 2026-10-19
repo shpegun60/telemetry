@@ -106,12 +106,13 @@ include(path/to/telemetry/lib/telemetry/telemetry.pri)
 CONFIG += resource_telemetry
 # Окремо, лише для RPC; можна обрати незалежно від Descriptor/Values.
 # CONFIG += resource_telemetry_rpc
-include(path/to/telemetry/lib/resource/resource.pri)
+include(path/to/telemetry/lib/integration/integration.pri)
 ```
 
-Для generic files без telemetry providers не додавайте жодного з цих прапорців.
+Integration manifest додає залежності вибраних providers. Для generic files без
+telemetry providers підключайте лише `lib/resource/resource.pri` без цих прапорців.
 Descriptor/Values-only збірка з `resource_telemetry` не компілює RPC source.
-Для native telemetry без files не потрібний `resource.pri`.
+Для native telemetry без files достатньо `lib/telemetry/telemetry.pri`.
 Є [готовий CMake example](../../examples/device_integration/CMakeLists.txt);
 це build прикладу, а не вимога переводити вашу прошивку на CMake.
 

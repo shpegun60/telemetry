@@ -325,30 +325,30 @@ registration, external generation checks, ACK ordering, retry and reply decode.
 
 ## qmake
 
-Select each provider explicitly. The generic resource core has no PFR dependency,
-and neither option includes the telemetry manifest on the application's behalf.
+Select each provider explicitly through `lib/integration/integration.pri`.
+It includes the selected providers' Telemetry and Resource dependencies; the
+generic Resource manifest has no Telemetry selections or PFR dependency.
 
 | CONFIG selection | Compiled resource provider source |
 | --- | --- |
-| Neither flag | None; only generic `protocol/Protocol.cpp` |
-| `resource_telemetry` | `telemetry/v3/detail/Values.cpp` for DescriptorFile/ValuesFile |
-| `resource_telemetry_rpc` | `telemetry/v3/RpcMailbox.cpp` for RpcMailbox |
+| Neither flag | None |
+| `resource_telemetry` | `lib/integration/telemetry/v3/detail/Values.cpp` for DescriptorFile/ValuesFile |
+| `resource_telemetry_rpc` | `lib/integration/telemetry/v3/RpcMailbox.cpp` for RpcMailbox |
 | Both flags | Both provider sources |
 
 For DescriptorFile and ValuesFile:
 
 ```qmake
-include(path/to/lib/telemetry/telemetry.pri)
 CONFIG += resource_telemetry
-include(path/to/lib/resource/resource.pri)
+include(path/to/lib/integration/integration.pri)
 ```
 
 For RpcMailbox alone, use `CONFIG += resource_telemetry_rpc` in the same
 explicit include sequence. To expose all three providers, set
 `CONFIG += resource_telemetry resource_telemetry_rpc` before including
-`resource.pri`. RPC does not require the Descriptor/Values flag, and
+`integration.pri`. RPC does not require the Descriptor/Values flag, and
 Descriptor/Values consumers do not compile `RpcMailbox.cpp`.
 
-The manifests have no reverse includes. The explicitly included telemetry
-manifest supplies its compiled Model adapter and ABI sources. Repeated manifest
-includes do not duplicate the selected sources.
+Integration selects the compiled Model adapter, ABI and generic protocol sources
+needed by each provider. Telemetry and Resource do not include Integration.
+Repeated manifest includes do not duplicate the selected sources.

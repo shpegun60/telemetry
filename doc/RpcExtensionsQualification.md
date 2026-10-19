@@ -21,6 +21,11 @@ are unchanged. No new device execution is claimed.
 
 ## Files and public API
 
+The manifest inventory below describes this qualification checkpoint. For the
+current split, select native RPC through `lib/client/client.pri` and optional
+server/session providers through `lib/integration/integration.pri`; the generic
+Resource manifest no longer selects them. See [module selection](Modules.md#qmake).
+
 | Files | Responsibility |
 | --- | --- |
 | `lib/client/rpc/RpcClient.hpp`, `.cpp` | Typed bindings, one asynchronous transaction, packet scheduling, diagnostics and caller-owned decode |

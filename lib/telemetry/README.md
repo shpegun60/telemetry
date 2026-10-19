@@ -297,14 +297,15 @@ For qmake:
 include(path/to/lib/telemetry/telemetry.pri)
 # Optional descriptor.bin / values.bin providers:
 CONFIG += resource_telemetry
-include(path/to/lib/resource/resource.pri)
+include(path/to/lib/integration/integration.pri)
 ```
 
 `telemetry.pri` selects C++20 after including its dependencies and adds
 `abi/StructuredAbi.cpp` and `model/Adapter.cpp` once. A manual build using the
 compiled adapter links those two objects. Header-only native calls and direct
-index calls do not require either object. Resource v3 adds its compiled values
-adapter through `resource.pri`; generic resources do not select it implicitly.
+index calls do not require either object. Integration adds its compiled values
+adapter through `integration.pri`, including the selected adapter's Telemetry
+and Resource dependencies. Generic resources do not select it implicitly.
 
 Modules exchanging in-memory views can call
 [`requireStructuredAbi()`](abi/StructuredAbi.hpp) at an explicit boundary and
