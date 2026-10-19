@@ -8,6 +8,7 @@ Neither mode imports a serial package or invokes a device programmer.
 import argparse
 from copy import deepcopy
 from datetime import datetime, timezone
+from functools import lru_cache
 import hashlib
 import io
 import json
@@ -117,8 +118,8 @@ def source_inputs(group, root=ROOT):
     return {p.relative_to(root).as_posix(): lf_sha(p) for p in sorted(paths)}
 
 
-def current_manifests():
-    groups = {group: source_inputs(group) for group in GROUPS}
+def current_manifests(root=ROOT):
+    groups = {group: source_inputs(group, root=root) for group in GROUPS}
     merged = {}
     for inputs in groups.values():
         merged.update(inputs)
@@ -126,11 +127,17 @@ def current_manifests():
         p: h for p, h in merged.items() if not p.startswith('lib/')}
 
 
-def sealed_sources():
-    """Read a pinned local Git object; this function performs no network call."""
-    result = subprocess.run(['git', 'archive', SEALED], cwd=ROOT, capture_output=True, check=False)
+def git_sources(commit):
+    """Read an immutable local commit; never resolve moving refs or use a network."""
+    require(isinstance(commit, str) and re.fullmatch(r'[0-9a-f]{40}', commit),
+            'Source reference must be a full 40-character Git commit ID')
+    identity = subprocess.run(['git', 'rev-parse', '--verify', commit + '^{commit}'],
+                              cwd=ROOT, capture_output=True, text=True, check=False)
+    require(identity.returncode == 0 and identity.stdout.strip() == commit,
+            'The exact source commit is required locally; use a checkout with complete history')
+    result = subprocess.run(['git', 'archive', commit], cwd=ROOT, capture_output=True, check=False)
     require(result.returncode == 0,
-            'The sealed Git commit is required locally; use a checkout with complete history')
+            'The source Git commit is required locally; use a checkout with complete history')
     with tarfile.open(fileobj=io.BytesIO(result.stdout)) as archive:
         blobs = {}
         for member in archive.getmembers():
@@ -140,6 +147,29 @@ def sealed_sources():
             require(not path.is_absolute() and '..' not in path.parts, 'Unsafe archived path')
             blobs[member.name] = archive.extractfile(member).read()
     return blobs
+
+
+def sealed_sources():
+    """Read the original measured source commit, independently of later captures."""
+    return git_sources(SEALED)
+
+
+def write_sources(tree, blobs):
+    for relative, data in blobs.items():
+        path = (tree / relative).resolve()
+        require(path.is_relative_to(tree.resolve()), 'Archived source escapes its snapshot directory')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+@lru_cache(maxsize=2)
+def reference_manifests(commit):
+    """Recompute full inventories and include closures from authenticated blobs."""
+    blobs = git_sources(commit)
+    with tempfile.TemporaryDirectory(prefix='resource-source-') as temporary:
+        tree = Path(temporary)
+        write_sources(tree, blobs)
+        return current_manifests(root=tree)
 
 
 def authenticate(manifest, blobs):
@@ -154,10 +184,7 @@ def historical_checks(blobs, controls=False):
     results = {}
     with tempfile.TemporaryDirectory(prefix='resource-history-') as temporary:
         tree = Path(temporary)
-        for relative, data in blobs.items():
-            path = tree / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
+        write_sources(tree, blobs)
         for group in GROUPS:
             module = runpy.run_path(str(tree / 'tests/structured' / group / 'h7s/verify.py'))
             receipt = read_json(ROOT / receipt_path(group))
@@ -308,15 +335,17 @@ def verify_artifacts(record, build_root, retained_root, mappings=()):
                     'Actual binary length differs')
 
 
-def verify(record, *, artifacts=None, retained=None, blobs=None, mappings=()):
+def verify(record, *, artifacts=None, retained=None, blobs=None, mappings=(), source_ref=None):
     require(record['format_version'] == 2 and record['scope'] == SCOPE and record['execution'] == EXECUTION,
             'Wrong equivalence record identity/scope')
     require(record['sealed_code_head'] == SEALED, 'Wrong sealed code commit')
     require(re.fullmatch(r'[0-9a-f]{40}', record['source_head']) and type(record['source_dirty']) is bool,
             'Malformed current source provenance')
-    groups, library, fixtures = current_manifests()
+    groups, library, fixtures = (current_manifests() if source_ref is None
+                                 else reference_manifests(source_ref))
     require(record['current_library_lf_sha256'] == library and record['current_fixture_lf_sha256'] == fixtures,
-            'Current library/fixture source manifest drift')
+            'Current library/fixture source manifest drift' if source_ref is None
+            else 'Selected Git snapshot library/fixture source manifest drift')
     require(set(record['groups']) == set(GROUPS), 'Historical group matrix differs')
     require(re.search(r'14\.3\.1(?:\s|$)', record['compiler']['version']) and
             re.fullmatch(r'[0-9a-f]{64}', record['compiler']['sha256']), 'Wrong compiler identity')
@@ -379,7 +408,10 @@ def verify(record, *, artifacts=None, retained=None, blobs=None, mappings=()):
     if artifacts is not None:
         verify_artifacts(record, artifacts, retained, mappings)
     return {'images': 12, 'groups': 5, 'library_files': len(library), 'fixture_files': len(fixtures),
-            'sealed_code_head': SEALED, 'execution': EXECUTION, 'artifact_bytes_rechecked': artifacts is not None}
+            'sealed_code_head': SEALED, 'execution': EXECUTION, 'artifact_bytes_rechecked': artifacts is not None,
+            'source_validation': 'current checkout' if source_ref is None else 'immutable Git snapshot',
+            'source_ref': source_ref, 'recorded_source_head': record['source_head'],
+            'recorded_source_dirty': record['source_dirty']}
 
 
 def capture(build_root, retained_root, mappings=()):
@@ -466,9 +498,9 @@ def relocation_self_test():
     return {'positive_paths': positive, 'rejected_mutations': rejected}
 
 
-def self_test(record):
+def self_test(record, *, source_ref=None):
     blobs = sealed_sources()
-    verify(record, blobs=blobs)
+    verify(record, blobs=blobs, source_ref=source_ref)
     mutations = [
         ('old format', lambda r: r.update(format_version=1)),
         ('scope', lambda r: r.update(execution='device')),
@@ -502,11 +534,21 @@ def self_test(record):
         changed = deepcopy(record)
         mutation(changed)
         try:
-            verify(changed, blobs=blobs)
+            verify(changed, blobs=blobs, source_ref=source_ref)
         except RuntimeError:
             continue
         raise AssertionError('Accepted equivalence mutation: ' + label)
-    return {'rejected_mutations': len(mutations), 'relocation': relocation_self_test(),
+    source_controls = 0
+    if source_ref is not None:
+        for invalid in ('main', '0' * 40, SEALED):
+            try:
+                verify(record, blobs=blobs, source_ref=invalid)
+            except RuntimeError:
+                source_controls += 1
+                continue
+            raise AssertionError('Accepted a mutable, unavailable or mismatching source reference')
+    return {'rejected_mutations': len(mutations), 'source_ref_rejections': source_controls,
+            'relocation': relocation_self_test(),
             'text_identity': text_identity_self_test()}
 
 
@@ -543,6 +585,9 @@ def main():
     check.add_argument('--path-map', action='append', default=[], metavar='OLD=NEW',
                        help='Explicit absolute artifact-root relocation; recorded paths are not changed')
     check.add_argument('--self-test', action='store_true')
+    check.add_argument('--source-ref', metavar='COMMIT',
+                       help='Authenticate recorded source inventories against this full immutable Git commit ID; '
+                            'default checks the current checkout')
     args = parser.parse_args()
     if args.mode == 'capture':
         mappings = path_maps(args.path_map)
@@ -553,10 +598,10 @@ def main():
     else:
         record = read_json(args.record)
         result = verify(record, artifacts=args.build_root, retained=args.retained_root,
-                        mappings=path_maps(args.path_map))
+                        mappings=path_maps(args.path_map), source_ref=args.source_ref)
         result['historical'] = historical_checks(sealed_sources(), args.self_test)
         if args.self_test:
-            result['controls'] = self_test(record)
+            result['controls'] = self_test(record, source_ref=args.source_ref)
         print(json.dumps(result, sort_keys=True))
 
 

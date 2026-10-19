@@ -1,14 +1,22 @@
-# Current Resource sources: retained H7S image equivalence
+# Recorded Resource sources: retained H7S image equivalence
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-[equivalence.json](equivalence.json) relates the current library and fixture
+[equivalence.json](equivalence.json) relates its captured library and fixture
 inputs to the twelve complete firmware images measured on H7S from sealed code
 commit `7b73fb4c97e48ebb012ea0b6010bc7a4c3c434b3`. The five original hardware
 receipts and the original offline receipt are preserved without changing their
 source identity, measurements, completion flags or restoration records.
 
-The current sources were captured and compiled using the existing H7S runners
+The later module reorganization changes the checkout's source inventory. CI
+authenticates this recorded equivalence against immutable Git commit
+`c728e2774f6a8d44b61002c35ef2e6e733ce589c`, whose 165 library and 57 fixture
+input hashes match the capture and all five group manifests exactly. This
+checks the recorded source snapshot; it does not claim that the present module
+layout produced these twelve firmware images or that a new device run occurred.
+Current host and ARM suites qualify the present checkout separately.
+
+The recorded sources were captured and compiled using the existing H7S runners
 without `--run`, CubeIDE ARM GCC 14.3.1 and each group's retained Cube scaffold.
 The Mixed/Scale group contributes four images; descriptor, resources, exchange
 and borrowed each contribute two. Every rebuilt firmware binary was compared
@@ -202,20 +210,33 @@ measurements for the demonstration application.
 ## Verification
 
 ```sh
-python tests/resources/evidence/verify.py verify --self-test
 python tests/resources/evidence/verify.py verify --self-test \
+  --source-ref c728e2774f6a8d44b61002c35ef2e6e733ce589c
+python tests/resources/evidence/verify.py verify --self-test \
+  --source-ref c728e2774f6a8d44b61002c35ef2e6e733ce589c \
   --build-root "$EVIDENCE_OUTPUT" --retained-root "$EVIDENCE_RETAINED" \
   --path-map "$EVIDENCE_ORIGINAL_BUILD=$EVIDENCE_ARCHIVED_BUILD"
 ```
 
-The first command is the CI gate. It checks the exact current library/fixture
+The first command is the recorded-source CI gate. It checks the exact library/fixture
 inventory, the twelve distinct image identities, five receipt identities,
 compiler, Cube scaffold identities and the offline receipt. Historical source
-manifests must match the pinned Git commit's actual blobs. Original historical
+manifests must match the original sealed Git commit's actual blobs; the later
+capture inventories and per-group include closures must independently match
+the full commit selected by `--source-ref`. Moving branch/tag names, unknown
+objects and mismatching source snapshots are refused. Original historical
 coverage checks and mutation controls run from a temporary copy of that sealed
 tree, with their normal source comparisons enabled. There is no general option
-to skip source validation. CI uses a complete Git checkout so the pinned object
-is available; the verifier never accesses the network.
+to skip source validation. Both CI jobs use a complete Git checkout so the
+pinned objects are available; the verifier never accesses the network.
+
+Without `--source-ref`, verification still requires the record to match the
+current checkout exactly. That strict default refuses this historical record
+after the module reorganization. `capture` also remains strict against the
+current checkout and never accepts `--source-ref`. A new current-source image
+equivalence claim requires a fresh offline build and artifact comparison.
+The captured `source_head` and `source_dirty` fields remain unchanged; selecting
+the published snapshot does not replace that original capture provenance.
 
 Record format 2 uses explicitly named `receipt_lf_sha256` fields for all six
 preserved JSON receipts. Only CRLF line endings are converted to LF before
@@ -230,8 +251,8 @@ an exported Git index tree on Linux.
 
 The second command additionally reads the retained and rebuilt binaries/ELFs,
 captured inputs, copied Cube inputs and compiler executable. Missing artifacts
-fail this mode. CI checks the captured evidence and current source hashes; it
-does not rebuild with the Windows CubeIDE toolchain or run a board.
+fail this mode. CI checks the captured evidence and selected Git snapshot
+hashes; it does not rebuild with the Windows CubeIDE toolchain or run a board.
 
 If generated build directories have been archived outside the repository, pass
 their actual roots and an explicit path map. The original absolute image paths
@@ -241,8 +262,9 @@ PowerShell, the retained archive and final publication capture can be verified w
 ```powershell
 $evidenceOriginalBuild = Join-Path (Get-Location) 'build'
 $evidenceArchivedBuild = 'C:/Users/admin/Documents/telemetry-artifacts/2026-10-04-cleanup-98b945f/generated-builds'
-$evidenceOutput = 'C:/Users/admin/Documents/telemetry-validation/20261018-rpc-extensions/equivalence'
+$evidenceOutput = 'C:/Users/admin/.codex/artifacts/telemetry-async-review-2026-10-18/equivalence'
 python tests/resources/evidence/verify.py verify --self-test `
+  --source-ref c728e2774f6a8d44b61002c35ef2e6e733ce589c `
   --build-root "$evidenceOutput" `
   --retained-root "$evidenceArchivedBuild/borrowed" `
   --path-map "$evidenceOriginalBuild=$evidenceArchivedBuild"

@@ -263,7 +263,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Authenticate retained inputs against the sealed Git commit.
+          fetch-depth: 0 # Authenticate sealed hardware and recorded-source Git snapshots.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -597,7 +597,7 @@ jobs:
             build/flat-native/
           if-no-files-found: ignore
 
-      - name: Verify retained hardware evidence
+      - name: Verify retained hardware and recorded-source equivalence
         if: matrix.cxx == 'g++' && matrix.standard == 'c++20' && matrix.mode == 'release'
         run: |
           python3 doc/evidence/pre-unification/stage08/verify.py --receipt doc/evidence/pre-unification/stage08/final-receipt.json --self-test
@@ -607,7 +607,7 @@ jobs:
           python3 tests/structured/descriptor/h7s/verify.py --self-test
           python3 tests/structured/resources/h7s/verify.py --self-test
           python3 tests/structured/exchange/h7s/verify.py --self-test
-          python3 tests/resources/evidence/verify.py verify --self-test
+          python3 tests/resources/evidence/verify.py verify --self-test --source-ref c728e2774f6a8d44b61002c35ef2e6e733ce589c
 
   codegen:
     name: Generated SDK (${{ matrix.compiler }})
@@ -680,7 +680,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required by the historical/current binary relation.
+          fetch-depth: 0 # Authenticate sealed hardware and recorded-source Git snapshots.
       - name: Install ARM GCC and newlib-nano
         run: |
           sudo apt-get update
@@ -803,8 +803,8 @@ jobs:
         run: |
           python3 tests/structured/mcu/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu
           python3 tests/structured/mcu/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-mcu-nullchecks
-      - name: Verify retained qualification and current binary equivalence
-        run: python3 tests/resources/evidence/verify.py verify --self-test
+      - name: Verify retained qualification and recorded-source binary equivalence
+        run: python3 tests/resources/evidence/verify.py verify --self-test --source-ref c728e2774f6a8d44b61002c35ef2e6e733ce589c
       - name: C++20 structured API and wire freeze Cortex-M7 contract
         run: |
           python3 tests/structured/freeze/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze
