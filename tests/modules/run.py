@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +27,138 @@ FORBIDDEN = {
     'resource_adapter': ('client/DeviceClient.hpp',),
     'rpc_sessions': ('client/DeviceClient.hpp',),
 }
+
+
+def check_containment(args, out, run, extra_config):
+    """Exercise cleanup only in new cases below the verified external output root."""
+    root = Path(tempfile.mkdtemp(prefix='containment-', dir=out))
+    result = {'passed': False, 'root': root.relative_to(out).as_posix(), 'cases': {}}
+
+    def paths(name):
+        case = root / name
+        case.mkdir()
+        return case, case / 'build', case / 'prefix'
+
+    def configure(build, prefix, label):
+        return run([args.cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+                    '-DTELEMETRY_COMPONENTS=client', '-DCMAKE_CXX_COMPILER=' + args.cxx,
+                    '-DCMAKE_INSTALL_PREFIX=' + str(prefix), *extra_config], label)
+
+    def header(prefix):
+        return prefix / 'include/telemetry-client/client/DeviceClient.hpp'
+
+    # These controls need no compiled library, including with an ARM compiler.
+    case, build, prefix = paths('fresh')
+    configure(build, prefix, 'containment-fresh-configure')
+    run([args.cmake, '--install', build], 'containment-fresh-install')
+    if not header(prefix).is_file():
+        raise RuntimeError('Fresh installation did not produce the client header')
+    override = case / 'missing/relocated/prefix'
+    run([args.cmake, '--install', build, '--prefix', override], 'containment-prefix-override')
+    if not header(override).is_file():
+        raise RuntimeError('Install-time prefix override did not produce the client header')
+    result['cases']['fresh_and_prefix_override'] = True
+
+    if os.name != 'nt':
+        destdir = case / 'destdir'
+        run([args.cmake, '--install', build], 'containment-destdir-install',
+            extra_environment={'DESTDIR': str(destdir)})
+        staged_prefix = destdir / prefix.relative_to(prefix.anchor)
+        if not header(staged_prefix).is_file() or not header(prefix).is_file():
+            raise RuntimeError('DESTDIR installation escaped its staging root')
+        result['cases']['destdir'] = True
+    else:
+        result['cases']['destdir'] = 'unsupported by CMake for Windows drive-letter prefixes'
+
+    probe = root / 'symlink-target'
+    probe.mkdir()
+    try:
+        (root / 'symlink-probe').symlink_to(probe, target_is_directory=True)
+    except OSError as error:
+        if os.name != 'nt':
+            raise
+        result['symlinks'] = {'supported': False, 'reason': str(error)}
+        result['passed'] = True
+        return result
+    result['symlinks'] = {'supported': True}
+
+    # Existing intermediate links are allowed when their destination is owned.
+    case, build, prefix = paths('internal-links')
+    (build / 'owned').mkdir(parents=True)
+    (build / 'module-headers').symlink_to(build / 'owned', target_is_directory=True)
+    (prefix / 'owned').mkdir(parents=True)
+    (prefix / 'include').symlink_to(prefix / 'owned', target_is_directory=True)
+    configure(build, prefix, 'containment-internal-configure')
+    run([args.cmake, '--install', build], 'containment-internal-install')
+    if not header(prefix).is_file() or not (build / 'owned/client/client/DeviceClient.hpp').is_file():
+        raise RuntimeError('Allowed internal links did not produce headers')
+    result['cases']['internal_links'] = True
+
+    # Removing a leaf link must unlink it, rather than erase its owned target.
+    case, build, prefix = paths('leaf-links')
+    canaries = []
+    for owner, link in ((build, build / 'module-headers/client'),
+                        (prefix, prefix / 'include/telemetry-client')):
+        retained = owner / 'retained-client'
+        retained.mkdir(parents=True)
+        marker = retained / 'keep.txt'
+        marker.write_bytes(b'Owned leaf-link target must survive cleanup.\n')
+        canaries.append((marker, hashlib.sha256(marker.read_bytes()).hexdigest()))
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(retained, target_is_directory=True)
+    configure(build, prefix, 'containment-leaf-configure')
+    run([args.cmake, '--install', build], 'containment-leaf-install')
+    for marker, expected in canaries:
+        if not marker.is_file() or hashlib.sha256(marker.read_bytes()).hexdigest() != expected:
+            raise RuntimeError('Cleanup followed an owned leaf symlink instead of removing the link')
+    if not header(prefix).is_file() or (prefix / 'include/telemetry-client').is_symlink():
+        raise RuntimeError('Leaf link was not replaced with installed headers')
+    result['cases']['leaf_links'] = {'canaries_preserved': True}
+
+    # The declared root itself may be a symlink; its real directory is the owner.
+    case, build, prefix = paths('prefix-link')
+    actual_prefix = case / 'actual-prefix'
+    actual_prefix.mkdir()
+    prefix.symlink_to(actual_prefix, target_is_directory=True)
+    configure(build, prefix, 'containment-prefix-link-configure')
+    run([args.cmake, '--install', build], 'containment-prefix-link-install')
+    if not header(actual_prefix).is_file():
+        raise RuntimeError('A symlinked installation prefix was not supported')
+    result['cases']['prefix_link'] = True
+
+    for kind in ('staging', 'installation'):
+        for missing_leaf in (False, True):
+            name = kind + ('-missing-leaf' if missing_leaf else '-existing-leaf')
+            case, build, prefix = paths(name)
+            outside = case / 'outside'
+            outside.mkdir()
+            owned_name = 'client' if kind == 'staging' else 'telemetry-client'
+            marker = outside / ('keep.txt' if missing_leaf else owned_name + '/keep.txt')
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_bytes(b'Canary outside the declared build/install root.\n')
+            before = hashlib.sha256(marker.read_bytes()).hexdigest()
+            if kind == 'staging':
+                build.mkdir()
+                (build / 'module-headers').symlink_to(outside, target_is_directory=True)
+                output = run([args.cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+                              '-DTELEMETRY_COMPONENTS=client', '-DCMAKE_CXX_COMPILER=' + args.cxx,
+                              '-DCMAKE_INSTALL_PREFIX=' + str(prefix), *extra_config],
+                             'containment-' + name, expected_failure=True)
+            else:
+                configure(build, prefix, 'containment-' + name + '-configure')
+                prefix.mkdir()
+                (prefix / 'include').symlink_to(outside, target_is_directory=True)
+                output = run([args.cmake, '--install', build], 'containment-' + name,
+                             expected_failure=True)
+            after = hashlib.sha256(marker.read_bytes()).hexdigest() if marker.is_file() else None
+            if 'must stay inside' not in output or after != before:
+                raise RuntimeError(name + ': containment refusal did not preserve the canary')
+            if missing_leaf and (outside / owned_name).exists():
+                raise RuntimeError(name + ': refused cleanup wrote into the outside directory')
+            result['cases'][name] = {'canary_sha256_before': before, 'canary_sha256_after': after,
+                                     'refused': True, 'missing_leaf': missing_leaf}
+    result['passed'] = True
+    return result
 
 
 def main():
@@ -57,13 +190,16 @@ def main():
     environment = dict(os.environ, ASAN_OPTIONS='detect_leaks=1:halt_on_error=1',
                        UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1')
 
-    def run(command, label, expected_failure=False):
+    def run(command, label, expected_failure=False, extra_environment=None):
         start = time.monotonic()
-        completed = subprocess.run(list(map(str, command)), cwd=out, env=environment,
+        command_environment = dict(environment, **(extra_environment or {}))
+        completed = subprocess.run(list(map(str, command)), cwd=out, env=command_environment,
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=600)
         (out / (label + '.log')).write_text(completed.stdout, encoding='utf-8')
         report['commands'].append({'name': label, 'command': list(map(str, command)),
                                    'exit': completed.returncode, 'seconds': time.monotonic() - start})
+        if extra_environment:
+            report['commands'][-1]['environment'] = extra_environment
         if (completed.returncode == 0) == expected_failure:
             raise RuntimeError(label + '\n' + completed.stdout)
         return completed.stdout
@@ -77,6 +213,7 @@ def main():
     if args.sanitize:
         flags += ' -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer'
     try:
+        report['containment'] = check_containment(args, out, run, extra_config)
         for module in args.modules:
             directory = out / module
             build, prefix = directory / 'build', directory / 'install'

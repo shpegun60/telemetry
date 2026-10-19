@@ -7,6 +7,8 @@
 namespace telemetry::client {
 // Construct DeviceClient with a real Lock policy (e.g. std::mutex or RTOS mutex).
 // This wrapper posts work and wakes its owner; it never processes I/O/callbacks.
+// Even a failed submission can release the final producer reservation after
+// close(), so every completed submission attempt must wake the owner.
 // close(): stop admission; keep producers/client alive until producer calls have
 // returned and the owner has processed until drained(). No blocking owner join.
 template<class Client>
@@ -33,8 +35,7 @@ public:
 	Submission read(Args&&... args) noexcept
 	{
 		auto r = client_.read(std::forward<Args>(args)...);
-		if (r)
-			wake();
+		wake();
 		return r;
 	}
 
@@ -42,8 +43,7 @@ public:
 	Submission write(Args&&... args) noexcept
 	{
 		auto r = client_.write(std::forward<Args>(args)...);
-		if (r)
-			wake();
+		wake();
 		return r;
 	}
 
@@ -51,8 +51,7 @@ public:
 	Submission command(Args&&... args) noexcept
 	{
 		auto r = client_.command(std::forward<Args>(args)...);
-		if (r)
-			wake();
+		wake();
 		return r;
 	}
 
@@ -60,8 +59,7 @@ public:
 	Submission service(Args&&... args) noexcept
 	{
 		auto r = client_.service(std::forward<Args>(args)...);
-		if (r)
-			wake();
+		wake();
 		return r;
 	}
 
@@ -69,8 +67,7 @@ public:
 	Submission submitEncoded(Args&&... args) noexcept
 	{
 		auto r = client_.submitEncoded(std::forward<Args>(args)...);
-		if (r)
-			wake();
+		wake();
 		return r;
 	}
 

@@ -120,6 +120,8 @@ struct Submission {
 	}
 };
 
+// The function and its context must outlive the client. With multiple producers,
+// read() may run concurrently in submission calls and on the owner thread.
 struct Clock {
 	void* context = nullptr;
 	std::uint32_t (*read)(void*) noexcept = nullptr;

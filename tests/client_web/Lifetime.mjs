@@ -468,4 +468,45 @@ for (const rejectRelease of [false, true]) {
 	truth(client.drained);
 }
 
+// A synchronous abort listener may truthfully finish old I/O and open a new session.
+// The old recovery must cancel only its own queue, preserving newly accepted work.
+{
+	const clock = new FakeClock(), starts = [];
+	let client, fresh;
+	const backend = {
+		execute : (request, context) => new Promise(resolve => {
+		    starts.push({request, context, resolve});
+		    context.signal.addEventListener('abort', () => {
+			    // This fake has no physical I/O; synchronous settlement proves quiescence.
+			    resolve({});
+			    if (request.session === 1) {
+				    truth(client.confirmSessionClosed(1));
+				    truth(client.openSession(2, header));
+				    fresh = client.read(ops[4]);
+			    }
+		    }, {once : true});
+		})
+	};
+	client = new DeviceClient({backend, clock, matchesHeader : () => true});
+	truth(client.openSession(1, header));
+	const old = client.command(ops[2], 11);
+	await flush();
+	truth(starts[0].context.handoff(true));
+	truth(old.cancel());
+	equal((await old).status, Status.OutcomeUnknown);
+	equal(client.pendingCount, 1);
+	equal(client.session, 2);
+	await flush();
+	equal(starts.length, 2);
+	equal(starts[1].request.session, 2);
+	starts[1].resolve({dispatch : 0, endpointStatus : 0, payload : u32Bytes(62)});
+	const result = await fresh;
+	equal(result.status, Status.Ok);
+	equal(result.value, 62);
+	equal(client.recoveryRequired, false);
+	client.close();
+	await flush();
+	truth(client.drained);
+}
+
 console.log(`async web lifetime checks=${checks} failures=0`);

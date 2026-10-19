@@ -102,12 +102,18 @@ Cancelling an active mutation does not undo a possible remote effect.
 
 ## Multiple producers and shutdown
 
+The supplied `Clock` function and context must outlive the client. Its `read`
+function can run concurrently on producer threads and the owner thread, so the
+application must provide a thread-safe clock source.
+
 Instantiate `DeviceClient<..., Lock>` with a task mutex policy and wrap it in
 `ThreadSafeClient`. Producers reserve a stable record, initialize privately, and
 publish under a short lock. Only successfully published requests are accepted;
 FIFO follows publication order. No I/O, encoding, closure destruction or user
 callback executes while the queue mutex is held. The wrapper wakes the owner
-after publication/cancellation/close. A handle identifies owner, session and a
+after every submission attempt, successful cancellation, and close. A failed
+submission can release the last private reservation after close; its wake lets
+an event-driven owner finish draining. A handle identifies owner, session and a
 nonreused sequence; handles are valid only during that client instance's life.
 
 Shutdown is explicit:

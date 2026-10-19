@@ -127,6 +127,22 @@ struct EmptyBase {};
 struct Bad : EmptyBase {
 	std::uint32_t value;
 };
+#elif CASE == 25 || CASE == 26 || CASE == 27
+// Explicit aggregate alignment must not hide a misaligned packed member.
+// DMI makes default construction nontrivial, but never makes references safe.
+struct alignas(4) __attribute__((packed)) PackedDefaulted {
+	std::uint8_t first = 0;
+	std::uint32_t second = 0;
+};
+#if CASE == 25
+using Bad = PackedDefaulted;
+#elif CASE == 26
+struct Bad {
+	PackedDefaulted nested;
+};
+#else
+using Bad = std::array<PackedDefaulted, 2>;
+#endif
 #endif
 std::uint32_t probe()
 {

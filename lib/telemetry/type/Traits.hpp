@@ -266,18 +266,11 @@ struct TypeInfo<T, TypeClass::Struct> {
 		              "Packed aggregate member alignment is unsupported");
 #if defined(__clang__)
 		// Clang may form a reference to a packed member even when PFR's GCC
-		// backend rejects it. For trivially default-constructible aggregates,
-		// inspect the actual member address during constant evaluation.
-		// No member value is read and no runtime object is created.
+		// backend rejects it. Inspect the member address without constructing
+		// an application object, including aggregates with non-constexpr DMI.
 		static consteval bool addressAligned()
 		{
-			if constexpr (alignof(Native) > 1 && std::is_trivially_default_constructible_v<T>) {
-				T object;
-				return __builtin_is_aligned(std::addressof(telemetry::reflection::get<I>(object)),
-				                            alignof(Native));
-			} else {
-				return true;
-			}
+			return telemetry::reflection::detail::pfrMemberAligned<I, T>();
 		}
 
 		static_assert(addressAligned(), "Packed aggregate member alignment is unsupported");

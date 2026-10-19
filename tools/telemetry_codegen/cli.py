@@ -14,6 +14,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import stat
 import sys
 import tempfile
 
@@ -105,7 +106,17 @@ def render(schema, targets, client_runtime=False):
 
 
 def _linked(path):
-    return path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction())
+    if path.is_symlink():
+        return True
+    if hasattr(path, "is_junction"):
+        return path.is_junction()
+    # Path.is_junction() arrived in Python 3.12; Windows lstat has exposed
+    # directory mount-point reparse tags since Python 3.8.
+    try:
+        info = path.lstat()
+    except FileNotFoundError:
+        return False
+    return getattr(info, "st_reparse_tag", 0) == getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xa0000003)
 
 
 def _safe_output(output):
@@ -124,7 +135,9 @@ def _inventory(output):
     files, folded = {}, set()
     if not output.exists():
         return files
-    for root, directories, names in os.walk(output, followlinks=False):
+    def unreadable(error):
+        raise error
+    for root, directories, names in os.walk(output, followlinks=False, onerror=unreadable):
         for name in directories + names:
             path = Path(root) / name
             if _linked(path):

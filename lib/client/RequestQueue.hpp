@@ -281,7 +281,8 @@ public:
 
 private:
 	mutable Lock lock_{};
-	std::array<Record, N> records_{};
+	// Record initializes every member; redundant value-init triggers a MinGW 13.1 ICE.
+	std::array<Record, N> records_;
 	std::array<std::byte, PayloadBytes> pool_{};
 	std::size_t count_ = 0, reservations_ = 0;
 	std::uint64_t sequence_ = 0;

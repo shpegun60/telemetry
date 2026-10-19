@@ -28,6 +28,24 @@ struct Defaulted {
 	std::uint8_t value = 42;
 };
 
+int dmiCalls = 0;
+
+std::uint32_t applicationDefault() noexcept
+{
+	++dmiCalls;
+	return 42;
+}
+
+struct AlignedDefaulted {
+	std::uint8_t first = 1;
+	std::uint32_t second = applicationDefault();
+};
+
+struct NestedDefaulted {
+	AlignedDefaulted nested;
+	std::array<AlignedDefaulted, 2> repeated;
+};
+
 struct Repeated {
 	Reading first;
 	Reading second;
@@ -62,6 +80,8 @@ static_assert(telemetry::wireSize<Empty> == 0);
 static_assert(telemetry::wireSize<Reading> == 6);
 static_assert(telemetry::wireSize<Samples> == 19);
 static_assert(telemetry::wireSize<Defaulted> == 1);
+static_assert(telemetry::wireSize<AlignedDefaulted> == 5);
+static_assert(telemetry::wireSize<NestedDefaulted> == 15);
 static_assert(telemetry::wireSize<Repeated> == 12);
 static_assert(telemetry::wireSize<std::array<Empty, 0>> == 0);
 static_assert(telemetry::wireSize<std::array<Empty, 3>> == 0);
@@ -92,5 +112,5 @@ static_assert(std::numeric_limits<std::int64_t>::lowest() == -922337203685477580
 
 int main()
 {
-	return telemetry::wireSize<Samples> == 19 ? 0 : 1;
+	return telemetry::wireSize<Samples> == 19 && dmiCalls == 0 ? 0 : 1;
 }

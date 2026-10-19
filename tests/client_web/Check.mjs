@@ -197,6 +197,37 @@ for (const operation of [1, 2, 3, 4]) {
 	equal(client.recoveryRequired, false);
 }
 
+// Identity checks cannot roll back an epoch admitted by a reentrant callback.
+{
+	let client, inspecting = false;
+	({client} = controlled({
+		 matchesHeader : () => {
+		     if (!inspecting) {
+			     inspecting = true;
+			     truth(client.openSession(2, header));
+		     }
+		     return true;
+		 }
+	 }));
+	equal(client.openSession(1, header), false);
+	equal(client.session, 2);
+	truth(client.ready);
+	equal(client.openSession(2, header), false);
+	client.close();
+}
+{
+	let client;
+	({client} = controlled({
+		 matchesHeader : () => {
+		     client.close();
+		     return true;
+		 }
+	 }));
+	equal(client.openSession(1, header), false);
+	equal(client.session, 0);
+	equal(client.ready, false);
+}
+
 function response(request, payload = new Uint8Array(0), dispatch = 0, endpoint = 0)
 {
 	const frame = new Uint8Array(32 + payload.length);

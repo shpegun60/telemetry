@@ -757,6 +757,70 @@ static void trackedAdapterHandoffs(const QByteArray& header)
 	      "retained-state explicit closure could not reopen session");
 }
 
+static void admissionReentrancy(const QByteArray& header)
+{
+	for (const bool validInner : {false, true}) {
+		qa::DeviceApi api;
+		bool nested = false, inner = !validInner;
+		QObject::connect(
+		    &api, &qa::DeviceApi::sessionChanged, &api,
+		    [&] {
+			    if (!nested) {
+				    nested = true;
+				    inner = api.admitDescriptor(validInner ? header : QByteArray(64, '\0'));
+			    }
+		    },
+		    Qt::DirectConnection);
+		check(!api.admitDescriptor(header), "outer admission survived newer admission attempt");
+		check(nested && inner == validInner, "nested admission result");
+		check(api.session() == 2 && api.ready() == validInner,
+		      "outer admission changed newer state");
+		check(api.admitDescriptor(header) && api.ready() && api.session() == 3,
+		      "fresh admission after nested attempt");
+	}
+	{
+		qa::DeviceApi api;
+		bool nested = false;
+		QObject::connect(
+		    &api, &qa::DeviceApi::sessionChanged, &api,
+		    [&] {
+			    if (!nested) {
+				    nested = true;
+				    api.resetSession();
+			    }
+		    },
+		    Qt::DirectConnection);
+		check(!api.admitDescriptor(header), "outer admission survived newer reset");
+		check(nested, "session notification did not run synchronously");
+		check(api.session() == 2 && !api.ready(), "outer admission reopened reset session");
+		check(api.admitDescriptor(header) && api.session() == 3, "fresh admission after reset");
+	}
+	{
+		qa::DeviceApi api;
+		QObject::connect(
+		    &api, &qa::DeviceApi::readyChanged, &api,
+		    [&] {
+			    if (api.ready())
+				    api.resetSession();
+		    },
+		    Qt::DirectConnection);
+		check(!api.admitDescriptor(header), "admission reported ready after reset notification");
+		check(api.session() == 2 && !api.ready(), "ready notification reset was overwritten");
+	}
+	{
+		auto* victim = new qa::DeviceApi;
+		QPointer<qa::DeviceApi> alive(victim);
+		QObject::connect(
+		    victim, &qa::DeviceApi::readyChanged, victim,
+		    [victim] {
+			    if (victim->ready())
+				    delete victim;
+		    },
+		    Qt::DirectConnection);
+		check(!victim->admitDescriptor(header) && !alive, "admission survived object deletion");
+	}
+}
+
 int main(int argc, char** argv)
 {
 	QGuiApplication app(argc, argv);
@@ -1085,6 +1149,7 @@ int main(int argc, char** argv)
 		knownRpcReplyBeforeDelivery(descriptor.left(64));
 		pooledRecovery(engine, descriptor.left(64));
 		trackedAdapterHandoffs(descriptor.left(64));
+		admissionReentrancy(descriptor.left(64));
 		qobject_cast<QQuickItem*>(root.get())->setParentItem(nullptr);
 		std::cout << "QML checks=" << checks << " RPC packets=" << packets << '\n';
 		return 0;

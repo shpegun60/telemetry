@@ -407,10 +407,62 @@ static void mpsc()
 	facade.close();
 	owner.process(0);
 	CHECK(!owner.drained());
+	const auto closeWakes = wakes.load();
 	af::Codec::pauseEncode = false;
 	delayed.join();
 	CHECK(submission == cl::Status::Closed);
 	CHECK(completed == accepted);
+	CHECK(wakes.load() > closeWakes);
+	owner.process(0);
+	CHECK(owner.drained());
+	CHECK(backend.closeCalls == 1);
+}
+
+struct RejectingCodec : af::Codec {
+	template<class T>
+	static std::uint8_t encode(const T& value, cl::Output bytes) noexcept
+	{
+		(void)af::Codec::encode(value, bytes);
+		return 1;
+	}
+};
+
+static void failedEncodingCloseWake()
+{
+	af::now = 0;
+	af::Backend backend;
+	using Locked =
+	    cl::DeviceClient<RejectingCodec, 1, 4, 64, 64, alignof(std::max_align_t), std::mutex>;
+	Locked owner{backend, af::clock};
+	CHECK(owner.admitDescriptor(af::Codec::header, 1) == cl::Status::Ok);
+	std::atomic<unsigned> wakes{0}, callbacks{0};
+	cl::ThreadSafeClient facade{owner,
+	                            +[](void* p) noexcept {
+		                            ++*static_cast<std::atomic<unsigned>*>(p);
+	                            },
+	                            &wakes};
+	af::Codec::pauseEncode = true;
+	af::Codec::enteredEncode = false;
+	cl::Status submission = cl::Status::Ok;
+	std::thread delayed([&] {
+		submission = facade
+		                 .command(af::Command{}, 1U,
+		                          [&](const auto&) noexcept {
+			                          ++callbacks;
+		                          })
+		                 .status;
+	});
+	while (!af::Codec::enteredEncode.load())
+		std::this_thread::yield();
+	facade.close();
+	owner.process(0);
+	CHECK(!owner.drained());
+	const auto closeWakes = wakes.load();
+	af::Codec::pauseEncode = false;
+	delayed.join();
+	CHECK(submission == cl::Status::CodecError);
+	CHECK(callbacks == 0);
+	CHECK(wakes.load() > closeWakes);
 	owner.process(0);
 	CHECK(owner.drained());
 	CHECK(backend.closeCalls == 1);
@@ -426,6 +478,7 @@ int main()
 	transportGates();
 #ifndef ASYNC_NO_THREADS
 	mpsc();
+	failedEncodingCloseWake();
 #endif
 	std::printf("async_core checks=%u failures=%u\n", checks, failures);
 	return failures ? 1 : 0;

@@ -10,8 +10,11 @@ from ..naming import KEYWORDS, identifier
 
 
 RESERVED = KEYWORDS | frozenset("""
-objectName objectNameChanged destroyed parent children deleteLater setParent
+objectName objectNameChanged destroyed parent children deleteLater setParent thread
 metaObject staticMetaObject qt_metacall qt_metacast tr connect disconnect
+qt_staticMetaObjectContent qt_staticMetaObjectStaticContent qt_staticMetaObjectRelocatingContent
+qt_qmlMarker_anonymous
+event eventFilter timerEvent childEvent customEvent connectNotify disconnectNotify
 property signal readonly required component on id ready readyChanged session
 sessionChanged schemaFingerprint descriptorSha256 requestTimeoutMs
 requestTimeoutMsChanged setRequestTimeoutMs admitDescriptor resetSession
@@ -322,12 +325,17 @@ void DeviceApi::resetSession() {
 bool DeviceApi::admitDescriptor(const QByteArray& header) {
     if (QThread::currentThread() != thread()) return false;
     QPointer<DeviceApi> alive(this);
+    const auto previousSession = m_session;
     resetSession();
     if (!alive) return false;
-    if (m_session == std::numeric_limits<quint32>::max() || !::@NS@::schema::matchesHeader(::@NS@::qml::byteView(header))) return false;
+    // Session notifications may reset or admit another peer synchronously.
+    // Never attach this header to the epoch created by that newer operation.
+    if (previousSession == std::numeric_limits<quint32>::max() || m_session != previousSession + 1 ||
+        m_session == std::numeric_limits<quint32>::max() || !::@NS@::schema::matchesHeader(::@NS@::qml::byteView(header))) return false;
+    const auto epoch = m_session;
     m_ready = true;
     Q_EMIT readyChanged();
-    return true;
+    return alive && m_ready && m_session == epoch;
 }
 QString DeviceApi::submit(int operation, quint32 id, quint32 requestType, quint32 responseType,
                         QByteArray payload, quint32 responseBytes, Decoder decoder, Finish finish,

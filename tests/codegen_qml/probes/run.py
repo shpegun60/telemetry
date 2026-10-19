@@ -52,6 +52,7 @@ def source_inputs():
              "tools/telemetry_codegen/naming.py", "tools/telemetry_codegen/generators/cpp.py",
              "tools/telemetry_codegen/generators/qml.py",
              "tools/telemetry_codegen/generators/qml_rpc.py",
+             "tools/telemetry_codegen/generators/qml_client.py",
              "tools/telemetry_codegen/generators/qml_values.py",
              "tools/telemetry_codegen/generators/qml_js.py",
              "tools/telemetry_codegen/generators/qml_macros.py", "tests/codegen/test_core.py",

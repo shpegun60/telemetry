@@ -59,15 +59,27 @@ def write_modules(output):
              "signals", "slots", "emit", "foreach", "__proto__", "\u03bc", "a/b", "a b", "a_b_2",
              "Q_OBJECT", "Q_GADGET", "QT_VERSION", "Q_SIGNALS", "Q_SLOTS", "Q_INVOKABLE",
              "QML_ELEMENT", "Q_ASSERT", "Q_EMIT", "QT_UNICODE_LITERAL", "qApp", "qGuiApp", "qAppName",
-             "input", "values", "byteView", "byteOutput", "resultMap")
-    groups = ("pending", "timer", "inputEngine", "m_pending", "device", "m_device", "ready",
+             "input", "values", "byteView", "byteOutput", "resultMap", "thread", "sender",
+             "senderSignalIndex", "event", "eventFilter", "timerEvent", "childEvent", "customEvent",
+             "connectNotify", "disconnectNotify", "qt_static_metacall", "d_func", "d_ptr",
+             "requestActive", "snapshotInput", "commitTransportHandoff", "transportHandoffAccepted",
+             "operationFinished", "invalidate")
+    meta_state = ("qt_staticMetaObjectContent", "qt_staticMetaObjectStaticContent",
+                  "qt_staticMetaObjectRelocatingContent", "qt_create_metaobjectdata", "qt_qmlMarker_anonymous")
+    names += meta_state
+    groups = ("pending", "timer", "inputEngine", "m_pending", "device", "m_device", "ready", "thread",
               "deleteLater", "Type_12", "\u03bc", "a/b", "a b", "QString", "QObject", "QVariant",
               "QMetaObject", "Qt", "QtPrivate", "qjsEngine", "qMetaTypeId", "QLatin1Char", "QThread",
               "QQmlEngine", "QPointer", "QDeadlineTimer", "QJSEngine", "QBitArray", "QJSManagedValue",
               "QJSValue", "QJSValueIterator", "QMetaType", "QStringList", "QVariantMap", "QVariantList",
               "QList", "input", "values", "byteView", "byteOutput", "resultMap", "qApp", "qGuiApp",
               "qAppName", "Q_OBJECT", "Q_GADGET", "QT_VERSION", "Q_SIGNALS", "Q_SLOTS", "Q_INVOKABLE",
-              "QML_ELEMENT", "Q_ASSERT")
+              "QML_ELEMENT", "Q_ASSERT", "sender", "senderSignalIndex", "property", "connect",
+              "disconnect", "parent", "children", "event", "eventFilter", "timerEvent", "childEvent",
+              "customEvent", "connectNotify", "disconnectNotify", "qt_static_metacall", "d_func", "d_ptr",
+              "requestActive", "snapshotInput", "commitTransportHandoff", "transportHandoffAccepted",
+              "operationFinished", "invalidate", "trackHandoff", "nextToken", "session", "timeout")
+    groups += meta_state
     # A single-byte struct request is legal for Command/Service. All original
     # member spellings survive in DTOs, including Qt's optional keyword macros.
     # Enum labels are also real identifiers accessed inside converter shields.
@@ -85,6 +97,9 @@ def write_modules(output):
     # Empty catalogs still generate real groups and can also collide by name.
     for category in catalogs:
         category.extend((("empty group", []), ("empty/group", [])))
+    # Real zero-argument methods also exercise Q_OBJECT/QML_ANONYMOUS helpers
+    # and inherited hooks; parameterized command methods cannot expose that clash.
+    catalogs[1].append(("zero argument hooks", [(0, name) for name in names]))
     variants = (("empty", descriptor()),
                 ("hostile", descriptor(extra, tuple(tuple(rows) for rows in catalogs))))
     result = []

@@ -13,6 +13,10 @@ clock wrap. Four producers enqueue/cancel against one owner; a delayed private
 producer reservation overlaps close and explicit drain. `NoHeap.cpp` repeats
 owner lifecycle checks with allocation trapped.
 
+The close overlap also checks that a producer wakes a notification-driven owner
+after releasing its final private reservation, both when publication is refused
+as Closed and when encoding fails. Refused work never invokes a callback.
+
 The dedicated `MPSC ThreadSanitizer (Linux)` [CI job](../../.github/workflows/ci.yml)
 uses Ubuntu 24.04 and Clang 18. The existing `--thread-sanitize` mode runs the
 core lifecycle/MPSC executable and compile-time contracts; it does not combine

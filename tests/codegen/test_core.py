@@ -10,6 +10,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import struct
 import sys
@@ -207,6 +208,70 @@ class CoreTests(unittest.TestCase):
 
 
 class PublicationTests(unittest.TestCase):
+    def test_unreadable_application_directory_refuses_before_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "out"
+            first = self.files()
+            cli.publish(first, output)
+            private = output / "application"
+            private.mkdir()
+            canary = private / "keep.txt"
+            canary.write_text("application data")
+            real_scandir = os.scandir
+            def denied(path):
+                if str(path) == str(private):
+                    raise PermissionError("application directory is unreadable")
+                return real_scandir(path)
+            with patch.object(cli.os, "scandir", side_effect=denied):
+                with self.assertRaisesRegex(PermissionError, "unreadable"):
+                    cli.publish(self.files(text="updated"), output)
+            self.assertEqual(canary.read_text(), "application data")
+            self.assertEqual((output / "js/device.js").read_bytes(), first["js/device.js"])
+            self.assertEqual((output / cli.MANIFEST).read_bytes(), first[cli.MANIFEST])
+            self.assertEqual(sorted(path.name for path in Path(temporary).iterdir()), ["out"])
+
+    def test_legacy_windows_junction_detection(self):
+        # Python 3.10/3.11 expose lstat reparse tags but no Path.is_junction().
+        def legacy(tag=0, error=None):
+            def lstat():
+                if error is not None:
+                    raise error
+                return SimpleNamespace(st_reparse_tag=tag)
+            return SimpleNamespace(is_symlink=lambda: False, lstat=lstat)
+
+        self.assertTrue(cli._linked(legacy(0xa0000003)))
+        self.assertFalse(cli._linked(legacy()))
+        self.assertFalse(cli._linked(legacy(0xa000000c)))
+        self.assertFalse(cli._linked(legacy(error=FileNotFoundError())))
+        with self.assertRaises(PermissionError):
+            cli._linked(legacy(error=PermissionError()))
+
+    @unittest.skipUnless(os.name == "nt", "Windows directory junction control")
+    def test_actual_junction_is_refused_with_legacy_path_interface(self):
+        import _winapi
+        with tempfile.TemporaryDirectory() as temporary:
+            target, junction = Path(temporary) / "target", Path(temporary) / "junction"
+            target.mkdir()
+            (target / "application.txt").write_text("keep")
+            _winapi.CreateJunction(str(target), str(junction))
+            try:
+                original = cli._linked
+                def legacy_linked(path):
+                    return original(SimpleNamespace(is_symlink=path.is_symlink, lstat=path.lstat))
+                self.assertTrue(legacy_linked(junction))
+                with patch.object(cli, "_linked", side_effect=legacy_linked):
+                    for output in (junction, junction / "generated"):
+                        with self.assertRaisesRegex(ValueError, "symlinks or junctions"):
+                            cli.publish(self.files(), output)
+                    with self.assertRaisesRegex(ValueError, "symlinks or junctions"):
+                        cli._inventory(Path(temporary))
+                    with self.assertRaisesRegex(ValueError, "symlinks or junctions"):
+                        cli._write_descriptor(golden.fixture("empty"), junction / "descriptor.bin")
+                self.assertEqual((target / "application.txt").read_text(), "keep")
+                self.assertEqual(sorted(path.name for path in target.iterdir()), ["application.txt"])
+            finally:
+                junction.rmdir()
+
     def files(self, path="js/device.js", text="first\n"):
         data = text.encode()
         manifest = {"format": cli.FORMAT,

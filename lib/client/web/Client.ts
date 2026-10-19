@@ -260,7 +260,9 @@ export class DeviceClient {
 		} catch {
 			return false;
 		}
-		if (!matches)
+		// The identity callback may synchronously close, admit or enqueue on this client.
+		if (!matches || this.stopped || this.confirming || this.recoveryRequired ||
+		    this.pending.length || this.invocation || generation <= this.lastEpoch)
 			return false;
 		this.fingerprint = new DataView(declared!.buffer).getBigUint64(16, true);
 		this.epoch = this.lastEpoch = generation;
@@ -587,14 +589,15 @@ export class DeviceClient {
 		this.payloadBytes -= pending.request.payload.length;
 		if (this.active === pending)
 			this.active = undefined;
+		// Abort listeners may finish recovery and enqueue a newer session synchronously.
+		const abandoned = uncertain ? this.pending.slice() : [];
 		const request = pending.request;
 		const result = this.makeResult(request.operation, request.session, request.requestId,
 		                               status, wire, value);
 		pending.resolve(result);
 		pending.controller.abort();
-		if (uncertain)
-			for (const queued of this.pending.slice())
-				this.finish(queued, Status.Cancelled);
+		for (const queued of abandoned)
+			this.finish(queued, Status.Cancelled);
 		// Resolution queues Promise reactions before the next FIFO request starts.
 		this.schedule();
 		this.armTimer();

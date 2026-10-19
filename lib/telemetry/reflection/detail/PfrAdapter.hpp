@@ -24,6 +24,7 @@
 #include <boost/pfr/tuple_size.hpp>
 
 #include <cstddef>
+#include <memory>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -63,6 +64,22 @@ pfrGet(T&& object) noexcept(noexcept(boost::pfr::get<I>(std::forward<T>(object))
 {
 	return boost::pfr::get<I>(std::forward<T>(object));
 }
+
+#if defined(__clang__)
+// Inspect a member address without constructing T or evaluating application
+// default member initializers. The pinned name backend uses this same static
+// fake object; this consteval query never emits a reference to it at runtime.
+template<std::size_t I, class T>
+consteval bool pfrMemberAligned()
+{
+	using Member = PfrMemberType<I, T>;
+	if constexpr (alignof(Member) == 1)
+		return true;
+	else
+		return __builtin_is_aligned(std::addressof(pfrGet<I>(boost::pfr::detail::fake_object<T>())),
+		                            alignof(Member));
+}
+#endif
 
 } // namespace telemetry::reflection::detail
 

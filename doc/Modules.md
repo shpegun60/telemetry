@@ -81,6 +81,10 @@ Each target exports only its own headers and declared dependencies. Neither
 in-tree targets nor installed exports grant access to the entire `lib` tree.
 Each installed header directory is owned by its component; upgrading removes
 obsolete headers from that directory. Installation prefixes are relocatable.
+Before cleanup, CMake resolves existing path ancestors and requires the real
+destination to remain inside its build directory or installation prefix.
+Internal symlinks are supported; intermediate links escaping those roots are
+refused, including when the destination header directory does not yet exist.
 
 ## qmake
 
@@ -110,6 +114,9 @@ then builds independent downstream projects. Positive controls accompany
 expected include and link rejections. The suite checks removed headers on
 reconfigure/upgrade and refuses source changes during qualification. `--arm`
 compiles and links Cortex-M7 images without executing them.
+Cleanup controls cover escaping symlinks with unchanged canaries, allowed
+internal/leaf links, fresh output, prefix overrides and POSIX DESTDIR staging.
+Windows hosts that cannot create symlinks record that platform limitation.
 
 Focused dispatcher, descriptor, client, SDK and wire regressions cover preflight,
 overlap, error precedence, family statuses and exact bytes. Runtime sanitizers

@@ -102,6 +102,37 @@ class QmlGeneratorTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "QML namespace conflicts"):
                 render(schema, ("qml",))
 
+    def test_group_cannot_hide_qobject_thread(self):
+        schema = load_schema(descriptor(groups=((("thread", [(2, "sample")]),), (), ())))
+        group = qml.layout(schema)[0]
+        self.assertEqual(group["name"], "thread")
+        self.assertEqual(group["symbol"], "thread_2")
+        self.assertNotIn(b"Group_0Api* thread()", render(schema, ("qml",))["qml/DeviceApi.hpp"])
+
+    def test_qobject_macro_state_cannot_become_property_getters(self):
+        names = ("qt_staticMetaObjectContent", "qt_staticMetaObjectStaticContent",
+                 "qt_staticMetaObjectRelocatingContent")
+        schema = load_schema(descriptor(groups=(tuple((name, [(2, name)]) for name in names), (), ())))
+        for group, name in zip(qml.layout(schema), names):
+            self.assertEqual(group["symbol"], name + "_2")
+            self.assertEqual(group["endpoints"][0][1], name + "_2")
+
+    def test_anonymous_marker_cannot_become_zero_argument_command(self):
+        schema = load_schema(descriptor(groups=((), (("device", [(0, "qt_qmlMarker_anonymous")]),), ())))
+        self.assertEqual(qml.layout(schema)[0]["endpoints"][0][1], "qt_qmlMarker_anonymous_2")
+
+    def test_qobject_virtual_hooks_cannot_be_hidden(self):
+        names = ("event", "eventFilter", "timerEvent", "childEvent", "customEvent",
+                 "connectNotify", "disconnectNotify")
+        groups = (tuple((name, [(2, name)]) for name in names),
+                  (("commands", [(0, name) for name in names]),), ())
+        mapped = qml.layout(load_schema(descriptor(groups=groups)))
+        for group, name in zip(mapped, names):
+            self.assertEqual(group["symbol"], name + "_2")
+            self.assertEqual(group["endpoints"][0][1], name + "_2")
+        self.assertEqual([stem for _, stem in mapped[-1]["endpoints"]],
+                         [name + "_2" for name in names])
+
 
 if __name__ == "__main__":
     unittest.main()

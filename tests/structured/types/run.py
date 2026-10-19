@@ -62,6 +62,9 @@ TYPE_DIAGNOSTICS = {
     22: r"Unsupported structured wire type",
     23: r"(packed field|Packed aggregate member alignment is unsupported)",
     24: r"Inherited types are not supported",
+    25: r"(packed field|Packed aggregate member alignment is unsupported)",
+    26: r"(packed field|Packed aggregate member alignment is unsupported)",
+    27: r"(packed field|Packed aggregate member alignment is unsupported)",
 }
 
 
