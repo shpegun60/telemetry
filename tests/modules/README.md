@@ -14,6 +14,16 @@ canaries retained. Both existing and missing destination leaves are tested;
 Leaf-link targets inside the owner must retain their canaries when the link is
 replaced. All cases are created under the external build directory.
 
+Install-path controls also combine symlinks with `..` in include, library and
+data directories, configure/runtime prefixes and POSIX DESTDIR. They verify the
+actual header/archive/package/license locations and preserve sibling canaries.
+Cleanup, exports and installation use the same lexical-normalized paths.
+Relative runtime prefixes resolve against the installation invocation directory.
+CMake's stripped root sentinel retains root semantics; an empty runtime CLI
+override retains the configured prefix. Actual root
+installs are tested only inside an external POSIX DESTDIR. Windows drive-root
+normalization is tested with `cmake -P` without installing into a drive root.
+
 Linux requires all symbolic-link controls. On Windows, a denied symbolic-link
 creation is recorded explicitly as unsupported; ordinary configure, install,
 relocation and header-isolation checks still run. No hardware is exercised.

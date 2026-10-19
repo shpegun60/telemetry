@@ -1,6 +1,14 @@
 # Independent C++20 modules and relocatable installation. MIT.
 cmake_minimum_required(VERSION 3.20)
 project(Telemetry LANGUAGES CXX)
+# Give GNUInstallDirs and the generated install/export rules the same lexical
+# paths. Filesystem symlinks must not reinterpret a later uncollapsed "..".
+foreach(_directory CMAKE_INSTALL_PREFIX CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR
+        CMAKE_INSTALL_DATAROOTDIR CMAKE_INSTALL_DATADIR)
+    if(DEFINED ${_directory})
+        cmake_path(SET ${_directory} NORMALIZE "${${_directory}}")
+    endif()
+endforeach()
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}" OR IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")

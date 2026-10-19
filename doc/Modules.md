@@ -85,6 +85,12 @@ Before cleanup, CMake resolves existing path ancestors and requires the real
 destination to remain inside its build directory or installation prefix.
 Internal symlinks are supported; intermediate links escaping those roots are
 refused, including when the destination header directory does not yet exist.
+Install destination directories are normalized before GNUInstallDirs derives
+paths and exports. The install script also normalizes runtime `--prefix` and
+nonempty DESTDIR before cleanup or copying, so `symlink/..` cannot make those
+operations use different directories. Relative runtime prefixes resolve against
+the installation invocation directory; CMake's stripped root-prefix sentinel
+retains root semantics. Root installation tests use an external POSIX DESTDIR.
 
 ## qmake
 

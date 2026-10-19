@@ -31,6 +31,10 @@ endforeach()
 set(_telemetry_path_guard [=[
 function(_telemetry_real_output path result)
     cmake_path(ABSOLUTE_PATH path NORMALIZE OUTPUT_VARIABLE _ancestor)
+    cmake_path(GET _ancestor ROOT_PATH _root)
+    if(NOT _ancestor STREQUAL _root)
+        string(REGEX REPLACE "/+$" "" _ancestor "${_ancestor}")
+    endif()
     set(_suffix "")
     while(NOT EXISTS "${_ancestor}")
         if(IS_SYMLINK "${_ancestor}")
@@ -58,6 +62,28 @@ function(_telemetry_require_owned_path owner target description)
 endfunction()
 ]=])
 cmake_language(EVAL CODE "${_telemetry_path_guard}")
+# CMake's generated preamble strips a trailing slash, including from root
+# prefixes. Restore those sentinels before normalizing the actual variables
+# consumed by every subsequent cleanup, file(INSTALL), export and license rule.
+install(CODE [=[
+    # Telemetry install-path normalization begin.
+    if(CMAKE_INSTALL_PREFIX STREQUAL "")
+        set(CMAKE_INSTALL_PREFIX "/")
+    elseif(WIN32 AND CMAKE_INSTALL_PREFIX MATCHES "^[A-Za-z]:$")
+        string(APPEND CMAKE_INSTALL_PREFIX "/")
+    endif()
+    cmake_path(SET CMAKE_INSTALL_PREFIX NORMALIZE "${CMAKE_INSTALL_PREFIX}")
+    cmake_path(ABSOLUTE_PATH CMAKE_INSTALL_PREFIX NORMALIZE)
+    # file(INSTALL) appends its own slash. Keep CMake's root representation
+    # after normalization, otherwise "/" plus "/include" becomes a network path.
+    string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+    if(NOT "$ENV{DESTDIR}" STREQUAL "")
+        cmake_path(SET _telemetry_destdir NORMALIZE "$ENV{DESTDIR}")
+        cmake_path(ABSOLUTE_PATH _telemetry_destdir NORMALIZE)
+        set(ENV{DESTDIR} "${_telemetry_destdir}")
+    endif()
+    # Telemetry install-path normalization end.
+]=])
 install(CODE "${_telemetry_path_guard}")
 
 # Copy only a component's public headers; never export the repository's lib root.
@@ -110,7 +136,7 @@ foreach(_module IN LISTS _telemetry_modules)
     # Each module exclusively owns this install subdirectory. An upgrade must
     # not retain removed public headers from an earlier version.
     install(CODE "
-        set(_module_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
+        set(_module_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/\")
         set(_module_headers \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/telemetry-${_module}\")
         cmake_path(ABSOLUTE_PATH _module_prefix NORMALIZE OUTPUT_VARIABLE _module_prefix)
         cmake_path(ABSOLUTE_PATH _module_headers NORMALIZE OUTPUT_VARIABLE _module_headers)

@@ -29,6 +29,155 @@ FORBIDDEN = {
 }
 
 
+def check_install_paths(args, out, root, run, extra_config, symlinks):
+    """Cleanup and file(INSTALL) must use identical normalized destinations."""
+    result = {}
+
+    def configure(name, prefix, *options):
+        case = root / name
+        case.mkdir(exist_ok=True)
+        build = case / 'build'
+        run([args.cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+             '-DTELEMETRY_COMPONENTS=client', '-DCMAKE_CXX_COMPILER=' + args.cxx,
+             '-DCMAKE_INSTALL_PREFIX=' + str(prefix), *extra_config, *options],
+            'install-path-' + name + '-configure')
+        return build
+
+    suffix = Path('include/telemetry-client/client/DeviceClient.hpp')
+    name = 'relative-prefix'
+    prefix = root / name / 'installed'
+    build = configure(name, root / name / 'configured')
+    run([args.cmake, '--install', build, '--prefix', prefix.relative_to(out).as_posix()],
+        'install-path-relative-prefix')
+    if not (prefix / suffix).is_file():
+        raise RuntimeError('Relative runtime prefix did not resolve against the install invocation directory')
+    result[name] = True
+
+    # Exercise the generated normalizer without performing any root installation.
+    script = (build / 'cmake_install.cmake').read_text(encoding='utf-8')
+    start = script.index('# Telemetry install-path normalization begin.')
+    end = script.index('# Telemetry install-path normalization end.', start)
+    normalizer = script[start:end]
+    values = [(out.drive, out.drive)] if os.name == 'nt' else [('', ''), ('/', '')]
+    for index, (value, expected) in enumerate(values):
+        probe = root / ('prefix-root-' + str(index) + '.cmake')
+        probe.write_text('set(CMAKE_INSTALL_PREFIX "' + value + '")\n' + normalizer +
+                         '\nif(NOT CMAKE_INSTALL_PREFIX STREQUAL "' + expected + '")\n'
+                         'message(FATAL_ERROR "Root prefix became ${CMAKE_INSTALL_PREFIX}")\nendif()\n',
+                         encoding='utf-8')
+        run([args.cmake, '-P', probe], 'install-path-root-script-' + str(index))
+    result['root_normalizer_script'] = True
+
+    if os.name == 'nt':
+        name = 'native-separators'
+        prefix = root / name / 'installed'
+        build = configure(name, prefix, '-DCMAKE_INSTALL_INCLUDEDIR=nested\\..\\include',
+                          '-DCMAKE_INSTALL_LIBDIR=nested\\..\\lib', '-DCMAKE_INSTALL_DATADIR=nested\\..\\share')
+        run([args.cmake, '--install', build], 'install-path-native-separators')
+        required = [suffix, Path('lib/cmake/Telemetry/TelemetryTargets.cmake'), Path('share/telemetry/LICENSE')]
+        if not all((prefix / path).is_file() for path in required):
+            raise RuntimeError('Native Windows install directories were not converted before normalization')
+        result[name] = True
+
+    if os.name != 'nt':
+        # CMake strips the slash from --prefix /; empty and root must never become CWD.
+        for name, argument in (('root-prefix', '/'), ('empty-prefix', '')):
+            destdir = root / name / 'destdir'
+            run([args.cmake, '--install', build, '--prefix', argument], 'install-path-' + name,
+                extra_environment={'DESTDIR': str(destdir)})
+            expected = destdir / suffix if argument else destdir / (root / 'relative-prefix/configured').relative_to(out.anchor) / suffix
+            if not expected.is_file():
+                raise RuntimeError(name + ': root installation escaped the external DESTDIR')
+            result[name] = True
+        for name, configured in (('configure-relative-prefix',
+                                  (root / 'configure-relative-prefix/installed').relative_to(out).as_posix()),
+                                 ('configure-empty-prefix', '')):
+            build = configure(name, configured)
+            destdir = root / name / 'destdir'
+            run([args.cmake, '--install', build], 'install-path-' + name,
+                extra_environment={'DESTDIR': str(destdir)})
+            if configured:
+                expected = destdir / (out / configured).relative_to(out.anchor) / suffix
+            else:
+                expected = destdir / suffix
+            if not expected.is_file():
+                raise RuntimeError(name + ': unexpected actual header installation directory')
+            result[name] = True
+    if not symlinks:
+        result['symlink_dotdot'] = 'unsupported symbolic-link creation on this host'
+        return result
+
+    name = 'includedir-escape'
+    case = root / name
+    outside = case / 'outside'
+    outside.mkdir(parents=True)
+    marker = outside / 'keep.txt'
+    marker.write_bytes(b'Relative header escape must be refused before installation.\n')
+    before = hashlib.sha256(marker.read_bytes()).hexdigest()
+    build = configure(name, case / 'prefix', '-DCMAKE_INSTALL_INCLUDEDIR=../outside')
+    text = run([args.cmake, '--install', build], 'install-path-' + name, expected_failure=True)
+    if 'must stay inside' not in text or hashlib.sha256(marker.read_bytes()).hexdigest() != before:
+        raise RuntimeError('Relative header escape was not safely refused')
+    if list(outside.rglob('tiny_delegate.hpp')):
+        raise RuntimeError('Relative header escape copied files before refusal')
+    result[name] = {'refused': True, 'canary_sha256': before}
+
+    for name in ('destinations-dotdot', 'configure-prefix-dotdot', 'runtime-prefix-dotdot',
+                 'relative-prefix-dotdot', 'destdir-dotdot'):
+        if name == 'destdir-dotdot' and os.name == 'nt':
+            continue
+        case = root / name
+        prefix, outside = case / 'prefix', case / 'outside'
+        prefix.mkdir(parents=True)
+        (outside / 'deep').mkdir(parents=True)
+        (prefix / 'link').symlink_to(outside / 'deep', target_is_directory=True)
+        markers = [prefix / 'keep.txt', outside / 'keep.txt', outside / 'include/telemetry-client/keep.txt']
+        for marker in markers:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_bytes(b'Normalized installation must preserve sibling canaries.\n')
+        before = {str(p.relative_to(case)): hashlib.sha256(p.read_bytes()).hexdigest() for p in markers}
+        raw_prefix = prefix.as_posix() + '/link/../chosen'
+        configured = raw_prefix if name == 'configure-prefix-dotdot' else str(prefix)
+        options = []
+        if name == 'destinations-dotdot':
+            options = ['-DTELEMETRY_COMPONENTS=client;resource_protocol',
+                       '-DCMAKE_INSTALL_INCLUDEDIR=link/../include', '-DCMAKE_INSTALL_LIBDIR=link/../lib',
+                       '-DCMAKE_INSTALL_DATADIR=link/../share']
+        build = configure(name, configured, *options)
+        if name == 'destinations-dotdot':
+            run([args.cmake, '--build', build, '-j2'], 'install-path-destinations-build')
+        command = [args.cmake, '--install', build]
+        expected_prefix = prefix
+        extra_environment = None
+        if name in ('configure-prefix-dotdot', 'runtime-prefix-dotdot', 'relative-prefix-dotdot'):
+            expected_prefix = prefix / 'chosen'
+        if name == 'runtime-prefix-dotdot':
+            command += ['--prefix', raw_prefix]
+        elif name == 'relative-prefix-dotdot':
+            command += ['--prefix', prefix.relative_to(out).as_posix() + '/link/../chosen']
+        elif name == 'destdir-dotdot':
+            extra_environment = {'DESTDIR': prefix.as_posix() + '/link/../staged'}
+            expected_prefix = prefix / 'staged' / prefix.relative_to(prefix.anchor)
+        run(command, 'install-path-' + name, extra_environment=extra_environment)
+        if not (expected_prefix / suffix).is_file() or list(outside.rglob('DeviceClient.hpp')):
+            raise RuntimeError(name + ': actual header installation disagreed with normalized cleanup')
+        if name == 'destinations-dotdot':
+            required = ['lib/cmake/Telemetry/TelemetryTargets.cmake', 'share/telemetry/LICENSE']
+            if not list((prefix / 'lib').glob('*telemetry_resource_protocol*')):
+                raise RuntimeError('Normalized library destination lost the compiled archive')
+            if not all((prefix / path).is_file() for path in required):
+                raise RuntimeError('Package or license destination was not normalized')
+            if list((outside / 'lib').glob('**/*')) or list((outside / 'share').glob('**/*')):
+                raise RuntimeError('Unnormalized library/package/license installation escaped the prefix')
+        after = {str(p.relative_to(case)): hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+                 for p in markers}
+        if after != before:
+            raise RuntimeError(name + ': installation changed a sibling canary')
+        result[name] = {'actual_header': str((expected_prefix / suffix).relative_to(root)),
+                        'canary_sha256_before': before, 'canary_sha256_after': after}
+    return result
+
+
 def check_containment(args, out, run, extra_config):
     """Exercise cleanup only in new cases below the verified external output root."""
     root = Path(tempfile.mkdtemp(prefix='containment-', dir=out))
@@ -78,9 +227,11 @@ def check_containment(args, out, run, extra_config):
         if os.name != 'nt':
             raise
         result['symlinks'] = {'supported': False, 'reason': str(error)}
+        result['install_paths'] = check_install_paths(args, out, root, run, extra_config, False)
         result['passed'] = True
         return result
     result['symlinks'] = {'supported': True}
+    result['install_paths'] = check_install_paths(args, out, root, run, extra_config, True)
 
     # Existing intermediate links are allowed when their destination is owned.
     case, build, prefix = paths('internal-links')
