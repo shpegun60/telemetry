@@ -72,13 +72,20 @@ Offline ARM GCC 13.2, Cortex-M7 hard-float, section GC, same two roots:
 | Optimization | Generated `.text` | Native `.text` | Generated max individual frame | Native max individual frame |
 | --- | ---: | ---: | ---: | ---: |
 | O2 | 356 bytes | 348 bytes | 16 bytes | 16 bytes |
-| Os | 590 bytes | 374 bytes | 48 bytes | 40 bytes |
-| Og | 972 bytes | 3,944 bytes | 80 bytes | 96 bytes |
+| Os | 494 bytes | 374 bytes | 32 bytes | 40 bytes |
+| Og | 1,034 bytes | 3,944 bytes | 80 bytes | 96 bytes |
 
 These minimal linked roots have no mutable static payload storage or allocation
 symbols; caller-owned DTOs and buffers are additional application RAM. `.text`
 excludes debug/comment sections and is not the size of an entire firmware.
 Individual compiler frames do not establish cumulative call-chain stack usage.
+
+For these linked GCC 13.2.1 Os roots, disassembly and static `.su` frames give a
+closed, direct, acyclic call graph. Cumulative SP reservation from root entry
+changes from 48 to 44 bytes for Scalars encode and 88 to 72 bytes for decode.
+The large DTO remains at 24 bytes for encode and 32 bytes for decode. These bounds
+exclude the root caller and interrupt/exception frames, and describe reserved
+stack rather than observed stack writes.
 
 A separate 10,001-byte DTO probe has maximum individual frames **16 / 24 / 80
 bytes** for O2/Os/Og, no allocation symbols and a 256-byte enforced frame ceiling.
@@ -90,6 +97,18 @@ copied. Big endian retains explicit byte assembly and was executed through QEMU.
 An earlier byte-shift implementation needed 800 bytes at ARM O2; the measured
 leaf optimization reduced that to 356. A member-subspan candidate regressed both
 size and host timing and was discarded.
+
+An identical ARM GCC 13.2.1 probe reproduced the earlier generated O2/Os/Og
+sizes of 356/590/972 bytes. Under Os, outlined aggregate helpers repeatedly
+reloaded and stored the shared writer cursor across byte stores. Keeping that
+cursor in a local Writer until the aggregate completes, and validating a bool
+byte directly, reduced this probe by 96 bytes and its largest individual frame
+from 48 to 32 bytes. O2 output stayed unchanged. Og grew by 62 bytes; the separate
+10,001-byte DTO grew by 18 bytes at Og, with its O2/Os sizes and all three maximum
+individual frames unchanged. Copying Reader state too was rejected: despite a
+smaller Scalars probe, it increased the large DTO's Os maximum frame from 24 to
+32 bytes. These are observations for the recorded probes, not guarantees for
+every generated type or compiler.
 
 ## Reproduce and limits
 

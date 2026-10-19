@@ -149,7 +149,8 @@ the transport. After `close()`, `drained` also waits for this release. See the
 confirmation after an application has closed and drained an old session.
 
 The [bare-metal example](../examples/async_client/README.md),
-[C++ qualification](../tests/async_client/README.md), and
+[C++ qualification](../tests/async_client/README.md),
+[DMA transport fixture](../tests/transport_dma/README.md), and
 [web qualification](../tests/client_web/README.md) exercise the implementation.
 The CI jobs retain generated outputs and logs. Host/Qt/sanitizer runs and ARM
 compiler stack evidence do not establish electrical disconnect/DMA behavior on

@@ -97,6 +97,7 @@ def main():
                               ('ts', runtime / 'Client.js')):
             counted([args.node, HERE / 'Check.mjs', module], 'web-' + label, 332)
             counted([args.node, HERE / 'Lifetime.mjs', module], 'lifetime-' + label, 335)
+            counted([args.node, HERE / 'Polling.mjs', module], 'polling-' + label, 90)
             traces = run([args.node, HERE / 'Trace.mjs', module], 'traces-' + label)
             for line in traces.splitlines():
                 test = json.loads(line)

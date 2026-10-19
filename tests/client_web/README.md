@@ -14,6 +14,12 @@ cancel while blocked, explicit close/drain confirmation, and late old-session
 settlement while a new invocation owns the transport. It also checks asynchronous
 Encoded sends and `fromExchange`, backend confirmation refusal/exception/reentry,
 and the distinction between logical completion and the `drained` getter.
+`Polling.mjs` records deterministic packet timestamps: the first RPC READ follows
+the final WRITE ACK immediately; validated Pending/Running replies retain the
+default 10 ms poll interval. READ continuations are immediate, ACK-loss retries
+retain identical bytes and transaction identity, and cancellation while polling
+stops further packets and clears timers. These are fake-clock protocol checks,
+not physical transport latency measurements.
 Checked Encoded replies also complete before an outstanding asynchronous send
 releases I/O: crossing the original deadline or a later send rejection preserves
 the known result, while the next queued transport invocation remains blocked.

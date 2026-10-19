@@ -77,6 +77,32 @@ int main()
 	CHECK(api::codec::encode(api::motor::commands::Large, large, largeWire) == S::Ok);
 	largeWire[10000] = std::byte{2};
 	CHECK(api::codec::decode(largeWire, large) == S::InvalidValue && !large.valid);
+	// Nested aggregate/array cursors must advance exactly once at each boundary.
+	api::motor::types::Nested nested{}, nestedRestored{};
+	nested.prefix = 0xab;
+	nested.rows[0] = {0x1234, {true, false, true}, false};
+	nested.rows[1] = {0x5678, {false, true, false}, true};
+	nested.suffix = 0x12345678;
+	nested.valid = true;
+	constexpr std::array<std::byte, 18> expected{
+	    std::byte{0xab}, std::byte{0x34}, std::byte{0x12}, std::byte{1},    std::byte{0},
+	    std::byte{1},    std::byte{0},    std::byte{0x78}, std::byte{0x56}, std::byte{0},
+	    std::byte{1},    std::byte{0},    std::byte{1},    std::byte{0x78}, std::byte{0x56},
+	    std::byte{0x34}, std::byte{0x12}, std::byte{1}};
+	std::array<std::byte, 18> nestedWire{};
+	CHECK(api::codec::encode(nested, nestedWire) == S::Ok && nestedWire == expected);
+	CHECK(api::codec::decode(nestedWire, nestedRestored) == S::Ok);
+	CHECK(nestedRestored.prefix == nested.prefix && nestedRestored.rows[1].tag == 0x5678 &&
+	      nestedRestored.rows[0].flags[2] && !nestedRestored.rows[1].flags[2] &&
+	      nestedRestored.suffix == nested.suffix && nestedRestored.valid);
+	std::array<std::byte, sizeof(nestedRestored)> nestedSnapshot{};
+	std::memcpy(nestedSnapshot.data(), &nestedRestored, sizeof nestedRestored);
+	for (const auto offset : {3u, 4u, 5u, 6u, 9u, 10u, 11u, 12u, 17u}) {
+		auto invalid = expected;
+		invalid[offset] = std::byte{2};
+		CHECK(api::codec::decode(invalid, nestedRestored) == S::InvalidValue);
+		CHECK(std::memcmp(nestedSnapshot.data(), &nestedRestored, sizeof nestedRestored) == 0);
+	}
 #ifdef CODEGEN_WITH_TELEMETRY
 	std::array<std::byte, 57> generated{}, native{};
 	CHECK(api::codec::encode(input, generated) == S::Ok);

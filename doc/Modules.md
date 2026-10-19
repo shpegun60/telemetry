@@ -96,6 +96,11 @@ operations use different directories. Relative runtime prefixes resolve against
 the installation invocation directory; CMake's stripped root-prefix sentinel
 retains root semantics. Root installation tests use an external POSIX DESTDIR.
 
+Build and installation output roots must be trusted directories whose path
+components are not concurrently replaced by another process. Path validation
+and filesystem cleanup are separate operations; they do not provide an atomic
+guarantee against concurrent symlink or junction substitution.
+
 ## qmake
 
 Each module owns one manifest beside its sources: `telemetry.pri`,

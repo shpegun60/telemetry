@@ -55,6 +55,12 @@ with unowned files are refused. Unrelated regular files are preserved.
 Symlinks/junctions are refused. Failed publication restores the previous tree;
 an unexpected backup is retained rather than deleting its only copy.
 
+Output directories and their parents must be trusted and must not have path
+components concurrently replaced by another process. Ownership checks and
+publication are separate filesystem operations, so they do not provide an atomic
+guarantee against concurrent symlink or junction substitution. The same
+[output-root assumption](Modules.md#cmake) applies to build and installation.
+
 `--check` makes no changes and fails for changed, missing or obsolete owned
 outputs, options or receipt data. Generated files are reproducible UTF-8 text
 without timestamps. Keep edited application code outside generated files.

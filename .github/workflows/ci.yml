@@ -156,6 +156,17 @@ jobs:
             --build-dir "$RUNNER_TEMP/async-client" "${options[@]}"
           python3 -B tests/async_client/Encoded_run.py --cxx '${{ matrix.cxx }}' \
             --no-heap --build-dir "$RUNNER_TEMP/async-encoded"
+      - name: DMA buffer lifetime, RPC recovery and HAL callback ordering
+        shell: bash
+        run: |
+          options=()
+          if [[ '${{ matrix.cxx }}' == 'g++' ]]; then
+            options+=(--arm-cxx arm-none-eabi-g++)
+          else
+            options+=(--sanitize)
+          fi
+          python3 -B tests/transport_dma/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/transport-dma" "${options[@]}"
       - name: Retain portable client evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -164,6 +175,7 @@ jobs:
           path: |
             ${{ runner.temp }}/async-client/
             ${{ runner.temp }}/async-encoded/
+            ${{ runner.temp }}/transport-dma/
           if-no-files-found: error
 
   async-client-tsan:

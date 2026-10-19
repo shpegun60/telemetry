@@ -243,7 +243,7 @@ template<> struct Adapter<void> { static constexpr std::size_t bytes = 0; };
 template<> struct Adapter<bool> {
     static constexpr std::size_t bytes = 1;
     static void write(const bool& value, Writer& out) noexcept { out.integer<std::uint8_t>(value ? 1 : 0); }
-    static bool valid(Reader& in) noexcept { return in.integer<std::uint8_t>() <= 1; }
+    static bool valid(Reader& in) noexcept { return std::to_integer<std::uint8_t>(in.bytes[in.cursor++]) <= 1; }
     static void read(Reader& in, bool& value) noexcept { value = in.integer<std::uint8_t>() != 0; }
 };
 template<class T, class U> struct Floating {
@@ -347,11 +347,14 @@ def _codec(schema, reachable):
                          f"    static void read(Reader& in, {name}& value) noexcept {{ {underlying} raw; Adapter<{underlying}>::read(in, raw); value = static_cast<{name}>(raw); }}\n"))
         else:
             members = tuple(zip(item["members"], schema.member_names[index]))
-            rows.append(f"    static void write(const {name}& value, Writer& out) noexcept {{\n")
+            # Keep writer cursor updates local across byte stores, which may
+            # otherwise alias its caller's state in an outlined helper.
+            rows.append(f"    static void write(const {name}& value, Writer& destination) noexcept {{\n"
+                        "        Writer out = destination;\n")
             rows.append("        (void)value; (void)out;\n")
             for (child, _), symbol in members:
                 rows.append(f"        Adapter<{_type(child)}>::write(value.{symbol}, out);\n")
-            rows.append("    }\n    static bool valid(Reader& in) noexcept {\n        (void)in;\n        return ")
+            rows.append("        destination.cursor = out.cursor;\n    }\n    static bool valid(Reader& in) noexcept {\n        (void)in;\n        return ")
             rows.append(" && ".join(f"Adapter<{_type(child)}>::valid(in)" for (child, _), _ in members) or "true")
             rows.append(f";\n    }}\n    static void read(Reader& in, {name}& value) noexcept {{\n        (void)in; (void)value;\n")
             for (child, _), symbol in members:

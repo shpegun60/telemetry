@@ -860,8 +860,8 @@ function readChunk(reply: Uint8Array)
 // Return checked transport outcomes; this function never decodes value payloads.
 async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | Promise<Uint8Array>,
                                  operation: Operation, id: number, payload: Uint8Array,
-                                 options: RpcOptions,
-                                 preserveRefusals: boolean): Promise<RpcOutcome>
+                                 options: RpcOptions, preserveRefusals: boolean,
+                                 waitForPoll?: () => Promise<void>): Promise<RpcOutcome>
 {
 	ensure(typeof exchange === 'function', 'Exchange callback required');
 	ensure(Object.hasOwn(codes, operation), 'Explicit RPC operation required');
@@ -943,6 +943,10 @@ async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | 
 		ensure(payloadBytes === 0 && data.getUint8(22) === 0 && data.getUint8(23) === 0 &&
 		           first.bytes.length === 32 && first.eof && first.next === 0n,
 		       'RPC pending snapshot');
+		// The first READ follows the final WRITE ACK immediately. Only a checked
+		// Pending/Running reply schedules another delayed status poll.
+		if (waitForPoll)
+			await waitForPoll();
 	}
 	const total = 32 + resultHeader.payloadBytes;
 	ensure(total <= maxReplyBytes, 'RPC result exceeds byte budget');
@@ -1093,14 +1097,11 @@ export class RpcBackend implements Backend {
 
 	private async run(request: WireRequest, context: BackendContext): Promise<WireResult>
 	{
+		const pollInterval = this.options.pollIntervalMs ?? 10;
 		const exchange = async(packet: Uint8Array): Promise<Uint8Array> => {
 			if (context.signal.aborted)
 				throw new BackendFailure(Status.Cancelled, 'RPC cancelled');
-			const write = packet[0] === 4, final = write && packet[13] === 1;
-			if (!write && view(packet).getBigUint64(5, true) === 0n &&
-			    (this.options.pollIntervalMs ?? 10) > 0) {
-				await this.delay(this.options.pollIntervalMs ?? 10, context);
-			}
+			const final = packet[0] === 4 && packet[13] === 1;
 			const maximum = this.options.maxRetries ?? 2;
 			for (let attempt = 0;; ++attempt) {
 				try {
@@ -1124,7 +1125,8 @@ export class RpcBackend implements Backend {
 		try {
 			outcome = await rpcPacketExchange(
 			    exchange, request.operation, request.endpointId, request.payload,
-			    {...this.options, transactionId : request.requestId}, true);
+			    {...this.options, transactionId : request.requestId}, true,
+			    pollInterval > 0 ? () => this.delay(pollInterval, context) : undefined);
 		} catch (error) {
 			if (error instanceof BackendFailure)
 				throw error;

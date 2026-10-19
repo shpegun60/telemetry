@@ -30,8 +30,12 @@ def focused_schema():
         golden.type_record(18, 4, 10000, golden.u32(2, 10000)),
         golden.struct_type(19, 10001, [(18, "Type_2"), (1, "valid")]),
         golden.enum_type(20, 7, 4, []),
+        golden.type_record(21, 4, 3, golden.u32(1, 3)),
+        golden.struct_type(22, 6, [(4, "tag"), (21, "flags"), (1, "valid")]),
+        golden.type_record(23, 4, 12, golden.u32(22, 2)),
+        golden.struct_type(24, 18, [(2, "prefix"), (23, "rows"), (6, "suffix"), (1, "valid")]),
     )
-    groups = ((("motor", [(17, "Config", 3), (15, "Empty", 3), (20, "Sparse", 1)]),),
+    groups = ((("motor", [(17, "Config", 3), (15, "Empty", 3), (20, "Sparse", 1), (24, "Nested", 3)]),),
               (("motor", [(0, "Reset"), (17, "Apply"), (19, "Large")]),),
               (("motor", [(0, "Read", 17), (17, "Echo", 17), (17, "Store", 0), (0, "Noop", 0)]),))
     return load_schema(descriptor(extra, groups), "sdk::device")
