@@ -186,6 +186,8 @@ def run_suite(spec):
             run(flags + ['-x', 'c++', '-fsyntax-only', '-'], 'header-' + str(index),
                 input_text='#include <' + header + '>\n')
             report['headers'].append(header)
+        run(flags + ['-O2', '-fsyntax-only', spec['here'] / 'Negative.cpp'],
+            'negative-fixture-positive')
         for name, diagnostic in spec['negatives'].items():
             run(flags + ['-O2', '-D' + name, '-fsyntax-only', spec['here'] / 'Negative.cpp'],
                 name.lower(), diagnostic=diagnostic)

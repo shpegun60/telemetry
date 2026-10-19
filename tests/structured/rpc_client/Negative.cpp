@@ -7,7 +7,6 @@
 #include <client/rpc/RpcClient.hpp>
 #include <array>
 #include <utility>
-namespace rpc = resource::telemetry::v3;
 
 struct Request {
 	unsigned value;

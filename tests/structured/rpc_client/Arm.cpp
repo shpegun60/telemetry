@@ -6,7 +6,6 @@
  */
 #include <client/rpc/RpcClient.hpp>
 #include <array>
-namespace rpc = resource::telemetry::v3;
 
 struct Request {
 	std::uint32_t value;

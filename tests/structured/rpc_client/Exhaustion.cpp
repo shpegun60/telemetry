@@ -30,7 +30,6 @@
 #include <array>
 #include <cstdio>
 
-namespace rpc = resource::telemetry::v3;
 using Status = ::telemetry::client::rpc::RpcClientStatus;
 static unsigned checks = 0, failures = 0;
 
