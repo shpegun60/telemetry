@@ -54,6 +54,81 @@ jobs:
             ${{ runner.temp }}/client-module/
           if-no-files-found: error
 
+  modules-windows:
+    name: Windows installed client and junction containment
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Preserve canonical source bytes in this runner checkout
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require the native Windows toolchain
+        run: |
+          $python = (Get-Command python.exe -CommandType Application -ErrorAction Stop).Source
+          $tools = [ordered]@{
+            cxx = 'C:\mingw64\bin\g++.exe'
+            cmake = (Get-Command cmake.exe -CommandType Application -ErrorAction Stop).Source
+            ninja = (Get-Command ninja.exe -CommandType Application -ErrorAction Stop).Source
+          }
+          $output = Join-Path $env:RUNNER_TEMP 'modules-windows'
+          New-Item -ItemType Directory -Path $output -Force | Out-Null
+          foreach ($tool in $tools.GetEnumerator()) {
+            if (!(Test-Path -LiteralPath $tool.Value -PathType Leaf)) {
+              throw "Required native tool is missing: $($tool.Value)"
+            }
+            if ($tool.Value -match '(?i)\\(msys64|msys32)\\|\\Git\\usr\\') {
+              throw "An MSYS tool cannot qualify native Windows paths: $($tool.Value)"
+            }
+            $version = & $tool.Value --version 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "$($tool.Key) --version failed" }
+            "$($tool.Key): $($tool.Value)" | Add-Content -LiteralPath "$output/toolchain.log"
+            $version | Tee-Object -FilePath "$output/toolchain.log" -Append
+            (Get-FileHash -LiteralPath $tool.Value -Algorithm SHA256).Hash |
+              Add-Content -LiteralPath "$output/toolchain.log"
+            (Split-Path -Parent $tool.Value) | Add-Content -LiteralPath $env:GITHUB_PATH
+          }
+          "TELEMETRY_WINDOWS_CXX=$($tools.cxx)" | Add-Content -LiteralPath $env:GITHUB_ENV
+          "TELEMETRY_WINDOWS_CMAKE=$($tools.cmake)" | Add-Content -LiteralPath $env:GITHUB_ENV
+          "TELEMETRY_WINDOWS_PYTHON=$python" | Add-Content -LiteralPath $env:GITHUB_ENV
+          "python: $python" | Add-Content -LiteralPath "$output/toolchain.log"
+          (Split-Path -Parent $tools.cxx) | Add-Content -LiteralPath $env:GITHUB_PATH
+          & $python -c "import sys; assert sys.version_info[:2] == (3, 12); print(sys.version)"
+          if ($LASTEXITCODE -ne 0) { throw 'Python 3.12 is required' }
+      - name: Installed client and mandatory Windows junction controls
+        run: |
+          & $env:TELEMETRY_WINDOWS_PYTHON -B tests/modules/run.py --modules client --cxx "$env:TELEMETRY_WINDOWS_CXX" `
+            --cmake "$env:TELEMETRY_WINDOWS_CMAKE" --build-dir "$env:RUNNER_TEMP/modules-windows"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows module qualification failed' }
+      - name: Collect flat evidence without following fixture junctions
+        if: always()
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'modules-windows'
+          $evidence = Join-Path $env:RUNNER_TEMP 'modules-windows-evidence'
+          New-Item -ItemType Directory -Path $evidence -Force | Out-Null
+          if (Test-Path -LiteralPath $output -PathType Container) {
+            Get-ChildItem -LiteralPath $output -File | Where-Object {
+              $_.Name -eq 'summary.json' -or $_.Extension -eq '.log'
+            } | ForEach-Object {
+              if ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                throw "Evidence must be a regular file: $($_.FullName)"
+              }
+              Copy-Item -LiteralPath $_.FullName -Destination $evidence
+            }
+          }
+      - name: Retain Windows module qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules-windows
+          path: ${{ runner.temp }}/modules-windows-evidence/
+          if-no-files-found: error
+
   async-client:
     name: Portable async client (${{ matrix.cxx }})
     runs-on: ubuntu-24.04

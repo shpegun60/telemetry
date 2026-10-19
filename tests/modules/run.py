@@ -178,6 +178,180 @@ def check_install_paths(args, out, root, run, extra_config, symlinks):
     return result
 
 
+def check_windows_junctions(args, root, run, extra_config):
+    """Mandatory Windows reparse-point controls; CreateJunction needs no symlink privilege."""
+    import stat
+    links = []
+    try:
+        return windows_junction_cases(args, root, run, extra_config, links)
+    finally:
+        # Unlink only recorded junction objects, never traverse their targets.
+        # CMake may already have replaced owned leaf links with normal directories.
+        for link in reversed(links):
+            if os.path.lexists(link) and link.lstat().st_file_attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                link.rmdir()
+
+
+def windows_junction_cases(args, root, run, extra_config, links):
+    import _winapi
+    result = {}
+    root = root / 'junctions'
+    root.mkdir()
+
+    def junction(link, target):
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.parent.resolve().relative_to(root.resolve())
+        target.resolve().relative_to(root.resolve())
+        _winapi.CreateJunction(str(target), str(link))
+        links.append(link)
+        link.resolve().relative_to(root.resolve())
+
+    def configure(build, prefix, label, refusal=False):
+        return run([args.cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+                    '-DTELEMETRY_COMPONENTS=client', '-DCMAKE_CXX_COMPILER=' + args.cxx,
+                    '-DCMAKE_INSTALL_PREFIX=' + str(prefix), *extra_config], label,
+                   expected_failure=refusal)
+
+    def marker(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'Windows junction containment must preserve this canary.\n')
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def check_marker(path, before):
+        after = hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+        if after != before:
+            raise RuntimeError('Junction cleanup changed a canary: ' + str(path))
+        return after
+
+    for existing in (False, True):
+        name = 'internal-' + ('existing' if existing else 'missing')
+        case = root / name
+        build, prefix = case / 'build', case / 'prefix'
+        canaries = []
+        for owner, link, leaf in ((build, build / 'module-headers', 'client'),
+                                  (prefix, prefix / 'include', 'telemetry-client')):
+            target = owner / 'owned'
+            target.mkdir(parents=True)
+            canary = target / 'sibling/keep.txt'
+            canaries.append((canary, marker(canary)))
+            if existing:
+                marker(target / leaf / 'old-header.hpp')
+            junction(link, target)
+        configure(build, prefix, 'junction-' + name + '-configure')
+        run([args.cmake, '--install', build], 'junction-' + name + '-install')
+        if not (build / 'owned/client/client/DeviceClient.hpp').is_file() or not (
+                prefix / 'owned/telemetry-client/client/DeviceClient.hpp').is_file():
+            raise RuntimeError('Internal junction did not produce headers')
+        if (build / 'owned/client/old-header.hpp').exists() or (prefix / 'owned/telemetry-client/old-header.hpp').exists():
+            raise RuntimeError('Internal junction retained obsolete owned headers')
+        result[name] = {'canaries': {p.relative_to(root).as_posix(): check_marker(p, h) for p, h in canaries}}
+
+    for kind in ('staging', 'installation'):
+        for existing in (False, True):
+            name = kind + '-' + ('existing' if existing else 'missing')
+            case = root / name
+            build, prefix, outside = case / 'build', case / 'prefix', case / 'outside'
+            leaf = 'delegate' if kind == 'staging' else 'telemetry-delegate'
+            canary = outside / (leaf + '/keep.txt' if existing else 'keep.txt')
+            before = marker(canary)
+            if kind == 'staging':
+                junction(build / 'module-headers', outside)
+                text = configure(build, prefix, 'junction-' + name, refusal=True)
+            else:
+                configure(build, prefix, 'junction-' + name + '-configure')
+                junction(prefix / 'include', outside)
+                text = run([args.cmake, '--install', build], 'junction-' + name, expected_failure=True)
+            after = check_marker(canary, before)
+            if 'must stay inside' not in text or list(outside.rglob('tiny_delegate.hpp')):
+                raise RuntimeError('Escaping junction was not refused before copying: ' + name)
+            if not existing and (outside / leaf).exists():
+                raise RuntimeError('Refused junction created an outside destination: ' + name)
+            result[name] = {'refused': True, 'canary_sha256_before': before, 'canary_sha256_after': after}
+
+    case = root / 'owned-leaf'
+    build, prefix = case / '0', case / 'OFF'
+    canaries = []
+    for owner, link in ((build, build / 'module-headers/client'),
+                        (prefix, prefix / 'include/telemetry-client')):
+        target = owner / 'retained-client'
+        canary = target / 'keep.txt'
+        canaries.append((canary, marker(canary)))
+        junction(link, target)
+    configure(build, prefix, 'junction-leaf-configure')
+    run([args.cmake, '--install', build], 'junction-leaf-install')
+    result['owned-leaf'] = {'canaries': {p.relative_to(root).as_posix(): check_marker(p, h) for p, h in canaries}}
+    if not (prefix / 'include/telemetry-client/client/DeviceClient.hpp').is_file():
+        raise RuntimeError('Leaf junction was not replaced by installed headers')
+
+    case = root / 'owner-root'
+    actual_build, actual_prefix = case / 'actual-build', case / 'actual-prefix'
+    actual_build.mkdir(parents=True)
+    actual_prefix.mkdir()
+    build, prefix = case / '0', case / 'OFF'
+    junction(build, actual_build)
+    junction(prefix, actual_prefix)
+    configure(build, prefix, 'junction-root-configure')
+    run([args.cmake, '--install', build], 'junction-root-install')
+    if not (actual_prefix / 'include/telemetry-client/client/DeviceClient.hpp').is_file():
+        raise RuntimeError('A junctioned owner root was not supported')
+    result['owner-root'] = True
+
+    # Invoke the exact production guard without accessing synthetic UNC paths.
+    source = (ROOT / 'cmake/Modules.cmake').read_text(encoding='utf-8')
+    guard = source.split('set(_telemetry_path_guard [=[\n', 1)[1].split('\n]=])', 1)[0]
+    parent = root.as_posix()
+    targets = [('\\??\\C:\\guard\\target', 'C:/guard/target'),
+               ('\\\\?\\C:\\guard\\target', 'C:/guard/target'),
+               ('\\??\\UNC\\server\\share\\target', '//server/share/target'),
+               ('\\\\?\\UNC\\server\\share\\target', '//server/share/target'),
+               ('../relative', root.parent.as_posix() + '/relative')]
+    lines = [guard, 'set(WIN32 FALSE)']  # Filesystem behavior must use HOST, not target WIN32.
+    for target, expected in targets:
+        lines += ['_telemetry_windows_link_target([=[' + target + ']=] "' + parent + '" value)',
+                  'if(NOT value STREQUAL "' + expected + '")',
+                  'message(FATAL_ERROR "Unexpected Windows link conversion: ${value}")', 'endif()']
+    lines += ['_telemetry_real_output("' + prefix.as_posix() + '" value)',
+              'if(NOT value STREQUAL "' + actual_prefix.as_posix() + '")',
+              'message(FATAL_ERROR "Windows host resolution was disabled by target WIN32")', 'endif()']
+    script = root / 'link-semantics.cmake'
+    script.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    run([args.cmake, '-P', script], 'junction-link-semantics')
+    result['native_nt_unc_relative_and_host_semantics'] = True
+
+    target = root / 'dangling-target'
+    target.mkdir()
+    dangling = root / 'dangling-link'
+    junction(dangling, target)
+    target.rmdir()  # Empty fixture directory only; leave the junction for refusal.
+    cycle_a, cycle_b = root / 'cycle-a', root / 'cycle-b'
+    cycle_a.mkdir()
+    junction(cycle_b, cycle_a)
+    cycle_a.rmdir()
+    # Create the second edge only after recording both bounded fixture names.
+    # Resolving this target is intentionally impossible; finally unlinks each edge.
+    _winapi.CreateJunction(str(cycle_b), str(cycle_a))
+    links.append(cycle_a)
+    last = root / 'chain-target'
+    last.mkdir()
+    for index in range(65):
+        link = root / ('chain-' + str(index))
+        junction(link, last)
+        last = link
+    for name, statement in (
+            ('dangling', '_telemetry_real_output("' + dangling.as_posix() + '/missing" value)'),
+            ('cycle', '_telemetry_real_output("' + cycle_a.as_posix() + '/missing" value)'),
+            ('bounded-chain', '_telemetry_real_output("' + last.as_posix() + '/missing" value)'),
+            ('unsupported-nt', '_telemetry_windows_link_target([=[\\??\\Volume{unsupported}\\target]=] "' + parent + '" value)'),
+            ('unsupported-device', '_telemetry_windows_link_target([=[\\Device\\HarddiskVolume1\\target]=] "' + parent + '" value)')):
+        script = root / (name + '.cmake')
+        script.write_text(guard + '\n' + statement + '\n', encoding='utf-8')
+        text = run([args.cmake, '-P', script], 'junction-' + name, expected_failure=True)
+        if 'must stay inside' not in text:
+            raise RuntimeError('Windows link refusal did not identify containment: ' + name)
+        result[name] = {'refused': True}
+    return result
+
+
 def check_containment(args, out, run, extra_config):
     """Exercise cleanup only in new cases below the verified external output root."""
     root = Path(tempfile.mkdtemp(prefix='containment-', dir=out))
@@ -218,6 +392,7 @@ def check_containment(args, out, run, extra_config):
         result['cases']['destdir'] = True
     else:
         result['cases']['destdir'] = 'unsupported by CMake for Windows drive-letter prefixes'
+        result['junctions'] = check_windows_junctions(args, root, run, extra_config)
 
     probe = root / 'symlink-target'
     probe.mkdir()

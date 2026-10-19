@@ -11,6 +11,11 @@ and owned leaf links must succeed. Intermediate links escaping the build or
 installation root must fail before deletion or copying, with byte-identical
 canaries retained. Both existing and missing destination leaves are tested;
 `REAL_PATH` alone does not resolve intermediate links for a missing leaf.
+On Windows it can also leave an existing directory junction unresolved. The
+guard therefore expands every Windows link component on the host, separately
+from the cross-compilation target, before checking ownership. NT/extended drive
+and UNC names and relative link targets are supported; unsupported device names,
+dangling/cyclic links and more than 64 expansions are refused.
 Leaf-link targets inside the owner must retain their canaries when the link is
 replaced. All cases are created under the external build directory.
 
@@ -24,8 +29,14 @@ override retains the configured prefix. Actual root
 installs are tested only inside an external POSIX DESTDIR. Windows drive-root
 normalization is tested with `cmake -P` without installing into a drive root.
 
-Linux requires all symbolic-link controls. On Windows, a denied symbolic-link
-creation is recorded explicitly as unsupported; ordinary configure, install,
-relocation and header-isolation checks still run. No hardware is exercised.
+Linux requires all symbolic-link controls. Windows additionally requires a
+junction group using CPython's `CreateJunction`, without administrator or symlink
+privileges: existing/missing escaping leaves, internal intermediate and leaf
+junctions, a junctioned owner root, dangling/cyclic links and a bounded chain.
+NT/UNC string conversion is tested without network access. The fixture finally
+unlinks only its recorded junctions, leaving target files and canary hashes.
+If ordinary symbolic-link creation is denied, that separate limitation is
+recorded; the junction group and normal installed-consumer checks still run.
+No hardware is exercised.
 Commands, logs, canary hashes and before/after source hashes are retained in the
 external directory and `summary.json`.

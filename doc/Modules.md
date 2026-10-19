@@ -85,6 +85,10 @@ Before cleanup, CMake resolves existing path ancestors and requires the real
 destination to remain inside its build directory or installation prefix.
 Internal symlinks are supported; intermediate links escaping those roots are
 refused, including when the destination header directory does not yet exist.
+Windows junctions are expanded component by component on the build host because
+some CMake versions leave them unresolved in `REAL_PATH`. Dangling/cyclic links,
+unsupported Windows device targets and more than 64 link expansions are refused.
+Cleanup still unlinks an owned leaf link without deleting its target.
 Install destination directories are normalized before GNUInstallDirs derives
 paths and exports. The install script also normalizes runtime `--prefix` and
 nonempty DESTDIR before cleanup or copying, so `symlink/..` cannot make those
@@ -123,6 +127,8 @@ compiles and links Cortex-M7 images without executing them.
 Cleanup controls cover escaping symlinks with unchanged canaries, allowed
 internal/leaf links, fresh output, prefix overrides and POSIX DESTDIR staging.
 Windows hosts that cannot create symlinks record that platform limitation.
+Junction controls remain mandatory on Windows and need no symlink privilege;
+synthetic UNC conversion checks do not access network shares.
 
 Focused dispatcher, descriptor, client, SDK and wire regressions cover preflight,
 overlap, error precedence, family statuses and exact bytes. Runtime sanitizers
