@@ -1,6 +1,7 @@
 /* Host execution of the actual H753Port implementation against a HAL double. MIT. */
 #include "H753Port.hpp"
 #include <integration/rpc/Backend.hpp>
+#include <integration/encoded/RetryingBackend.hpp>
 #include <telemetry/descriptor/Descriptor.hpp>
 #include "../structured/rpc/Fixture.hpp"
 #include <cstdio>
@@ -28,7 +29,11 @@ struct Harness {
 	tc::Clock clock{this, +[](void* p) noexcept {
 		                return static_cast<Harness*>(p)->now;
 	                }};
-	telemetry::integration::rpc::RpcBackend backend{native, clock};
+	telemetry::integration::rpc::RpcBackend rpcBackend{native, clock};
+	std::array<std::byte, 128> retryTx{}, retryResult{};
+	telemetry::integration::encoded::RetryingEncodedBackend retryBackend{
+	    retryTx, retryResult, clock, {.replyTimeoutMs = 3, .maxRetries = 2}};
+	tc::Backend& backend;
 	fixture::Client client{backend, clock};
 	DMA_HandleTypeDef tx{}, rx{[] {
 		DMA_InitTypeDef init{};
@@ -42,7 +47,9 @@ struct Harness {
 		    return reinterpret_cast<std::uintptr_t>(p) % 32 == 0 && n == 128;
 	    })};
 
-	Harness()
+	explicit Harness(bool retry = false)
+	    : backend(retry ? static_cast<tc::Backend&>(retryBackend)
+	                    : static_cast<tc::Backend&>(rpcBackend))
 	{
 		hal_double::state = {};
 		const telemetry::descriptor::Descriptor descriptor{rpc_fixture::model};
@@ -209,6 +216,42 @@ static void configuration()
 	CHECK(!fixture::H753Port::validConfiguration(uart));
 }
 
+static void retryWaitsForDriver(bool expired, bool cancelled)
+{
+	Harness h(true);
+	const auto submitted = h.command();
+	CHECK(submitted);
+	const auto first = h.client.nextPacket();
+	CHECK(h.port.send(first));
+	std::array<std::uint8_t, 128> saved{};
+	std::copy_n(hal_double::state.tx, hal_double::state.txBytes, saved.begin());
+	h.now = 3;
+	h.port.poll(h.now);
+	const auto retry = h.client.nextPacket();
+	CHECK(retry && retry.requestId == first.requestId && retry.session == first.session);
+	CHECK(!h.port.send(retry));
+	CHECK(hal_double::state.sends == 1 && !h.port.driverIdle());
+	CHECK(
+	    std::equal(saved.begin(), saved.begin() + hal_double::state.txBytes, hal_double::state.tx));
+	h.port.txCompleteIsr(&h.uart);
+	h.port.poll(h.now);
+	CHECK(h.port.driverIdle());
+	if (expired)
+		h.now = 12;
+	if (cancelled)
+		CHECK(h.client.cancel(submitted.handle));
+	if (expired || cancelled) {
+		CHECK(!h.port.send(retry)); // Fresh gate after physical release still refuses stale work.
+		CHECK(hal_double::state.sends == 1 && h.client.recoveryRequired());
+		CHECK(h.port.driverIdle());
+	} else {
+		CHECK(h.port.send(retry));
+		CHECK(hal_double::state.sends == 2);
+		CHECK(std::equal(saved.begin(), saved.begin() + hal_double::state.txBytes,
+		                 hal_double::state.tx));
+	}
+}
+
 int main()
 {
 	completionBeforeAbort();
@@ -217,6 +260,9 @@ int main()
 	failedAbortStaysQuarantined();
 	timeoutKeepsBytes();
 	configuration();
+	retryWaitsForDriver(false, false);
+	retryWaitsForDriver(true, false);
+	retryWaitsForDriver(false, true);
 	std::printf("transport_dma_hal checks=%u failures=%u\n", checks, failures);
 	return failures ? 1 : 0;
 }

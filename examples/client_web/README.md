@@ -33,7 +33,30 @@ of physical completion or durable storage. Queue overflow and request-byte overf
 resolve explicit refusals. The limit includes the active request; deadlines start
 at enqueue, and `request.cancel()` resolves exactly once.
 
-Encoded never retries. RPC retries only the same active Resource packet with the
+The ordinary Encoded backend never retries. To opt into TEQ1 retries without RPC,
+construct `RetryingEncodedBackend` from the generated runtime:
+
+```ts
+import {DeviceClient, RetryingEncodedBackend} from './generated/js/client.js';
+import * as sdk from './generated/js/device.js';
+
+const backend = new RetryingEncodedBackend(sendCompletePacket, {
+    replyTimeoutMs: 100, maxRetries: 3,
+});
+const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader});
+// Admission uses the validated peer Descriptor, as with encodedClient().
+// Deliver verified complete reply frames through backend.receive(frame).
+```
+
+`sendCompletePacket` is the application port: its optional Promise settles only
+after it releases physical I/O. Each attempt receives its own AbortSignal; timeout
+requests abort and waits for actual release before retrying. A late checked reply
+can still complete the request. The same backend also provides `fromExchange()`.
+The [runtime contract](../../lib/client/web/README.md#optional-encoded-retries)
+describes ownership and recovery. `maxRetries: 3` means up to four sends with the
+same bytes and identity; each delivered retry can execute the endpoint again.
+
+RPC retries only the same active Resource packet with the
 same transaction ID. An uncertain transaction after its final request handoff
 requires recovery even for reads. An abandoned partial RPC request can be replaced
 by a later transaction on the same framed session. For uncertain execution, unsent

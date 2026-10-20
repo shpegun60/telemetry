@@ -2,7 +2,7 @@
 contains(CONFIG, telemetry_encoded_backend) {
     include($$PWD/../client/client.pri)
     include($$PWD/../wire/wire.pri)
-    HEADERS *= $$PWD/encoded/Backend.hpp
+    HEADERS *= $$PWD/encoded/Backend.hpp $$PWD/encoded/RetryingBackend.hpp
 }
 contains(CONFIG, telemetry_rpc_backend) {
     CONFIG += telemetry_client_rpc

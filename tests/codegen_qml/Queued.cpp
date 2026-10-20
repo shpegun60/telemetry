@@ -2,6 +2,8 @@
 #include "../codegen/Device.hpp"
 #include <DeviceClientAdapter.hpp>
 #include <integration/rpc/Backend.hpp>
+#include <integration/encoded/RetryingBackend.hpp>
+#include <integration/encoded/Dispatcher.hpp>
 #include <integration/telemetry/v3/RpcSessionPool.hpp>
 #include <QCoreApplication>
 #include <QEvent>
@@ -333,6 +335,170 @@ static void knownQueuedReplyBeforeDelivery()
 	}
 }
 
+struct RetryingHarness {
+	qa::DeviceApi api;
+	std::uint32_t now = 0;
+	std::array<std::byte, cf::model.maxScratch()> scratch{};
+	telemetry::Workspace workspace{scratch};
+	std::array<std::byte, 1024> tx{}, result{}, copy{}, reply{};
+	tc::Clock clock{this, +[](void* self) noexcept {
+		                return static_cast<RetryingHarness*>(self)->now;
+	                }};
+	telemetry::integration::encoded::RetryingEncodedBackend backend{
+	    tx, result, clock, {.replyTimeoutMs = 3, .maxRetries = 2}};
+	qa::DeviceClientAdapter<qa::DeviceApi, 3, 256> adapter{api, backend, clock};
+	QSignalSpy finished{&api, &qa::DeviceApi::operationFinished};
+	bool dropFirstCommand = true;
+	unsigned commandPackets = 0;
+	std::uint32_t commandId = 0, commandSession = 0;
+	std::array<std::byte, 1024> originalCommand{};
+	std::size_t commandBytes = 0;
+
+	RetryingHarness()
+	{
+		check(api.admitDescriptor(Harness::header()), "retry facade admits observed header");
+		events();
+	}
+
+	~RetryingHarness()
+	{
+		adapter.close();
+		for (unsigned i = 0; i < 8 && !adapter.drained(); ++i)
+			adapter.process(now++);
+	}
+
+	bool send()
+	{
+		const auto packet = adapter.nextPacket();
+		if (!packet)
+			return false;
+		check(packet.bytes.size() <= copy.size(), "retry packet bounded");
+		std::copy(packet.bytes.begin(), packet.bytes.end(), copy.begin());
+		check(adapter.prepareHandoff(packet.session, packet.requestId),
+		      "fresh QML retry handoff permission");
+		check(adapter.onSendAccepted(packet.session, packet.requestId),
+		      "retry complete packet accepted");
+		const auto parsed =
+		    telemetry::protocol::encoded::parse(tc::Input{copy}.first(packet.bytes.size()));
+		check(bool(parsed), "actual encoded retry frame");
+		const bool command =
+		    parsed.header.operation == telemetry::protocol::encoded::Operation::Command;
+		if (command && parsed.header.endpoint == 1) { // Native fixture's Reset command.
+			++commandPackets;
+			if (commandPackets == 1) {
+				commandId = packet.requestId;
+				commandSession = packet.session;
+				commandBytes = packet.bytes.size();
+				std::copy(packet.bytes.begin(), packet.bytes.end(), originalCommand.begin());
+			} else if (commandPackets == 2 && dropFirstCommand) {
+				check(packet.requestId == commandId && packet.session == commandSession,
+				      "QML retry retains ID and session");
+				check(packet.bytes.size() == commandBytes &&
+				          std::equal(packet.bytes.begin(), packet.bytes.end(),
+				                     originalCommand.begin()),
+				      "QML retry retains exact frame bytes");
+			}
+		}
+		const auto response = telemetry::integration::encoded::dispatchEncoded(
+		    cf::model.view(), workspace, api.session(), tc::Input{copy}.first(packet.bytes.size()),
+		    reply);
+		check(bool(response), "native TEQ dispatcher response");
+		++packets;
+		if (!(command && parsed.header.endpoint == 1 && commandPackets == 1 && dropFirstCommand))
+			check(adapter.onReply(tc::Input{reply}.first(response.written), packet.session,
+			                      packet.requestId),
+			      "retry checked response");
+		return true;
+	}
+
+	void pump()
+	{
+		events();
+		adapter.process(now);
+		(void)send();
+		adapter.process(now++);
+	}
+
+	void wait(unsigned count)
+	{
+		for (unsigned i = 0; i < 200 && finished.size() < qsizetype(count); ++i)
+			pump();
+		events();
+		check(finished.size() == qsizetype(count), "retry callback exactly once per token");
+	}
+
+	QVariantMap value(const QString& token)
+	{
+		for (const auto& row : finished)
+			if (row[0].toString() == token)
+				return row[1].toMap();
+		return {};
+	}
+};
+
+static void qmlRetryingBackend()
+{
+	RetryingHarness h;
+	const auto calls = client_example::device.calls;
+	const auto read = invoke(h.api.device(), "refreshConfig");
+	const auto command = invoke(h.api.device(), "reset");
+	const auto service = invoke(h.api.edge(), "good");
+	const auto full = invoke(h.api.device(), "ping");
+	events();
+	check(h.adapter.pending() == 3, "retry backend uses the same three-slot execution queue");
+	check(h.value(full).value("errorKind").toString() == QStringLiteral("QueueFull"),
+	      "retry QueueFull explicit");
+	h.wait(4);
+	check(h.value(read).value("success").toBool() && h.api.device()->configValid(),
+	      "retry field read caches checked value");
+	check(h.value(command).value("success").toBool(),
+	      "retry command completes through generic adapter");
+	check(h.value(service).value("success").toBool(), "retry zero-byte service completes");
+	check(h.commandPackets == 2 && client_example::device.calls == calls + 2,
+	      "lost encoded reply can execute command twice");
+	auto config = h.value(read).value("value").toMap();
+	config[QStringLiteral("gain")] = 2.5;
+	const auto write = invoke(h.api.device(), "writeConfig", config);
+	const auto accepted = invoke(h.api.edge(), "accept", QVariantMap{});
+	h.wait(6);
+	check(h.value(write).value("success").toBool() && !h.api.device()->configValid(),
+	      "retry field write uses normal cache rules");
+	check(h.value(accepted).value("accepted").toBool() &&
+	          !h.value(accepted).value("success").toBool(),
+	      "Accepted is terminal, not Executed");
+	check(!h.adapter.nextPacket() && h.adapter.pending() == 0,
+	      "no retry after checked endpoint result");
+}
+
+static void qmlRetryReset()
+{
+	RetryingHarness h;
+	const auto calls = client_example::device.calls;
+	const auto token = invoke(h.api.device(), "reset");
+	events();
+	check(h.send(), "reset case has one permitted encoded handoff");
+	const auto old = h.api.session();
+	h.api.resetSession();
+	events();
+	h.adapter.process(h.now++);
+	events();
+	check(h.value(token).value("errorKind").toString() == QStringLiteral("OutcomeUnknown"),
+	      "reset after permitted retry request remains unknown");
+	check(h.adapter.recoveryRequired() && !h.adapter.nextPacket(),
+	      "reset blocks pending retransmission");
+	check(client_example::device.calls == calls + 1, "reset does not retransmit mutation");
+	check(!h.adapter.confirmSessionClosed(old + 1), "retry wrong recovery generation refused");
+	check(h.adapter.confirmSessionClosed(old),
+	      "test transport excludes old generation before confirmation");
+	check(h.api.admitDescriptor(Harness::header()), "retry facade admits fresh generation");
+	events();
+	h.dropFirstCommand = false;
+	const auto fresh = invoke(h.api.device(), "reset");
+	h.wait(2);
+	check(h.value(fresh).value("success").toBool() && client_example::device.calls == calls + 2,
+	      "fresh user invocation, no recovery replay");
+}
+
 int main(int argc, char** argv)
 {
 	QCoreApplication app(argc, argv);
@@ -403,6 +569,8 @@ int main(int argc, char** argv)
 		acceptedHandoffRemainsUnknown();
 		qtDeadlineRefusesBeforeCore();
 		knownQueuedReplyBeforeDelivery();
+		qmlRetryingBackend();
+		qmlRetryReset();
 		std::printf("QML queued checks=%u packets=%u\n", checks, packets);
 		return 0;
 	} catch (const std::exception& error) {

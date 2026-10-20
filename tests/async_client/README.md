@@ -33,6 +33,17 @@ withheld final ACK, same-transaction retries, uncertain read/mutation recovery,
 and admission/size/status validation before effects. The focused Encoded runner
 retains an independent wire golden and persistent bridge exchanges.
 
+`Retrying.cpp` uses the same real Model/Encoded dispatcher and a canonical typed
+policy through `DeviceClient`. It checks byte-identical retries with unchanged
+session/request identity, lost request versus lost reply (including deliberate
+duplicate execution), zero/default retry budgets, late replies between attempts,
+fresh handoff gates, cancellation/recovery, malformed/refusal outcomes and both
+reply/overall deadlines across clock wrap. The noheap variant repeats these cases
+with C++ allocation trapped and verifies that the trap actually fails an allocation.
+The existing runner executes both variants and the retry-selected bare-metal example
+automatically; ARM mode also compiles the standalone backend and records its ABI size.
+These are bounded host/compile controls, not physical delivery or exactly-once proofs.
+
 The runner generates fresh SDKs from an actual native Descriptor, executes the
 unchanged [bare-metal loop](../../examples/async_client/README.md) with a host
 port and optionally compiles it for Cortex-M7. The ARM dependency, undefined

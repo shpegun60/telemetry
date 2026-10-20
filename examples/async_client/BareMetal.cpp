@@ -1,6 +1,10 @@
 /* Generated SDK client in a cooperative board loop. Authors: Ruslan Kovtun (shpegun60), codexAi. MIT. */
 #include <device_api/ClientBindings.hpp>
+#if defined(TELEMETRY_EXAMPLE_RETRY_ENCODED)
+#include <integration/encoded/RetryingBackend.hpp>
+#else
 #include <integration/encoded/Backend.hpp>
+#endif
 #include <algorithm>
 
 namespace cl = telemetry::client;
@@ -23,7 +27,13 @@ static std::array<std::byte, 1024> tx{}, response{}, portTx{}, portRx{};
 static cl::Clock clientClock{nullptr, +[](void*) noexcept {
 	                             return board_millis();
                              }};
+#if defined(TELEMETRY_EXAMPLE_RETRY_ENCODED)
+// Retries may execute an endpoint again. Use only where that is acceptable.
+static ::telemetry::integration::encoded::RetryingEncodedBackend backend{
+    tx, response, clientClock, {.replyTimeoutMs = 100, .maxRetries = 3}};
+#else
 static ::telemetry::integration::encoded::EncodedBackend backend{tx, response, clientClock};
+#endif
 static api::client::DeviceClient<4, 256> client{backend, clientClock};
 static unsigned completed = 0, failed = 0;
 

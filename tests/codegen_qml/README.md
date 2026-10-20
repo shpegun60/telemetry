@@ -37,6 +37,12 @@ and decoded values, including through both generated adapters. Separate cache
 checks prevent old reads from populating a new session and old writes from
 invalidating its confirmed value, including during nested event processing.
 
+The queued executable additionally injects RetryingEncodedBackend into the same
+generated adapter. A dropped TEQ1 reply causes byte-identical same-ID retransmission
+and two actual native command calls, with one public completion. The checks cover
+all four operations, Accepted versus Executed, QueueFull, normal cache behavior,
+fresh retry handoff permission, and reset/recovery without automatic replay.
+
 `summary.json` records commands, return codes, source hashes and timestamps;
 individual logs contain build and runtime evidence. Outputs must be outside the
 repository. A passing host run does not qualify a physical device or transport.

@@ -98,6 +98,7 @@ def main():
             counted([args.node, HERE / 'Check.mjs', module], 'web-' + label, 332)
             counted([args.node, HERE / 'Lifetime.mjs', module], 'lifetime-' + label, 335)
             counted([args.node, HERE / 'Polling.mjs', module], 'polling-' + label, 90)
+            counted([args.node, HERE / 'Retrying.mjs', module], 'retrying-' + label, 337)
             traces = run([args.node, HERE / 'Trace.mjs', module], 'traces-' + label)
             for line in traces.splitlines():
                 test = json.loads(line)
@@ -131,8 +132,10 @@ def main():
             # Generated .d.ts consumers and emitted TS must have the same typed binding API.
             consumer = sdk / 'Consumer.ts'
             consumer.write_text("import * as S from './js/device.js';\n"
-                "import {DeviceClient, EncodedBackend, type Result} from './js/client.js';\n"
+                "import {DeviceClient, EncodedBackend, RetryingEncodedBackend, type EncodedRetryOptions, type Result} from './js/client.js';\n"
                 "const C = new DeviceClient({backend: new EncodedBackend(() => {}), matchesHeader:S.matchesHeader});\n"
+                "const options: EncodedRetryOptions = {replyTimeoutMs:100,maxRetries:3};\n"
+                "new DeviceClient({backend: new RetryingEncodedBackend(() => {},options), matchesHeader:S.matchesHeader});\n"
                 "const r: Promise<Result<S.device.types.Config>> = C.read(S.device.fields.Config);\n"
                 "const w = C.write(S.device.fields.Config, {} as S.device.types.Config);\n"
                 "Promise.all([r,w]);\n")
@@ -163,7 +166,8 @@ def main():
                     'compile-legacy-example')
             for label, folder in (('js', sdk / 'js'), ('ts', compiled)):
                 counted([args.node, HERE / 'Integration.mjs', folder / 'client.js', folder / 'device.js',
-                         desc, executable, mode, *example], mode + '-' + label, 25)
+                         desc, executable, mode, *example], mode + '-' + label,
+                        138 if mode == 'encoded' else 45)
         report['source_sha256_after'] = snapshot()
         if report['source_sha256'] != report['source_sha256_after']:
             raise RuntimeError('source inputs changed during qualification; repeat from frozen inputs')

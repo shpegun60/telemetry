@@ -40,6 +40,7 @@ codecs do not require that runtime.
 | Resource providers | `integration/telemetry/v3/DescriptorFile.hpp`, `ValuesFile.hpp`, `RpcMailbox.hpp`, `RpcSessionPool.hpp` | `resource::telemetry::v3` |
 | TEQ1 server | `integration/encoded/Dispatcher.hpp` | `telemetry::integration::encoded` |
 | Encoded backend | `integration/encoded/Backend.hpp` | `telemetry::integration::encoded` |
+| Retrying Encoded backend | `integration/encoded/RetryingBackend.hpp` | `telemetry::integration::encoded` |
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
@@ -76,6 +77,9 @@ Available components are `core`, `resource`, `resource_protocol`, `client`,
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
+`encoded_backend` exports both the unchanged `EncodedBackend` and the optional
+`RetryingEncodedBackend`; including the latter adds no server, Resource, Qt or
+native Model dependency. Both share `client` and `encoded_wire` dependencies.
 
 Each target exports only its own headers and declared dependencies. Neither
 in-tree targets nor installed exports grant access to the entire `lib` tree.
@@ -111,6 +115,7 @@ Select Integration explicitly. Existing selection names `resource_telemetry`,
 `resource_telemetry_rpc`, `resource_telemetry_rpc_sessions` and
 `resource_telemetry_encoded` select the corresponding providers/server. Use
 `telemetry_encoded_backend` or `telemetry_rpc_backend` for client adapters.
+The Encoded flag includes the optional retry header too; no extra qmake flag is needed.
 `telemetry_client_rpc` selects only the native RPC packet engine.
 
 ```qmake

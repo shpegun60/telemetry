@@ -119,7 +119,7 @@ def main() -> int:
             raise RuntimeError("runtime did not execute the current QML/RPC qualification floor")
         queued = run([build / ("telemetry_qml_queued" + suffix)], "queued-runtime")
         queued_counts = re.search(r"QML queued checks=(\d+) packets=(\d+)", queued)
-        if not queued_counts or int(queued_counts[1]) < 50 or int(queued_counts[2]) < 7:
+        if not queued_counts or int(queued_counts[1]) < 277 or int(queued_counts[2]) < 26:
             raise RuntimeError("queued adapter did not execute actual bounded RPC exchange")
         summary["qml_queued_checks"], summary["qml_queued_packets"] = map(int, queued_counts.groups())
         run([sys.executable, ROOT / "tests/codegen_qml/probes/run.py", "--build-dir", output / "probes",

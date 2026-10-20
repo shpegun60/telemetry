@@ -172,15 +172,31 @@ export declare class DeviceClient {
     private armTimer;
 }
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void | Promise<void>;
-export declare class EncodedBackend implements Backend {
+export interface EncodedRetryOptions {
+    readonly replyTimeoutMs?: number;
+    readonly maxRetries?: number;
+}
+interface EncodedRetryPolicy {
+    readonly replyTimeoutMs: number;
+    readonly maxRetries: number;
+}
+declare class EncodedEngine implements Backend {
     private readonly send;
+    private readonly retry?;
     private execution?;
     private waiting?;
-    constructor(send: EncodedSend);
-    static fromExchange(exchange: Exchange): EncodedBackend;
+    constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined);
     confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     receive(input: ByteInput): boolean;
+}
+export declare class EncodedBackend extends EncodedEngine {
+    constructor(send: EncodedSend);
+    static fromExchange(exchange: Exchange): EncodedBackend;
+}
+export declare class RetryingEncodedBackend extends EncodedEngine {
+    constructor(send: EncodedSend, options?: EncodedRetryOptions);
+    static fromExchange(exchange: Exchange, options?: EncodedRetryOptions): RetryingEncodedBackend;
 }
 export interface RpcOptions {
     transactionId: number;
@@ -232,3 +248,4 @@ export declare class RpcBackend implements Backend {
     private delay;
     private attempt;
 }
+export {};

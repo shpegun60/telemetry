@@ -54,3 +54,44 @@ snapshot budget.
 
 See the [runnable example](../../../examples/client_web/README.md) and
 [qualification runner](../../../tests/client_web/run.py).
+
+## Optional Encoded retries
+
+`EncodedBackend` performs one TEQ1 request/reply exchange. Choose the separate
+`RetryingEncodedBackend` when repeated endpoint execution is acceptable:
+
+```ts
+const backend = new RetryingEncodedBackend(sendCompletePacket, {
+    replyTimeoutMs: 100,
+    maxRetries: 3,
+});
+const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader});
+// Feed complete verified transport frames to backend.receive(frame).
+```
+
+Import both classes from the generated `client.js` module. The same generated
+read/write/command/service bindings and queue apply. Three retries allow at most
+four sends, with identical request bytes, session and request ID. Zero permits
+one send with a reply timeout. Options are copied at construction; reply timeout
+is an integer in `1..0x7fffffff`, retries in `0..0xffffffff`.
+
+The timer starts at each handoff and requests that attempt's cancellation through
+its own AbortSignal. A retry waits for the previous send Promise to settle;
+settlement must mean that physical I/O has released its bytes. A void send means
+release on return. The overall enqueue deadline remains authoritative, including
+when a transport ignores abort and never releases. Logical cancellation or
+timeout does not make that transport available for another request.
+
+`RetryingEncodedBackend.fromExchange(exchange, options)` accepts complete-frame
+exchanges with the same release contract. An exchange waiting for a lost reply
+should honor its attempt's AbortSignal and settle after actual cleanup. A late
+correlated reply can still establish the outcome while the invocation is active;
+a known result retains any outstanding physical release fence.
+
+Any checked response stops retries, including endpoint refusal or Command
+Accepted. Matching malformed replies remain terminal. UART framing and integrity
+checks belong to the port, before `receive()`. There is no new ACK packet or
+server deduplication: a lost response can cause another endpoint execution.
+Exhaustion preserves `Timeout` for reads and `OutcomeUnknown` for possible
+mutations, with the existing recovery gate. Opening a fresh session never replays
+the old operation. Use `RpcBackend` for its existing retained transaction model.

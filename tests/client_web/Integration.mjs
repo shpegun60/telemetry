@@ -4,10 +4,10 @@ import {spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline';
 import {pathToFileURL} from 'node:url';
-import {flush} from './Trace.mjs';
+import {FakeClock, flush} from './Trace.mjs';
 
 const [runtimePath, sdkPath, descriptorPath, bridgePath, mode, examplePath] = process.argv.slice(2);
-const {DeviceClient, EncodedBackend, RpcBackend, Status} =
+const {DeviceClient, EncodedBackend, RetryingEncodedBackend, RpcBackend, Status} =
     await import(pathToFileURL(runtimePath).href);
 const sdk = await import(pathToFileURL(sdkPath).href);
 const declaredHeader = (await readFile(descriptorPath)).subarray(0, 64);
@@ -108,6 +108,64 @@ try {
 		const big = await client.read(device.fields.Big);
 		truth(big.succeeded);
 		equal(big.payload.length, 512);
+		// Optional TEQ1 retry against the real stateless dispatcher. A lost reply
+		// sends the same command again; this backend intentionally has no deduplication.
+		for (const lost of ['request', 'reply']) {
+			for (const operation of ['read', 'write', 'command', 'service']) {
+				const retryBridge = server(), clock = new FakeClock(), sent = [];
+				let firstDone;
+				const first = new Promise(resolve => firstDone = resolve);
+				const retryBackend = new RetryingEncodedBackend(async packet => {
+					sent.push(packet.slice());
+					if (sent.length === 1 && lost === 'request') {
+						firstDone();
+						return;
+					}
+					const response = await retryBridge.exchange(packet);
+					if (sent.length === 1 && lost === 'reply') {
+						firstDone();
+						return;
+					}
+					truth(retryBackend.receive(response));
+				}, {replyTimeoutMs : 10, maxRetries : 1});
+				const retryClient = new DeviceClient(
+				    {backend : retryBackend, clock, matchesHeader : sdk.matchesHeader});
+				try {
+					truth(retryClient.openSession(17, declaredHeader));
+					const config = {value : 0x10203040, enabled : true};
+					const handle = ({
+						read : () => retryClient.read(device.fields.Config),
+						write : () => retryClient.write(device.fields.Config, config),
+						command : () => retryClient.command(device.commands.Configure, config),
+						service : () => retryClient.service(device.services.Echo, config)
+					})[operation]();
+					await first;
+					await flush();
+					equal(sent.length, 1);
+					clock.advance(10);
+					await flush();
+					const outcome = await handle;
+					truth(outcome.succeeded);
+					equal(outcome.status, Status.Ok);
+					equal(sent.length, 2);
+					equal(sent[0], sent[1]);
+					equal(outcome.session, 17);
+					equal(outcome.requestId, handle.requestId);
+					equal(retryClient.recoveryRequired, false);
+					if (operation === 'service')
+						equal(outcome.value.value, config.value);
+					if (operation === 'read')
+						equal(outcome.value.value, 42);
+					await flush();
+					equal(clock.timers.size, 0);
+				} finally {
+					retryClient.close();
+					await flush();
+					truth(retryClient.drained);
+					await retryBridge.stop();
+				}
+			}
+		}
 	} else {
 		equal(initial.value.serial, 0xffffffffffffffffn);
 		equal(initial.value.offset, -0x8000000000000000n);

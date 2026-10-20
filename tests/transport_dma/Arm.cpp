@@ -2,6 +2,7 @@
 #include "TxStorage.hpp"
 #include "Policy.hpp"
 #include <integration/rpc/Backend.hpp>
+#include <integration/encoded/RetryingBackend.hpp>
 
 extern "C" bool transport_dma_copy(transport_dma_fixture::TxStorage& tx,
                                    transport_dma_fixture::Client& client) noexcept
@@ -31,6 +32,13 @@ extern "C" void transport_dma_owner(transport_dma_fixture::Client& client,
 extern "C" telemetry::client::Status
 transport_dma_rpc(telemetry::integration::rpc::RpcBackend& backend,
                   telemetry::client::RequestView request, std::uint32_t now) noexcept
+{
+	return backend.start(request, now);
+}
+
+extern "C" telemetry::client::Status
+transport_dma_retry(telemetry::integration::encoded::RetryingEncodedBackend& backend,
+                    telemetry::client::RequestView request, std::uint32_t now) noexcept
 {
 	return backend.start(request, now);
 }

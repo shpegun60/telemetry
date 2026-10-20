@@ -90,6 +90,7 @@ int main()
 }
 #elif defined(MODULE_ENCODED_BACKEND)
 #include <integration/encoded/Backend.hpp>
+#include <integration/encoded/RetryingBackend.hpp>
 
 int main()
 {
@@ -98,7 +99,10 @@ int main()
 		                               return 0;
 	                               }};
 	telemetry::integration::encoded::EncodedBackend backend{tx, rx, clock};
-	return backend.openSession(1) ? 0 : 1;
+	std::array<std::byte, 64> retryTx{}, retryRx{};
+	telemetry::integration::encoded::RetryingEncodedBackend retry{
+	    retryTx, retryRx, clock, {.replyTimeoutMs = 100, .maxRetries = 3}};
+	return backend.openSession(1) && retry.openSession(1) ? 0 : 1;
 }
 #elif defined(MODULE_RPC_CLIENT) || defined(MODULE_RPC_BACKEND)
 #include <client/rpc/RpcClient.hpp>

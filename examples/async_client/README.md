@@ -33,6 +33,28 @@ client loop against an actual Model bridge on the host and compiles its
 Cortex-M7 object. Host execution and offline ARM compilation do not establish
 electrical UART/DMA behavior on a physical board.
 
+## Optional repeated Encoded delivery
+
+Build the same `BareMetal.cpp` with `-DTELEMETRY_EXAMPLE_RETRY_ENCODED` to select
+`integration/encoded/RetryingBackend.hpp` and `RetryingEncodedBackend` with
+`EncodedRetryOptions{.replyTimeoutMs=100, .maxRetries=3}`. The default remains the
+non-retrying EncodedBackend. The qualification runner runs both variants against
+the real host Model bridge and compiles both for Cortex-M7.
+
+No board hooks or generated SDK calls change. Three means at most three extra
+sends after the initial send, using identical TEQ1 bytes/session/request ID and
+fresh handoff permission on each attempt. `board_txAvailable` must retain its
+release meaning even when the reply timer expires while DMA is active. Never
+overwrite a live transport copy. Report complete-packet acceptance synchronously
+with the actual submission, not a delayed acceptance from a previous retry;
+physical TX completion is a separate event.
+
+The server does not deduplicate Encoded requests. Lost responses can make writes,
+commands and services execute again; use only operations that permit this. A
+checked response stops future retries, but cannot undo an already delivered copy.
+All attempts share the existing enqueue deadline and recovery rules. UART framing
+and integrity remain board-owned. No physical H753 run is implied by host/ARM tests.
+
 ## Optional FreeRTOS task port
 
 [`FreeRtosPort.hpp`](FreeRtosPort.hpp) and [`FreeRtosPort.cpp`](FreeRtosPort.cpp)
@@ -44,7 +66,7 @@ carry no request or payload and add no execution queue. The completion semaphore
 only joins shutdown.
 
 Construct the port in persistent storage with a borrowed `RpcBackend` or
-`EncodedBackend`, a millisecond clock safe for all producer tasks, and the five
+`EncodedBackend` or `RetryingEncodedBackend`, a millisecond clock safe for all producer tasks, and the five
 `Hooks`. The backend, its buffers, callback captures and port storage must outlive
 `stopAndJoin()`. `start(observedHeader, generation, priority)` is called once from
 a coordinator task. Wait for `admissionStatus()` to leave `Busy`; start producers
@@ -69,8 +91,10 @@ the backend or transport. `txAvailable`
 checks release/backpressure before the owner copies a complete packet into its
 separate 1024-byte TX buffer. `send` reports complete-packet acceptance, never
 partial progress; the copied bytes remain leased until `txAvailable` releases
-them. A failed handoff is reported conservatively. The port never retries an
-Encoded operation or automatically reopens an uncertain session.
+them. A failed handoff is reported conservatively. The port itself does not retry
+or add a queue: the selected backend chooses whether to offer a retransmission.
+`RetryingEncodedBackend` may execute an Encoded operation repeatedly; the ordinary
+EncodedBackend does not retry. Neither automatically reopens an uncertain session.
 
 To stop, first prevent new producer calls and join every producer task, including
 any in-flight submission and wake call. Then call `stopAndJoin()` from the

@@ -20,6 +20,15 @@ DMA implementation. `Arm.cpp` is a portable Cortex-M7 compile fixture without HA
 The optional separate H753 compile uses real CubeH7 HAL/CMSIS headers and records
 their hashes; it still executes no MCU instructions.
 
+`Retrying.cpp` uses the actual TEQ1 server dispatcher with RetryingEncodedBackend:
+a lost reply deliberately executes the command twice. It checks exact repeated
+bytes/IDs, a valid earlier reply while a retry is offered/prepared, fresh
+permission after cancel/deadline, and TX retention through timeout/recovery.
+The executable HAL double also injects this backend into the unchanged H753Port:
+an offered retry cannot reuse its DMA buffer before driver completion, and must
+obtain fresh permission after release. Its queued cancel/deadline cases cause no
+second HAL send. These tests add no second execution queue or physical DMA run.
+
 ## Run into external output directories
 
 From the repository root, using a host C++20 compiler and Python 3.10 or later:

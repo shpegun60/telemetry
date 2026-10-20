@@ -33,6 +33,7 @@ target_include_directories(telemetry_qml_queued PRIVATE
     "${TELEMETRY_ROOT}/lib" "${TELEMETRY_ROOT}/lib/boost_pfr/include"
     "${TELEMETRY_ROOT}/lib/magic_enum")
 target_sources(telemetry_qml_queued PRIVATE
+    "${TELEMETRY_ROOT}/lib/integration/encoded/Dispatcher.cpp"
     "${TELEMETRY_ROOT}/lib/telemetry/abi/StructuredAbi.cpp"
     "${TELEMETRY_ROOT}/lib/telemetry/model/Adapter.cpp"
     "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"

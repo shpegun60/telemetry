@@ -76,7 +76,11 @@ accepts the complete packet. Partial writes do not qualify. The port's copy
 remains alive and unchanged until the driver releases it, including after a
 client timeout, reset or disconnect. TX release and endpoint completion are
 independent events. Deliver complete replies through `client.onReply()`.
-Every physical send, including a same-transaction RPC retry with the same
+Report the current packet's acceptance synchronously with submission, exactly
+once per successful handoff; do not delay or replay that notification across
+attempts. DMA completion is a separate driver event. The two backend correlation
+IDs cannot identify an obsolete acceptance callback from an earlier retry.
+Every physical send, including an Encoded or same-transaction RPC retry with the same
 request ID, requires a fresh `prepareHandoff()` permission.
 
 ## Backends and recovery
@@ -85,8 +89,47 @@ Encoded request/reply v1 adds an independent 32-byte LE envelope; it changes
 neither Descriptor v3 nor RPC v1. Every operation receives a status response.
 The server uses [EncodedDispatcher](../lib/integration/encoded/Dispatcher.hpp)
 to call existing Model Encoded operations. Session, request, operation, endpoint,
-lengths and statuses are checked. It has no retry or server deduplication;
+lengths and statuses are checked. The server has no retry or deduplication state;
 delivering the same request twice may execute it twice.
+
+Select one optional Integration backend; all use the same DeviceClient queue:
+
+| Backend | Automatic retransmission | Server duplicate handling |
+| --- | --- | --- |
+| `EncodedBackend` | None | Each delivered request may execute |
+| `RetryingEncodedBackend` | Configured TEQ1 request retries | Each delivered retry may execute again |
+| `RpcBackend` | Existing Resource packet retry/polling policy | Same transaction is retained/deduplicated within its live mailbox session |
+
+```cpp
+#include <integration/encoded/RetryingBackend.hpp>
+telemetry::integration::encoded::RetryingEncodedBackend backend{
+    txStorage, resultStorage, clock,
+    {.replyTimeoutMs = 100, .maxRetries = 3}};
+device_api::client::DeviceClient<8, 4096> client{backend, clock};
+```
+
+The retry backend composes one existing Encoded invocation and retains its exact
+bytes/session/request ID. It adds no queue, DTO serialization, ACK packet or
+server state. `maxRetries` counts additional sends: three permits the initial
+attempt plus at most three retries; zero disables retries. Each reply timer starts
+after a complete-packet `onSendAccepted`, and a retry still needs fresh handoff
+permission and physical TX release. The enqueue deadline, including queue wait,
+continues across all attempts. A direct backend caller supplies its bounded
+overall budget through `RequestView::timeoutMs`.
+
+A valid correlated response from an earlier attempt can finish the request while
+a retry is offered/prepared. Any checked endpoint result, including refusal or
+Command Accepted, stops retransmission; Accepted does not mean Executed. Once a
+copy may have reached the peer, cancellation/exhausted retries cannot establish
+that a mutation did not execute. No new session automatically replays it. An
+already delivered second copy cannot be undone by accepting the first response.
+A slow Service may execute repeatedly; a read may return any checked attempt's
+value, without a coherent multi-read snapshot guarantee. Select this backend only
+where repeated execution is acceptable, rather than assuming exactly-once effects.
+
+TEQ1 itself has no CRC or UART framing. Reject corrupt physical frames in the
+port before `onReply`; a malformed complete TEQ1 reply passed to the backend is
+terminal under the existing parser/recovery rules, not a new silent retry case.
 
 RPC wraps the moved existing engine, retaining byte-identical same-transaction
 retries, polling and ACK gating. No backend automatically replays an operation
@@ -135,7 +178,8 @@ maintenance.
 Generated `DeviceClientAdapter.hpp` keeps QML tokens/pending bookkeeping and
 submits to the sole core execution queue. Queue capacity failures are explicit
 `QueueFull`/`PayloadFull` results, with no second hidden execution queue. Use one
-adapter per DeviceApi. Both RpcBackend and EncodedBackend are supported.
+adapter per DeviceApi. RpcBackend, EncodedBackend and RetryingEncodedBackend are
+supported through the same `Backend&`, with no generator or QML value API change.
 
 For JS/TS add `--client-runtime` to the normal generator command; codec modules
 remain usable independently. Promise results follow the same statuses, with

@@ -166,7 +166,12 @@ unknown outcome.
 The optional `DeviceClientAdapter.hpp` connects `DeviceApi` to the common
 bounded [DeviceClient](AsyncClient.md) execution queue. Its constructor takes
 `(api, backend, clock)`; select `RpcBackend(nativeRpcClient, clock)` or
-`EncodedBackend(txStorage, resultStorage, clock)`. API, adapter, backend and
+`EncodedBackend(txStorage, resultStorage, clock)`, or the optional
+`RetryingEncodedBackend(txStorage, resultStorage, clock, EncodedRetryOptions{100,3})`
+from `integration/encoded/RetryingBackend.hpp`. The retry choice uses the same
+adapter and one execution queue; it may execute a delivered operation repeatedly
+and requires a fresh permission and released TX buffer for each retry.
+API, adapter, backend and
 borrowed buffers use one owner thread. `DeviceClientAdapter<Api, N, PayloadBytes>`
 defaults to eight records and one shared 4096-byte payload pool. Its token map
 is pending/completed correlation bookkeeping, not a second execution FIFO.

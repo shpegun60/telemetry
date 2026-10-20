@@ -134,12 +134,14 @@ def main() -> int:
             ("host", [], ["tests/transport_dma/Host.cpp", *SOURCES,
                           "lib/integration/telemetry/v3/RpcMailbox.cpp", "lib/resource/protocol/Protocol.cpp"], 397),
             ("hal-double", ["-Itests/transport_dma/hal_double"],
-             ["tests/transport_dma/Hal.cpp", "tests/transport_dma/H753Port.cpp", *SOURCES], 79),
+             ["tests/transport_dma/Hal.cpp", "tests/transport_dma/H753Port.cpp", *SOURCES], 122),
+            ("retrying", [], ["tests/transport_dma/Retrying.cpp", *SOURCES,
+                              "lib/integration/encoded/Dispatcher.cpp"], 112),
         ]:
             binary = out / (stem + suffix)
             run(stem + "-compile", [cxx, *common, *host_flags, *extra, *source_list, "-o", str(binary)])
             output = run(stem + "-run", [str(binary)])
-            match = re.search(r"transport_dma(?:_hal)? checks=(\d+) failures=(\d+)", output)
+            match = re.search(r"transport_dma(?:_hal|_retry)? checks=(\d+) failures=(\d+)", output)
             if not match or int(match[1]) < minimum or int(match[2]):
                 raise RuntimeError(f"missing/insufficient counted result: {stem}")
             report["executions"].append({"name": stem, "checks": int(match[1]), "failures": int(match[2]),

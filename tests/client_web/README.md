@@ -35,3 +35,17 @@ and invoked with each runtime.
 hashes before/after execution. A receipt passes only if those source inputs remain
 unchanged. The checks establish host behavior and wire interoperability; they do
 not establish physical device completion or durable writes.
+
+`Retrying.mjs` runs the separate opt-in `RetryingEncodedBackend` with a controlled
+clock. It checks the default initial send plus three retries, an explicit zero
+retry budget, unchanged request identity and bytes, per-attempt handoff and abort,
+physical release before retransmission, known late replies, overall enqueue
+deadlines, cancellation/close, stale or malformed replies, and explicit old-session
+recovery. Each attempt receives a private copy, so port mutation cannot change
+later retries. Abort-aware `fromExchange` releases a missing response on the attempt
+timeout; an exchange ignoring abort remains physically owned until it settles or
+the application truthfully confirms closure. No new request overlaps that lease.
+Native Encoded bridge scenarios drop either the first request or first reply for
+all four operation families, then verify the identical retransmission and endpoint
+result in published JS and compiled TS. Retrying a lost reply may execute the
+endpoint again; these tests do not claim deduplication or physical completion.

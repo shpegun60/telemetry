@@ -623,26 +623,35 @@ export class DeviceClient {
 
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void|Promise<void>;
 
-// Complete frames only. The port owns framing and exposes received frames via receive().
-export class EncodedBackend implements Backend {
+export interface EncodedRetryOptions {
+	readonly replyTimeoutMs?: number;
+	// Retransmissions after the initial send. Endpoints may execute more than once.
+	readonly maxRetries?: number;
+}
+interface EncodedRetryPolicy {
+	readonly replyTimeoutMs: number;
+	readonly maxRetries: number;
+}
+
+function encodedRetryPolicy(options: EncodedRetryOptions): EncodedRetryPolicy
+{
+	const replyTimeoutMs = options.replyTimeoutMs ?? 100, maxRetries = options.maxRetries ?? 3;
+	if (!Number.isInteger(replyTimeoutMs) || replyTimeoutMs <= 0 || replyTimeoutMs > 0x7fffffff ||
+	    !u32(maxRetries))
+		throw new RangeError('Encoded retry options');
+	return {replyTimeoutMs, maxRetries};
+}
+
+// One TEQ1 serializer/receiver serves both public policies; standalone codecs do not depend on it.
+class EncodedEngine implements Backend {
 	private execution?: {context: BackendContext};
 	private waiting?: {
 		request: WireRequest; context : BackendContext; resolve : (value: WireResult) => void;
 		reject : (error: unknown) => void
 	};
 
-	constructor(private readonly send: EncodedSend)
+	constructor(private readonly send: EncodedSend, private readonly retry?: EncodedRetryPolicy)
 	{}
-
-	static fromExchange(exchange: Exchange): EncodedBackend
-	{
-		const backend = new EncodedBackend(async (packet, context) => {
-			const reply = await exchange(packet, context);
-			if (!context.signal.aborted)
-				backend.receive(reply);
-		});
-		return backend;
-	}
 
 	confirmSessionClosed(generation: number): boolean
 	{
@@ -671,33 +680,102 @@ export class EncodedBackend implements Backend {
 		const execution = this.execution = {context};
 		let transfer: Promise<unknown> = Promise.resolve();
 		const response = new Promise<WireResult>((resolve, reject) => {
-			const waiting = {request, context, resolve, reject};
-			this.waiting = waiting;
-			context.signal.addEventListener('abort', () => {
-				if (this.waiting === waiting) {
-					this.waiting = undefined;
-					reject(new BackendFailure(Status.Cancelled, 'Aborted'));
+			let settled = false, timer: unknown, retries = 0;
+			const cleanup = () => {
+				if (timer !== undefined) {
+					context.clock.clearTimeout(timer);
+					timer = undefined;
 				}
-			}, {once : true});
-			if (!context.handoff(true)) {
+				context.signal.removeEventListener('abort', abort);
 				if (this.waiting === waiting)
 					this.waiting = undefined;
-				reject(new BackendFailure(Status.Cancelled, 'Handoff refused'));
-				return;
-			}
-			try {
-				transfer = Promise.resolve(this.send(packet, context));
-				transfer.catch(error => {
-					if (this.waiting === waiting) {
-						this.waiting = undefined;
-						reject(error);
+			};
+			const finish = (value?: WireResult, error?: unknown) => {
+				if (settled)
+					return;
+				settled = true;
+				cleanup();
+				if (value)
+					resolve(value);
+				else
+					reject(error);
+			};
+			const abort = () => finish(undefined, new BackendFailure(Status.Cancelled, 'Aborted'));
+			const waiting = {
+				request,
+				context,
+				resolve : (value: WireResult) => finish(value),
+				reject : (error: unknown) => finish(undefined, error)
+			};
+			this.waiting = waiting;
+			context.signal.addEventListener('abort', abort, {once : true});
+			const attempt = () => {
+				if (settled || context.signal.aborted || this.execution !== execution) {
+					abort();
+					return;
+				}
+				if (!context.handoff(true)) {
+					finish(undefined, new BackendFailure(Status.Cancelled, 'Handoff refused'));
+					return;
+				}
+				const controller = this.retry ? new AbortController() : undefined;
+				const abortTransfer = () => controller?.abort();
+				if (controller)
+					context.signal.addEventListener('abort', abortTransfer, {once : true});
+				const sendContext = controller ? {
+					session : context.session,
+					requestId : context.requestId,
+					signal : controller.signal
+				}
+				                               : context;
+				const detach = () => context.signal.removeEventListener('abort', abortTransfer);
+				let released = false, expired = false, advanced = false;
+				const advance = () => {
+					if (settled || advanced || !released || !expired)
+						return;
+					advanced = true;
+					if (retries === this.retry!.maxRetries)
+						finish(undefined,
+						       new BackendFailure(Status.Timeout, 'Encoded reply timeout'));
+					else {
+						++retries;
+						attempt();
 					}
-				});
-			} catch (error) {
-				if (this.waiting === waiting)
-					this.waiting = undefined;
-				reject(error);
-			}
+				};
+				if (this.retry) {
+					timer = context.clock.setTimeout(() => {
+						timer = undefined;
+						expired = true;
+						// Abort requests release; only actual settlement permits another attempt.
+						abortTransfer();
+						advance();
+					}, this.retry.replyTimeoutMs);
+				}
+				try {
+					// Each port owns its attempt copy; mutation cannot corrupt a later retry.
+					transfer = Promise.resolve(
+					    this.send(this.retry ? packet.slice() : packet, sendContext));
+					transfer.then(
+					    () => {
+						    detach();
+						    released = true;
+						    advance();
+					    },
+					    error => {
+						    detach();
+						    if (expired && !context.signal.aborted) {
+							    released = true;
+							    advance();
+						    } else {
+							    finish(undefined, error);
+						    }
+					    });
+				} catch (error) {
+					detach();
+					finish(undefined, error);
+				}
+			};
+			attempt();
 		});
 		const release = () => {
 			if (this.execution === execution)
@@ -705,11 +783,10 @@ export class EncodedBackend implements Backend {
 		};
 		try {
 			const wire = await response;
-			// Preserve a checked outcome even while the send still owns physical I/O.
-			// Cleanup must precede the client's release handler and next FIFO invocation.
+			// Checked outcomes are timely even while the last send owns physical I/O.
 			return {...wire, released : transfer.then(release, release)};
 		} catch (error) {
-			// Abort requests cancellation; only settlement proves the port released its bytes/I/O.
+			// Cancellation remains logical; only physical settlement releases the invocation.
 			await transfer.then(release, release);
 			throw error;
 		}
@@ -761,6 +838,45 @@ export class EncodedBackend implements Backend {
 		this.waiting = undefined;
 		waiting.resolve({...result, payload : result.payload.slice()});
 		return true;
+	}
+}
+
+// Complete frames only. The port owns framing and exposes received frames via receive().
+export class EncodedBackend extends EncodedEngine {
+	constructor(send: EncodedSend)
+	{
+		super(send);
+	}
+
+	static fromExchange(exchange: Exchange): EncodedBackend
+	{
+		const backend = new EncodedBackend(async (packet, context) => {
+			const reply = await exchange(packet, context);
+			if (!context.signal.aborted)
+				backend.receive(reply);
+		});
+		return backend;
+	}
+}
+
+// Opt-in repeated execution: one immutable request identity, initial send + maxRetries.
+// The reply timer starts at each handoff. A retry waits for physical send settlement;
+// a stuck send instead remains bounded logically by DeviceClient's overall deadline.
+export class RetryingEncodedBackend extends EncodedEngine {
+	constructor(send: EncodedSend, options: EncodedRetryOptions = {})
+	{
+		super(send, encodedRetryPolicy(options));
+	}
+
+	static fromExchange(exchange: Exchange,
+	                    options: EncodedRetryOptions = {}): RetryingEncodedBackend
+	{
+		const backend = new RetryingEncodedBackend(async (packet, context) => {
+			const reply = await exchange(packet, context);
+			// A late matching reply can still establish the result after attempt abort.
+			backend.receive(reply);
+		}, options);
+		return backend;
 	}
 }
 
