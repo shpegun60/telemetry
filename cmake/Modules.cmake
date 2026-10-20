@@ -1,5 +1,5 @@
 # Module-specific include roots also apply to in-tree builds. MIT.
-set(_telemetry_modules delegate common reflection codec core resource resource_wire resource_protocol
+set(_telemetry_modules delegate common reflection codec core runtime resource resource_wire resource_protocol
     client encoded_wire rpc_wire resource_adapter encoded_server rpc_server rpc_sessions
     encoded_backend rpc_client rpc_backend)
 set(_telemetry_selected ${TELEMETRY_COMPONENTS})
@@ -157,7 +157,7 @@ function(telemetry_headers target module prefix source)
     file(GLOB_RECURSE _headers CONFIGURE_DEPENDS RELATIVE "${source}"
         "${source}/*.hpp" "${source}/*.h")
     foreach(_header IN LISTS _headers)
-        if(module STREQUAL "core" AND _header MATCHES "^(client|protocol)/")
+        if(module STREQUAL "core" AND _header MATCHES "^(client|protocol|runtime)/")
             continue()
         endif()
         if(module STREQUAL "resource" AND _header MATCHES "^(telemetry|protocol)/")
@@ -247,11 +247,16 @@ foreach(_module IN LISTS _telemetry_modules)
         telemetry_header(${_target} ${_module} lib/magic_enum/magic_enum.hpp magic_enum.hpp)
     elseif(_module STREQUAL "core")
         telemetry_headers(${_target} ${_module} telemetry "${PROJECT_SOURCE_DIR}/lib/telemetry")
+    elseif(_module STREQUAL "runtime")
+        telemetry_headers(${_target} ${_module} telemetry/runtime "${PROJECT_SOURCE_DIR}/lib/telemetry/runtime")
+        foreach(_header descriptor/Format.hpp type/WireTypes.hpp)
+            telemetry_header(${_target} ${_module} lib/telemetry/${_header} telemetry/${_header})
+        endforeach()
     elseif(_module STREQUAL "codec")
         foreach(_part codec reflection result)
             telemetry_headers(${_target} ${_module} telemetry/${_part} "${PROJECT_SOURCE_DIR}/lib/telemetry/${_part}")
         endforeach()
-        foreach(_header type/Traits.hpp core/Compiler.hpp slot/TelemetrySlotTraits.h)
+        foreach(_header type/Traits.hpp type/WireTypes.hpp core/Compiler.hpp slot/TelemetrySlotTraits.h)
             telemetry_header(${_target} ${_module} lib/telemetry/${_header} telemetry/${_header})
         endforeach()
     elseif(_module STREQUAL "resource")

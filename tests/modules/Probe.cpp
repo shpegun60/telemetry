@@ -21,6 +21,63 @@ int main()
 	                                               {}, {}, workspace);
 	return result.dispatch == telemetry::DispatchStatus::NotFound ? 0 : 1;
 }
+#elif defined(MODULE_RUNTIME)
+#include <telemetry/runtime/DynamicValueView.hpp>
+
+int main()
+{
+	namespace rt = telemetry::runtime;
+	// Construct the frozen empty v3 registry without importing its producer.
+	std::array<std::byte, 348> descriptor{};
+	auto number = [&](std::size_t offset, std::uint64_t value, unsigned width) {
+		for (unsigned i = 0; i < width; ++i)
+			descriptor[offset + i] = std::byte((value >> (8 * i)) & 0xffu);
+	};
+	descriptor[0] = std::byte{'T'};
+	descriptor[1] = std::byte{'D'};
+	descriptor[2] = std::byte{'S'};
+	descriptor[3] = std::byte{'3'};
+	number(4, 3, 2);
+	number(8, 64, 2);
+	number(12, descriptor.size(), 4);
+	number(24, 12, 4);
+	number(52, 64, 4);
+	number(56, descriptor.size(), 4);
+	number(60, descriptor.size(), 4);
+	constexpr unsigned sizes[]{0, 1, 1, 1, 2, 2, 4, 4, 8, 8, 4, 8};
+	std::size_t offset = 64;
+	for (unsigned id = 0; id < 12; ++id) {
+		number(offset, 1, 1);
+		number(offset + 1, 1, 1);
+		number(offset + 4, id ? 16 : 12, 4);
+		number(offset + 8, id, 4);
+		number(offset + 12, id ? 1 : 0, 1);
+		number(offset + 16, sizes[id], 4);
+		if (id)
+			number(offset + 20, id, 1);
+		offset += id ? 24 : 20;
+	}
+	auto hash = telemetry::descriptor::fingerprintBasis;
+	for (auto value : descriptor)
+		hash =
+		    (hash ^ std::to_integer<std::uint8_t>(value)) * telemetry::descriptor::fingerprintPrime;
+	number(16, hash, 8);
+	std::array<rt::RuntimeType, 12> types{};
+	std::array<rt::RuntimeMember, 0> members{};
+	std::array<rt::RuntimeEnumEntry, 0> enums{};
+	std::array<rt::RuntimeCatalog, 0> catalogs{};
+	std::array<rt::RuntimeEndpoint, 0> endpoints{};
+	rt::RuntimeSchemaWorkspace workspace{types, members, enums, catalogs, endpoints};
+	const auto parsed = rt::RuntimeSchema::parse(descriptor, workspace);
+	if (parsed.status != rt::Status::Ok)
+		return 1;
+	const std::array payload{std::byte{0x12}, std::byte{0x34}, std::byte{0x56}, std::byte{0x78}};
+	const auto value = parsed.schema.view(6, payload);
+	if (!value)
+		return 2;
+	const auto scalar = value.value.get<std::uint32_t>();
+	return scalar && scalar.value == 0x78563412u ? 0 : 3;
+}
 #elif defined(MODULE_RESOURCE)
 #include <resource/Resource.hpp>
 

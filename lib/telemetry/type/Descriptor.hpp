@@ -26,8 +26,6 @@
 
 namespace telemetry {
 
-using TypeId = std::uint32_t;
-
 // One aggregate member in declaration order. Its name and referenced type
 // describe structure; native byte offsets and live member values are absent.
 struct MemberDescriptor {
