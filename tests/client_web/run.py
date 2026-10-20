@@ -99,6 +99,7 @@ def main():
             counted([args.node, HERE / 'Lifetime.mjs', module], 'lifetime-' + label, 335)
             counted([args.node, HERE / 'Polling.mjs', module], 'polling-' + label, 90)
             counted([args.node, HERE / 'Retrying.mjs', module], 'retrying-' + label, 370)
+            counted([args.node, HERE / 'UartBudget.mjs', module], 'uart-budget-' + label, 143)
             traces = run([args.node, HERE / 'Trace.mjs', module], 'traces-' + label)
             for line in traces.splitlines():
                 test = json.loads(line)

@@ -117,6 +117,61 @@ permission and physical TX release. The enqueue deadline, including queue wait,
 continues across all attempts. A direct backend caller supplies its bounded
 overall budget through `RequestView::timeoutMs`.
 
+## UART reply budget and overall deadline
+
+`replyTimeoutMs` includes physical transmission time. C++ starts it at complete
+packet acceptance by the driver (`onSendAccepted`); JS/TS starts it at handoff.
+Neither event proves that the UART has finished sending. TX release only makes
+the port available; it does not restart the timer. A retry already offered at
+release can therefore begin before the first response arrives, even with no loss.
+
+For each operation, bound the complete framed request and maximum framed reply:
+
+```text
+TX_ms = ceil(txWireBytes * bitsPerCharacter * 1000 / baud)
+RX_ms = ceil(maxRxWireBytes * bitsPerCharacter * 1000 / baud)
+replyTimeoutMs = TX_ms + RX_ms + driverAndServerBudgetMs
+                 + deliveryAndOwnerJitterMs + positiveMarginMs
+```
+
+For 8N1, `bitsPerCharacter` is 10. Count the 32-byte TEQ1 header in each direction
+and the port's worst-case framing, integrity and escaping overhead. Bound driver
+queue/start delay, flow-control pauses, half-duplex turnaround and server work in
+the applicable terms. A baud-only calculation cannot bound an indefinitely
+paused transport. Round upward, use checked wide arithmetic, reject invalid baud
+or budgets outside `1..0x7fffffff`, and retain a positive scheduling margin.
+Arrange for the checked reply to arrive before the applicable reply and overall
+deadlines; processing a deadline first at the same timestamp can win the race.
+
+A Service with 2048-byte request and response has at least 2080 bytes each way.
+At 115200 baud, 8N1, each direction takes about 180.56 ms (181 ms rounded up).
+With 7 ms server work and a 20 ms jitter budget, the subtotal is 389 ms before
+an additional margin and any outer framing allowance. `replyTimeoutMs=100` is
+too short for this profile. The tests deliberately allow the original TX to
+finish despite the timeout's abort request: the short budget causes a retry and
+can exhaust the request without losing any frame. A suitable budget permits one
+send and the first checked response.
+
+The examples select 500 ms for their illustrated retry profile. This is an
+explicit application choice, not a universal UART timeout; recalculate it for
+your actual wire-size, processing and scheduling bounds. C++ and JS/TS use the
+same unchanged retry defaults of 100 ms and three retries when omitted.
+
+The overall enqueue budget is separate and includes FIFO wait and all attempts:
+
+| Entry point | Existing overall default | Explicit example profile |
+| --- | --- | --- |
+| C++ DeviceClient operation / submitEncoded | 30000 ms | Pass `30000` to the operation |
+| JS/TS DeviceClient | 5000 ms | Set constructor `timeoutMs: 30000` |
+| Generated QML DeviceApi | 5000 ms | Set QML `requestTimeoutMs: 30000`, or call C++ `setRequestTimeoutMs(30000)` |
+
+Use these explicit values when comparing platforms. QML accepts overall budgets
+only through 300000 ms. The overall deadline may truncate retries; multiplying
+reply timeout by send count alone does not account for FIFO or physical-release
+waits. Changing a timeout does not establish physical DMA or IRQ quiescence.
+
+## Retry results and session recovery
+
 A valid correlated response from an earlier attempt can finish the request while
 a retry is offered/prepared. Any checked endpoint result, including refusal or
 Command Accepted, stops retransmission; Accepted does not mean Executed. Once a

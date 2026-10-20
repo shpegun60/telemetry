@@ -30,11 +30,13 @@ static cl::Clock clientClock{nullptr, +[](void*) noexcept {
 #if defined(TELEMETRY_EXAMPLE_RETRY_ENCODED)
 // Retries may execute an endpoint again. Use only where that is acceptable.
 static ::telemetry::integration::encoded::RetryingEncodedBackend backend{
-    tx, response, clientClock, {.replyTimeoutMs = 100, .maxRetries = 3}};
+    tx, response, clientClock, {.replyTimeoutMs = 500, .maxRetries = 3}};
 #else
 static ::telemetry::integration::encoded::EncodedBackend backend{tx, response, clientClock};
 #endif
 static api::client::DeviceClient<4, 256> client{backend, clientClock};
+// Explicit cross-platform example profile; includes FIFO wait and every attempt.
+static constexpr std::uint32_t requestTimeoutMs = 30000;
 static unsigned completed = 0, failed = 0;
 
 static void step() noexcept
@@ -65,23 +67,32 @@ int main()
 	if (client.admitDescriptor(board_verifiedDescriptorHeader(), 1) != cl::Status::Ok)
 		return 1;
 	// Three logical requests share one active Encoded exchange and one byte pool.
-	auto one = client.read(api::device::fields::Config, [](const auto& result) noexcept {
-		if (!result.hasValue())
-			++failed;
-		++completed;
-	});
+	auto one = client.read(
+	    api::device::fields::Config,
+	    [](const auto& result) noexcept {
+		    if (!result.hasValue())
+			    ++failed;
+		    ++completed;
+	    },
+	    requestTimeoutMs);
 	api::device::types::Config config{};
 	config.gain = 2.0f;
-	auto two = client.write(api::device::fields::Config, config, [](const auto& result) noexcept {
-		if (!result)
-			++failed;
-		++completed;
-	});
-	auto three = client.read(api::device::fields::Config, [](const auto& result) noexcept {
-		if (!result.hasValue() || result.value().gain != 2.0f)
-			++failed;
-		++completed;
-	});
+	auto two = client.write(
+	    api::device::fields::Config, config,
+	    [](const auto& result) noexcept {
+		    if (!result)
+			    ++failed;
+		    ++completed;
+	    },
+	    requestTimeoutMs);
+	auto three = client.read(
+	    api::device::fields::Config,
+	    [](const auto& result) noexcept {
+		    if (!result.hasValue() || result.value().gain != 2.0f)
+			    ++failed;
+		    ++completed;
+	    },
+	    requestTimeoutMs);
 	if (!one || !two || !three)
 		return 2;
 	while (board_running() && completed != 3)

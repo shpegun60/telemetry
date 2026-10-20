@@ -171,6 +171,14 @@ bounded [DeviceClient](AsyncClient.md) execution queue. Its constructor takes
 from `integration/encoded/RetryingBackend.hpp`. The retry choice uses the same
 adapter and one execution queue; it may execute a delivered operation repeatedly
 and requires a fresh permission and released TX buffer for each retry.
+Its omitted retry options are 100 ms / three retries. For a UART integration,
+budget full framed TX, server work, framed RX and scheduling margin; accepting
+the packet does not mean DMA has finished. The
+[UART budget contract](AsyncClient.md#uart-reply-budget-and-overall-deadline)
+shows an explicit 500 ms retry / 30000 ms overall profile. Set the QML overall
+budget from C++ with `api.setRequestTimeoutMs(30000)`, or from QML with
+`api.requestTimeoutMs = 30000`. The C++ operation default does not replace
+the API's 5000 ms default.
 API, adapter, backend and
 borrowed buffers use one owner thread. `DeviceClientAdapter<Api, N, PayloadBytes>`
 defaults to eight records and one shared 4096-byte payload pool. Its token map

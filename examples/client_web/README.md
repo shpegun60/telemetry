@@ -41,9 +41,9 @@ import {DeviceClient, RetryingEncodedBackend} from './generated/js/client.js';
 import * as sdk from './generated/js/device.js';
 
 const backend = new RetryingEncodedBackend(sendCompletePacket, {
-    replyTimeoutMs: 100, maxRetries: 3,
+    replyTimeoutMs: 500, maxRetries: 3,
 });
-const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader});
+const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader, timeoutMs: 30000});
 // Admission uses the validated peer Descriptor, as with encodedClient().
 // Deliver verified complete reply frames through backend.receive(frame).
 ```
@@ -55,6 +55,14 @@ can still complete the request. The same backend also provides `fromExchange()`.
 The [runtime contract](../../lib/client/web/README.md#optional-encoded-retries)
 describes ownership and recovery. `maxRetries: 3` means up to four sends with the
 same bytes and identity; each delivered retry can execute the endpoint again.
+
+The example explicitly selects 500 ms for the reply and 30000 ms overall;
+`rpcClient()` and `encodedClient()` also set the 30000 ms overall budget. The
+library defaults remain 100 ms reply / three retries and 5000 ms overall on the
+web. For UART the reply budget starts before physical TX completion and must
+cover the framed request, server work, framed response and scheduling margin.
+See the [UART budget calculation](../../doc/AsyncClient.md#uart-reply-budget-and-overall-deadline);
+500 ms is an example profile, not a bound for arbitrary transports or DTOs.
 
 RPC retries only the same active Resource packet with the
 same transaction ID. An uncertain transaction after its final request handoff

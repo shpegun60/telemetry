@@ -8,6 +8,9 @@ import {
 	type EncodedSend
 } from './generated/js/client.js';
 
+// Explicit cross-platform profile, including FIFO wait and all retry attempts.
+const requestTimeoutMs = 30000;
+
 // One exclusive Resource/RPC mailbox. The complete-packet exchange owns framing.
 export function rpcClient(exchange: Exchange, header: Uint8Array,
                           freshSession: number): DeviceClient
@@ -17,7 +20,7 @@ export function rpcClient(exchange: Exchange, header: Uint8Array,
 		matchesHeader,
 		maxPending : 16,
 		maxPayloadBytes : 4096,
-		timeoutMs : 5000
+		timeoutMs : requestTimeoutMs
 	});
 	if (!client.openSession(freshSession, header))
 		throw Error('Descriptor/session admission refused');
@@ -28,8 +31,13 @@ export function rpcClient(exchange: Exchange, header: Uint8Array,
 export function encodedClient(send: EncodedSend, header: Uint8Array, freshSession: number)
 {
 	const backend = new EncodedBackend(send);
-	const client = new DeviceClient(
-	    {backend, matchesHeader, maxPending : 16, maxPayloadBytes : 4096, timeoutMs : 5000});
+	const client = new DeviceClient({
+		backend,
+		matchesHeader,
+		maxPending : 16,
+		maxPayloadBytes : 4096,
+		timeoutMs : requestTimeoutMs
+	});
 	if (!client.openSession(freshSession, header))
 		throw Error('Descriptor/session admission refused');
 	return {client, receive : (frame: Uint8Array) => backend.receive(frame)};

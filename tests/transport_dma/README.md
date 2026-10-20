@@ -29,6 +29,38 @@ an offered retry cannot reuse its DMA buffer before driver completion, and must
 obtain fresh permission after release. Its queued cancel/deadline cases cause no
 second HAL send. These tests add no second execution queue or physical DMA run.
 
+## Loss-free UART reply budget
+
+`UartBudget.cpp` uses a separate bounded 2080-byte TX/RX port and a real Model
+Service/Encoded dispatcher. It leaves `H753Port` and its 128-byte buffers unchanged.
+All frames are delivered; the test supplies deterministic 115200-baud 8N1 timing,
+7 ms server work and 11 ms RX/owner jitter. It records send times, full TX/RX
+completion, endpoint executions and result delivery in `summary.json`.
+
+A 2048-byte payload makes a 2080-byte TEQ1 frame, taking 181 ms per direction
+(rounding each transfer up to milliseconds). With `replyTimeoutMs=100` and
+`maxRetries=1`, sends occur at 0 and 181 ms: the first timeout offers a retry while
+TX still owns its copy, and that retry starts after release. Native exhaustion
+returns `OutcomeUnknown` at 281 ms, before the original loss-free reply arrives at
+380 ms; both delivered requests execute. A 389 ms budget (181 TX + 7 server + 181
+RX + 20 jitter subtotal), or the explicit 500 ms example profile, sends once and
+returns `Ok` at 380 ms under the 11 ms actual jitter. The 389 ms case has 9 ms
+observed slack and is not proof at the complete 20 ms jitter bound. An additional
+500 ms case applies all 20 ms jitter, returns `Ok` at 389 ms, and retains 111 ms
+strict slack. A second case uses a 36-byte request and a 2080-byte reply:
+TX-only budgeting fails, while the complete 212 ms budget returns `Ok` at 203 ms.
+These are configured integration-policy comparisons, not changes to defaults or
+retry state transitions.
+
+The reply timer starts at successful full-packet `onSendAccepted`, which the HAL
+port reports when DMA accepts the packet, rather than at TX-complete or peer
+receipt. Budget **all** request/response framing bytes, baud/framing bits, server
+worst-case work, RX buffering/owner scheduling and jitter; also reserve a sufficient
+overall enqueue deadline. TEQ1 has no deduplication, so short budgets can execute
+an endpoint repeatedly without any lost frame. The test's 20 ms allowance and
+500 ms example are not universal hardware limits: extra framing, queues and board
+load need their own measured bounds. No UART, DMA or physical H753 is exercised.
+
 ## Run into external output directories
 
 From the repository root, using a host C++20 compiler and Python 3.10 or later:

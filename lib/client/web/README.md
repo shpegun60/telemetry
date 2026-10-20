@@ -62,10 +62,10 @@ See the [runnable example](../../../examples/client_web/README.md) and
 
 ```ts
 const backend = new RetryingEncodedBackend(sendCompletePacket, {
-    replyTimeoutMs: 100,
+    replyTimeoutMs: 500,
     maxRetries: 3,
 });
-const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader});
+const client = new DeviceClient({backend, matchesHeader: sdk.matchesHeader, timeoutMs: 30000});
 // Feed complete verified transport frames to backend.receive(frame).
 ```
 
@@ -74,6 +74,15 @@ read/write/command/service bindings and queue apply. Three retries allow at most
 four sends, with identical request bytes, session and request ID. Zero permits
 one send with a reply timeout. Options are copied at construction; reply timeout
 is an integer in `1..0x7fffffff`, retries in `0..0xffffffff`.
+
+The snippet explicitly selects an example 500 ms reply / 30000 ms overall
+profile. Omitted options still use 100 ms reply / three retries and 5000 ms
+overall; C++ operation defaults are 30000 ms overall. For equivalent platform
+behavior, set the overall budget explicitly. Calculate a UART reply budget from
+full framed TX and maximum RX time plus bounded driver/server work and jitter:
+the [shared budget contract](../../../doc/AsyncClient.md#uart-reply-budget-and-overall-deadline)
+includes a 2080-byte, 115200-baud example. The reply timer is not restarted at
+TX release, so an undersized budget can retry a loss-free exchange.
 
 The timer starts at each handoff and requests that attempt's cancellation through
 its own AbortSignal. A retry waits for the previous send Promise to settle;

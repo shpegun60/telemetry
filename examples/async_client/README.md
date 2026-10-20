@@ -37,7 +37,7 @@ electrical UART/DMA behavior on a physical board.
 
 Build the same `BareMetal.cpp` with `-DTELEMETRY_EXAMPLE_RETRY_ENCODED` to select
 `integration/encoded/RetryingBackend.hpp` and `RetryingEncodedBackend` with
-`EncodedRetryOptions{.replyTimeoutMs=100, .maxRetries=3}`. The default remains the
+`EncodedRetryOptions{.replyTimeoutMs=500, .maxRetries=3}`. The default remains the
 non-retrying EncodedBackend. The qualification runner runs both variants against
 the real host Model bridge and compiles both for Cortex-M7.
 
@@ -48,6 +48,14 @@ release meaning even when the reply timer expires while DMA is active. Never
 overwrite a live transport copy. Report complete-packet acceptance synchronously
 with the actual submission, not a delayed acceptance from a previous retry;
 physical TX completion is a separate event.
+
+The 500 ms reply budget is an explicit example profile, including complete TX,
+server processing, RX and a margin. It is not a measured board limit. Calculate
+it from the actual framed byte counts, baud and bounded scheduling delays using
+the [UART budget contract](../../doc/AsyncClient.md#uart-reply-budget-and-overall-deadline).
+The library's omitted retry options remain 100 ms / three retries. Every example
+operation explicitly uses a 30000 ms overall enqueue budget, matching the web
+example and including queue wait and all attempts.
 
 The server does not deduplicate Encoded requests. Lost responses can make writes,
 commands and services execute again; use only operations that permit this. A

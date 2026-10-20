@@ -137,15 +137,23 @@ def main() -> int:
              ["tests/transport_dma/Hal.cpp", "tests/transport_dma/H753Port.cpp", *SOURCES], 122),
             ("retrying", [], ["tests/transport_dma/Retrying.cpp", *SOURCES,
                               "lib/integration/encoded/Dispatcher.cpp"], 112),
+            ("uart-budget", [], ["tests/transport_dma/UartBudget.cpp", *SOURCES,
+                                 "lib/integration/encoded/Dispatcher.cpp"], 216),
         ]:
             binary = out / (stem + suffix)
             run(stem + "-compile", [cxx, *common, *host_flags, *extra, *source_list, "-o", str(binary)])
             output = run(stem + "-run", [str(binary)])
-            match = re.search(r"transport_dma(?:_hal|_retry)? checks=(\d+) failures=(\d+)", output)
+            match = re.search(r"transport_dma(?:_hal|_retry|_uart)? checks=(\d+) failures=(\d+)", output)
             if not match or int(match[1]) < minimum or int(match[2]):
                 raise RuntimeError(f"missing/insufficient counted result: {stem}")
             report["executions"].append({"name": stem, "checks": int(match[1]), "failures": int(match[2]),
                                           "binary_sha256": sha(binary), "hal_test_double": stem == "hal-double"})
+            if stem == "uart-budget":
+                timelines = [json.loads(line.removeprefix("uart_budget_timeline "))
+                             for line in output.splitlines() if line.startswith("uart_budget_timeline ")]
+                if len(timelines) != 7:
+                    raise RuntimeError("missing loss-free UART timelines")
+                report["uart_budget"] = {"physical_execution": False, "timelines": timelines}
         if args.arm_cxx:
             arm = identify(args.arm_cxx)
             obj = out / "portable-arm.o"
