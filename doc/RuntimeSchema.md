@@ -61,12 +61,13 @@ stage supplies metadata and value reads, without dynamic request submission.
 
 ## Storage and lifetime
 
-The application owns three independent storage lifetimes:
+The application owns these storage lifetimes:
 
 | Storage | Requirement |
 | --- | --- |
 | Descriptor bytes | Remain alive and immutable while schema metadata or names are used |
-| Workspace object and index arrays | Remain alive, at stable addresses, and exclusive to one parse generation |
+| Workspace object | Remains alive at a stable address until all schemas, handles and views are gone |
+| Index arrays | Remain alive and immutable for their published generation; writable again before another parse |
 | Payload bytes | Remain alive and immutable while a value view is used |
 
 Metadata names are `std::string_view` slices of the original descriptor.

@@ -131,10 +131,12 @@ namespace detail {
 class SchemaParser;
 }
 
-// The object, all supplied arrays, and successful descriptor bytes must outlive
-// every schema, handle and value view. Do not modify the descriptor or supplied
-// metadata arrays while published indexes are in use. Parsing/resetting is
-// owner-thread only; reset or any parse attempt invalidates previous views.
+// The workspace object must outlive every schema, handle and value view. Supplied
+// arrays and descriptor bytes remain alive and immutable for their published
+// generation. After invalidation, stale access needs only the workspace object;
+// another parse still requires all supplied arrays to be alive and writable.
+// Parsing/resetting is owner-thread only; reset or any parse attempt invalidates
+// previous views.
 // Public methods: construction, reset, generation.
 class RuntimeSchemaWorkspace {
 public:
