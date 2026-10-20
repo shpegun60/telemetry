@@ -41,7 +41,9 @@ clock. It checks the default initial send plus three retries, an explicit zero
 retry budget, unchanged request identity and bytes, per-attempt handoff and abort,
 physical release before retransmission, known late replies, overall enqueue
 deadlines, cancellation/close, stale or malformed replies, and explicit old-session
-recovery. Each attempt receives a private copy, so port mutation cannot change
+recovery. Delayed old-session exchanges are rejected by their carrier identity
+before malformed or detached reply bytes can affect a newer request. Each
+attempt receives a private copy, so port mutation cannot change
 later retries. Abort-aware `fromExchange` releases a missing response on the attempt
 timeout; an exchange ignoring abort remains physically owned until it settles or
 the application truthfully confirms closure. No new request overlaps that lease.
