@@ -188,6 +188,7 @@ declare class EncodedEngine implements Backend {
     constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined);
     confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
+    protected receiveFromExchange(input: ByteInput, context: ExchangeContext): boolean;
     receive(input: ByteInput): boolean;
 }
 export declare class EncodedBackend extends EncodedEngine {

@@ -792,6 +792,18 @@ class EncodedEngine implements Backend {
 		}
 	}
 
+	protected receiveFromExchange(input: ByteInput, context: ExchangeContext): boolean
+	{
+		// A detached old exchange may settle after a newer admission. Check its
+		// carrier identity before even inspecting potentially malformed input.
+		const waiting = this.waiting;
+		if (!waiting || waiting.context.signal.aborted ||
+		    waiting.request.session !== context.session ||
+		    waiting.request.requestId !== context.requestId)
+			return false;
+		return this.receive(input);
+	}
+
 	receive(input: ByteInput): boolean
 	{
 		const waiting = this.waiting;
@@ -874,7 +886,7 @@ export class RetryingEncodedBackend extends EncodedEngine {
 		const backend = new RetryingEncodedBackend(async (packet, context) => {
 			const reply = await exchange(packet, context);
 			// A late matching reply can still establish the result after attempt abort.
-			backend.receive(reply);
+			backend.receiveFromExchange(reply, context);
 		}, options);
 		return backend;
 	}

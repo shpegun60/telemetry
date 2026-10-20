@@ -444,6 +444,47 @@ for (const action of ['cancel', 'reset', 'close']) {
 	f.client.close();
 	truth(f.client.drained);
 }
+// A physically closed old exchange cannot parse a malformed/detached reply into a newer invocation.
+for (const variant of ['detached', 'malformed', 'matching-new']) {
+	const clock = new FakeClock(), old = deferred(), current = deferred(), calls = [];
+	const backend = RetryingEncodedBackend.fromExchange((packet, context) => {
+		calls.push({packet : packet.slice(), context});
+		return calls.length === 1 ? old.promise : current.promise;
+	}, {replyTimeoutMs : 10});
+	const client = new DeviceClient({backend, clock, matchesHeader : () => true});
+	truth(client.openSession(1, header));
+	const first = client.command(ops[2], 1);
+	await flush();
+	truth(first.cancel());
+	equal((await first).status, Status.OutcomeUnknown);
+	client.resetSession();
+	truth(client.confirmSessionClosed(1));
+	truth(client.openSession(2, header));
+	const second = client.read(ops[4]);
+	await flush();
+	equal(calls.length, 2);
+	let stale = reply(calls[1].packet);
+	if (variant === 'detached') {
+		const buffer = new ArrayBuffer(32);
+		structuredClone(buffer, {transfer : [ buffer ]});
+		stale = buffer;
+	} else if (variant === 'malformed') {
+		stale[31] = 1;
+	}
+	old.resolve(stale);
+	await flush();
+	const valid = reply(calls[1].packet);
+	data(valid).setUint32(32, 77, true);
+	current.resolve(valid);
+	const outcome = await second;
+	equal(outcome.status, Status.Ok);
+	equal(outcome.value, 77);
+	equal(client.recoveryRequired, false);
+	await flush();
+	equal(clock.timers.size, 0);
+	client.close();
+	truth(client.drained);
+}
 // Existing ordinary backend has no retry timer or automatic retransmission.
 {
 	const clock = new FakeClock();
