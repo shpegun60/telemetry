@@ -11,7 +11,8 @@
 [Generated Qt/QML](GeneratedQmlApi.md) ·
 [Schema compatibility](GeneratedSchemaCompatibility.md) ·
 [Asynchronous client](AsyncClient.md) ·
-[Runtime schema and values](RuntimeSchema.md)
+[Runtime schema and values](RuntimeSchema.md) ·
+[DynamicClient implementation contract (planned)](DynamicClient.md)
 
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.
