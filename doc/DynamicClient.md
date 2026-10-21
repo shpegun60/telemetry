@@ -81,6 +81,20 @@ recall a port-owned TX copy that was already authorized.
 | Deadline expires without a result | Preserve backend timeout/uncertain-outcome semantics |
 | Completion with stale binding | Do not create DynamicValueView or publish cached values |
 
+Schema-only invalidation uses these existing Client operation statuses:
+
+| Point at which invalidation is observed | Operation status |
+| --- | --- |
+| New submission | Reject synchronously with NotAdmitted; no completion callback |
+| Accepted queued request not yet completed | Cancelled, delivered once during owner drain |
+| Active request with no execution-capable handoff ever authorized | Cancelled through the backend, unless an existing terminal result/deadline has already won; retain cleanup requirements |
+| Active request after execution-capable authorization | Preserve the backend result or existing deadline outcome; do not replace it with Cancelled or Stale solely for schema invalidation |
+| Already checked terminal result | Unchanged |
+
+For new submissions, an explicitly closed client still returns `Closed`, and an
+existing backend recovery gate returns `RecoveryRequired` before `NotAdmitted`.
+These gates are not cleared or reclassified by schema invalidation.
+
 Do not add unconditional stale cancellation ahead of backend reply processing.
 `DeviceClient::onReply()` currently calls `process()` first to enforce deadline
 precedence. A reply processed after the deadline must not become successful
@@ -111,6 +125,30 @@ RPC session recovery may nevertheless be required.
 A current, successful non-Void response is validated through
 `RuntimeSchema::view()`. A stale binding or invalid payload yields no value view
 without erasing the operation result. Void responses need no value view.
+The following planned DynamicClient `valueStatus` labels have ordered semantics;
+they do not add cases to the existing Runtime or Client status enums:
+
+| First applicable condition | valueStatus | Value view |
+| --- | --- | --- |
+| Schema or session binding is stale | Stale | None; do not inspect old response metadata or payload |
+| Binding is current, operation/transport/dispatch/endpoint outcome is unsuccessful | NoValue | None |
+| Current successful outcome, but the checked runtime response type contract is incompatible | TypeMismatch | None |
+| Binding is current, successful operation has a declared Void response | NoValue | None |
+| Current successful non-Void response with a matching type contract fails runtime payload length/canonical validation | InvalidPayload | None |
+| Current successful non-Void response with a matching type contract passes runtime validation | Ok | Present |
+
+Check binding freshness before all other value conditions, including Void and
+failed operations. Thus a successful Void operation with a stale binding reports
+its original successful operation result and `valueStatus = Stale`; a current
+Void operation reports `NoValue`. A valid zero-byte struct is non-Void and reports
+`Ok` with a view. Command Accepted remains Accepted with `NoValue` for a current
+binding. `TypeMismatch` denotes a checked type-contract mismatch, not a type
+inferred from untyped bytes. Check the response type contract before classifying
+Void or validating payload bytes; equal byte lengths do not establish equal
+types. Backend wire errors keep their operation status
+(for example, `MalformedReply`) and produce `NoValue` for a current binding;
+they are not reclassified as runtime validation errors.
+
 Every accepted request receives exactly one completion in the owner context;
 failed submissions return their rejection directly without a later callback.
 
@@ -137,9 +175,15 @@ Quiescence requires completed producer calls, callbacks and logical operations,
 necessary backend recovery and actual driver TX/DMA release. Neither
 `pending() == 0` nor `DeviceClient::drained()` alone proves physical transport
 quiescence. The application/port must provide that evidence before new admission
-or storage reuse. For uncertain RPC execution, close/drain the old remote session
-and call `confirmSessionClosed()` only after the existing backend contract allows
-it. Merely resetting a client or admitting a Descriptor does not clear recovery.
+or storage reuse. Close/drain old RPC state even when no execution-capable WRITE
+was authorized: a non-final WRITE can leave the remote mailbox Receiving.
+With RpcSessionPool, release the old session and wait for Closing to finish and
+the mailbox to reset. Exclude old frames and release port-owned TX storage before
+declaring quiescence. Where backend recovery requires it, call
+`confirmSessionClosed()` only after its existing contract allows it. Merely
+resetting a client or admitting a Descriptor does not establish cleanup or clear
+recovery. This is remote session/mailbox cleanup, not a generic rollback guarantee
+for arbitrary Resource providers.
 
 No old request is migrated or replayed in a new session. New execution requires
 a new explicit user submission. Readmission is not `DeviceClient::close()`
@@ -155,8 +199,9 @@ The following tests are requirements, not results already obtained:
 | Same IDs, different schema/types | Old queued request never starts or sends |
 | Reset between nextPacket and prepareHandoff | Handoff refused; preserve evidence from any earlier handoffs |
 | Reset before any execution-capable handoff | No false OutcomeUnknown merely from a non-final RPC WRITE |
+| Non-final RPC WRITE actually handed off, then invalidation before deadline | Cancelled without false OutcomeUnknown; no final WRITE; release/drain old remote slot, reset partial mailbox and release TX before fresh admission |
 | Reset after execution-capable authorization but before send notification | Possible mutation execution remains recorded |
-| Valid reply before deadline after reset | Actual operation result retained, value marked stale |
+| Full correlated result processed before deadline after reset | Actual operation result retained, value marked stale |
 | Reply processed at/after deadline | Deadline result wins; no false Ok |
 | Lost reply and retry after invalidation | No new physical send; uncertainty/recovery retained |
 | Multi-packet RPC invalidation | Every handoff guarded; no partial ACK mistaken for final result |
@@ -167,6 +212,10 @@ The following tests are requirements, not results already obtained:
 | Callback returns and response storage is reused | No borrowed value used by deferred UI work |
 | Empty FIFO while TX/DMA remains active | New admission and buffer reuse refused |
 | Invalidation/close with accepted work | Exactly one completion per accepted request |
+| New submission after schema-only invalidation | NotAdmitted with no callback; existing Closed/RecoveryRequired gates keep precedence |
+| Accepted queued request invalidated before activation | Cancelled exactly once, without backend start |
+| Current/stale Void, failed outcome, valid empty struct, invalid canonical payload | Exact ordered valueStatus matrix above; only validated non-Void values have views |
+| External code attempts raw submission, static typed calls or core access through DynamicClient | Negative compile checks fail for submitEncoded, typed APIs and core/unwrap access |
 | Static Generated SDK on default policy | Existing exact admission and Codec behavior preserved |
 
 Exercise the real Host Model through the same DeviceClient FIFO with Encoded,
