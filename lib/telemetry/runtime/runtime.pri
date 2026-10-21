@@ -1,4 +1,4 @@
-# Read-only Descriptor schema and dynamic wire views; no native Model dependencies. MIT.
+# Descriptor schema and dynamic wire values; no native Model dependencies. MIT.
 isEmpty(TELEMETRY_RUNTIME_PRI_INCLUDED) {
     TELEMETRY_RUNTIME_PRI_INCLUDED = 1
     CONFIG -= c++11 c++14 c++17

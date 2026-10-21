@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify borrowed runtime schema/value reads against actual Native and SDK bytes.
+"""Qualify runtime schema/value reads and staged writes against Native and SDK bytes.
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 """
@@ -229,6 +229,8 @@ def main():
     parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--cxx', default=os.environ.get('CXX', 'g++'))
     parser.add_argument('--sanitize', action='store_true')
+    parser.add_argument('--big-endian', action='store_true',
+                        help='also execute the reader and writer on s390x through QEMU')
     args = parser.parse_args()
     out = args.build_dir.resolve()
     if out == ROOT or ROOT in out.parents or out in ROOT.parents:
@@ -310,6 +312,27 @@ def main():
         execution_counts[stem] = int(match[1])
     control = build('NoHeapControl', [HERE / 'NoHeap.cpp'], ['-DRUNTIME_HEAP_CONTROL'])
     run('execute-NoHeapControl', [control, native], 86, 'runtime heap allocation refused')
+    for stem, source, extra in (('Writer', 'Writer.cpp', []),
+                                ('WriterNoHeap', 'NoHeap.cpp', ['-DRUNTIME_WRITER'])):
+        binary = build(stem, [HERE / source], extra)
+        text = run('execute-' + stem, [binary, native])
+        match = re.search(r': (\d+) checks, 0 failures', text)
+        if not match or int(match[1]) < 1587:
+            raise RuntimeError(stem + ' count below floor')
+        execution_counts[stem] = int(match[1])
+    writer_native = build('WriterNative', [HERE / 'WriterNative.cpp', ROOT / 'lib/telemetry/model/Adapter.cpp',
+                                          ROOT / 'lib/telemetry/abi/StructuredAbi.cpp'], native=True)
+    text = run('execute-WriterNative', [writer_native, native / 'writer.bin'])
+    match = re.search(r': (\d+) checks, 0 failures', text)
+    if not match or int(match[1]) < 201:
+        raise RuntimeError('WriterNative count below floor')
+    execution_counts['WriterNative'] = int(match[1])
+    writer_lifetime = build('WriterLifetime', [HERE / 'WriterLifetime.cpp'])
+    text = run('execute-WriterLifetime', [writer_lifetime, native / 'descriptor.bin', native / 'payload.bin'])
+    match = re.search(r': (\d+) checks, 0 failures', text)
+    if not match or int(match[1]) < 109:
+        raise RuntimeError('WriterLifetime count below floor')
+    execution_counts['WriterLifetime'] = int(match[1])
     lifetime = build('Lifetime', [HERE / 'Lifetime.cpp'])
     text = run('execute-Lifetime', [lifetime, native / 'descriptor.bin', native / 'payload.bin'])
     match = re.search(r': (\d+) checks, 0 failures', text)
@@ -329,6 +352,14 @@ def main():
             raise RuntimeError('AccessContracts count below floor')
         execution_counts['AccessContracts'] = int(match[1])
         access_checks = dict(executed=True, sanitized=False, negative_controls=2)
+        writer_access = build('WriterAccess', [HERE / 'WriterAccess.cpp'], plain=True)
+        text = run('execute-WriterAccess', [writer_access, fixture],
+                   marker='three SIGSEGV negative controls')
+        match = re.search(r': (\d+) checks, 0 failures', text)
+        if not match or int(match[1]) < 46:
+            raise RuntimeError('WriterAccess count below floor')
+        execution_counts['WriterAccess'] = int(match[1])
+        access_checks['writer_negative_controls'] = 3
     generated = out / 'generated'
     run('generate-sdk', [sys.executable, '-B', '-m', 'tools.telemetry_codegen', 'generate', native / 'descriptor.bin', '--targets', 'cpp', '--namespace', 'runtime_api', '--output', generated])
     parsed = descriptor_parser.parse((native / 'descriptor.bin').read_bytes())
@@ -360,6 +391,26 @@ int main(int argc,char**argv) {
     sdk_binary = build('Sdk', [sdk], ['-I' + str(generated / 'cpp'), '-Wno-misleading-indentation'])
     for index, filename in enumerate(('payload.bin', 'variants.bin')):
         run('execute-Sdk-' + filename, [sdk_binary, native / filename, str(index)])
+    writer_sdk = out / 'WriterSdk.cpp'
+    writer_sdk.write_text('''#include <runtime_api/Codec.hpp>
+#include <array>
+#include <bit>
+#include <cstdint>
+#include <cstdio>
+int main(int argc,char**argv) {
+ if(argc!=2)return 2; std::array<std::byte,4096> bytes{}, output{};
+ auto*f=std::fopen(argv[1],"rb");if(!f)return 2;
+ auto n=std::fread(bytes.data(),1,bytes.size(),f);std::fclose(f);
+ runtime_api::detail::Type_ROOT value{};
+ if(runtime_api::codec::decode(std::span<const std::byte>{bytes.data(),n},value)!=runtime_api::codec::Status::Ok)return 1;
+ if(value.flag || value.u32!=115200 || std::bit_cast<std::uint32_t>(value.f32)!=0x7fc12345u ||
+    static_cast<std::int16_t>(value.nested.mode)!=-2 || value.u64!=UINT64_MAX || value.i64!=INT64_MIN)return 1;
+ if(runtime_api::codec::encode(value,std::span<std::byte>{output.data(),n})!=runtime_api::codec::Status::Ok)return 1;
+ for(std::size_t i=0;i<n;++i)if(bytes[i]!=output[i])return 1;
+ std::printf("generated writer SDK: %zu byte comparisons, 0 failures\\n",n); }
+'''.replace('Type_ROOT', 'Type_' + str(root)), encoding='utf-8')
+    writer_sdk_binary = build('WriterSdk', [writer_sdk], ['-I' + str(generated / 'cpp'), '-Wno-misleading-indentation'])
+    run('execute-WriterSdk', [writer_sdk_binary, native / 'writer.bin'])
     parser_binary = build('Parser', [HERE / 'Parser.cpp'])
     packed = out / 'corpus.bin'
     packed.write_bytes(b''.join(struct.pack('<I', len(data)) + data for _, data in cases))
@@ -379,15 +430,47 @@ int main(int argc,char**argv) {
     (out / 'corpus.json').write_text(json.dumps(records, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     example = build('Example', [ROOT / 'examples/runtime_schema/main.cpp'])
     run('execute-Example', [example, native / 'descriptor.bin', native / 'payload.bin'])
+    writer_example = build('WriterExample', [ROOT / 'examples/runtime_schema/Writer.cpp'])
+    run('execute-WriterExample', [writer_example, native / 'descriptor.bin', native / 'payload.bin',
+                                  out / 'example-edited.bin'])
+    endian_checks = dict(executed=False)
+    if args.big_endian:
+        cross = shutil.which('s390x-linux-gnu-g++')
+        emulator = shutil.which('qemu-s390x')
+        if not cross or not emulator:
+            raise RuntimeError('--big-endian requires s390x-linux-gnu-g++ and qemu-s390x')
+        run('compiler-big', [cross, '--version'])
+        run('emulator-big', [emulator, '--version'])
+        writer_digest = digest(native / 'writer.bin')
+        endian_checks = dict(executed=True, targets={}, writer_sha256=writer_digest)
+        for stem, source, extra in (('CheckBig', 'Check.cpp', []),
+                                    ('WriterBig', 'Writer.cpp', ['-DRUNTIME_EXPECT_BIG_ENDIAN']),
+                                    ('WriterNoHeapBig', 'NoHeap.cpp', ['-DRUNTIME_WRITER', '-DRUNTIME_EXPECT_BIG_ENDIAN'])):
+            binary = out / stem
+            run('build-' + stem, [cross, '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror',
+                                 '-pedantic-errors', '-Ilib'] + extra + [HERE / source, '-o', binary])
+            outputs[binary.name] = digest(binary)
+            text = run('execute-' + stem, [emulator, '-L', '/usr/s390x-linux-gnu', binary, native])
+            match = re.search(r': (\d+) checks, 0 failures', text)
+            if not match:
+                raise RuntimeError(stem + ' did not report successful checks')
+            endian_checks['targets'][stem] = int(match[1])
+            host_stem = {'CheckBig': 'Check', 'WriterBig': 'Writer',
+                         'WriterNoHeapBig': 'WriterNoHeap'}[stem]
+            if int(match[1]) != execution_counts[host_stem]:
+                raise RuntimeError(stem + ' check count differs from the host')
+            if digest(native / 'writer.bin') != writer_digest:
+                raise RuntimeError(stem + ' produced different writer bytes from the host')
     after = snapshot()
     if before != after:
         raise RuntimeError('Source inputs changed during qualification')
     summary = dict(passed=True, sanitize=args.sanitize, hardware=False,
                    source_head=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                    source_dirty=bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT, text=True)),
-                   executions=execution_counts, access_contracts=access_checks,
+                   executions=execution_counts, access_contracts=access_checks, endian=endian_checks,
                    corpus_cases=len(records), corpus_accepted=sum(row['accepted'] for row in records),
                    corpus_sha256=digest(packed), generated_value_comparisons=24,
+                   generated_writer_comparisons=6, writer_wire_bytes=(native / 'writer.bin').stat().st_size,
                    commands=commands, outputs=outputs, source_sha256_before=before, source_sha256=after,
                    generated={path.relative_to(generated).as_posix(): digest(path) for path in generated.rglob('*') if path.is_file()},
                    fixture_sha256={path.name: digest(path) for path in native.iterdir() if path.is_file()})
