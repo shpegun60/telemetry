@@ -1,6 +1,6 @@
 /*
  * @file NoHeap.cpp
- * @brief Execute runtime reads with replaceable C++ allocation functions trapped.
+ * @brief Execute runtime values with replaceable C++ allocation functions trapped.
  * SPDX-License-Identifier: MIT
  */
 #include <cstddef>
@@ -115,7 +115,11 @@ void operator delete[](void*, std::align_val_t, const std::nothrow_t&) noexcept
 }
 
 #define main runtimeCheckMain
+#ifdef RUNTIME_WRITER
+#include "Writer.cpp"
+#else
 #include "Check.cpp"
+#endif
 #undef main
 
 int main(int argc, char** argv)

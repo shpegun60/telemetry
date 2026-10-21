@@ -23,6 +23,7 @@ int main()
 }
 #elif defined(MODULE_RUNTIME)
 #include <telemetry/runtime/DynamicValueView.hpp>
+#include <telemetry/runtime/DynamicValueWriter.hpp>
 
 int main()
 {
@@ -76,7 +77,24 @@ int main()
 	if (!value)
 		return 2;
 	const auto scalar = value.value.get<std::uint32_t>();
-	return scalar && scalar.value == 0x78563412u ? 0 : 3;
+	if (!scalar || scalar.value != 0x78563412u)
+		return 3;
+	const auto handle = parsed.schema.resolve(6, "");
+	if (!handle)
+		return 4;
+	std::array<std::byte, 4> scratch{}, output{};
+	auto editor = rt::DynamicValueWriter::begin(parsed.schema, 6, payload, scratch);
+	const std::uint32_t replacement = 0x01020304u;
+	if (!editor || editor.set(handle.value, replacement) != rt::Status::Ok)
+		return 5;
+	const auto committed = editor.commit(output);
+	if (!committed || committed.value != output.size())
+		return 6;
+	const auto edited = parsed.schema.view(6, output);
+	if (!edited)
+		return 7;
+	const auto updated = edited.value.get<std::uint32_t>();
+	return updated && updated.value == replacement && payload[0] == std::byte{0x12} ? 0 : 8;
 }
 #elif defined(MODULE_RESOURCE)
 #include <resource/Resource.hpp>

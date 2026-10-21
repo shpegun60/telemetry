@@ -34,6 +34,7 @@ codecs do not require that runtime.
 | Protocol-free dispatcher | `telemetry/encoded/Dispatcher.hpp` | `telemetry` |
 | Descriptor builder/reader | `telemetry/descriptor/Descriptor.hpp` | `telemetry::descriptor` |
 | Runtime schema and wire views | `telemetry/runtime/DynamicValueView.hpp` | `telemetry::runtime` |
+| Transactional wire edits | `telemetry/runtime/DynamicValueWriter.hpp` | `telemetry::runtime` |
 | Generic files | `resource/Resource.hpp` | `resource` |
 | Portable client | `client/DeviceClient.hpp` | `telemetry::client` |
 | Native RPC engine | `client/rpc/RpcClient.hpp` | `telemetry::client::rpc` |
@@ -78,7 +79,8 @@ Available components are `core`, `runtime`, `resource`, `resource_protocol`, `cl
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
-The header-only `runtime` component inspects Descriptor v3 and canonical payloads.
+The header-only `runtime` component inspects Descriptor v3 and canonical payloads
+and stages transactional edits of those values.
 It has no dependency on reflection, Model, Codec, Resource, Client or Integration.
 Its public types share only the fixed wire kinds and limits used by native types.
 See [Runtime schema](RuntimeSchema.md) for workspace and borrowed-buffer lifetimes.
@@ -115,7 +117,7 @@ guarantee against concurrent symlink or junction substitution.
 Each module owns one manifest beside its sources: `telemetry.pri`,
 `resource.pri`, `client.pri`, `integration.pri`, `common.pri` and `wire.pri`.
 The header-only native Codec submodule owns `telemetry/codec/codec.pri`.
-The independent runtime reader owns `telemetry/runtime/runtime.pri`.
+The independent runtime module owns `telemetry/runtime/runtime.pri`.
 
 Select Integration explicitly. Existing selection names `resource_telemetry`,
 `resource_telemetry_rpc`, `resource_telemetry_rpc_sessions` and

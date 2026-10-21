@@ -999,6 +999,8 @@ jobs:
         run: python3 tests/structured/codec/endian.py --build-dir build/endian
       - name: Generated standalone codec on real little and big endian
         run: python3 tests/codegen/endian.py --build-dir "$RUNNER_TEMP/codegen-endian"
+      - name: Runtime reader and transactional writer on real little and big endian
+        run: python3 -B tests/runtime_schema/run.py --big-endian --build-dir "$RUNNER_TEMP/runtime-endian"
       - name: COBS telemetry/resource on a real big-endian target
         run: python3 tests/cobs/run.py --cxx s390x-linux-gnu-g++ --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu --expect-big-endian --cobs-root build/dependencies/cobs --build-dir build/cobs-big
       - name: Retain endian execution and byte equivalence evidence
@@ -1009,6 +1011,7 @@ jobs:
           path: |
             build/endian/
             ${{ runner.temp }}/codegen-endian/
+            ${{ runner.temp }}/runtime-endian/
             build/cobs-big/
           if-no-files-found: error
 
