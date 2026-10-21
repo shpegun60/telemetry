@@ -36,6 +36,8 @@ jobs:
             --build-dir "$RUNNER_TEMP/encoded-core" "${options[@]}"
           python3 -B tests/descriptor_core/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/descriptor-core" "${options[@]}"
+          python3 -B tests/runtime_schema/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/runtime-schema" "${options[@]}"
           python3 -B tests/client_module/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/client-module"
       - name: Installed Cortex-M7 modules compile and link
@@ -51,6 +53,7 @@ jobs:
             ${{ runner.temp }}/modules-arm/
             ${{ runner.temp }}/encoded-core/
             ${{ runner.temp }}/descriptor-core/
+            ${{ runner.temp }}/runtime-schema/
             ${{ runner.temp }}/client-module/
           if-no-files-found: error
 

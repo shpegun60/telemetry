@@ -2,6 +2,8 @@
 
 [Independent modules, ownership and build targets](doc/Modules.md).
 
+[Runtime Descriptor schema and dynamic wire values](doc/RuntimeSchema.md).
+
 [Asynchronous client: FIFO, RPC/Encoded, STM32, Qt/QML and JS/TS](doc/AsyncClient.md).
 
 [![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)

@@ -7,5 +7,6 @@ isEmpty(TELEMETRY_CODEC_PRI_INCLUDED) {
     INCLUDEPATH += $$PWD/../../boost_pfr/include $$PWD/../../magic_enum
     HEADERS += $$files($$PWD/../../telemetry/codec/*.hpp) \
         $$PWD/../../telemetry/type/Traits.hpp \
+        $$PWD/../../telemetry/type/WireTypes.hpp \
         $$files($$PWD/../../telemetry/reflection/*.hpp, true)
 }

@@ -13,6 +13,10 @@ generated C++ and JS/TS through direct Encoded and Resource/RPC paths, with
 native canonical fixtures, strict TypeScript, sanitizers and offline ARM reports.
 Its build directory must be outside the repository.
 
+The [runtime schema suite](runtime_schema/README.md) reads real Descriptor v3
+files and wire payloads with caller-owned storage, compares generated codecs,
+and checks malformed descriptors against the independent Python parser.
+
 Run the shared ID, slot and numeric checks from the repository root:
 
 ```sh
