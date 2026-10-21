@@ -118,6 +118,11 @@ ownership; copying is disabled. The workspace must remain alive, and a reset or
 any reparse makes the old editor stale before it accesses metadata or staging.
 Invalidate the generation before releasing borrowed backing storage.
 
+The unchanged-buffer guarantee assumes the storage/lifetime rules above. In
+particular, scratch and output cannot contain the editor's own control bytes:
+reporting a sticky error updates that editor object. An overlap diagnostic does
+not make such self-aliasing control storage a supported destination.
+
 This is a local logical transaction. External synchronization must protect
 concurrent readers, writers and the application's publication of the output.
 Commit does not make a buffer update atomic for another CPU thread, an interrupt
