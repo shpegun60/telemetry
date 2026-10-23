@@ -12,16 +12,20 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-MODULES = ('core', 'runtime', 'resource', 'resource_protocol', 'client', 'resource_adapter',
+MODULES = ('core', 'runtime', 'dynamic_client', 'resource', 'resource_protocol', 'client', 'resource_adapter',
            'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend')
 FORBIDDEN = {
+    'dynamic_client': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
+                       'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
+                       'magic_enum.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
+                       'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp'),
     'runtime': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp', 'telemetry/codec/Codec.hpp',
                 'resource/Resource.hpp', 'client/DeviceClient.hpp', 'boost/pfr.hpp', 'magic_enum.hpp',
                 'integration/encoded/Backend.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
     'core': ('resource/Resource.hpp', 'client/DeviceClient.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
     'resource': ('telemetry/Telemetry.hpp', 'client/DeviceClient.hpp'),
     'resource_protocol': ('telemetry/Telemetry.hpp', 'client/DeviceClient.hpp'),
-    'client': ('telemetry/Telemetry.hpp', 'resource/Resource.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
+    'client': ('telemetry/runtime/RuntimeSchema.hpp', 'integration/dynamic/DynamicClient.hpp', 'telemetry/Telemetry.hpp', 'resource/Resource.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
     'encoded_server': ('resource/Resource.hpp', 'client/DeviceClient.hpp'),
     'encoded_backend': ('telemetry/Telemetry.hpp', 'resource/Resource.hpp'),
     'rpc_client': ('telemetry/model/Model.hpp', 'integration/telemetry/v3/RpcMailbox.hpp'),

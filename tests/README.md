@@ -13,6 +13,11 @@ generated C++ and JS/TS through direct Encoded and Resource/RPC paths, with
 native canonical fixtures, strict TypeScript, sanitizers and offline ARM reports.
 Its build directory must be outside the repository.
 
+The [DynamicClient suite](dynamic_client/README.md) exercises runtime admission,
+the existing FIFO and real Encoded/Retrying/RPC backends. Independent
+[policy and lifetime probes](dynamic_client_review/README.md) cover execution
+guards, passive completion and metadata deallocation after invalidation.
+
 The [runtime schema suite](runtime_schema/README.md) reads real Descriptor v3
 files and wire payloads with caller-owned storage, compares generated codecs,
 and checks malformed descriptors against the independent Python parser.

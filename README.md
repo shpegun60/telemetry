@@ -3,6 +3,7 @@
 [Independent modules, ownership and build targets](doc/Modules.md).
 
 [Runtime Descriptor schema and dynamic wire values](doc/RuntimeSchema.md).
+[DynamicClient: runtime endpoints over the existing asynchronous FIFO](doc/DynamicClientUsage.md).
 
 [Asynchronous client: FIFO, RPC/Encoded, STM32, Qt/QML and JS/TS](doc/AsyncClient.md).
 

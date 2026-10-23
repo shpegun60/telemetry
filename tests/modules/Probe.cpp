@@ -96,6 +96,16 @@ int main()
 	const auto updated = edited.value.get<std::uint32_t>();
 	return updated && updated.value == replacement && payload[0] == std::byte{0x12} ? 0 : 8;
 }
+#elif defined(MODULE_DYNAMIC_CLIENT)
+#include <integration/dynamic/DynamicClient.hpp>
+#include <type_traits>
+using Dynamic = telemetry::integration::dynamic::DynamicClient<2, 64>;
+static_assert(!std::is_copy_constructible_v<Dynamic>);
+
+int main()
+{
+	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_RESOURCE)
 #include <resource/Resource.hpp>
 
