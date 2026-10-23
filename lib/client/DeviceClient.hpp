@@ -75,11 +75,14 @@ public:
 		return queue_.empty() && backend_.confirmSessionClosed(generation);
 	}
 
-	// Owner-only revocation; deliberately does not advance the backend or invoke
-	// callbacks. Draining and physical transport release remain separate steps.
+	// Owner-only revocation of enqueue, activation and new handoffs, independent
+	// of the policy. Does not advance the backend or invoke callbacks. Previously
+	// authorized effects retain passive completion and the existing deadline;
+	// draining and physical transport release remain separate steps.
 	void invalidateAdmission() noexcept
 	{
-		queue_.invalidate();
+		queue_.invalidate(backend_.recoveryRequired() ? Status::RecoveryRequired
+		                                              : Status::NotAdmitted);
 	}
 
 	[[nodiscard]] std::size_t pending() const noexcept
@@ -120,7 +123,8 @@ public:
 		if (processing_)
 			return {};
 		process(clock_.now());
-		return admission_.current() && active_ && !queue_.closing() && !queue_.cancelled(*active_)
+		return queue_.admitted() && admission_.current() && active_ && !queue_.closing() &&
+		               !queue_.cancelled(*active_)
 		           ? backend_.nextPacket()
 		           : Packet{};
 	}
@@ -130,14 +134,13 @@ public:
 		if (processing_)
 			return false;
 		process(clock_.now());
-		if (!admission_.current() || !active_ || queue_.closing() || queue_.cancelled(*active_) ||
-		    expired(clock_.now(), active_->deadline))
+		if (!queue_.admitted() || !admission_.current() || !active_ || queue_.closing() ||
+		    queue_.cancelled(*active_) || expired(clock_.now(), active_->deadline))
 			return false;
-		if constexpr (std::is_same_v<AdmissionPolicy, StaticAdmission<Codec>>)
-			return backend_.prepareHandoff(session, requestId);
 		const auto packet = backend_.nextPacket();
 		if (!packet || packet.session != session || packet.requestId != requestId ||
-		    !admission_.current() || !backend_.prepareHandoff(session, requestId))
+		    !queue_.admitted() || !admission_.current() ||
+		    !backend_.prepareHandoff(session, requestId))
 			return false;
 		activeMayExecute_ = activeMayExecute_ || packet.mayExecute;
 		return true;
@@ -284,7 +287,7 @@ public:
 					backend_.cancel(Status::Cancelled);
 				else if (expired(now, active_->deadline))
 					backend_.cancel(Status::Timeout);
-				else if (!admission_.current() && !activeMayExecute_)
+				else if ((!queue_.admitted() || !admission_.current()) && !activeMayExecute_)
 					backend_.cancel(Status::Cancelled);
 			}
 			if (backend_.completed()) {

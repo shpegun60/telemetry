@@ -7,6 +7,20 @@ completion, deadline precedence, reentrant callbacks and per-request evidence
 reset. Compile-time checks require every typed overload to remain available on
 the default static policy and unavailable on a runtime-only policy.
 
+Direct `invalidateAdmission()` cases run with both the default static policy and
+an independently current custom policy. Repeated revocation invokes no callback
+or backend cancellation itself and rejects submissions and handoffs. Subsequent
+owner processing drains queued work without starting it. Active cases distinguish
+no authorization, non-executing packet authorization and rejected authorization
+from a successful execution-capable authorization. The latter remains recorded across later
+non-executing packets: new TX stops while a checked passive reply can succeed
+before the deadline, timeout retains `OutcomeUnknown`, and an already terminal
+result survives. Completion remains exactly once.
+
+Failed re-admission, restored backend readiness and recovery confirmation alone
+cannot revive admission. The cases also retain `RecoveryRequired` and `Closed`
+gates and require a successful fresh Descriptor admission before new work starts.
+
 ```sh
 python3 -B tests/dynamic_client_review/run.py --cxx g++ --build-dir /external/core-policy
 python3 -B tests/dynamic_client_review/run.py --cxx clang++-18 --sanitize --build-dir /external/core-policy-sanitized

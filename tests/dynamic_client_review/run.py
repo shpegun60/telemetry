@@ -78,7 +78,7 @@ def main():
     run('build', flags + [HERE / 'CorePolicy.cpp', '-o', binary])
     output = run('execute', [binary])
     match = re.search(r'independent core policy: checks=(\d+) failures=0', output)
-    if not match or int(match[1]) < 152:
+    if not match or int(match[1]) < 534:
         raise RuntimeError('Missing complete core-policy acceptance count')
     integration = out / ('Integration.exe' if os.name == 'nt' else 'Integration')
     run('integration-build', native_flags + [HERE / 'Integration.cpp', *native_sources, '-o', integration])

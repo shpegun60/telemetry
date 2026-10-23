@@ -198,6 +198,16 @@ then `confirmSessionClosed(oldGeneration)`, then Descriptor admission for a fres
 generation. Calling reset or admitting the header does not prove remote closure.
 Cancelling an active mutation does not undo a possible remote effect.
 
+Owner-only `invalidateAdmission()` revokes logical admission without processing
+the backend or invoking callbacks. It blocks submissions, FIFO activation and
+every new handoff/retry even while the admission policy remains current. Continue
+owner processing to cancel queued work and active work without execution-capable
+authorization. After such authorization, backend result/deadline semantics and
+passive correlated RX remain. Already checked results and deadline precedence
+are preserved. Revocation does not recall an authorized copy, release DMA storage,
+close the remote session or clear recovery. New work requires successful
+Descriptor admission; a Closed client cannot reopen.
+
 ## Multiple producers and shutdown
 
 The supplied `Clock` function and context must outlive the client. Its `read`

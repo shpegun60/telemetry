@@ -44,7 +44,7 @@ struct Policy {
 class Backend : public af::Backend {
 public:
 	std::array<std::byte, 1> frame{std::byte{0x7b}};
-	unsigned peeks = 0, prepares = 0, cancels = 0, replies = 0;
+	unsigned peeks = 0, prepares = 0, cancels = 0, replies = 0, processes = 0;
 	std::uint32_t packetId = 1;
 	bool mayExecute = true, rejectPrepare = false, authorized = false;
 
@@ -60,6 +60,12 @@ public:
 	{
 		++peeks;
 		return active ? cl::Packet{frame, generation, packetId, mayExecute} : cl::Packet{};
+	}
+
+	void process(std::uint32_t now) noexcept override
+	{
+		++processes;
+		af::Backend::process(now);
 	}
 
 	bool prepareHandoff(std::uint32_t session, std::uint32_t id) noexcept override
@@ -335,6 +341,209 @@ void staticCompatibility()
 	core.process(0);
 	CHECK(core.drained());
 }
+
+template<class Admission>
+struct DirectRevocation {
+	bool live = true;
+	Backend backend;
+	using Core = cl::DeviceClient<af::Codec, 4, 64, 128, 64, alignof(std::max_align_t), cl::NoLock,
+	                              Admission>;
+	Core core{backend, af::clock, policy()};
+	std::array<cl::Status, 4> statuses{};
+	std::array<unsigned, 4> completions{};
+
+	Admission policy() noexcept
+	{
+		if constexpr (std::is_same_v<Admission, Policy>)
+			return Policy{&live};
+		else
+			return {};
+	}
+
+	DirectRevocation()
+	{
+		af::now.store(0);
+		CHECK(core.admitDescriptor(af::Codec::header, 1) == cl::Status::Ok);
+	}
+
+	cl::Submission submit(unsigned tag = 0)
+	{
+		return core.submitEncoded(
+		    {cl::Operation::Command, 42, {}, 0},
+		    [this, tag](const cl::ResultView& result) noexcept {
+			    statuses[tag] = result.status;
+			    ++completions[tag];
+		    },
+		    100);
+	}
+
+	void drain()
+	{
+		core.close();
+		for (unsigned i = 0; i != 6 && !core.drained(); ++i)
+			core.process(af::now.load());
+		CHECK(core.drained() && core.pending() == 0);
+	}
+};
+
+template<class Admission>
+void directQueuedRevocation()
+{
+	DirectRevocation<Admission> h;
+	CHECK(h.submit(0) && h.submit(1));
+	h.core.invalidateAdmission();
+	h.core.invalidateAdmission();
+	CHECK(h.live && h.policy().current());
+	CHECK(h.backend.ready() && h.backend.starts == 0 && h.backend.cancels == 0);
+	CHECK(h.completions[0] == 0 && h.completions[1] == 0);
+	CHECK(h.submit(2).status == cl::Status::NotAdmitted);
+	CHECK(h.core.admitDescriptor(af::Codec::header, 2) == cl::Status::Busy);
+	CHECK(!h.core.nextPacket());
+	CHECK(!h.core.prepareHandoff(1, 1));
+	for (unsigned i = 0; i != 3; ++i)
+		h.core.process(0);
+	CHECK(h.backend.starts == 0 && h.backend.prepares == 0);
+	CHECK(h.completions[0] == 1 && h.completions[1] == 1);
+	CHECK(h.statuses[0] == cl::Status::Cancelled && h.statuses[1] == cl::Status::Cancelled);
+	auto wrong = af::Codec::header;
+	wrong[63] = std::byte{1};
+	CHECK(h.core.admitDescriptor(wrong, 2) == cl::Status::NotAdmitted);
+	CHECK(h.submit(2).status == cl::Status::NotAdmitted);
+	CHECK(h.core.admitDescriptor(af::Codec::header, 1) == cl::Status::InvalidArgument);
+	CHECK(h.submit(2).status == cl::Status::NotAdmitted);
+	CHECK(h.core.admitDescriptor(af::Codec::header, 2) == cl::Status::Ok);
+	CHECK(h.submit(2));
+	const auto packet = h.core.nextPacket();
+	CHECK(packet && packet.session == 2 && h.backend.starts == 1);
+	CHECK(h.core.prepareHandoff(packet.session, packet.requestId));
+	CHECK(h.core.onReply({}, packet.session, packet.requestId));
+	CHECK(h.completions[2] == 1 && h.statuses[2] == cl::Status::Ok);
+	h.drain();
+}
+
+template<class Admission>
+void directUnsentRevocation()
+{
+	for (unsigned phase = 0; phase != 3; ++phase) {
+		DirectRevocation<Admission> h;
+		CHECK(h.submit(0) && h.submit(1));
+		h.core.process(0);
+		CHECK(h.backend.starts == 1);
+		h.backend.mayExecute = phase != 1;
+		const auto packet = h.core.nextPacket();
+		CHECK(packet);
+		if (phase == 1)
+			CHECK(h.core.prepareHandoff(1, packet.requestId));
+		else if (phase == 2) {
+			h.backend.rejectPrepare = true;
+			CHECK(!h.core.prepareHandoff(1, packet.requestId));
+		}
+		const auto prepares = h.backend.prepares;
+		h.core.invalidateAdmission();
+		CHECK(h.live && h.policy().current() && h.backend.ready());
+		CHECK(h.completions[0] == 0 && h.backend.cancels == 0);
+		CHECK(!h.core.prepareHandoff(1, packet.requestId));
+		CHECK(!h.core.nextPacket());
+		for (unsigned i = 0; i != 3; ++i)
+			h.core.process(0);
+		CHECK(h.backend.prepares == prepares && h.backend.starts == 1);
+		CHECK(h.backend.cancels == 1 && !h.backend.authorized);
+		CHECK(h.completions[0] == 1 && h.statuses[0] == cl::Status::Cancelled);
+		CHECK(h.completions[1] == 1 && h.statuses[1] == cl::Status::Cancelled);
+		CHECK(h.submit(2).status == cl::Status::NotAdmitted);
+		h.drain();
+	}
+}
+
+template<class Admission>
+void directAuthorizedRevocation()
+{
+	for (bool accept : {false, true}) {
+		for (unsigned terminal = 0; terminal != 3; ++terminal) {
+			DirectRevocation<Admission> h;
+			CHECK(h.submit(0) && h.submit(1));
+			const auto first = h.core.nextPacket();
+			CHECK(first && first.mayExecute && h.core.prepareHandoff(1, first.requestId));
+			CHECK(h.backend.authorized);
+			if (accept)
+				CHECK(h.core.onSendAccepted(1, first.requestId));
+			// A later non-executing RPC-style packet cannot erase final-WRITE evidence.
+			h.backend.packetId = 2;
+			h.backend.mayExecute = false;
+			const auto later = h.core.nextPacket();
+			CHECK(later && !later.mayExecute && h.core.prepareHandoff(1, later.requestId));
+			const auto prepares = h.backend.prepares;
+			h.core.invalidateAdmission();
+			CHECK(h.live && h.policy().current());
+			CHECK(h.completions[0] == 0 && h.backend.cancels == 0);
+			CHECK(!h.core.nextPacket());
+			CHECK(!h.core.prepareHandoff(1, later.requestId));
+			CHECK(h.backend.prepares == prepares && h.backend.starts == 1);
+			CHECK(h.completions[0] == 0 && h.backend.cancels == 0);
+			CHECK(h.completions[1] == 1 && h.statuses[1] == cl::Status::Cancelled);
+			if (terminal == 0) {
+				af::now.store(99);
+				CHECK(h.core.onReply({}, 1, later.requestId));
+				CHECK(h.statuses[0] == cl::Status::Ok);
+			} else if (terminal == 1) {
+				af::now.store(100);
+				h.core.process(100);
+				CHECK(h.statuses[0] == cl::Status::OutcomeUnknown);
+				CHECK(!h.core.onReply({}, 1, later.requestId));
+			} else {
+				h.backend.finish();
+				af::now.store(100);
+				h.core.process(100);
+				CHECK(h.statuses[0] == cl::Status::Ok && h.backend.cancels == 0);
+			}
+			CHECK(h.completions[0] == 1);
+			h.core.process(101);
+			CHECK(h.completions[0] == 1 && h.completions[1] == 1);
+			CHECK(h.submit(2).status == cl::Status::NotAdmitted);
+			h.drain();
+		}
+	}
+}
+
+template<class Admission>
+void directReadinessAndRecovery()
+{
+	DirectRevocation<Admission> h;
+	h.core.invalidateAdmission();
+	h.backend.opened = false;
+	h.core.process(0);
+	h.backend.opened = true;
+	h.core.process(0);
+	CHECK(h.live && h.policy().current() && h.backend.ready());
+	CHECK(!h.core.nextPacket() && h.submit().status == cl::Status::NotAdmitted);
+	h.backend.recovery = true;
+	const auto processes = h.backend.processes;
+	h.core.invalidateAdmission();
+	CHECK(h.backend.processes == processes && h.backend.starts == 0);
+	CHECK(h.submit().status == cl::Status::RecoveryRequired);
+	CHECK(h.core.admitDescriptor(af::Codec::header, 2) == cl::Status::RecoveryRequired);
+	CHECK(h.core.confirmSessionClosed(1));
+	CHECK(!h.core.nextPacket());
+	CHECK(h.submit().status != cl::Status::Ok);
+	CHECK(h.core.admitDescriptor(af::Codec::header, 2) == cl::Status::Ok);
+	CHECK(h.submit());
+	h.backend.recovery = true;
+	h.core.close();
+	h.core.invalidateAdmission();
+	CHECK(h.submit(1).status == cl::Status::Closed);
+	h.drain();
+	CHECK(h.completions[0] == 1 && h.statuses[0] == cl::Status::Cancelled);
+	CHECK(h.backend.starts == 0);
+}
+
+template<class Admission>
+void directRevocation()
+{
+	directQueuedRevocation<Admission>();
+	directUnsentRevocation<Admission>();
+	directAuthorizedRevocation<Admission>();
+	directReadinessAndRecovery<Admission>();
+}
 } // namespace
 
 int main()
@@ -345,5 +554,7 @@ int main()
 	reentrantInvalidation();
 	precedenceAndPerRequestReset();
 	staticCompatibility();
+	directRevocation<Policy>();
+	directRevocation<cl::StaticAdmission<af::Codec>>();
 	std::printf("independent core policy: checks=%u failures=0\n", checks);
 }
