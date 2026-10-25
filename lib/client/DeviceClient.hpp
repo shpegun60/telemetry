@@ -10,12 +10,32 @@
 #include <utility>
 
 namespace telemetry::client {
+// Admission stays independent of runtime metadata. Optional integration policies
+// may supply a different exact descriptor check and an owner-only execution gate.
+template<class Codec>
+struct StaticAdmission {
+	static constexpr bool allowTyped = true;
+
+	[[nodiscard]] bool acceptsDescriptor(Input header) const noexcept
+	{
+		const auto expected = Codec::descriptorHeader();
+		return expected.size() == 64 && header.size() == expected.size() &&
+		       std::equal(header.begin(), header.end(), expected.begin());
+	}
+
+	[[nodiscard]] constexpr bool current() const noexcept
+	{
+		return true;
+	}
+};
+
 // Codec supplies wireSize<T>, encode/decode returning byte status (zero=Ok),
 // descriptorHeader(), scratchBytes and scratchAlign. Generated ClientBindings
 // provide this policy using the standalone SDK, without Model or native codec.
 template<class Codec, std::size_t N = 8, std::size_t PayloadBytes = 4096,
          std::size_t CallbackBytes = 64, std::size_t ScratchBytes = Codec::scratchBytes,
-         std::size_t ScratchAlign = Codec::scratchAlign, class Lock = NoLock>
+         std::size_t ScratchAlign = Codec::scratchAlign, class Lock = NoLock,
+         class AdmissionPolicy = StaticAdmission<Codec>>
 class DeviceClient {
 	using Queue = RequestQueue<N, PayloadBytes, CallbackBytes, Lock>;
 	using Record = typename Queue::Record;
@@ -23,7 +43,8 @@ class DeviceClient {
 public:
 	using LockPolicy = Lock;
 
-	explicit DeviceClient(Backend& backend, Clock clock) noexcept : backend_(backend), clock_(clock)
+	explicit DeviceClient(Backend& backend, Clock clock, AdmissionPolicy admission = {}) noexcept
+	    : backend_(backend), clock_(clock), admission_(admission)
 	{
 		if (!clock_.read)
 			std::abort();
@@ -42,9 +63,7 @@ public:
 		const auto admission = queue_.beginAdmission();
 		if (admission != Status::Ok)
 			return admission;
-		const auto expected = Codec::descriptorHeader();
-		if (expected.size() != 64 || header.size() != expected.size() ||
-		    !std::equal(header.begin(), header.end(), expected.begin()))
+		if (!admission_.acceptsDescriptor(header))
 			return Status::NotAdmitted;
 		if (!backend_.openSession(generation))
 			return backend_.recoveryRequired() ? Status::RecoveryRequired : Status::InvalidArgument;
@@ -54,6 +73,16 @@ public:
 	[[nodiscard]] bool confirmSessionClosed(std::uint32_t generation) noexcept
 	{
 		return queue_.empty() && backend_.confirmSessionClosed(generation);
+	}
+
+	// Owner-only revocation of enqueue, activation and new handoffs, independent
+	// of the policy. Does not advance the backend or invoke callbacks. Previously
+	// authorized effects retain passive completion and the existing deadline;
+	// draining and physical transport release remain separate steps.
+	void invalidateAdmission() noexcept
+	{
+		queue_.invalidate(backend_.recoveryRequired() ? Status::RecoveryRequired
+		                                              : Status::NotAdmitted);
 	}
 
 	[[nodiscard]] std::size_t pending() const noexcept
@@ -94,8 +123,10 @@ public:
 		if (processing_)
 			return {};
 		process(clock_.now());
-		return active_ && !queue_.closing() && !queue_.cancelled(*active_) ? backend_.nextPacket()
-		                                                                   : Packet{};
+		return queue_.admitted() && admission_.current() && active_ && !queue_.closing() &&
+		               !queue_.cancelled(*active_)
+		           ? backend_.nextPacket()
+		           : Packet{};
 	}
 
 	[[nodiscard]] bool prepareHandoff(std::uint32_t session, std::uint32_t requestId) noexcept
@@ -103,9 +134,16 @@ public:
 		if (processing_)
 			return false;
 		process(clock_.now());
-		return active_ && !queue_.closing() && !queue_.cancelled(*active_) &&
-		       !expired(clock_.now(), active_->deadline) &&
-		       backend_.prepareHandoff(session, requestId);
+		if (!queue_.admitted() || !admission_.current() || !active_ || queue_.closing() ||
+		    queue_.cancelled(*active_) || expired(clock_.now(), active_->deadline))
+			return false;
+		const auto packet = backend_.nextPacket();
+		if (!packet || packet.session != session || packet.requestId != requestId ||
+		    !queue_.admitted() || !admission_.current() ||
+		    !backend_.prepareHandoff(session, requestId))
+			return false;
+		activeMayExecute_ = activeMayExecute_ || packet.mayExecute;
+		return true;
 	}
 
 	[[nodiscard]] bool onSendAccepted(std::uint32_t session, std::uint32_t requestId) noexcept
@@ -128,7 +166,7 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 1)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 1)
 	[[nodiscard]] Submission read(E endpoint, F&& callback,
 	                              std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -141,7 +179,7 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 1)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 1)
 	[[nodiscard]] Submission write(E endpoint, const typename E::Value& value, F&& callback,
 	                               std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -154,7 +192,8 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 2 && !std::is_void_v<typename E::Request>)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 2 &&
+	             !std::is_void_v<typename E::Request>)
 	[[nodiscard]] Submission command(E endpoint, const typename E::Request& value, F&& callback,
 	                                 std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -165,7 +204,8 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 2 && std::is_void_v<typename E::Request>)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 2 &&
+	             std::is_void_v<typename E::Request>)
 	[[nodiscard]] Submission command(E endpoint, F&& callback,
 	                                 std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -176,7 +216,8 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 3 && !std::is_void_v<typename E::Request>)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 3 &&
+	             !std::is_void_v<typename E::Request>)
 	[[nodiscard]] Submission service(E endpoint, const typename E::Request& value, F&& callback,
 	                                 std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -187,7 +228,8 @@ public:
 	}
 
 	template<class E, class F>
-	    requires(static_cast<unsigned>(E::category) == 3 && std::is_void_v<typename E::Request>)
+	    requires(AdmissionPolicy::allowTyped && static_cast<unsigned>(E::category) == 3 &&
+	             std::is_void_v<typename E::Request>)
 	[[nodiscard]] Submission service(E endpoint, F&& callback,
 	                                 std::uint32_t timeoutMs = 30000) noexcept
 	{
@@ -208,6 +250,11 @@ public:
 		              "Completion ownership must be constructed without exceptions");
 		if (!validTimeout(timeoutMs))
 			return {Status::InvalidArgument, {}};
+		if (!admission_.current())
+			return {queue_.closing()              ? Status::Closed
+			        : backend_.recoveryRequired() ? Status::RecoveryRequired
+			                                      : Status::NotAdmitted,
+			        {}};
 		const auto reserved = queue_.reserve(request.payload.size());
 		if (!reserved.record)
 			return {reserved.status, {}};
@@ -232,7 +279,7 @@ public:
 		backend_.process(now);
 		if (backend_.recoveryRequired())
 			queue_.invalidate(Status::RecoveryRequired);
-		else if (!backend_.ready() && active_ == nullptr)
+		else if (!admission_.current() || (!backend_.ready() && active_ == nullptr))
 			queue_.invalidate();
 		if (active_) {
 			if (!backend_.completed()) {
@@ -240,10 +287,13 @@ public:
 					backend_.cancel(Status::Cancelled);
 				else if (expired(now, active_->deadline))
 					backend_.cancel(Status::Timeout);
+				else if ((!queue_.admitted() || !admission_.current()) && !activeMayExecute_)
+					backend_.cancel(Status::Cancelled);
 			}
 			if (backend_.completed()) {
 				auto* record = active_;
 				active_ = nullptr;
+				activeMayExecute_ = false;
 				if (backend_.recoveryRequired())
 					queue_.invalidate(Status::RecoveryRequired);
 				complete(*record, backend_.result());
@@ -265,7 +315,8 @@ public:
 			complete(*expiredRecord, {status, expiredRecord->operation});
 		} else if (auto* record = queue_.takeNext()) {
 			Status status = Status::Ok;
-			if (queue_.closing() || !queue_.admitted() || queue_.cancelled(*record))
+			if (queue_.closing() || !queue_.admitted() || queue_.cancelled(*record) ||
+			    !admission_.current())
 				status = Status::Cancelled;
 			else if (expired(now, record->deadline))
 				status = Status::Timeout;
@@ -274,8 +325,10 @@ public:
 				    backend_.start({record->operation, record->endpoint, queue_.payload(*record),
 				                    record->responseBytes, record->deadline - now},
 				                   now);
-				if (status == Status::Ok)
+				if (status == Status::Ok) {
 					active_ = record;
+					activeMayExecute_ = false;
+				}
 			}
 			if (status != Status::Ok)
 				complete(*record, {status, record->operation});
@@ -385,10 +438,11 @@ private:
 
 	Backend& backend_;
 	Clock clock_;
+	[[no_unique_address]] AdmissionPolicy admission_;
 	Queue queue_{};
 	alignas(ScratchAlign) std::array<std::byte, ScratchBytes> scratch_{};
 	Record* active_ = nullptr;
-	bool processing_ = false, backendClosed_ = false;
+	bool processing_ = false, backendClosed_ = false, activeMayExecute_ = false;
 };
 } // namespace telemetry::client
 #endif // TELEMETRY_LIB_TELEMETRY_CLIENT_DEVICECLIENT_HPP

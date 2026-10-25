@@ -12,7 +12,7 @@
 [Schema compatibility](GeneratedSchemaCompatibility.md) ·
 [Asynchronous client](AsyncClient.md) ·
 [Runtime schema and values](RuntimeSchema.md) ·
-[DynamicClient implementation contract (planned)](DynamicClient.md)
+[DynamicClient contract](DynamicClient.md) · [Runtime client usage](DynamicClientUsage.md)
 
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.

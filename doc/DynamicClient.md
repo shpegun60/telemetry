@@ -1,9 +1,9 @@
 # DynamicClient implementation contract
 
-This document specifies the first C++ DynamicClient implementation. It describes
-planned behavior, not an available API or a completed qualification. Writer
-acceptance remains separate from this work. The implementation belongs in its
-own PR after that acceptance.
+This document specifies the first C++ DynamicClient implementation. The optional
+Integration API is described in [Using DynamicClient](DynamicClientUsage.md).
+The acceptance matrix below defines required behavior; execution evidence is
+reported by the implementation's test runners and CI for their exact inputs.
 
 ## Responsibilities
 
@@ -125,7 +125,7 @@ RPC session recovery may nevertheless be required.
 A current, successful non-Void response is validated through
 `RuntimeSchema::view()`. A stale binding or invalid payload yields no value view
 without erasing the operation result. Void responses need no value view.
-The following planned DynamicClient `valueStatus` labels have ordered semantics;
+The DynamicClient `valueStatus` labels have ordered semantics;
 they do not add cases to the existing Runtime or Client status enums:
 
 | First applicable condition | valueStatus | Value view |

@@ -38,6 +38,10 @@ jobs:
             --build-dir "$RUNNER_TEMP/descriptor-core" "${options[@]}"
           python3 -B tests/runtime_schema/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/runtime-schema" "${options[@]}"
+          dynamic_options=()
+          if [[ '${{ matrix.cxx }}' == 'g++' ]]; then dynamic_options+=(--arm-cxx arm-none-eabi-g++); fi
+          python3 -B tests/dynamic_client/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/dynamic-client" "${options[@]}" "${dynamic_options[@]}"
           python3 -B tests/client_module/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/client-module"
       - name: Installed Cortex-M7 modules compile and link
@@ -54,6 +58,7 @@ jobs:
             ${{ runner.temp }}/encoded-core/
             ${{ runner.temp }}/descriptor-core/
             ${{ runner.temp }}/runtime-schema/
+            ${{ runner.temp }}/dynamic-client/
             ${{ runner.temp }}/client-module/
           if-no-files-found: error
 
