@@ -133,7 +133,7 @@ def main():
                     inputs.add(path)
         report['source_sha256_before'] = snapshot()
         host = build('Host', HERE / 'Host.cpp', native_link=True)
-        count('Host', run('execute-Host', [host]), 576)
+        count('Host', run('execute-Host', [host]), 1147)
         lifetime = build('Lifetime', HERE / 'Lifetime.cpp', native_link=True)
         count('Lifetime', run('execute-Lifetime', [lifetime]), 348)
         # Allocation traps run without ASan replacement allocators, even in a sanitizer profile.

@@ -98,8 +98,11 @@ template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t Snapsho
          std::size_t CallbackBytes = 256>
 class InspectorModel;
 
-// Handles borrow one live model identity. They never contain pointers to rows or
-// payload. A new accepted read, selection, admission or invalidation retires them.
+// Handles borrow exactly one model lifetime and must not survive its destruction.
+// Constructing another model at the same address does not extend that lifetime;
+// these checks do not distinguish handles retained from a destroyed instance.
+// Handles never contain pointers to rows or payload. A new accepted read,
+// selection, admission or invalidation retires them within the live instance.
 class NodeHandle {
 public:
 	NodeHandle() noexcept = default;

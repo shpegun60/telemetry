@@ -29,6 +29,10 @@ does not require a heap allocation or an expanded tree of DTO objects.
 
 Nodes are lazy handles tied to the model and snapshot revision. A refreshed or
 cleared snapshot invalidates old handles even when the schema has not changed.
+Every NodeHandle borrows exactly one model lifetime and must not survive that
+model's destruction. Constructing a new model at the same address does not extend
+the old lifetime; handle checks do not distinguish a retained handle from the
+destroyed instance. Discard all handles before destroying their model.
 Handle checks precede access to stored value views or metadata. The public API
 does not expose a raw DynamicValueView into a reusable snapshot buffer.
 Catalog/endpoint spans, node names and optional enum labels still borrow the

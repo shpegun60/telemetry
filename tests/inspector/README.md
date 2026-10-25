@@ -22,6 +22,13 @@ field setter must remain uncalled. The native producer has workspace for its
 ordinary C++ return object; this is separate from the Inspector's bounded
 canonical byte snapshot.
 
+Both transports also read six F32/F64 pattern pairs through the existing Packet
+members: positive and negative quiet NaNs, positive and negative signaling NaNs
+with distinct payload bits, and both signs of zero. Assertions use the exact
+variant alternative and `std::bit_cast` to compare integer representations;
+they do not compare or perform arithmetic on the floating values. Each snapshot
+is checked again after response/workspace reuse and peer-value replacement.
+
 The assertions cover exact scalar variants and decimal conversion, owned bytes
 after RX/workspace reuse, lazy child bounds, revision invalidation on refresh,
 transactional capacity refusal, FIFO capacity, cancellation, timeout, malformed

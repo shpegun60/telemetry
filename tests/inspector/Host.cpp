@@ -5,8 +5,8 @@
  */
 #include "Fixture.hpp"
 #include <bit>
-#include <cmath>
 #include <limits>
+#include <type_traits>
 
 using namespace inspector_fixture;
 
@@ -59,6 +59,21 @@ static void decimal(Model& model, auto node, const char* expected) noexcept
 	CHECK(std::memcmp(text.data(), expected, result.value) == 0);
 }
 
+template<class Floating, class Bits, class Model>
+static void scalarBits(Model& model, const im::NodeHandle& node, Bits expected) noexcept
+{
+	static_assert(sizeof(Floating) == sizeof(Bits));
+	const auto result = model.scalar(node);
+	CHECK(result);
+	CHECK(!result.value.enumValue);
+	CHECK(result.value.code == (std::is_same_v<Floating, float> ? telemetry::ScalarCode::F32
+	                                                            : telemetry::ScalarCode::F64));
+	const auto* number = std::get_if<Floating>(&result.value.value);
+	CHECK(number);
+	// Read the variant's representation directly, without FP comparison or arithmetic.
+	CHECK(std::bit_cast<Bits>(*number) == expected);
+}
+
 template<class Model>
 static void richSnapshot(Model& model) noexcept
 {
@@ -78,8 +93,8 @@ static void richSnapshot(Model& model) noexcept
 	CHECK(scalar<std::int64_t>(model, i64) == INT64_MIN);
 	decimal(model, u64, "18446744073709551615");
 	decimal(model, i64, "-9223372036854775808");
-	CHECK(std::signbit(scalar<float>(model, child(model, root, 9))));
-	CHECK(std::isinf(scalar<double>(model, child(model, root, 10))));
+	scalarBits<float>(model, child(model, root, 9), UINT32_C(0x80000000));
+	scalarBits<double>(model, child(model, root, 10), UINT64_C(0x7ff0000000000000));
 	const auto inner = child(model, root, 11);
 	CHECK(model.childCount(inner).value == 4);
 	CHECK(scalar<std::uint16_t>(model, child(model, inner, 0)) == 0x1234);
@@ -233,6 +248,59 @@ static void rpcReads() noexcept
 		        id == 4 ? "18446744073709551615" : "-9223372036854775808");
 	}
 	CHECK(calls == 3 && device.reads == 3);
+	readonlyCounters();
+}
+
+template<class Fixture>
+static void floatingPointSnapshots() noexcept
+{
+	Fixture fixture;
+	auto& model = fixture.inspector;
+	const auto field = fixture.bind();
+
+	struct Pattern {
+		std::uint32_t f32;
+		std::uint64_t f64;
+	};
+
+	// Both signs of quiet/signaling NaNs have nonzero, distinct payloads.
+	constexpr std::array patterns{Pattern{UINT32_C(0x7fc1a2b3), UINT64_C(0x7ff8123456789abc)},
+	                              Pattern{UINT32_C(0xffd4c3b2), UINT64_C(0xfff9fedcba987654)},
+	                              Pattern{UINT32_C(0x7f812345), UINT64_C(0x7ff0123456789abc)},
+	                              Pattern{UINT32_C(0xff923456), UINT64_C(0xfff123456789abcd)},
+	                              Pattern{UINT32_C(0x00000000), UINT64_C(0x0000000000000000)},
+	                              Pattern{UINT32_C(0x80000000), UINT64_C(0x8000000000000000)}};
+	unsigned calls = 0;
+	for (const auto& pattern : patterns) {
+		device.packet.f32 = std::bit_cast<float>(pattern.f32);
+		device.packet.f64 = std::bit_cast<double>(pattern.f64);
+		CHECK(std::bit_cast<std::uint32_t>(device.packet.f32) == pattern.f32);
+		CHECK(std::bit_cast<std::uint64_t>(device.packet.f64) == pattern.f64);
+		CHECK(model.readField(field, [&](const auto& result) noexcept {
+			++calls;
+			CHECK(result.operation.succeeded());
+			CHECK(result.published);
+		}));
+		fixture.pump();
+		CHECK(device.reads == calls);
+		const auto root = checkedRoot(model);
+		const auto f32 = child(model, root, 9), f64 = child(model, root, 10);
+		scalarBits<float>(model, f32, pattern.f32);
+		scalarBits<double>(model, f64, pattern.f64);
+		// Prove the scalar comes from the Inspector's snapshot after transport reuse.
+		if constexpr (requires { fixture.rx; })
+			std::fill(fixture.rx.begin(), fixture.rx.end(), std::byte{0x5a});
+		else
+			std::fill(fixture.result.begin(), fixture.result.end(), std::byte{0x5a});
+		std::fill(fixture.reply.begin(), fixture.reply.end(), std::byte{0xa5});
+		std::fill(fixture.scratch.begin(), fixture.scratch.end(), std::byte{0x33});
+		device.packet.f32 = std::bit_cast<float>(UINT32_C(0x3f800000));
+		device.packet.f64 = std::bit_cast<double>(UINT64_C(0x3ff0000000000000));
+		scalarBits<float>(model, f32, pattern.f32);
+		scalarBits<double>(model, f64, pattern.f64);
+	}
+	CHECK(calls == patterns.size());
+	CHECK(model.pending() == 0);
 	readonlyCounters();
 }
 
@@ -395,6 +463,8 @@ int main()
 	metadataAndEncoded();
 	zeroAndCapacity();
 	rpcReads();
+	floatingPointSnapshots<Encoded<>>();
+	floatingPointSnapshots<RpcHarness>();
 	boundedQueue();
 	deadlineAndMalformed();
 	changedSchemaSameEndpointAndWidth();
