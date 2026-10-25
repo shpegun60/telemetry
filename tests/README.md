@@ -18,6 +18,11 @@ the existing FIFO and real Encoded/Retrying/RPC backends. Independent
 [policy and lifetime probes](dynamic_client_review/README.md) cover execution
 guards, passive completion and metadata deallocation after invalidation.
 
+The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
+owned snapshots, exact scalar presentation, stale node/callback rejection and
+real Encoded/RPC reads without Qt. Installed-module checks isolate its public
+dependency closure from native Model, Resource and concrete backends.
+
 The [runtime schema suite](runtime_schema/README.md) reads real Descriptor v3
 files and wire payloads with caller-owned storage, compares generated codecs,
 and checks malformed descriptors against the independent Python parser.

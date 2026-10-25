@@ -45,6 +45,7 @@ codecs do not require that runtime.
 | Retrying Encoded backend | `integration/encoded/RetryingBackend.hpp` | `telemetry::integration::encoded` |
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
+| Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
 generic Resource contains no Telemetry headers or providers. The descriptor
@@ -76,7 +77,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend` and `dynamic_client`. Shared header components
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client` and `inspector`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
@@ -88,6 +89,10 @@ See [Runtime schema](RuntimeSchema.md) for workspace and borrowed-buffer lifetim
 The optional `dynamic_client` component binds `runtime` to `client`, privately
 using the existing FIFO. It includes no Model, wire parser, Resource or Qt;
 choose a transport backend separately. See [Using DynamicClient](DynamicClientUsage.md).
+The optional `inspector` component adds a bounded, owned snapshot and lazy value
+navigation to `dynamic_client`. It lists all endpoint categories but issues only
+FieldRead operations. It has no Qt, Resource, native Model or concrete transport
+dependency. See [Inspector Model](InspectorModel.md) for ownership and lifecycle.
 `encoded_backend` exports both the unchanged `EncodedBackend` and the optional
 `RetryingEncodedBackend`; including the latter adds no server, Resource, Qt or
 native Model dependency. Both share `client` and `encoded_wire` dependencies.
