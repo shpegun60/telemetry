@@ -358,6 +358,11 @@ MinGW kit. Він використовує симульовані дані; до
 Про known clangd issue і перевірений editor executable читайте
 [editor checks](tests/editor/README.md).
 
+[Qt/QML Universal Inspector](examples/inspector_qml/README.md) працює без
+Generated SDK: дерево endpoint-ів, асинхронне читання Field, точні 64-бітні
+значення та порційний перегляд масивів. Перша GUI-версія використовує локальний
+Encoded demo peer або відкриває Descriptor файл для перегляду metadata.
+
 ## Перевірки та вимірювання
 
 ```sh

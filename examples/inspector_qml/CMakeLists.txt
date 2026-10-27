@@ -1,0 +1,27 @@
+# Read-only QML application over the optional portable Inspector module. MIT.
+cmake_minimum_required(VERSION 3.21)
+project(TelemetryInspectorQml LANGUAGES CXX)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+qt_standard_project_setup(REQUIRES 6.4)
+set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml")
+get_filename_component(TELEMETRY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+if(NOT TARGET Telemetry::inspector)
+    find_package(Telemetry QUIET COMPONENTS inspector encoded_backend encoded_server core)
+    if(NOT Telemetry_FOUND)
+        set(TELEMETRY_COMPONENTS "inspector;encoded_backend;encoded_server;core")
+        add_subdirectory("${TELEMETRY_ROOT}" telemetry)
+    endif()
+endif()
+add_library(inspector_qml_support STATIC Models.cpp Models.hpp
+    InspectorController.cpp InspectorController.hpp DemoPeer.cpp DemoPeer.hpp)
+target_compile_features(inspector_qml_support PUBLIC cxx_std_20)
+target_compile_definitions(inspector_qml_support PUBLIC QT_NO_KEYWORDS QT_NO_FOREACH)
+target_include_directories(inspector_qml_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(inspector_qml_support PUBLIC Qt6::Core
+    Telemetry::inspector Telemetry::encoded_backend Telemetry::encoded_server Telemetry::core)
+qt_add_executable(telemetry-inspector-qml main.cpp)
+qt_add_qml_module(telemetry-inspector-qml URI Telemetry.Inspector VERSION 1.0
+    RESOURCE_PREFIX /qt/qml QML_FILES Main.qml)
+target_link_libraries(telemetry-inspector-qml PRIVATE inspector_qml_support
+    Qt6::Quick Qt6::QuickControls2)
+qt_import_qml_plugins(telemetry-inspector-qml)
