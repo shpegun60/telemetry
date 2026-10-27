@@ -1,5 +1,5 @@
 # Module-specific include roots also apply to in-tree builds. MIT.
-set(_telemetry_modules delegate common reflection codec core runtime dynamic_client resource resource_wire resource_protocol
+set(_telemetry_modules delegate common reflection codec core runtime dynamic_client inspector resource resource_wire resource_protocol
     client encoded_wire rpc_wire resource_adapter encoded_server rpc_server rpc_sessions
     encoded_backend rpc_client rpc_backend)
 set(_telemetry_selected ${TELEMETRY_COMPONENTS})
@@ -10,6 +10,7 @@ set(_telemetry_deps_resource_wire resource)
 set(_telemetry_deps_resource_protocol resource_wire)
 set(_telemetry_deps_client common)
 set(_telemetry_deps_dynamic_client runtime client)
+set(_telemetry_deps_inspector dynamic_client)
 set(_telemetry_deps_resource_adapter core resource)
 set(_telemetry_deps_encoded_server core encoded_wire)
 set(_telemetry_deps_rpc_server core resource_protocol rpc_wire)
@@ -255,6 +256,8 @@ foreach(_module IN LISTS _telemetry_modules)
         endforeach()
     elseif(_module STREQUAL "dynamic_client")
         telemetry_headers(${_target} ${_module} integration/dynamic "${PROJECT_SOURCE_DIR}/lib/integration/dynamic")
+    elseif(_module STREQUAL "inspector")
+        telemetry_headers(${_target} ${_module} integration/inspector "${PROJECT_SOURCE_DIR}/lib/integration/inspector")
     elseif(_module STREQUAL "codec")
         foreach(_part codec reflection result)
             telemetry_headers(${_target} ${_module} telemetry/${_part} "${PROJECT_SOURCE_DIR}/lib/telemetry/${_part}")

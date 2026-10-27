@@ -12,17 +12,24 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-MODULES = ('core', 'runtime', 'dynamic_client', 'resource', 'resource_protocol', 'client', 'resource_adapter',
+MODULES = ('core', 'runtime', 'dynamic_client', 'inspector', 'resource', 'resource_protocol', 'client', 'resource_adapter',
            'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend')
 FORBIDDEN = {
+    'inspector': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
+                  'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
+                  'magic_enum.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
+                  'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp'),
     'dynamic_client': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
                        'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
                        'magic_enum.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
-                       'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp'),
+                       'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp',
+                       'integration/inspector/InspectorModel.hpp'),
     'runtime': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp', 'telemetry/codec/Codec.hpp',
                 'resource/Resource.hpp', 'client/DeviceClient.hpp', 'boost/pfr.hpp', 'magic_enum.hpp',
-                'integration/encoded/Backend.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
-    'core': ('resource/Resource.hpp', 'client/DeviceClient.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),
+                'integration/encoded/Backend.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
+                'integration/inspector/InspectorModel.hpp'),
+    'core': ('resource/Resource.hpp', 'client/DeviceClient.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
+             'integration/inspector/InspectorModel.hpp'),
     'resource': ('telemetry/Telemetry.hpp', 'client/DeviceClient.hpp'),
     'resource_protocol': ('telemetry/Telemetry.hpp', 'client/DeviceClient.hpp'),
     'client': ('telemetry/runtime/RuntimeSchema.hpp', 'integration/dynamic/DynamicClient.hpp', 'telemetry/Telemetry.hpp', 'resource/Resource.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp'),

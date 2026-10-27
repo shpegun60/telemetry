@@ -106,6 +106,17 @@ int main()
 {
 	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_INSPECTOR)
+#include <integration/inspector/InspectorModel.hpp>
+#include <type_traits>
+using Inspector = telemetry::integration::inspector::InspectorModel<2, 64, 64>;
+static_assert(!std::is_copy_constructible_v<Inspector>);
+static_assert(!std::is_move_constructible_v<Inspector>);
+
+int main()
+{
+	return sizeof(Inspector) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_RESOURCE)
 #include <resource/Resource.hpp>
 

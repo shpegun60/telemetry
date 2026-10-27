@@ -4,6 +4,7 @@
 
 [Runtime Descriptor schema and dynamic wire values](doc/RuntimeSchema.md).
 [DynamicClient: runtime endpoints over the existing asynchronous FIFO](doc/DynamicClientUsage.md).
+[Read-only Inspector Model without Qt or generated DTOs](doc/InspectorModel.md).
 
 [Asynchronous client: FIFO, RPC/Encoded, STM32, Qt/QML and JS/TS](doc/AsyncClient.md).
 
