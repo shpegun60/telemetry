@@ -16,6 +16,9 @@
 [Read-only Inspector Model](InspectorModel.md) ·
 [Qt/QML Inspector example](../examples/inspector_qml/README.md)
 
+[Native TCP Resource/Encoded integration](../lib/integration/tcp/README.md)
+connects the Inspector to a device without generated DTOs or another wire envelope.
+
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.
 

@@ -13,7 +13,7 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 MODULES = ('core', 'runtime', 'dynamic_client', 'inspector', 'resource', 'resource_protocol', 'client', 'resource_adapter',
-           'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend')
+           'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend', 'tcp_server')
 FORBIDDEN = {
     'inspector': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
                   'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
@@ -40,7 +40,16 @@ FORBIDDEN = {
     'rpc_server': ('client/DeviceClient.hpp',),
     'resource_adapter': ('client/DeviceClient.hpp',),
     'rpc_sessions': ('client/DeviceClient.hpp',),
+    'tcp_server': ('client/DeviceClient.hpp', 'client/rpc/RpcClient.hpp',
+                   'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp',
+                   'integration/telemetry/v3/RpcMailbox.hpp',
+                   'integration/telemetry/v3/DescriptorFile.hpp',
+                   'integration/inspector/InspectorModel.hpp',
+                   'integration/dynamic/DynamicClient.hpp', 'telemetry/runtime/RuntimeSchema.hpp'),
 }
+for _module in MODULES:
+    if _module != 'tcp_server':
+        FORBIDDEN[_module] += ('integration/tcp/Framing.hpp', 'integration/tcp/Server.hpp')
 
 
 def check_install_paths(args, out, root, run, extra_config, symlinks):
@@ -623,7 +632,7 @@ def main():
             if str(ROOT) in commands or str(build) in commands:
                 raise RuntimeError(module + ': consumer can see source or build tree')
             # Ensure a required compiled module is genuinely linked, not only parsed.
-            if not args.arm and module in ('core', 'rpc_client', 'resource_protocol'):
+            if not args.arm and module in ('core', 'rpc_client', 'resource_protocol', 'tcp_server'):
                 compile_command = json.loads(commands)[0]
                 import shlex
                 command = shlex.split(compile_command['command'])
@@ -633,7 +642,8 @@ def main():
                 run(command, module + '-link-control-compile')
                 text = run([args.cxx, object_path, '-o', directory / 'missing-library'],
                            module + '-negative-link', expected_failure=True)
-                expected = {'core': 'dispatchEncoded', 'rpc_client': 'RpcClient', 'resource_protocol': 'process'}[module]
+                expected = {'core': 'dispatchEncoded', 'rpc_client': 'RpcClient', 'resource_protocol': 'process',
+                            'tcp_server': 'dispatchEncoded'}[module]
                 if expected not in text:
                     raise RuntimeError('Link rejection did not identify the missing module: ' + text)
             report['modules'][module] = {'headers': len(headers), 'negative_includes': len(FORBIDDEN[module]),

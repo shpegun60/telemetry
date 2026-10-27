@@ -5,6 +5,18 @@ The runner installs each selected module, relocates the installation, then
 builds and runs an independent consumer. `--modules client` selects a focused
 run; `--arm --cxx arm-none-eabi-g++` compiles and links without execution.
 
+The matrix includes the optional `tcp_server` integration. Its relocated consumer
+assembles a real Resource LIST and TEQ1 request and links the existing dispatchers.
+Negative compile checks reject Client, RPC, Runtime and Descriptor-resource adapter
+headers from that target. Conversely every other independent module rejects TCP
+adapter headers. A negative link control omits compiled dependencies and must fail
+on the existing `dispatchEncoded` symbol. Focused host and offline ARM runs:
+
+```sh
+python3 -B tests/modules/run.py --build-dir /external/modules-tcp --modules tcp_server --cxx g++
+python3 -B tests/modules/run.py --build-dir /external/modules-tcp-arm --modules tcp_server --cxx arm-none-eabi-g++ --arm
+```
+
 Header cleanup controls run before the module matrix. Fresh output, install-time
 prefix overrides, DESTDIR on POSIX, internal directory links, a symlinked prefix
 and owned leaf links must succeed. Intermediate links escaping the build or

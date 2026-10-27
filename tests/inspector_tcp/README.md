@@ -1,0 +1,54 @@
+# Qt Inspector TCP checks
+
+These checks use actual loopback `QTcpSocket` connections. The demo server routes
+native Resource packets through the existing Resource protocol and TEQ1 packets
+through the existing Encoded dispatcher. It introduces no outer frame header or
+second execution queue. The Descriptor is discovered at file index 1 after a
+decoy; the client never assumes that Descriptor is file zero.
+
+```sh
+python3 -B tests/inspector_tcp/run.py --build-dir /external/inspector-tcp \
+  --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+```
+
+Requires Qt 6.4 or newer with Network, Quick Controls and Test. On Windows select
+the matching Qt MinGW kit explicitly. The runner puts that compiler and Qt runtime
+first in `PATH`, keeps builds/logs outside the source tree, and retains before/after
+source hashes, binary hashes and a machine-readable result. Source drift fails the
+run. The maintained floor is 383 checks, 20 real FieldReads and 14 admitted socket
+connections; refused discovery and extra raw socket connections are counted
+separately in the scenarios.
+
+Coverage includes fragmented request writes and response writes, paged Descriptor
+reads, exact U64/S64 text, an unknown signed enum, nested structures, an empty
+structure and a 16,384-element array. Additional cases cover old-ID and old-session
+frames coalesced before a valid response, selection supersession, delayed replies
+across reconnect, Descriptor replacement with the same endpoint IDs, partial
+request/reply disconnects, timeout/recovery, missing or invalid Descriptor,
+one-active-client admission, and invalid stream prefixes. The server's fault
+controls make these boundaries deterministic; they do not assert how an operating
+system happens to segment TCP traffic.
+
+A complete checked response followed immediately by EOF must produce exactly one
+successful completion before disconnect clears its displayed snapshot. A response
+that misses the request deadline must not publish success. A correlated temporary
+`Unavailable` result keeps the connection usable for the next read. Closing and
+reconnecting the same transport object invalidates its old queued notifications.
+
+After an uncertain handed-off operation, the controller keeps the closed/drained
+old client until a valid Descriptor bootstrap from the same configured peer and
+actual IP establishes old-context closure under the supported exclusive synchronous
+server profile. A different peer is refused while this recovery obligation remains;
+independent demo/file browsing does not erase it. An idle client without recovery
+may be destroyed after local close/drain, and a different peer gets a new core.
+No old binding is revived and no remote proof is inferred from local socket abort.
+
+The runner also starts the real demo server executable on an ephemeral loopback
+port, opens the actual QML application with `--tcp`, and requires a published
+Field plus visible decoded value delegates. It retains the rendered PNG and
+both process logs, then terminates the persistent demo-listener process. Object
+close/drain behavior is exercised by the maintained in-process socket scenarios.
+
+`--sanitize --cxx clang++-18` enables fatal ASan/UBSan checks on Linux. Leak checking
+is disabled for Qt's process-global offscreen plugin allocations. This is host
+socket qualification, not STM32, UART, DMA, D-cache or physical link qualification.
