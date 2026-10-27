@@ -254,6 +254,35 @@ void modelChecks()
 	CHECK(values.rowCount() == 0 && endpoints.rowCount() == 0);
 }
 
+void endpointInvalidationChecks()
+{
+	for (const bool resetSchema : {false, true}) {
+		auto fixture = std::make_unique<Harness>();
+		ui::EndpointModel endpoints;
+		endpoints.rebuild(fixture->inspector);
+		QSignalSpy resets{&endpoints, &QAbstractItemModel::modelReset};
+		const auto field = endpoint(endpoints, 1, 0);
+		const std::array indexes{endpoints.index(0, 0), endpoints.parent(field), field};
+		const auto roles = endpoints.roleNames().keys();
+		for (const auto& index : indexes) {
+			CHECK(index.isValid());
+			for (const auto role : roles)
+				CHECK(endpoints.data(index, role).isValid());
+		}
+		if (resetSchema)
+			CHECK(fixture->workspace.reset() == rt::Status::Ok);
+		else
+			fixture->inspector.invalidate();
+		CHECK(!fixture->inspector.isCurrent());
+		// No pump, reset or request: stale metadata must already be inaccessible.
+		for (const auto& index : indexes)
+			for (const auto role : roles)
+				CHECK(!endpoints.data(index, role).isValid());
+		CHECK(endpoints.endpoint(field).isEmpty());
+		CHECK(resets.isEmpty() && endpoints.rowCount() == 3 && fixture->packets == 0);
+	}
+}
+
 void controllerChecks()
 {
 	ui::InspectorController controller;
@@ -452,6 +481,7 @@ int main(int argc, char** argv)
 {
 	QGuiApplication application{argc, argv};
 	modelChecks();
+	endpointInvalidationChecks();
 	controllerChecks();
 	std::printf("Inspector Qt checks=%u reads=%u Qt=%s\n", checks, reads, qVersion());
 	return 0;

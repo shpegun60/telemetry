@@ -144,7 +144,7 @@ def main():
         check = build / ('telemetry_inspector_qml_check' + suffix)
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector Qt checks=(\d+) reads=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 365 or int(counts[2]) < 10:
+        if not counts or int(counts[1]) < 480 or int(counts[2]) < 10:
             raise RuntimeError('Runtime did not execute the maintained model/controller checks')
         report['executions']['checks'], report['executions']['reads'] = map(int, counts.groups()[:2])
         report['qt_version'] = counts[3]

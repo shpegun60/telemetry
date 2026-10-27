@@ -20,7 +20,7 @@ unchanged from start to finish.
 
 `QAbstractItemModelTester` checks both models, with explicit lazy-fetch tests
 for the 16,384-element array. `QSignalSpy` observes resets, insertions and read
-completion. The maintained floor is 365 executed checks and 10 real FieldReads.
+completion. The maintained floor is 480 executed checks and 10 real FieldReads.
 Real Encoded reads check exact U64/S64 decimal strings, an unknown
 signed enum, nested structs/arrays, an empty struct, owned snapshot storage and
 stale model indexes. Controller checks cover metadata-only files, selection
@@ -29,6 +29,9 @@ preservation, delayed old replies, fresh sessions, timeout/recovery and shutdown
 Direct slots on reset and row-insertion notifications attempt reconnect and
 disconnect; both must preserve the active model mutation and current session.
 Reactive loaded-count notification is checked under the same guard.
+All endpoint metadata roles reject schema or admission invalidation immediately,
+before any controller pump or Qt model reset; tree topology remains unchanged
+until its explicit reset.
 
 The second executable creates the actual QML window offscreen and performs a
 FieldRead. Its success marker requires both a root window and a published

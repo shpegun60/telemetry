@@ -354,7 +354,7 @@ int EndpointModel::columnCount(const QModelIndex& parent) const
 QVariant EndpointModel::data(const QModelIndex& index, int role) const
 {
 	const auto* row = impl_->tree.at(this, index);
-	if (!row)
+	if (!row || !impl_->current())
 		return {};
 	switch (role) {
 		case Qt::DisplayRole:
@@ -369,7 +369,7 @@ QVariant EndpointModel::data(const QModelIndex& index, int role) const
 		case CategoryRole:
 			return row->category;
 		case ReadableRole:
-			return row->readable && impl_->current();
+			return row->readable;
 		case IsEndpointRole:
 			return row->endpoint;
 		default:
