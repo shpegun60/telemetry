@@ -91,7 +91,58 @@ telemetry-inspector-qml --tcp 127.0.0.1:5577
 The demo listener binds only to loopback. `--serve-demo 0` selects and prints an
 ephemeral port. It uses the real native Model, Resource DescriptorFile and
 [TCP server adapter](../../lib/integration/tcp/README.md); its values remain
-demonstration data. UART/DMA is a later transport port.
+demonstration data. The optional serial profile is described below.
+
+## NUCLEO-H7S3L8 through ST-LINK serial
+
+The optional serial build uses Qt SerialPort and the existing external COBS
+library. Select the SerialPort module matching the Qt/compiler kit, and the
+qualified COBS checkout `2e0abf260848fcb74e4a57b37532188047759643`:
+
+```sh
+cmake -S examples/inspector_qml -B /path/to/external/inspector-serial -G Ninja \
+  -DCMAKE_PREFIX_PATH=/path/to/Qt -DINSPECTOR_ENABLE_SERIAL=ON \
+  -DCOBS_ROOT=/path/to/cobs -DCMAKE_BUILD_TYPE=Release
+cmake --build /path/to/external/inspector-serial
+telemetry-inspector-qml --serial COM6 --baud 115200
+```
+
+COM6 is an example; select the actual ST-LINK port in the window. The matching
+[Nucleo firmware](../nucleo_h7s3l8/README.md) serves demonstration values through
+USART3 DMA. Both peers use `SerialProfile.hpp`: existing COBS framing/CRC with
+at most 2048 body bytes. Each body is an ordinary Resource packet or complete
+TEQ1 message, without an extra application route. Descriptor and TEQ1 formats
+are unchanged. Field payloads above 2016 bytes remain browsable as metadata but
+Refresh refuses them explicitly before changing the snapshot or FIFO.
+
+Only complete, CRC-checked packets reach the Resource/Encoded readers. A short
+serial write closes the failed exchange; the library does not replay a prefix
+or retry the request. Per-exchange and total discovery deadlines are separate.
+The exclusive host sends one request at a time and never runs another serial
+producer on the same port.
+
+Recovery requires the supported synchronous, read-only board profile: dispatch
+waits for the previous UART transmission and COBS lease to finish, then processes
+RX in order. A complete, validated new LIST/STAT/Descriptor transcript from the
+same fixed peer is the sequencing barrier. COM close/clear and an isolated LIST
+reply do not establish it. USB identity is captured when the port opens;
+replacing the MCU or its wiring while recovery is pending is outside this
+profile. Malformed or stale bootstrap packets close the attempt without new
+admission. This does not qualify a general asynchronous serial server or RPC.
+
+The read-only headless check also uses the real Controller/Qt models:
+
+```sh
+telemetry-inspector-qml --serial COM6 --baud 115200 --check-device \
+  --report /path/to/external/device-report.json
+```
+
+It reads all demo Fields, preserves integer values as strings, verifies all
+three F32 voltages, the exact U64 Counter, demonstration flag, nested matrix,
+boolean and unknown signed enum. Run it on
+the Nucleo demo firmware. The [guarded hardware runner](../../tests/nucleo_h7s3l8/README.md)
+backs up and restores the original internal Flash. Host PTY tests are maintained
+in [inspector_serial](../../tests/inspector_serial/README.md).
 
 ## Ownership and shutdown
 

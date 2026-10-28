@@ -2,6 +2,14 @@
 cmake_minimum_required(VERSION 3.21)
 project(TelemetryInspectorQml LANGUAGES CXX)
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Network)
+option(INSPECTOR_ENABLE_SERIAL "Build the optional COBS/SerialPort transport" OFF)
+set(COBS_ROOT "" CACHE PATH "External COBS library checkout")
+if(INSPECTOR_ENABLE_SERIAL)
+    find_package(Qt6 6.4 REQUIRED COMPONENTS SerialPort)
+    if(NOT EXISTS "${COBS_ROOT}/src/cobs/Cobs.h")
+        message(FATAL_ERROR "INSPECTOR_ENABLE_SERIAL requires COBS_ROOT with src/cobs/Cobs.h")
+    endif()
+endif()
 qt_standard_project_setup(REQUIRES 6.4)
 set(QT_QML_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml")
 get_filename_component(TELEMETRY_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
@@ -22,13 +30,31 @@ foreach(_component inspector encoded_backend encoded_server core tcp_server)
 endforeach()
 add_library(inspector_qml_support STATIC Models.cpp Models.hpp
     InspectorController.cpp InspectorController.hpp DemoPeer.cpp DemoPeer.hpp
-    TcpTransport.cpp TcpTransport.hpp TcpDemoServer.cpp TcpDemoServer.hpp)
+    TcpTransport.cpp TcpTransport.hpp TcpDemoServer.cpp TcpDemoServer.hpp
+    DeviceTransport.hpp DescriptorBootstrap.hpp)
 target_compile_features(inspector_qml_support PUBLIC cxx_std_20)
 target_compile_definitions(inspector_qml_support PUBLIC QT_NO_KEYWORDS QT_NO_FOREACH)
 target_include_directories(inspector_qml_support PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(inspector_qml_support PUBLIC Qt6::Core Qt6::Network
     Telemetry::inspector Telemetry::encoded_backend Telemetry::encoded_server Telemetry::core Telemetry::tcp_server)
-qt_add_executable(telemetry-inspector-qml main.cpp)
+if(INSPECTOR_ENABLE_SERIAL)
+    target_sources(inspector_qml_support PRIVATE SerialTransport.cpp SerialTransport.hpp
+        "${COBS_ROOT}/src/cobs/Encoder.cpp" "${COBS_ROOT}/src/cobs/Decoder.cpp")
+    target_include_directories(inspector_qml_support PUBLIC "${COBS_ROOT}/src")
+    # SerialAdapter spells this selected dependency as <tiny_delegate.hpp>.
+    # Reuse the very same Telemetry delegate, including installed module layouts.
+    get_target_property(_delegate_paths Telemetry::delegate INTERFACE_INCLUDE_DIRECTORIES)
+    foreach(_delegate_path IN LISTS _delegate_paths)
+        if(_delegate_path MATCHES "^[$]<BUILD_INTERFACE:(.*)>$")
+            target_include_directories(inspector_qml_support PRIVATE "${CMAKE_MATCH_1}/delegate")
+        elseif(NOT _delegate_path MATCHES "[$]<")
+            target_include_directories(inspector_qml_support PRIVATE "${_delegate_path}/delegate")
+        endif()
+    endforeach()
+    target_compile_definitions(inspector_qml_support PUBLIC INSPECTOR_ENABLE_SERIAL=1)
+    target_link_libraries(inspector_qml_support PUBLIC Qt6::SerialPort)
+endif()
+qt_add_executable(telemetry-inspector-qml main.cpp DeviceCheck.cpp DeviceCheck.hpp)
 qt_add_qml_module(telemetry-inspector-qml URI Telemetry.Inspector VERSION 1.0
     RESOURCE_PREFIX /qt/qml QML_FILES Main.qml)
 target_link_libraries(telemetry-inspector-qml PRIVATE inspector_qml_support

@@ -8,13 +8,11 @@
 #define TELEMETRY_EXAMPLES_INSPECTOR_QML_TCP_TRANSPORT_HPP
 #pragma once
 
-#include <client/Backend.hpp>
-#include <QtCore/QByteArray>
-#include <QtCore/QObject>
+#include "DeviceTransport.hpp"
 #include <memory>
 
 namespace inspector_qml {
-class TcpTransport final : public QObject {
+class TcpTransport final : public DeviceTransport {
 
 	Q_OBJECT
 
@@ -22,22 +20,16 @@ public:
 	explicit TcpTransport(QObject* parent = nullptr);
 	~TcpTransport() override;
 	void connectTo(const QString& host, quint16 port);
-	void close();
-	bool ready() const noexcept;
-	bool canStage() const noexcept;
-	bool stage(telemetry::client::Packet packet);
-	bool sendStaged();
-	void discardStaged();
-	bool locallyQuiescent() const noexcept;
-	QString peerAddress() const;
-	void setWriteChunkBytes(int bytes) noexcept;
-	void setTimeout(int milliseconds) noexcept;
-
-Q_SIGNALS:
-	void descriptorReceived(QByteArray bytes);
-	void packetAccepted(quint32 session, quint32 requestId);
-	void packetReceived(QByteArray bytes, quint32 session, quint32 requestId);
-	void transportError(QString message);
+	void close() override;
+	bool ready() const noexcept override;
+	bool canStage() const noexcept override;
+	bool stage(telemetry::client::Packet packet) override;
+	bool sendStaged() override;
+	void discardStaged() override;
+	bool locallyQuiescent() const noexcept override;
+	QString peerAddress() const override;
+	void setWriteChunkBytes(int bytes) noexcept override;
+	void setTimeout(int milliseconds) noexcept override;
 
 private:
 	struct Impl;

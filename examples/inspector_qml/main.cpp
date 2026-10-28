@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "InspectorController.hpp"
+#include "DeviceCheck.hpp"
 #include "TcpDemoServer.hpp"
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QFile>
@@ -26,6 +27,16 @@ int main(int argc, char** argv)
 	QCommandLineParser options;
 	options.setApplicationDescription(QStringLiteral("Read-only runtime Telemetry Inspector"));
 	options.addHelpOption();
+	options.addOption(
+	    {QStringLiteral("check-device"),
+	     QStringLiteral("Read and verify all Nucleo serial demo Fields without a window.")});
+	options.addOption({QStringLiteral("report"), QStringLiteral("Device-check JSON output path."),
+	                   QStringLiteral("file")});
+	options.addOption({QStringLiteral("serial"),
+	                   QStringLiteral("Connect by COBS/UART and discover the Descriptor."),
+	                   QStringLiteral("port")});
+	options.addOption({QStringLiteral("baud"), QStringLiteral("Serial baud rate."),
+	                   QStringLiteral("bits-per-second"), QStringLiteral("115200")});
 	options.addOption({QStringLiteral("tcp"),
 	                   QStringLiteral("Connect by TCP and discover the device Descriptor."),
 	                   QStringLiteral("host:port")});
@@ -44,6 +55,14 @@ int main(int argc, char** argv)
 	                   QStringLiteral("Export the demo Descriptor and exit."),
 	                   QStringLiteral("file")});
 	options.process(app);
+	if (options.isSet(QStringLiteral("check-device")) &&
+	    (!options.isSet(QStringLiteral("serial")) || options.isSet(QStringLiteral("smoke")) ||
+	     options.isSet(QStringLiteral("serve-demo")) ||
+	     options.value(QStringLiteral("report")).isEmpty())) {
+		std::fprintf(stderr,
+		             "--check-device requires --serial and --report; run --smoke separately\n");
+		return 1;
+	}
 	if (options.isSet(QStringLiteral("serve-demo"))) {
 		bool valid = false;
 		const auto port = options.value(QStringLiteral("serve-demo")).toUInt(&valid);
@@ -69,8 +88,18 @@ int main(int argc, char** argv)
 	                          ? destination
 	                          : QStringLiteral("tcp://") + destination};
 	const auto tcpPort = tcpAddress.port(5577);
+	bool baudValid = false;
+	const auto baud = options.value(QStringLiteral("baud")).toInt(&baudValid);
+	if (options.isSet(QStringLiteral("serial")) &&
+	    (!baudValid || options.isSet(QStringLiteral("tcp")) ||
+	     options.isSet(QStringLiteral("descriptor")))) {
+		std::fprintf(stderr, "Choose exactly one transport and a valid baud rate\n");
+		return 1;
+	}
 	const bool connected =
-	    options.isSet(QStringLiteral("tcp"))
+	    options.isSet(QStringLiteral("serial"))
+	        ? controller.connectSerial(options.value(QStringLiteral("serial")), baud)
+	    : options.isSet(QStringLiteral("tcp"))
 	        ? (tcpAddress.scheme() == QStringLiteral("tcp") && !tcpAddress.host().isEmpty() &&
 	           tcpPort > 0 && tcpPort <= 65535 &&
 	           controller.connectTcp(tcpAddress.host(), static_cast<quint16>(tcpPort)))
@@ -82,6 +111,9 @@ int main(int argc, char** argv)
 		std::fprintf(stderr, "%s\n", qPrintable(controller.statusText()));
 		return 1;
 	}
+	if (options.isSet(QStringLiteral("check-device")))
+		return inspector_qml::checkSerialDevice(app, controller,
+		                                        options.value(QStringLiteral("report")));
 	bool qmlWarnings = false;
 	QQmlApplicationEngine engine;
 	QObject::connect(&engine, &QQmlEngine::warnings, &app, [&](const QList<QQmlError>&) {

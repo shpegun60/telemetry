@@ -13,10 +13,11 @@
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
+#include <QtCore/QStringList>
 #include <memory>
 
 namespace inspector_qml {
-class TcpTransport;
+class DeviceTransport;
 
 class InspectorController final : public QObject {
 
@@ -30,6 +31,9 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(QString statusText READ statusText NOTIFY stateChanged)
 	Q_PROPERTY(QString tcpHost READ tcpHost NOTIFY stateChanged)
 	Q_PROPERTY(quint16 tcpPort READ tcpPort NOTIFY stateChanged)
+	Q_PROPERTY(bool serialAvailable READ serialAvailable CONSTANT)
+	Q_PROPERTY(QString serialPort READ serialPort NOTIFY stateChanged)
+	Q_PROPERTY(qint32 serialBaud READ serialBaud NOTIFY stateChanged)
 
 public:
 	explicit InspectorController(QObject* parent = nullptr);
@@ -77,11 +81,26 @@ public:
 		return peerPort_;
 	}
 
-	bool tcpCleanupPending() const noexcept
+	bool cleanupPending() const noexcept
 	{
 		return bool(retiredState_);
 	}
 
+	bool serialAvailable() const noexcept;
+
+	QString serialPort() const
+	{
+		return serialPort_;
+	}
+
+	qint32 serialBaud() const noexcept
+	{
+		return serialBaud_;
+	}
+
+	Q_INVOKABLE QStringList serialPorts() const;
+	Q_INVOKABLE bool connectSerial(const QString& port, qint32 baud = 115200);
+	void setSerialWriteChunkBytes(int bytes) noexcept;
 	Q_INVOKABLE bool connectDemo();
 	Q_INVOKABLE bool connectTcp(const QString& host, quint16 port = 5577);
 	Q_INVOKABLE bool loadDescriptor(const QUrl& path);
@@ -107,7 +126,7 @@ private:
 	struct State;
 	std::unique_ptr<State> state_;
 	std::unique_ptr<State> retiredState_;
-	std::unique_ptr<TcpTransport> tcp_;
+	std::unique_ptr<DeviceTransport> transport_;
 	EndpointModel endpoints_;
 	ValueModel values_;
 	QTimer timer_;
@@ -115,16 +134,21 @@ private:
 	QString peerHost_ = QStringLiteral("10.50.0.0"), peerAddress_;
 	QString retiredPeerHost_, retiredPeerAddress_;
 	quint16 peerPort_ = 5577, retiredPeerPort_ = 0;
+	QString serialPort_, retiredSerialPort_;
+	qint32 serialBaud_ = 115200, retiredSerialBaud_ = 0;
+	bool serial_ = false, retiredSerial_ = false;
+	int serialWriteChunk_ = 0;
 	quint32 session_ = 0;
 	quint64 epoch_ = 0;
 	int replyDelay_ = 0, readTimeout_ = 3000;
 	int tcpWriteChunk_ = 0;
 	bool connecting_ = false;
 	bool connected_ = false, busy_ = false, dropReplies_ = false, updating_ = false;
-	bool replaceDescriptor(QByteArray bytes, bool demo, bool tcp = false);
+	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false);
 	void retire();
-	void tcpFailed(quint64 epoch, QString error);
-	void tcpDescriptor(quint64 epoch, QByteArray bytes);
+	void bindTransportSignals();
+	void transportFailed(quint64 epoch, QString error);
+	void transportDescriptor(quint64 epoch, QByteArray bytes);
 };
 
 } // namespace inspector_qml

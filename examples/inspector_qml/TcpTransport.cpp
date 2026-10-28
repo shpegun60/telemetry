@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "TcpTransport.hpp"
+#include "DescriptorBootstrap.hpp"
 #include <integration/tcp/Framing.hpp>
 #include <resource/protocol/Packets.hpp>
 #include <telemetry/type/WireTypes.hpp>
@@ -50,14 +51,11 @@ struct TcpTransport::Impl {
 	QTimer timeout, discoveryTimeout;
 	std::array<std::byte, 65568> rx{};
 	tcp::FrameReader reader{rx, tcp::Mode::ResourceReply, Op::List};
-	QByteArray incoming, tx, descriptor;
+	QByteArray incoming, tx;
+	DescriptorBootstrap discovery;
 	qsizetype offset = 0;
 	int writeChunk = std::numeric_limits<int>::max(), timeoutMs = 10000;
 	quint32 session = 0, requestId = 0;
-	std::optional<resource::FileIndex> descriptorIndex;
-	resource::Cursor cursor = 0;
-	resource::FileSize descriptorSize = 0;
-	unsigned pages = 0;
 	Phase phase = Phase::Closed;
 	bool awaiting = false, staged = false, writing = false, notified = false;
 	quint64 generation = 0;
@@ -161,12 +159,8 @@ struct TcpTransport::Impl {
 			return;
 		}
 		std::array<std::byte, 16> bytes{};
-		const auto op = phase == Phase::List   ? Op::List
-		                : phase == Phase::Stat ? Op::Stat
-		                                       : Op::Read;
-		const auto built = op == Op::List   ? rc::makeList(bytes, cursor)
-		                   : op == Op::Stat ? rc::makeStat(bytes, *descriptorIndex)
-		                                    : rc::makeRead(bytes, *descriptorIndex, cursor);
+		const auto op = discovery.operation();
+		const auto built = discovery.request(bytes);
 		if (built.status != rc::BuildStatus::Ok) {
 			fail(QStringLiteral("Cannot build Resource request"));
 			return;
@@ -223,57 +217,12 @@ struct TcpTransport::Impl {
 
 	bool resourceReply(Input bytes)
 	{
-		if (phase == Phase::List) {
-			const auto reply = rc::parseList(bytes);
-			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok ||
-			    ++pages > 4096 || reply.response.next != cursor + reply.response.paths.size() ||
-			    reply.response.next > std::numeric_limits<resource::FileIndex>::max())
-				return false;
-			auto index = cursor;
-			for (const auto path : reply.response.paths) {
-				if (path == "/telemetry/descriptor.bin") {
-					if (descriptorIndex)
-						return false;
-					descriptorIndex = static_cast<resource::FileIndex>(index);
-				}
-				++index;
-			}
-			if (!reply.response.eof && reply.response.next == cursor)
-				return false;
-			cursor = reply.response.next;
-			if (reply.response.eof) {
-				if (!descriptorIndex)
-					return false;
-				phase = Phase::Stat;
-			}
-		} else if (phase == Phase::Stat) {
-			const auto reply = rc::parseStat(bytes);
-			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok ||
-			    !resource::has(reply.response.flags, resource::FileFlag::Readable) ||
-			    reply.response.size < 64 ||
-			    reply.response.size > telemetry::Limits::maxDescriptorBytes)
-				return false;
-			descriptorSize = reply.response.size;
-			descriptor.reserve(static_cast<qsizetype>(descriptorSize));
-			cursor = 0;
-			phase = Phase::Read;
-		} else if (phase == Phase::Read) {
-			const auto reply = rc::parseRead(bytes);
-			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok ||
-			    reply.response.data.empty() ||
-			    reply.response.data.size() > descriptorSize - cursor ||
-			    reply.response.next != cursor + reply.response.data.size())
-				return false;
-			descriptor.append(reinterpret_cast<const char*>(reply.response.data.data()),
-			                  static_cast<qsizetype>(reply.response.data.size()));
-			cursor = reply.response.next;
-			if (reply.response.eof != (cursor == descriptorSize))
-				return false;
-			if (reply.response.eof)
-				phase = Phase::Encoded;
-		} else {
+		if (!discovery.accept(bytes))
 			return false;
-		}
+		phase = discovery.complete()                ? Phase::Encoded
+		        : discovery.operation() == Op::List ? Phase::List
+		        : discovery.operation() == Op::Stat ? Phase::Stat
+		                                            : Phase::Read;
 		return true;
 	}
 
@@ -330,7 +279,7 @@ struct TcpTransport::Impl {
 						return;
 					}
 					auto* target = &owner;
-					const auto bytes = descriptor;
+					const auto bytes = discovery.descriptor();
 					later(0, [this, target, bytes] {
 						if (phase == Phase::Encoded)
 							Q_EMIT target->descriptorReceived(bytes);
@@ -348,7 +297,8 @@ struct TcpTransport::Impl {
 	}
 };
 
-TcpTransport::TcpTransport(QObject* parent) : QObject(parent), impl_(std::make_unique<Impl>(*this))
+TcpTransport::TcpTransport(QObject* parent)
+    : DeviceTransport(parent), impl_(std::make_unique<Impl>(*this))
 {}
 
 TcpTransport::~TcpTransport()
@@ -360,9 +310,7 @@ void TcpTransport::connectTo(const QString& host, quint16 port)
 {
 	impl_->close();
 	impl_->reader.reset();
-	impl_->descriptor.clear();
-	impl_->descriptorIndex.reset();
-	impl_->cursor = impl_->pages = 0;
+	impl_->discovery.reset();
 	impl_->phase = Impl::Phase::Connecting;
 	impl_->timeout.start(impl_->timeoutMs);
 	impl_->discoveryTimeout.start(60000);
