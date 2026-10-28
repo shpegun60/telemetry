@@ -1,0 +1,38 @@
+﻿[1/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/board.c.obj
+[2/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal.c.obj
+[3/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/runtime.cpp.obj
+[4/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_cortex.c.obj
+[5/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_dma.c.obj
+[6/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_dma_ex.c.obj
+[7/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_exti.c.obj
+[8/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_flash.c.obj
+[9/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_gpio.c.obj
+[10/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/1bbfc6f522d6d7613472e6a1405e6a5f/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_flash_ex.c.obj
+[11/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_pwr.c.obj
+[12/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_pwr_ex.c.obj
+[13/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_rcc.c.obj
+[14/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_rcc_ex.c.obj
+[15/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/c55f2ae4d11ebf7d4e058edf2875f75e/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_uart_ex.c.obj
+[16/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/1bbfc6f522d6d7613472e6a1405e6a5f/Drivers/CMSIS/Device/ST/STM32H7RSxx/Source/Templates/system_stm32h7rsxx.c.obj
+[17/26] Building ASM object CMakeFiles/telemetry-nucleo-h7s3.dir/1bbfc6f522d6d7613472e6a1405e6a5f/Drivers/CMSIS/Device/ST/STM32H7RSxx/Source/Templates/gcc/startup_stm32h7s3xx.s.obj
+C:/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/CMSIS/Device/ST/STM32H7RSxx/Source/Templates/gcc/startup_stm32h7s3xx.s: Assembler messages:
+
+C:/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/CMSIS/Device/ST/STM32H7RSxx/Source/Templates/gcc/startup_stm32h7s3xx.s: Warning: end of file not at end of a line; newline inserted
+
+[18/26] Building C object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/STM32Cube/Repository/STM32Cube_FW_H7RS_V1.3.0/Drivers/STM32H7RSxx_HAL_Driver/Src/stm32h7rsxx_hal_uart.c.obj
+[19/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/Qt/COBS/src/cobs/Decoder.cpp.obj
+[20/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/Qt/COBS/src/cobs/Encoder.cpp.obj
+[21/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/main.cpp.obj
+[22/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/lib/resource/protocol/Protocol.cpp.obj
+[23/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/lib/telemetry/abi/StructuredAbi.cpp.obj
+[24/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/lib/telemetry/model/Adapter.cpp.obj
+[25/26] Building CXX object CMakeFiles/telemetry-nucleo-h7s3.dir/C_/Users/admin/Documents/my_workspace/stm32/triol/power_analyzer/telemetry/lib/integration/encoded/Dispatcher.cpp.obj
+[26/26] Linking CXX executable telemetry-nucleo-h7s3.elf
+Memory region         Used Size  Region Size  %age Used
+
+           FLASH:       22164 B        64 KB     33.82%
+
+             RAM:       16032 B       456 KB      3.43%
+
+            DTCM:         64 KB        64 KB    100.00%
+

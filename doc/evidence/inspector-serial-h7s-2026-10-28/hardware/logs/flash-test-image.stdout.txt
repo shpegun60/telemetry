@@ -1,0 +1,56 @@
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.21.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 002A001F3033510135393935
+ST-LINK FW  : V3J17M11
+Board       : NUCLEO-H7S3L8
+Voltage     : 3.26V
+SWD freq    : 3300 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x485
+Revision ID : Rev Y
+Device name : STM32H7RSxx
+Flash size  : 64 KBytes (default)
+Device type : MCU
+Device CPU  : Cortex-M7
+BL Version  : 0xE3
+
+
+
+Opening and parsing file: tested-firmware.bin
+
+
+Memory Programming ...
+  File          : tested-firmware.bin
+  Size          : 21.64 KB 
+  Address       : 0x08000000
+
+
+Erasing memory corresponding to segment 0:
+Erasing internal memory sectors [0 2]
+Download in Progress:
+�������������������������������������������������� 0%�������������������������������������������������� 100%
+
+File download complete
+Time elapsed during download operation: 00:00:00.168
+
+
+
+Verifying...
+
+
+Read progress:
+�������������������������������������������������� 50%�������������������������������������������������� 100%
+
+Time elapsed during verifying operation: 00:00:00.094
+
+
+Download verified successfully
+
+
+
+MCU Reset
+
+Software reset is performed

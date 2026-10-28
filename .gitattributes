@@ -12,3 +12,6 @@ lib/magic_enum/LICENSE -text
 
 # Measurement CSV hashes refer to exact retained bytes.
 tests/position_tables/h7s/samples.csv -text whitespace=cr-at-eol
+
+# Preserve original receipt/log bytes, whitespace and retained SHA-256 identities.
+doc/evidence/inspector-serial-h7s-2026-10-28/** -text -whitespace

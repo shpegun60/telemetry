@@ -2,6 +2,15 @@
 
 Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
+The first physical run's original receipts, logs and QML screenshot are retained
+in [the public evidence bundle](../../doc/evidence/inspector-serial-h7s-2026-10-28/README.md).
+They include build identities and the independent Flash restoration result, but
+exclude firmware backups and binaries. Verify them offline with:
+
+```sh
+python -B tests/nucleo_h7s3l8/VerifyEvidence.py --self-test
+```
+
 `RunHardware.ps1` is an explicit hardware runner for one identified board, not an
 automatic CI test. It programs test firmware, runs the read-only serial Inspector,
 and restores the original firmware even when the test fails. Ordinary host tests
