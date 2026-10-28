@@ -1,0 +1,488 @@
+/*
+ * @file main.cpp
+ * @brief Real Encoded Inspector Qt model and controller lifecycle checks.
+ * @author Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT
+ */
+#include "DemoPeer.hpp"
+#include "InspectorController.hpp"
+#include "Models.hpp"
+
+#include <integration/encoded/Backend.hpp>
+#include <QtCore/QElapsedTimer>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QPersistentModelIndex>
+#include <QtCore/QTemporaryDir>
+#include <QtGui/QGuiApplication>
+#include <QtTest/QAbstractItemModelTester>
+#include <QtTest/QSignalSpy>
+#include <QtTest/QTest>
+
+#include <algorithm>
+#include <array>
+#include <cstdio>
+#include <cstdlib>
+#include <memory>
+
+namespace {
+namespace cl = telemetry::client;
+namespace rt = telemetry::runtime;
+namespace im = telemetry::integration::inspector;
+namespace ui = inspector_qml;
+unsigned checks = 0, reads = 0;
+
+void check(bool passed, int line)
+{
+	++checks;
+	if (!passed) {
+		std::fprintf(stderr, "Inspector Qt check %u failed at line %d\n", checks, line);
+		std::exit(1);
+	}
+}
+
+#define CHECK(...) check(bool(__VA_ARGS__), __LINE__)
+
+template<class Predicate>
+bool await(Predicate predicate, int timeout = 3000)
+{
+	QElapsedTimer elapsed;
+	elapsed.start();
+	while (!predicate() && elapsed.elapsed() < timeout) {
+		QCoreApplication::processEvents();
+		QTest::qWait(1);
+	}
+	return predicate();
+}
+
+QModelIndex endpoint(ui::EndpointModel& model, int category, std::uint32_t id,
+                     const QModelIndex& parent = {})
+{
+	for (int row = 0; row < model.rowCount(parent); ++row) {
+		const auto index = model.index(row, 0, parent);
+		const auto metadata = model.endpoint(index);
+		if (!metadata.isEmpty() && metadata.value("category").toInt() == category &&
+		    metadata.value("id").toUInt() == id)
+			return index;
+		if (const auto found = endpoint(model, category, id, index); found.isValid())
+			return found;
+	}
+	return {};
+}
+
+QModelIndex named(ui::ValueModel& model, const QModelIndex& parent, const QString& name)
+{
+	if (model.canFetchMore(parent))
+		model.fetchMore(parent);
+	for (int row = 0; row < model.rowCount(parent); ++row) {
+		const auto index = model.index(row, 0, parent);
+		if (model.data(index, ui::ValueModel::NameRole).toString() == name)
+			return index;
+	}
+	return {};
+}
+
+QString value(ui::ValueModel& model, const QModelIndex& index)
+{
+	const auto data = model.data(index, ui::ValueModel::ValueRole);
+	CHECK(data.metaType().id() == QMetaType::QString &&
+	      model.data(index, Qt::DisplayRole) == model.data(index, ui::ValueModel::NameRole));
+	return data.toString();
+}
+
+struct Harness {
+	ui::DemoPeer peer;
+	std::array<rt::RuntimeType, 128> types{};
+	std::array<rt::RuntimeMember, 128> members{};
+	std::array<rt::RuntimeEnumEntry, 32> enums{};
+	std::array<rt::RuntimeCatalog, 32> catalogs{};
+	std::array<rt::RuntimeEndpoint, 128> endpoints{};
+	rt::RuntimeSchemaWorkspace workspace{types, members, enums, catalogs, endpoints};
+	rt::RuntimeSchema schema;
+	std::uint32_t now = 0;
+	cl::Clock clock{this, +[](void* object) noexcept {
+		                return static_cast<Harness*>(object)->now;
+	                }};
+	std::array<std::byte, 64> tx{}, port{};
+	std::array<std::byte, 65568> rx{}, response{};
+	telemetry::integration::encoded::EncodedBackend backend{tx, rx, clock};
+	ui::Inspector inspector{backend, clock};
+	unsigned packets = 0;
+
+	Harness()
+	{
+		const auto parsed = rt::RuntimeSchema::parse(peer.descriptor(), workspace);
+		CHECK(parsed);
+		schema = parsed.schema;
+		CHECK(inspector.admit(schema, peer.descriptor().first(64), 1) == cl::Status::Ok);
+	}
+
+	~Harness()
+	{
+		inspector.close();
+		inspector.process(now);
+		CHECK(inspector.drained());
+	}
+
+	void read(std::uint32_t id)
+	{
+		const auto binding = inspector.bindField(id);
+		CHECK(binding);
+		unsigned completed = 0;
+		CHECK(inspector.readField(binding.endpoint, [&](const auto& result) noexcept {
+			CHECK(result.operation.succeeded() && result.published);
+			++completed;
+		}));
+		inspector.process(now);
+		auto packet = inspector.nextPacket();
+		CHECK(packet && packet.bytes.size() == 32);
+		CHECK(packet.bytes[6] == std::byte{4}); // FieldRead, never a write/command/service.
+		std::copy(packet.bytes.begin(), packet.bytes.end(), port.begin());
+		packet.bytes = cl::Input{port}.first(packet.bytes.size());
+		CHECK(inspector.prepareHandoff(packet.session, packet.requestId));
+		CHECK(inspector.onSendAccepted(packet.session, packet.requestId));
+		const auto written = peer.dispatch(packet.bytes, response, packet.session);
+		CHECK(written >= 32);
+		CHECK(inspector.onReply(cl::Input{response}.first(written), packet.session,
+		                        packet.requestId));
+		inspector.process(now);
+		CHECK(completed == 1 && inspector.pending() == 0);
+		std::fill(response.begin(), response.end(), std::byte{0x5a});
+		++packets;
+		++reads;
+	}
+};
+
+void modelChecks()
+{
+	auto fixture = std::make_unique<Harness>();
+	ui::EndpointModel endpoints;
+	ui::ValueModel values;
+	QAbstractItemModelTester endpointTester{&endpoints,
+	                                        QAbstractItemModelTester::FailureReportingMode::Fatal};
+	QAbstractItemModelTester valueTester{&values,
+	                                     QAbstractItemModelTester::FailureReportingMode::Fatal};
+	valueTester.setUseFetchMore(false);
+	QSignalSpy endpointResets{&endpoints, &QAbstractItemModel::modelReset};
+	QSignalSpy valueResets{&values, &QAbstractItemModel::modelReset};
+	QSignalSpy inserted{&values, &QAbstractItemModel::rowsInserted};
+	CHECK(endpoints.roleNames().value(Qt::DisplayRole) == QByteArrayLiteral("display"));
+	CHECK(values.roleNames().value(Qt::DisplayRole) == QByteArrayLiteral("display"));
+	endpoints.rebuild(fixture->inspector);
+	CHECK(endpointResets.count() == 1 && endpoints.rowCount() == 3);
+	CHECK(endpoints.columnCount() == 1 && endpoints.endpoint({}).isEmpty());
+	const std::array<std::uint32_t, 7> ids{0, 65536, 65537, 65538, 131072, 131073, 131074};
+	for (const auto id : ids) {
+		const auto index = endpoint(endpoints, 1, id);
+		CHECK(index.isValid());
+		const auto metadata = endpoints.endpoint(index);
+		CHECK(metadata.value("readable").toBool());
+		CHECK(!metadata.value("name").toString().isEmpty() &&
+		      endpoints.data(index, Qt::DisplayRole) ==
+		          endpoints.data(index, ui::EndpointModel::NameRole));
+		CHECK(!metadata.value("path").toString().isEmpty());
+		CHECK(!endpoints.parent(index).isValid() || endpoints.parent(index).model() == &endpoints);
+	}
+	CHECK(endpoint(endpoints, 2, 0).isValid());
+	CHECK(endpoint(endpoints, 3, 0).isValid());
+	CHECK(fixture->packets == 0 && !fixture->inspector.nextPacket());
+	ui::EndpointModel foreign;
+	foreign.rebuild(fixture->inspector);
+	CHECK(endpoints.endpoint(endpoint(foreign, 1, 0)).isEmpty());
+	const auto oldEndpoint = endpoint(endpoints, 1, 65536);
+	QPersistentModelIndex persistentEndpoint{oldEndpoint};
+	endpoints.rebuild(fixture->inspector);
+	CHECK(!persistentEndpoint.isValid() && endpoints.endpoint(oldEndpoint).isEmpty());
+
+	fixture->read(65536);
+	values.resetSnapshot(fixture->inspector);
+	CHECK(valueResets.count() == 1 && values.rowCount() == 1);
+	CHECK(value(values, values.index(0, 0)) == QStringLiteral("18446744073709551615"));
+	const auto oldValue = values.index(0, 0);
+	QPersistentModelIndex persistentValue{oldValue};
+	fixture->read(65537);
+	values.resetSnapshot(fixture->inspector);
+	CHECK(!persistentValue.isValid() && !values.data(oldValue).isValid());
+	CHECK(value(values, values.index(0, 0)) == QStringLiteral("-9223372036854775808"));
+	fixture->read(65538);
+	values.resetSnapshot(fixture->inspector);
+	CHECK(value(values, values.index(0, 0)) == QStringLiteral("-2 (unknown)"));
+
+	fixture->read(131074);
+	values.resetSnapshot(fixture->inspector);
+	const auto root = values.index(0, 0);
+	CHECK(values.hasChildren(root) && values.rowCount(root) == 0 && values.canFetchMore(root));
+	const auto matrix = named(values, root, QStringLiteral("Matrix"));
+	CHECK(matrix.isValid());
+	const auto row = named(values, matrix, QStringLiteral("[1]"));
+	CHECK(row.isValid());
+	const auto cell = named(values, row, QStringLiteral("[2]"));
+	CHECK(cell.isValid() && value(values, cell) == QStringLiteral("-6"));
+	const auto voltages = named(values, root, QStringLiteral("Voltages"));
+	const auto firstVoltage = named(values, voltages, QStringLiteral("[0]"));
+	const auto ua = named(values, firstVoltage, QStringLiteral("Ua"));
+	CHECK(ua.isValid() && value(values, ua) == QStringLiteral("1.25"));
+	CHECK(value(values, named(values, root, QStringLiteral("Enabled"))) == QStringLiteral("true"));
+
+	fixture->read(131073);
+	values.resetSnapshot(fixture->inspector);
+	CHECK(values.rowCount() == 1 && values.rowCount(values.index(0, 0)) == 0);
+	CHECK(!values.hasChildren(values.index(0, 0)) && !values.canFetchMore(values.index(0, 0)));
+	fixture->read(131072);
+	values.resetSnapshot(fixture->inspector);
+	const auto array = values.index(0, 0);
+	CHECK(values.data(array, ui::ValueModel::ChildCountRole).toUInt() == 16384);
+	CHECK(values.data(array, ui::ValueModel::LoadedCountRole).toInt() == 0);
+	CHECK(values.rowCount(array) == 0 && values.canFetchMore(array));
+	const int previousInsertions = inserted.count();
+	values.fetchMore(array);
+	CHECK(values.rowCount(array) == 128 && inserted.count() == previousInsertions + 1);
+	CHECK(values.data(array, ui::ValueModel::LoadedCountRole).toInt() == 128);
+	CHECK(inserted.last().at(1).toInt() == 0 && inserted.last().at(2).toInt() == 127);
+	CHECK(value(values, values.index(127, 0, array)) == QStringLiteral("127"));
+	while (values.canFetchMore(array)) {
+		const auto before = values.rowCount(array);
+		values.fetchMore(array);
+		CHECK(values.rowCount(array) == before + 128);
+	}
+	CHECK(values.rowCount(array) == 16384);
+	CHECK(value(values, values.index(16383, 0, array)) == QStringLiteral("16383"));
+	CHECK(fixture->workspace.reset() == rt::Status::Ok);
+	CHECK(!values.data(array).isValid() && !values.canFetchMore(array));
+	CHECK(endpoints.endpoint(endpoint(endpoints, 1, 0)).isEmpty());
+	values.clear();
+	endpoints.clear();
+	CHECK(values.rowCount() == 0 && endpoints.rowCount() == 0);
+}
+
+void endpointInvalidationChecks()
+{
+	for (const bool resetSchema : {false, true}) {
+		auto fixture = std::make_unique<Harness>();
+		ui::EndpointModel endpoints;
+		endpoints.rebuild(fixture->inspector);
+		QSignalSpy resets{&endpoints, &QAbstractItemModel::modelReset};
+		const auto field = endpoint(endpoints, 1, 0);
+		const std::array indexes{endpoints.index(0, 0), endpoints.parent(field), field};
+		const auto roles = endpoints.roleNames().keys();
+		for (const auto& index : indexes) {
+			CHECK(index.isValid());
+			for (const auto role : roles)
+				CHECK(endpoints.data(index, role).isValid());
+		}
+		if (resetSchema)
+			CHECK(fixture->workspace.reset() == rt::Status::Ok);
+		else
+			fixture->inspector.invalidate();
+		CHECK(!fixture->inspector.isCurrent());
+		// No pump, reset or request: stale metadata must already be inaccessible.
+		for (const auto& index : indexes)
+			for (const auto role : roles)
+				CHECK(!endpoints.data(index, role).isValid());
+		CHECK(endpoints.endpoint(field).isEmpty());
+		CHECK(resets.isEmpty() && endpoints.rowCount() == 3 && fixture->packets == 0);
+	}
+}
+
+void controllerChecks()
+{
+	ui::InspectorController controller;
+	auto* endpoints = qobject_cast<ui::EndpointModel*>(controller.endpoints());
+	auto* values = qobject_cast<ui::ValueModel*>(controller.values());
+	CHECK(endpoints && values && !controller.connected() && !controller.busy());
+	QAbstractItemModelTester endpointTester{endpoints,
+	                                        QAbstractItemModelTester::FailureReportingMode::Fatal};
+	QAbstractItemModelTester valueTester{values,
+	                                     QAbstractItemModelTester::FailureReportingMode::Fatal};
+	valueTester.setUseFetchMore(false);
+	QSignalSpy finished{&controller, &ui::InspectorController::readFinished};
+	QSignalSpy state{&controller, &ui::InspectorController::stateChanged};
+	CHECK(controller.connectDemo() && controller.connected());
+	CHECK(state.count() > 0 && endpoints->rowCount() == 3);
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 2, 0)));
+	CHECK(!controller.refresh() && !controller.canRefresh());
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 3, 0)));
+	CHECK(!controller.refresh() && !controller.canRefresh());
+	CHECK(controller.inspector().pending() == 0 && !controller.busy());
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65536)));
+	CHECK(!controller.selection().isEmpty() && !controller.busy() && controller.canRefresh());
+	CHECK(controller.inspector().pending() == 0 && finished.isEmpty());
+	unsigned resetReentries = 0;
+	const auto resetGuard =
+	    QObject::connect(values, &QAbstractItemModel::modelAboutToBeReset, &controller, [&] {
+		    ++resetReentries;
+		    const auto session = controller.inspector().session();
+		    controller.disconnectDevice();
+		    CHECK(controller.connected() && controller.inspector().session() == session);
+		    CHECK(!controller.connectDemo());
+	    });
+	CHECK(controller.refresh());
+	CHECK(controller.busy() && values->rowCount() == 0);
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	CHECK(finished.count() == 1 && finished.last().at(0).toBool());
+	CHECK(value(*values, values->index(0, 0)) == QStringLiteral("18446744073709551615"));
+	CHECK(resetReentries >= 2 && controller.connected());
+	QObject::disconnect(resetGuard);
+	++reads;
+
+	const auto selected = controller.inspector().bindField(65536);
+	CHECK(selected);
+	std::array<cl::RequestHandle, 8> queued{};
+	for (auto& handle : queued) {
+		const auto result =
+		    controller.inspector().readField(selected.endpoint, [](const auto&) noexcept {
+		    });
+		CHECK(result);
+		handle = result.handle;
+	}
+	const QPersistentModelIndex preserved{values->index(0, 0)};
+	const auto revisionBeforeRefusal = controller.inspector().snapshotInfo().revision;
+	const auto selectionBeforeRefusal = controller.selection();
+	CHECK(!values->data(preserved).isValid()); // The eight accepted reads already superseded it.
+	CHECK(!controller.refresh());
+	CHECK(preserved.isValid() && !values->data(preserved).isValid());
+	CHECK(controller.inspector().snapshotInfo().revision == revisionBeforeRefusal);
+	CHECK(controller.selection() == selectionBeforeRefusal);
+	for (const auto handle : queued)
+		CHECK(controller.inspector().cancel(handle));
+	CHECK(await([&] {
+		controller.pump();
+		return controller.inspector().pending() == 0;
+	}));
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 131072)));
+	CHECK(controller.refresh());
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	++reads;
+	unsigned insertReentries = 0;
+	const auto insertGuard =
+	    QObject::connect(values, &QAbstractItemModel::rowsAboutToBeInserted, &controller, [&] {
+		    ++insertReentries;
+		    const auto session = controller.inspector().session();
+		    controller.disconnectDevice();
+		    CHECK(controller.connected() && controller.inspector().session() == session);
+		    CHECK(!controller.connectDemo());
+	    });
+	unsigned dataReentries = 0;
+	const auto dataGuard = QObject::connect(
+	    values, &QAbstractItemModel::dataChanged, &controller,
+	    [&](const QModelIndex&, const QModelIndex&, const QList<int>& roles) {
+		    if (!roles.contains(ui::ValueModel::LoadedCountRole))
+			    return;
+		    ++dataReentries;
+		    const auto session = controller.inspector().session();
+		    controller.disconnectDevice();
+		    CHECK(controller.connected() && controller.inspector().session() == session);
+		    CHECK(!controller.connectDemo());
+	    });
+	const auto sampleRoot = values->index(0, 0);
+	CHECK(values->canFetchMore(sampleRoot));
+	values->fetchMore(sampleRoot);
+	CHECK(insertReentries == 1 && values->rowCount(sampleRoot) == 128);
+	CHECK(dataReentries == 1 &&
+	      values->data(sampleRoot, ui::ValueModel::LoadedCountRole).toInt() == 128);
+	CHECK(value(*values, values->index(127, 0, sampleRoot)) == QStringLiteral("127"));
+	QObject::disconnect(insertGuard);
+	QObject::disconnect(dataGuard);
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65536)));
+
+	controller.setReplyDelay(100);
+	CHECK(controller.refresh());
+	controller.pump();
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65537)));
+	const auto offsetSelection = controller.selection();
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	CHECK(controller.selection() == offsetSelection && values->rowCount() == 0);
+	controller.setReplyDelay(0);
+	CHECK(controller.refresh());
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	CHECK(value(*values, values->index(0, 0)) == QStringLiteral("-9223372036854775808"));
+	++reads;
+
+	controller.setReplyDelay(100);
+	CHECK(controller.refresh());
+	controller.pump();
+	const auto oldSession = controller.inspector().session();
+	CHECK(controller.connectDemo() && controller.inspector().session() != oldSession);
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65536)));
+	controller.setReplyDelay(0);
+	CHECK(controller.refresh());
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	QTest::qWait(150);
+	controller.pump();
+	CHECK(value(*values, values->index(0, 0)) == QStringLiteral("18446744073709551615"));
+	++reads;
+	controller.setReadTimeout(100);
+	controller.setDropReplies(true);
+	CHECK(controller.refresh());
+	CHECK(await([&] {
+		controller.pump();
+		return !controller.busy();
+	}));
+	CHECK(!finished.last().at(0).toBool() && values->rowCount() == 0);
+	CHECK(controller.inspector().recoveryRequired());
+	controller.disconnectDevice();
+	CHECK(!controller.connected() && !controller.busy() && values->rowCount() == 0);
+	CHECK(controller.connectDemo());
+	controller.setDropReplies(false);
+	controller.setReadTimeout(1000);
+	controller.setReplyDelay(100);
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65536)));
+	CHECK(controller.refresh());
+	controller.pump();
+	controller.disconnectDevice();
+	const auto completionsAtDisconnect = finished.count();
+	QTest::qWait(150);
+	controller.pump();
+	CHECK(!controller.connected() && !controller.busy() && values->rowCount() == 0);
+	CHECK(finished.count() == completionsAtDisconnect);
+
+	QTemporaryDir directory;
+	CHECK(directory.isValid());
+	QFile file{directory.filePath(QStringLiteral("descriptor with spaces.bin"))};
+	CHECK(file.open(QIODevice::WriteOnly));
+	const auto descriptor = controller.demoDescriptor();
+	CHECK(file.write(descriptor) == descriptor.size());
+	file.close();
+	CHECK(controller.loadDescriptor(QUrl::fromLocalFile(file.fileName())));
+	CHECK(!controller.connected() && endpoints->rowCount() == 3);
+	bool nativePathLoaded = false;
+	const auto nativePath = QDir::toNativeSeparators(file.fileName());
+	CHECK(QMetaObject::invokeMethod(&controller, "openDescriptorPath", Qt::DirectConnection,
+	                                Q_RETURN_ARG(bool, nativePathLoaded),
+	                                Q_ARG(QString, nativePath)));
+	CHECK(nativePathLoaded && !controller.connected() && endpoints->rowCount() == 3);
+	CHECK(controller.selectEndpoint(endpoint(*endpoints, 1, 65536)));
+	CHECK(!controller.refresh() && !controller.busy() && !controller.canRefresh() &&
+	      controller.inspector().pending() == 0);
+	CHECK(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+	CHECK(file.write("bad", 3) == 3);
+	file.close();
+	CHECK(!controller.loadDescriptor(QUrl::fromLocalFile(file.fileName())));
+	CHECK(!controller.connected() && !controller.busy());
+	CHECK(!controller.loadDescriptor(QUrl{QStringLiteral("https://example.invalid/schema.bin")}));
+}
+} // namespace
+
+int main(int argc, char** argv)
+{
+	QGuiApplication application{argc, argv};
+	modelChecks();
+	endpointInvalidationChecks();
+	controllerChecks();
+	std::printf("Inspector Qt checks=%u reads=%u Qt=%s\n", checks, reads, qVersion());
+	return 0;
+}

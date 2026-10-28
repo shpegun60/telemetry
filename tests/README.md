@@ -23,6 +23,10 @@ owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public
 dependency closure from native Model, Resource and concrete backends.
 
+The [Qt/QML Inspector suite](inspector_qml/README.md) checks real Qt model
+invariants, lazy snapshot browsing, exact scalar text, asynchronous read-only
+controller behavior and an offscreen QML window over the native Encoded peer.
+
 The [runtime schema suite](runtime_schema/README.md) reads real Descriptor v3
 files and wire payloads with caller-owned storage, compares generated codecs,
 and checks malformed descriptors against the independent Python parser.

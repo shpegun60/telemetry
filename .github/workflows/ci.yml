@@ -1039,12 +1039,18 @@ jobs:
         run: |
           python3 tests/codegen_qml/run.py --build-dir "$RUNNER_TEMP/codegen-qml" \
             --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Execute runtime Inspector Qt models and offscreen QML
+        run: |
+          python3 -B tests/inspector_qml/run.py --build-dir "$RUNNER_TEMP/inspector-qml" \
+            --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Retain source, tool, build and runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: generated-qml-sdk
-          path: ${{ runner.temp }}/codegen-qml/
+          path: |
+            ${{ runner.temp }}/codegen-qml/
+            ${{ runner.temp }}/inspector-qml/
           if-no-files-found: error
 
   qt:

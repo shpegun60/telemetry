@@ -1,0 +1,556 @@
+/*
+ * @file Models.cpp
+ * @brief Materialize Qt-owned metadata and bounded pages of Inspector nodes.
+ * @author Ruslan Kovtun (shpegun60), codexAi
+ * SPDX-License-Identifier: MIT
+ */
+#include "Models.hpp"
+
+#include <QtCore/QHash>
+#include <QtCore/QString>
+
+#include <algorithm>
+#include <array>
+#include <bit>
+#include <charconv>
+#include <cstdint>
+#include <limits>
+#include <type_traits>
+#include <utility>
+#include <vector>
+
+namespace inspector_qml {
+namespace {
+namespace ins = telemetry::integration::inspector;
+using Category = telemetry::descriptor::Category;
+using Kind = telemetry::TypeKind;
+using Code = telemetry::ScalarCode;
+
+QString text(std::string_view value)
+{
+	return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size()));
+}
+
+template<class T>
+QString integerText(T value)
+{
+	std::array<char, 32> buffer{};
+	const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+	return result.ec == std::errc{} ? QString::fromLatin1(buffer.data(), result.ptr - buffer.data())
+	                                : QString{};
+}
+
+template<class T>
+QString floatText(T value)
+{
+	using Bits = std::conditional_t<sizeof(T) == 4, std::uint32_t, std::uint64_t>;
+	constexpr int fraction = sizeof(T) == 4 ? 23 : 52;
+	constexpr Bits exponent = sizeof(T) == 4 ? Bits{0xff} : Bits{0x7ff};
+	const auto bits = std::bit_cast<Bits>(value);
+	const auto magnitude = bits & (std::numeric_limits<Bits>::max() >> 1);
+	const bool negative = (bits >> (sizeof(T) * 8 - 1)) != 0;
+	if (magnitude == 0)
+		return negative ? QStringLiteral("-0") : QStringLiteral("0");
+	if ((magnitude >> fraction) == exponent) {
+		if ((magnitude & ((Bits{1} << fraction) - 1)) != 0)
+			return QStringLiteral("NaN");
+		return negative ? QStringLiteral("-inf") : QStringLiteral("inf");
+	}
+	std::array<char, 64> buffer{};
+	const auto result =
+	    std::to_chars(buffer.data(), buffer.data() + buffer.size(), value,
+	                  std::chars_format::general, std::numeric_limits<T>::max_digits10);
+	return result.ec == std::errc{} ? QString::fromLatin1(buffer.data(), result.ptr - buffer.data())
+	                                : QString{};
+}
+
+QString scalarText(const ins::ScalarValue& scalar)
+{
+	auto value = std::visit(
+	    [](const auto& number) -> QString {
+		    using T = std::decay_t<decltype(number)>;
+		    if constexpr (std::is_same_v<T, bool>)
+			    return number ? QStringLiteral("true") : QStringLiteral("false");
+		    else if constexpr (std::is_floating_point_v<T>)
+			    return floatText(number);
+		    else
+			    return integerText(number);
+	    },
+	    scalar.value);
+	if (scalar.enumValue)
+		value = scalar.enumKnown
+		            ? text(scalar.enumName) + QStringLiteral(" (") + value + QLatin1Char(')')
+		            : value + QStringLiteral(" (unknown)");
+	return value;
+}
+
+QString scalarType(Code code)
+{
+	switch (code) {
+		case Code::Bool:
+			return QStringLiteral("bool");
+		case Code::U8:
+			return QStringLiteral("uint8");
+		case Code::S8:
+			return QStringLiteral("int8");
+		case Code::U16:
+			return QStringLiteral("uint16");
+		case Code::S16:
+			return QStringLiteral("int16");
+		case Code::U32:
+			return QStringLiteral("uint32");
+		case Code::S32:
+			return QStringLiteral("int32");
+		case Code::U64:
+			return QStringLiteral("uint64");
+		case Code::S64:
+			return QStringLiteral("int64");
+		case Code::F32:
+			return QStringLiteral("float32");
+		case Code::F64:
+			return QStringLiteral("float64");
+	}
+	return {};
+}
+
+struct Row {
+	quintptr token = 0;
+	Row* parent = nullptr;
+	int row = 0;
+	QString name, detail, value, type, path;
+	std::uint32_t endpointId = 0, totalChildren = 0;
+	int category = 0;
+	bool readable = false, endpoint = false, aggregate = false;
+	ins::NodeHandle handle{};
+	std::vector<std::unique_ptr<Row>> children;
+};
+
+// A QModelIndex stores only an integer token. Clear never reuses a token, so an
+// index retained across reset cannot dereference a deleted or replacement row.
+struct Tree {
+	std::vector<std::unique_ptr<Row>> roots;
+	QHash<quintptr, Row*> rows;
+	quintptr nextToken = 1;
+	bool changing = false;
+
+	void clear()
+	{
+		rows.clear();
+		roots.clear();
+	}
+
+	Row* append(std::unique_ptr<Row> row, Row* parent = nullptr)
+	{
+		if (nextToken == 0)
+			return nullptr;
+		auto& siblings = parent ? parent->children : roots;
+		if (siblings.size() >= static_cast<std::size_t>(std::numeric_limits<int>::max()))
+			return nullptr;
+		row->token = nextToken++;
+		row->parent = parent;
+		row->row = static_cast<int>(siblings.size());
+		auto* result = row.get();
+		rows.insert(row->token, result);
+		siblings.push_back(std::move(row));
+		return result;
+	}
+
+	Row* at(const QAbstractItemModel* model, const QModelIndex& index) const
+	{
+		if (!index.isValid() || index.model() != model || index.column() != 0)
+			return nullptr;
+		auto* row = rows.value(index.internalId(), nullptr);
+		return row && row->row == index.row() ? row : nullptr;
+	}
+
+	const std::vector<std::unique_ptr<Row>>* children(const QAbstractItemModel* model,
+	                                                  const QModelIndex& parent) const
+	{
+		if (!parent.isValid())
+			return &roots;
+		const auto* row = at(model, parent);
+		return row ? &row->children : nullptr;
+	}
+};
+
+// Signals from begin/end model changes run synchronously. Keep the owner gate
+// active through their complete delivery, and do not nest model mutations.
+struct ChangeGuard {
+	bool& flag;
+	const bool previous;
+
+	explicit ChangeGuard(bool& value) noexcept : flag(value), previous(value)
+	{
+		flag = true;
+	}
+
+	~ChangeGuard()
+	{
+		flag = previous;
+	}
+
+	ChangeGuard(const ChangeGuard&) = delete;
+	ChangeGuard& operator=(const ChangeGuard&) = delete;
+};
+
+std::unique_ptr<Row> valueRow(const Inspector& inspector, const ins::NodeHandle& handle)
+{
+	const auto info = inspector.info(handle);
+	if (!info)
+		return {};
+	auto row = std::make_unique<Row>();
+	row->handle = handle;
+	row->name = info.value.arrayElement
+	                ? QLatin1Char('[') + integerText(info.value.index) + QLatin1Char(']')
+	                : text(info.value.name);
+	row->totalChildren = info.value.children;
+	row->aggregate = info.value.kind == Kind::Struct || info.value.kind == Kind::Array;
+	if (row->aggregate) {
+		row->type =
+		    info.value.kind == Kind::Struct ? QStringLiteral("struct") : QStringLiteral("array");
+		row->value = integerText(info.value.children) + QStringLiteral(" children");
+	} else if (info.value.kind == Kind::Void) {
+		row->type = QStringLiteral("void");
+	} else {
+		row->type = info.value.kind == Kind::Enum
+		                ? QStringLiteral("enum (") + scalarType(info.value.code) + QLatin1Char(')')
+		                : scalarType(info.value.code);
+		const auto scalar = inspector.scalar(handle);
+		if (!scalar)
+			return {};
+		row->value = scalarText(scalar.value);
+	}
+	row->detail = row->type + QStringLiteral(" #") + integerText(info.value.type);
+	return row;
+}
+} // namespace
+
+struct EndpointModel::Impl {
+	Tree tree;
+	const Inspector* inspector = nullptr;
+	std::uint64_t admission = 0;
+
+	bool current() const
+	{
+		return inspector && inspector->isCurrent() &&
+		       inspector->snapshotInfo().admission == admission;
+	}
+};
+
+EndpointModel::EndpointModel(QObject* parent)
+    : QAbstractItemModel(parent), impl_(std::make_unique<Impl>())
+{}
+
+EndpointModel::~EndpointModel() = default;
+
+void EndpointModel::clear()
+{
+	if (changing())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	beginResetModel();
+	impl_->tree.clear();
+	impl_->inspector = nullptr;
+	endResetModel();
+}
+
+bool EndpointModel::changing() const noexcept
+{
+	return impl_->tree.changing;
+}
+
+void EndpointModel::rebuild(const Inspector& inspector)
+{
+	if (changing())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	beginResetModel();
+	impl_->tree.clear();
+	impl_->inspector = &inspector;
+	impl_->admission = inspector.snapshotInfo().admission;
+	if (impl_->current()) {
+		for (const auto category : {Category::Field, Category::Command, Category::Service}) {
+			auto categoryRow = std::make_unique<Row>();
+			categoryRow->category = static_cast<int>(category);
+			categoryRow->name = category == Category::Field     ? QStringLiteral("Fields")
+			                    : category == Category::Command ? QStringLiteral("Commands")
+			                                                    : QStringLiteral("Services");
+			auto* parent = impl_->tree.append(std::move(categoryRow));
+			if (!parent)
+				break;
+			const auto endpoints = inspector.endpoints(category);
+			for (const auto& catalog : inspector.catalogs(category)) {
+				auto catalogRow = std::make_unique<Row>();
+				catalogRow->category = static_cast<int>(category);
+				catalogRow->name = text(catalog.name);
+				catalogRow->detail =
+				    integerText(catalog.endpointCount) + QStringLiteral(" endpoints");
+				auto* group = impl_->tree.append(std::move(catalogRow), parent);
+				if (!group)
+					break;
+				for (std::uint32_t i = 0; i < catalog.endpointCount; ++i) {
+					const auto at = std::uint64_t{catalog.firstEndpoint} + i;
+					if (at >= endpoints.size())
+						break;
+					const auto& endpoint = endpoints[static_cast<std::size_t>(at)];
+					auto row = std::make_unique<Row>();
+					row->category = static_cast<int>(category);
+					row->endpoint = true;
+					row->endpointId = endpoint.id;
+					row->name = text(endpoint.name);
+					row->path = group->name + QLatin1Char('.') + row->name;
+					row->readable =
+					    category == Category::Field &&
+					    (endpoint.capabilities &
+					     static_cast<std::uint8_t>(telemetry::descriptor::Capability::Readable)) !=
+					        0;
+					row->detail = QStringLiteral("ID ") + integerText(endpoint.id);
+					impl_->tree.append(std::move(row), group);
+				}
+			}
+		}
+	}
+	endResetModel();
+}
+
+QVariantMap EndpointModel::endpoint(const QModelIndex& index) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	if (!row || !row->endpoint || !impl_->current())
+		return {};
+	return {{QStringLiteral("id"), row->endpointId},
+	        {QStringLiteral("category"), row->category},
+	        {QStringLiteral("readable"), row->readable},
+	        {QStringLiteral("name"), row->name},
+	        {QStringLiteral("path"), row->path}};
+}
+
+QModelIndex EndpointModel::index(int row, int column, const QModelIndex& parent) const
+{
+	const auto* children = impl_->tree.children(this, parent);
+	if (row < 0 || column != 0 || !children || static_cast<std::size_t>(row) >= children->size())
+		return {};
+	return createIndex(row, column, (*children)[static_cast<std::size_t>(row)]->token);
+}
+
+QModelIndex EndpointModel::parent(const QModelIndex& index) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	return row && row->parent ? createIndex(row->parent->row, 0, row->parent->token)
+	                          : QModelIndex{};
+}
+
+int EndpointModel::rowCount(const QModelIndex& parent) const
+{
+	const auto* children = impl_->tree.children(this, parent);
+	return children ? static_cast<int>(children->size()) : 0;
+}
+
+int EndpointModel::columnCount(const QModelIndex& parent) const
+{
+	return !parent.isValid() || impl_->tree.at(this, parent) ? 1 : 0;
+}
+
+QVariant EndpointModel::data(const QModelIndex& index, int role) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	if (!row || !impl_->current())
+		return {};
+	switch (role) {
+		case Qt::DisplayRole:
+		case NameRole:
+			return row->name;
+		case DetailRole:
+			return row->detail;
+		case ValueRole:
+			return row->value;
+		case EndpointIdRole:
+			return row->endpointId;
+		case CategoryRole:
+			return row->category;
+		case ReadableRole:
+			return row->readable;
+		case IsEndpointRole:
+			return row->endpoint;
+		default:
+			return {};
+	}
+}
+
+QHash<int, QByteArray> EndpointModel::roleNames() const
+{
+	return {{Qt::DisplayRole, "display"},   {NameRole, "name"},
+	        {DetailRole, "detail"},         {ValueRole, "value"},
+	        {EndpointIdRole, "endpointId"}, {CategoryRole, "category"},
+	        {ReadableRole, "readable"},     {IsEndpointRole, "isEndpoint"}};
+}
+
+struct ValueModel::Impl {
+	Tree tree;
+	const Inspector* inspector = nullptr;
+	std::uint64_t admission = 0, revision = 0;
+
+	bool current() const
+	{
+		if (!inspector || !inspector->isCurrent())
+			return false;
+		const auto snapshot = inspector->snapshotInfo();
+		return snapshot.ready && snapshot.admission == admission && snapshot.revision == revision;
+	}
+};
+
+ValueModel::ValueModel(QObject* parent)
+    : QAbstractItemModel(parent), impl_(std::make_unique<Impl>())
+{}
+
+ValueModel::~ValueModel() = default;
+
+void ValueModel::clear()
+{
+	if (changing())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	beginResetModel();
+	impl_->tree.clear();
+	impl_->inspector = nullptr;
+	endResetModel();
+}
+
+bool ValueModel::changing() const noexcept
+{
+	return impl_->tree.changing;
+}
+
+void ValueModel::resetSnapshot(const Inspector& inspector)
+{
+	if (changing())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	beginResetModel();
+	impl_->tree.clear();
+	impl_->inspector = &inspector;
+	const auto snapshot = inspector.snapshotInfo();
+	impl_->admission = snapshot.admission;
+	impl_->revision = snapshot.revision;
+	if (impl_->current()) {
+		const auto root = inspector.root();
+		if (root) {
+			auto row = valueRow(inspector, root.value);
+			if (row)
+				impl_->tree.append(std::move(row));
+		}
+	}
+	endResetModel();
+}
+
+QModelIndex ValueModel::index(int row, int column, const QModelIndex& parent) const
+{
+	const auto* children = impl_->tree.children(this, parent);
+	if (row < 0 || column != 0 || !children || static_cast<std::size_t>(row) >= children->size())
+		return {};
+	return createIndex(row, column, (*children)[static_cast<std::size_t>(row)]->token);
+}
+
+QModelIndex ValueModel::parent(const QModelIndex& index) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	return row && row->parent ? createIndex(row->parent->row, 0, row->parent->token)
+	                          : QModelIndex{};
+}
+
+int ValueModel::rowCount(const QModelIndex& parent) const
+{
+	const auto* children = impl_->tree.children(this, parent);
+	return children ? static_cast<int>(children->size()) : 0;
+}
+
+int ValueModel::columnCount(const QModelIndex& parent) const
+{
+	return !parent.isValid() || impl_->tree.at(this, parent) ? 1 : 0;
+}
+
+QVariant ValueModel::data(const QModelIndex& index, int role) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	if (!row || !impl_->current())
+		return {};
+	switch (role) {
+		case Qt::DisplayRole:
+		case NameRole:
+			return row->name;
+		case DetailRole:
+			return row->detail;
+		case ValueRole:
+			return row->value;
+		case TypeRole:
+			return row->type;
+		case AggregateRole:
+			return row->aggregate;
+		case ChildCountRole:
+			return row->totalChildren;
+		case LoadedCountRole:
+			return static_cast<int>(row->children.size());
+		default:
+			return {};
+	}
+}
+
+QHash<int, QByteArray> ValueModel::roleNames() const
+{
+	return {{Qt::DisplayRole, "display"},
+	        {NameRole, "name"},
+	        {DetailRole, "detail"},
+	        {ValueRole, "value"},
+	        {TypeRole, "type"},
+	        {AggregateRole, "isAggregate"},
+	        {ChildCountRole, "childCount"},
+	        {LoadedCountRole, "loadedCount"}};
+}
+
+bool ValueModel::canFetchMore(const QModelIndex& parent) const
+{
+	const auto* row = impl_->tree.at(this, parent);
+	return row && impl_->current() && row->aggregate && row->children.size() < row->totalChildren;
+}
+
+void ValueModel::fetchMore(const QModelIndex& parent)
+{
+	if (changing())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	auto* row = impl_->tree.at(this, parent);
+	if (!row || !canFetchMore(parent))
+		return;
+	const auto first = row->children.size();
+	const auto last = std::min<std::size_t>(row->totalChildren, first + fetchBatch);
+	std::vector<std::unique_ptr<Row>> pending;
+	pending.reserve(last - first);
+	for (auto at = first; at < last; ++at) {
+		const auto handle = impl_->inspector->child(row->handle, static_cast<std::uint32_t>(at));
+		if (!handle)
+			return;
+		auto child = valueRow(*impl_->inspector, handle.value);
+		if (!child)
+			return;
+		pending.push_back(std::move(child));
+	}
+	if (pending.empty() || impl_->tree.nextToken == 0 ||
+	    pending.size() - 1 > std::numeric_limits<quintptr>::max() - impl_->tree.nextToken)
+		return;
+	beginInsertRows(parent, static_cast<int>(first), static_cast<int>(last - 1));
+	for (auto& child : pending)
+		impl_->tree.append(std::move(child), row);
+	endInsertRows();
+	Q_EMIT dataChanged(parent, parent, {LoadedCountRole});
+}
+
+bool ValueModel::hasChildren(const QModelIndex& parent) const
+{
+	if (!parent.isValid())
+		return !impl_->tree.roots.empty();
+	const auto* row = impl_->tree.at(this, parent);
+	return row && (!row->children.empty() ||
+	               (row->aggregate && row->totalChildren != 0 && impl_->current()));
+}
+
+} // namespace inspector_qml
