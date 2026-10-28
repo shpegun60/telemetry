@@ -1,4 +1,7 @@
 # Explicit integration selection; dependency modules remain independent. MIT.
+contains(CONFIG, telemetry_tcp_server) {
+    include($$PWD/tcp/tcp.pri)
+}
 contains(CONFIG, telemetry_encoded_backend) {
     include($$PWD/../client/client.pri)
     include($$PWD/../wire/wire.pri)

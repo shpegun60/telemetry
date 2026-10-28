@@ -38,7 +38,31 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
             Label { text: "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
             Button { text: "Demo device"; onClicked: controller.connectDemo() }
-            Button { text: "Disconnect"; enabled: controller.connected; onClicked: controller.disconnectDevice() }
+            Button { text: "Disconnect"; enabled: controller.connected || controller.busy; onClicked: controller.disconnectDevice() }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            TextField {
+                id: tcpHost
+                objectName: "tcpHost"
+                Layout.fillWidth: true
+                text: controller.tcpHost
+                placeholderText: "TCP host"
+                onAccepted: controller.connectTcp(text, tcpPort.value)
+            }
+            SpinBox {
+                id: tcpPort
+                objectName: "tcpPort"
+                from: 1
+                to: 65535
+                value: controller.tcpPort
+                editable: true
+            }
+            Button {
+                text: "Connect TCP"
+                enabled: tcpHost.text.length > 0 && !controller.busy
+                onClicked: controller.connectTcp(tcpHost.text, tcpPort.value)
+            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -183,7 +207,7 @@ ApplicationWindow {
             wrapMode: Text.Wrap
         }
         Label {
-            text: "Demo uses a local Telemetry Model and real Encoded packets. No physical device is connected."
+            text: "Connect TCP to read a device. Demo device uses simulated values."
             color: "#718297"
             font.pixelSize: 11
             Layout.fillWidth: true

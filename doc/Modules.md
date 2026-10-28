@@ -46,6 +46,7 @@ codecs do not require that runtime.
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
+| Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
 generic Resource contains no Telemetry headers or providers. The descriptor
@@ -77,7 +78,8 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client` and `inspector`. Shared header components
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `inspector` and
+`tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
@@ -93,6 +95,10 @@ The optional `inspector` component adds a bounded, owned snapshot and lazy value
 navigation to `dynamic_client`. It lists all endpoint categories but issues only
 FieldRead operations. It has no Qt, Resource, native Model or concrete transport
 dependency. See [Inspector Model](InspectorModel.md) for ownership and lifecycle.
+The optional `tcp_server` component frames existing Resource and TEQ1 packets
+into caller-owned storage and invokes the existing dispatchers. Its dependencies
+are `resource_protocol` and `encoded_server`; it creates no socket, task, heap
+allocation or execution queue. See [TCP integration](../lib/integration/tcp/README.md).
 `encoded_backend` exports both the unchanged `EncodedBackend` and the optional
 `RetryingEncodedBackend`; including the latter adds no server, Resource, Qt or
 native Model dependency. Both share `client` and `encoded_wire` dependencies.
@@ -134,6 +140,8 @@ Select Integration explicitly. Existing selection names `resource_telemetry`,
 `telemetry_encoded_backend` or `telemetry_rpc_backend` for client adapters.
 The Encoded flag includes the optional retry header too; no extra qmake flag is needed.
 `telemetry_client_rpc` selects only the native RPC packet engine.
+`telemetry_tcp_server` selects the native TCP stream/server adapter; the application
+still owns its socket and connection lifecycle.
 
 ```qmake
 CONFIG += telemetry_encoded_backend

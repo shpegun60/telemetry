@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "InspectorController.hpp"
+#include "TcpDemoServer.hpp"
 #include <QtCore/QCommandLineParser>
 #include <QtCore/QFile>
 #include <QtCore/QTimer>
@@ -25,6 +26,12 @@ int main(int argc, char** argv)
 	QCommandLineParser options;
 	options.setApplicationDescription(QStringLiteral("Read-only runtime Telemetry Inspector"));
 	options.addHelpOption();
+	options.addOption({QStringLiteral("tcp"),
+	                   QStringLiteral("Connect by TCP and discover the device Descriptor."),
+	                   QStringLiteral("host:port")});
+	options.addOption({QStringLiteral("serve-demo"),
+	                   QStringLiteral("Serve the demo on loopback TCP (0 chooses a free port)."),
+	                   QStringLiteral("port")});
 	options.addOption({QStringLiteral("smoke"),
 	                   QStringLiteral("Read a real demo Field and verify the QML window.")});
 	options.addOption({QStringLiteral("screenshot"),
@@ -37,16 +44,40 @@ int main(int argc, char** argv)
 	                   QStringLiteral("Export the demo Descriptor and exit."),
 	                   QStringLiteral("file")});
 	options.process(app);
+	if (options.isSet(QStringLiteral("serve-demo"))) {
+		bool valid = false;
+		const auto port = options.value(QStringLiteral("serve-demo")).toUInt(&valid);
+		inspector_qml::TcpDemoServer server;
+		if (!valid || port > 65535 || !server.listen(static_cast<quint16>(port))) {
+			std::fprintf(stderr, "Cannot start demo TCP server\n");
+			return 1;
+		}
+		std::printf("Inspector TCP demo listening port=%u\n", unsigned(server.port()));
+		std::fflush(stdout);
+		return app.exec();
+	}
+	// Outlive the controller and both queued start triggers, including teardown.
+	bool smokeReadStarted = false;
 	inspector_qml::InspectorController controller;
 	if (options.isSet(QStringLiteral("write-demo-descriptor"))) {
 		QFile output(options.value(QStringLiteral("write-demo-descriptor")));
 		const auto bytes = controller.demoDescriptor();
 		return output.open(QIODevice::WriteOnly) && output.write(bytes) == bytes.size() ? 0 : 1;
 	}
-	const bool connected = options.isSet(QStringLiteral("descriptor"))
-	                           ? controller.loadDescriptor(QUrl::fromLocalFile(
-	                                 options.value(QStringLiteral("descriptor"))))
-	                           : controller.connectDemo();
+	const auto destination = options.value(QStringLiteral("tcp"));
+	const QUrl tcpAddress{destination.contains(QStringLiteral("://"))
+	                          ? destination
+	                          : QStringLiteral("tcp://") + destination};
+	const auto tcpPort = tcpAddress.port(5577);
+	const bool connected =
+	    options.isSet(QStringLiteral("tcp"))
+	        ? (tcpAddress.scheme() == QStringLiteral("tcp") && !tcpAddress.host().isEmpty() &&
+	           tcpPort > 0 && tcpPort <= 65535 &&
+	           controller.connectTcp(tcpAddress.host(), static_cast<quint16>(tcpPort)))
+	    : options.isSet(QStringLiteral("descriptor"))
+	        ? controller.loadDescriptor(
+	              QUrl::fromLocalFile(options.value(QStringLiteral("descriptor"))))
+	        : controller.connectDemo();
 	if (!connected) {
 		std::fprintf(stderr, "%s\n", qPrintable(controller.statusText()));
 		return 1;
@@ -124,14 +155,20 @@ int main(int argc, char** argv)
 				    app.exit(0);
 			    });
 		    });
-		QTimer::singleShot(0, &controller, [&] {
+		const auto startRead = [&] {
+			if (!controller.connected() || smokeReadStarted)
+				return;
+			smokeReadStarted = true;
 			auto* model = controller.endpoints();
 			const auto fieldGroup = model->index(0, 0);
 			const auto catalog = model->index(0, 0, fieldGroup);
 			if (!controller.selectEndpoint(model->index(0, 0, catalog)) || !controller.refresh())
 				app.exit(4);
-		});
-		QTimer::singleShot(5000, &app, [&app] {
+		};
+		QObject::connect(&controller, &inspector_qml::InspectorController::stateChanged, &app,
+		                 startRead);
+		QTimer::singleShot(0, &controller, startRead);
+		QTimer::singleShot(15000, &app, [&app] {
 			app.exit(5);
 		});
 	}

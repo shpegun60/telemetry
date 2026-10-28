@@ -7,6 +7,7 @@
 #include "DemoPeer.hpp"
 
 #include <integration/encoded/Dispatcher.hpp>
+#include <integration/tcp/Server.hpp>
 #include <telemetry/Telemetry.hpp>
 #include <telemetry/descriptor/Descriptor.hpp>
 
@@ -145,6 +146,14 @@ DemoPeer::~DemoPeer() = default;
 telemetry::client::Input DemoPeer::descriptor() const noexcept
 {
 	return descriptorBytes;
+}
+
+std::unique_ptr<telemetry::integration::tcp::Server>
+DemoPeer::makeTcpServer(resource::FileSystemView files, telemetry::client::Output rx,
+                        telemetry::client::Output tx)
+{
+	return std::make_unique<telemetry::integration::tcp::Server>(model.view(), impl_->workspace,
+	                                                             files, rx, tx);
 }
 
 std::size_t DemoPeer::dispatch(telemetry::client::Input request, telemetry::client::Output reply,

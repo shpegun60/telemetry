@@ -360,8 +360,9 @@ MinGW kit. Він використовує симульовані дані; до
 
 [Qt/QML Universal Inspector](examples/inspector_qml/README.md) працює без
 Generated SDK: дерево endpoint-ів, асинхронне читання Field, точні 64-бітні
-значення та порційний перегляд масивів. Перша GUI-версія використовує локальний
-Encoded demo peer або відкриває Descriptor файл для перегляду metadata.
+значення та порційний перегляд масивів. TCP-адаптер завантажує Descriptor через
+Resource і читає поля пристрою через Encoded. Для перевірки без плати є локальний
+TCP-сервер із native Model; Descriptor файл можна відкрити окремо для metadata.
 
 ## Перевірки та вимірювання
 

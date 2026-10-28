@@ -1,0 +1,62 @@
+# Native TCP stream integration
+
+Optional component `tcp_server` supplies no socket, OS, queue, RPC or additional
+wire envelope. It carries existing Resource v1 packets and Encoded TEQ1 frames
+unchanged. One application owner controls each connection and shared Model/Workspace.
+
+`FrameReader` consumes arbitrary partial or coalesced chunks into caller-owned
+storage, returns the consumed prefix, and retains one complete frame until
+`release()`. `Server::receive()` dispatches that frame through the existing
+Resource or Encoded dispatcher. One pending reply blocks further ingress until
+`releaseReply()`. Preserve unconsumed input; no operation execution queue exists.
+
+## Boundaries and bootstrap
+
+Request first bytes 1–4 select Resource LIST/STAT/READ/WRITE. Their sizes are
+9/5/13 bytes or 16 plus the little-endian u16 at offset 14. First byte `0x54`
+selects TEQ1, whose size is 32 plus little-endian u32 `payloadBytes` at offset20.
+Full existing TEQ1 validation still applies. Bounds are checked before addition.
+
+Resource replies require one known outstanding operation: STAT6, WRITE14,
+LIST/READ12 plus u16 at offset10. A single `InvalidData` byte is never a completed
+reply: EOF or timeout closes the connection. A valid normal error envelope can
+start with the same byte, so it cannot be classified from that byte alone.
+The server closes on malformed input instead of emitting an ambiguous short error.
+
+Bootstrap performs sequential checked LIST/STAT/READ against a configured
+Descriptor path, owns copied descriptor bytes and validates them before admission.
+There are no packet retries. After one bootstrap reply, reject already-buffered
+trailing bytes before issuing another request. Timeout, malformed or unsolicited
+input closes the connection; never label an old reply with a new request identity.
+After bootstrap the application uses existing `EncodedBackend` and its FIFO.
+
+## Session and lifetime
+
+The first fully validated TEQ1 request binds its nonzero session to this admitted
+TCP connection. Later session mismatches and nonincreasing request IDs close it
+without endpoint execution. This is connection binding, not authentication or
+duplicate suppression across connections. The application validates the peer and
+pins the descriptor revision; changing that revision closes the connection.
+
+RX, TX and Workspace storage must be stable and mutually disjoint. Send only
+`reply()` bytes, and call `releaseReply()` after the transport owns a full copy or
+has finished reading the borrowed buffer. `close()` revokes logical access; it
+does not establish physical TX/RX release or erase buffer bytes. Close/drain the
+driver before destruction. Reentrant ingress is refused; closure during a native
+callback prevents publishing a later reply.
+
+For the initial single-client profile the server finishes synchronous dispatch,
+closes the old socket and discards its parser state before admitting a new one.
+Successful fresh descriptor bootstrap then establishes prior server context
+closure. Local socket disconnection alone is not evidence of remote quiescence.
+
+```cpp
+#include <integration/tcp/Server.hpp>
+// Stable Model/Workspace/files/rx/tx live longer than server and socket operations.
+telemetry::integration::tcp::Server server(model.view(), workspace, files.view(), rx, tx);
+// Owner retains input.subspan(result.consumed), hands server.reply() to transport,
+// and calls releaseReply() only after the transport owns that complete reply.
+```
+
+CMake links `Telemetry::tcp_server`. qmake includes `tcp.pri` explicitly.
+See the maintained [host tests](../../../tests/tcp_stream/README.md).

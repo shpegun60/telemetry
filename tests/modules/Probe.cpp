@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #if defined(MODULE_CORE) || defined(MODULE_RESOURCE_ADAPTER) || defined(MODULE_ENCODED_SERVER) ||  \
-    defined(MODULE_RPC_SERVER) || defined(MODULE_RPC_SESSIONS)
+    defined(MODULE_RPC_SERVER) || defined(MODULE_RPC_SESSIONS) || defined(MODULE_TCP_SERVER)
 #include <telemetry/Telemetry.hpp>
 #include <telemetry/descriptor/Descriptor.hpp>
 static constexpr telemetry::ServiceCatalogTable services{};
@@ -168,6 +168,37 @@ int main()
 	    telemetry::integration::encoded::dispatchEncoded(model.view(), workspace, 1, {}, {});
 	return result.status == telemetry::integration::encoded::EncodedDispatchStatus::Malformed ? 0
 	                                                                                          : 1;
+}
+#elif defined(MODULE_TCP_SERVER)
+#include <integration/tcp/Server.hpp>
+
+int main()
+{
+	std::array<std::byte, 256> scratch{};
+	telemetry::Workspace workspace{scratch};
+	std::array<std::byte, 64> rx{}, tx{}, request{};
+	telemetry::integration::tcp::Server server(model.view(), workspace, {}, rx, tx);
+	const std::array<std::byte, 9> list{std::byte{1}};
+	const auto listed = server.receive(list);
+	if (listed.status != telemetry::integration::tcp::Status::Ready ||
+	    listed.consumed != list.size() || server.reply().size() != 12 ||
+	    server.reply()[0] != std::byte{0})
+		return 1;
+	server.releaseReply();
+	telemetry::protocol::encoded::Header header{};
+	header.session = 1;
+	header.requestId = 1;
+	const auto built = telemetry::protocol::encoded::write(request, header);
+	if (!built)
+		return 2;
+	const auto accepted =
+	    server.receive(telemetry::integration::tcp::Input{request}.first(built.written));
+	const auto reply = telemetry::protocol::encoded::parse(server.reply());
+	return accepted.status == telemetry::integration::tcp::Status::Ready && reply &&
+	               reply.header.dispatch ==
+	                   static_cast<unsigned>(telemetry::DispatchStatus::NotFound)
+	           ? 0
+	           : 3;
 }
 #elif defined(MODULE_RPC_SERVER) || defined(MODULE_RPC_SESSIONS)
 #include <integration/telemetry/v3/RpcMailbox.hpp>
