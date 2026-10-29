@@ -416,7 +416,8 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	return false;
 #else
 	if (updating_ || values_.changing() || endpoints_.changing() || port.trimmed().isEmpty() ||
-	    baud < 1200 || baud > 4000000)
+	    baud < qint32(inspector_serial::minBaudRate) ||
+	    baud > qint32(inspector_serial::maxBaudRate))
 		return false;
 	updating_ = true;
 	retire();
@@ -568,6 +569,7 @@ bool InspectorController::refresh()
 {
 	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ || busy_)
 		return false;
+	auto readTimeout = static_cast<quint32>(readTimeout_);
 #ifdef INSPECTOR_ENABLE_SERIAL
 	if (state_->serial) {
 		const auto* type = state_->schema.type(state_->inspector.snapshotInfo().type);
@@ -576,6 +578,9 @@ bool InspectorController::refresh()
 			Q_EMIT stateChanged();
 			return false;
 		}
+		if (!readTimeoutExplicit_)
+			readTimeout = inspector_serial::exchangeTimeoutMs(
+			    32u, 32u + type->wireBytes, static_cast<std::uint32_t>(serialBaud_), 3000);
 	}
 #endif
 	const auto submitted = state_->inspector.refresh(
@@ -584,7 +589,7 @@ bool InspectorController::refresh()
 		    // session or destroy this controller. Publish after returning from core.
 		    state->completed = result;
 	    },
-	    static_cast<quint32>(readTimeout_));
+	    readTimeout);
 	if (!submitted) {
 		status_ = QStringLiteral("Read refused: %1 (model %2)")
 		              .arg(statusName(submitted.status))
@@ -722,6 +727,7 @@ void InspectorController::setDropReplies(bool drop) noexcept
 void InspectorController::setReadTimeout(int milliseconds) noexcept
 {
 	readTimeout_ = std::clamp(milliseconds, 1, 60000);
+	readTimeoutExplicit_ = true;
 }
 
 void InspectorController::setTcpWriteChunkBytes(int bytes) noexcept

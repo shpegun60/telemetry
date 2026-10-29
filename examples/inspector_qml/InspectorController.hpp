@@ -113,6 +113,7 @@ public:
 	void pump();
 	void setReplyDelay(int milliseconds) noexcept;
 	void setDropReplies(bool drop) noexcept;
+	// Explicit enqueue deadline, including for serial reads; does not add an airtime allowance.
 	void setReadTimeout(int milliseconds) noexcept;
 	void setTcpWriteChunkBytes(int bytes) noexcept;
 	QByteArray demoDescriptor() const;
@@ -141,6 +142,7 @@ private:
 	quint32 session_ = 0;
 	quint64 epoch_ = 0;
 	int replyDelay_ = 0, readTimeout_ = 3000;
+	bool readTimeoutExplicit_ = false;
 	int tcpWriteChunk_ = 0;
 	bool connecting_ = false;
 	bool connected_ = false, busy_ = false, dropReplies_ = false, updating_ = false;

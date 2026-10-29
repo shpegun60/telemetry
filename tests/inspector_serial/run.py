@@ -129,14 +129,24 @@ def main():
         if not counted:
             raise RuntimeError('Serial test executable did not publish its result')
         checks, reads, admissions, pty = map(int, counted.groups()[:4])
-        if os.name != 'nt' and (not pty or checks < 1204 or reads < 8 or admissions < 3):
+        if os.name != 'nt' and (not pty or checks < 1367 or reads < 9 or admissions < 6):
             raise RuntimeError('The maintained real QSerialPort/PTY scenarios did not all execute')
-        if os.name == 'nt' and (pty or checks < 2):
+        if os.name == 'nt' and (pty or checks < 12):
             raise RuntimeError('Native build-only serial checks did not execute')
         report['executions'] = dict(checks=checks, reads=reads, admissions=admissions, pty=bool(pty))
         report['qt_version'] = counted[5]
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (exe, gui)}
         if os.name != 'nt':
+            paced = re.search(r'Inspector Serial low-baud: bootstrap=1 field=1 explicit=2 '
+                              r'bootstrapMs=(\d+) fieldMs=(\d+) explicitMs=(\d+)', runtime)
+            if not paced:
+                raise RuntimeError('The paced low-baud default/explicit deadline cases did not execute')
+            bootstrap_ms, field_ms, explicit_ms = map(int, paced.groups())
+            if bootstrap_ms <= 5000 or field_ms <= 3000 or explicit_ms >= 1500:
+                raise RuntimeError('Low-baud timing did not distinguish automatic and exact deadlines')
+            report['low_baud'] = dict(baud=1200, bootstrap_ms=bootstrap_ms, field_ms=field_ms,
+                                     explicit_override_ms=80, explicit_cases=2,
+                                     explicit_completion_ms=explicit_ms)
             report['device_check'] = []
             for index in range(4):
                 path = receipts / ('device-check-' + str(index) + '.json')

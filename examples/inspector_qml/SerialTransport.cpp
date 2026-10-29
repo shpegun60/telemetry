@@ -69,8 +69,17 @@ struct SerialTransport::Impl {
 	std::optional<Link::Message> stagedMessage;
 	quint64 generation = 0;
 	quint32 session = 0, requestId = 0;
-	int timeoutMs = 5000;
+	int timeoutMs = 0; // Zero selects the automatic baud-aware budget.
+	std::uint32_t baudRate = 115200;
+	std::size_t stagedRequestBytes = 0, stagedResponseBytes = 0;
 	bool open = false, admitted = false, awaiting = false, handling = false;
+
+	int exchangeTimeout(std::size_t requestBytes, std::size_t responseBytes) const noexcept
+	{
+		return timeoutMs != 0 ? timeoutMs
+		                      : static_cast<int>(inspector_serial::exchangeTimeoutMs(
+		                            requestBytes, responseBytes, baudRate, 5000));
+	}
 
 	template<class Callback>
 	void later(int milliseconds, Callback callback)
@@ -183,7 +192,7 @@ struct SerialTransport::Impl {
 			    message.append_bytes(std::span<const std::uint8_t>{
 			        reinterpret_cast<const std::uint8_t*>(bytes.data()), built.written})) {
 				awaiting = true;
-				timeout.start(timeoutMs);
+				timeout.start(exchangeTimeout(built.written, inspector_serial::maxBodyBytes));
 				sent = sendMessage(message);
 			}
 		}
@@ -272,7 +281,8 @@ void SerialTransport::connectTo(const QString& name, qint32 baud)
 	impl_->identity.clear();
 	impl_->discovery.reset();
 	impl_->port.setPortName(name);
-	if (name.trimmed().isEmpty() || baud <= 0 || !impl_->port.setBaudRate(baud) ||
+	if (name.trimmed().isEmpty() || baud < qint32(inspector_serial::minBaudRate) ||
+	    baud > qint32(inspector_serial::maxBaudRate) || !impl_->port.setBaudRate(baud) ||
 	    !impl_->port.setDataBits(QSerialPort::Data8) ||
 	    !impl_->port.setParity(QSerialPort::NoParity) ||
 	    !impl_->port.setStopBits(QSerialPort::OneStop) ||
@@ -286,6 +296,7 @@ void SerialTransport::connectTo(const QString& name, qint32 baud)
 		});
 		return;
 	}
+	impl_->baudRate = static_cast<std::uint32_t>(baud);
 	const QSerialPortInfo observed{impl_->port};
 	auto location = observed.systemLocation();
 	if (location.isEmpty())
@@ -357,6 +368,8 @@ bool SerialTransport::stage(telemetry::client::Packet packet)
 	impl_->stagedMessage.emplace(std::move(message));
 	impl_->session = packet.session;
 	impl_->requestId = packet.requestId;
+	impl_->stagedRequestBytes = packet.bytes.size();
+	impl_->stagedResponseBytes = encoded::headerBytes + parsed.header.expectedResponseBytes;
 	return true;
 }
 
@@ -365,7 +378,8 @@ bool SerialTransport::sendStaged()
 	if (!ready() || !impl_->stagedMessage)
 		return false;
 	impl_->awaiting = true;
-	impl_->timeout.start(impl_->timeoutMs);
+	impl_->timeout.start(
+	    impl_->exchangeTimeout(impl_->stagedRequestBytes, impl_->stagedResponseBytes));
 	const auto sent = impl_->sendMessage(*impl_->stagedMessage);
 	impl_->stagedMessage.reset();
 	if (!sent) {
