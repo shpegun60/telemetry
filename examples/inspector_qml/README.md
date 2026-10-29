@@ -11,26 +11,52 @@ file enables metadata browsing only; its endpoint IDs are never sent to the demo
 
 ## Build and run
 
-Requires Qt 6.4 or newer, including Quick Controls and Network, CMake and a matching C++20
-compiler. Use an external build directory:
+Requires Qt 6.4 or newer with Core, Gui, Qml, Quick, Quick Controls 2 and Network,
+CMake, Ninja and a matching C++20 compiler. Qt SerialPort and COBS are optional
+for UART; the default build provides the local demo, Descriptor files and TCP.
+In Qt Creator, open this directory's `CMakeLists.txt` and choose the matching kit.
+The root `telemetry.pro` is a separate Qt Widgets playground, not this application.
+
+From the Telemetry root, use a fresh external build directory:
 
 ```sh
 cmake -S examples/inspector_qml -B /tmp/telemetry-inspector-qml -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/Qt
 cmake --build /tmp/telemetry-inspector-qml -j2
-/tmp/telemetry-inspector-qml/telemetry-inspector-qml
+inspector_exe=/tmp/telemetry-inspector-qml/telemetry-inspector-qml
+"$inspector_exe"
 ```
 
 The CMake project uses installed Telemetry components when found; otherwise it
-builds only `inspector`, `encoded_backend`, `tcp_server`, `core` and their
-dependencies from this repository. Qt stays in this host application.
+builds only `inspector`, `encoded_backend`, `encoded_server`, `tcp_server`, `core`
+and their dependencies from this repository. Qt stays in this host application.
 An installed package must contain every selected component. Use
 `-DCMAKE_DISABLE_FIND_PACKAGE_Telemetry=ON` to explicitly choose this checkout
 when an older incomplete installation is present.
 
-On Windows use the Qt kit's matching MinGW compiler before other GCC toolchains
-in `PATH`, and pass `CMAKE_CXX_COMPILER`, `CMAKE_MAKE_PROGRAM` and
-`CMAKE_PREFIX_PATH` explicitly if multiple kits are installed.
+On Windows, the following PowerShell example uses the qualified Qt 6.10.1 / MinGW
+13.1 kit. Replace the paths with one matching installed kit; keep its compiler
+ahead of other GCC toolchains. The executable is in the build directory root:
+
+```powershell
+$QtPrefix = "C:\Qt\6.10.1\mingw_64"
+$QtTools = "C:\Qt\Tools"
+$InspectorBuild = "C:\external-build\telemetry-inspector"
+$CMake = "$QtTools\CMake_64\bin\cmake.exe"
+$env:PATH = "$QtTools\mingw1310_64\bin;$QtPrefix\bin;$env:PATH"
+& $CMake -S examples/inspector_qml -B $InspectorBuild -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$QtPrefix" `
+  "-DCMAKE_CXX_COMPILER=$QtTools/mingw1310_64/bin/g++.exe" `
+  "-DCMAKE_MAKE_PROGRAM=$QtTools/Ninja/ninja.exe"
+& $CMake --build $InspectorBuild --parallel 2
+$InspectorExe = "$InspectorBuild\telemetry-inspector-qml.exe"
+& $InspectorExe
+```
+
+These commands use the Qt runtime through this shell's `PATH`; they do not deploy
+a standalone application or modify the Qt installation. Later shell examples use
+`"$inspector_exe"`; in PowerShell use `& $InspectorExe` with the same arguments.
+Set the executable variable again when opening another terminal.
 
 Expand **Fields**, then a catalog. Select a Field and press **Refresh**. Selecting
 does not issue a request. Commands and Services are listed for discovery only.
@@ -45,8 +71,8 @@ refused within that bound; metadata can still be browsed.
 To export or inspect a reproducible Descriptor:
 
 ```sh
-telemetry-inspector-qml --write-demo-descriptor /tmp/demo-descriptor.bin
-telemetry-inspector-qml --descriptor /tmp/demo-descriptor.bin
+"$inspector_exe" --write-demo-descriptor /tmp/demo-descriptor.bin
+"$inspector_exe" --descriptor /tmp/demo-descriptor.bin
 ```
 
 The demo exposes `measure.Voltage`, exact `device.Counter`/`device.Offset`, an
@@ -56,7 +82,7 @@ unknown signed enum, a 16,384-element array, an empty struct and nested arrays.
 Enter the device address and TCP port in the window, or launch directly:
 
 ```sh
-telemetry-inspector-qml --tcp 10.50.0.0:5577
+"$inspector_exe" --tcp 10.50.0.0:5577
 ```
 
 Use the controller's actual configured address. The application opens one
@@ -84,8 +110,9 @@ this example's contract.
 Run a reproducible local TCP device in a second terminal:
 
 ```sh
-telemetry-inspector-qml --serve-demo 5577
-telemetry-inspector-qml --tcp 127.0.0.1:5577
+"$inspector_exe" --serve-demo 5577
+# In another terminal, with inspector_exe set to the same executable:
+"$inspector_exe" --tcp 127.0.0.1:5577
 ```
 
 The demo listener binds only to loopback. `--serve-demo 0` selects and prints an
@@ -104,13 +131,40 @@ cmake -S examples/inspector_qml -B /path/to/external/inspector-serial -G Ninja \
   -DCMAKE_PREFIX_PATH=/path/to/Qt -DINSPECTOR_ENABLE_SERIAL=ON \
   -DCOBS_ROOT=/path/to/cobs -DCMAKE_BUILD_TYPE=Release
 cmake --build /path/to/external/inspector-serial
-telemetry-inspector-qml --serial COM6 --baud 115200
+inspector_exe=/path/to/external/inspector-serial/telemetry-inspector-qml
+"$inspector_exe" --serial /dev/ttyACM0 --baud 115200
 ```
 
-COM6 is an example; select the actual ST-LINK port in the window. The matching
-[Nucleo firmware](../nucleo_h7s3l8/README.md) serves demonstration values through
-USART3 DMA. Both peers use `SerialProfile.hpp`: existing COBS framing/CRC with
-at most 2048 body bytes. Each body is an ordinary Resource packet or complete
+On Windows, reuse the Qt/tool variables from the PowerShell build above and select
+a fresh serial build directory. This form assumes the matching Qt kit includes
+SerialPort:
+
+```powershell
+$SerialBuild = "C:\external-build\telemetry-inspector-serial"
+$CobsRoot = "C:\path\to\COBS"
+& $CMake -S examples/inspector_qml -B $SerialBuild -G Ninja `
+  -DCMAKE_BUILD_TYPE=Release "-DCMAKE_PREFIX_PATH=$QtPrefix" `
+  "-DCMAKE_CXX_COMPILER=$QtTools/mingw1310_64/bin/g++.exe" `
+  "-DCMAKE_MAKE_PROGRAM=$QtTools/Ninja/ninja.exe" `
+  -DINSPECTOR_ENABLE_SERIAL=ON "-DCOBS_ROOT=$CobsRoot"
+& $CMake --build $SerialBuild --parallel 2
+$InspectorExe = "$SerialBuild\telemetry-inspector-qml.exe"
+& $InspectorExe --serial COM6 --baud 115200
+```
+
+If Qt SerialPort was built into a separate external prefix against that exact kit,
+add `-DQt6SerialPort_DIR=C:/external-tools/qtserialport/lib/cmake/Qt6SerialPort`
+to the configure command and prepend that prefix's `bin` directory to this shell's
+`PATH` before launching. Keep the module external; no copying into `C:\Qt` is
+required. This project consumes the selected COBS checkout in place and does not
+install dependencies automatically.
+
+`COM6` and `/dev/ttyACM0` are examples; select the actual ST-LINK port in the window.
+UART controls appear only in a build configured with `INSPECTOR_ENABLE_SERIAL=ON`.
+The matching [Nucleo firmware](../nucleo_h7s3l8/README.md) serves demonstration
+values through USART3 DMA. Both peers use
+[SerialProfile.hpp](../inspector_serial/SerialProfile.hpp): existing COBS framing/CRC
+with at most 2048 body bytes. Each body is an ordinary Resource packet or complete
 TEQ1 message, without an extra application route. Descriptor and TEQ1 formats
 are unchanged. Field payloads above 2016 bytes remain browsable as metadata but
 Refresh refuses them explicitly before changing the snapshot or FIFO.
@@ -133,16 +187,27 @@ admission. This does not qualify a general asynchronous serial server or RPC.
 The read-only headless check also uses the real Controller/Qt models:
 
 ```sh
-telemetry-inspector-qml --serial COM6 --baud 115200 --check-device \
+"$inspector_exe" --serial /dev/ttyACM0 --baud 115200 --check-device \
   --report /path/to/external/device-report.json
+```
+
+With the serial Windows build, use:
+
+```powershell
+& $InspectorExe --serial COM6 --baud 115200 --check-device `
+  --report C:\external-build\device-report.json
 ```
 
 It reads all demo Fields, preserves integer values as strings, verifies all
 three F32 voltages, the exact U64 Counter, demonstration flag, nested matrix,
-boolean and unknown signed enum. Run it on
-the Nucleo demo firmware. The [guarded hardware runner](../../tests/nucleo_h7s3l8/README.md)
+boolean and unknown signed enum. Run it on the Nucleo demo firmware.
+The [guarded hardware runner](../../tests/nucleo_h7s3l8/README.md)
 backs up and restores the original internal Flash. Host PTY tests are maintained
 in [inspector_serial](../../tests/inspector_serial/README.md).
+The [published Nucleo evidence](../../doc/evidence/inspector-serial-h7s-2026-10-28/README.md)
+includes a physical four-Field serial check and the QML window. It qualifies the
+captured board/profile and source inputs; support for another board or transport
+still needs its own checks.
 
 ## Ownership and shutdown
 

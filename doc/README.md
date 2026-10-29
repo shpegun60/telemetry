@@ -14,10 +14,13 @@
 [Runtime schema and values](RuntimeSchema.md) ·
 [DynamicClient contract](DynamicClient.md) · [Runtime client usage](DynamicClientUsage.md) ·
 [Read-only Inspector Model](InspectorModel.md) ·
-[Qt/QML Inspector example](../examples/inspector_qml/README.md)
+[Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
+[NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·
+[Усі приклади та build entry points](../examples/README.md)
 
-[Native TCP Resource/Encoded integration](../lib/integration/tcp/README.md)
-connects the Inspector to a device without generated DTOs or another wire envelope.
+[Optional Integration adapters](../lib/integration/README.md) поєднують незалежні
+модулі. Inspector використовує Resource для завантаження Descriptor та Encoded
+для live FieldRead; TCP і UART є окремими транспортами застосунку.
 
 **[API Map: Native / Encoded / Codec / Resource](user/APIOverview.md)** —
 короткий вибір сценарію з headers, залежностями, довідниками й runnable examples.

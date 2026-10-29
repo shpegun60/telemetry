@@ -5,8 +5,8 @@ param(
     [Parameter(Mandatory=$true)][string]$CobsRoot,
     [string]$Stm32CubeRoot = (Join-Path $env:USERPROFILE 'STM32Cube\Repository\STM32Cube_FW_H7RS_V1.3.0'),
     [string]$ArmGccBin,
-    [string]$CMake = 'C:\Qt\Tools\CMake_64\bin\cmake.exe',
-    [string]$Ninja = 'C:\Qt\Tools\Ninja\ninja.exe',
+    [string]$CMake,
+    [string]$Ninja,
     [ValidateRange(1,32)][int]$Jobs = 4
 )
 $ErrorActionPreference = 'Stop'
@@ -34,6 +34,26 @@ $ArmGccBin = (Resolve-Path -LiteralPath $ArmGccBin).Path
 if ($ArmGccBin -notlike '*STM32CubeIDE*') { throw 'Select the STM32CubeIDE compiler, not CubeCLT.' }
 $gcc = Join-Path $ArmGccBin 'arm-none-eabi-gcc.exe'
 $gxx = Join-Path $ArmGccBin 'arm-none-eabi-g++.exe'
+function Resolve-BuildTool([string]$Requested, [string]$Name, [string]$Fallback) {
+    if ($Requested) {
+        if (Test-Path -LiteralPath $Requested -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $Requested).Path
+        }
+        $command = Get-Command -Name $Requested -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { return $command.Source }
+        throw "Missing $Name tool '$Requested'; pass its executable path or command name."
+    }
+    $command = Get-Command -Name $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) { return $command.Source }
+    if (Test-Path -LiteralPath $Fallback -PathType Leaf) {
+        return (Resolve-Path -LiteralPath $Fallback).Path
+    }
+    throw "$Name was not found on PATH; pass its executable with -$Name."
+}
+# Standalone CMake/Ninja installations work without installing a Qt kit.
+# Explicit selections must resolve; an invalid override never silently falls back.
+$CMake = Resolve-BuildTool $CMake 'cmake' 'C:\Qt\Tools\CMake_64\bin\cmake.exe'
+$Ninja = Resolve-BuildTool $Ninja 'ninja' 'C:\Qt\Tools\Ninja\ninja.exe'
 foreach ($tool in @($gcc, $gxx, $CMake, $Ninja)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw "Missing tool $tool" }
 }
@@ -57,7 +77,7 @@ function Run-Logged([string]$Name, [string]$Tool, [string[]]$Arguments) {
 }
 function Input-Hashes {
     $dirs = @($PSScriptRoot, (Join-Path $repo 'lib'),
-        (Join-Path $cobs 'src'), (Join-Path $cobs 'libs\delegate'), (Join-Path $cobs 'libs\spsc'),
+        (Join-Path $cobs 'src'), (Join-Path $cobs 'libs\spsc'),
         (Join-Path $sdk 'Drivers\STM32H7RSxx_HAL_Driver\Inc'),
         (Join-Path $sdk 'Drivers\STM32H7RSxx_HAL_Driver\Src'),
         (Join-Path $sdk 'Drivers\CMSIS\Include'),

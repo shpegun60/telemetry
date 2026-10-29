@@ -3,6 +3,11 @@
 Telemetry has five functional modules. They remain in one repository and can
 be selected, built and installed independently.
 
+CMake components are smaller selectable build units within those five modules;
+they do not introduce additional runtime layers. The
+[Integration entry point](../lib/integration/README.md) maps adapters to public
+headers, dependencies and CMake/qmake selections.
+
 | Module | Sources | Responsibility |
 | --- | --- | --- |
 | Telemetry | `lib/telemetry` | Definitions, iteration, Native, Encoded, Codec, descriptor construction and runtime wire inspection |
@@ -27,6 +32,10 @@ containing DeviceClient and its Encoded/RPC adapters. The generator copies it
 only when `--client-runtime` is selected. The C++ source and target boundaries
 described here do not imply separate JS packages; generated standalone web
 codecs do not require that runtime.
+
+The separate [browser Descriptor helpers](../web/README.md) under `web` provide
+runtime schema parsing and payload codecs for the structured browser example.
+They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/web`.
 
 | API | Canonical include | Namespace |
 | --- | --- | --- |
@@ -83,6 +92,11 @@ Available components are `core`, `runtime`, `resource`, `resource_protocol`, `cl
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
+The default root build includes the Inspector and TCP components. Set
+`TELEMETRY_COMPONENTS` explicitly to build and install a smaller selection.
+`rpc_server` supplies the mailbox provider with `core`, `resource` and `rpc_wire`;
+it does not compile the generic Resource packet processor. `rpc_sessions` adds
+`resource_protocol` because the session pool actually routes Resource packets.
 The header-only `runtime` component inspects Descriptor v3 and canonical payloads
 and stages transactional edits of those values.
 It has no dependency on reflection, Model, Codec, Resource, Client or Integration.
@@ -133,6 +147,10 @@ Each module owns one manifest beside its sources: `telemetry.pri`,
 `resource.pri`, `client.pri`, `integration.pri`, `common.pri` and `wire.pri`.
 The header-only native Codec submodule owns `telemetry/codec/codec.pri`.
 The independent runtime module owns `telemetry/runtime/runtime.pri`.
+The runtime client and Inspector have direct entry points
+`integration/dynamic/dynamic.pri` and `integration/inspector/inspector.pri`.
+Include one of those when needed, then select a backend separately; they do not
+require additional CONFIG flags.
 
 Select Integration explicitly. Existing selection names `resource_telemetry`,
 `resource_telemetry_rpc`, `resource_telemetry_rpc_sessions` and
@@ -149,7 +167,11 @@ include(path/to/telemetry/lib/integration/integration.pri)
 ```
 
 Repeated inclusion does not duplicate compiled sources. The generic Resource
-manifest has no Telemetry selections. The Generator remains a Python host tool;
+manifest has no Telemetry selections. It selects generic providers and the
+Resource packet processor together; use CMake's separate `resource` component
+when that distinction is required. CMake's per-component include isolation does
+not apply to qmake's shared source include root. The Generator remains a Python
+host tool;
 standalone generated codecs have no Client, Resource, Qt or Model dependency.
 
 ## Verification

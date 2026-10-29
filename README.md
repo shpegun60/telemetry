@@ -1,12 +1,20 @@
 # Telemetry
 
-[Independent modules, ownership and build targets](doc/Modules.md).
+Оберіть точку входу за своїм завданням:
 
-[Runtime Descriptor schema and dynamic wire values](doc/RuntimeSchema.md).
-[DynamicClient: runtime endpoints over the existing asynchronous FIFO](doc/DynamicClientUsage.md).
-[Read-only Inspector Model without Qt or generated DTOs](doc/InspectorModel.md).
+| Потрібно | Звідки почати |
+| --- | --- |
+| Описати свій пристрій і викликати Field / Command / Service локально | [Перша інтеграція](doc/user/GettingStarted.md), [NativeOnly.cpp](examples/user_guide/NativeOnly.cpp) |
+| Віддалені виклики з відомими типами та Codec; Generated SDK необов'язковий | [Асинхронний DeviceClient](doc/AsyncClient.md) |
+| Віддалений клієнт для невідомих наперед структур | [RuntimeSchema](doc/RuntimeSchema.md) → [DynamicClient](doc/DynamicClientUsage.md) |
+| Запустити готовий універсальний GUI | [Qt/QML Inspector: Demo, TCP або UART](examples/inspector_qml/README.md) |
+| Підключити NUCLEO-H7S3L8 через UART/DMA | [Прошивка плати](examples/nucleo_h7s3l8/README.md), [serial-збірка Inspector](examples/inspector_qml/README.md#nucleo-h7s3l8-through-st-link-serial) |
+| Підключити окремі модулі до CMake або qmake | [Модулі, залежності та build targets](doc/Modules.md) |
 
-[Asynchronous client: FIFO, RPC/Encoded, STM32, Qt/QML and JS/TS](doc/AsyncClient.md).
+[Усі приклади та їхні точки збирання](examples/README.md).
+`CMakeLists.txt` у корені збирає бібліотеку; `telemetry.pro` — окремий
+[Qt Widgets playground](app/README.md). Для Universal Inspector відкривайте
+`examples/inspector_qml/CMakeLists.txt`.
 
 [![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](lib/telemetry/README.md)
@@ -360,9 +368,11 @@ MinGW kit. Він використовує симульовані дані; до
 
 [Qt/QML Universal Inspector](examples/inspector_qml/README.md) працює без
 Generated SDK: дерево endpoint-ів, асинхронне читання Field, точні 64-бітні
-значення та порційний перегляд масивів. TCP-адаптер завантажує Descriptor через
-Resource і читає поля пристрою через Encoded. Для перевірки без плати є локальний
-TCP-сервер із native Model; Descriptor файл можна відкрити окремо для metadata.
+значення та порційний перегляд масивів. TCP-адаптер або optional UART/COBS-адаптер
+завантажує Descriptor через Resource і читає поля пристрою через Encoded.
+Для перевірки без плати є Demo device та локальний TCP-сервер із native Model;
+Descriptor файл можна відкрити окремо для metadata. Для UART/DMA є готова
+[прошивка NUCLEO-H7S3L8](examples/nucleo_h7s3l8/README.md).
 
 ## Перевірки та вимірювання
 

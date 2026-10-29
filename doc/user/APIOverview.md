@@ -22,11 +22,19 @@ Model/Definitions нижче — спільна основа для endpoints т
 не потребує навіть Field/Command/Service. Generic Resource працює без telemetry;
 Descriptor/Values — окремі providers, які додаються за потреби.
 
-Для віддалених typed викликів поверх Resource є optional
-[RpcClient](../RpcClientV1.md): він формує WRITE/READ, повторює незмінні
-пакети та збирає відповідь. На сервері [RpcSessionPool](../RpcSessionsV1.md)
-керує N окремими mailbox-ами. Application передає повні frames і час,
-підтверджує handoff та зіставляє replies; транспорт до бібліотеки не додається.
+Для віддаленого доступу оберіть клієнт над цими API:
+
+| Сценарій | Точка входу |
+| --- | --- |
+| Відомі DTO та Codec, асинхронні виклики через Encoded або RPC | [DeviceClient](../AsyncClient.md); Generated SDK необов'язковий |
+| Типи й endpoints отримано з Descriptor під час роботи | [DynamicClient](../DynamicClientUsage.md), [RuntimeSchema](../RuntimeSchema.md) |
+| Готовий read-only GUI для невідомого пристрою | [Qt/QML Inspector](../../examples/inspector_qml/README.md) |
+| Потрібен лише низькорівневий RPC packet engine | [RpcClient](../RpcClientV1.md) |
+
+На сервері [RpcSessionPool](../RpcSessionsV1.md) керує N окремими mailbox-ами.
+Application передає повні frames і час, підтверджує handoff та зіставляє replies.
+Descriptor описує структуру; live значення можна читати через Encoded FieldRead.
+Resource Values provider є окремим варіантом, а не обов'язковим каналом даних.
 
 ## Залежності та точки входу
 

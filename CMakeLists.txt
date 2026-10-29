@@ -17,7 +17,7 @@ endif()
 
 # Select only the modules an application needs. Dependencies are added below.
 if(NOT DEFINED TELEMETRY_COMPONENTS)
-    set(TELEMETRY_COMPONENTS "core;runtime;dynamic_client;resource_protocol;client;resource_adapter;encoded_server;rpc_sessions;encoded_backend;rpc_backend"
+    set(TELEMETRY_COMPONENTS "core;runtime;dynamic_client;inspector;resource_protocol;client;resource_adapter;encoded_server;rpc_sessions;encoded_backend;rpc_backend;tcp_server"
         CACHE STRING "Telemetry modules to build and install")
 endif()
 include(cmake/Modules.cmake)

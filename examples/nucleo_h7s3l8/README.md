@@ -75,9 +75,21 @@ There is no text console mixed into the protocol stream.
 
 Dependencies remain external and retain their [original licenses](LICENSES.md):
 
-- a COBS checkout with `src/uart/Uart.h`, COBS codec and `libs/spsc`;
+- a COBS checkout at `2e0abf260848fcb74e4a57b37532188047759643`, with its
+  `libs/spsc` submodule initialized;
 - STM32CubeH7RS, qualified here with `STM32Cube_FW_H7RS_V1.3.0`;
 - STM32CubeIDE's ARM GNU compiler; CMake and Ninja.
+
+Prepare the external COBS dependency once; only its SPSC submodule is needed:
+
+```powershell
+git clone https://github.com/shpegun60/cobs C:\path\to\COBS
+git -C C:\path\to\COBS checkout 2e0abf260848fcb74e4a57b37532188047759643
+git -C C:\path\to\COBS submodule update --init libs/spsc
+```
+
+This example uses Telemetry's included `tiny_delegate.hpp`. The COBS delegate,
+STM32F1 and STM32G4 submodules are not dependencies of this firmware.
 
 From the Telemetry root, use a fresh output directory outside all source trees:
 
@@ -88,6 +100,9 @@ examples\nucleo_h7s3l8\Build.ps1 `
 ```
 
 `-Stm32CubeRoot`, `-ArmGccBin`, `-CMake`, `-Ninja` and `-Jobs` are configurable.
+The script finds CMake and Ninja on `PATH` first, then checks the conventional
+Qt Tools locations. Explicit tool overrides accept executable paths or command
+names, such as `-CMake cmake -Ninja ninja`; a Qt installation is not required.
 The script resolves the installed CubeIDE compiler and rejects CubeCLT. It builds
 C++20 with `-Os` and LTO against SDK sources in place. The internal 64 KiB Flash
 linker region is enforced; no external-flash loader or RAM-run fallback is used.
