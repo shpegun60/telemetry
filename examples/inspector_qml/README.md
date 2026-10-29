@@ -117,7 +117,21 @@ Refresh refuses them explicitly before changing the snapshot or FIFO.
 
 Only complete, CRC-checked packets reach the Resource/Encoded readers. A short
 serial write closes the failed exchange; the library does not replay a prefix
-or retry the request. Per-exchange and total discovery deadlines are separate.
+or retry the request. The supported host baud range is 1200 to 4,000,000, 8N1;
+the peer must use the same rate. Automatic exchange deadlines include the
+worst-case framed request and response airtime plus 5 seconds for processing
+and scheduling. Bootstrap reserves a maximum-size response. Field-read enqueue
+deadlines include the selected Field's airtime plus 3 seconds; even a maximum
+2016-byte payload at 1200 baud fits within the backend's 30-second cap.
+`SerialTransport::setTimeout()` and `InspectorController::setReadTimeout()`
+instead set explicit absolute deadlines for future operations, without adding
+airtime; reads remain subject to the backend's 30-second cap. Neither default
+nor explicit deadlines restart on arriving bytes.
+
+Total discovery has a separate 180-second absolute limit, so very large
+Descriptors at low baud can still exceed this example's bounded discovery
+profile. Supporting the maximum Descriptor size does not promise that it can
+be transferred at every selectable baud within that limit.
 The exclusive host sends one request at a time and never runs another serial
 producer on the same port.
 

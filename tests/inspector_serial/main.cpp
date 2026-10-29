@@ -60,6 +60,23 @@ unsigned checks = 0, reads = 0, admissions = 0;
 		}                                                                                          \
 	} while (false)
 
+void timingPolicyChecks()
+{
+	using inspector_serial::exchangeTimeoutMs;
+	static_assert(exchangeTimeoutMs(32, 2048, 1200, 3000) == 20500);
+	static_assert(exchangeTimeoutMs(13, 885, 1200, 5000) == 12609);
+	CHECK(inspector_serial::FrameFormat::tx_storage_size_for_capacity(32) == 38);
+	CHECK(inspector_serial::FrameFormat::tx_storage_size_for_capacity(2048) == 2062);
+	CHECK(exchangeTimeoutMs(32, 544, 1200, 3000) == 7917);
+	CHECK(exchangeTimeoutMs(32, 2048, 115200, 3000) == 3183);
+	CHECK(exchangeTimeoutMs(32, 2048, 4000000, 3000) == 3006);
+	CHECK(exchangeTimeoutMs(2049, 32, 1200, 3000) == 0);
+	CHECK(exchangeTimeoutMs(32, 2049, 1200, 3000) == 0);
+	CHECK(exchangeTimeoutMs(32, 32, 1199, 3000) == 0);
+	CHECK(exchangeTimeoutMs(32, 32, 4000001, 3000) == 0);
+	CHECK(exchangeTimeoutMs(32, 32, 1200, UINT32_MAX) == 0);
+}
+
 #ifdef Q_OS_UNIX
 template<class Predicate>
 bool await(Predicate predicate, int milliseconds = 6000)
@@ -129,9 +146,39 @@ QByteArray fieldReply(quint32 session, quint32 id, quint32 endpoint, bool unavai
 	return {reinterpret_cast<const char*>(bytes.data()), unavailable ? 32 : 40};
 }
 
+namespace paced_fixture {
+inline constexpr auto data = [] {
+	std::array<std::uint8_t, 512> result{};
+	result.fill(90);
+	return result;
+}();
+
+const auto& read() noexcept
+{
+	return data;
+}
+
+inline constexpr telemetry::FieldTable fieldTable{telemetry::field<&read>("Payload")};
+inline constexpr telemetry::FieldCatalogTable fields{telemetry::group("timing", fieldTable)};
+inline constexpr telemetry::CommandCatalogTable<> commands{};
+inline constexpr telemetry::ServiceCatalogTable<> services{};
+inline constexpr telemetry::Model model{fields, commands, services};
+inline constexpr telemetry::descriptor::Descriptor descriptor{model};
+inline constexpr auto packed = telemetry::descriptor::packDescriptor<descriptor>();
+} // namespace paced_fixture
+
 class Peer {
+public:
+	enum class Profile {
+		Demo,
+		Board,
+		Paced
+	};
+
+private:
 	struct File {
 		QByteArray bytes;
+		std::size_t chunkBytes = 113;
 
 		resource::FileSize size() const noexcept
 		{
@@ -141,7 +188,7 @@ class Peer {
 		resource::ReadResult read(resource::Cursor cursor, resource::Output out) const noexcept
 		{
 			return resource::BytesFile{input(bytes)}.read(
-			    cursor, out.first(std::min(out.size(), std::size_t(113))));
+			    cursor, out.first(std::min(out.size(), chunkBytes)));
 		}
 	};
 
@@ -150,7 +197,8 @@ class Peer {
 	QString path_;
 	ui::DemoPeer native_;
 	nucleo_demo::Protocol board_;
-	bool boardProfile_ = false;
+	Profile profile_;
+	telemetry::Workspace pacedWorkspace_{std::span<std::byte>{}};
 	File decoy_{QByteArrayLiteral("version 1")}, descriptor_;
 	resource::FileSystem<2> files_;
 	Link link_;
@@ -160,19 +208,25 @@ class Peer {
 	std::array<std::byte, 2048> response_{};
 	QByteArray previous_;
 	bool pumping_ = false;
+	QElapsedTimer elapsed_;
+	qint64 txStarted_ = 0;
+	bool txClockStarted_ = false;
 
 public:
 	qsizetype fragmentBytes = 0;
+	unsigned responseBaud = 0;
 	bool corruptNext = false, dropNext = false, unavailableNext = false, prependPrevious = false;
 	bool resourcePartialTail = false;
 	unsigned wrongVoltage = 0, altered = 0;
 	unsigned listBarriers = 0, stats = 0, descriptorReads = 0, fieldReads = 0;
 	quint64 receivedBytes = 0;
 
-	explicit Peer(bool boardProfile = false)
-	    : boardProfile_(boardProfile), descriptor_{[&] {
-		      const auto bytes = boardProfile
+	explicit Peer(Profile profile = Profile::Demo)
+	    : profile_(profile), descriptor_{[&] {
+		      const auto bytes = profile == Profile::Board
 		                             ? std::span<const std::byte>{nucleo_demo::packedDescriptor}
+		                         : profile == Profile::Paced
+		                             ? std::span<const std::byte>{paced_fixture::packed}
 		                             : native_.descriptor();
 		      return QByteArray{reinterpret_cast<const char*>(bytes.data()),
 		                        static_cast<qsizetype>(bytes.size())};
@@ -180,6 +234,7 @@ public:
 	      files_(resource::filesystem(resource::file("/device/version.bin", decoy_),
 	                                  resource::file("/telemetry/descriptor.bin", descriptor_)))
 	{
+		elapsed_.start();
 		int slave = -1;
 		char name[256]{};
 		termios raw{};
@@ -230,6 +285,11 @@ public:
 		return descriptor_.bytes;
 	}
 
+	void setDescriptorReadBytes(std::size_t count)
+	{
+		descriptor_.chunkBytes = count;
+	}
+
 	void proceed()
 	{
 		if (pumping_)
@@ -259,10 +319,14 @@ public:
 				const auto parsed = ew::parse(input(body));
 				CHECK(parsed && !parsed.header.reply);
 				++fieldReads;
-				written = boardProfile_
-				              ? board_.dispatch(input(body), response_, 0)
+				written = profile_ == Profile::Board ? board_.dispatch(input(body), response_, 0)
+				          : profile_ == Profile::Paced
+				              ? telemetry::integration::encoded::dispatchEncoded(
+				                    paced_fixture::model.view(), pacedWorkspace_,
+				                    parsed.header.session, input(body), response_)
+				                    .written
 				              : native_.dispatch(input(body), response_, parsed.header.session);
-				if (boardProfile_ && wrongVoltage != 0 && written == 44) {
+				if (profile_ == Profile::Board && wrongVoltage != 0 && written == 44) {
 					++altered;
 					const float changed = wrongVoltage == 1   ? 230.11f
 					                      : wrongVoltage == 2 ? 229.81f
@@ -318,7 +382,15 @@ public:
 		if (!tx_.empty()) {
 			auto& block = tx_.front();
 			const auto remaining = block.size() - offset_;
-			const auto count = fragmentBytes > 0 ? std::min(remaining, fragmentBytes) : remaining;
+			auto count = fragmentBytes > 0 ? std::min(remaining, fragmentBytes) : remaining;
+			if (responseBaud != 0) {
+				if (!txClockStarted_) {
+					txStarted_ = elapsed_.elapsed();
+					txClockStarted_ = true;
+				}
+				const auto available = (elapsed_.elapsed() - txStarted_) * responseBaud / 10000;
+				count = std::min(count, std::max(qsizetype(0), qsizetype(available) - offset_));
+			}
 			const auto sent =
 			    ::write(fd_, block.constData() + offset_, static_cast<std::size_t>(count));
 			if (sent > 0) {
@@ -326,6 +398,7 @@ public:
 				if (offset_ == block.size()) {
 					tx_.pop_front();
 					offset_ = 0;
+					txClockStarted_ = false;
 				}
 			}
 		}
@@ -584,12 +657,91 @@ void resourceTailAndQueuedReconnect()
 	port.close();
 }
 
+void lowBaudDeadlines()
+{
+	Peer bootstrap{Peer::Profile::Board}, field{Peer::Profile::Paced},
+	    shortField{Peer::Profile::Paced}, shortBootstrap{Peer::Profile::Board};
+	bootstrap.setDescriptorReadBytes(
+	    2036); // One real Descriptor reply exceeds the old five seconds.
+	bootstrap.responseBaud = 1200;
+	shortBootstrap.responseBaud = 1200;
+	ui::InspectorController bootstrapClient, fieldClient, shortClient;
+	ui::SerialTransport shortPort;
+	QSignalSpy completed{&fieldClient, &ui::InspectorController::readFinished};
+	QSignalSpy shortCompleted{&shortClient, &ui::InspectorController::readFinished};
+	QSignalSpy shortErrors{&shortPort, &ui::DeviceTransport::transportError};
+	QSignalSpy shortDescriptors{&shortPort, &ui::DeviceTransport::descriptorReceived};
+	CHECK(fieldClient.connectSerial(field.path(), 1200));
+	CHECK(shortClient.connectSerial(shortField.path(), 1200));
+	CHECK(await([&] {
+		return fieldClient.connected() && shortClient.connected();
+	}));
+	admissions += 2;
+	auto& fields = *qobject_cast<ui::EndpointModel*>(fieldClient.endpoints());
+	auto& shortFields = *qobject_cast<ui::EndpointModel*>(shortClient.endpoints());
+	CHECK(fieldClient.selectEndpoint(endpoint(fields, 0)));
+	CHECK(shortClient.selectEndpoint(endpoint(shortFields, 0)));
+	field.responseBaud = shortField.responseBaud = 1200;
+	shortClient.setReadTimeout(
+	    80); // Exact caller deadline must not be raised by the automatic policy.
+	QElapsedTimer elapsed;
+	elapsed.start();
+	CHECK(fieldClient.refresh());
+	CHECK(shortClient.refresh());
+	CHECK(bootstrapClient.connectSerial(bootstrap.path(), 1200));
+	shortPort.setTimeout(80);
+	shortPort.connectTo(shortBootstrap.path(), 1200);
+	CHECK(await(
+	    [&] {
+		    return !shortCompleted.isEmpty() && !shortErrors.isEmpty();
+	    },
+	    1500));
+	const auto explicitElapsed = elapsed.elapsed();
+	CHECK(explicitElapsed < 1500);
+	CHECK(shortCompleted.count() == 1 && !shortCompleted.last()[0].toBool());
+	CHECK(!shortClient.busy() && !shortClient.connected() &&
+	      shortClient.inspector().recoveryRequired());
+	CHECK(shortDescriptors.isEmpty() && !shortPort.ready() && shortPort.locallyQuiescent());
+	CHECK(await(
+	    [&] {
+		    return !completed.isEmpty();
+	    },
+	    8000));
+	const auto fieldElapsed = elapsed.elapsed();
+	CHECK(fieldElapsed > 3000); // Actual framed byte pacing crosses the old core deadline.
+	CHECK(completed.count() == 1 && completed.last()[0].toBool() && fieldClient.connected());
+	CHECK(field.fieldReads == 1 && shortField.fieldReads == 1);
+	++reads;
+	auto& values = *qobject_cast<ui::ValueModel*>(fieldClient.values());
+	CHECK(values.rowCount() == 1);
+	const auto root = values.index(0, 0);
+	CHECK(values.data(root, ui::ValueModel::ChildCountRole).toUInt() == 512);
+	values.fetchMore(root);
+	CHECK(values.rowCount(root) == 128);
+	CHECK(values.data(values.index(0, 0, root), ui::ValueModel::ValueRole).toString() == "90");
+	CHECK(await(
+	    [&] {
+		    return bootstrapClient.connected();
+	    },
+	    10000));
+	const auto bootstrapElapsed = elapsed.elapsed();
+	CHECK(bootstrapElapsed > 5000 && bootstrap.descriptorReads == 1);
+	CHECK(bootstrap.listBarriers == 1 && bootstrap.stats == 1);
+	++admissions;
+	// Both short cases remain terminal even after their late paced frames have elapsed.
+	CHECK(shortCompleted.count() == 1 && shortErrors.count() == 1 && shortDescriptors.isEmpty());
+	std::printf("Inspector Serial low-baud: bootstrap=1 field=1 explicit=2 bootstrapMs=%lld "
+	            "fieldMs=%lld explicitMs=%lld\n",
+	            static_cast<long long>(bootstrapElapsed), static_cast<long long>(fieldElapsed),
+	            static_cast<long long>(explicitElapsed));
+}
+
 void deviceCheckProcesses(const QString& executable, const QString& receipts)
 {
 	CHECK(QFileInfo::exists(executable));
 	CHECK(QDir{}.mkpath(receipts));
 	for (unsigned wrong = 0; wrong < 4; ++wrong) {
-		Peer peer{true};
+		Peer peer{Peer::Profile::Board};
 		peer.fragmentBytes = 11;
 		peer.wrongVoltage = wrong;
 		const auto name = QStringLiteral("device-check-%1").arg(wrong);
@@ -630,6 +782,7 @@ void deviceCheckProcesses(const QString& executable, const QString& receipts)
 int main(int argc, char** argv)
 {
 	QGuiApplication app{argc, argv};
+	timingPolicyChecks();
 	ui::SerialTransport idle;
 	CHECK(!idle.ready() && idle.locallyQuiescent());
 	idle.close();
@@ -639,6 +792,7 @@ int main(int argc, char** argv)
 	transportBoundsAndShortWrite();
 	staleResourceTranscript();
 	resourceTailAndQueuedReconnect();
+	lowBaudDeadlines();
 	QTemporaryDir temporary;
 	CHECK(temporary.isValid());
 	deviceCheckProcesses(argc > 1 ? QString::fromLocal8Bit(argv[1])

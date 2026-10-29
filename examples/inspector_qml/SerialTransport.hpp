@@ -26,6 +26,7 @@ public:
 	bool locallyQuiescent() const noexcept override;
 	QString peerAddress() const override;
 	void setWriteChunkBytes(int bytes) noexcept override;
+	// Explicit absolute deadline for future exchanges; overrides automatic airtime budgeting.
 	void setTimeout(int milliseconds) noexcept override;
 
 private:
