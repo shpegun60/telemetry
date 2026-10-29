@@ -1,0 +1,33 @@
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.21.0                  
+      -------------------------------------------------------------------
+
+ST-LINK SN  : 002A001F3033510135393935
+ST-LINK FW  : V3J17M11
+Board       : NUCLEO-H7S3L8
+Voltage     : 3.26V
+SWD freq    : 3300 KHz
+Connect mode: Under Reset
+Reset mode  : Hardware reset
+Device ID   : 0x485
+Revision ID : Rev Y
+Device name : STM32H7RSxx
+Flash size  : 64 KBytes (default)
+Device type : MCU
+Device CPU  : Cortex-M7
+BL Version  : 0xE3
+
+
+UPLOADING ...
+  File          : C:\Users\admin\.codex\artifacts\telemetry-inspector-serial-h7s-2026-10-28\hardware-01\restored-readback-1.bin
+  Size          : 65536 Bytes
+  Address:      : 0x8000000
+Read progress:
+�������������������������������������������������� 0%�������������������������������������������������� 100%
+
+Data read successfully
+Time elapsed during read operation is: 00:00:00.276
+
+MCU Reset
+
+Software reset is performed

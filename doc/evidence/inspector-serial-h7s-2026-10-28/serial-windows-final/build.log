@@ -1,0 +1,54 @@
+[0/2] Re-checking globbed directories...
+[1/54] Automatic MOC and UIC for target telemetry_resource_protocol
+[2/54] Automatic MOC and UIC for target telemetry_core
+[3/54] Building CXX object telemetry/CMakeFiles/telemetry_resource_protocol.dir/telemetry_resource_protocol_autogen/mocs_compilation.cpp.obj
+[4/54] Building CXX object telemetry/CMakeFiles/telemetry_core.dir/telemetry_core_autogen/mocs_compilation.cpp.obj
+[5/54] Building CXX object telemetry/CMakeFiles/telemetry_core.dir/lib/telemetry/abi/StructuredAbi.cpp.obj
+[6/54] Building CXX object telemetry/CMakeFiles/telemetry_core.dir/lib/telemetry/model/Adapter.cpp.obj
+[7/54] Linking CXX static library telemetry\libtelemetry_core.a
+[8/54] Automatic MOC and UIC for target telemetry_encoded_server
+[9/54] Building CXX object telemetry/CMakeFiles/telemetry_encoded_server.dir/telemetry_encoded_server_autogen/mocs_compilation.cpp.obj
+[10/54] Building CXX object telemetry/CMakeFiles/telemetry_resource_protocol.dir/lib/resource/protocol/Protocol.cpp.obj
+[11/54] Linking CXX static library telemetry\libtelemetry_resource_protocol.a
+[12/54] Populating .qmlls.ini file at C:/Users/admin/.codex/artifacts/telemetry-inspector-serial-h7s-2026-10-28/serial-windows-final-v4/build/.qt/.qmlls.build.ini
+[13/54] Copying telemetry-inspector-qml qml sources into build dir
+[14/54] Copying telemetry-inspector-qml qml resources into build dir
+[15/54] Running qmlimportscanner for telemetry-inspector-qml
+[16/54] Automatic MOC and UIC for target telemetry_resource_adapter
+[17/54] Building CXX object telemetry/CMakeFiles/telemetry_resource_adapter.dir/telemetry_resource_adapter_autogen/mocs_compilation.cpp.obj
+[18/54] Building CXX object telemetry/CMakeFiles/telemetry_encoded_server.dir/lib/integration/encoded/Dispatcher.cpp.obj
+[19/54] Linking CXX static library telemetry\libtelemetry_encoded_server.a
+[20/54] Building CXX object telemetry/CMakeFiles/telemetry_resource_adapter.dir/lib/integration/telemetry/v3/detail/Values.cpp.obj
+[21/54] Linking CXX static library telemetry\libtelemetry_resource_adapter.a
+[22/54] Automatic MOC and UIC for target inspector_qml_support
+[23/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/inspector_qml_support_autogen/mocs_compilation.cpp.obj
+[24/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/Models.cpp.obj
+[25/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/DemoPeer.cpp.obj
+[26/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/InspectorController.cpp.obj
+[27/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/TcpTransport.cpp.obj
+[28/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/TcpDemoServer.cpp.obj
+[29/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/C_/Users/admin/Documents/my_workspace/Qt/COBS/src/cobs/Encoder.cpp.obj
+[30/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/C_/Users/admin/Documents/my_workspace/Qt/COBS/src/cobs/Decoder.cpp.obj
+[31/54] Building CXX object example/CMakeFiles/inspector_qml_support.dir/SerialTransport.cpp.obj
+[32/54] Linking CXX static library example\libinspector_qml_support.a
+[33/54] Automatic MOC and UIC for target telemetry-inspector-qml
+[34/54] Automatic MOC and UIC for target telemetry_inspector_serial_check
+[35/54] Running AUTOMOC file extraction for target telemetry-inspector-qml
+[36/54] Running rcc for resource qmake_Telemetry_Inspector
+[37/54] Running moc --collect-json for target telemetry-inspector-qml
+[38/54] Generating .rcc/qmlcache/telemetry-inspector-qml_qmlcache_loader.cpp
+[39/54] Running rcc for resource telemetry-inspector-qml_raw_qml_0
+[40/54] Automatic QML type registration for target telemetry-inspector-qml
+[41/54] Building CXX object CMakeFiles/telemetry_inspector_serial_check.dir/telemetry_inspector_serial_check_autogen/mocs_compilation.cpp.obj
+[42/54] Generating .rcc/qmlcache/telemetry-inspector-qml_Main_qml.cpp, .rcc/qmlcache/telemetry-inspector-qml_Main_qml.cpp.aotstats
+[43/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/telemetry-inspector-qml_autogen/mocs_compilation.cpp.obj
+[44/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/main.cpp.obj
+[45/54] Building CXX object CMakeFiles/telemetry_inspector_serial_check.dir/main.cpp.obj
+[46/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/telemetry-inspector-qml_qmltyperegistrations.cpp.obj
+[47/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/.qt/rcc/qrc_qmake_Telemetry_Inspector.cpp.obj
+[48/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/DeviceCheck.cpp.obj
+[49/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/.rcc/qmlcache/telemetry-inspector-qml_qmlcache_loader.cpp.obj
+[50/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/.qt/rcc/qrc_telemetry-inspector-qml_raw_qml_0.cpp.obj
+[51/54] Linking CXX executable telemetry_inspector_serial_check.exe
+[52/54] Building CXX object example/CMakeFiles/telemetry-inspector-qml.dir/.rcc/qmlcache/telemetry-inspector-qml_Main_qml.cpp.obj
+[53/54] Linking CXX executable telemetry-inspector-qml.exe

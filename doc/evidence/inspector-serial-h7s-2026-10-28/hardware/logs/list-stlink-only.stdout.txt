@@ -1,0 +1,15 @@
+      -------------------------------------------------------------------
+                       STM32CubeProgrammer v2.21.0                  
+      -------------------------------------------------------------------
+
+===== STLink Interface =====
+
+-------- Connected ST-LINK Probes List --------
+
+ST-Link Probe 0 :
+   ST-LINK SN  : 002A001F3033510135393935
+   ST-LINK FW  : V3J17M11
+   Access Port Number  : -
+   Board Name  : NUCLEO-H7S3L8
+-----------------------------------------------
+

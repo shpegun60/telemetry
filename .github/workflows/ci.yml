@@ -119,6 +119,12 @@ jobs:
           & $env:TELEMETRY_WINDOWS_PYTHON -B tests/modules/run.py --modules client --cxx "$env:TELEMETRY_WINDOWS_CXX" `
             --cmake "$env:TELEMETRY_WINDOWS_CMAKE" --build-dir "$env:RUNNER_TEMP/modules-windows"
           if ($LASTEXITCODE -ne 0) { throw 'Windows module qualification failed' }
+      - name: Offline Nucleo hardware-runner failure and restoration controls
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+            -File tests/nucleo_h7s3l8/CheckRunner.ps1 `
+            -ExternalOutput "$env:RUNNER_TEMP/nucleo-runner-controls"
+          if ($LASTEXITCODE -ne 0) { throw 'Offline hardware-runner controls failed' }
       - name: Collect flat evidence without following fixture junctions
         if: always()
         run: |
@@ -140,7 +146,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modules-windows
-          path: ${{ runner.temp }}/modules-windows-evidence/
+          path: |
+            ${{ runner.temp }}/modules-windows-evidence/
+            ${{ runner.temp }}/nucleo-runner-controls/
           if-no-files-found: error
 
   async-client:
@@ -268,6 +276,8 @@ jobs:
           python3 tools/source_style/check.py --clang-format build/source-style-venv/bin/clang-format --self-test
       - name: Verify Markdown files and local heading navigation
         run: python3 tools/documentation_navigation/check.py --self-test
+      - name: Verify retained UART Inspector hardware evidence and negative controls
+        run: python3 -B tests/nucleo_h7s3l8/VerifyEvidence.py --self-test
       - name: Verify retained audit hardware receipt controls
         run: |
           python3 tests/structured/mcu/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-mcu-receipt.json --self-test --allow-stale-inputs
@@ -1035,7 +1045,7 @@ jobs:
       - name: Install Qt host development and QML runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-18 cmake ninja-build qt6-base-dev qt6-declarative-dev \
+          sudo apt-get install -y clang-18 cmake ninja-build qt6-base-dev qt6-declarative-dev libqt6serialport6-dev \
             qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtquick-controls \
             qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtqml-workerscript
       - name: Generate, build and execute QML with Encoded and existing RpcClient
@@ -1050,6 +1060,22 @@ jobs:
         run: |
           python3 -B tests/inspector_tcp/run.py --build-dir "$RUNNER_TEMP/inspector-tcp" \
             --qt-prefix /usr --cxx /usr/bin/clang++-18 --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Check out the qualified COBS transport
+        uses: actions/checkout@v4
+        with:
+          repository: shpegun60/cobs
+          ref: 2e0abf260848fcb74e4a57b37532188047759643
+          path: build/dependencies/cobs
+      - name: Sanitized serial discovery and fault injection through real PTYs
+        run: |
+          python3 -B tests/inspector_serial/run.py --build-dir "$RUNNER_TEMP/inspector-serial" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
+            --cxx /usr/bin/clang++-18 --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Sanitized Nucleo dispatch and physical TX ownership gate
+        run: |
+          python3 -B examples/nucleo_h7s3l8/tests/run.py --build-dir "$RUNNER_TEMP/nucleo-host" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/clang++-18 \
+            --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Retain source, tool, build and runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -1059,6 +1085,8 @@ jobs:
             ${{ runner.temp }}/codegen-qml/
             ${{ runner.temp }}/inspector-qml/
             ${{ runner.temp }}/inspector-tcp/
+            ${{ runner.temp }}/inspector-serial/
+            ${{ runner.temp }}/nucleo-host/
           if-no-files-found: error
 
   qt:

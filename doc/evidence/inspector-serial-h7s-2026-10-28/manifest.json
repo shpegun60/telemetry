@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "provenance_commit": "d8137af6a81557a41c636439171957ef1d5c1ea8",
+  "recorded_build_baseline": "a537988bb53292dca0c5c221f9d9008d5464be82",
+  "hardware_ran_clean_provenance_commit": false,
+  "cobs_revision": "2e0abf260848fcb74e4a57b37532188047759643",
+  "description": "Byte-identical local build and hardware receipts, including retained text logs; no binary firmware or backup.",
+  "post_hardware_gui_input_changes": [
+    ".github/workflows/ci.yml",
+    "examples/inspector_qml/Main.qml"
+  ],
+  "hardware_source_input_changes_at_publication": [
+    "tests/nucleo_h7s3l8/README.md"
+  ],
+  "excluded_artifact_kinds": [
+    "Flash backup and readback",
+    "ELF/BIN and compiler probe binaries",
+    "GUI and tool executables or shared libraries",
+    "Build directories"
+  ],
+  "receipt_log_files": [
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 0,
+      "role": "stdout",
+      "file": "hardware/logs/programmer-version.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 0,
+      "role": "stderr",
+      "file": "hardware/logs/programmer-version.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 1,
+      "role": "stdout",
+      "file": "hardware/logs/compiler-version.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 1,
+      "role": "stderr",
+      "file": "hardware/logs/compiler-version.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 2,
+      "role": "stdout",
+      "file": "hardware/logs/elf-program-headers.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 2,
+      "role": "stderr",
+      "file": "hardware/logs/elf-program-headers.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 3,
+      "role": "stdout",
+      "file": "hardware/logs/image-binary.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 3,
+      "role": "stderr",
+      "file": "hardware/logs/image-binary.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 4,
+      "role": "stdout",
+      "file": "hardware/logs/list-stlink-only.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 4,
+      "role": "stderr",
+      "file": "hardware/logs/list-stlink-only.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 5,
+      "role": "stdout",
+      "file": "hardware/logs/target-identity-hotplug.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 5,
+      "role": "stderr",
+      "file": "hardware/logs/target-identity-hotplug.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 6,
+      "role": "stdout",
+      "file": "hardware/logs/backup-internal-flash.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 6,
+      "role": "stderr",
+      "file": "hardware/logs/backup-internal-flash.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 7,
+      "role": "stdout",
+      "file": "hardware/logs/flash-test-image.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 7,
+      "role": "stderr",
+      "file": "hardware/logs/flash-test-image.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 8,
+      "role": "stdout",
+      "file": "hardware/logs/serial-device-check.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 8,
+      "role": "stderr",
+      "file": "hardware/logs/serial-device-check.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 9,
+      "role": "stdout",
+      "file": "hardware/logs/serial-gui-smoke.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 9,
+      "role": "stderr",
+      "file": "hardware/logs/serial-gui-smoke.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 10,
+      "role": "stdout",
+      "file": "hardware/logs/restore-original-1.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 10,
+      "role": "stderr",
+      "file": "hardware/logs/restore-original-1.stderr.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 11,
+      "role": "stdout",
+      "file": "hardware/logs/verify-original-readback-1.stdout.txt"
+    },
+    {
+      "receipt": "hardware/summary.json",
+      "command_index": 11,
+      "role": "stderr",
+      "file": "hardware/logs/verify-original-readback-1.stderr.txt"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 0,
+      "role": "log",
+      "file": "firmware-build/gcc-version.log"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 1,
+      "role": "log",
+      "file": "firmware-build/configure.log"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 2,
+      "role": "log",
+      "file": "firmware-build/build.log"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 3,
+      "role": "log",
+      "file": "firmware-build/size.log"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 4,
+      "role": "log",
+      "file": "firmware-build/symbols.log"
+    },
+    {
+      "receipt": "firmware-build/summary.json",
+      "command_index": 5,
+      "role": "log",
+      "file": "firmware-build/binary.log"
+    },
+    {
+      "receipt": "gui-hardware-build/summary.json",
+      "command_index": 0,
+      "role": "log",
+      "file": "gui-hardware-build/source-head.log"
+    },
+    {
+      "receipt": "gui-hardware-build/summary.json",
+      "command_index": 1,
+      "role": "log",
+      "file": "gui-hardware-build/cobs-head.log"
+    },
+    {
+      "receipt": "gui-hardware-build/summary.json",
+      "command_index": 2,
+      "role": "log",
+      "file": "gui-hardware-build/configure.log"
+    },
+    {
+      "receipt": "gui-hardware-build/summary.json",
+      "command_index": 3,
+      "role": "log",
+      "file": "gui-hardware-build/build.log"
+    },
+    {
+      "receipt": "gui-hardware-build/summary.json",
+      "command_index": 4,
+      "role": "log",
+      "file": "gui-hardware-build/runtime.log"
+    },
+    {
+      "receipt": "serial-windows-final/summary.json",
+      "command_index": 0,
+      "role": "log",
+      "file": "serial-windows-final/source-head.log"
+    },
+    {
+      "receipt": "serial-windows-final/summary.json",
+      "command_index": 1,
+      "role": "log",
+      "file": "serial-windows-final/cobs-head.log"
+    },
+    {
+      "receipt": "serial-windows-final/summary.json",
+      "command_index": 2,
+      "role": "log",
+      "file": "serial-windows-final/configure.log"
+    },
+    {
+      "receipt": "serial-windows-final/summary.json",
+      "command_index": 3,
+      "role": "log",
+      "file": "serial-windows-final/build.log"
+    },
+    {
+      "receipt": "serial-windows-final/summary.json",
+      "command_index": 4,
+      "role": "log",
+      "file": "serial-windows-final/runtime.log"
+    },
+    {
+      "receipt": "serial-gcc-final/summary.json",
+      "command_index": 0,
+      "role": "log",
+      "file": "serial-gcc-final/source-head.log"
+    },
+    {
+      "receipt": "serial-gcc-final/summary.json",
+      "command_index": 1,
+      "role": "log",
+      "file": "serial-gcc-final/cobs-head.log"
+    },
+    {
+      "receipt": "serial-gcc-final/summary.json",
+      "command_index": 2,
+      "role": "log",
+      "file": "serial-gcc-final/configure.log"
+    },
+    {
+      "receipt": "serial-gcc-final/summary.json",
+      "command_index": 3,
+      "role": "log",
+      "file": "serial-gcc-final/build.log"
+    },
+    {
+      "receipt": "serial-gcc-final/summary.json",
+      "command_index": 4,
+      "role": "log",
+      "file": "serial-gcc-final/runtime.log"
+    },
+    {
+      "receipt": "serial-clang-san-final/summary.json",
+      "command_index": 0,
+      "role": "log",
+      "file": "serial-clang-san-final/source-head.log"
+    },
+    {
+      "receipt": "serial-clang-san-final/summary.json",
+      "command_index": 1,
+      "role": "log",
+      "file": "serial-clang-san-final/cobs-head.log"
+    },
+    {
+      "receipt": "serial-clang-san-final/summary.json",
+      "command_index": 2,
+      "role": "log",
+      "file": "serial-clang-san-final/configure.log"
+    },
+    {
+      "receipt": "serial-clang-san-final/summary.json",
+      "command_index": 3,
+      "role": "log",
+      "file": "serial-clang-san-final/build.log"
+    },
+    {
+      "receipt": "serial-clang-san-final/summary.json",
+      "command_index": 4,
+      "role": "log",
+      "file": "serial-clang-san-final/runtime.log"
+    }
+  ],
+  "files": {
+    "firmware-build/binary.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "firmware-build/build.log": {
+      "sha256": "c4517e6801416b5059917a849e45d15761a59e365de798a4b35fe22492a0f147",
+      "bytes": 4826
+    },
+    "firmware-build/configure.log": {
+      "sha256": "5c74100f012d4d3f75ad700f3937006fae54da63998615cc3fd2e205bd887345",
+      "bytes": 1263
+    },
+    "firmware-build/gcc-version.log": {
+      "sha256": "b2657a835140a2022203cdf717bf6cb72aee7bd722a60bbd923e1c13e516153e",
+      "bytes": 294
+    },
+    "firmware-build/size.log": {
+      "sha256": "0a5c8d37178145fd2f209ffcb1ad5c00064597a6bda813c44fefc2257d6f2bb4",
+      "bytes": 209
+    },
+    "firmware-build/summary.json": {
+      "sha256": "8a6679578bfd27ab82b025c6c191e58fb056376823fbf8dec14c03ca96953684",
+      "bytes": 267805
+    },
+    "firmware-build/symbols.log": {
+      "sha256": "99ba07deb0c3d94e7df613857b5fe6c7278d5b8d854375ec78e65f928272bb2e",
+      "bytes": 43809
+    },
+    "gui-hardware-build/build.log": {
+      "sha256": "98e69159b9f4cb1b6d620260163ae98f8a084320e9cbf387655f03042e4ec2bf",
+      "bytes": 5243
+    },
+    "gui-hardware-build/cobs-head.log": {
+      "sha256": "8b9efd6b760956d052f0321be1474c8afff7e7460e0b79fb67fbf5c63d98e434",
+      "bytes": 42
+    },
+    "gui-hardware-build/configure.log": {
+      "sha256": "64657285dbb1b1b33976bd8f0383d06c6f922a94acf7df09b7927bdee4d3b1b0",
+      "bytes": 851
+    },
+    "gui-hardware-build/runtime.log": {
+      "sha256": "1935a3315f947607a30e9f7f707b76ad7a93845c754811cc43d900cfcf938d07",
+      "bytes": 64
+    },
+    "gui-hardware-build/source-head.log": {
+      "sha256": "dbf3e31b272abee8ffdd8301a907fe996f5d7241a4efce282daa88fd78e4f521",
+      "bytes": 42
+    },
+    "gui-hardware-build/summary.json": {
+      "sha256": "3c7cd6d6318314eb281fb7ed1dd59b5b58c6f0ddefba931d488ae4ab6d203110",
+      "bytes": 59218
+    },
+    "hardware/device-report.json": {
+      "sha256": "4f09f690605f79d9791445be9d071440f86d8ea228f06cb8c1ef066633915abd",
+      "bytes": 3585
+    },
+    "hardware/logs/backup-internal-flash.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/backup-internal-flash.stdout.txt": {
+      "sha256": "e3df04381cd774d443cefbb7e2705c31552664ec9e339922efbfae21ddfd8149",
+      "bytes": 1250
+    },
+    "hardware/logs/compiler-version.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/compiler-version.stdout.txt": {
+      "sha256": "89354c9feb3200f7fe324eccd0e236667e363e9b718e4e24eb77097edd30f1d1",
+      "bytes": 291
+    },
+    "hardware/logs/elf-program-headers.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/elf-program-headers.stdout.txt": {
+      "sha256": "d2d4adf4dfce53e3a89b5b93f0fdefc58e9d68c7656fae6155c24e54a4bbabcd",
+      "bytes": 1671
+    },
+    "hardware/logs/flash-test-image.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/flash-test-image.stdout.txt": {
+      "sha256": "01ca4036b0d870659a863240f74da427375145c99c60d1e84711ef0ba34edb78",
+      "bytes": 1758
+    },
+    "hardware/logs/image-binary.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/image-binary.stdout.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/list-stlink-only.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/list-stlink-only.stdout.txt": {
+      "sha256": "ed1cdcf55655b471968cfcf229f45e4c755b15d02249a4762aca8aa83f55ab98",
+      "bytes": 505
+    },
+    "hardware/logs/programmer-version.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/programmer-version.stdout.txt": {
+      "sha256": "720830dae451dd14385796d408518bf40afc1dcc595c17c20489ecfb27f6f784",
+      "bytes": 262
+    },
+    "hardware/logs/restore-original-1.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/restore-original-1.stdout.txt": {
+      "sha256": "62d346b6bd6d109202ebbb755a6b4abacc15bbfcd41ba8a096d468327b27965e",
+      "bytes": 1745
+    },
+    "hardware/logs/serial-device-check.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/serial-device-check.stdout.txt": {
+      "sha256": "0a09d33c83bf70bdbe5c323fdfe6539c7cfa8b5fa8aeb4d425127183068cfb0b",
+      "bytes": 87
+    },
+    "hardware/logs/serial-gui-smoke.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/serial-gui-smoke.stdout.txt": {
+      "sha256": "59cfaa30cdaacfa236d9dd48eabb4b1d1667d46b76610e6f55322917371b2bcb",
+      "bytes": 69
+    },
+    "hardware/logs/target-identity-hotplug.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/target-identity-hotplug.stdout.txt": {
+      "sha256": "8ec5ab161a8e8543d1e44d8c88705c0ec367dd5c4f9c90f6203bed01329ee2b3",
+      "bytes": 584
+    },
+    "hardware/logs/verify-original-readback-1.stderr.txt": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "hardware/logs/verify-original-readback-1.stdout.txt": {
+      "sha256": "ef26496aa327bc4cbc3f7fcba137e2ee827a6496f180566b4f1af3760235999f",
+      "bytes": 1243
+    },
+    "hardware/serial-inspector.png": {
+      "sha256": "700081549c7f1931eb8b62475cf6bff217d0b7ff8366fe6b7a7e8bf2e054316f",
+      "bytes": 71375
+    },
+    "hardware/summary.json": {
+      "sha256": "bfd4c2fa7c6fc3fd904bfd9d6ca2a94afff8f8d1d09e76a3920d44111845dcd2",
+      "bytes": 58865
+    },
+    "serial-clang-san-final/build.log": {
+      "sha256": "10e6bc3d845a94ef64ecb54d07020a8d67b4c57df0e08d7f650559cb18f63017",
+      "bytes": 4959
+    },
+    "serial-clang-san-final/cobs-head.log": {
+      "sha256": "3cc1024b61a25bf5a82d913d285dce37b4b3ac8334ae45c83ad43ed299d82e29",
+      "bytes": 41
+    },
+    "serial-clang-san-final/configure.log": {
+      "sha256": "15822a5edf6158e766db6fe869a432045859a7bf2d4899702f96c4d55776380d",
+      "bytes": 926
+    },
+    "serial-clang-san-final/device-check/device-check-0.json": {
+      "sha256": "e114b219cc05228c3fba9c2f71cd7ccb834d21d0e8d1b9c01a61ba7932332c62",
+      "bytes": 3589
+    },
+    "serial-clang-san-final/device-check/device-check-1.json": {
+      "sha256": "a19d5e2c4afd993d61402748a83e4340284791db3270fdc5e60203a14a31ba02",
+      "bytes": 3621
+    },
+    "serial-clang-san-final/device-check/device-check-2.json": {
+      "sha256": "c463ba1e87a5921d9aa60fcf0095f88ae22eb57e95c8c8a3ed028132340c2cb2",
+      "bytes": 3623
+    },
+    "serial-clang-san-final/device-check/device-check-3.json": {
+      "sha256": "0937b8424bbbd83ef219e4ef5dc3baff9d84716f2f6b34f19b191c434a3e2e04",
+      "bytes": 3623
+    },
+    "serial-clang-san-final/runtime.log": {
+      "sha256": "4fbe0b50d2a38948837a7f2cc8c6f6599327ec8a30cca932b043700faddc6a64",
+      "bytes": 65
+    },
+    "serial-clang-san-final/source-head.log": {
+      "sha256": "a2bc336928d0b5c7d57965959e0b1196bea38ecd0e590f34cd99683dac2e6c39",
+      "bytes": 41
+    },
+    "serial-clang-san-final/summary.json": {
+      "sha256": "76a5a29057d432f997a9d2da8afe6b1eaaf2b76e6b2df3e63752e1aa6964d1de",
+      "bytes": 58913
+    },
+    "serial-gcc-final/build.log": {
+      "sha256": "32f74942ef2709ea13d535281d1e6aaa304673ff1a4b979d4ca56f5a57e3300d",
+      "bytes": 4959
+    },
+    "serial-gcc-final/cobs-head.log": {
+      "sha256": "3cc1024b61a25bf5a82d913d285dce37b4b3ac8334ae45c83ad43ed299d82e29",
+      "bytes": 41
+    },
+    "serial-gcc-final/configure.log": {
+      "sha256": "83509a80ef7b4e9054ea8ca0667bbc68ac568e4d3fdb44c86d44d6a3e9f223d1",
+      "bytes": 911
+    },
+    "serial-gcc-final/device-check/device-check-0.json": {
+      "sha256": "6f53dbd2f39a0c289e0a93a932dc7173ff08443f00366ba671cfdf6a29a897c2",
+      "bytes": 3589
+    },
+    "serial-gcc-final/device-check/device-check-1.json": {
+      "sha256": "dcf6ac7710ffdd05c399c3b05b55beef81adcec45fdeb6bc304cc9bfd58d6464",
+      "bytes": 3621
+    },
+    "serial-gcc-final/device-check/device-check-2.json": {
+      "sha256": "e35e61c0175bdbea41f2e1ca16355122921993f4a99c24dc0871a39c46e31765",
+      "bytes": 3623
+    },
+    "serial-gcc-final/device-check/device-check-3.json": {
+      "sha256": "4ea51cf89fb5a7f23599fb290faba699f61fc7ef5d94f66a9dd01926cd0e628b",
+      "bytes": 3623
+    },
+    "serial-gcc-final/runtime.log": {
+      "sha256": "4fbe0b50d2a38948837a7f2cc8c6f6599327ec8a30cca932b043700faddc6a64",
+      "bytes": 65
+    },
+    "serial-gcc-final/source-head.log": {
+      "sha256": "a2bc336928d0b5c7d57965959e0b1196bea38ecd0e590f34cd99683dac2e6c39",
+      "bytes": 41
+    },
+    "serial-gcc-final/summary.json": {
+      "sha256": "177d47fa1112e3639ec1ed1f0afd300e9511ec10e3725a1aa742fc1d7369091e",
+      "bytes": 58593
+    },
+    "serial-windows-final/build.log": {
+      "sha256": "5d1d9d8cb229931e806553dc1bc1d300e87b5dd80c2df94bf5500dda25511eff",
+      "bytes": 5243
+    },
+    "serial-windows-final/cobs-head.log": {
+      "sha256": "8b9efd6b760956d052f0321be1474c8afff7e7460e0b79fb67fbf5c63d98e434",
+      "bytes": 42
+    },
+    "serial-windows-final/configure.log": {
+      "sha256": "d998cd17a120bd6d4e535499ac0e6a2e3624c191acdb1d186cd0232e4cdeb943",
+      "bytes": 851
+    },
+    "serial-windows-final/runtime.log": {
+      "sha256": "1935a3315f947607a30e9f7f707b76ad7a93845c754811cc43d900cfcf938d07",
+      "bytes": 64
+    },
+    "serial-windows-final/source-head.log": {
+      "sha256": "dbf3e31b272abee8ffdd8301a907fe996f5d7241a4efce282daa88fd78e4f521",
+      "bytes": 42
+    },
+    "serial-windows-final/summary.json": {
+      "sha256": "2b563aca1ce9c95f5a2b60b8b047237a06fd87afc397e6bede909caebaa78c6f",
+      "bytes": 59216
+    }
+  }
+}

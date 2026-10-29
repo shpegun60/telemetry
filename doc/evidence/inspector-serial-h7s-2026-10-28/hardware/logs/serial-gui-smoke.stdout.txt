@@ -1,0 +1,1 @@
+Inspector QML smoke: published=1 roots=1 endpointRows=8 valueRows=4

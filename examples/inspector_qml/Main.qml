@@ -66,6 +66,34 @@ ApplicationWindow {
         }
         RowLayout {
             Layout.fillWidth: true
+            visible: controller.serialAvailable
+            ComboBox {
+                id: serialPort
+                objectName: "serialPort"
+                Layout.fillWidth: true
+                editable: true
+                model: controller.serialPorts()
+                editText: controller.serialPort
+            }
+            Button {
+                text: "Scan ports"
+                onClicked: serialPort.model = controller.serialPorts()
+            }
+            SpinBox {
+                id: serialBaud
+                from: 1200
+                to: 4000000
+                value: controller.serialBaud
+                editable: true
+            }
+            Button {
+                text: "Connect UART"
+                enabled: serialPort.editText.length > 0 && !controller.busy
+                onClicked: controller.connectSerial(serialPort.editText, serialBaud.value)
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
             TextField {
                 id: descriptorPath
                 objectName: "descriptorPath"
@@ -207,7 +235,9 @@ ApplicationWindow {
             wrapMode: Text.Wrap
         }
         Label {
-            text: "Connect TCP to read a device. Demo device uses simulated values."
+            text: controller.serialAvailable
+                ? "Connect TCP or UART to read a device. Demo device uses simulated values."
+                : "Connect TCP to read a device. Demo device uses simulated values."
             color: "#718297"
             font.pixelSize: 11
             Layout.fillWidth: true

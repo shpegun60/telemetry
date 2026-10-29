@@ -78,6 +78,15 @@ def main():
             raise RuntimeError(label + ': runtime check floor not reached')
         report['executions'][label] = int(match[1])
 
+    def timeout_phases(label, output):
+        observed = re.findall(r'Inspector timeout phase=(queued|offered|prepared) '
+                              r'callbacks=(\d+) pending=(\d+) reads=(\d+) recovery=(\d+)', output)
+        expected = [('queued', '1', '0', '0', '0'), ('offered', '1', '0', '0', '0'),
+                    ('prepared', '1', '0', '1', '1')]
+        if observed != expected:
+            raise RuntimeError(label + ': deterministic queued/offered/prepared timeout cases missing')
+        report.setdefault('timeout_phases', {})[label] = [phase[0] for phase in observed]
+
     base = [compiler, '-std=c++20', '-Wall', '-Wextra', '-Werror', '-pedantic-errors', '-Ilib']
     plain = base + ['-O2', '-DTINY_DELEGATE_ENABLE_HEAP_FALLBACK=0']
     flags = base + (['-O1', '-g', '-fsanitize=address,undefined', '-fno-sanitize-recover=all',
@@ -133,12 +142,16 @@ def main():
                     inputs.add(path)
         report['source_sha256_before'] = snapshot()
         host = build('Host', HERE / 'Host.cpp', native_link=True)
-        count('Host', run('execute-Host', [host]), 1147)
+        output = run('execute-Host', [host])
+        count('Host', output, 1147)
+        timeout_phases('Host', output)
         lifetime = build('Lifetime', HERE / 'Lifetime.cpp', native_link=True)
         count('Lifetime', run('execute-Lifetime', [lifetime]), 348)
         # Allocation traps run without ASan replacement allocators, even in a sanitizer profile.
         noheap = build('NoHeap', HERE / 'NoHeap.cpp', native_link=True, allocation_trap=True)
-        count('NoHeap', run('execute-NoHeap', [noheap]), report['executions']['Host'])
+        output = run('execute-NoHeap', [noheap])
+        count('NoHeap', output, report['executions']['Host'])
+        timeout_phases('NoHeap', output)
         control = build('NoHeapControl', HERE / 'NoHeap.cpp', ['-DINSPECTOR_HEAP_CONTROL=1'],
                         native_link=True, allocation_trap=True)
         output = run('execute-NoHeapControl', [control], expected=86)

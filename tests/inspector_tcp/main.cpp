@@ -303,20 +303,20 @@ void failuresAndReconnect()
 	CHECK(!client.finished.isEmpty() && !client.finished.last().at(0).toBool());
 	CHECK(client.values.rowCount() == 0);
 	client.controller.disconnectDevice();
-	CHECK(client.controller.tcpCleanupPending());
+	CHECK(client.controller.cleanupPending());
 	ui::TcpDemoServer otherPeer;
 	CHECK(otherPeer.listen());
 	CHECK(!client.controller.connectTcp(QStringLiteral("127.0.0.1"), otherPeer.port()));
-	CHECK(client.controller.tcpCleanupPending() && !client.controller.connected());
+	CHECK(client.controller.cleanupPending() && !client.controller.connected());
 	CHECK(otherPeer.connections() == 0);
 	CHECK(client.controller.connectDemo());
-	CHECK(client.controller.tcpCleanupPending() && client.controller.connected());
+	CHECK(client.controller.cleanupPending() && client.controller.connected());
 	CHECK(await([&] {
 		return !peer.hasClient();
 	}));
 	client.controller.setReadTimeout(3000);
 	client.connect(peer);
-	CHECK(!client.controller.tcpCleanupPending());
+	CHECK(!client.controller.cleanupPending());
 	client.read(65536);
 
 	client.select(65536);
@@ -354,7 +354,7 @@ void idlePeerSwitch()
 	client.connect(first);
 	client.read(65536);
 	client.controller.disconnectDevice();
-	CHECK(!client.controller.tcpCleanupPending());
+	CHECK(!client.controller.cleanupPending());
 	client.connect(second);
 	client.read(65537);
 	CHECK(client.scalar() == QStringLiteral("-9223372036854775808"));
@@ -376,8 +376,7 @@ void correlatedRefusalAndEof()
 	}));
 	CHECK(client.finished.count() == beforeRefusal + 1 && !client.finished.last().at(0).toBool());
 	CHECK(client.controller.connected() && client.controller.canRefresh());
-	CHECK(!client.controller.inspector().recoveryRequired() &&
-	      !client.controller.tcpCleanupPending());
+	CHECK(!client.controller.inspector().recoveryRequired() && !client.controller.cleanupPending());
 	CHECK(client.values.rowCount() == 0 && peer.connections() == 1);
 	client.read(65536);
 	CHECK(peer.connections() == 1 && client.scalar() == QStringLiteral("18446744073709551615"));
@@ -391,7 +390,7 @@ void correlatedRefusalAndEof()
 	}));
 	CHECK(client.finished.count() == beforeEof + 1 && client.finished.last().at(0).toBool());
 	CHECK(client.values.rowCount() == 0 && client.endpoints.rowCount() == 0);
-	CHECK(!client.controller.tcpCleanupPending());
+	CHECK(!client.controller.cleanupPending());
 	++reads;
 
 	CHECK(await([&] {

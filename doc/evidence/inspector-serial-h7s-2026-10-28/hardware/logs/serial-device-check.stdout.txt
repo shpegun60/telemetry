@@ -1,0 +1,1 @@
+Inspector serial device: passed=1 fields=4 scalars=17 exactCounter=1 voltage=1 demo=1

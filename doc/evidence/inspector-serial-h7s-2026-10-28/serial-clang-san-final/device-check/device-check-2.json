@@ -1,0 +1,119 @@
+{
+    "baud": 115200,
+    "demonstration": true,
+    "error": "Demo Field value checks failed",
+    "exactCounter": true,
+    "fields": [
+        {
+            "field": "measure.Voltage",
+            "values": [
+                {
+                    "path": "measure.Voltage.Voltage.Ua",
+                    "type": "float32",
+                    "value": "230.100006"
+                },
+                {
+                    "path": "measure.Voltage.Voltage.Ub",
+                    "type": "float32",
+                    "value": "229.809998"
+                },
+                {
+                    "path": "measure.Voltage.Voltage.Uc",
+                    "type": "float32",
+                    "value": "231.199997"
+                }
+            ]
+        },
+        {
+            "field": "device.Counter",
+            "values": [
+                {
+                    "path": "device.Counter.Counter",
+                    "type": "uint64",
+                    "value": "18446744073709551615"
+                }
+            ]
+        },
+        {
+            "field": "device.Status",
+            "values": [
+                {
+                    "path": "device.Status.Status.uptimeMs",
+                    "type": "uint32",
+                    "value": "0"
+                },
+                {
+                    "path": "device.Status.Status.requests",
+                    "type": "uint32",
+                    "value": "11"
+                },
+                {
+                    "path": "device.Status.Status.fieldReads",
+                    "type": "uint32",
+                    "value": "11"
+                },
+                {
+                    "path": "device.Status.Status.refused",
+                    "type": "uint32",
+                    "value": "0"
+                },
+                {
+                    "path": "device.Status.Status.demonstration",
+                    "type": "bool",
+                    "value": "true"
+                }
+            ]
+        },
+        {
+            "field": "device.Probe",
+            "values": [
+                {
+                    "path": "device.Probe.Probe.Matrix.[0].[0]",
+                    "type": "int32",
+                    "value": "1"
+                },
+                {
+                    "path": "device.Probe.Probe.Matrix.[0].[1]",
+                    "type": "int32",
+                    "value": "-2"
+                },
+                {
+                    "path": "device.Probe.Probe.Matrix.[0].[2]",
+                    "type": "int32",
+                    "value": "3"
+                },
+                {
+                    "path": "device.Probe.Probe.Matrix.[1].[0]",
+                    "type": "int32",
+                    "value": "4"
+                },
+                {
+                    "path": "device.Probe.Probe.Matrix.[1].[1]",
+                    "type": "int32",
+                    "value": "5"
+                },
+                {
+                    "path": "device.Probe.Probe.Matrix.[1].[2]",
+                    "type": "int32",
+                    "value": "-6"
+                },
+                {
+                    "path": "device.Probe.Probe.Enabled",
+                    "type": "bool",
+                    "value": "true"
+                },
+                {
+                    "path": "device.Probe.Probe.mode",
+                    "type": "enum (int16)",
+                    "value": "-2 (unknown)"
+                }
+            ]
+        }
+    ],
+    "passed": false,
+    "port": "/dev/pts/4",
+    "probe": true,
+    "profile": "nucleo-h7s3l8-demo",
+    "scalarCount": 17,
+    "voltage": false
+}

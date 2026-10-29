@@ -1,0 +1,11 @@
+# Standalone CubeIDE ARM toolchain, selected explicitly by Build.ps1. MIT.
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES ARM_GCC_BIN)
+if(NOT ARM_GCC_BIN)
+  message(FATAL_ERROR "Set ARM_GCC_BIN to STM32CubeIDE's GNU tools bin")
+endif()
+set(CMAKE_C_COMPILER "${ARM_GCC_BIN}/arm-none-eabi-gcc.exe")
+set(CMAKE_CXX_COMPILER "${ARM_GCC_BIN}/arm-none-eabi-g++.exe")
+set(CMAKE_ASM_COMPILER "${ARM_GCC_BIN}/arm-none-eabi-gcc.exe")

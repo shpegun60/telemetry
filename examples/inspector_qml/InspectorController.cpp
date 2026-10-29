@@ -7,6 +7,11 @@
 #include "InspectorController.hpp"
 #include "DemoPeer.hpp"
 #include "TcpTransport.hpp"
+#ifdef INSPECTOR_ENABLE_SERIAL
+#include "SerialTransport.hpp"
+#include "../inspector_serial/SerialProfile.hpp"
+#include <QtSerialPort/QSerialPortInfo>
+#endif
 #include <integration/encoded/Backend.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
@@ -95,8 +100,9 @@ struct InspectorController::State {
 	std::vector<Reply> replies;
 	std::optional<im::ReadResult> completed;
 	bool demo = false;
-	bool tcp = false, tcpAccepted = false;
-	quint32 tcpRequestId = 0;
+	bool serial = false;
+	bool remote = false, remoteAccepted = false;
+	quint32 remoteRequestId = 0;
 
 	State(QByteArray bytes, bool isDemo) : descriptor(std::move(bytes)), demo(isDemo)
 	{
@@ -185,13 +191,13 @@ void InspectorController::retire()
 	connected_ = false;
 	busy_ = false;
 	connecting_ = false;
-	if (tcp_) {
-		tcp_->close();
-		if (!tcp_->locallyQuiescent())
+	if (transport_) {
+		transport_->close();
+		if (!transport_->locallyQuiescent())
 			std::abort();
-		tcp_.reset();
+		transport_.reset();
 	}
-	if (state_ && state_->tcp) {
+	if (state_ && state_->remote) {
 		state_->closeAndDrain();
 		if (state_->inspector.recoveryRequired()) {
 			// Local abort releases all Qt-owned TX/RX storage. It does not prove
@@ -199,6 +205,9 @@ void InspectorController::retire()
 			// obligation until the same single-client server admits fresh bootstrap.
 			if (retiredState_)
 				std::abort();
+			retiredSerial_ = state_->serial;
+			retiredSerialPort_ = serialPort_;
+			retiredSerialBaud_ = serialBaud_;
 			retiredPeerHost_ = peerHost_;
 			retiredPeerPort_ = peerPort_;
 			retiredPeerAddress_ = peerAddress_;
@@ -208,7 +217,7 @@ void InspectorController::retire()
 	state_.reset();
 }
 
-bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool tcp)
+bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool remote)
 {
 	if (updating_ || values_.changing() || endpoints_.changing())
 		return false;
@@ -220,31 +229,35 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool tc
 	// Validate into a separate generation first. A malformed file does not destroy
 	// the current peer, selected field or published snapshot.
 	auto candidate = std::make_unique<State>(std::move(bytes), demo);
-	candidate->tcp = tcp;
-	const auto error = candidate->initialize(session_ + 1, !tcp);
+	candidate->remote = remote;
+	candidate->serial = remote && serial_;
+	const auto error = candidate->initialize(session_ + 1, !remote);
 	if (!error.isEmpty()) {
 		status_ = error;
 		Q_EMIT stateChanged();
 		return false;
 	}
-	if (tcp) {
-		if (!tcp_ || !tcp_->ready())
+	if (remote) {
+		if (!transport_ || !transport_->ready())
 			return false;
-		const auto address = tcp_->peerAddress();
+		const auto address = transport_->peerAddress();
 		if (retiredState_) {
-			if (peerHost_ != retiredPeerHost_ || peerPort_ != retiredPeerPort_ ||
-			    address != retiredPeerAddress_) {
-				status_ = QStringLiteral("The previous TCP peer still requires session cleanup.");
+			if (serial_ != retiredSerial_ || address != retiredPeerAddress_ ||
+			    (serial_ ? serialPort_ != retiredSerialPort_ || serialBaud_ != retiredSerialBaud_
+			             : peerHost_ != retiredPeerHost_ || peerPort_ != retiredPeerPort_)) {
+				status_ = QStringLiteral("The previous device still requires session cleanup.");
 				Q_EMIT stateChanged();
 				return false;
 			}
-			// Supported server profile: one active connection, synchronous dispatch,
-			// old socket/parser fully retired before accepting a new connection.
-			// A fresh successful Descriptor bootstrap from the same actual peer is
-			// therefore the remote proof; local close alone was deliberately not.
+			// TCP retires the old socket before accepting another client. The serial
+			// demo has one exclusive, sequential host and synchronous read-only
+			// dispatch; it cannot process the fresh bootstrap before prior RX and
+			// physical TX/COBS leases finish. Both profiles require the complete
+			// validated Descriptor transcript from the same peer, never local close
+			// or one uncorrelated Resource reply as a remote cleanup proof.
 			if (!retiredState_->inspector.confirmQuiescence(
 			        {retiredState_->inspector.session(), true, true, true})) {
-				status_ = QStringLiteral("Could not confirm the previous TCP session cleanup.");
+				status_ = QStringLiteral("Could not confirm the previous device session cleanup.");
 				Q_EMIT stateChanged();
 				return false;
 			}
@@ -252,6 +265,9 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool tc
 			retiredPeerHost_.clear();
 			retiredPeerAddress_.clear();
 			retiredPeerPort_ = 0;
+			retiredSerialPort_.clear();
+			retiredSerialBaud_ = 0;
+			retiredSerial_ = false;
 		}
 		const auto admission = candidate->admitSession(session_ + 1);
 		if (!admission.isEmpty()) {
@@ -262,7 +278,7 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool tc
 		peerAddress_ = address;
 	}
 	updating_ = true;
-	if (tcp) {
+	if (remote) {
 		values_.clear();
 		endpoints_.clear();
 		selection_.clear();
@@ -273,10 +289,13 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool tc
 	++session_;
 	state_ = std::move(candidate);
 	endpoints_.rebuild(state_->inspector);
-	connected_ = demo || tcp;
+	connected_ = demo || remote;
 	connecting_ = false;
 	status_ =
-	    tcp    ? QStringLiteral("TCP connected · Descriptor loaded · read-only · Encoded transport")
+	    remote && serial_
+	        ? QStringLiteral("Serial connected - Descriptor loaded - read-only - COBS/Encoded")
+	    : remote
+	        ? QStringLiteral("TCP connected · Descriptor loaded · read-only · Encoded transport")
 	    : demo ? QStringLiteral("Demo connected · read-only · Encoded transport")
 	           : QStringLiteral("Descriptor file · metadata only · no transport connected");
 	updating_ = false;
@@ -307,7 +326,8 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 	QHostAddress numeric;
 	if (numeric.setAddress(normalized))
 		normalized = numeric.toString().toLower();
-	if (retiredState_ && (normalized != retiredPeerHost_ || port != retiredPeerPort_)) {
+	if (retiredState_ &&
+	    (retiredSerial_ || normalized != retiredPeerHost_ || port != retiredPeerPort_)) {
 		status_ =
 		    QStringLiteral("Reconnect %1:%2 first to finish the previous TCP session cleanup.")
 		        .arg(retiredPeerHost_)
@@ -316,32 +336,43 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 		Q_EMIT stateChanged();
 		return false;
 	}
+	serial_ = false;
 	peerHost_ = normalized;
 	peerPort_ = port;
 	connecting_ = true;
 	status_ = QStringLiteral("Connecting TCP and loading Descriptor…");
-	tcp_ = std::make_unique<TcpTransport>();
-	tcp_->setWriteChunkBytes(tcpWriteChunk_);
+	transport_ = std::make_unique<TcpTransport>();
+	auto* tcpPortAdapter = static_cast<TcpTransport*>(transport_.get());
+	transport_->setWriteChunkBytes(tcpWriteChunk_);
+	bindTransportSignals();
+	tcpPortAdapter->connectTo(peerHost_, peerPort_);
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
+}
+
+void InspectorController::bindTransportSignals()
+{
 	const auto epoch = epoch_;
 	connect(
-	    tcp_.get(), &TcpTransport::descriptorReceived, this,
+	    transport_.get(), &DeviceTransport::descriptorReceived, this,
 	    [this, epoch](QByteArray bytes) {
-		    tcpDescriptor(epoch, std::move(bytes));
+		    transportDescriptor(epoch, std::move(bytes));
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    tcp_.get(), &TcpTransport::packetAccepted, this,
+	    transport_.get(), &DeviceTransport::packetAccepted, this,
 	    [this, epoch](quint32 session, quint32 id) {
-		    if (epoch == epoch_ && state_ && state_->tcp &&
-		        session == state_->inspector.session() && id == state_->tcpRequestId)
-			    state_->tcpAccepted = true;
+		    if (epoch == epoch_ && state_ && state_->remote &&
+		        session == state_->inspector.session() && id == state_->remoteRequestId)
+			    state_->remoteAccepted = true;
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    tcp_.get(), &TcpTransport::packetReceived, this,
+	    transport_.get(), &DeviceTransport::packetReceived, this,
 	    [this, epoch](const QByteArray& bytes, quint32 session, quint32 id) {
-		    if (epoch != epoch_ || !state_ || !state_->tcp ||
-		        session != state_->inspector.session() || id != state_->tcpRequestId ||
+		    if (epoch != epoch_ || !state_ || !state_->remote ||
+		        session != state_->inspector.session() || id != state_->remoteRequestId ||
 		        !state_->replies.empty())
 			    return;
 		    const auto* first = reinterpret_cast<const std::byte*>(bytes.constData());
@@ -349,47 +380,108 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    tcp_.get(), &TcpTransport::transportError, this,
+	    transport_.get(), &DeviceTransport::transportError, this,
 	    [this, epoch](const QString& error) {
-		    tcpFailed(epoch, error);
+		    transportFailed(epoch, error);
 	    },
 	    Qt::QueuedConnection);
-	tcp_->connectTo(peerHost_, peerPort_);
+}
+
+bool InspectorController::serialAvailable() const noexcept
+{
+#ifdef INSPECTOR_ENABLE_SERIAL
+	return true;
+#else
+	return false;
+#endif
+}
+
+QStringList InspectorController::serialPorts() const
+{
+	QStringList ports;
+#ifdef INSPECTOR_ENABLE_SERIAL
+	for (const auto& port : QSerialPortInfo::availablePorts())
+		ports.push_back(port.systemLocation());
+#endif
+	return ports;
+}
+
+bool InspectorController::connectSerial(const QString& port, qint32 baud)
+{
+#ifndef INSPECTOR_ENABLE_SERIAL
+	Q_UNUSED(port);
+	Q_UNUSED(baud);
+	status_ = QStringLiteral("Build with INSPECTOR_ENABLE_SERIAL and COBS_ROOT to enable serial.");
+	Q_EMIT stateChanged();
+	return false;
+#else
+	if (updating_ || values_.changing() || endpoints_.changing() || port.trimmed().isEmpty() ||
+	    baud < qint32(inspector_serial::minBaudRate) ||
+	    baud > qint32(inspector_serial::maxBaudRate))
+		return false;
+	updating_ = true;
+	retire();
+	const auto name = port.trimmed();
+	if (retiredState_ &&
+	    (!retiredSerial_ || name != retiredSerialPort_ || baud != retiredSerialBaud_)) {
+		status_ = QStringLiteral("Reconnect the previous device first to finish session cleanup.");
+		updating_ = false;
+		Q_EMIT stateChanged();
+		return false;
+	}
+	serial_ = true;
+	serialPort_ = name;
+	serialBaud_ = baud;
+	connecting_ = true;
+	status_ = QStringLiteral("Opening serial port and loading Descriptor...");
+	transport_ = std::make_unique<SerialTransport>();
+	transport_->setWriteChunkBytes(serialWriteChunk_);
+	auto* serial = static_cast<SerialTransport*>(transport_.get());
+	bindTransportSignals();
+	serial->connectTo(name, baud);
 	updating_ = false;
 	Q_EMIT stateChanged();
 	return true;
+#endif
 }
 
-void InspectorController::tcpDescriptor(quint64 epoch, QByteArray bytes)
+void InspectorController::setSerialWriteChunkBytes(int bytes) noexcept
 {
-	if (epoch != epoch_ || !tcp_)
+	serialWriteChunk_ = std::max(0, bytes);
+	if (serial_ && transport_)
+		transport_->setWriteChunkBytes(serialWriteChunk_);
+}
+
+void InspectorController::transportDescriptor(quint64 epoch, QByteArray bytes)
+{
+	if (epoch != epoch_ || !transport_)
 		return;
 	if (updating_ || values_.changing() || endpoints_.changing()) {
 		QTimer::singleShot(0, this, [this, epoch, bytes = std::move(bytes)] {
-			tcpDescriptor(epoch, bytes);
+			transportDescriptor(epoch, bytes);
 		});
 		return;
 	}
 	QPointer<InspectorController> alive{this};
 	const bool admitted = replaceDescriptor(std::move(bytes), false, true);
 	if (alive && epoch == epoch_ && !admitted)
-		tcpFailed(epoch, status_);
+		transportFailed(epoch, status_);
 }
 
-void InspectorController::tcpFailed(quint64 epoch, QString error)
+void InspectorController::transportFailed(quint64 epoch, QString error)
 {
 	if (epoch != epoch_)
 		return;
 	if (updating_ || values_.changing() || endpoints_.changing()) {
 		QTimer::singleShot(0, this, [this, epoch, error = std::move(error)] {
-			tcpFailed(epoch, error);
+			transportFailed(epoch, error);
 		});
 		return;
 	}
 	// The transport preserves complete packets received before EOF. Apply them
 	// before closing the logical operation; onReply/process still enforce its
 	// deadline. The socket is already closed, so pump cannot authorize new TX.
-	if (state_ && state_->tcp && !state_->replies.empty()) {
+	if (state_ && state_->remote && !state_->replies.empty()) {
 		QPointer<InspectorController> alive{this};
 		pump();
 		if (!alive || epoch != epoch_)
@@ -398,7 +490,7 @@ void InspectorController::tcpFailed(quint64 epoch, QString error)
 	const bool pending = busy_;
 	updating_ = true;
 	retire();
-	status_ = QStringLiteral("TCP: %1").arg(error);
+	status_ = (serial_ ? QStringLiteral("Serial: %1") : QStringLiteral("TCP: %1")).arg(error);
 	updating_ = false;
 	const auto retiredEpoch = epoch_;
 	QPointer<InspectorController> alive{this};
@@ -477,13 +569,27 @@ bool InspectorController::refresh()
 {
 	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ || busy_)
 		return false;
+	auto readTimeout = static_cast<quint32>(readTimeout_);
+#ifdef INSPECTOR_ENABLE_SERIAL
+	if (state_->serial) {
+		const auto* type = state_->schema.type(state_->inspector.snapshotInfo().type);
+		if (!type || type->wireBytes > inspector_serial::maxBodyBytes - 32u) {
+			status_ = QStringLiteral("Selected Field exceeds the serial frame payload limit.");
+			Q_EMIT stateChanged();
+			return false;
+		}
+		if (!readTimeoutExplicit_)
+			readTimeout = inspector_serial::exchangeTimeoutMs(
+			    32u, 32u + type->wireBytes, static_cast<std::uint32_t>(serialBaud_), 3000);
+	}
+#endif
 	const auto submitted = state_->inspector.refresh(
 	    [state = state_.get()](const im::ReadResult& result) noexcept {
 		    // Never emit Qt signals inside a core callback: slots may replace the
 		    // session or destroy this controller. Publish after returning from core.
 		    state->completed = result;
 	    },
-	    static_cast<quint32>(readTimeout_));
+	    readTimeout);
 	if (!submitted) {
 		status_ = QStringLiteral("Read refused: %1 (model %2)")
 		              .arg(statusName(submitted.status))
@@ -509,18 +615,19 @@ void InspectorController::pump()
 	const auto epoch = epoch_;
 	const auto now = state.now();
 	state.inspector.process(now);
-	if (state.tcpAccepted) {
-		state.tcpAccepted = false;
-		(void)state.inspector.onSendAccepted(state.inspector.session(), state.tcpRequestId);
+	if (state.remoteAccepted) {
+		state.remoteAccepted = false;
+		(void)state.inspector.onSendAccepted(state.inspector.session(), state.remoteRequestId);
 	}
 	const auto packet = state.inspector.nextPacket();
-	if (state.tcp && tcp_ && packet && tcp_->canStage() && tcp_->stage(packet)) {
+	if (state.remote && transport_ && packet && transport_->canStage() &&
+	    transport_->stage(packet)) {
 		if (state.inspector.prepareHandoff(packet.session, packet.requestId)) {
-			state.tcpRequestId = packet.requestId;
-			if (!tcp_->sendStaged())
+			state.remoteRequestId = packet.requestId;
+			if (!transport_->sendStaged())
 				state.inspector.invalidate();
 		} else {
-			tcp_->discardStaged();
+			transport_->discardStaged();
 		}
 	}
 	if (state.demo && packet && packet.bytes.size() <= state.port.size()) {
@@ -577,8 +684,8 @@ void InspectorController::pump()
 		const bool fatalTransport =
 		    outcome == cl::Status::TransportError || outcome == cl::Status::MalformedReply ||
 		    outcome == cl::Status::SessionLost || outcome == cl::Status::OutcomeUnknown;
-		if (state.tcp && tcp_ && (state.inspector.recoveryRequired() || fatalTransport)) {
-			tcp_->close();
+		if (state.remote && transport_ && (state.inspector.recoveryRequired() || fatalTransport)) {
+			transport_->close();
 			state.inspector.invalidate();
 			connected_ = false;
 			values_.clear();
@@ -620,13 +727,14 @@ void InspectorController::setDropReplies(bool drop) noexcept
 void InspectorController::setReadTimeout(int milliseconds) noexcept
 {
 	readTimeout_ = std::clamp(milliseconds, 1, 60000);
+	readTimeoutExplicit_ = true;
 }
 
 void InspectorController::setTcpWriteChunkBytes(int bytes) noexcept
 {
 	tcpWriteChunk_ = std::max(0, bytes);
-	if (tcp_)
-		tcp_->setWriteChunkBytes(tcpWriteChunk_);
+	if (!serial_ && transport_)
+		transport_->setWriteChunkBytes(tcpWriteChunk_);
 }
 
 Inspector& InspectorController::inspector() noexcept
