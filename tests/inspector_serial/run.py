@@ -137,6 +137,10 @@ def main():
         report['qt_version'] = counted[5]
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (exe, gui)}
         if os.name != 'nt':
+            phase = re.search(r'Inspector Serial pre-handoff timeout: busy=(\d+) connected=(\d+) '
+                              r'recovery=(\d+) fieldReads=(\d+)', runtime)
+            if not phase or phase.groups() != ('0', '1', '0', '0'):
+                raise RuntimeError('The controlled pre-handoff timeout case did not execute')
             paced = re.search(r'Inspector Serial low-baud: bootstrap=1 field=1 explicit=2 '
                               r'bootstrapMs=(\d+) fieldMs=(\d+) explicitMs=(\d+)', runtime)
             if not paced:
@@ -146,6 +150,7 @@ def main():
                 raise RuntimeError('Low-baud timing did not distinguish automatic and exact deadlines')
             report['low_baud'] = dict(baud=1200, bootstrap_ms=bootstrap_ms, field_ms=field_ms,
                                      explicit_override_ms=80, explicit_cases=2,
+                                     explicit_field_phase='before_handoff',
                                      explicit_completion_ms=explicit_ms)
             report['device_check'] = []
             for index in range(4):
