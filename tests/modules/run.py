@@ -510,6 +510,52 @@ def check_containment(args, out, run, extra_config):
     return result
 
 
+def check_default_install(args, out, run, extra_config, flags):
+    """The ordinary installation must satisfy the standalone Inspector consumer."""
+    directory = out / 'default selection'
+    build, prefix = directory / 'build tree', directory / 'initial install'
+    # Deliberately do not supply TELEMETRY_COMPONENTS: this is the user default.
+    run([args.cmake, '-S', ROOT, '-B', build, '-G', 'Ninja',
+         '-DCMAKE_CXX_COMPILER=' + args.cxx, '-DCMAKE_CXX_FLAGS=' + flags,
+         '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=' + str(prefix),
+         *extra_config], 'default-configure')
+    run([args.cmake, '--build', build, '-j2'], 'default-build')
+    run([args.cmake, '--install', build], 'default-install')
+    relocated = directory / 'relocated install'
+    if relocated.exists():
+        raise RuntimeError('Use a fresh build directory: ' + str(relocated))
+    shutil.move(prefix, relocated)
+    consumer = directory / 'consumer'
+    consumer.mkdir(parents=True)
+    # Reuse the real Resource/TEQ1 dispatch probe; additionally compile the
+    # Inspector/Encoded client headers required by the standalone Qt application.
+    probe = '#include <integration/inspector/InspectorModel.hpp>\n' \
+            '#include <integration/encoded/Backend.hpp>\n' + (HERE / 'Probe.cpp').read_text()
+    (consumer / 'main.cpp').write_text(probe, encoding='utf-8')
+    components = ('inspector', 'encoded_backend', 'encoded_server', 'core', 'tcp_server')
+    code = ['cmake_minimum_required(VERSION 3.20)', 'project(DefaultConsumer LANGUAGES CXX)',
+            'set(CMAKE_EXPORT_COMPILE_COMMANDS ON)',
+            'find_package(Telemetry REQUIRED COMPONENTS ' + ' '.join(components) + ')',
+            'add_executable(probe main.cpp)',
+            'target_compile_definitions(probe PRIVATE MODULE_TCP_SERVER)',
+            'target_link_libraries(probe PRIVATE ' +
+            ' '.join('Telemetry::' + name for name in components) + ')']
+    (consumer / 'CMakeLists.txt').write_text('\n'.join(code) + '\n', encoding='utf-8')
+    downstream = directory / 'downstream'
+    run([args.cmake, '-S', consumer, '-B', downstream, '-G', 'Ninja',
+         '-DCMAKE_CXX_COMPILER=' + args.cxx, '-DCMAKE_CXX_FLAGS=' + flags,
+         '-DTelemetry_DIR=' + str(relocated / 'lib/cmake/Telemetry'),
+         *extra_config], 'default-downstream-configure')
+    run([args.cmake, '--build', downstream, '-j2'], 'default-downstream-build')
+    if not args.arm:
+        run([downstream / ('probe.exe' if os.name == 'nt' else 'probe')], 'default-execute')
+    commands = (downstream / 'compile_commands.json').read_text()
+    if str(ROOT) in commands or str(build) in commands:
+        raise RuntimeError('Default consumer can see source or build tree')
+    return {'components': list(components), 'relocated_consumer': True,
+            'paths_with_spaces': True, 'executed': not args.arm}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', required=True, type=Path)
@@ -563,6 +609,7 @@ def main():
         flags += ' -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer'
     try:
         report['containment'] = check_containment(args, out, run, extra_config)
+        report['default_install'] = check_default_install(args, out, run, extra_config, flags)
         for module in args.modules:
             directory = out / module
             build, prefix = directory / 'build', directory / 'install'

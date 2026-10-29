@@ -41,7 +41,7 @@
 | Власний UART/TCP протокол передає ID та bytes | Каталоги + `index()` **або** `ModelView` adapter; buffers і Workspace | `fieldCatalogs.index().readEncoded(id, output, workspace)` |
 | Треба encode/decode DTO без endpoint-ів | `<telemetry/codec/Codec.hpp>`, object і bytes | `telemetry::decode(bytes, existingObject)` |
 | Клієнт читає файли або ви додаєте settings/log/calibration provider | `resource::FileSystem`; за потреби generic file protocol | `fs[0].read(cursor, output)` |
-| Клієнт має сам дізнатися структуру telemetry | `Model` + Descriptor/Values providers у filesystem | READ `/telemetry/descriptor.bin`, потім READ `/telemetry/values.bin` |
+| Клієнт має сам дізнатися структуру telemetry | `Model` + Descriptor provider; live доступ через Encoded/RPC або окремий Values provider | Отримати Descriptor; далі `DynamicClient::readField()` або READ `/telemetry/values.bin` |
 
 Можна використовувати всі ці варіанти в одному застосунку. Поле лишається
 прив'язаним до того самого getter/setter; спосіб звернення до нього вибираєте
@@ -53,6 +53,10 @@
 ## Крок 2. Підключіть source та include paths
 
 Потрібен C++20. Qt, HAL, RTOS і мережева бібліотека не є залежностями core.
+Для CMake та встановленого пакета спочатку оберіть потрібні
+[Telemetry components](../Modules.md#cmake): targets додають свої include paths
+і залежності самі. Ручні source/include списки нижче призначені для CubeIDE
+та інших build-проєктів, де ви не використовуєте ці targets.
 Збережіть структуру vendor-папок і їхні ліцензії. Для повного telemetry API
 додайте include paths:
 
