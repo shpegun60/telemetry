@@ -688,6 +688,21 @@ void lowBaudDeadlines()
 	elapsed.start();
 	CHECK(fieldClient.refresh());
 	CHECK(shortClient.refresh());
+	CHECK(shortCompleted.isEmpty() && shortField.fieldReads == 0);
+	// Deliberately withhold the owner event loop past the explicit deadline.
+	// qSleep does not dispatch Qt events, so no pump can authorize this request.
+	QTest::qSleep(100);
+	shortClient.pump();
+	std::fprintf(stderr,
+	             "Inspector Serial pre-handoff timeout: busy=%d connected=%d recovery=%d "
+	             "fieldReads=%u\n",
+	             shortClient.busy(), shortClient.connected(),
+	             shortClient.inspector().recoveryRequired(), shortField.fieldReads);
+	CHECK(shortCompleted.count() == 1 && !shortCompleted.last()[0].toBool());
+	CHECK(!shortClient.busy());
+	CHECK(shortClient.connected());
+	CHECK(!shortClient.inspector().recoveryRequired());
+	CHECK(shortField.fieldReads == 0);
 	CHECK(bootstrapClient.connectSerial(bootstrap.path(), 1200));
 	shortPort.setTimeout(80);
 	shortPort.connectTo(shortBootstrap.path(), 1200);
@@ -699,8 +714,8 @@ void lowBaudDeadlines()
 	const auto explicitElapsed = elapsed.elapsed();
 	CHECK(explicitElapsed < 1500);
 	CHECK(shortCompleted.count() == 1 && !shortCompleted.last()[0].toBool());
-	CHECK(!shortClient.busy() && !shortClient.connected() &&
-	      shortClient.inspector().recoveryRequired());
+	CHECK(!shortClient.busy() && shortClient.connected());
+	CHECK(!shortClient.inspector().recoveryRequired());
 	CHECK(shortDescriptors.isEmpty() && !shortPort.ready() && shortPort.locallyQuiescent());
 	CHECK(await(
 	    [&] {
@@ -710,7 +725,7 @@ void lowBaudDeadlines()
 	const auto fieldElapsed = elapsed.elapsed();
 	CHECK(fieldElapsed > 3000); // Actual framed byte pacing crosses the old core deadline.
 	CHECK(completed.count() == 1 && completed.last()[0].toBool() && fieldClient.connected());
-	CHECK(field.fieldReads == 1 && shortField.fieldReads == 1);
+	CHECK(field.fieldReads == 1 && shortField.fieldReads == 0);
 	++reads;
 	auto& values = *qobject_cast<ui::ValueModel*>(fieldClient.values());
 	CHECK(values.rowCount() == 1);
@@ -728,8 +743,10 @@ void lowBaudDeadlines()
 	CHECK(bootstrapElapsed > 5000 && bootstrap.descriptorReads == 1);
 	CHECK(bootstrap.listBarriers == 1 && bootstrap.stats == 1);
 	++admissions;
-	// Both short cases remain terminal even after their late paced frames have elapsed.
+	// No duplicate completion or execution after the Resource peer's late frame.
 	CHECK(shortCompleted.count() == 1 && shortErrors.count() == 1 && shortDescriptors.isEmpty());
+	CHECK(shortField.fieldReads == 0 && shortClient.connected() &&
+	      !shortClient.inspector().recoveryRequired());
 	std::printf("Inspector Serial low-baud: bootstrap=1 field=1 explicit=2 bootstrapMs=%lld "
 	            "fieldMs=%lld explicitMs=%lld\n",
 	            static_cast<long long>(bootstrapElapsed), static_cast<long long>(fieldElapsed),

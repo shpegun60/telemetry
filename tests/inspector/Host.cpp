@@ -352,24 +352,61 @@ static void boundedQueue() noexcept
 
 static void deadlineAndMalformed() noexcept
 {
-	for (const bool sent : {false, true}) {
+	enum class TimeoutPhase {
+		Queued,
+		Offered,
+		Prepared
+	};
+	for (const auto phase : {TimeoutPhase::Queued, TimeoutPhase::Offered, TimeoutPhase::Prepared}) {
 		Encoded fixture;
 		unsigned calls = 0;
+		const auto field = fixture.bind();
 		CHECK(fixture.inspector.readField(
-		    fixture.bind(),
+		    field,
 		    [&](const auto& result) noexcept {
 			    ++calls;
 			    CHECK(result.operation.status == cl::Status::Timeout);
 			    CHECK(!result.published);
 		    },
 		    20));
-		if (sent)
-			fixture.send(fixture.offered(), false);
+		CHECK(fixture.inspector.pending() == 1 && calls == 0 && device.reads == 0);
+		CHECK(!fixture.backend.nextPacket() && !fixture.inspector.recoveryRequired());
+		cl::Packet packet{};
+		if (phase != TimeoutPhase::Queued) {
+			packet = fixture.offered();
+			CHECK(fixture.backend.nextPacket() && calls == 0 && device.reads == 0);
+		}
+		if (phase == TimeoutPhase::Prepared) {
+			// send() checks prepareHandoff() before dispatching the real Model.
+			fixture.send(packet, false);
+			CHECK(!fixture.backend.nextPacket() && device.reads == 1 && calls == 0);
+		}
 		fixture.now = 20;
 		fixture.inspector.process(fixture.now);
+		const bool prepared = phase == TimeoutPhase::Prepared;
+		const auto* name = phase == TimeoutPhase::Queued    ? "queued"
+		                   : phase == TimeoutPhase::Offered ? "offered"
+		                                                    : "prepared";
+		std::printf("Inspector timeout phase=%s callbacks=%u pending=%zu reads=%u recovery=%u\n",
+		            name, calls, fixture.inspector.pending(), device.reads,
+		            unsigned(fixture.inspector.recoveryRequired()));
+		std::fflush(stdout);
 		CHECK(calls == 1 && fixture.inspector.pending() == 0);
-		CHECK(fixture.inspector.recoveryRequired() == sent);
-		CHECK(device.reads == unsigned(sent));
+		CHECK(fixture.inspector.recoveryRequired() == prepared);
+		CHECK(device.reads == unsigned(prepared));
+		CHECK(!fixture.inspector.nextPacket());
+		CHECK(!fixture.inspector.prepareHandoff(fixture.inspector.session(),
+		                                        packet ? packet.requestId : 1));
+		if (prepared) {
+			const auto bytes = en::encoded_wire::headerBytes + field.responseBytes();
+			CHECK(!fixture.inspector.onReply(cl::Input{fixture.reply}.first(bytes), packet.session,
+			                                 packet.requestId));
+		}
+		fixture.now = 100;
+		fixture.inspector.process(fixture.now);
+		CHECK(calls == 1 && fixture.inspector.pending() == 0);
+		CHECK(device.reads == unsigned(prepared));
+		CHECK(fixture.inspector.recoveryRequired() == prepared);
 		CHECK(!fixture.inspector.root());
 		readonlyCounters();
 	}
