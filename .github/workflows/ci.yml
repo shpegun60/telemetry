@@ -43,7 +43,7 @@ jobs:
           python3 -B tests/dynamic_client/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/dynamic-client" "${options[@]}" "${dynamic_options[@]}"
           python3 -B tests/inspector/run.py --cxx '${{ matrix.cxx }}' \
-            --build-dir "$RUNNER_TEMP/inspector" "${options[@]}"
+            --build-dir "$RUNNER_TEMP/inspector" "${options[@]}" "${dynamic_options[@]}"
           python3 -B tests/tcp_stream/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/tcp-stream" "${options[@]}" "${dynamic_options[@]}"
           python3 -B tests/client_module/run.py --cxx '${{ matrix.cxx }}' \

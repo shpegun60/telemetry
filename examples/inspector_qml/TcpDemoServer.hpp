@@ -43,9 +43,13 @@ public:
 	void setDescriptorPath(QString path);
 	void setDescriptorChunkBytes(qsizetype bytes);
 	void setNextReplyOverride(QByteArray bytes);
+	void setWritableDemo(bool writable);
+	void setRejectWrites(bool reject);
 
 	quint64 requests() const noexcept;
 	quint64 fieldReads() const noexcept;
+	quint64 fieldWrites() const noexcept;
+	quint64 nativeWrites() const noexcept;
 	quint64 connections() const noexcept;
 	quint64 receivedBytes() const noexcept;
 	quint64 sentBytes() const noexcept;

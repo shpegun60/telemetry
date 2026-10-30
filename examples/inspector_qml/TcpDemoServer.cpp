@@ -67,12 +67,14 @@ struct TcpDemoServer::Impl {
 		quint64 requestBytes = 0;
 		bool closeAfterReply = false;
 
-		Connection(QByteArray bytes, const QString& name, qsizetype chunk)
-		    : decoy{QByteArrayLiteral("Telemetry demo version 1"), 256},
+		Connection(QByteArray bytes, const QString& name, qsizetype chunk, bool writable,
+		           bool rejectWrites)
+		    : peer(writable), decoy{QByteArrayLiteral("Telemetry demo version 1"), 256},
 		      descriptor{std::move(bytes), chunk}, path(name.toUtf8().toStdString()),
 		      files(resource::filesystem(resource::file("/device/version.bin", decoy),
 		                                 resource::file(std::string_view{path}, descriptor)))
 		{
+			peer.setRejectWrites(rejectWrites);
 			server = peer.makeTcpServer(files.view(), rx, tx);
 		}
 	};
@@ -88,8 +90,9 @@ struct TcpDemoServer::Impl {
 	qsizetype fragmentBytes = 0, closeRequestBytes = 0, closeReplyBytes = 0, descriptorChunk = 256;
 	int fragmentInterval = 0, replyDelay = 0;
 	bool descriptorOverridden = false, dropEncoded = false, prependPrevious = false,
-	     unavailable = false;
-	quint64 generation = 0, totalRequests = 0, totalReads = 0, totalConnections = 0;
+	     unavailable = false, writableDemo = false, rejectWrites = false;
+	quint64 generation = 0, totalRequests = 0, totalReads = 0, totalWrites = 0,
+	        totalNativeWrites = 0, totalConnections = 0;
 	quint64 received = 0, sent = 0;
 	QVector<quint32> resourceIndices;
 
@@ -108,7 +111,7 @@ struct TcpDemoServer::Impl {
 	{
 		if (descriptorOverridden)
 			return descriptorOverride;
-		DemoPeer peer;
+		DemoPeer peer{writableDemo};
 		const auto bytes = peer.descriptor();
 		return {reinterpret_cast<const char*>(bytes.data()), static_cast<qsizetype>(bytes.size())};
 	}
@@ -141,8 +144,8 @@ struct TcpDemoServer::Impl {
 			++generation;
 			++totalConnections;
 			socket = candidate;
-			connection =
-			    std::make_unique<Connection>(descriptorBytes(), descriptorPath, descriptorChunk);
+			connection = std::make_unique<Connection>(descriptorBytes(), descriptorPath,
+			                                          descriptorChunk, writableDemo, rejectWrites);
 			const auto admitted = generation;
 			QObject::connect(candidate, &QTcpSocket::readyRead, owner, [this, admitted] {
 				if (generation == admitted)
@@ -194,7 +197,9 @@ struct TcpDemoServer::Impl {
 				}
 			}
 			const auto offered = input(state.pending).first(static_cast<std::size_t>(available));
+			const auto previousWrites = state.peer.writeCount();
 			const auto result = state.server->receive(offered);
+			totalNativeWrites += state.peer.writeCount() - previousWrites;
 			const auto used = static_cast<qsizetype>(result.consumed);
 			if (used > available) {
 				retire();
@@ -214,8 +219,14 @@ struct TcpDemoServer::Impl {
 			if (result.status == tcp::Status::Ready) {
 				++totalRequests;
 				const bool encoded = state.requestPrefix.startsWith("TEQ1");
-				if (encoded && state.requestPrefix.size() >= 7 && state.requestPrefix[6] == char(4))
+				if (encoded && state.requestPrefix.size() >= 7 &&
+				    state.requestPrefix[6] ==
+				        static_cast<char>(telemetry::protocol::encoded::Operation::FieldRead))
 					++totalReads;
+				if (encoded && state.requestPrefix.size() >= 7 &&
+				    state.requestPrefix[6] ==
+				        static_cast<char>(telemetry::protocol::encoded::Operation::FieldWrite))
+					++totalWrites;
 				if (!encoded && state.requestPrefix.size() >= 5 &&
 				    state.requestPrefix[0] == char(3))
 					resourceIndices.push_back(little32(state.requestPrefix, 1));
@@ -401,6 +412,19 @@ void TcpDemoServer::setNextReplyOverride(QByteArray bytes)
 	impl_->replyOverride = std::move(bytes);
 }
 
+void TcpDemoServer::setWritableDemo(bool writable)
+{
+	impl_->retire();
+	impl_->writableDemo = writable;
+}
+
+void TcpDemoServer::setRejectWrites(bool reject)
+{
+	impl_->rejectWrites = reject;
+	if (impl_->connection)
+		impl_->connection->peer.setRejectWrites(reject);
+}
+
 quint64 TcpDemoServer::requests() const noexcept
 {
 	return impl_->totalRequests;
@@ -409,6 +433,16 @@ quint64 TcpDemoServer::requests() const noexcept
 quint64 TcpDemoServer::fieldReads() const noexcept
 {
 	return impl_->totalReads;
+}
+
+quint64 TcpDemoServer::fieldWrites() const noexcept
+{
+	return impl_->totalWrites;
+}
+
+quint64 TcpDemoServer::nativeWrites() const noexcept
+{
+	return impl_->totalNativeWrites;
 }
 
 quint64 TcpDemoServer::connections() const noexcept

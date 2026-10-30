@@ -1,4 +1,4 @@
-# Read-only Qt/QML Universal Inspector
+# Qt/QML Universal Inspector and FieldWrite Workbench
 
 This application displays a Descriptor v3 without a generated SDK. It builds on
 the portable [InspectorModel](../../doc/InspectorModel.md), keeps one selected
@@ -28,7 +28,7 @@ inspector_exe=/tmp/telemetry-inspector-qml/telemetry-inspector-qml
 ```
 
 The CMake project uses installed Telemetry components when found; otherwise it
-builds only `inspector`, `encoded_backend`, `encoded_server`, `tcp_server`, `core`
+builds only `workbench`, `inspector`, `encoded_backend`, `encoded_server`, `tcp_server`, `core`
 and their dependencies from this repository. Qt stays in this host application.
 An installed package must contain every selected component. Use
 `-DCMAKE_DISABLE_FIND_PACKAGE_Telemetry=ON` to explicitly choose this checkout
@@ -77,6 +77,50 @@ To export or inspect a reproducible Descriptor:
 
 The demo exposes `measure.Voltage`, exact `device.Counter`/`device.Offset`, an
 unknown signed enum, a 16,384-element array, an empty struct and nested arrays.
+
+## Read, edit, write and refresh
+
+Choose **Writable demo** for a local editable Model, expand Fields / device and
+select `Config`. Press **Refresh**, then **Edit**. Edit scalar leaves of the
+structure or its arrays as text. Valid keyboard input updates the draft while
+you type; **Apply + Refresh** includes the focused editor without requiring Enter.
+**Cancel**
+discards the draft. **Apply + Refresh** writes once, then reads the device again;
+the displayed result comes from that readback. For example, the demo setter
+limits `Gain` to 10, so entering 12 shows 10 after a successful Apply.
+
+The default Demo remains read-only. For TCP, **Enable Field writes for this
+connection** is an explicit opt-in, cleared on reconnect. The Descriptor must
+also advertise write permission. Imported files provide metadata only. The
+current UART/Nucleo profile remains read-only, even if imported metadata contains
+writable Fields. Commands and Services are still discovery-only.
+
+U64/S64 and enum codes stay decimal strings; they never pass through QML Number.
+Boolean input accepts `true`, `false`, `0` or `1`. Invalid text or an out-of-range
+number leaves the draft unchanged and disables Apply until corrected. Unedited
+floating-point bytes, including NaN payloads and negative zero, remain intact.
+This example permits editing at most 4096 bytes per value; larger read snapshots
+remain browsable up to the existing 65,536-byte bound.
+
+A confirmed Write followed by a failed Refresh is reported as applied with
+unconfirmed readback. An uncertain Write is never automatically replayed. The
+normal transport recovery policy still applies. This is read-modify-write,
+without a compare-and-write guarantee against another writer.
+
+Explicit Disconnect completes an accepted Apply once: Cancelled before handoff,
+OutcomeUnknown after uncertain handoff, or a known successful Write with
+unconfirmed readback. It clears the cache and preserves the terminal write
+message. The controller also retains these outcomes during connection replacement;
+it never replays the write as part of reconnect.
+
+After a new session is admitted, the retained outcome is labelled
+`Previous session X (current session Y)`. Its original result, including
+OutcomeUnknown, remains visible as history. A newly accepted Apply replaces
+that history with its own Pending/result; a refused Apply leaves it intact.
+
+The portable [Workbench contract and API](../../doc/Workbench.md) describe its
+single-client ownership, draft storage and independent operation results.
+
 ## TCP connection and Descriptor discovery
 
 Enter the device address and TCP port in the window, or launch directly:
@@ -226,7 +270,8 @@ still needs its own checks.
 ## Ownership and shutdown
 
 The controller owns descriptor bytes, runtime indexes, the workspace control
-object, backend storage and one portable Inspector. Models copy labels and scalar
+object, backend storage and one portable Workbench containing the sole Inspector
+and DynamicClient. Models copy labels and scalar
 text into Qt-owned storage; they retain sealed handles, never borrowed callback
 views. U64/S64 and enum codes remain decimal strings all the way into QML.
 Floating-point display preserves negative zero and identifies NaN; display text
@@ -267,6 +312,10 @@ delegates. `--smoke --screenshot FILE.png` also saves the rendered window. Windo
 offscreen qualification supplies the OS font directory explicitly; the normal
 native window uses platform fonts. Offscreen CI does not qualify every display
 server or physical hardware.
+
+`--edit-smoke --screenshot FILE.png` exercises the actual QML Edit button,
+TextField handler and Apply button against the writable native demo. Success
+requires one Write and a published readback with the normalized Gain value 10.
 
 The [TCP suite](../../tests/inspector_tcp/README.md) additionally runs real
 loopback sockets, fragmented discovery and reads, disconnects, partial writes,

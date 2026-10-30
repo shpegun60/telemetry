@@ -138,7 +138,6 @@ void realSocketReads()
 	peer.setReplyFragmentBytes(7);
 	CHECK(peer.listen());
 	Client client;
-	client.controller.setTcpWriteChunkBytes(3);
 	client.connect(peer);
 	const auto indices = peer.resourceReadIndices();
 	CHECK(indices.size() > 1);
@@ -199,6 +198,7 @@ void connectionBoundaries()
 	ui::TcpDemoServer peer;
 	CHECK(peer.listen());
 	Client client;
+	client.controller.setTcpWriteChunkBytes(3);
 	client.connect(peer);
 	client.read(65536);
 	peer.setPrependPreviousEncodedReply();
@@ -526,11 +526,180 @@ void oneClientAndInvalidStream()
 	}));
 	CHECK(!peer.hasClient());
 }
+
+void writableSocketCycle()
+{
+	ui::TcpDemoServer peer;
+	peer.setWritableDemo(true);
+	peer.setReplyFragmentBytes(3);
+	CHECK(peer.listen());
+	Client client;
+	client.controller.setTcpWriteChunkBytes(3);
+	client.connect(peer);
+	client.read(0);
+	const auto config = endpoint(client.endpoints, 1, 0);
+	CHECK(client.endpoints.endpoint(config).value("writable").toBool());
+	CHECK(client.controller.writeProfileSupported() && !client.controller.writesEnabled());
+	CHECK(!client.controller.beginEdit() && peer.fieldWrites() == 0);
+	client.controller.setWritesEnabled(true);
+	QSignalSpy applied{&client.controller, &ui::InspectorController::applyFinished};
+	const auto editGain = [&](const QString& value) {
+		CHECK(client.controller.beginEdit());
+		const auto root = client.values.index(0, 0);
+		CHECK(client.controller.setScalarText(named(client.values, root, QStringLiteral("Gain")),
+		                                      value));
+	};
+	const auto apply = [&] {
+		const auto before = applied.count();
+		CHECK(client.controller.apply() && !client.controller.apply());
+		CHECK(await([&] {
+			return applied.count() == before + 1;
+		}));
+		CHECK(!client.controller.busy());
+	};
+	editGain(QStringLiteral("25"));
+	apply();
+	CHECK(applied.last()[0].toBool() && peer.fieldWrites() == 1 && peer.nativeWrites() == 1 &&
+	      peer.fieldReads() == 2);
+	CHECK(client.values
+	          .data(named(client.values, client.values.index(0, 0), QStringLiteral("Gain")),
+	                ui::ValueModel::ValueRole)
+	          .toString() == QStringLiteral("10"));
+	CHECK(client.controller.connected() &&
+	      client.controller.writeOutcome().contains(QStringLiteral("confirmed")));
+	client.controller.setTcpWriteChunkBytes(0);
+	++reads;
+	editGain(QStringLiteral("6"));
+	peer.setNextFieldReadUnavailable();
+	apply();
+	CHECK(!applied.last()[0].toBool() && peer.fieldWrites() == 2 && peer.fieldReads() == 3);
+	CHECK(client.controller.connected() && client.values.rowCount() == 0);
+	CHECK(client.controller.writeOutcome().contains(QStringLiteral("unconfirmed")));
+	CHECK(client.controller.writeOutcome().contains(QStringLiteral("dispatch 9")));
+	client.read(0);
+	CHECK(client.values
+	          .data(named(client.values, client.values.index(0, 0), QStringLiteral("Gain")),
+	                ui::ValueModel::ValueRole)
+	          .toString() == QStringLiteral("6"));
+	editGain(QStringLiteral("7"));
+	peer.setRejectWrites(true);
+	const auto beforeRefusal = peer.fieldReads();
+	apply();
+	CHECK(!applied.last()[0].toBool() && peer.fieldWrites() == 3 &&
+	      peer.fieldReads() == beforeRefusal);
+	CHECK(client.controller.connected() && client.values.rowCount() == 0);
+	peer.setRejectWrites(false);
+	client.read(0);
+	editGain(QStringLiteral("8"));
+	peer.setDropNextEncodedReply();
+	client.controller.setReadTimeout(80);
+	apply();
+	CHECK(!applied.last()[0].toBool() && peer.fieldWrites() == 4 && peer.nativeWrites() == 4);
+	CHECK(!client.controller.connected() && client.values.rowCount() == 0);
+	CHECK(client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+	QTest::qWait(120);
+	client.controller.pump();
+	CHECK(peer.fieldWrites() == 4 && peer.nativeWrites() == 4 && applied.count() == 4);
+	CHECK(await([&] {
+		return !peer.hasClient();
+	}));
+	client.connect(peer);
+	CHECK(!client.controller.cleanupPending() && !client.controller.writesEnabled());
+	CHECK(peer.nativeWrites() == 4); // Fresh bootstrap did not replay the uncertain mutation.
+	client.read(0);
+	client.controller.setWritesEnabled(true);
+	editGain(QStringLiteral("9"));
+	peer.setReplyFragmentBytes(0);
+	peer.setCloseAfterReplyBytes(
+	    32); // A complete write ACK precedes EOF; readback remains unconfirmed.
+	apply();
+	CHECK(!applied.last()[0].toBool() && peer.fieldWrites() == 5);
+	CHECK(client.controller.writeOutcome().contains(QStringLiteral("Write applied")));
+	CHECK(!client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+	CHECK(client.values.rowCount() == 0);
+}
+
+void explicitDisconnectWrites()
+{
+	for (const bool confirmedWrite : {false, true}) {
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		CHECK(peer.listen());
+		Client client;
+		client.connect(peer);
+		client.read(0);
+		client.controller.setWritesEnabled(true);
+		client.controller.setReadTimeout(30000);
+		QSignalSpy applied{&client.controller, &ui::InspectorController::applyFinished};
+		CHECK(client.controller.beginEdit());
+		CHECK(client.controller.setScalarText(
+		    named(client.values, client.values.index(0, 0), QStringLiteral("Gain")),
+		    QStringLiteral("8")));
+		if (confirmedWrite)
+			peer.setReplyDelay(100); // Keep each ACK/readback observable; phase below is the proof.
+		else
+			peer.setDropNextEncodedReply();
+		CHECK(client.controller.apply());
+		// Setter execution proves the mutation request passed prepareHandoff and
+		// reached the native dispatcher; elapsed wall-clock time is not that proof.
+		CHECK(await([&] {
+			return peer.nativeWrites() == 1;
+		}));
+		CHECK(peer.fieldWrites() == 1 && client.controller.busy() && applied.isEmpty());
+		if (confirmedWrite) {
+			// The Write reply has already been built. Drop the subsequent readback
+			// reply, then wait for the Workbench's actual confirmed-Write phase.
+			peer.setDropNextEncodedReply();
+			CHECK(await([&] {
+				return client.controller.inspector().phase() ==
+				       telemetry::integration::workbench::Phase::Refreshing;
+			}));
+			CHECK(client.controller.busy() && applied.isEmpty());
+		} else {
+			CHECK(client.controller.inspector().phase() ==
+			      telemetry::integration::workbench::Phase::Writing);
+		}
+		client.controller.disconnectDevice();
+		std::fprintf(
+		    stderr,
+		    "TCP explicit disconnect phase=%s callbacks=%lld busy=%d outcome=%s writes=%llu\n",
+		    confirmedWrite ? "confirmed-write" : "prepared-lost-ack",
+		    static_cast<long long>(applied.count()), int(client.controller.busy()),
+		    qPrintable(client.controller.writeOutcome()),
+		    static_cast<unsigned long long>(peer.nativeWrites()));
+		CHECK(applied.count() == 1 && !applied.last()[0].toBool());
+		CHECK(!client.controller.connected() && !client.controller.busy());
+		CHECK(client.values.rowCount() == 0 && client.endpoints.rowCount() == 0);
+		CHECK(!client.controller.writeOutcome().contains(QStringLiteral("Pending")));
+		if (confirmedWrite) {
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("Write applied")));
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("unconfirmed")));
+			CHECK(!client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+		} else {
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+			CHECK(client.controller.cleanupPending());
+		}
+		client.controller.disconnectDevice();
+		CHECK(applied.count() == 1 && peer.nativeWrites() == 1);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		peer.setReplyDelay(0);
+		peer.setDropNextEncodedReply(false);
+		client.connect(peer);
+		CHECK(!client.controller.cleanupPending() && !client.controller.writesEnabled());
+		CHECK(peer.nativeWrites() == 1 && peer.fieldWrites() == 1 && applied.count() == 1);
+		client.read(0);
+		CHECK(peer.nativeWrites() == 1 && peer.fieldWrites() == 1 && applied.count() == 1);
+		client.controller.disconnectDevice();
+	}
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
 	QGuiApplication application{argc, argv};
+	explicitDisconnectWrites();
 	realSocketReads();
 	connectionBoundaries();
 	descriptorReplacement();
@@ -540,6 +709,7 @@ int main(int argc, char** argv)
 	transportObjectReuse();
 	discoveryRefusals();
 	oneClientAndInvalidStream();
+	writableSocketCycle();
 	std::printf("Inspector TCP checks=%u reads=%u connections=%u Qt=%s\n", checks, reads,
 	            connections, qVersion());
 	return 0;

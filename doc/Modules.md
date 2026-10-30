@@ -55,6 +55,7 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
+| FieldWrite Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
 | Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
@@ -87,12 +88,12 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `inspector` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `inspector`, `workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
-The default root build includes the Inspector and TCP components. Set
+The default root build includes the Inspector, Workbench and TCP components. Set
 `TELEMETRY_COMPONENTS` explicitly to build and install a smaller selection.
 `rpc_server` supplies the mailbox provider with `core`, `resource` and `rpc_wire`;
 it does not compile the generic Resource packet processor. `rpc_sessions` adds
@@ -105,6 +106,9 @@ See [Runtime schema](RuntimeSchema.md) for workspace and borrowed-buffer lifetim
 The optional `dynamic_client` component binds `runtime` to `client`, privately
 using the existing FIFO. It includes no Model, wire parser, Resource or Qt;
 choose a transport backend separately. See [Using DynamicClient](DynamicClientUsage.md).
+The optional `workbench` component reuses Inspector ownership and the same client
+FIFO for transactional Field edits and Write/Refresh. It has no Qt, native Model
+or concrete backend dependency. See [FieldWrite Workbench](Workbench.md).
 The optional `inspector` component adds a bounded, owned snapshot and lazy value
 navigation to `dynamic_client`. It lists all endpoint categories but issues only
 FieldRead operations. It has no Qt, Resource, native Model or concrete transport

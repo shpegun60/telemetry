@@ -1,6 +1,6 @@
 /*
  * @file main.cpp
- * @brief Launch the read-only runtime QML inspector or qualify its actual window and transport.
+ * @brief Launch the runtime QML Inspector and qualify read/edit controls and transport.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -19,13 +19,28 @@
 #include <algorithm>
 #include <cstdio>
 
+namespace {
+QQuickItem* findVisual(QQuickItem* parent, const QString& objectName, const QString& scalar = {})
+{
+	if (parent->objectName() == objectName && parent->isVisible() && parent->width() > 0 &&
+	    parent->height() > 0 &&
+	    (scalar.isEmpty() || parent->property("scalarName").toString() == scalar))
+		return parent;
+	for (auto* child : parent->childItems())
+		if (auto* found = findVisual(child, objectName, scalar))
+			return found;
+	return nullptr;
+}
+} // namespace
+
 int main(int argc, char** argv)
 {
 	QGuiApplication app(argc, argv);
 	QQuickStyle::setStyle(QStringLiteral("Basic"));
 	QCoreApplication::setApplicationName(QStringLiteral("Telemetry Inspector"));
 	QCommandLineParser options;
-	options.setApplicationDescription(QStringLiteral("Read-only runtime Telemetry Inspector"));
+	options.setApplicationDescription(
+	    QStringLiteral("Runtime Telemetry Inspector with optional Field editing"));
 	options.addHelpOption();
 	options.addOption(
 	    {QStringLiteral("check-device"),
@@ -45,6 +60,10 @@ int main(int argc, char** argv)
 	                   QStringLiteral("port")});
 	options.addOption({QStringLiteral("smoke"),
 	                   QStringLiteral("Read a real demo Field and verify the QML window.")});
+	options.addOption(
+	    {QStringLiteral("edit-smoke"),
+	     QStringLiteral(
+	         "Edit, apply and read back the writable demo through actual QML controls.")});
 	options.addOption({QStringLiteral("screenshot"),
 	                   QStringLiteral("Save the smoke-test window as a PNG."),
 	                   QStringLiteral("file")});
@@ -55,6 +74,15 @@ int main(int argc, char** argv)
 	                   QStringLiteral("Export the demo Descriptor and exit."),
 	                   QStringLiteral("file")});
 	options.process(app);
+	const bool editSmoke = options.isSet(QStringLiteral("edit-smoke"));
+	if (editSmoke &&
+	    (options.isSet(QStringLiteral("smoke")) || options.isSet(QStringLiteral("serial")) ||
+	     options.isSet(QStringLiteral("tcp")) || options.isSet(QStringLiteral("descriptor")) ||
+	     options.isSet(QStringLiteral("check-device")) ||
+	     options.isSet(QStringLiteral("serve-demo")))) {
+		std::fprintf(stderr, "--edit-smoke uses only the writable host demo\n");
+		return 1;
+	}
 	if (options.isSet(QStringLiteral("check-device")) &&
 	    (!options.isSet(QStringLiteral("serial")) || options.isSet(QStringLiteral("smoke")) ||
 	     options.isSet(QStringLiteral("serve-demo")) ||
@@ -106,7 +134,8 @@ int main(int argc, char** argv)
 	    : options.isSet(QStringLiteral("descriptor"))
 	        ? controller.loadDescriptor(
 	              QUrl::fromLocalFile(options.value(QStringLiteral("descriptor"))))
-	        : controller.connectDemo();
+	    : editSmoke ? controller.connectWritableDemo()
+	                : controller.connectDemo();
 	if (!connected) {
 		std::fprintf(stderr, "%s\n", qPrintable(controller.statusText()));
 		return 1;
@@ -125,6 +154,83 @@ int main(int argc, char** argv)
 		return 2;
 	QObject::connect(&app, &QCoreApplication::aboutToQuit, &controller,
 	                 &inspector_qml::InspectorController::disconnectDevice);
+	if (editSmoke) {
+		QObject::connect(
+		    &controller, &inspector_qml::InspectorController::readFinished, &app,
+		    [&](bool published) {
+			    if (!published) {
+				    app.exit(20);
+				    return;
+			    }
+			    QTimer::singleShot(150, &app, [&] {
+				    auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+				    auto* button =
+				        window ? findVisual(window->contentItem(), QStringLiteral("editButton"))
+				               : nullptr;
+				    if (!button || !button->isEnabled() ||
+				        !QMetaObject::invokeMethod(button, "clicked")) {
+					    app.exit(21);
+					    return;
+				    }
+				    QTimer::singleShot(150, &app, [&] {
+					    auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+					    auto* editor = window ? findVisual(window->contentItem(),
+					                                       QStringLiteral("scalarEditor"),
+					                                       QStringLiteral("Gain"))
+					                          : nullptr;
+					    auto* apply = window ? findVisual(window->contentItem(),
+					                                      QStringLiteral("applyButton"))
+					                         : nullptr;
+					    if (!editor || !editor->setProperty("text", QStringLiteral("25")) ||
+					        !QMetaObject::invokeMethod(editor, "editingFinished") || !apply ||
+					        !apply->isEnabled() || !QMetaObject::invokeMethod(apply, "clicked"))
+						    app.exit(22);
+				    });
+			    });
+		    });
+		QObject::connect(
+		    &controller, &inspector_qml::InspectorController::applyFinished, &app,
+		    [&](bool confirmed) {
+			    if (!confirmed || controller.demoWriteCount() != 1 || controller.editing()) {
+				    app.exit(23);
+				    return;
+			    }
+			    QTimer::singleShot(150, &app, [&] {
+				    auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+				    const auto findGain = [&](auto&& self, QQuickItem* item) -> bool {
+					    if (item->objectName() == QStringLiteral("valueRow") && item->isVisible() &&
+					        item->property("name").toString() == QStringLiteral("Gain") &&
+					        item->property("value").toString() == QStringLiteral("10"))
+						    return true;
+					    for (auto* child : item->childItems())
+						    if (self(self, child))
+							    return true;
+					    return false;
+				    };
+				    if (!window || !findGain(findGain, window->contentItem()) || qmlWarnings) {
+					    app.exit(24);
+					    return;
+				    }
+				    if (options.isSet(QStringLiteral("screenshot")) &&
+				        !window->grabWindow().save(options.value(QStringLiteral("screenshot")))) {
+					    app.exit(25);
+					    return;
+				    }
+				    std::printf(
+				        "Inspector QML edit smoke: writes=1 refreshed=1 gain=10 controls=Edit,TextField,Apply\n");
+				    app.exit(0);
+			    });
+		    });
+		QTimer::singleShot(0, &controller, [&] {
+			auto* model = controller.endpoints();
+			const auto catalog = model->index(0, 0, model->index(0, 0));
+			if (!controller.selectEndpoint(model->index(0, 0, catalog)) || !controller.refresh())
+				app.exit(26);
+		});
+		QTimer::singleShot(15000, &app, [&] {
+			app.exit(27);
+		});
+	}
 	if (options.isSet(QStringLiteral("smoke"))) {
 		QObject::connect(
 		    &controller, &inspector_qml::InspectorController::readFinished, &app,

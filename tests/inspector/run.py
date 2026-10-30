@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify the bounded read-only Inspector with real native Encoded/RPC (MIT)."""
+"""Qualify shared snapshots, Inspector and FieldWrite Workbench with real Encoded/RPC (MIT)."""
 import argparse
 import hashlib
 import json
@@ -78,9 +78,10 @@ def main():
             raise RuntimeError(label + ': runtime check floor not reached')
         report['executions'][label] = int(match[1])
 
-    def timeout_phases(label, output):
-        observed = re.findall(r'Inspector timeout phase=(queued|offered|prepared) '
-                              r'callbacks=(\d+) pending=(\d+) reads=(\d+) recovery=(\d+)', output)
+    def timeout_phases(label, output, workbench=False):
+        owner, side_effect = ('Workbench', 'writes') if workbench else ('Inspector', 'reads')
+        observed = re.findall(owner + r' timeout phase=(queued|offered|prepared) '
+                              r'callbacks=(\d+) pending=(\d+) ' + side_effect + r'=(\d+) recovery=(\d+)', output)
         expected = [('queued', '1', '0', '0', '0'), ('offered', '1', '0', '0', '0'),
                     ('prepared', '1', '0', '1', '1')]
         if observed != expected:
@@ -99,6 +100,9 @@ def main():
     inputs.update(path for path in HERE.rglob('*') if path.is_file() and '__pycache__' not in path.parts)
     inputs.update(path for path in (ROOT / 'cmake').rglob('*') if path.is_file())
     inputs.update(path for path in (ROOT / 'examples/inspector').rglob('*') if path.is_file())
+    for folder in ('tests/workbench', 'lib/integration/workbench'):
+        inputs.update(path for path in (ROOT / folder).rglob('*')
+                      if path.is_file() and '__pycache__' not in path.parts)
     for path in (ROOT / 'lib/integration/inspector/inspector.pri',
                  ROOT / 'lib/integration/dynamic/dynamic.pri', ROOT / 'lib/client/client.pri',
                  ROOT / 'lib/telemetry/runtime/runtime.pri'):
@@ -127,11 +131,16 @@ def main():
         isolated = run('standalone-dependencies', flags + ['-MM', HERE / 'Standalone.cpp'])
         if re.search(r'(?:^|[/\\])(?:resource|reflection|boost_pfr|magic_enum|wire)[/\\]', isolated):
             raise RuntimeError('Inspector has an unwanted Native, Resource or transport dependency')
-        sources = [HERE / name for name in ('Host.cpp', 'Lifetime.cpp', 'Negative.cpp', 'NoHeap.cpp')]
+        workbench = ROOT / 'tests/workbench'
+        workbench_isolated = run('workbench-standalone-dependencies', flags + ['-MM', workbench / 'Standalone.cpp'])
+        if re.search(r'(?:^|[/\\])(?:resource|reflection|boost_pfr|magic_enum|wire)[/\\]', workbench_isolated):
+            raise RuntimeError('Workbench has an unwanted Native, Resource or transport dependency')
+        sources = [HERE / name for name in ('Host.cpp', 'Lifetime.cpp', 'Negative.cpp', 'NoHeap.cpp', 'Snapshot.cpp')]
+        sources += [workbench / name for name in ('Host.cpp', 'NoHeap.cpp', 'Standalone.cpp', 'Negative.cpp')]
         example = ROOT / 'examples/inspector/Host.cpp'
         if example.is_file():
             sources.append(example)
-        dependencies = [isolated] + [run('dependencies-' + str(index), flags + includes + ['-MM', source])
+        dependencies = [isolated, workbench_isolated] + [run('dependencies-' + str(index), flags + includes + ['-MM', source])
                                      for index, source in enumerate(sources + implementation)]
         for text in dependencies:
             for part in shlex.split(text.replace('\\\n', ' '), posix=os.name != 'nt')[1:]:
@@ -147,6 +156,8 @@ def main():
         timeout_phases('Host', output)
         lifetime = build('Lifetime', HERE / 'Lifetime.cpp', native_link=True)
         count('Lifetime', run('execute-Lifetime', [lifetime]), 348)
+        snapshot_test = build('Snapshot', HERE / 'Snapshot.cpp', native_link=True)
+        count('Snapshot', run('execute-Snapshot', [snapshot_test]), 516)
         # Allocation traps run without ASan replacement allocators, even in a sanitizer profile.
         noheap = build('NoHeap', HERE / 'NoHeap.cpp', native_link=True, allocation_trap=True)
         output = run('execute-NoHeap', [noheap])
@@ -167,6 +178,30 @@ def main():
         for macro in refusals:
             run('negative-' + macro, flags + ['-DINSPECTOR_' + macro, '-fsyntax-only', HERE / 'Negative.cpp'], failure=True)
         report['negative_compile_refusals'] = len(refusals)
+        workbench_host = build('WorkbenchHost', workbench / 'Host.cpp', native_link=True)
+        output = run('execute-WorkbenchHost', [workbench_host])
+        count('WorkbenchHost', output, 1647)
+        timeout_phases('WorkbenchHost', output, workbench=True)
+        workbench_noheap = build('WorkbenchNoHeap', workbench / 'NoHeap.cpp', native_link=True,
+                                allocation_trap=True)
+        output = run('execute-WorkbenchNoHeap', [workbench_noheap])
+        count('WorkbenchNoHeap', output, report['executions']['WorkbenchHost'])
+        timeout_phases('WorkbenchNoHeap', output, workbench=True)
+        workbench_control = build('WorkbenchNoHeapControl', workbench / 'NoHeap.cpp',
+                                  ['-DWORKBENCH_HEAP_CONTROL=1'], native_link=True, allocation_trap=True)
+        output = run('execute-WorkbenchNoHeapControl', [workbench_control], expected=86)
+        if 'workbench heap allocation refused' not in output:
+            raise RuntimeError('Workbench allocation negative control did not reach its trap')
+        report['workbench_noheap_negative_exit'] = 86
+        workbench_standalone = build('WorkbenchStandalone', workbench / 'Standalone.cpp')
+        run('execute-WorkbenchStandalone', [workbench_standalone])
+        workbench_positive = build('WorkbenchNegativePositiveControl', workbench / 'Negative.cpp')
+        run('execute-WorkbenchNegativePositiveControl', [workbench_positive])
+        workbench_refusals = ('COMMAND', 'SERVICE', 'CLIENT', 'CORE', 'RAW', 'INSPECTOR', 'NULL_CALLBACK')
+        for macro in workbench_refusals:
+            run('workbench-negative-' + macro, flags + ['-DWORKBENCH_' + macro, '-fsyntax-only',
+                                                       workbench / 'Negative.cpp'], failure=True)
+        report['workbench_negative_compile_refusals'] = len(workbench_refusals)
         if example.is_file():
             demo = build('Example', example, native_link=True)
             run('execute-Example', [demo])
@@ -208,6 +243,18 @@ def main():
                 raise RuntimeError('Offline ARM probe references heap allocation')
             report['offline_arm'] = dict(compiled=True, executed=False, allocation_symbols=0,
                                          stack_usage={path.name: path.read_text() for path in out.glob('*.su')})
+            workbench_image = out / 'workbench-arm.o'
+            run('workbench-offline-arm-compile', [arm, '-std=c++20', '-O2', '-Wall', '-Wextra', '-Werror',
+                                                 '-pedantic-errors', '-Ilib', '-mcpu=cortex-m7', '-mthumb',
+                                                 '-fno-exceptions', '-fno-rtti', '-fstack-usage',
+                                                 '-DTINY_DELEGATE_ENABLE_HEAP_FALLBACK=0',
+                                                 '-c', workbench / 'Standalone.cpp', '-o', workbench_image])
+            workbench_symbols = run('workbench-offline-arm-symbols', [nm, '-uC', workbench_image])
+            if re.search(r'operator new|operator delete|\b(?:malloc|calloc|realloc|free)\b', workbench_symbols):
+                raise RuntimeError('Offline Workbench probe references heap allocation')
+            report['workbench_offline_arm'] = dict(compiled=True, executed=False, allocation_symbols=0,
+                                                   stack_usage={path.name: path.read_text()
+                                                                for path in out.glob('workbench*.su')})
         report['source_sha256_after'] = snapshot()
         if report['source_sha256_before'] != report['source_sha256_after']:
             raise RuntimeError('Source inputs changed during qualification')

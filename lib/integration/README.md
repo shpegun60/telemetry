@@ -15,6 +15,7 @@ remain under `lib/integration`.
 | --- | --- | --- | --- |
 | `dynamic_client` | `integration/dynamic/DynamicClient.hpp` | `runtime`, `client` | Runtime endpoint checks over the existing DeviceClient FIFO |
 | `inspector` | `integration/inspector/InspectorModel.hpp` | `dynamic_client` | Read-only discovery and one owned selected-Field snapshot |
+| `workbench` | `integration/workbench/WorkbenchModel.hpp` | `inspector` | Fixed-storage Field editing and one Write/Refresh workflow on the same FIFO |
 | `encoded_backend` | `integration/encoded/Backend.hpp`, `integration/encoded/RetryingBackend.hpp` | `client`, `encoded_wire` | Client-side TEQ1 packets, with optional explicit retries |
 | `rpc_backend` | `integration/rpc/Backend.hpp` | `client`, `rpc_client` | Adapt the existing one-mailbox RPC engine to DeviceClient |
 | `encoded_server` | `integration/encoded/Dispatcher.hpp` | `core`, `encoded_wire` | Validate a TEQ1 envelope and invoke the existing core dispatcher |
@@ -57,7 +58,7 @@ target_link_libraries(my_app PRIVATE
 Dependencies in the table are selected automatically. `core` is needed when the
 application owns a native Model; a remote-only DynamicClient does not need it.
 Use `inspector` instead of `dynamic_client` for the read-only browser facade.
-The default root installation includes Inspector and TCP; explicit component
+The default root installation includes Inspector, Workbench and TCP; explicit component
 selection keeps smaller applications independent. Installed targets export only
 their selected component headers and dependencies.
 
@@ -84,6 +85,8 @@ include(path/to/telemetry/lib/integration/integration.pri)
 ```
 
 For Inspector, replace `dynamic/dynamic.pri` with `inspector/inspector.pri`.
+For FieldWrite Workbench, use `workbench/workbench.pri` and select a backend in
+the same way. The existing Inspector API remains read-only.
 For the native RPC engine without DeviceClient, select
 `CONFIG += telemetry_client_rpc` and include `lib/client/client.pri`.
 Repeated inclusion of these manifests does not duplicate compiled sources.

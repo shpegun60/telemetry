@@ -36,9 +36,25 @@ ApplicationWindow {
                 Label { text: "Universal Inspector"; font.pixelSize: 28; font.weight: Font.DemiBold }
             }
             Item { Layout.fillWidth: true }
-            Label { text: "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
+            Label { text: controller.editing ? "LOCAL DRAFT" : controller.writesEnabled ? "FIELD EDITING" : "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
             Button { text: "Demo device"; onClicked: controller.connectDemo() }
+            Button { objectName: "writableDemoButton"; text: "Writable demo"; onClicked: controller.connectWritableDemo() }
             Button { text: "Disconnect"; enabled: controller.connected || controller.busy; onClicked: controller.disconnectDevice() }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            CheckBox {
+                text: "Enable Field writes for this connection"
+                checked: controller.writesEnabled
+                enabled: controller.writeProfileSupported && !controller.busy
+                onToggled: controller.writesEnabled = checked
+            }
+            Label {
+                visible: controller.connected && !controller.writeProfileSupported
+                text: "This transport profile is read-only."
+                color: "#99abbf"
+                Layout.fillWidth: true
+            }
         }
         RowLayout {
             Layout.fillWidth: true
@@ -140,7 +156,7 @@ ApplicationWindow {
                             ToolTip.text: detail
                             onClicked: {
                                 if (isEndpoint)
-                                    controller.selectEndpoint(endpointTree.index(row, 0))
+                                    controller.selectEndpoint(endpointTree.modelIndex(Qt.point(0, row)))
                             }
                         }
                         ScrollBar.vertical: ScrollBar {}
@@ -170,6 +186,27 @@ ApplicationWindow {
                         }
                         BusyIndicator { running: controller.busy; visible: running; implicitWidth: 30; implicitHeight: 30 }
                         Button {
+                            objectName: "editButton"
+                            text: "Edit"
+                            visible: !controller.editing
+                            enabled: controller.canEdit
+                            onClicked: controller.beginEdit()
+                        }
+                        Button {
+                            objectName: "cancelEditButton"
+                            text: "Cancel"
+                            visible: controller.editing
+                            enabled: !controller.busy
+                            onClicked: controller.cancelEdit()
+                        }
+                        Button {
+                            objectName: "applyButton"
+                            text: "Apply + Refresh"
+                            visible: controller.editing
+                            enabled: controller.canApply
+                            onClicked: controller.apply()
+                        }
+                        Button {
                             objectName: "refreshButton"
                             text: "Refresh"
                             enabled: controller.canRefresh
@@ -186,6 +223,7 @@ ApplicationWindow {
                         columnWidthProvider: function() { return Math.max(1, valueTree.width) }
                         onWidthChanged: Qt.callLater(function() { valueTree.forceLayout() })
                         delegate: TreeViewDelegate {
+                            id: valueDelegate
                             objectName: "valueRow"
                             required property string name
                             required property string detail
@@ -193,6 +231,9 @@ ApplicationWindow {
                             required property bool isAggregate
                             required property int childCount
                             required property int loadedCount
+                            required property bool editable
+                            required property string editorText
+                            TableView.onReused: scalarInput.inputValid = true
                             implicitWidth: valueTree.width
                             implicitHeight: 40
                             text: name
@@ -200,12 +241,32 @@ ApplicationWindow {
                             ToolTip.text: detail
                             contentItem: RowLayout {
                                 Label { text: name; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Label { text: value; color: "#83e1ce"; font.family: "monospace" }
+                                Label { visible: !editable; text: value; color: "#83e1ce"; font.family: "monospace" }
+                                TextField {
+                                    id: scalarInput
+                                    objectName: "scalarEditor"
+                                    property string scalarName: valueDelegate.name
+                                    property bool inputValid: true
+                                    visible: valueDelegate.editable
+                                    Layout.preferredWidth: 230
+                                    // Keep the operator's raw text while typing (for example
+                                    // the intermediate "4." in "4.25"). Invalid text also
+                                    // survives blur until corrected or the draft is cancelled.
+                                    Binding on text {
+                                        value: valueDelegate.editorText
+                                        when: !scalarInput.activeFocus && scalarInput.inputValid
+                                        restoreMode: Binding.RestoreNone
+                                    }
+                                    font.family: "monospace"
+                                    selectByMouse: true
+                                    onTextEdited: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                    onEditingFinished: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                }
                                 Button {
                                     visible: isAggregate && childCount > 128
                                     enabled: loadedCount < childCount
                                     text: "Load next 128 · " + loadedCount + "/" + childCount
-                                    onClicked: controller.values.fetchMore(valueTree.index(row, 0))
+                                    onClicked: controller.values.fetchMore(valueTree.modelIndex(Qt.point(0, row)))
                                 }
                             }
                         }
@@ -218,7 +279,9 @@ ApplicationWindow {
                         }
                     }
                     Label {
-                        text: "Values belong to the last completed read. Arrays load in batches as you expand them."
+                        text: controller.editing
+                            ? "Local draft only. Edit scalar values, then Apply to write once and read the device again."
+                            : "Values belong to the last completed read. Arrays load in batches as you expand them."
                         color: "#99abbf"
                         font.pixelSize: 11
                         wrapMode: Text.Wrap
@@ -226,6 +289,14 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+        Label {
+            objectName: "writeOutcomeLabel"
+            visible: controller.writeOutcome.length > 0
+            text: controller.writeOutcome
+            color: "#e6c57b"
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
         }
         Label {
             objectName: "statusLabel"
@@ -242,6 +313,15 @@ ApplicationWindow {
             font.pixelSize: 11
             Layout.fillWidth: true
             wrapMode: Text.Wrap
+        }
+    }
+    Connections {
+        target: controller.values
+        function onModelReset() {
+            Qt.callLater(function() {
+                valueTree.forceLayout()
+                valueTree.expand(0)
+            })
         }
     }
     Connections {

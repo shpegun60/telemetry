@@ -9,6 +9,7 @@
 #pragma once
 
 #include <integration/inspector/InspectorModel.hpp>
+#include <integration/workbench/WorkbenchModel.hpp>
 
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QVariantMap>
@@ -18,6 +19,7 @@
 namespace inspector_qml {
 
 using Inspector = telemetry::integration::inspector::InspectorModel<8, 4096, 65536>;
+using Workbench = telemetry::integration::workbench::WorkbenchModel<8, 4096, 65536>;
 
 // All calls run on the Inspector owner thread. The Inspector object must outlive
 // these models. Materialized labels and values are Qt-owned copies; the controller
@@ -32,13 +34,15 @@ public:
 		EndpointIdRole,
 		CategoryRole,
 		ReadableRole,
-		IsEndpointRole
+		IsEndpointRole,
+		WritableRole
 	};
 	Q_ENUM(Role)
 
 	explicit EndpointModel(QObject* parent = nullptr);
 	~EndpointModel() override;
 	void rebuild(const Inspector& inspector);
+	void rebuild(const Workbench& workbench);
 	void clear();
 	[[nodiscard]] bool changing() const noexcept;
 	Q_INVOKABLE QVariantMap endpoint(const QModelIndex& index) const;
@@ -52,6 +56,7 @@ public:
 private:
 	struct Impl;
 	std::unique_ptr<Impl> impl_;
+	void rebuildSource(const Inspector* inspector, const Workbench* workbench);
 };
 
 class ValueModel final : public QAbstractItemModel {
@@ -64,7 +69,9 @@ public:
 		TypeRole,
 		AggregateRole,
 		ChildCountRole,
-		LoadedCountRole
+		LoadedCountRole,
+		EditableRole,
+		EditorTextRole
 	};
 	Q_ENUM(Role)
 	static constexpr int fetchBatch = 128;
@@ -72,6 +79,10 @@ public:
 	explicit ValueModel(QObject* parent = nullptr);
 	~ValueModel() override;
 	void resetSnapshot(const Inspector& inspector);
+	void resetSnapshot(const Workbench& workbench);
+	[[nodiscard]] telemetry::integration::inspector::NodeResult
+	node(const QModelIndex& index) const;
+	void updateScalar(const QModelIndex& index);
 	void clear();
 	[[nodiscard]] bool changing() const noexcept;
 	QModelIndex index(int row, int column, const QModelIndex& parent = {}) const override;
@@ -87,6 +98,7 @@ public:
 private:
 	struct Impl;
 	std::unique_ptr<Impl> impl_;
+	void resetSource(const Inspector* inspector, const Workbench* workbench);
 };
 
 } // namespace inspector_qml
