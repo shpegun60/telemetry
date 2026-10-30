@@ -1,6 +1,6 @@
 /*
  * @file WorkbenchModel.hpp
- * @brief Fixed-storage FieldWrite editing over the Inspector's single runtime client.
+ * @brief Shared FieldWrite and Command editing over the Inspector's single runtime client.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -9,7 +9,7 @@
 #pragma once
 
 #include <integration/inspector/InspectorModel.hpp>
-#include <telemetry/runtime/DynamicValueWriter.hpp>
+#include "RequestEditor.hpp"
 #include <common/DelegateSlot.hpp>
 #include <algorithm>
 #include <array>
@@ -25,7 +25,8 @@ enum class Phase : std::uint8_t {
 	Idle,
 	Editing,
 	Writing,
-	Refreshing
+	Refreshing,
+	Executing
 };
 
 // These independent outcomes own no response bytes or borrowed views.
@@ -50,7 +51,13 @@ template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t Snapsho
 class WorkbenchModel {
 public:
 	explicit WorkbenchModel(client::Backend& backend, client::Clock clock) noexcept
-	    : model_(backend, clock)
+	    : model_(backend, clock),
+	      commandStore_(request_,
+	                    {this,
+	                     +[](const void* context) noexcept {
+		                     return static_cast<const WorkbenchModel*>(context)->model_.isCurrent();
+	                     }}),
+	      editor_(draft_, request_)
 	{}
 
 	WorkbenchModel(const WorkbenchModel&) = delete;
@@ -61,9 +68,22 @@ public:
 	[[nodiscard]] client::Status admit(const runtime::RuntimeSchema& schema, client::Input header,
 	                                   std::uint32_t session) noexcept
 	{
+		if (publishing_)
+			return publicationStatus();
+		if (!commandStore_.canAdmit()) {
+			const auto gate = model_.submissionGate();
+			return gate == client::Status::Closed || gate == client::Status::RecoveryRequired
+			           ? gate
+			           : client::Status::IdsExhausted;
+		}
 		const auto status = model_.admit(schema, header, session);
-		if (status == client::Status::Ok)
+		if (status == client::Status::Ok) {
 			cancelEdit();
+			if (commandStore_.admit(schema, session) != inspector::ModelStatus::Ok) {
+				model_.invalidate();
+				return client::Status::InvalidArgument;
+			}
+		}
 		return status;
 	}
 
@@ -99,6 +119,10 @@ public:
 
 	[[nodiscard]] client::Status selectField(const dynamic::EndpointBinding& field) noexcept
 	{
+		if (publishing_)
+			return publicationStatus();
+		if (phase_ == Phase::Executing)
+			return client::Status::Busy;
 		const auto status = model_.selectField(field);
 		if (status == client::Status::Ok)
 			cancelEdit();
@@ -107,6 +131,8 @@ public:
 
 	void clearSelection() noexcept
 	{
+		if (publishing_ || phase_ == Phase::Executing)
+			return;
 		cancelEdit();
 		model_.clearSelection();
 	}
@@ -116,6 +142,10 @@ public:
 	                                                  F&& callback,
 	                                                  std::uint32_t timeout = 30000) noexcept
 	{
+		if (publishing_)
+			return {publicationStatus(), inspector::ModelStatus::Ok, {}};
+		if (phase_ == Phase::Executing)
+			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
 		const auto submitted = model_.readField(field, std::forward<F>(callback), timeout);
 		if (submitted)
 			cancelEdit();
@@ -126,6 +156,10 @@ public:
 	[[nodiscard]] inspector::ReadSubmission refresh(F&& callback,
 	                                                std::uint32_t timeout = 30000) noexcept
 	{
+		if (publishing_)
+			return {publicationStatus(), inspector::ModelStatus::Ok, {}};
+		if (commandSelected_ || phase_ == Phase::Executing)
+			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
 		const auto submitted = model_.refresh(std::forward<F>(callback), timeout);
 		if (submitted)
 			cancelEdit();
@@ -180,17 +214,19 @@ public:
 
 	void invalidate() noexcept
 	{
-		cancelEdit();
+		retireEditor();
 		model_.invalidate();
 	}
 
 	[[nodiscard]] bool confirmQuiescence(dynamic::Quiescence proof) noexcept
 	{
-		return model_.confirmQuiescence(proof);
+		return !publishing_ && model_.confirmQuiescence(proof);
 	}
 
 	void process(std::uint32_t now) noexcept
 	{
+		if (publishing_)
+			return;
 		model_.process(now);
 		if (phase_ == Phase::Editing && !editCurrent())
 			cancelEdit();
@@ -198,28 +234,28 @@ public:
 
 	[[nodiscard]] auto nextPacket() noexcept
 	{
-		return model_.nextPacket();
+		return publishing_ ? client::Packet{} : model_.nextPacket();
 	}
 
 	[[nodiscard]] bool prepareHandoff(std::uint32_t session, std::uint32_t request) noexcept
 	{
-		return model_.prepareHandoff(session, request);
+		return !publishing_ && model_.prepareHandoff(session, request);
 	}
 
 	[[nodiscard]] bool onSendAccepted(std::uint32_t session, std::uint32_t request) noexcept
 	{
-		return model_.onSendAccepted(session, request);
+		return !publishing_ && model_.onSendAccepted(session, request);
 	}
 
 	[[nodiscard]] bool onReply(client::Input input, std::uint32_t session,
 	                           std::uint32_t request) noexcept
 	{
-		return model_.onReply(input, session, request);
+		return !publishing_ && model_.onReply(input, session, request);
 	}
 
 	[[nodiscard]] bool cancel(client::RequestHandle request) noexcept
 	{
-		return model_.cancel(request);
+		return !publishing_ && model_.cancel(request);
 	}
 
 	[[nodiscard]] std::size_t pending() const noexcept
@@ -229,7 +265,7 @@ public:
 
 	[[nodiscard]] bool drained() const noexcept
 	{
-		return !completionActive_ && model_.drained();
+		return !publishing_ && !completionActive_ && model_.drained();
 	}
 
 	[[nodiscard]] bool recoveryRequired() const noexcept
@@ -244,7 +280,7 @@ public:
 
 	void close() noexcept
 	{
-		cancelEdit();
+		retireEditor();
 		model_.close();
 	}
 
@@ -260,7 +296,7 @@ public:
 
 	[[nodiscard]] bool canEdit() const noexcept
 	{
-		if (phase_ != Phase::Idle || !model_.isCurrent())
+		if (publishing_ || commandSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
 			return false;
 		const auto snapshot = model_.snapshotInfo();
 		return snapshot.ready && snapshot.bytes <= PayloadBytes &&
@@ -273,19 +309,17 @@ public:
 	{
 		if (!editing())
 			return false;
-		const auto original = model_.snapshot_.bytes();
-		return original &&
-		       !std::equal(original.value.begin(), original.value.end(), draft_.begin());
+		return editor_.dirty();
 	}
 
 	[[nodiscard]] bool canApply() const noexcept
 	{
-		return editing() && dirty() && !completionActive_;
+		return !publishing_ && !commandSelected_ && editing() && dirty() && !completionActive_;
 	}
 
 	[[nodiscard]] runtime::Status beginEdit() noexcept
 	{
-		if (phase_ != Phase::Idle || !model_.isCurrent())
+		if (publishing_ || commandSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
 			return runtime::Status::Stale;
 		const auto snapshot = model_.snapshotInfo();
 		if (!snapshot.ready)
@@ -295,19 +329,11 @@ public:
 		const auto writable = model_.client_.bind(client::Operation::FieldWrite, snapshot.fieldId);
 		if (!writable)
 			return runtime::Status::TypeMismatch;
-		const auto original = model_.snapshot_.bytes();
-		if (!original)
-			return runtime::Status::Stale;
-		auto writer = runtime::DynamicValueWriter::begin(model_.schema(), snapshot.type,
-		                                                 original.value, draft_);
-		if (!writer)
-			return writer.status();
-		writer_ = std::move(writer);
+		const auto status = editor_.begin(model_.snapshot_);
+		if (status != runtime::Status::Ok)
+			return status;
 		editRead_ = model_.selection_;
 		editWrite_ = writable.endpoint;
-		editAdmission_ = snapshot.admission;
-		editRevision_ = snapshot.revision;
-		editBytes_ = snapshot.bytes;
 		phase_ = Phase::Editing;
 		return runtime::Status::Ok;
 	}
@@ -316,21 +342,9 @@ public:
 	[[nodiscard]] runtime::Status setScalar(const inspector::NodeHandle& node,
 	                                        const T& value) noexcept
 	{
-		static_assert(runtime::value_detail::scalar<T>, "Use the exact fixed-width scalar type");
-		if (!editing())
+		if (publishing_ || !editing())
 			return runtime::Status::Stale;
-		const auto metadata = model_.snapshot_.info(node);
-		const auto prepared = model_.snapshot_.prepareScalar(node);
-		if (!metadata || !prepared)
-			return !metadata && metadata.status == inspector::ModelStatus::Stale
-			           ? runtime::Status::Stale
-			           : runtime::Status::TypeMismatch;
-		// Refused UI input never enters the Writer's sticky-error path.
-		if (metadata.value.code != runtime::value_detail::scalarCode<T>())
-			return runtime::Status::TypeMismatch;
-		return metadata.value.kind == TypeKind::Enum
-		           ? writer_.setEnumUnderlying(prepared.value, value)
-		           : writer_.set(prepared.value, value);
+		return editor_.setScalar(node, value);
 	}
 
 	[[nodiscard]] inspector::Result<inspector::ScalarValue>
@@ -338,16 +352,14 @@ public:
 	{
 		if (!editing())
 			return {inspector::ModelStatus::Stale, {}};
-		return model_.snapshot_.scalar(node, client::Input{draft_}.first(editBytes_));
+		return editor_.scalar(node);
 	}
 
 	void cancelEdit() noexcept
 	{
-		if (phase_ != Phase::Editing)
+		if (publishing_ || phase_ != Phase::Editing)
 			return;
-		writer_ = {};
-		editBytes_ = 0;
-		phase_ = Phase::Idle;
+		retireEditor();
 	}
 
 	template<class F>
@@ -359,7 +371,8 @@ public:
 		const auto gate = model_.submissionGate();
 		if (gate != client::Status::Ok)
 			return {gate, inspector::ModelStatus::Ok, {}};
-		if (completionActive_ || phase_ == Phase::Writing || phase_ == Phase::Refreshing)
+		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
+		    phase_ == Phase::Refreshing || phase_ == Phase::Executing)
 			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
 		if (!canApply())
 			return {client::Status::InvalidArgument, inspector::ModelStatus::NoSnapshot, {}};
@@ -369,13 +382,17 @@ public:
 		if constexpr (std::is_pointer_v<std::decay_t<F>>)
 			if (callback == nullptr)
 				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		const auto committed = writer_.commit(std::span{request_}.first(editBytes_));
+		const Publication publication{publishing_};
+		const auto committed = editor_.commit();
 		if (!committed)
 			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
-		completion_.bind(std::forward<F>(callback));
+		completion_.bind(
+		    [fn = std::forward<F>(callback)](const Completion& result) mutable noexcept {
+			    fn(result.field);
+		    });
 		applyResult_ = {};
 		const auto submitted = model_.client_.writeField(
-		    editWrite_, client::Input{request_}.first(editBytes_),
+		    editWrite_, committed.value,
 		    [this, refreshTimeout](const dynamic::DynamicResult& result) noexcept {
 			    writeCompleted(result, refreshTimeout);
 		    },
@@ -384,12 +401,10 @@ public:
 			completion_.reset();
 			// commit consumed its Writer; retain the committed payload and rebuild
 			// the lease so a refused submission neither discards nor freezes edits.
-			writer_ = runtime::DynamicValueWriter::begin(model_.schema(), editRead_.responseType(),
-			                                             client::Input{request_}.first(editBytes_),
-			                                             draft_);
+			(void)editor_.rearm();
 			return {submitted.status, inspector::ModelStatus::Ok, {}};
 		}
-		writer_ = {};
+		editor_.clear();
 		model_.snapshot_.retire();
 		applyAdmission_ = model_.snapshot_.admission();
 		applyRevision_ = model_.snapshot_.revision();
@@ -397,25 +412,229 @@ public:
 		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
 	}
 
+	[[nodiscard]] dynamic::EndpointResult bindCommand(std::uint32_t id) const noexcept
+	{
+		const auto gate = model_.submissionGate();
+		return gate == client::Status::Ok ? model_.client_.bind(client::Operation::Command, id)
+		                                  : dynamic::EndpointResult{gate, {}};
+	}
+
+	[[nodiscard]] client::Status selectCommand(const dynamic::EndpointBinding& command) noexcept
+	{
+		const auto gate = model_.submissionGate();
+		if (gate != client::Status::Ok)
+			return gate;
+		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
+		    phase_ == Phase::Refreshing || phase_ == Phase::Executing ||
+		    (phase_ == Phase::Editing && !commandSelected_))
+			return client::Status::Busy;
+		if (!model_.client_.isCurrent(command))
+			return client::Status::NotAdmitted;
+		if (command.operation() != client::Operation::Command)
+			return client::Status::InvalidArgument;
+		const auto rebound = bindCommand(command.id());
+		if (!rebound)
+			return rebound.status;
+		if (command.requestBytes() > request_.size())
+			return client::Status::BufferTooSmall;
+		if (!commandStore_.canAdvance())
+			return client::Status::IdsExhausted;
+		const auto initialized =
+		    RequestEditor::initialize(model_.schema(), command.requestType(),
+		                              std::span{request_}.first(command.requestBytes()));
+		if (initialized != runtime::Status::Ok)
+			return client::Status::CodecError;
+		editor_.clear();
+		const auto selected = commandStore_.selectEndpoint(command.id(), command.requestType(),
+		                                                   descriptor::Category::Command);
+		if (selected != inspector::ModelStatus::Ok)
+			return client::Status::NotAdmitted;
+		if (command.requestType() != 0 &&
+		    commandStore_.publish(client::Input{request_}.first(command.requestBytes()),
+		                          commandStore_.admission(),
+		                          commandStore_.revision()) != inspector::ModelStatus::Ok)
+			return client::Status::CodecError;
+		const auto started = editor_.begin(commandStore_);
+		if (started != runtime::Status::Ok)
+			return client::Status::CodecError;
+		command_ = command;
+		commandSelected_ = true;
+		phase_ = Phase::Editing;
+		return client::Status::Ok;
+	}
+
+	[[nodiscard]] bool commandSelected() const noexcept
+	{
+		return commandSelected_ && model_.isCurrent(command_);
+	}
+
+	[[nodiscard]] bool canExecute() const noexcept
+	{
+		return !publishing_ && commandSelected() && phase_ == Phase::Editing &&
+		       !completionActive_ && model_.submissionGate() == client::Status::Ok &&
+		       editor_.current();
+	}
+
+	[[nodiscard]] auto editorSnapshotInfo() const noexcept
+	{
+		return commandSelected() ? editor_.snapshotInfo() : inspector::SnapshotInfo{};
+	}
+
+	[[nodiscard]] auto editorRoot() const noexcept
+	{
+		return commandSelected() ? editor_.root()
+		                         : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
+	}
+
+	[[nodiscard]] auto editorInfo(const inspector::NodeHandle& node) const noexcept
+	{
+		return commandSelected()
+		           ? editor_.info(node)
+		           : inspector::Result<inspector::NodeInfo>{inspector::ModelStatus::Stale, {}};
+	}
+
+	[[nodiscard]] auto editorChild(const inspector::NodeHandle& node,
+	                               std::uint32_t index) const noexcept
+	{
+		return commandSelected() ? editor_.child(node, index)
+		                         : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
+	}
+
+	[[nodiscard]] auto editorChildCount(const inspector::NodeHandle& node) const noexcept
+	{
+		return commandSelected()
+		           ? editor_.childCount(node)
+		           : inspector::Result<std::uint32_t>{inspector::ModelStatus::Stale, 0};
+	}
+
+	template<class F>
+	[[nodiscard]] inspector::ReadSubmission execute(F&& callback,
+	                                                std::uint32_t timeout = 30000) noexcept
+	{
+		static_assert(
+		    std::is_nothrow_invocable_v<std::decay_t<F>&, const inspector::OperationResult&>,
+		    "Command completion must be noexcept");
+		const auto gate = model_.submissionGate();
+		if (gate != client::Status::Ok)
+			return {gate, inspector::ModelStatus::Ok, {}};
+		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
+		    phase_ == Phase::Refreshing || phase_ == Phase::Executing)
+			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
+		if (!canExecute())
+			return {client::Status::InvalidArgument, inspector::ModelStatus::NoSelection, {}};
+		if (!timeout || timeout > client::maxTimeoutMs)
+			return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
+		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+			if (callback == nullptr)
+				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
+		const Publication publication{publishing_};
+		const auto committed = editor_.commit();
+		if (!committed)
+			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
+		completion_.bind(
+		    [fn = std::forward<F>(callback)](const Completion& result) mutable noexcept {
+			    fn(result.command);
+		    });
+		const auto submitted = model_.client_.command(
+		    command_, committed.value,
+		    [this](const dynamic::DynamicResult& result) noexcept {
+			    commandCompleted(result.operation);
+		    },
+		    timeout);
+		(void)editor_.rearm();
+		if (!submitted) {
+			completion_.reset();
+			return {submitted.status, inspector::ModelStatus::Ok, {}};
+		}
+		model_.snapshot_.retire();
+		phase_ = Phase::Executing;
+		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
+	}
+
 private:
 	inspector::InspectorModel<N, PayloadBytes, SnapshotBytes, CallbackBytes> model_;
 	std::array<std::byte, PayloadBytes> draft_{}, request_{};
-	runtime::DynamicValueWriter writer_;
+	inspector::SnapshotStore commandStore_;
+	RequestEditor editor_;
 	dynamic::EndpointBinding editRead_{}, editWrite_{};
-	std::uint64_t editAdmission_ = 0, editRevision_ = 0, applyAdmission_ = 0, applyRevision_ = 0;
-	std::size_t editBytes_ = 0;
+	dynamic::EndpointBinding command_{};
+	std::uint64_t applyAdmission_ = 0, applyRevision_ = 0;
 	Phase phase_ = Phase::Idle;
-	bool completionActive_ = false;
-	DelegateSlot<void(const ApplyResult&) noexcept, CallbackBytes> completion_;
+	bool completionActive_ = false, commandSelected_ = false, publishing_ = false;
+
+	// Owning a callable may run its user-defined move/destructor. Keep request,
+	// binding and completion publication indivisible to those owner reentries.
+	// Revocation remains allowed; no callbacks or transport progress occur here.
+	struct Publication {
+		bool& active;
+
+		explicit Publication(bool& flag) noexcept : active(flag)
+		{
+			active = true;
+		}
+
+		~Publication()
+		{
+			active = false;
+		}
+	};
+
+	struct Completion {
+		ApplyResult field{};
+		inspector::OperationResult command{};
+	};
+
+	DelegateSlot<void(const Completion&) noexcept, CallbackBytes> completion_;
 	ApplyResult applyResult_{};
 
 	[[nodiscard]] bool editCurrent() const noexcept
 	{
-		if (!model_.isCurrent(editRead_) || !model_.isCurrent(editWrite_))
-			return false;
-		const auto snapshot = model_.snapshotInfo();
-		return snapshot.ready && snapshot.admission == editAdmission_ &&
-		       snapshot.revision == editRevision_ && snapshot.bytes == editBytes_;
+		return editor_.current() &&
+		       (commandSelected_ ? model_.isCurrent(command_)
+		                         : (model_.isCurrent(editRead_) && model_.isCurrent(editWrite_)));
+	}
+
+	[[nodiscard]] client::Status publicationStatus() const noexcept
+	{
+		const auto gate = model_.submissionGate();
+		return gate == client::Status::Ok ? client::Status::Busy : gate;
+	}
+
+	void retireEditor() noexcept
+	{
+		editor_.clear();
+		clearCommand();
+		if (phase_ == Phase::Editing)
+			phase_ = Phase::Idle;
+	}
+
+	void clearCommand() noexcept
+	{
+		if (commandSelected_) {
+			editor_.clear();
+			commandSelected_ = false;
+			commandStore_.clearSelection();
+		}
+	}
+
+	void commandCompleted(const client::ResultView& operation) noexcept
+	{
+		const inspector::OperationResult result{operation.status, operation.operation,
+		                                        operation.dispatch, operation.endpointStatus,
+		                                        operation.codec};
+		if (commandSelected() && editor_.current() && model_.submissionGate() == client::Status::Ok)
+			phase_ = Phase::Editing;
+		else {
+			clearCommand();
+			phase_ = Phase::Idle;
+		}
+		completionActive_ = true;
+		completion_.invoke(Completion{{}, result});
+		{
+			const Publication publication{publishing_};
+			completion_.reset();
+		}
+		completionActive_ = false;
 	}
 
 	void finishApply() noexcept
@@ -423,8 +642,11 @@ private:
 		phase_ = Phase::Idle;
 		const auto result = applyResult_;
 		completionActive_ = true;
-		completion_.invoke(result);
-		completion_.reset();
+		completion_.invoke(Completion{result, {}});
+		{
+			const Publication publication{publishing_};
+			completion_.reset();
+		}
 		completionActive_ = false;
 	}
 

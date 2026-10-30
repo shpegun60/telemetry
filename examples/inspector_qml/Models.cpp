@@ -203,6 +203,12 @@ struct ChangeGuard {
 struct Reader {
 	const Inspector* inspector = nullptr;
 	const Workbench* workbench = nullptr;
+	bool editor = false;
+
+	bool commandEditor() const
+	{
+		return editor && workbench && workbench->commandSelected();
+	}
 
 	explicit operator bool() const noexcept
 	{
@@ -226,6 +232,8 @@ struct Reader {
 
 	auto snapshotInfo() const
 	{
+		if (commandEditor())
+			return workbench->editorSnapshotInfo();
 		return visit([](const auto& model) {
 			return model.snapshotInfo();
 		});
@@ -233,6 +241,8 @@ struct Reader {
 
 	auto info(const ins::NodeHandle& node) const
 	{
+		if (commandEditor())
+			return workbench->editorInfo(node);
 		return visit([&](const auto& model) {
 			return model.info(node);
 		});
@@ -240,6 +250,8 @@ struct Reader {
 
 	auto child(const ins::NodeHandle& node, std::uint32_t index) const
 	{
+		if (commandEditor())
+			return workbench->editorChild(node, index);
 		return visit([&](const auto& model) {
 			return model.child(node, index);
 		});
@@ -247,6 +259,8 @@ struct Reader {
 
 	auto root() const
 	{
+		if (commandEditor())
+			return workbench->editorRoot();
 		return visit([](const auto& model) {
 			return model.root();
 		});
@@ -268,7 +282,8 @@ struct Reader {
 
 	bool editing() const
 	{
-		return workbench && workbench->editing();
+		return workbench && workbench->editing() &&
+		       workbench->phase() != telemetry::integration::workbench::Phase::Executing;
 	}
 
 	ins::Result<ins::ScalarValue> scalar(const ins::NodeHandle& node) const
@@ -544,7 +559,7 @@ void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbe
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = {inspector, workbench};
+	impl_->inspector = {inspector, workbench, true};
 	const auto snapshot = impl_->inspector.snapshotInfo();
 	impl_->admission = snapshot.admission;
 	impl_->revision = snapshot.revision;
@@ -552,8 +567,11 @@ void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbe
 		const auto root = impl_->inspector.root();
 		if (root) {
 			auto row = valueRow(impl_->inspector, root.value);
-			if (row)
+			if (row) {
+				if (impl_->inspector.commandEditor())
+					row->name = QStringLiteral("Request");
 				impl_->tree.append(std::move(row));
+			}
 		}
 	}
 	endResetModel();

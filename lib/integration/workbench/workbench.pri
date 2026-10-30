@@ -1,4 +1,4 @@
-# Optional fixed-storage FieldWrite workflow; transport is selected separately. MIT.
+# Optional fixed-storage FieldWrite/Command workflows; transport is selected separately. MIT.
 isEmpty(TELEMETRY_WORKBENCH_PRI_INCLUDED) {
     TELEMETRY_WORKBENCH_PRI_INCLUDED = 1
     include($$PWD/../inspector/inspector.pri)

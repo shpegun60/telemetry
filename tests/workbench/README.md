@@ -1,4 +1,4 @@
-# FieldWrite Workbench checks
+# Workbench checks
 
 Run the shared Inspector / Workbench runner from the repository root:
 
@@ -22,7 +22,7 @@ late replies cannot complete a request twice or trigger a write replay.
 
 NoHeap runs the same native workflow with global C++ allocation traps and a
 deliberate allocation control exiting 86. Separate compile refusals prove that
-the facade exposes no Command, Service, raw submission or client/core access,
+the facade exposes no Service, raw submission or client/core access,
 and rejects a non-callable completion. The standalone dependency probe excludes
 Model/reflection, Resource and concrete wire/backend dependencies. Optional ARM
 compilation records symbols and individual compiler frames; it does not run on
@@ -35,3 +35,10 @@ reconnect without replay and Write ACK followed immediately by EOF.
 
 Commands, source/binary hashes, assertion counts and logs are retained outside
 the checkout. Hardware timing and writable UART/DMA are outside this stage.
+
+`Command.cpp` exercises the same portable facade through Encoded and RPC:
+canonical initial arguments, Void versus empty Struct, exact scalar/enum/array
+editing, unchanged argument submission, Accepted versus Executed, queue refusal,
+stale identities and execution-boundary outcomes. A separate allocation-trap
+executable runs those Command cases and a deliberate allocation control. The
+existing FieldWrite and read-only Inspector suites remain mandatory regressions.

@@ -85,17 +85,35 @@ struct Metadata {
 	rt::RuntimeSchemaWorkspace workspace{types, members, enums, catalogs, endpoints};
 	rt::RuntimeSchema schema;
 
-	Metadata() noexcept
+	explicit Metadata(rt::Input descriptor = descriptorBytes) noexcept
 	{
-		const auto parsed = rt::RuntimeSchema::parse(descriptorBytes, workspace);
+		const auto parsed = rt::RuntimeSchema::parse(descriptor, workspace);
 		CHECK(parsed);
 		schema = parsed.schema;
 	}
 };
 
-template<std::size_t N = 4, std::size_t PayloadBytes = 512, std::size_t SnapshotBytes = 512>
+struct FieldData {
+	static auto descriptor() noexcept
+	{
+		return cl::Input{descriptorBytes};
+	}
+
+	static const auto& model() noexcept
+	{
+		return view;
+	}
+
+	static void reset() noexcept
+	{
+		owner = {};
+	}
+};
+
+template<std::size_t N = 4, std::size_t PayloadBytes = 512, std::size_t SnapshotBytes = 512,
+         class Data = FieldData>
 struct Encoded {
-	Metadata metadata;
+	Metadata metadata{Data::descriptor()};
 	std::uint32_t now = 0;
 	cl::Clock clock{this, +[](void* p) noexcept {
 		                return static_cast<Encoded*>(p)->now;
@@ -107,9 +125,8 @@ struct Encoded {
 
 	Encoded() noexcept
 	{
-		owner = {};
-		CHECK(inspector.admit(metadata.schema, cl::Input{descriptorBytes}.first(64), 17) ==
-		      cl::Status::Ok);
+		Data::reset();
+		CHECK(inspector.admit(metadata.schema, Data::descriptor().first(64), 17) == cl::Status::Ok);
 	}
 
 	~Encoded()
@@ -140,7 +157,7 @@ struct Encoded {
 		CHECK(inspector.prepareHandoff(packet.session, packet.requestId));
 		CHECK(inspector.onSendAccepted(packet.session, packet.requestId));
 		const auto result =
-		    en::dispatchEncoded(view, workspace, packet.session, packet.bytes, reply);
+		    en::dispatchEncoded(Data::model(), workspace, packet.session, packet.bytes, reply);
 		CHECK(result && result.written <= reply.size());
 		if (deliver)
 			CHECK(inspector.onReply(cl::Input{reply}.first(result.written), packet.session,
@@ -157,15 +174,16 @@ struct Encoded {
 	}
 };
 
-struct Rpc {
-	Metadata metadata;
+template<class Data = FieldData>
+struct RpcModel {
+	Metadata metadata{Data::descriptor()};
 	std::uint32_t now = 0;
 	cl::Clock clock{this, +[](void* p) noexcept {
-		                return static_cast<Rpc*>(p)->now;
+		                return static_cast<RpcModel*>(p)->now;
 	                }};
 	std::array<std::byte, 2048> scratch{}, serverRequest{}, serverResult{}, request{}, result{};
 	telemetry::Workspace workspace{scratch};
-	rpc::RpcMailbox mailbox{view, workspace, serverRequest, serverResult};
+	rpc::RpcMailbox mailbox{Data::model(), workspace, serverRequest, serverResult};
 	const resource::FileSystem<1> files{resource::filesystem(resource::file("/rpc", mailbox))};
 	rpc::RpcSessionPool<1> pool{std::array{rpc::RpcSessionBinding{mailbox, files.view()}}};
 	rpc::RpcSessionHandle session = pool.acquire({7, 1, 0}).session;
@@ -176,15 +194,14 @@ struct Rpc {
 	wb::WorkbenchModel<4, 512, 512, 256> inspector{backend, clock};
 	unsigned packets = 0;
 
-	Rpc() noexcept
+	RpcModel() noexcept
 	{
-		owner = {};
+		Data::reset();
 		CHECK(pool.valid(session));
-		CHECK(inspector.admit(metadata.schema, cl::Input{descriptorBytes}.first(64), 1) ==
-		      cl::Status::Ok);
+		CHECK(inspector.admit(metadata.schema, Data::descriptor().first(64), 1) == cl::Status::Ok);
 	}
 
-	~Rpc()
+	~RpcModel()
 	{
 		inspector.close();
 		inspector.process(now);
@@ -226,6 +243,8 @@ struct Rpc {
 		CHECK(inspector.pending() == 0);
 	}
 };
+
+using Rpc = RpcModel<>;
 
 template<class Fixture>
 auto read(Fixture& f, std::uint32_t id = 0) noexcept

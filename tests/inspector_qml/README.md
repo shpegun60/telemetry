@@ -24,7 +24,7 @@ completion. The maintained floor is 763 executed checks and 23 real FieldReads.
 Real Encoded reads check exact U64/S64 decimal strings, an unknown
 signed enum, nested structs/arrays, an empty struct, owned snapshot storage and
 stale model indexes. Controller checks cover metadata-only files, selection
-without I/O, Command/Service refusal, accepted refresh invalidation, QueueFull
+without I/O, mutation opt-in and Service refusal, accepted refresh invalidation, QueueFull
 preservation, delayed old replies, fresh sessions, timeout/recovery and shutdown.
 Direct slots on reset and row-insertion notifications attempt reconnect and
 disconnect; both must preserve the active model mutation and current session.
@@ -63,6 +63,11 @@ focus. Both writes and their readbacks must finish once. This test does not set
 the editor text property or invoke editingFinished/clicked signals directly.
 
 The runner retains both read-only and edited window PNGs and their dimensions/hashes.
+`Command.cpp` uses the same QML argument controls and real keyboard/mouse events
+to Execute without Enter. It separately checks Executed, Accepted and unknown
+outcomes, no-argument commands, shared exact scalar editing, one terminal signal
+on Disconnect and preservation of historical outcomes. These requests use the
+same Workbench/client as Fields; Services and UART mutations stay disabled.
 On Linux, `--sanitize --cxx clang++-18` enables fatal AddressSanitizer and
 UndefinedBehaviorSanitizer checks. Leak detection is explicitly disabled for
 the Qt offscreen plugin's process-global allocations; this profile does not

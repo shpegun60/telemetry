@@ -1,10 +1,11 @@
-# FieldWrite Workbench
+# Telemetry Workbench
 
 Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-This contract scopes the first writable Workbench to
-**Read → Edit → FieldWrite → Refresh**. Commands, Services, batch operations,
-new wire formats and physical programming are separate work.
+The Workbench supports **Read → Edit → FieldWrite → Refresh** and explicit
+**Select Command → Edit arguments → Execute** through one runtime client.
+Services, batch operations, new wire formats and physical programming remain
+separate work.
 
 ## Ownership and compatibility
 
@@ -138,6 +139,71 @@ reentrant state-change handler can replace its session.
 Disconnect clears cached values; a readback already completed remains a known
 historical result. No packet is handed off during retirement.
 
+## Commands and shared argument editing
+
+`bindCommand(id)` obtains a runtime binding from the same private DynamicClient.
+`selectCommand(binding)` prepares an argument form without submitting anything.
+The shared RequestEditor uses the existing draft and committed-request buffers,
+SnapshotStore navigation and DynamicValueWriter; it owns no queue or transport.
+Field snapshot methods keep their existing meaning. `editorRoot()`,
+`editorInfo()`, `editorChild()` and `editorSnapshotInfo()` describe the argument
+form instead of presenting those bytes as a value read from the device.
+
+Initialization traverses validated runtime types and bounds before writing the
+request. It encodes false, integer zero and positive floating-point zero in
+canonical little-endian form, including nested structs and arrays, and validates
+the resulting value. Open enums start with underlying zero, which may be unnamed.
+These are initial arguments, not device defaults: Descriptor v3 contains no
+application default values or parameter ranges. A Void request has no value or
+Writer; an empty Struct is a real zero-byte value with a root and no children.
+
+```cpp
+const auto command = workbench.bindCommand(commandId);
+if (!command || workbench.selectCommand(command.endpoint) != cl::Status::Ok)
+    return;
+
+// Navigate editorRoot()/editorChild() and use the same exact-type setScalar()
+// as Field editing. A Void request has no argument root to edit.
+const auto submitted = workbench.execute([](const auto& result) noexcept {
+    if (result.executed()) {
+        // Endpoint confirmed execution.
+    } else if (result.accepted()) {
+        // Endpoint accepted work; later execution is not confirmed here.
+    } else {
+        // Inspect status/dispatch/endpointStatus, including OutcomeUnknown.
+    }
+});
+if (!submitted)
+    return; // Arguments remain available after an initial queue refusal.
+```
+
+Execute accepts unchanged initial arguments and zero-byte requests; it does not
+require `dirty()`. One accepted Execute submits one logical Command through the
+existing FIFO. Setters are blocked during execution; another Execute is also
+blocked until its callback returns. A normal completion callback may edit retained
+arguments while their schema/session remain current, or submit an explicit FieldRead
+subject to the ordinary queue/admission checks. Changing selection retires the old
+argument form. Known terminal completion can leave the same arguments
+available for another explicit user action. Closing, stale schema/session or
+required recovery prevents further execution.
+Accepted Execute retires the old Field snapshot, since a Command may change
+device state, and supersedes an older pending Field read. A refused submission
+preserves that snapshot. No replacement Field value is invented locally.
+
+Moving or destroying a user callable during submission cannot replace its
+selected endpoint or argument bytes. A small owner-only publication guard
+refuses nested editing/submission and defers owner-loop progression during
+callable ownership changes. Close and invalidation can still revoke admission.
+Normal completion invocation retains the documented read/edit reentrancy;
+callable construction/destruction is a separate phase.
+
+Commands do not run the Field Apply/Refresh chain. Accepted is a terminal request
+result, not a promise that an application job has finished. OutcomeUnknown never
+causes Workbench to re-enqueue the command. A selected backend retains its own
+documented in-flight packet retry semantics; Workbench adds no exactly-once
+guarantee. A fresh TCP session proves the supported protocol cleanup, not
+completion of a previously accepted application job.
+
 ## Application and transport scope
 
 The Qt application owns input parsing, labels, QML models and connection policy.
@@ -175,26 +241,30 @@ host or CI results.
 
 ## Measured storage and compiler probes
 
-On x86-64 GCC 13.3, with CallbackBytes=256, extraction changes the existing
-Inspector by a fixed 64 bytes. NodeHandle remains 48 bytes. Workbench adds two
-PayloadBytes buffers plus 592 bytes of editor/completion state on this ABI:
+On x86-64 GCC 13.3 with CallbackBytes=256, the Command extension adds a fixed
+240 bytes to Workbench compared with FieldWrite baseline `b06791f`. It reuses
+the same two PayloadBytes buffers and one completion slot:
 
-| Configuration (N, PayloadBytes, SnapshotBytes) | Inspector before | Inspector shared store | Workbench |
+| Configuration (N, PayloadBytes, SnapshotBytes) | FieldWrite baseline | FieldWrite + Command | Difference |
 | --- | ---: | ---: | ---: |
-| 2, 64, 64 | 1184 B | 1248 B | 1968 B |
-| 8, 4096, 65536 (Qt example) | 72800 B | 72864 B | 81648 B |
+| 2, 64, 64 | 1968 B | 2208 B | +240 B |
+| 8, 4096, 65536 (Qt example) | 81648 B | 81888 B | +240 B |
 
-These are complete model object sizes, excluding schema indexes, backend,
-transport buffers and Qt objects. They are ABI-specific measurements, not
-portable size promises.
+Inspector remains 1248 B and 72864 B in those two configurations, respectively;
+NodeHandle remains 48 B. These are complete model object sizes excluding schema
+indexes, backend, transport buffers and Qt objects. They are ABI-specific
+measurements, not portable size promises.
 
 Using ARM GCC 13.2.1, Cortex-M7/Thumb, C++20, -Os, no exceptions/RTTI and heap
-fallback disabled, the unchanged `tests/inspector/Standalone.cpp` probe has
-8063 B object text at baseline d3efaca and 8245 B after extraction (+182 B).
-Its largest individually recorded compiler frame changes from 392 to 384 B.
-The separate Workbench Standalone probe records a 656 B frame for prepared
-scalar-path resolution. These unlinked objects establish neither linked Flash
-nor complete call-chain stack, hardware latency or CPU throughput. Both probes
-have no allocation references. Maintained no-heap runs execute full workflows;
-raw measurement commands, source hashes and .su files are retained separately
-from the checkout.
+fallback disabled, the frozen Field-only Workbench probe from `b06791f` records
+7716 B object text with baseline headers and 7986 B with the new shared editor
+and publication guards (+270 B). Its largest individually recorded compiler
+frame stays 656 B. This compares identical probe code and compiler options;
+it is not the total cost of Command execution.
+
+The maintained Standalone probe separately compiles the new Command selection
+and Execute path for Cortex-M7. No-heap runs execute both FieldWrite and Command
+workflows, with deliberate allocation controls. Unlinked objects and .su files
+establish neither linked application Flash nor complete call-chain stack,
+hardware latency or CPU throughput. Raw commands, hashes and compiler outputs
+remain in external qualification receipts.

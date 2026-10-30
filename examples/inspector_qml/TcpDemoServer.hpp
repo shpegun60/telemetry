@@ -50,6 +50,9 @@ public:
 	quint64 fieldReads() const noexcept;
 	quint64 fieldWrites() const noexcept;
 	quint64 nativeWrites() const noexcept;
+	quint64 nativeCommands() const noexcept;
+	quint64 executedCommands() const noexcept;
+	quint64 acceptedCommands() const noexcept;
 	quint64 connections() const noexcept;
 	quint64 receivedBytes() const noexcept;
 	quint64 sentBytes() const noexcept;

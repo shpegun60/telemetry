@@ -13,6 +13,7 @@
 #include <QtSerialPort/QSerialPortInfo>
 #endif
 #include <integration/encoded/Backend.hpp>
+#include <telemetry/result/EndpointStatus.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QDir>
@@ -37,7 +38,8 @@ bool mutationPacket(const cl::Packet& packet) noexcept
 {
 	const auto parsed = telemetry::protocol::encoded::parse(packet.bytes);
 	return packet.mayExecute && parsed &&
-	       parsed.header.operation == telemetry::protocol::encoded::Operation::FieldWrite;
+	       (parsed.header.operation == telemetry::protocol::encoded::Operation::FieldWrite ||
+	        parsed.header.operation == telemetry::protocol::encoded::Operation::Command);
 }
 
 QString statusName(cl::Status status)
@@ -81,6 +83,29 @@ QString statusName(cl::Status status)
 			return QStringLiteral("IdsExhausted");
 	}
 	return QStringLiteral("Unknown");
+}
+
+QString commandStatusName(std::uint8_t status)
+{
+	switch (static_cast<telemetry::CommandResult>(status)) {
+		case telemetry::CommandResult::Executed:
+			return QStringLiteral("Executed");
+		case telemetry::CommandResult::Accepted:
+			return QStringLiteral("Accepted");
+		case telemetry::CommandResult::NotFound:
+			return QStringLiteral("Not found");
+		case telemetry::CommandResult::Unavailable:
+			return QStringLiteral("Unavailable");
+		case telemetry::CommandResult::ArgumentCountMismatch:
+			return QStringLiteral("Argument count mismatch");
+		case telemetry::CommandResult::InvalidValue:
+			return QStringLiteral("Invalid argument value");
+		case telemetry::CommandResult::Busy:
+			return QStringLiteral("Busy");
+		case telemetry::CommandResult::Failed:
+			return QStringLiteral("Failed");
+	}
+	return QStringLiteral("Unknown endpoint status %1").arg(status);
 }
 
 template<class T>
@@ -128,7 +153,9 @@ struct InspectorController::State {
 	std::vector<Reply> replies;
 	std::optional<im::ReadResult> completed;
 	std::optional<wb::ApplyResult> applied;
+	std::optional<im::OperationResult> commanded;
 	bool applying = false, mutationAuthorized = false;
+	bool executing = false;
 	bool demo = false;
 	bool serial = false;
 	bool remote = false, remoteAccepted = false;
@@ -219,7 +246,7 @@ InspectorController::~InspectorController()
 	retire();
 }
 
-std::optional<bool> InspectorController::retire()
+InspectorController::Completion InspectorController::retire()
 {
 	++epoch_;
 	values_.clear();
@@ -236,10 +263,11 @@ std::optional<bool> InspectorController::retire()
 			std::abort();
 		transport_.reset();
 	}
-	std::optional<bool> applied;
+	Completion completion;
 	if (state_) {
 		state_->closeAndDrain();
-		applied = consumeApply(*state_, false);
+		completion.applied = consumeApply(*state_, false);
+		completion.command = consumeCommand(*state_, false);
 		if (state_->remote && state_->inspector.recoveryRequired()) {
 			// Local abort releases all Qt-owned TX/RX storage. It does not prove
 			// that a peer finished an already handed-off request. Preserve that
@@ -256,7 +284,7 @@ std::optional<bool> InspectorController::retire()
 		}
 	}
 	state_.reset();
-	return applied;
+	return completion;
 }
 
 std::optional<bool> InspectorController::consumeApply(State& state, bool displaySnapshot)
@@ -321,15 +349,61 @@ std::optional<bool> InspectorController::consumeApply(State& state, bool display
 	return confirmed;
 }
 
-void InspectorController::notifyState(std::optional<bool> applied, std::optional<bool> read)
+std::optional<std::pair<bool, bool>> InspectorController::consumeCommand(State& state, bool live)
 {
-	// A terminal Apply belongs to the accepted operation, not a connection epoch.
+	if (!state.executing || !state.commanded)
+		return {};
+	const auto result = *state.commanded;
+	state.commanded.reset();
+	state.executing = false;
+	busy_ = false;
+	const bool executed = result.executed(), accepted = result.accepted();
+	if (executed)
+		commandOutcome_ = QStringLiteral("Executed · the endpoint confirmed execution.");
+	else if (accepted)
+		commandOutcome_ = QStringLiteral("Accepted · execution has not been confirmed.");
+	else if (result.status == cl::Status::OutcomeUnknown)
+		commandOutcome_ = QStringLiteral(
+		    "OutcomeUnknown · the Command may have executed. It will not be retried.");
+	else if (result.status == cl::Status::Ok && result.dispatch == 0)
+		commandOutcome_ =
+		    QStringLiteral("Command result: %1.").arg(commandStatusName(result.endpointStatus));
+	else
+		commandOutcome_ = QStringLiteral("Command finished: %1 · dispatch %2 · endpoint %3.")
+		                      .arg(statusName(result.status))
+		                      .arg(result.dispatch)
+		                      .arg(result.endpointStatus);
+	status_ = commandOutcome_;
+	const bool fatal = result.status == cl::Status::TransportError ||
+	                   result.status == cl::Status::MalformedReply ||
+	                   result.status == cl::Status::SessionLost ||
+	                   result.status == cl::Status::OutcomeUnknown;
+	if (live && state.remote && transport_ && (state.inspector.recoveryRequired() || fatal)) {
+		transport_->close();
+		state.inspector.invalidate();
+		connected_ = false;
+		values_.clear();
+		endpoints_.clear();
+		selection_.clear();
+	} else if (live && state.inspector.isCurrent()) {
+		values_.resetSnapshot(state.inspector);
+	}
+	return std::pair{executed, accepted};
+}
+
+void InspectorController::notifyState(Completion completion, std::optional<bool> read)
+{
+	// A terminal Apply/Command belongs to the accepted operation, not a connection epoch.
 	// Deliver it before stateChanged slots can replace the connection and erase
 	// the sole notification. Never access this object after a slot destroys it.
 	const auto epoch = epoch_;
 	QPointer<InspectorController> alive{this};
-	if (applied)
-		Q_EMIT applyFinished(*applied);
+	if (completion.applied)
+		Q_EMIT applyFinished(*completion.applied);
+	if (!alive || epoch_ != epoch)
+		return;
+	if (completion.command)
+		Q_EMIT commandFinished(completion.command->first, completion.command->second);
 	if (!alive || epoch_ != epoch)
 		return;
 	Q_EMIT stateChanged();
@@ -405,14 +479,15 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 		peerAddress_ = address;
 	}
 	updating_ = true;
-	std::optional<bool> retiredApply;
+	Completion retiredApply;
 	if (remote) {
 		values_.clear();
 		endpoints_.clear();
 		selection_.clear();
 		if (state_) {
 			state_->closeAndDrain();
-			retiredApply = consumeApply(*state_, false);
+			retiredApply.applied = consumeApply(*state_, false);
+			retiredApply.command = consumeCommand(*state_, false);
 			state_.reset();
 		}
 	} else {
@@ -625,13 +700,14 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 	// The transport preserves complete packets received before EOF. Apply them
 	// before closing the logical operation; onReply/process still enforce its
 	// deadline. The socket is already closed, so pump cannot authorize new TX.
-	if (state_ && state_->remote && !state_->applying && !state_->replies.empty()) {
+	if (state_ && state_->remote && !state_->applying && !state_->executing &&
+	    !state_->replies.empty()) {
 		QPointer<InspectorController> alive{this};
 		pump();
 		if (!alive || epoch != epoch_)
 			return;
 	}
-	const bool readPending = busy_ && state_ && !state_->applying;
+	const bool readPending = busy_ && state_ && !state_->applying && !state_->executing;
 	updating_ = true;
 	const auto applied = retire();
 	status_ = (serial_ ? QStringLiteral("Serial: %1") : QStringLiteral("TCP: %1")).arg(error);
@@ -641,7 +717,7 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 
 bool InspectorController::canRefresh() const noexcept
 {
-	return connected_ && !busy_ && !editing() && state_ &&
+	return connected_ && !busy_ && !editing() && state_ && !commandSelected() &&
 	       state_->inspector.snapshotInfo().selected;
 }
 
@@ -652,12 +728,38 @@ bool InspectorController::writeProfileSupported() const noexcept
 
 bool InspectorController::editing() const noexcept
 {
-	return state_ && state_->inspector.editing();
+	return state_ && !commandSelected() && state_->inspector.editing();
+}
+
+bool InspectorController::commandSelected() const noexcept
+{
+	return state_ && state_->inspector.commandSelected();
+}
+
+bool InspectorController::canExecute() const noexcept
+{
+	return writeProfileSupported() && writesEnabled_ && !busy_ && invalidEditors_.isEmpty() &&
+	       state_->inspector.canExecute();
+}
+
+QString InspectorController::commandOutcome() const
+{
+	if (commandOutcome_.isEmpty())
+		return {};
+	const auto outcome =
+	    QStringLiteral("Last Command %1 · %2").arg(commandOutcomeEndpoint_, commandOutcome_);
+	if (!commandOutcomeSession_ || commandOutcomeSession_ == session_)
+		return outcome;
+	return QStringLiteral("Previous session %1 (current session %2) · %3")
+	    .arg(commandOutcomeSession_)
+	    .arg(session_)
+	    .arg(outcome);
 }
 
 bool InspectorController::canEdit() const noexcept
 {
-	return writeProfileSupported() && writesEnabled_ && !busy_ && state_->inspector.canEdit();
+	return writeProfileSupported() && writesEnabled_ && !busy_ && !commandSelected() &&
+	       state_->inspector.canEdit();
 }
 
 bool InspectorController::canApply() const noexcept
@@ -723,12 +825,14 @@ void InspectorController::cancelEdit()
 
 bool InspectorController::setScalarText(const QModelIndex& index, const QString& text)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !editing() || busy_)
+	if (updating_ || values_.changing() || endpoints_.changing() ||
+	    (!editing() && !commandSelected()) || busy_)
 		return false;
 	const auto node = values_.node(index);
 	if (!node)
 		return false;
-	const auto info = state_->inspector.info(node.value);
+	const auto info = commandSelected() ? state_->inspector.editorInfo(node.value)
+	                                    : state_->inspector.info(node.value);
 	if (!info || (info.value.kind != telemetry::TypeKind::Scalar &&
 	              info.value.kind != telemetry::TypeKind::Enum))
 		return false;
@@ -828,6 +932,33 @@ bool InspectorController::apply()
 	return true;
 }
 
+bool InspectorController::executeCommand()
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || !canExecute())
+		return false;
+	const auto submitted = state_->inspector.execute(
+	    [state = state_.get()](const im::OperationResult& result) noexcept {
+		    state->commanded = result;
+	    },
+	    static_cast<quint32>(readTimeout_));
+	if (!submitted) {
+		status_ = QStringLiteral("Execute refused: %1.").arg(statusName(submitted.status));
+		Q_EMIT stateChanged();
+		return false;
+	}
+	updating_ = true;
+	state_->executing = true;
+	commandOutcomeSession_ = state_->inspector.session();
+	commandOutcomeEndpoint_ = selection_;
+	busy_ = true;
+	values_.clear();
+	commandOutcome_ = QStringLiteral("Pending · waiting for the Command result.");
+	status_ = QStringLiteral("Sending the Command once · no automatic replay or readback.");
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
+}
+
 bool InspectorController::loadDescriptor(const QUrl& path)
 {
 	if (updating_ || values_.changing() || endpoints_.changing())
@@ -861,11 +992,32 @@ bool InspectorController::openDescriptorPath(const QString& path)
 bool InspectorController::selectEndpoint(const QModelIndex& index)
 {
 	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || editing() ||
-	    state_->applying)
+	    state_->applying || state_->executing)
 		return false;
 	const auto endpoint = endpoints_.endpoint(index);
 	if (endpoint.isEmpty())
 		return false;
+	if (endpoint.value(QStringLiteral("category")).toInt() == 2) {
+		const auto binding =
+		    state_->inspector.bindCommand(endpoint.value(QStringLiteral("id")).toUInt());
+		const auto prepared =
+		    binding ? state_->inspector.selectCommand(binding.endpoint) : binding.status;
+		if (prepared != cl::Status::Ok) {
+			status_ =
+			    QStringLiteral("Cannot prepare Command arguments: %1.").arg(statusName(prepared));
+			Q_EMIT stateChanged();
+			return false;
+		}
+		updating_ = true;
+		invalidEditors_.clear();
+		values_.resetSnapshot(state_->inspector);
+		selection_ = endpoint.value(QStringLiteral("path")).toString();
+		status_ = QStringLiteral(
+		    "Command Request · client-initialized zero arguments · Execute sends once.");
+		updating_ = false;
+		Q_EMIT stateChanged();
+		return true;
+	}
 	if (endpoint.value(QStringLiteral("category")).toInt() != 1 ||
 	    !endpoint.value(QStringLiteral("readable")).toBool()) {
 		updating_ = true;
@@ -893,7 +1045,7 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 bool InspectorController::refresh()
 {
 	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ ||
-	    busy_ || editing())
+	    busy_ || editing() || commandSelected())
 		return false;
 	auto readTimeout = static_cast<quint32>(readTimeout_);
 #ifdef INSPECTOR_ENABLE_SERIAL
@@ -1024,11 +1176,13 @@ void InspectorController::pump()
 		notify = true;
 	}
 	const auto applied = consumeApply(state, true);
-	notify = notify || applied.has_value();
+	const auto commanded = consumeCommand(state, true);
+	notify = notify || applied.has_value() || commanded.has_value();
 	// All backend calls have returned before application signals can run slots.
 	updating_ = false;
 	if (notify)
-		notifyState(applied, completion ? std::optional<bool>{published} : std::nullopt);
+		notifyState({applied, commanded},
+		            completion ? std::optional<bool>{published} : std::nullopt);
 }
 
 void InspectorController::disconnectDevice()
@@ -1061,6 +1215,31 @@ void InspectorController::setRejectWrites(bool reject) noexcept
 quint64 InspectorController::demoWriteCount() const noexcept
 {
 	return state_ && state_->demo ? state_->peer.writeCount() : 0;
+}
+
+quint64 InspectorController::demoCommandCount() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.commandCount() : 0;
+}
+
+quint64 InspectorController::demoExecutedCount() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.executedCount() : 0;
+}
+
+quint64 InspectorController::demoAcceptedCount() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.acceptedCount() : 0;
+}
+
+quint64 InspectorController::demoCommandCounter() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.lastCommandCounter() : 0;
+}
+
+float InspectorController::demoCommandGain() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.lastCommandGain() : 0;
 }
 
 void InspectorController::setReadTimeout(int milliseconds) noexcept

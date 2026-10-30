@@ -115,12 +115,16 @@ void operator delete[](void*, std::align_val_t, const std::nothrow_t&) noexcept
 }
 
 #define main workbenchHostMain
+#ifdef WORKBENCH_COMMAND_SUITE
+#include "Command.cpp"
+#else
 #include "Host.cpp"
+#endif
 #undef main
 
 int main()
 {
-#ifdef WORKBENCH_HEAP_CONTROL
+#if defined(WORKBENCH_HEAP_CONTROL) || defined(WORKBENCH_COMMAND_HEAP_CONTROL)
 	void* volatile allocation = ::operator new(1);
 	(void)allocation;
 	return 1;
