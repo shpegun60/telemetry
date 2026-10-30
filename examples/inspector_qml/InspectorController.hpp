@@ -206,7 +206,7 @@ private:
 	bool writesEnabled_ = false;
 	QString writeOutcome_;
 	quint32 writeOutcomeSession_ = 0;
-	QString commandOutcome_;
+	QString commandOutcome_, commandOutcomeEndpoint_;
 	quint32 commandOutcomeSession_ = 0;
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,

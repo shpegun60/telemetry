@@ -753,10 +753,18 @@ void commandSocketOutcomes()
 		CHECK(peer.fieldReads() == 0 && peer.fieldWrites() == 0);
 		const auto origin = client.controller.inspector().session();
 		const auto outcome = client.controller.commandOutcome();
-		CHECK(outcome.contains(accepted ? QStringLiteral("Accepted") : QStringLiteral("Executed"),
-		                       Qt::CaseInsensitive));
+		CHECK(outcome.startsWith(accepted
+		                             ? QStringLiteral("Last Command control.Accept · Accepted")
+		                             : QStringLiteral("Last Command control.Execute · Executed")));
 		CHECK(!outcome.contains(QStringLiteral("OutcomeUnknown")) &&
 		      !outcome.contains(QStringLiteral("Previous session")));
+		const auto next = command(client.endpoints,
+		                          accepted ? QStringLiteral("Execute") : QStringLiteral("Accept"));
+		CHECK(next.isValid() && client.controller.selectEndpoint(next));
+		CHECK(client.controller.commandOutcome() == outcome);
+		client.controller.setWritesEnabled(false);
+		CHECK(!client.controller.executeCommand() &&
+		      client.controller.commandOutcome() == outcome && peer.nativeCommands() == 1);
 		client.controller.disconnectDevice();
 		CHECK(finished.count() == 1 && client.controller.commandOutcome() == outcome);
 		CHECK(await([&] {
@@ -804,7 +812,7 @@ void commandSocketOutcomes()
 		CHECK(finished.count() == 1 && finished.first().size() == 2);
 		CHECK(!finished.first()[0].toBool() && !finished.first()[1].toBool());
 		const auto outcome = client.controller.commandOutcome();
-		CHECK(outcome.contains(QStringLiteral("OutcomeUnknown")) &&
+		CHECK(outcome.startsWith(QStringLiteral("Last Command control.Execute · OutcomeUnknown")) &&
 		      !outcome.contains(QStringLiteral("Pending")));
 		client.controller.disconnectDevice();
 		CHECK(finished.count() == 1 && client.controller.commandOutcome() == outcome &&

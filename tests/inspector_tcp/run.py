@@ -120,7 +120,7 @@ def main():
                          else 'telemetry_inspector_tcp_check')
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector TCP checks=(\d+) reads=(\d+) connections=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 663 or int(counts[2]) < 32 or int(counts[3]) < 26:
+        if not counts or int(counts[1]) < 669 or int(counts[2]) < 32 or int(counts[3]) < 26:
             raise RuntimeError('Runtime did not execute the maintained real-socket scenarios')
         disconnected = re.findall(r'TCP explicit disconnect phase=(prepared-lost-ack|confirmed-write) '
                                   r'callbacks=(\d+) busy=(\d+) outcome=(.*?) writes=(\d+)', runtime)

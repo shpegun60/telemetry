@@ -144,6 +144,8 @@ int main(int argc, char** argv)
 	CHECK(values.data(member(values, QStringLiteral("Counter")), ui::ValueModel::EditorTextRole)
 	          .toString() == QStringLiteral("0"));
 	CHECK(controller.executeCommand()); // Unchanged canonical arguments are valid.
+	CHECK(controller.commandOutcome().startsWith(
+	    QStringLiteral("Last Command control.Execute · Pending")));
 	CHECK(!controller.executeCommand());
 	CHECK(await([&] {
 		return completed.count() == 1 && !controller.busy();
@@ -152,24 +154,40 @@ int main(int argc, char** argv)
 	CHECK(controller.demoCommandCount() == 1 && controller.demoExecutedCount() == 1 &&
 	      controller.demoAcceptedCount() == 0);
 	CHECK(controller.demoCommandGain() == 0 && controller.demoCommandCounter() == 0);
-	CHECK(controller.commandOutcome().startsWith(QStringLiteral("Executed")) && reads.count() == 0);
+	CHECK(controller.commandOutcome().startsWith(
+	          QStringLiteral("Last Command control.Execute · Executed")) &&
+	      reads.count() == 0);
+	const auto executedOutcome = controller.commandOutcome();
 	select(QStringLiteral("Accept"));
+	CHECK(controller.commandOutcome() == executedOutcome);
+	controller.setWritesEnabled(false);
+	CHECK(!controller.executeCommand() && controller.commandOutcome() == executedOutcome);
+	controller.setWritesEnabled(true);
 	CHECK(controller.canExecute() && controller.executeCommand());
+	CHECK(controller.commandOutcome().startsWith(
+	    QStringLiteral("Last Command control.Accept · Pending")));
 	CHECK(await([&] {
 		return completed.count() == 2 && !controller.busy();
 	}));
 	CHECK(!completed.last()[0].toBool() && completed.last()[1].toBool());
-	CHECK(controller.commandOutcome().startsWith(QStringLiteral("Accepted")));
+	CHECK(controller.commandOutcome().startsWith(
+	    QStringLiteral("Last Command control.Accept · Accepted")));
 	CHECK(controller.demoCommandCount() == 2 && controller.demoExecutedCount() == 1 &&
 	      controller.demoAcceptedCount() == 1);
 	for (const auto& name : {QStringLiteral("Ping"), QStringLiteral("Empty")}) {
+		const auto previous = controller.commandOutcome();
 		select(name);
+		CHECK(controller.commandOutcome() == previous);
 		const auto count = completed.count();
 		CHECK(controller.canExecute() && controller.executeCommand());
+		CHECK(controller.commandOutcome().startsWith(
+		    QStringLiteral("Last Command control.%1 · Pending").arg(name)));
 		CHECK(await([&] {
 			return completed.count() == count + 1 && !controller.busy();
 		}));
 		CHECK(completed.last()[0].toBool() && !completed.last()[1].toBool());
+		CHECK(controller.commandOutcome().startsWith(
+		    QStringLiteral("Last Command control.%1 · Executed").arg(name)));
 	}
 	CHECK(controller.demoCommandCount() == 4 && reads.count() == 0);
 
@@ -187,6 +205,7 @@ int main(int argc, char** argv)
 	auto* window = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
 	CHECK(window && QTest::qWaitForWindowExposed(window));
 	window->requestActivate();
+	const auto previousCommand = controller.commandOutcome();
 	select(QStringLiteral("Execute"));
 	type(*window, QStringLiteral("Gain"), QByteArrayLiteral("4.25"));
 	type(*window, QStringLiteral("Counter"), QByteArrayLiteral("18446744073709551616"));
@@ -198,6 +217,7 @@ int main(int argc, char** argv)
 	          .toString() == QStringLiteral("18446744073709551616"));
 	type(*window, QStringLiteral("Counter"), QByteArrayLiteral("18446744073709551614"));
 	CHECK(controller.canExecute());
+	CHECK(controller.commandOutcome() == previousCommand);
 	const auto screenshot = app.arguments().indexOf(QStringLiteral("--screenshot"));
 	if (screenshot >= 0) {
 		CHECK(screenshot + 1 < app.arguments().size());
@@ -211,6 +231,8 @@ int main(int argc, char** argv)
 	}));
 	CHECK(controller.demoCommandCount() == 5 && controller.demoCommandGain() == 4.25f &&
 	      controller.demoCommandCounter() == UINT64_C(18446744073709551614));
+	CHECK(controller.commandOutcome().startsWith(
+	    QStringLiteral("Last Command control.Execute · Executed")));
 	CHECK(reads.count() == 0 && !warnings);
 
 	controller.setDropReplies(true);
@@ -219,22 +241,27 @@ int main(int argc, char** argv)
 	CHECK(controller.demoCommandCount() == 6 && completed.count() == 5);
 	controller.disconnectDevice();
 	CHECK(completed.count() == 6 && !completed.last()[0].toBool() && !completed.last()[1].toBool());
-	CHECK(controller.commandOutcome().startsWith(QStringLiteral("OutcomeUnknown")) &&
+	CHECK(controller.commandOutcome().startsWith(
+	          QStringLiteral("Last Command control.Execute · OutcomeUnknown")) &&
 	      !controller.busy());
 	CHECK(controller.connectWritableDemo());
 	CHECK(controller.commandOutcome().startsWith(QStringLiteral("Previous session")) &&
-	      controller.commandOutcome().contains(QStringLiteral("OutcomeUnknown")));
+	      controller.commandOutcome().contains(
+	          QStringLiteral("Last Command control.Execute · OutcomeUnknown")));
 	QTest::qWait(30);
 	CHECK(controller.demoCommandCount() == 0 && completed.count() == 6); // No replay.
-	select(QStringLiteral("Ping"));
-	controller.setWritesEnabled(false);
 	const auto history = controller.commandOutcome();
+	select(QStringLiteral("Ping"));
+	CHECK(controller.commandOutcome() == history);
+	controller.setWritesEnabled(false);
 	CHECK(!controller.canExecute() && !controller.executeCommand());
 	CHECK(controller.demoCommandCount() == 0 && completed.count() == 6 &&
 	      controller.commandOutcome() == history);
 	controller.setWritesEnabled(true);
 	CHECK(controller.executeCommand());
-	CHECK(!controller.commandOutcome().contains(QStringLiteral("Previous session")));
+	CHECK(controller.commandOutcome().startsWith(
+	          QStringLiteral("Last Command control.Ping · Pending")) &&
+	      !controller.commandOutcome().contains(QStringLiteral("Previous session")));
 	controller.disconnectDevice(); // No process/handoff occurred.
 	CHECK(completed.count() == 7 && !completed.last()[0].toBool() && !completed.last()[1].toBool());
 	CHECK(controller.commandOutcome().contains(QStringLiteral("Cancelled")) &&
@@ -258,7 +285,8 @@ int main(int argc, char** argv)
 	reentrant.pump();
 	CHECK(notifications == 1 && reentrant.demoCommandCount() == 0);
 	CHECK(reentrant.commandOutcome().contains(QStringLiteral("Previous session")) &&
-	      reentrant.commandOutcome().contains(QStringLiteral("Accepted")));
+	      reentrant.commandOutcome().contains(
+	          QStringLiteral("Last Command control.Accept · Accepted")));
 	auto* deleted = new ui::InspectorController;
 	CHECK(deleted->connectWritableDemo());
 	auto& deletedEndpoints = *qobject_cast<ui::EndpointModel*>(deleted->endpoints());

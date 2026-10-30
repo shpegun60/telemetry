@@ -170,7 +170,7 @@ def main():
         command_output = run('qml-command', [command_check, '--screenshot', command_screenshot])
         command_counts = re.search(r'Inspector Command checks=(\d+) executed=1 accepted=1 '
                                    r'unknown=1 noEnter=1 Qt=(\S+)', command_output)
-        if not command_counts or int(command_counts[1]) < 97 or command_counts[2] != counts[3]:
+        if not command_counts or int(command_counts[1]) < 112 or command_counts[2] != counts[3]:
             raise RuntimeError('Command controls did not preserve execution, acceptance and uncertainty')
         report['executions']['command_checks'] = int(command_counts[1])
         report['executions']['command_keyboard_mouse_no_enter'] = 1

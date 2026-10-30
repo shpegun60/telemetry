@@ -15,7 +15,7 @@ Requires Qt 6.4 or newer with Network, Quick Controls and Test. On Windows selec
 the matching Qt MinGW kit explicitly. The runner puts that compiler and Qt runtime
 first in `PATH`, keeps builds/logs outside the source tree, and retains before/after
 source hashes, binary hashes and a machine-readable result. Source drift fails the
-run. The maintained floor is 663 checks, 32 real FieldReads and 26 admitted socket
+run. The maintained floor is 669 checks, 32 real FieldReads and 26 admitted socket
 connections; refused discovery and extra raw socket connections are counted
 separately in the scenarios.
 

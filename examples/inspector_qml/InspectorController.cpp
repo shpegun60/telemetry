@@ -744,12 +744,16 @@ bool InspectorController::canExecute() const noexcept
 
 QString InspectorController::commandOutcome() const
 {
-	if (commandOutcome_.isEmpty() || !commandOutcomeSession_ || commandOutcomeSession_ == session_)
-		return commandOutcome_;
+	if (commandOutcome_.isEmpty())
+		return {};
+	const auto outcome =
+	    QStringLiteral("Last Command %1 · %2").arg(commandOutcomeEndpoint_, commandOutcome_);
+	if (!commandOutcomeSession_ || commandOutcomeSession_ == session_)
+		return outcome;
 	return QStringLiteral("Previous session %1 (current session %2) · %3")
 	    .arg(commandOutcomeSession_)
 	    .arg(session_)
-	    .arg(commandOutcome_);
+	    .arg(outcome);
 }
 
 bool InspectorController::canEdit() const noexcept
@@ -945,6 +949,7 @@ bool InspectorController::executeCommand()
 	updating_ = true;
 	state_->executing = true;
 	commandOutcomeSession_ = state_->inspector.session();
+	commandOutcomeEndpoint_ = selection_;
 	busy_ = true;
 	values_.clear();
 	commandOutcome_ = QStringLiteral("Pending · waiting for the Command result.");
