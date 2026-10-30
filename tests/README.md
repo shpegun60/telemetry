@@ -23,9 +23,13 @@ owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public
 dependency closure from native Model, Resource and concrete backends.
 
+The same maintained runner executes [FieldWrite Workbench checks](workbench/README.md)
+with shared snapshot ownership, transactional scalar edits, real Encoded/RPC
+Write/Refresh, deterministic mutation deadlines and independent result handling.
+
 The [Qt/QML Inspector suite](inspector_qml/README.md) checks real Qt model
 invariants, lazy snapshot browsing, exact scalar text, asynchronous read-only
-controller behavior and an offscreen QML window over the native Encoded peer.
+controller behavior and actual QML edit/Apply handlers over the native Encoded peer.
 
 The [native TCP suite](tcp_stream/README.md) checks bounded Resource/TEQ1 stream
 framing, real dispatch, preflight, reentrancy, no-heap and Cortex-M7 compilation.

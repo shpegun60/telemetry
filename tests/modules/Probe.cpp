@@ -106,6 +106,17 @@ int main()
 {
 	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_WORKBENCH)
+#include <integration/workbench/WorkbenchModel.hpp>
+#include <type_traits>
+using Workbench = telemetry::integration::workbench::WorkbenchModel<2, 64, 64>;
+static_assert(!std::is_copy_constructible_v<Workbench>);
+static_assert(!std::is_move_constructible_v<Workbench>);
+
+int main()
+{
+	return sizeof(Workbench) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_INSPECTOR)
 #include <integration/inspector/InspectorModel.hpp>
 #include <type_traits>

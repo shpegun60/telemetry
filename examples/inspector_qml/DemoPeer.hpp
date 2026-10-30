@@ -28,12 +28,15 @@ namespace inspector_qml {
 // immutable Descriptor and complete Encoded frames through this boundary.
 class DemoPeer {
 public:
-	DemoPeer();
+	explicit DemoPeer(bool writable = false);
 	~DemoPeer();
 	DemoPeer(const DemoPeer&) = delete;
 	DemoPeer& operator=(const DemoPeer&) = delete;
 
 	[[nodiscard]] telemetry::client::Input descriptor() const noexcept;
+	[[nodiscard]] bool writable() const noexcept;
+	[[nodiscard]] std::uint64_t writeCount() const noexcept;
+	void setRejectWrites(bool reject) noexcept;
 	// The returned server borrows this peer's workspace and caller-owned files
 	// and buffers. It must be destroyed before any of them.
 	std::unique_ptr<telemetry::integration::tcp::Server>

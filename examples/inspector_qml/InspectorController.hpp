@@ -1,6 +1,6 @@
 /*
  * @file InspectorController.hpp
- * @brief Qt owner loop and descriptor storage for the read-only inspector application.
+ * @brief Qt owner loop for runtime inspection and explicit Field editing.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -14,6 +14,7 @@
 #include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtCore/QStringList>
+#include <QtCore/QSet>
 #include <memory>
 
 namespace inspector_qml {
@@ -34,6 +35,12 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(bool serialAvailable READ serialAvailable CONSTANT)
 	Q_PROPERTY(QString serialPort READ serialPort NOTIFY stateChanged)
 	Q_PROPERTY(qint32 serialBaud READ serialBaud NOTIFY stateChanged)
+	Q_PROPERTY(bool writesEnabled READ writesEnabled WRITE setWritesEnabled NOTIFY stateChanged)
+	Q_PROPERTY(bool writeProfileSupported READ writeProfileSupported NOTIFY stateChanged)
+	Q_PROPERTY(bool canEdit READ canEdit NOTIFY stateChanged)
+	Q_PROPERTY(bool editing READ editing NOTIFY stateChanged)
+	Q_PROPERTY(bool canApply READ canApply NOTIFY stateChanged)
+	Q_PROPERTY(QString writeOutcome READ writeOutcome NOTIFY stateChanged)
 
 public:
 	explicit InspectorController(QObject* parent = nullptr);
@@ -102,26 +109,51 @@ public:
 	Q_INVOKABLE bool connectSerial(const QString& port, qint32 baud = 115200);
 	void setSerialWriteChunkBytes(int bytes) noexcept;
 	Q_INVOKABLE bool connectDemo();
+	Q_INVOKABLE bool connectWritableDemo();
 	Q_INVOKABLE bool connectTcp(const QString& host, quint16 port = 5577);
 	Q_INVOKABLE bool loadDescriptor(const QUrl& path);
 	Q_INVOKABLE bool openDescriptorPath(const QString& path);
 	Q_INVOKABLE bool selectEndpoint(const QModelIndex& index);
 	Q_INVOKABLE bool refresh();
+	Q_INVOKABLE bool beginEdit();
+	Q_INVOKABLE void cancelEdit();
+	Q_INVOKABLE bool setScalarText(const QModelIndex& index, const QString& text);
+	Q_INVOKABLE bool apply();
+	void setWritesEnabled(bool enabled);
+
+	bool writesEnabled() const noexcept
+	{
+		return writesEnabled_;
+	}
+
+	bool writeProfileSupported() const noexcept;
+	bool canEdit() const noexcept;
+	bool editing() const noexcept;
+	bool canApply() const noexcept;
+
+	QString writeOutcome() const
+	{
+		return writeOutcome_;
+	}
+
 	Q_INVOKABLE void disconnectDevice();
 
 	// Host-port controls also let the Qt tests exercise actual asynchronous reads.
 	void pump();
 	void setReplyDelay(int milliseconds) noexcept;
 	void setDropReplies(bool drop) noexcept;
+	void setRejectWrites(bool reject) noexcept;
+	quint64 demoWriteCount() const noexcept;
 	// Explicit enqueue deadline, including for serial reads; does not add an airtime allowance.
 	void setReadTimeout(int milliseconds) noexcept;
 	void setTcpWriteChunkBytes(int bytes) noexcept;
 	QByteArray demoDescriptor() const;
-	Inspector& inspector() noexcept;
+	Workbench& inspector() noexcept;
 
 Q_SIGNALS:
 	void stateChanged();
 	void readFinished(bool published);
+	void applyFinished(bool confirmed);
 
 private:
 	struct State;
@@ -146,8 +178,12 @@ private:
 	int tcpWriteChunk_ = 0;
 	bool connecting_ = false;
 	bool connected_ = false, busy_ = false, dropReplies_ = false, updating_ = false;
-	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false);
-	void retire();
+	bool writesEnabled_ = false;
+	QString writeOutcome_;
+	QSet<quintptr> invalidEditors_;
+	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
+	                       bool writableDemo = false);
+	void retire(telemetry::integration::workbench::ApplyResult* applied = nullptr);
 	void bindTransportSignals();
 	void transportFailed(quint64 epoch, QString error);
 	void transportDescriptor(quint64 epoch, QByteArray bytes);

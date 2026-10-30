@@ -120,7 +120,7 @@ def main():
                          else 'telemetry_inspector_tcp_check')
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector TCP checks=(\d+) reads=(\d+) connections=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 383 or int(counts[2]) < 20 or int(counts[3]) < 14:
+        if not counts or int(counts[1]) < 469 or int(counts[2]) < 25 or int(counts[3]) < 16:
             raise RuntimeError('Runtime did not execute the maintained real-socket scenarios')
         report['executions'] = dict(zip(('checks', 'reads', 'connections'), map(int, counts.groups()[:3])))
         report['qt_version'] = counts[4]

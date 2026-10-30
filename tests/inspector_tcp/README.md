@@ -15,7 +15,7 @@ Requires Qt 6.4 or newer with Network, Quick Controls and Test. On Windows selec
 the matching Qt MinGW kit explicitly. The runner puts that compiler and Qt runtime
 first in `PATH`, keeps builds/logs outside the source tree, and retains before/after
 source hashes, binary hashes and a machine-readable result. Source drift fails the
-run. The maintained floor is 383 checks, 20 real FieldReads and 14 admitted socket
+run. The maintained floor is 469 checks, 25 real FieldReads and 16 admitted socket
 connections; refused discovery and extra raw socket connections are counted
 separately in the scenarios.
 
@@ -42,6 +42,13 @@ server profile. A different peer is refused while this recovery obligation remai
 independent demo/file browsing does not erase it. An idle client without recovery
 may be destroyed after local close/drain, and a different peer gets a new core.
 No old binding is revived and no remote proof is inferred from local socket abort.
+
+FieldWrite scenarios require explicit connection opt-in. They exercise partial
+request writes, a normalizing setter followed by Refresh, setter refusal with no
+readback, confirmed Write followed by refused Refresh, and a lost Write ACK with
+exactly one native setter call. Reconnecting the supported same peer never replays
+that write. A complete successful Write response followed by EOF remains a known
+successful write with unavailable readback, rather than becoming OutcomeUnknown.
 
 The runner also starts the real demo server executable on an ephemeral loopback
 port, opens the actual QML application with `--tcp`, and requires a published

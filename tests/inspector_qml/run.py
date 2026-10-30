@@ -144,7 +144,7 @@ def main():
         check = build / ('telemetry_inspector_qml_check' + suffix)
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector Qt checks=(\d+) reads=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 480 or int(counts[2]) < 10:
+        if not counts or int(counts[1]) < 637 or int(counts[2]) < 13:
             raise RuntimeError('Runtime did not execute the maintained model/controller checks')
         report['executions']['checks'], report['executions']['reads'] = map(int, counts.groups()[:2])
         report['qt_version'] = counts[3]
@@ -164,6 +164,19 @@ def main():
             raise RuntimeError('QML window screenshot is empty')
         report['screenshot'] = dict(path=screenshot.name, sha256=digest(screenshot),
                                     width=width, height=height, bytes=len(png))
+        edit_screenshot = output / 'edit-window.png'
+        edited = run('qml-edit-smoke', [app, '--edit-smoke', '--screenshot', edit_screenshot])
+        if 'Inspector QML edit smoke: writes=1 refreshed=1 gain=10 controls=Edit,TextField,Apply' not in edited:
+            raise RuntimeError('QML controls did not complete the actual Write and normalized readback')
+        edit_png = edit_screenshot.read_bytes()
+        if edit_png[:8] != b'\x89PNG\r\n\x1a\n' or len(edit_png) < 24 or edit_png[12:16] != b'IHDR':
+            raise RuntimeError('Workbench screenshot is not a PNG image')
+        edit_width, edit_height = struct.unpack('>II', edit_png[16:24])
+        if edit_width < 1 or edit_height < 1:
+            raise RuntimeError('Workbench screenshot is empty')
+        report['executions']['offscreen_edit_smoke'] = 1
+        report['edit_screenshot'] = dict(path=edit_screenshot.name, sha256=digest(edit_screenshot),
+                                       width=edit_width, height=edit_height, bytes=len(edit_png))
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (check, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}

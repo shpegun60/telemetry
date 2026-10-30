@@ -1,4 +1,4 @@
-# Read-only Inspector acceptance
+# Inspector, shared snapshot and Workbench acceptance
 
 Run from the repository root with a fresh external directory:
 
@@ -11,6 +11,14 @@ python3 -B tests/inspector/run.py --cxx clang++-18 --sanitize --build-dir /exter
 handoff, child navigation and exact decimal conversion for Cortex-M7 and checks
 undefined symbols for allocation.
 It does not execute ARM code or test a physical transport.
+
+The same runner also qualifies [FieldWrite Workbench](../workbench/README.md)
+with real Encoded/RPC writes, independent readback outcomes and allocation traps.
+`Snapshot.cpp` checks the extracted fixed-storage SnapshotStore, including
+canonical publish preflight, aliasing, nested prepared scalar paths, zero-byte
+siblings, typed navigation and stale identity refusal. Inspector still uses the
+same public read-only API and the already-validated publication path; extraction
+does not add another recursive scan of every received DTO.
 
 The native fixture publishes a nested 91-byte value, all fixed scalar kinds,
 signed and unsigned 64-bit extremes, known and unknown enum values, nested

@@ -12,6 +12,9 @@
 #include <telemetry/descriptor/Descriptor.hpp>
 
 #include <array>
+#include <bit>
+#include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace inspector_qml::demo {
@@ -39,6 +42,46 @@ struct Calibration {
 
 struct Identity {
 	std::uint32_t version, serial;
+};
+
+struct Config {
+	float Gain = 1.0f;
+	std::uint64_t Counter = std::numeric_limits<std::uint64_t>::max();
+	std::int64_t Offset = std::numeric_limits<std::int64_t>::min();
+	bool Enabled = true;
+	Mode OperatingMode = static_cast<Mode>(-2);
+	std::array<std::array<std::int32_t, 2>, 2> Matrix{{{{1, -2}}, {{3, -4}}}};
+	std::array<float, 6> FloatBits{
+	    std::bit_cast<float>(UINT32_C(0x7fc12345)), std::bit_cast<float>(UINT32_C(0xffc54321)),
+	    std::bit_cast<float>(UINT32_C(0x7f812345)), std::bit_cast<float>(UINT32_C(0xff854321)),
+	    std::bit_cast<float>(UINT32_C(0x00000000)), std::bit_cast<float>(UINT32_C(0x80000000))};
+	std::array<double, 6> DoubleBits{std::bit_cast<double>(UINT64_C(0x7ff8123456789abc)),
+	                                 std::bit_cast<double>(UINT64_C(0xfff854321abcdef0)),
+	                                 std::bit_cast<double>(UINT64_C(0x7ff0123456789abc)),
+	                                 std::bit_cast<double>(UINT64_C(0xfff054321abcdef0)),
+	                                 std::bit_cast<double>(UINT64_C(0x0000000000000000)),
+	                                 std::bit_cast<double>(UINT64_C(0x8000000000000000))};
+};
+
+struct WritableDevice {
+	Config config{};
+	std::uint64_t writes = 0;
+	bool rejectWrites = false;
+
+	Config read() const noexcept
+	{
+		return config;
+	}
+
+	telemetry::WriteResult write(const Config& requested) noexcept
+	{
+		++writes;
+		if (rejectWrites || !std::isfinite(requested.Gain))
+			return telemetry::WriteResult::InvalidValue;
+		config = requested;
+		config.Gain = std::clamp(config.Gain, 0.0f, 10.0f);
+		return telemetry::WriteResult::Applied;
+	}
 };
 
 struct Device {
@@ -131,36 +174,76 @@ constexpr telemetry::Model model{fields, commands, services};
 constexpr telemetry::descriptor::Descriptor nativeDescriptor{model};
 constexpr auto descriptorBytes = telemetry::descriptor::packDescriptor<nativeDescriptor>();
 
+demo::WritableDevice writablePrototype;
+constexpr telemetry::FieldTable writableFields{
+    telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
+                                                                                writablePrototype)};
+constexpr telemetry::FieldCatalogTable writableCatalogs{telemetry::group("device", writableFields)};
+constexpr telemetry::CommandCatalogTable<> noCommands{};
+constexpr telemetry::ServiceCatalogTable<> noServices{};
+constexpr telemetry::Model writablePrototypeModel{writableCatalogs, noCommands, noServices};
+constexpr telemetry::descriptor::Descriptor writableDescriptor{writablePrototypeModel};
+constexpr auto writableDescriptorBytes =
+    telemetry::descriptor::packDescriptor<writableDescriptor>();
+
 } // namespace
 
 struct DemoPeer::Impl {
-	alignas(std::max_align_t) std::array<std::byte, model.maxScratch()> scratch{};
+	bool writable = false;
+	demo::WritableDevice device;
+	decltype(writableFields) fields{
+	    telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
+	                                                                                device)};
+	decltype(writableCatalogs) catalogs{telemetry::group("device", fields)};
+	decltype(writablePrototypeModel) writableModel{catalogs, noCommands, noServices};
+	alignas(std::max_align_t) std::array<
+	    std::byte, std::max(model.maxScratch(), writablePrototypeModel.maxScratch())> scratch{};
 	telemetry::Workspace workspace{scratch};
 };
 
-DemoPeer::DemoPeer() : impl_(std::make_unique<Impl>())
-{}
+DemoPeer::DemoPeer(bool writable) : impl_(std::make_unique<Impl>())
+{
+	impl_->writable = writable;
+}
 
 DemoPeer::~DemoPeer() = default;
 
 telemetry::client::Input DemoPeer::descriptor() const noexcept
 {
-	return descriptorBytes;
+	return impl_->writable ? telemetry::client::Input{writableDescriptorBytes}
+	                       : telemetry::client::Input{descriptorBytes};
+}
+
+bool DemoPeer::writable() const noexcept
+{
+	return impl_->writable;
+}
+
+std::uint64_t DemoPeer::writeCount() const noexcept
+{
+	return impl_->device.writes;
+}
+
+void DemoPeer::setRejectWrites(bool reject) noexcept
+{
+	impl_->device.rejectWrites = reject;
 }
 
 std::unique_ptr<telemetry::integration::tcp::Server>
 DemoPeer::makeTcpServer(resource::FileSystemView files, telemetry::client::Output rx,
                         telemetry::client::Output tx)
 {
-	return std::make_unique<telemetry::integration::tcp::Server>(model.view(), impl_->workspace,
-	                                                             files, rx, tx);
+	return std::make_unique<telemetry::integration::tcp::Server>(
+	    impl_->writable ? impl_->writableModel.view() : model.view(), impl_->workspace, files, rx,
+	    tx);
 }
 
 std::size_t DemoPeer::dispatch(telemetry::client::Input request, telemetry::client::Output reply,
                                std::uint32_t session) noexcept
 {
 	const auto result = telemetry::integration::encoded::dispatchEncoded(
-	    model.view(), impl_->workspace, session, request, reply);
+	    impl_->writable ? impl_->writableModel.view() : model.view(), impl_->workspace, session,
+	    request, reply);
 	return result ? result.written : 0;
 }
 

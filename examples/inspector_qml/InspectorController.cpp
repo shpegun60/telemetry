@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <charconv>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -29,8 +30,16 @@ namespace inspector_qml {
 namespace cl = telemetry::client;
 namespace rt = telemetry::runtime;
 namespace im = telemetry::integration::inspector;
+namespace wb = telemetry::integration::workbench;
 
 namespace {
+bool mutationPacket(const cl::Packet& packet) noexcept
+{
+	const auto parsed = telemetry::protocol::encoded::parse(packet.bytes);
+	return packet.mayExecute && parsed &&
+	       parsed.header.operation == telemetry::protocol::encoded::Operation::FieldWrite;
+}
+
 QString statusName(cl::Status status)
 {
 	switch (status) {
@@ -73,6 +82,25 @@ QString statusName(cl::Status status)
 	}
 	return QStringLiteral("Unknown");
 }
+
+template<class T>
+bool parseScalar(const QString& text, T& value)
+{
+	const auto input = text.trimmed().toUtf8();
+	if constexpr (std::is_same_v<T, bool>) {
+		if (input == "true" || input == "1")
+			value = true;
+		else if (input == "false" || input == "0")
+			value = false;
+		else
+			return false;
+		return true;
+	} else {
+		const auto parsed =
+		    std::from_chars(input.constData(), input.constData() + input.size(), value);
+		return parsed.ec == std::errc{} && parsed.ptr == input.constData() + input.size();
+	}
+}
 } // namespace
 
 struct InspectorController::State {
@@ -96,15 +124,18 @@ struct InspectorController::State {
 		                return static_cast<State*>(owner)->now();
 	                }};
 	telemetry::integration::encoded::EncodedBackend backend{tx, rx, clock};
-	Inspector inspector{backend, clock};
+	Workbench inspector{backend, clock};
 	std::vector<Reply> replies;
 	std::optional<im::ReadResult> completed;
+	std::optional<wb::ApplyResult> applied;
+	bool applying = false, mutationAuthorized = false;
 	bool demo = false;
 	bool serial = false;
 	bool remote = false, remoteAccepted = false;
 	quint32 remoteRequestId = 0;
 
-	State(QByteArray bytes, bool isDemo) : descriptor(std::move(bytes)), demo(isDemo)
+	State(QByteArray bytes, bool isDemo, bool writableDemo = false)
+	    : peer(writableDemo), descriptor(std::move(bytes)), demo(isDemo)
 	{
 		elapsed.start();
 	}
@@ -182,7 +213,7 @@ InspectorController::~InspectorController()
 	retire();
 }
 
-void InspectorController::retire()
+void InspectorController::retire(wb::ApplyResult* applied)
 {
 	++epoch_;
 	values_.clear();
@@ -190,6 +221,8 @@ void InspectorController::retire()
 	selection_.clear();
 	connected_ = false;
 	busy_ = false;
+	writesEnabled_ = false;
+	invalidEditors_.clear();
 	connecting_ = false;
 	if (transport_) {
 		transport_->close();
@@ -199,6 +232,8 @@ void InspectorController::retire()
 	}
 	if (state_ && state_->remote) {
 		state_->closeAndDrain();
+		if (applied && state_->applied)
+			*applied = *state_->applied;
 		if (state_->inspector.recoveryRequired()) {
 			// Local abort releases all Qt-owned TX/RX storage. It does not prove
 			// that a peer finished an already handed-off request. Preserve that
@@ -217,7 +252,8 @@ void InspectorController::retire()
 	state_.reset();
 }
 
-bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool remote)
+bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool remote,
+                                            bool writableDemo)
 {
 	if (updating_ || values_.changing() || endpoints_.changing())
 		return false;
@@ -228,7 +264,7 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 	}
 	// Validate into a separate generation first. A malformed file does not destroy
 	// the current peer, selected field or published snapshot.
-	auto candidate = std::make_unique<State>(std::move(bytes), demo);
+	auto candidate = std::make_unique<State>(std::move(bytes), demo, writableDemo);
 	candidate->remote = remote;
 	candidate->serial = remote && serial_;
 	const auto error = candidate->initialize(session_ + 1, !remote);
@@ -242,6 +278,12 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 			return false;
 		const auto address = transport_->peerAddress();
 		if (retiredState_) {
+			if (retiredState_->serial && retiredState_->mutationAuthorized) {
+				status_ = QStringLiteral(
+				    "The read-only UART bootstrap cannot confirm an earlier write. Application reset proof is required.");
+				Q_EMIT stateChanged();
+				return false;
+			}
 			if (serial_ != retiredSerial_ || address != retiredPeerAddress_ ||
 			    (serial_ ? serialPort_ != retiredSerialPort_ || serialBaud_ != retiredSerialBaud_
 			             : peerHost_ != retiredPeerHost_ || peerPort_ != retiredPeerPort_)) {
@@ -290,12 +332,16 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 	state_ = std::move(candidate);
 	endpoints_.rebuild(state_->inspector);
 	connected_ = demo || remote;
+	writesEnabled_ = demo && writableDemo;
+	writeOutcome_.clear();
 	connecting_ = false;
 	status_ =
 	    remote && serial_
 	        ? QStringLiteral("Serial connected - Descriptor loaded - read-only - COBS/Encoded")
 	    : remote
 	        ? QStringLiteral("TCP connected · Descriptor loaded · read-only · Encoded transport")
+	    : demo && writableDemo
+	        ? QStringLiteral("Writable demo connected · explicit Field editing · Encoded transport")
 	    : demo ? QStringLiteral("Demo connected · read-only · Encoded transport")
 	           : QStringLiteral("Descriptor file · metadata only · no transport connected");
 	updating_ = false;
@@ -313,6 +359,15 @@ QByteArray InspectorController::demoDescriptor() const
 bool InspectorController::connectDemo()
 {
 	return replaceDescriptor(demoDescriptor(), true);
+}
+
+bool InspectorController::connectWritableDemo()
+{
+	DemoPeer peer{true};
+	const auto bytes = peer.descriptor();
+	return replaceDescriptor(
+	    {reinterpret_cast<const char*>(bytes.data()), static_cast<qsizetype>(bytes.size())}, true,
+	    false, true);
 }
 
 bool InspectorController::connectTcp(const QString& host, quint16 port)
@@ -488,20 +543,219 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 			return;
 	}
 	const bool pending = busy_;
+	const bool wasApplying = state_ && state_->applying;
+	wb::ApplyResult closedApply;
 	updating_ = true;
-	retire();
+	retire(wasApplying ? &closedApply : nullptr);
+	if (wasApplying) {
+		writeOutcome_ =
+		    closedApply.write.status == cl::Status::OutcomeUnknown
+		        ? QStringLiteral(
+		              "OutcomeUnknown · the write may have executed. It will not be retried.")
+		    : closedApply.writeCompleted && closedApply.write.succeeded()
+		        ? QStringLiteral("Write applied · readback interrupted and unconfirmed.")
+		        : QStringLiteral("Write interrupted: %1.")
+		              .arg(statusName(closedApply.write.status));
+	}
 	status_ = (serial_ ? QStringLiteral("Serial: %1") : QStringLiteral("TCP: %1")).arg(error);
 	updating_ = false;
 	const auto retiredEpoch = epoch_;
 	QPointer<InspectorController> alive{this};
 	Q_EMIT stateChanged();
-	if (alive && epoch_ == retiredEpoch && pending)
-		Q_EMIT readFinished(false);
+	if (alive && epoch_ == retiredEpoch && pending) {
+		if (wasApplying)
+			Q_EMIT applyFinished(false);
+		else
+			Q_EMIT readFinished(false);
+	}
 }
 
 bool InspectorController::canRefresh() const noexcept
 {
-	return connected_ && !busy_ && state_ && state_->inspector.snapshotInfo().selected;
+	return connected_ && !busy_ && !editing() && state_ &&
+	       state_->inspector.snapshotInfo().selected;
+}
+
+bool InspectorController::writeProfileSupported() const noexcept
+{
+	return connected_ && state_ && !state_->serial && (state_->remote || state_->demo);
+}
+
+bool InspectorController::editing() const noexcept
+{
+	return state_ && state_->inspector.editing();
+}
+
+bool InspectorController::canEdit() const noexcept
+{
+	return writeProfileSupported() && writesEnabled_ && !busy_ && state_->inspector.canEdit();
+}
+
+bool InspectorController::canApply() const noexcept
+{
+	return writeProfileSupported() && writesEnabled_ && !busy_ && invalidEditors_.isEmpty() &&
+	       state_->inspector.canApply();
+}
+
+void InspectorController::setWritesEnabled(bool enabled)
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || busy_)
+		return;
+	if (enabled && !writeProfileSupported()) {
+		status_ = QStringLiteral(
+		    "This transport profile supports read-only inspection. Descriptor write capability is still shown.");
+		Q_EMIT stateChanged();
+		return;
+	}
+	updating_ = true;
+	if (!enabled && editing()) {
+		state_->inspector.cancelEdit();
+		invalidEditors_.clear();
+		values_.resetSnapshot(state_->inspector);
+	}
+	writesEnabled_ = enabled;
+	updating_ = false;
+	Q_EMIT stateChanged();
+}
+
+bool InspectorController::beginEdit()
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || !canEdit())
+		return false;
+	const auto status = state_->inspector.beginEdit();
+	if (status != rt::Status::Ok) {
+		status_ = QStringLiteral("Could not start editing (runtime %1).")
+		              .arg(static_cast<unsigned>(status));
+		Q_EMIT stateChanged();
+		return false;
+	}
+	updating_ = true;
+	invalidEditors_.clear();
+	values_.resetSnapshot(state_->inspector);
+	status_ = QStringLiteral(
+	    "Editing a local draft · Apply writes once and reads back the actual Field.");
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
+}
+
+void InspectorController::cancelEdit()
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || !editing() || busy_)
+		return;
+	updating_ = true;
+	state_->inspector.cancelEdit();
+	invalidEditors_.clear();
+	values_.resetSnapshot(state_->inspector);
+	status_ = QStringLiteral("Draft discarded · device was not changed.");
+	updating_ = false;
+	Q_EMIT stateChanged();
+}
+
+bool InspectorController::setScalarText(const QModelIndex& index, const QString& text)
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || !editing() || busy_)
+		return false;
+	const auto node = values_.node(index);
+	if (!node)
+		return false;
+	const auto info = state_->inspector.info(node.value);
+	if (!info || (info.value.kind != telemetry::TypeKind::Scalar &&
+	              info.value.kind != telemetry::TypeKind::Enum))
+		return false;
+	// Focusing and leaving a field is not an edit. In particular the displayed
+	// NaN label does not encode its sign/payload/quiet bit, so never reparse it
+	// unless the operator actually changes the text.
+	if (text == values_.data(index, ValueModel::EditorTextRole).toString()) {
+		invalidEditors_.remove(index.internalId());
+		status_ = QStringLiteral("Draft value unchanged · original wire bits retained.");
+		Q_EMIT stateChanged();
+		return true;
+	}
+	rt::Status status = rt::Status::TypeMismatch;
+	bool parsed = false;
+	const auto set = [&]<class T>() {
+		T number{};
+		if ((parsed = parseScalar(text, number)))
+			status = state_->inspector.setScalar(node.value, number);
+	};
+	using Code = telemetry::ScalarCode;
+	switch (info.value.code) {
+		case Code::Bool:
+			set.template operator()<bool>();
+			break;
+		case Code::U8:
+			set.template operator()<std::uint8_t>();
+			break;
+		case Code::S8:
+			set.template operator()<std::int8_t>();
+			break;
+		case Code::U16:
+			set.template operator()<std::uint16_t>();
+			break;
+		case Code::S16:
+			set.template operator()<std::int16_t>();
+			break;
+		case Code::U32:
+			set.template operator()<std::uint32_t>();
+			break;
+		case Code::S32:
+			set.template operator()<std::int32_t>();
+			break;
+		case Code::U64:
+			set.template operator()<std::uint64_t>();
+			break;
+		case Code::S64:
+			set.template operator()<std::int64_t>();
+			break;
+		case Code::F32:
+			set.template operator()<float>();
+			break;
+		case Code::F64:
+			set.template operator()<double>();
+			break;
+	}
+	if (!parsed || status != rt::Status::Ok) {
+		invalidEditors_.insert(index.internalId());
+		status_ =
+		    parsed ? QStringLiteral("Draft edit refused (runtime %1).")
+		                 .arg(static_cast<unsigned>(status))
+		           : QStringLiteral("Invalid value for the exact scalar type · draft unchanged.");
+		Q_EMIT stateChanged();
+		return false;
+	}
+	updating_ = true;
+	invalidEditors_.remove(index.internalId());
+	values_.updateScalar(index);
+	status_ = QStringLiteral("Draft changed · not yet written to the device.");
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
+}
+
+bool InspectorController::apply()
+{
+	if (updating_ || values_.changing() || endpoints_.changing() || !canApply())
+		return false;
+	const auto submitted = state_->inspector.apply(
+	    [state = state_.get()](const wb::ApplyResult& result) noexcept {
+		    state->applied = result;
+	    },
+	    static_cast<quint32>(readTimeout_), static_cast<quint32>(readTimeout_));
+	if (!submitted) {
+		status_ = QStringLiteral("Apply refused: %1.").arg(statusName(submitted.status));
+		Q_EMIT stateChanged();
+		return false;
+	}
+	updating_ = true;
+	state_->applying = true;
+	busy_ = true;
+	values_.clear();
+	writeOutcome_ = QStringLiteral("Pending · waiting for write result and readback.");
+	status_ = QStringLiteral("Writing once, then refreshing from the device…");
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
 }
 
 bool InspectorController::loadDescriptor(const QUrl& path)
@@ -536,7 +790,8 @@ bool InspectorController::openDescriptorPath(const QString& path)
 
 bool InspectorController::selectEndpoint(const QModelIndex& index)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !state_)
+	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || editing() ||
+	    state_->applying)
 		return false;
 	const auto endpoint = endpoints_.endpoint(index);
 	if (endpoint.isEmpty())
@@ -567,7 +822,8 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 
 bool InspectorController::refresh()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ || busy_)
+	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ ||
+	    busy_ || editing())
 		return false;
 	auto readTimeout = static_cast<quint32>(readTimeout_);
 #ifdef INSPECTOR_ENABLE_SERIAL
@@ -623,6 +879,8 @@ void InspectorController::pump()
 	if (state.remote && transport_ && packet && transport_->canStage() &&
 	    transport_->stage(packet)) {
 		if (state.inspector.prepareHandoff(packet.session, packet.requestId)) {
+			if (mutationPacket(packet))
+				state.mutationAuthorized = true;
 			state.remoteRequestId = packet.requestId;
 			if (!transport_->sendStaged())
 				state.inspector.invalidate();
@@ -634,6 +892,8 @@ void InspectorController::pump()
 		std::copy(packet.bytes.begin(), packet.bytes.end(), state.port.begin());
 		if (state.inspector.prepareHandoff(packet.session, packet.requestId) &&
 		    state.inspector.onSendAccepted(packet.session, packet.requestId)) {
+			if (mutationPacket(packet))
+				state.mutationAuthorized = true;
 			const auto written = state.peer.dispatch(
 			    cl::Input{state.port}.first(packet.bytes.size()), state.response, packet.session);
 			if (written && !dropReplies_)
@@ -654,6 +914,8 @@ void InspectorController::pump()
 	state.inspector.process(now);
 	const auto completion = state.completed;
 	state.completed.reset();
+	const auto applied = state.applied;
+	state.applied.reset();
 	const bool stale = !state.inspector.isCurrent();
 	bool notify = false, published = false;
 	if (stale) {
@@ -694,6 +956,60 @@ void InspectorController::pump()
 		}
 		notify = true;
 	}
+	bool confirmed = false;
+	if (applied) {
+		state.applying = false;
+		busy_ = false;
+		confirmed = !stale && applied->writeCompleted && applied->write.succeeded() &&
+		            applied->refreshCompleted && applied->refresh.operation.succeeded() &&
+		            applied->refresh.published;
+		if (confirmed) {
+			values_.resetSnapshot(state.inspector);
+			writeOutcome_ = QStringLiteral("Applied · confirmed by a fresh Field read.");
+			status_ = QStringLiteral("Write applied · displayed values are the device readback.");
+		} else {
+			values_.clear();
+			if (applied->write.status == cl::Status::OutcomeUnknown) {
+				writeOutcome_ = QStringLiteral(
+				    "OutcomeUnknown · the write may have executed. It will not be retried.");
+			} else if (applied->writeCompleted && applied->write.succeeded()) {
+				const auto reason =
+				    applied->refreshCompleted
+				        ? QStringLiteral("%1 · dispatch %2 · endpoint %3 · value %4 · model %5")
+				              .arg(statusName(applied->refresh.operation.status))
+				              .arg(applied->refresh.operation.dispatch)
+				              .arg(applied->refresh.operation.endpointStatus)
+				              .arg(static_cast<unsigned>(applied->refresh.valueStatus))
+				              .arg(static_cast<unsigned>(applied->refresh.modelStatus))
+				        : QStringLiteral("submission %1")
+				              .arg(statusName(applied->refreshSubmission));
+				writeOutcome_ =
+				    QStringLiteral("Write applied · readback unconfirmed (%1).").arg(reason);
+			} else {
+				writeOutcome_ = QStringLiteral("Write finished: %1 · dispatch %2 · endpoint %3.")
+				                    .arg(statusName(applied->write.status))
+				                    .arg(applied->write.dispatch)
+				                    .arg(applied->write.endpointStatus);
+			}
+			status_ = writeOutcome_;
+		}
+		const auto outcome = applied->write.status;
+		const auto readOutcome = applied->refresh.operation.status;
+		const auto fatal = [](cl::Status value) {
+			return value == cl::Status::TransportError || value == cl::Status::MalformedReply ||
+			       value == cl::Status::SessionLost || value == cl::Status::OutcomeUnknown;
+		};
+		if (state.remote && transport_ &&
+		    (state.inspector.recoveryRequired() || fatal(outcome) ||
+		     (applied->refreshCompleted && fatal(readOutcome)))) {
+			transport_->close();
+			state.inspector.invalidate();
+			connected_ = false;
+			endpoints_.clear();
+			selection_.clear();
+		}
+		notify = true;
+	}
 	// All backend calls have returned before application signals can run slots.
 	updating_ = false;
 	QPointer<InspectorController> alive{this};
@@ -701,6 +1017,8 @@ void InspectorController::pump()
 		Q_EMIT stateChanged();
 	if (alive && epoch_ == epoch && completion)
 		Q_EMIT readFinished(published);
+	if (alive && epoch_ == epoch && applied)
+		Q_EMIT applyFinished(confirmed);
 }
 
 void InspectorController::disconnectDevice()
@@ -724,6 +1042,17 @@ void InspectorController::setDropReplies(bool drop) noexcept
 	dropReplies_ = drop;
 }
 
+void InspectorController::setRejectWrites(bool reject) noexcept
+{
+	if (state_ && state_->demo)
+		state_->peer.setRejectWrites(reject);
+}
+
+quint64 InspectorController::demoWriteCount() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.writeCount() : 0;
+}
+
 void InspectorController::setReadTimeout(int milliseconds) noexcept
 {
 	readTimeout_ = std::clamp(milliseconds, 1, 60000);
@@ -737,7 +1066,7 @@ void InspectorController::setTcpWriteChunkBytes(int bytes) noexcept
 		transport_->setWriteChunkBytes(tcpWriteChunk_);
 }
 
-Inspector& InspectorController::inspector() noexcept
+Workbench& InspectorController::inspector() noexcept
 {
 	if (!state_)
 		std::abort();

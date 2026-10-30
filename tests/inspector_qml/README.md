@@ -20,7 +20,7 @@ unchanged from start to finish.
 
 `QAbstractItemModelTester` checks both models, with explicit lazy-fetch tests
 for the 16,384-element array. `QSignalSpy` observes resets, insertions and read
-completion. The maintained floor is 480 executed checks and 10 real FieldReads.
+completion. The maintained floor is 637 executed checks and 13 real FieldReads.
 Real Encoded reads check exact U64/S64 decimal strings, an unknown
 signed enum, nested structs/arrays, an empty struct, owned snapshot storage and
 stale model indexes. Controller checks cover metadata-only files, selection
@@ -40,7 +40,13 @@ decoded `Ua` child. The runner retains those view counts in its summary.
 These are host Qt and protocol checks; they do not establish device,
 display-server or physical transport behavior.
 
-The runner also retains a PNG of the offscreen window and its dimensions/hash.
+Workbench scenarios exercise exact text input for U64/S64 and enums, nested
+leaves, invalid-input atomicity and Apply gating, device-side normalization,
+read-only profile refusal and unchanged default Inspector behavior. A separate
+`--edit-smoke` process invokes the actual QML Edit button, TextField handler and
+Apply button. Its success requires one Write and normalized Gain=10 readback.
+
+The runner retains both read-only and edited window PNGs and their dimensions/hashes.
 On Linux, `--sanitize --cxx clang++-18` enables fatal AddressSanitizer and
 UndefinedBehaviorSanitizer checks. Leak detection is explicitly disabled for
 the Qt offscreen plugin's process-global allocations; this profile does not

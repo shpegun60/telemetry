@@ -64,9 +64,9 @@ QString floatText(T value)
 	                                : QString{};
 }
 
-QString scalarText(const ins::ScalarValue& scalar)
+QString scalarNumberText(const ins::ScalarValue& scalar)
 {
-	auto value = std::visit(
+	return std::visit(
 	    [](const auto& number) -> QString {
 		    using T = std::decay_t<decltype(number)>;
 		    if constexpr (std::is_same_v<T, bool>)
@@ -77,6 +77,11 @@ QString scalarText(const ins::ScalarValue& scalar)
 			    return integerText(number);
 	    },
 	    scalar.value);
+}
+
+QString scalarText(const ins::ScalarValue& scalar)
+{
+	auto value = scalarNumberText(scalar);
 	if (scalar.enumValue)
 		value = scalar.enumKnown
 		            ? text(scalar.enumName) + QStringLiteral(" (") + value + QLatin1Char(')')
@@ -117,10 +122,10 @@ struct Row {
 	quintptr token = 0;
 	Row* parent = nullptr;
 	int row = 0;
-	QString name, detail, value, type, path;
+	QString name, detail, value, type, path, editorText;
 	std::uint32_t endpointId = 0, totalChildren = 0;
 	int category = 0;
-	bool readable = false, endpoint = false, aggregate = false;
+	bool readable = false, writable = false, endpoint = false, aggregate = false;
 	ins::NodeHandle handle{};
 	std::vector<std::unique_ptr<Row>> children;
 };
@@ -193,7 +198,88 @@ struct ChangeGuard {
 	ChangeGuard& operator=(const ChangeGuard&) = delete;
 };
 
-std::unique_ptr<Row> valueRow(const Inspector& inspector, const ins::NodeHandle& handle)
+// The two portable owners expose the same read navigation. This Qt-local
+// borrower keeps the old read-only fixture usable without another client/FIFO.
+struct Reader {
+	const Inspector* inspector = nullptr;
+	const Workbench* workbench = nullptr;
+
+	explicit operator bool() const noexcept
+	{
+		return inspector || workbench;
+	}
+
+	template<class F>
+	decltype(auto) visit(F&& read) const
+	{
+		if (workbench)
+			return read(*workbench);
+		return read(*inspector);
+	}
+
+	bool isCurrent() const
+	{
+		return *this && visit([](const auto& model) {
+			return model.isCurrent();
+		});
+	}
+
+	auto snapshotInfo() const
+	{
+		return visit([](const auto& model) {
+			return model.snapshotInfo();
+		});
+	}
+
+	auto info(const ins::NodeHandle& node) const
+	{
+		return visit([&](const auto& model) {
+			return model.info(node);
+		});
+	}
+
+	auto child(const ins::NodeHandle& node, std::uint32_t index) const
+	{
+		return visit([&](const auto& model) {
+			return model.child(node, index);
+		});
+	}
+
+	auto root() const
+	{
+		return visit([](const auto& model) {
+			return model.root();
+		});
+	}
+
+	auto catalogs(Category category) const
+	{
+		return visit([&](const auto& model) {
+			return model.catalogs(category);
+		});
+	}
+
+	auto endpoints(Category category) const
+	{
+		return visit([&](const auto& model) {
+			return model.endpoints(category);
+		});
+	}
+
+	bool editing() const
+	{
+		return workbench && workbench->editing();
+	}
+
+	ins::Result<ins::ScalarValue> scalar(const ins::NodeHandle& node) const
+	{
+		return editing() ? workbench->editScalar(node) : visit([&](const auto& model) {
+			return model.scalar(node);
+		});
+	}
+};
+
+std::unique_ptr<Row> valueRow(const Reader& inspector, const ins::NodeHandle& handle)
 {
 	const auto info = inspector.info(handle);
 	if (!info)
@@ -219,6 +305,7 @@ std::unique_ptr<Row> valueRow(const Inspector& inspector, const ins::NodeHandle&
 		if (!scalar)
 			return {};
 		row->value = scalarText(scalar.value);
+		row->editorText = scalarNumberText(scalar.value);
 	}
 	row->detail = row->type + QStringLiteral(" #") + integerText(info.value.type);
 	return row;
@@ -227,13 +314,12 @@ std::unique_ptr<Row> valueRow(const Inspector& inspector, const ins::NodeHandle&
 
 struct EndpointModel::Impl {
 	Tree tree;
-	const Inspector* inspector = nullptr;
+	Reader inspector;
 	std::uint64_t admission = 0;
 
 	bool current() const
 	{
-		return inspector && inspector->isCurrent() &&
-		       inspector->snapshotInfo().admission == admission;
+		return inspector.isCurrent() && inspector.snapshotInfo().admission == admission;
 	}
 };
 
@@ -250,7 +336,7 @@ void EndpointModel::clear()
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = nullptr;
+	impl_->inspector = {};
 	endResetModel();
 }
 
@@ -261,13 +347,23 @@ bool EndpointModel::changing() const noexcept
 
 void EndpointModel::rebuild(const Inspector& inspector)
 {
+	rebuildSource(&inspector, nullptr);
+}
+
+void EndpointModel::rebuild(const Workbench& workbench)
+{
+	rebuildSource(nullptr, &workbench);
+}
+
+void EndpointModel::rebuildSource(const Inspector* inspector, const Workbench* workbench)
+{
 	if (changing())
 		return;
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = &inspector;
-	impl_->admission = inspector.snapshotInfo().admission;
+	impl_->inspector = {inspector, workbench};
+	impl_->admission = impl_->inspector.snapshotInfo().admission;
 	if (impl_->current()) {
 		for (const auto category : {Category::Field, Category::Command, Category::Service}) {
 			auto categoryRow = std::make_unique<Row>();
@@ -278,8 +374,8 @@ void EndpointModel::rebuild(const Inspector& inspector)
 			auto* parent = impl_->tree.append(std::move(categoryRow));
 			if (!parent)
 				break;
-			const auto endpoints = inspector.endpoints(category);
-			for (const auto& catalog : inspector.catalogs(category)) {
+			const auto endpoints = impl_->inspector.endpoints(category);
+			for (const auto& catalog : impl_->inspector.catalogs(category)) {
 				auto catalogRow = std::make_unique<Row>();
 				catalogRow->category = static_cast<int>(category);
 				catalogRow->name = text(catalog.name);
@@ -304,7 +400,15 @@ void EndpointModel::rebuild(const Inspector& inspector)
 					    (endpoint.capabilities &
 					     static_cast<std::uint8_t>(telemetry::descriptor::Capability::Readable)) !=
 					        0;
+					row->writable =
+					    category == Category::Field &&
+					    (endpoint.capabilities &
+					     static_cast<std::uint8_t>(telemetry::descriptor::Capability::Writable)) !=
+					        0;
 					row->detail = QStringLiteral("ID ") + integerText(endpoint.id);
+					if (category == Category::Field)
+						row->detail += row->writable ? QStringLiteral(" · writable Field")
+						                             : QStringLiteral(" · read-only Field");
 					impl_->tree.append(std::move(row), group);
 				}
 			}
@@ -318,11 +422,10 @@ QVariantMap EndpointModel::endpoint(const QModelIndex& index) const
 	const auto* row = impl_->tree.at(this, index);
 	if (!row || !row->endpoint || !impl_->current())
 		return {};
-	return {{QStringLiteral("id"), row->endpointId},
-	        {QStringLiteral("category"), row->category},
-	        {QStringLiteral("readable"), row->readable},
-	        {QStringLiteral("name"), row->name},
-	        {QStringLiteral("path"), row->path}};
+	return {
+	    {QStringLiteral("id"), row->endpointId},     {QStringLiteral("category"), row->category},
+	    {QStringLiteral("readable"), row->readable}, {QStringLiteral("writable"), row->writable},
+	    {QStringLiteral("name"), row->name},         {QStringLiteral("path"), row->path}};
 }
 
 QModelIndex EndpointModel::index(int row, int column, const QModelIndex& parent) const
@@ -372,6 +475,8 @@ QVariant EndpointModel::data(const QModelIndex& index, int role) const
 			return row->readable;
 		case IsEndpointRole:
 			return row->endpoint;
+		case WritableRole:
+			return row->writable;
 		default:
 			return {};
 	}
@@ -382,19 +487,20 @@ QHash<int, QByteArray> EndpointModel::roleNames() const
 	return {{Qt::DisplayRole, "display"},   {NameRole, "name"},
 	        {DetailRole, "detail"},         {ValueRole, "value"},
 	        {EndpointIdRole, "endpointId"}, {CategoryRole, "category"},
-	        {ReadableRole, "readable"},     {IsEndpointRole, "isEndpoint"}};
+	        {ReadableRole, "readable"},     {IsEndpointRole, "isEndpoint"},
+	        {WritableRole, "writable"}};
 }
 
 struct ValueModel::Impl {
 	Tree tree;
-	const Inspector* inspector = nullptr;
+	Reader inspector;
 	std::uint64_t admission = 0, revision = 0;
 
 	bool current() const
 	{
-		if (!inspector || !inspector->isCurrent())
+		if (!inspector.isCurrent())
 			return false;
-		const auto snapshot = inspector->snapshotInfo();
+		const auto snapshot = inspector.snapshotInfo();
 		return snapshot.ready && snapshot.admission == admission && snapshot.revision == revision;
 	}
 };
@@ -412,7 +518,7 @@ void ValueModel::clear()
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = nullptr;
+	impl_->inspector = {};
 	endResetModel();
 }
 
@@ -423,19 +529,29 @@ bool ValueModel::changing() const noexcept
 
 void ValueModel::resetSnapshot(const Inspector& inspector)
 {
+	resetSource(&inspector, nullptr);
+}
+
+void ValueModel::resetSnapshot(const Workbench& workbench)
+{
+	resetSource(nullptr, &workbench);
+}
+
+void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbench)
+{
 	if (changing())
 		return;
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = &inspector;
-	const auto snapshot = inspector.snapshotInfo();
+	impl_->inspector = {inspector, workbench};
+	const auto snapshot = impl_->inspector.snapshotInfo();
 	impl_->admission = snapshot.admission;
 	impl_->revision = snapshot.revision;
 	if (impl_->current()) {
-		const auto root = inspector.root();
+		const auto root = impl_->inspector.root();
 		if (root) {
-			auto row = valueRow(inspector, root.value);
+			auto row = valueRow(impl_->inspector, root.value);
 			if (row)
 				impl_->tree.append(std::move(row));
 		}
@@ -490,6 +606,11 @@ QVariant ValueModel::data(const QModelIndex& index, int role) const
 			return row->totalChildren;
 		case LoadedCountRole:
 			return static_cast<int>(row->children.size());
+		case EditableRole:
+			return impl_->inspector.editing() && !row->aggregate && !row->type.isEmpty() &&
+			       row->type != QStringLiteral("void");
+		case EditorTextRole:
+			return row->editorText;
 		default:
 			return {};
 	}
@@ -504,7 +625,35 @@ QHash<int, QByteArray> ValueModel::roleNames() const
 	        {TypeRole, "type"},
 	        {AggregateRole, "isAggregate"},
 	        {ChildCountRole, "childCount"},
-	        {LoadedCountRole, "loadedCount"}};
+	        {LoadedCountRole, "loadedCount"},
+	        {EditableRole, "editable"},
+	        {EditorTextRole, "editorText"}};
+}
+
+ins::NodeResult ValueModel::node(const QModelIndex& index) const
+{
+	const auto* row = impl_->tree.at(this, index);
+	if (!row || !impl_->current())
+		return {ins::ModelStatus::Stale, {}};
+	const auto checked = impl_->inspector.info(row->handle);
+	return checked ? ins::NodeResult{ins::ModelStatus::Ok, row->handle}
+	               : ins::NodeResult{checked.status, {}};
+}
+
+void ValueModel::updateScalar(const QModelIndex& index)
+{
+	if (changing() || !impl_->current())
+		return;
+	const ChangeGuard guard{impl_->tree.changing};
+	auto* row = impl_->tree.at(this, index);
+	if (!row || row->aggregate)
+		return;
+	const auto scalar = impl_->inspector.scalar(row->handle);
+	if (!scalar)
+		return;
+	row->value = scalarText(scalar.value);
+	row->editorText = scalarNumberText(scalar.value);
+	Q_EMIT dataChanged(index, index, {ValueRole, EditorTextRole});
 }
 
 bool ValueModel::canFetchMore(const QModelIndex& parent) const
@@ -526,10 +675,10 @@ void ValueModel::fetchMore(const QModelIndex& parent)
 	std::vector<std::unique_ptr<Row>> pending;
 	pending.reserve(last - first);
 	for (auto at = first; at < last; ++at) {
-		const auto handle = impl_->inspector->child(row->handle, static_cast<std::uint32_t>(at));
+		const auto handle = impl_->inspector.child(row->handle, static_cast<std::uint32_t>(at));
 		if (!handle)
 			return;
-		auto child = valueRow(*impl_->inspector, handle.value);
+		auto child = valueRow(impl_->inspector, handle.value);
 		if (!child)
 			return;
 		pending.push_back(std::move(child));
