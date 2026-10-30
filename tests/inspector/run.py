@@ -63,6 +63,8 @@ def main():
                 output = output.decode(errors='replace')
             code = None
         log = out / (label + '.log')
+        if log.exists():
+            raise RuntimeError('Qualification log already exists: ' + str(log))
         log.write_text(output, encoding='utf-8')
         report['commands'].append(dict(name=label, command=command, exit=code,
                                        expected='nonzero' if failure else expected,
@@ -236,7 +238,7 @@ def main():
             run('install-package', [cmake, '--install', package])
             run('configure-example', [cmake, '-S', example.parent, '-B', consumer, *common,
                                       '-DCMAKE_PREFIX_PATH=' + str(prefix)])
-            run('build-example', [cmake, '--build', consumer, '-j2'])
+            run('build-installed-example', [cmake, '--build', consumer, '-j2'])
             ctest = tool(str(cmake.with_name('ctest' + cmake.suffix)))
             output = run('ctest-example', [ctest, '--test-dir', consumer, '--output-on-failure'])
             if not re.search(r'100% tests passed, 0 tests failed out of 3', output):
