@@ -80,6 +80,24 @@ QModelIndex named(ui::ValueModel& model, const QModelIndex& parent, const QStrin
 	return {};
 }
 
+QModelIndex command(ui::EndpointModel& model, const QString& name)
+{
+	for (int root = 0; root < model.rowCount(); ++root) {
+		const auto group = model.index(root, 0);
+		for (int catalog = 0; catalog < model.rowCount(group); ++catalog) {
+			const auto parent = model.index(catalog, 0, group);
+			for (int row = 0; row < model.rowCount(parent); ++row) {
+				const auto index = model.index(row, 0, parent);
+				const auto metadata = model.endpoint(index);
+				if (metadata.value("category").toInt() == 2 &&
+				    metadata.value("name").toString() == name)
+					return index;
+			}
+		}
+	}
+	return {};
+}
+
 struct Client {
 	ui::InspectorController controller;
 	ui::EndpointModel& endpoints = *qobject_cast<ui::EndpointModel*>(controller.endpoints());
@@ -694,6 +712,125 @@ void explicitDisconnectWrites()
 		client.controller.disconnectDevice();
 	}
 }
+
+void commandSocketOutcomes()
+{
+	for (const bool accepted : {false, true}) {
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		peer.setReplyFragmentBytes(3);
+		CHECK(peer.listen());
+		Client client;
+		client.controller.setTcpWriteChunkBytes(3);
+		client.connect(peer);
+		QSignalSpy finished{&client.controller, &ui::InspectorController::commandFinished};
+		const auto selected = command(client.endpoints, accepted ? QStringLiteral("Accept")
+		                                                         : QStringLiteral("Execute"));
+		CHECK(selected.isValid() && client.controller.selectEndpoint(selected));
+		CHECK(client.controller.commandSelected() && !client.controller.canExecute());
+		CHECK(!client.controller.executeCommand() && finished.isEmpty());
+		CHECK(peer.nativeCommands() == 0 && peer.fieldReads() == 0 && peer.fieldWrites() == 0);
+		client.controller.setWritesEnabled(true);
+		CHECK(client.controller.canExecute());
+		CHECK(client.controller.setScalarText(
+		    named(client.values, client.values.index(0, 0), QStringLiteral("Gain")),
+		    QStringLiteral("4.25")));
+		CHECK(client.controller.setScalarText(
+		    named(client.values, client.values.index(0, 0), QStringLiteral("Counter")),
+		    QStringLiteral("18446744073709551614")));
+		CHECK(client.controller.executeCommand() && !client.controller.executeCommand());
+		CHECK(client.controller.busy() &&
+		      client.controller.commandOutcome().contains(QStringLiteral("Pending")));
+		CHECK(await([&] {
+			return finished.count() == 1 && !client.controller.busy();
+		}));
+		CHECK(finished.first().size() == 2);
+		CHECK(finished.first()[0].toBool() == !accepted &&
+		      finished.first()[1].toBool() == accepted);
+		CHECK(peer.nativeCommands() == 1 && peer.executedCommands() == quint64(!accepted) &&
+		      peer.acceptedCommands() == quint64(accepted));
+		// Command completion does not automatically issue a Field read or write.
+		CHECK(peer.fieldReads() == 0 && peer.fieldWrites() == 0);
+		const auto origin = client.controller.inspector().session();
+		const auto outcome = client.controller.commandOutcome();
+		CHECK(outcome.contains(accepted ? QStringLiteral("Accepted") : QStringLiteral("Executed"),
+		                       Qt::CaseInsensitive));
+		CHECK(!outcome.contains(QStringLiteral("OutcomeUnknown")) &&
+		      !outcome.contains(QStringLiteral("Previous session")));
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1 && client.controller.commandOutcome() == outcome);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		client.connect(peer);
+		CHECK(client.controller.commandOutcome() ==
+		      QStringLiteral("Previous session %1 (current session %2) · %3")
+		          .arg(origin)
+		          .arg(client.controller.inspector().session())
+		          .arg(outcome));
+		CHECK(!client.controller.writesEnabled() && !client.controller.executeCommand());
+		client.read(0); // New-session traffic must not replay the previous command.
+		CHECK(finished.count() == 1 && peer.nativeCommands() == 1 && peer.fieldWrites() == 0);
+		CHECK(peer.executedCommands() == quint64(!accepted) &&
+		      peer.acceptedCommands() == quint64(accepted));
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1);
+	}
+	{
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		CHECK(peer.listen());
+		Client client;
+		client.connect(peer);
+		client.controller.setWritesEnabled(true);
+		client.controller.setReadTimeout(30000);
+		QSignalSpy finished{&client.controller, &ui::InspectorController::commandFinished};
+		const auto selected = command(client.endpoints, QStringLiteral("Execute"));
+		CHECK(selected.isValid() && client.controller.selectEndpoint(selected));
+		CHECK(client.controller.commandSelected() && client.controller.canExecute());
+		peer.setDropNextEncodedReply();
+		CHECK(client.controller.executeCommand());
+		// Actual native execution proves the Command crossed prepareHandoff;
+		// the missing ACK must still produce an uncertain client-side result.
+		CHECK(await([&] {
+			return peer.nativeCommands() == 1;
+		}));
+		CHECK(peer.executedCommands() == 1 && peer.acceptedCommands() == 0);
+		CHECK(client.controller.busy() && finished.isEmpty());
+		const auto origin = client.controller.inspector().session();
+		client.controller.disconnectDevice();
+		CHECK(!client.controller.connected() && !client.controller.busy() &&
+		      client.controller.cleanupPending());
+		CHECK(finished.count() == 1 && finished.first().size() == 2);
+		CHECK(!finished.first()[0].toBool() && !finished.first()[1].toBool());
+		const auto outcome = client.controller.commandOutcome();
+		CHECK(outcome.contains(QStringLiteral("OutcomeUnknown")) &&
+		      !outcome.contains(QStringLiteral("Pending")));
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1 && client.controller.commandOutcome() == outcome &&
+		      peer.nativeCommands() == 1);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		client.connect(peer);
+		CHECK(!client.controller.cleanupPending() && !client.controller.writesEnabled());
+		CHECK(client.controller.commandOutcome() ==
+		      QStringLiteral("Previous session %1 (current session %2) · %3")
+		          .arg(origin)
+		          .arg(client.controller.inspector().session())
+		          .arg(outcome));
+		CHECK(!client.controller.executeCommand());
+		client.read(0);
+		CHECK(finished.count() == 1 && peer.nativeCommands() == 1 && peer.executedCommands() == 1 &&
+		      peer.acceptedCommands() == 0 && peer.fieldWrites() == 0);
+		CHECK(client.controller.commandOutcome().contains(QStringLiteral("OutcomeUnknown")) &&
+		      client.controller.commandOutcome().count(QStringLiteral("Previous session")) == 1);
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1);
+	}
+	std::puts(
+	    "Inspector TCP Command outcomes: executed=1 accepted=1 unknown=1 callbacks=3 replay=0 history=3");
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -710,6 +847,7 @@ int main(int argc, char** argv)
 	discoveryRefusals();
 	oneClientAndInvalidStream();
 	writableSocketCycle();
+	commandSocketOutcomes();
 	std::printf("Inspector TCP checks=%u reads=%u connections=%u Qt=%s\n", checks, reads,
 	            connections, qVersion());
 	return 0;

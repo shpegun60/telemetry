@@ -1,4 +1,4 @@
-# Qt/QML Universal Inspector and FieldWrite Workbench
+# Qt/QML Universal Inspector and Workbench
 
 This application displays a Descriptor v3 without a generated SDK. It builds on
 the portable [InspectorModel](../../doc/InspectorModel.md), keeps one selected
@@ -59,7 +59,8 @@ a standalone application or modify the Qt installation. Later shell examples use
 Set the executable variable again when opening another terminal.
 
 Expand **Fields**, then a catalog. Select a Field and press **Refresh**. Selecting
-does not issue a request. Commands and Services are listed for discovery only.
+does not issue a request. Commands provide explicit argument editing and Execute;
+Services are listed for discovery only.
 Large aggregates fetch at most 128 immediate children per call; **Load next 128**
 adds another batch. Expanding a nested aggregate fetches its own first batch.
 There is no recursive expand-all operation. Fetched rows are retained until the
@@ -89,11 +90,11 @@ discards the draft. **Apply + Refresh** writes once, then reads the device again
 the displayed result comes from that readback. For example, the demo setter
 limits `Gain` to 10, so entering 12 shows 10 after a successful Apply.
 
-The default Demo remains read-only. For TCP, **Enable Field writes for this
-connection** is an explicit opt-in, cleared on reconnect. The Descriptor must
+The default connection starts with mutations disabled. For TCP, enabling changes
+is an explicit opt-in, cleared on reconnect. The Descriptor must
 also advertise write permission. Imported files provide metadata only. The
 current UART/Nucleo profile remains read-only, even if imported metadata contains
-writable Fields. Commands and Services are still discovery-only.
+writable Fields or Commands. Services remain discovery-only.
 
 U64/S64 and enum codes stay decimal strings; they never pass through QML Number.
 Boolean input accepts `true`, `false`, `0` or `1`. Invalid text or an out-of-range
@@ -120,6 +121,27 @@ that history with its own Pending/result; a refused Apply leaves it intact.
 
 The portable [Workbench contract and API](../../doc/Workbench.md) describe its
 single-client ownership, draft storage and independent operation results.
+
+## Command arguments and Execute
+
+Choose **Writable demo**, expand Commands / control and select `Execute`.
+The form is prepared locally from the Descriptor; selecting it sends nothing.
+Edit scalar leaves with the same text controls as FieldWrite, then press
+**Execute**. The focused input is included without Enter. Initial arguments are
+canonical zero values, not defaults supplied by the device. Open enum zero may
+therefore appear as an unknown code. Unchanged arguments can also be executed.
+
+The demo includes `Accept`, `Ping` (no arguments) and `Empty` (an empty Struct).
+`Executed` confirms endpoint execution. `Accepted` only confirms acceptance of
+work and does not claim it has finished. A Command has no automatic Field refresh
+or automatic second execution. `OutcomeUnknown` means it may have run; reconnect
+does not replay it. Disconnect and connection replacement preserve one terminal
+result, labelled with its original session when another session is admitted.
+
+Command execution uses the same explicit connection opt-in and supported
+Demo/TCP profiles as FieldWrite. Descriptor files remain metadata-only and the
+current UART/Nucleo profile remains read-only. Command arguments are shown as a
+request form, separately from the last Field snapshot.
 
 ## TCP connection and Descriptor discovery
 

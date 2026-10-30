@@ -165,6 +165,26 @@ def main():
             raise RuntimeError('Actual keyboard/mouse input did not complete both no-Enter Apply workflows')
         report['executions']['physical_input_checks'] = int(typed_counts[1])
         report['executions']['keyboard_mouse_no_enter_applies'] = 2
+        command_check = build / ('telemetry_inspector_qml_command_check' + suffix)
+        command_screenshot = output / 'command-window.png'
+        command_output = run('qml-command', [command_check, '--screenshot', command_screenshot])
+        command_counts = re.search(r'Inspector Command checks=(\d+) executed=1 accepted=1 '
+                                   r'unknown=1 noEnter=1 Qt=(\S+)', command_output)
+        if not command_counts or int(command_counts[1]) < 97 or command_counts[2] != counts[3]:
+            raise RuntimeError('Command controls did not preserve execution, acceptance and uncertainty')
+        report['executions']['command_checks'] = int(command_counts[1])
+        report['executions']['command_keyboard_mouse_no_enter'] = 1
+        command_png = command_screenshot.read_bytes()
+        if (command_png[:8] != b'\x89PNG\r\n\x1a\n' or len(command_png) < 24 or
+                command_png[12:16] != b'IHDR'):
+            raise RuntimeError('Command Request screenshot is not a PNG image')
+        command_width, command_height = struct.unpack('>II', command_png[16:24])
+        if command_width < 1 or command_height < 1:
+            raise RuntimeError('Command Request screenshot is empty')
+        report['command_screenshot'] = dict(path=command_screenshot.name,
+                                           sha256=digest(command_screenshot),
+                                           width=command_width, height=command_height,
+                                           bytes=len(command_png))
         app = build / 'example' / ('telemetry-inspector-qml' + suffix)
         screenshot = output / 'window.png'
         smoke = run('qml-smoke', [app, '--smoke', '--screenshot', screenshot])
@@ -195,7 +215,7 @@ def main():
         report['edit_screenshot'] = dict(path=edit_screenshot.name, sha256=digest(edit_screenshot),
                                        width=edit_width, height=edit_height, bytes=len(edit_png))
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path)
-                                  for path in (check, physical_input, app)}
+                                  for path in (check, physical_input, command_check, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}
         report['source_sha256_after'] = sources()

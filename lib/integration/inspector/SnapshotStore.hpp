@@ -22,6 +22,10 @@
 #include <type_traits>
 #include <variant>
 
+namespace telemetry::integration::workbench {
+class RequestEditor;
+}
+
 namespace telemetry::integration::inspector {
 
 template<std::size_t, std::size_t, std::size_t, std::size_t>
@@ -174,6 +178,12 @@ public:
 
 	[[nodiscard]] ModelStatus select(std::uint32_t fieldId, TypeId type) noexcept
 	{
+		return selectEndpoint(fieldId, type, descriptor::Category::Field);
+	}
+
+	[[nodiscard]] ModelStatus selectEndpoint(std::uint32_t fieldId, TypeId type,
+	                                         descriptor::Category category) noexcept
+	{
 		if (!current())
 			return ModelStatus::Stale;
 		if (!schema_.type(type))
@@ -183,6 +193,7 @@ public:
 		retire();
 		fieldId_ = fieldId;
 		type_ = type;
+		category_ = category;
 		selected_ = true;
 		return ModelStatus::Ok;
 	}
@@ -273,7 +284,7 @@ public:
 				return {ModelStatus::InvalidPayload, {}};
 			result.name = members[node.index_].name;
 		} else if (!node.arrayElement_) {
-			for (const auto& endpoint : schema_.endpoints(descriptor::Category::Field))
+			for (const auto& endpoint : schema_.endpoints(category_))
 				if (endpoint.id == fieldId_) {
 					result.name = endpoint.name;
 					break;
@@ -416,12 +427,14 @@ public:
 private:
 	template<std::size_t, std::size_t, std::size_t, std::size_t>
 	friend class InspectorModel;
+	friend class ::telemetry::integration::workbench::RequestEditor;
 
 	runtime::RuntimeSchema schema_{};
 	std::span<std::byte> storage_;
 	SnapshotGuard guard_{};
 	std::uint32_t session_ = 0, fieldId_ = 0;
 	TypeId type_ = 0;
+	descriptor::Category category_ = descriptor::Category::Field;
 	std::uint64_t admission_ = 0;
 	mutable std::uint64_t revision_ = 0;
 	std::size_t snapshotSize_ = 0;

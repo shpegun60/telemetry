@@ -65,7 +65,9 @@ struct Config {
 
 struct WritableDevice {
 	Config config{};
+	Config lastCommand{};
 	std::uint64_t writes = 0;
+	std::uint64_t commands = 0, executed = 0, accepted = 0;
 	bool rejectWrites = false;
 
 	Config read() const noexcept
@@ -81,6 +83,36 @@ struct WritableDevice {
 		config = requested;
 		config.Gain = std::clamp(config.Gain, 0.0f, 10.0f);
 		return telemetry::WriteResult::Applied;
+	}
+
+	telemetry::CommandResult execute(const Config& request) noexcept
+	{
+		++commands;
+		lastCommand = request;
+		++executed;
+		return telemetry::CommandResult::Executed;
+	}
+
+	telemetry::CommandResult accept(const Config& request) noexcept
+	{
+		++commands;
+		lastCommand = request;
+		++accepted;
+		// Acceptance is deliberately separate from execution. This demo does not
+		// claim that an application job has subsequently completed.
+		return telemetry::CommandResult::Accepted;
+	}
+
+	telemetry::CommandResult ping() noexcept
+	{
+		++commands;
+		++executed;
+		return telemetry::CommandResult::Executed;
+	}
+
+	telemetry::CommandResult emptyCommand(const Empty&) noexcept
+	{
+		return ping();
 	}
 };
 
@@ -179,9 +211,16 @@ constexpr telemetry::FieldTable writableFields{
     telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
                                                                                 writablePrototype)};
 constexpr telemetry::FieldCatalogTable writableCatalogs{telemetry::group("device", writableFields)};
-constexpr telemetry::CommandCatalogTable<> noCommands{};
+constexpr telemetry::CommandTable writableCommands{
+    telemetry::command<&demo::WritableDevice::execute>("Execute", writablePrototype),
+    telemetry::command<&demo::WritableDevice::accept>("Accept", writablePrototype),
+    telemetry::command<&demo::WritableDevice::ping>("Ping", writablePrototype),
+    telemetry::command<&demo::WritableDevice::emptyCommand>("Empty", writablePrototype)};
+constexpr telemetry::CommandCatalogTable writableCommandCatalogs{
+    telemetry::group("control", writableCommands)};
 constexpr telemetry::ServiceCatalogTable<> noServices{};
-constexpr telemetry::Model writablePrototypeModel{writableCatalogs, noCommands, noServices};
+constexpr telemetry::Model writablePrototypeModel{writableCatalogs, writableCommandCatalogs,
+                                                  noServices};
 constexpr telemetry::descriptor::Descriptor writableDescriptor{writablePrototypeModel};
 constexpr auto writableDescriptorBytes =
     telemetry::descriptor::packDescriptor<writableDescriptor>();
@@ -195,7 +234,13 @@ struct DemoPeer::Impl {
 	    telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
 	                                                                                device)};
 	decltype(writableCatalogs) catalogs{telemetry::group("device", fields)};
-	decltype(writablePrototypeModel) writableModel{catalogs, noCommands, noServices};
+	decltype(writableCommands) commands{
+	    telemetry::command<&demo::WritableDevice::execute>("Execute", device),
+	    telemetry::command<&demo::WritableDevice::accept>("Accept", device),
+	    telemetry::command<&demo::WritableDevice::ping>("Ping", device),
+	    telemetry::command<&demo::WritableDevice::emptyCommand>("Empty", device)};
+	decltype(writableCommandCatalogs) commandCatalogs{telemetry::group("control", commands)};
+	decltype(writablePrototypeModel) writableModel{catalogs, commandCatalogs, noServices};
 	alignas(std::max_align_t) std::array<
 	    std::byte, std::max(model.maxScratch(), writablePrototypeModel.maxScratch())> scratch{};
 	telemetry::Workspace workspace{scratch};
@@ -222,6 +267,31 @@ bool DemoPeer::writable() const noexcept
 std::uint64_t DemoPeer::writeCount() const noexcept
 {
 	return impl_->device.writes;
+}
+
+std::uint64_t DemoPeer::commandCount() const noexcept
+{
+	return impl_->device.commands;
+}
+
+std::uint64_t DemoPeer::executedCount() const noexcept
+{
+	return impl_->device.executed;
+}
+
+std::uint64_t DemoPeer::acceptedCount() const noexcept
+{
+	return impl_->device.accepted;
+}
+
+std::uint64_t DemoPeer::lastCommandCounter() const noexcept
+{
+	return impl_->device.lastCommand.Counter;
+}
+
+float DemoPeer::lastCommandGain() const noexcept
+{
+	return impl_->device.lastCommand.Gain;
 }
 
 void DemoPeer::setRejectWrites(bool reject) noexcept

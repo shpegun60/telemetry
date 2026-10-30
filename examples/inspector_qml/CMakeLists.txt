@@ -1,4 +1,4 @@
-# QML Inspector and optional FieldWrite Workbench over portable components. MIT.
+# QML Inspector and optional FieldWrite/Command Workbench over portable components. MIT.
 cmake_minimum_required(VERSION 3.21)
 project(TelemetryInspectorQml LANGUAGES CXX)
 find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Network)

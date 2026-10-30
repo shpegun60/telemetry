@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Qualify shared snapshots, Inspector and FieldWrite Workbench with real Encoded/RPC (MIT)."""
+"""Qualify shared snapshots, Inspector and Workbench with real Encoded/RPC (MIT)."""
 import argparse
 import hashlib
 import json
@@ -136,7 +136,8 @@ def main():
         if re.search(r'(?:^|[/\\])(?:resource|reflection|boost_pfr|magic_enum|wire)[/\\]', workbench_isolated):
             raise RuntimeError('Workbench has an unwanted Native, Resource or transport dependency')
         sources = [HERE / name for name in ('Host.cpp', 'Lifetime.cpp', 'Negative.cpp', 'NoHeap.cpp', 'Snapshot.cpp')]
-        sources += [workbench / name for name in ('Host.cpp', 'NoHeap.cpp', 'Standalone.cpp', 'Negative.cpp')]
+        sources += [workbench / name for name in ('Host.cpp', 'NoHeap.cpp', 'Command.cpp',
+                                                 'CommandNoHeap.cpp', 'Standalone.cpp', 'Negative.cpp')]
         example = ROOT / 'examples/inspector/Host.cpp'
         if example.is_file():
             sources.append(example)
@@ -193,11 +194,25 @@ def main():
         if 'workbench heap allocation refused' not in output:
             raise RuntimeError('Workbench allocation negative control did not reach its trap')
         report['workbench_noheap_negative_exit'] = 86
+        command_host = build('WorkbenchCommand', workbench / 'Command.cpp', native_link=True)
+        count('WorkbenchCommand', run('execute-WorkbenchCommand', [command_host]), 980)
+        command_noheap = build('WorkbenchCommandNoHeap', workbench / 'CommandNoHeap.cpp',
+                               native_link=True, allocation_trap=True)
+        count('WorkbenchCommandNoHeap', run('execute-WorkbenchCommandNoHeap', [command_noheap]),
+              report['executions']['WorkbenchCommand'])
+        command_control = build('WorkbenchCommandNoHeapControl', workbench / 'CommandNoHeap.cpp',
+                                ['-DWORKBENCH_COMMAND_HEAP_CONTROL=1'], native_link=True,
+                                allocation_trap=True)
+        output = run('execute-WorkbenchCommandNoHeapControl', [command_control], expected=86)
+        if 'workbench heap allocation refused' not in output:
+            raise RuntimeError('Command allocation negative control did not reach its trap')
+        report['command_noheap_negative_exit'] = 86
         workbench_standalone = build('WorkbenchStandalone', workbench / 'Standalone.cpp')
         run('execute-WorkbenchStandalone', [workbench_standalone])
         workbench_positive = build('WorkbenchNegativePositiveControl', workbench / 'Negative.cpp')
         run('execute-WorkbenchNegativePositiveControl', [workbench_positive])
-        workbench_refusals = ('COMMAND', 'SERVICE', 'CLIENT', 'CORE', 'RAW', 'INSPECTOR', 'NULL_CALLBACK')
+        workbench_refusals = ('COMMAND', 'SERVICE', 'CLIENT', 'CORE', 'RAW', 'INSPECTOR',
+                             'NULL_CALLBACK', 'NULL_COMMAND_CALLBACK')
         for macro in workbench_refusals:
             run('workbench-negative-' + macro, flags + ['-DWORKBENCH_' + macro, '-fsyntax-only',
                                                        workbench / 'Negative.cpp'], failure=True)
