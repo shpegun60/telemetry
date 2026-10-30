@@ -16,6 +16,7 @@
 #include <QtCore/QStringList>
 #include <QtCore/QSet>
 #include <memory>
+#include <optional>
 
 namespace inspector_qml {
 class DeviceTransport;
@@ -183,7 +184,9 @@ private:
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
 	                       bool writableDemo = false);
-	void retire(telemetry::integration::workbench::ApplyResult* applied = nullptr);
+	std::optional<bool> retire();
+	std::optional<bool> consumeApply(State& state, bool displaySnapshot);
+	void notifyState(std::optional<bool> applied = {}, std::optional<bool> read = {});
 	void bindTransportSignals();
 	void transportFailed(quint64 epoch, QString error);
 	void transportDescriptor(quint64 epoch, QByteArray bytes);

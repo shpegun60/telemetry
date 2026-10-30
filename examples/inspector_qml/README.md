@@ -82,7 +82,9 @@ unknown signed enum, a 16,384-element array, an empty struct and nested arrays.
 
 Choose **Writable demo** for a local editable Model, expand Fields / device and
 select `Config`. Press **Refresh**, then **Edit**. Edit scalar leaves of the
-structure or its arrays as text and press Enter after each change. **Cancel**
+structure or its arrays as text. Valid keyboard input updates the draft while
+you type; **Apply + Refresh** includes the focused editor without requiring Enter.
+**Cancel**
 discards the draft. **Apply + Refresh** writes once, then reads the device again;
 the displayed result comes from that readback. For example, the demo setter
 limits `Gain` to 10, so entering 12 shows 10 after a successful Apply.
@@ -104,6 +106,12 @@ A confirmed Write followed by a failed Refresh is reported as applied with
 unconfirmed readback. An uncertain Write is never automatically replayed. The
 normal transport recovery policy still applies. This is read-modify-write,
 without a compare-and-write guarantee against another writer.
+
+Explicit Disconnect completes an accepted Apply once: Cancelled before handoff,
+OutcomeUnknown after uncertain handoff, or a known successful Write with
+unconfirmed readback. It clears the cache and preserves the terminal write
+message. The controller also retains these outcomes during connection replacement;
+it never replays the write as part of reconnect.
 
 The portable [Workbench contract and API](../../doc/Workbench.md) describe its
 single-client ownership, draft storage and independent operation results.

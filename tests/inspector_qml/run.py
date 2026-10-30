@@ -144,10 +144,24 @@ def main():
         check = build / ('telemetry_inspector_qml_check' + suffix)
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector Qt checks=(\d+) reads=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 637 or int(counts[2]) < 13:
+        if not counts or int(counts[1]) < 719 or int(counts[2]) < 20:
             raise RuntimeError('Runtime did not execute the maintained model/controller checks')
+        disconnected = re.findall(r'Inspector Apply disconnect phase=(queued|offered|prepared|executed|write_confirmed) '
+                                  r'finished=(\d+) writes=(\d+)', runtime)
+        if disconnected != [('queued', '1', '0'), ('offered', '1', '0'), ('prepared', '1', '0'),
+                            ('executed', '1', '1'), ('write_confirmed', '1', '1')]:
+            raise RuntimeError('Explicit Disconnect did not cover all five Apply phases exactly once')
+        report['executions']['apply_disconnect_phases'] = [phase[0] for phase in disconnected]
         report['executions']['checks'], report['executions']['reads'] = map(int, counts.groups()[:2])
         report['qt_version'] = counts[3]
+        physical_input = build / ('telemetry_inspector_qml_input_check' + suffix)
+        typed = run('qml-physical-input', [physical_input])
+        typed_counts = re.search(r'Inspector QML physical input checks=(\d+) writes=2 noEnter=2 '
+                                 r'gain=4\.25 counter=18446744073709551614 Qt=(\S+)', typed)
+        if not typed_counts or int(typed_counts[1]) < 58 or typed_counts[2] != counts[3]:
+            raise RuntimeError('Actual keyboard/mouse input did not complete both no-Enter Apply workflows')
+        report['executions']['physical_input_checks'] = int(typed_counts[1])
+        report['executions']['keyboard_mouse_no_enter_applies'] = 2
         app = build / 'example' / ('telemetry-inspector-qml' + suffix)
         screenshot = output / 'window.png'
         smoke = run('qml-smoke', [app, '--smoke', '--screenshot', screenshot])
@@ -177,7 +191,8 @@ def main():
         report['executions']['offscreen_edit_smoke'] = 1
         report['edit_screenshot'] = dict(path=edit_screenshot.name, sha256=digest(edit_screenshot),
                                        width=edit_width, height=edit_height, bytes=len(edit_png))
-        report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (check, app)}
+        report['binary_sha256'] = {str(path.relative_to(output)): digest(path)
+                                  for path in (check, physical_input, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}
         report['source_sha256_after'] = sources()

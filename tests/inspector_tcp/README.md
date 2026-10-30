@@ -50,6 +50,11 @@ exactly one native setter call. Reconnecting the supported same peer never repla
 that write. A complete successful Write response followed by EOF remains a known
 successful write with unavailable readback, rather than becoming OutcomeUnknown.
 
+Explicit Disconnect is tested after native setter execution with a lost Write
+ACK, and after the Workbench enters Refreshing following a confirmed Write.
+Both emit one terminal Apply result. Repeated Disconnect and same-peer reconnect
+must not repeat the callback or invoke the native setter again.
+
 The runner also starts the real demo server executable on an ephemeral loopback
 port, opens the actual QML application with `--tcp`, and requires a published
 Field plus visible decoded value delegates. It retains the rendered PNG and

@@ -618,11 +618,88 @@ void writableSocketCycle()
 	CHECK(!client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
 	CHECK(client.values.rowCount() == 0);
 }
+
+void explicitDisconnectWrites()
+{
+	for (const bool confirmedWrite : {false, true}) {
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		CHECK(peer.listen());
+		Client client;
+		client.connect(peer);
+		client.read(0);
+		client.controller.setWritesEnabled(true);
+		client.controller.setReadTimeout(30000);
+		QSignalSpy applied{&client.controller, &ui::InspectorController::applyFinished};
+		CHECK(client.controller.beginEdit());
+		CHECK(client.controller.setScalarText(
+		    named(client.values, client.values.index(0, 0), QStringLiteral("Gain")),
+		    QStringLiteral("8")));
+		if (confirmedWrite)
+			peer.setReplyDelay(100); // Keep each ACK/readback observable; phase below is the proof.
+		else
+			peer.setDropNextEncodedReply();
+		CHECK(client.controller.apply());
+		// Setter execution proves the mutation request passed prepareHandoff and
+		// reached the native dispatcher; elapsed wall-clock time is not that proof.
+		CHECK(await([&] {
+			return peer.nativeWrites() == 1;
+		}));
+		CHECK(peer.fieldWrites() == 1 && client.controller.busy() && applied.isEmpty());
+		if (confirmedWrite) {
+			// The Write reply has already been built. Drop the subsequent readback
+			// reply, then wait for the Workbench's actual confirmed-Write phase.
+			peer.setDropNextEncodedReply();
+			CHECK(await([&] {
+				return client.controller.inspector().phase() ==
+				       telemetry::integration::workbench::Phase::Refreshing;
+			}));
+			CHECK(client.controller.busy() && applied.isEmpty());
+		} else {
+			CHECK(client.controller.inspector().phase() ==
+			      telemetry::integration::workbench::Phase::Writing);
+		}
+		client.controller.disconnectDevice();
+		std::fprintf(
+		    stderr,
+		    "TCP explicit disconnect phase=%s callbacks=%lld busy=%d outcome=%s writes=%llu\n",
+		    confirmedWrite ? "confirmed-write" : "prepared-lost-ack",
+		    static_cast<long long>(applied.count()), int(client.controller.busy()),
+		    qPrintable(client.controller.writeOutcome()),
+		    static_cast<unsigned long long>(peer.nativeWrites()));
+		CHECK(applied.count() == 1 && !applied.last()[0].toBool());
+		CHECK(!client.controller.connected() && !client.controller.busy());
+		CHECK(client.values.rowCount() == 0 && client.endpoints.rowCount() == 0);
+		CHECK(!client.controller.writeOutcome().contains(QStringLiteral("Pending")));
+		if (confirmedWrite) {
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("Write applied")));
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("unconfirmed")));
+			CHECK(!client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+		} else {
+			CHECK(client.controller.writeOutcome().contains(QStringLiteral("OutcomeUnknown")));
+			CHECK(client.controller.cleanupPending());
+		}
+		client.controller.disconnectDevice();
+		CHECK(applied.count() == 1 && peer.nativeWrites() == 1);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		peer.setReplyDelay(0);
+		peer.setDropNextEncodedReply(false);
+		client.connect(peer);
+		CHECK(!client.controller.cleanupPending() && !client.controller.writesEnabled());
+		CHECK(peer.nativeWrites() == 1 && peer.fieldWrites() == 1 && applied.count() == 1);
+		client.read(0);
+		CHECK(peer.nativeWrites() == 1 && peer.fieldWrites() == 1 && applied.count() == 1);
+		client.controller.disconnectDevice();
+	}
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
 	QGuiApplication application{argc, argv};
+	explicitDisconnectWrites();
 	realSocketReads();
 	connectionBoundaries();
 	descriptorReplacement();

@@ -233,6 +233,7 @@ ApplicationWindow {
                             required property int loadedCount
                             required property bool editable
                             required property string editorText
+                            TableView.onReused: scalarInput.inputValid = true
                             implicitWidth: valueTree.width
                             implicitHeight: 40
                             text: name
@@ -242,14 +243,24 @@ ApplicationWindow {
                                 Label { text: name; elide: Text.ElideRight; Layout.fillWidth: true }
                                 Label { visible: !editable; text: value; color: "#83e1ce"; font.family: "monospace" }
                                 TextField {
+                                    id: scalarInput
                                     objectName: "scalarEditor"
                                     property string scalarName: valueDelegate.name
+                                    property bool inputValid: true
                                     visible: valueDelegate.editable
                                     Layout.preferredWidth: 230
-                                    text: valueDelegate.editorText
+                                    // Keep the operator's raw text while typing (for example
+                                    // the intermediate "4." in "4.25"). Invalid text also
+                                    // survives blur until corrected or the draft is cancelled.
+                                    Binding on text {
+                                        value: valueDelegate.editorText
+                                        when: !scalarInput.activeFocus && scalarInput.inputValid
+                                        restoreMode: Binding.RestoreNone
+                                    }
                                     font.family: "monospace"
                                     selectByMouse: true
-                                    onEditingFinished: controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                    onTextEdited: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                    onEditingFinished: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
                                 }
                                 Button {
                                     visible: isAggregate && childCount > 128
@@ -269,7 +280,7 @@ ApplicationWindow {
                     }
                     Label {
                         text: controller.editing
-                            ? "Local draft only. Press Enter after a scalar edit. Apply writes once, then reads the device again."
+                            ? "Local draft only. Edit scalar values, then Apply to write once and read the device again."
                             : "Values belong to the last completed read. Arrays load in batches as you expand them."
                         color: "#99abbf"
                         font.pixelSize: 11

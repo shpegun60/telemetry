@@ -638,6 +638,102 @@ void workbenchChecks()
 	CHECK(!controller.canEdit() && !controller.beginEdit());
 	++reads;
 }
+
+void disconnectApplyChecks()
+{
+	const auto draft = [](ui::InspectorController& controller) {
+		CHECK(controller.connectWritableDemo());
+		auto& endpoints = *qobject_cast<ui::EndpointModel*>(controller.endpoints());
+		auto& values = *qobject_cast<ui::ValueModel*>(controller.values());
+		CHECK(controller.selectEndpoint(endpoint(endpoints, 1, 0)) && controller.refresh());
+		CHECK(await([&] {
+			return !controller.busy();
+		}));
+		++reads;
+		CHECK(controller.beginEdit());
+		CHECK(controller.setScalarText(named(values, values.index(0, 0), QStringLiteral("Gain")),
+		                               QStringLiteral("12")));
+	};
+	for (unsigned phase = 0; phase != 5; ++phase) {
+		ui::InspectorController controller;
+		draft(controller);
+		QSignalSpy finished{&controller, &ui::InspectorController::applyFinished};
+		CHECK(controller.apply() && controller.busy());
+		// No event-loop progress between Apply and the explicitly chosen phase.
+		if (phase == 1 || phase == 2) {
+			const auto packet = controller.inspector().nextPacket();
+			CHECK(packet && packet.mayExecute);
+			if (phase == 2)
+				CHECK(controller.inspector().prepareHandoff(packet.session, packet.requestId));
+		} else if (phase >= 3) {
+			controller.setDropReplies(phase == 3);
+			controller.pump();
+			CHECK(controller.demoWriteCount() == 1 && controller.busy());
+			if (phase == 4)
+				CHECK(controller.inspector().phase() ==
+				      telemetry::integration::workbench::Phase::Refreshing);
+		}
+		const auto writes = controller.demoWriteCount();
+		controller.disconnectDevice();
+		CHECK(!controller.connected() && !controller.busy() && finished.count() == 1);
+		CHECK(!finished.first()[0].toBool());
+		const auto outcome = controller.writeOutcome();
+		CHECK(!outcome.contains(QStringLiteral("Pending")));
+		CHECK(outcome.contains(phase < 2   ? QStringLiteral("Cancelled")
+		                       : phase < 4 ? QStringLiteral("OutcomeUnknown")
+		                                   : QStringLiteral("Write applied")));
+		if (phase == 4)
+			CHECK(!outcome.contains(QStringLiteral("OutcomeUnknown")) &&
+			      outcome.contains(QStringLiteral("unconfirmed")));
+		controller.pump();
+		controller.disconnectDevice();
+		CHECK(finished.count() == 1 && controller.writeOutcome() == outcome);
+		const char* names[]{"queued", "offered", "prepared", "executed", "write_confirmed"};
+		std::printf("Inspector Apply disconnect phase=%s finished=%lld writes=%llu\n", names[phase],
+		            static_cast<long long>(finished.count()),
+		            static_cast<unsigned long long>(writes));
+	}
+	{
+		ui::InspectorController controller;
+		draft(controller);
+		QSignalSpy finished{&controller, &ui::InspectorController::applyFinished};
+		bool disconnected = false;
+		QObject::connect(&controller, &ui::InspectorController::stateChanged, &controller, [&] {
+			if (!disconnected && !controller.busy() &&
+			    controller.writeOutcome().startsWith(QStringLiteral("Applied"))) {
+				disconnected = true;
+				controller.disconnectDevice();
+			}
+		});
+		CHECK(controller.apply());
+		controller.pump(); // WRITE acknowledged; Refresh queued/offered, not sent.
+		CHECK(controller.busy() && finished.isEmpty());
+		controller.pump(); // READ completes; stateChanged handler disconnects reentrantly.
+		CHECK(disconnected && !controller.connected() && !controller.busy());
+		CHECK(finished.count() == 1 && finished.first()[0].toBool());
+		controller.pump();
+		CHECK(finished.count() == 1);
+	}
+	{
+		ui::InspectorController controller;
+		draft(controller);
+		QSignalSpy finished{&controller, &ui::InspectorController::applyFinished};
+		bool disconnected = false;
+		QObject::connect(&controller, &ui::InspectorController::stateChanged, &controller, [&] {
+			if (!disconnected && controller.busy() &&
+			    controller.writeOutcome().contains(QStringLiteral("Pending"))) {
+				disconnected = true;
+				controller.disconnectDevice();
+			}
+		});
+		CHECK(controller.apply()); // Its synchronous notification retires a queued Write.
+		CHECK(disconnected && !controller.busy() && !controller.connected());
+		CHECK(finished.count() == 1 && !finished.first()[0].toBool());
+		CHECK(controller.writeOutcome().contains(QStringLiteral("Cancelled")));
+		controller.pump();
+		CHECK(finished.count() == 1);
+	}
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -647,6 +743,7 @@ int main(int argc, char** argv)
 	endpointInvalidationChecks();
 	controllerChecks();
 	workbenchChecks();
+	disconnectApplyChecks();
 	std::printf("Inspector Qt checks=%u reads=%u Qt=%s\n", checks, reads, qVersion());
 	return 0;
 }

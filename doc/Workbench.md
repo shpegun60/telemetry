@@ -129,6 +129,15 @@ known operation result. Local edited bytes are never published as confirmed
 device data. Read-modify-write does not provide compare-and-write or protection
 against concurrent application changes.
 
+The Qt controller consumes the terminal Apply result before retiring either a
+Demo or TCP session. Explicit Disconnect preserves Cancelled before handoff,
+OutcomeUnknown after uncertain handoff, and a known successful Write when its
+Refresh is interrupted. During explicit disconnect or live-session replacement,
+the accepted Apply emits one terminal signal outside the core, before a
+reentrant state-change handler can replace its session.
+Disconnect clears cached values; a readback already completed remains a known
+historical result. No packet is handed off during retirement.
+
 ## Application and transport scope
 
 The Qt application owns input parsing, labels, QML models and connection policy.

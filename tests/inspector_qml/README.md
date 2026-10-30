@@ -20,7 +20,7 @@ unchanged from start to finish.
 
 `QAbstractItemModelTester` checks both models, with explicit lazy-fetch tests
 for the 16,384-element array. `QSignalSpy` observes resets, insertions and read
-completion. The maintained floor is 637 executed checks and 13 real FieldReads.
+completion. The maintained floor is 719 executed checks and 20 real FieldReads.
 Real Encoded reads check exact U64/S64 decimal strings, an unknown
 signed enum, nested structs/arrays, an empty struct, owned snapshot storage and
 stale model indexes. Controller checks cover metadata-only files, selection
@@ -45,6 +45,17 @@ leaves, invalid-input atomicity and Apply gating, device-side normalization,
 read-only profile refusal and unchanged default Inspector behavior. A separate
 `--edit-smoke` process invokes the actual QML Edit button, TextField handler and
 Apply button. Its success requires one Write and normalized Gain=10 readback.
+
+Explicit Disconnect tests choose queued, offered, prepared, executed and
+confirmed-Write phases directly, with exactly one terminal signal and the
+appropriate Cancelled/OutcomeUnknown/known-Write result. Reentrant disconnect
+from synchronous state notifications cannot suppress that completion.
+
+`QmlInput.cpp` loads the shipped Main.qml in a real QQuickWindow and sends mouse
+and keyboard events. It types Gain=12 and clicks Apply without Enter, then edits
+Gain=4.25 and an exact U64 Counter and clicks Apply while the Counter retains
+focus. Both writes and their readbacks must finish once. This test does not set
+the editor text property or invoke editingFinished/clicked signals directly.
 
 The runner retains both read-only and edited window PNGs and their dimensions/hashes.
 On Linux, `--sanitize --cxx clang++-18` enables fatal AddressSanitizer and

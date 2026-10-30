@@ -183,8 +183,14 @@ struct InspectorController::State {
 
 	void closeAndDrain()
 	{
-		// The local dispatcher releases TX synchronously. Discard every deferred RX
-		// copy, then complete logical callbacks before freeing schema/index storage.
+		// The port is already closed (the demo releases TX synchronously). Settle
+		// only complete, already-owned replies whose delay
+		// has elapsed. onReply still enforces the operation deadline. Never pump
+		// here: retirement must not authorize another physical handoff. A readback
+		// queued by a write callback is closed below before it can be transmitted.
+		for (const auto& reply : replies)
+			if (cl::expired(now(), reply.due))
+				(void)inspector.onReply(reply.bytes, reply.session, reply.id);
 		replies.clear();
 		inspector.close();
 		for (unsigned i = 0; i < 16 && !inspector.drained(); ++i)
@@ -213,7 +219,7 @@ InspectorController::~InspectorController()
 	retire();
 }
 
-void InspectorController::retire(wb::ApplyResult* applied)
+std::optional<bool> InspectorController::retire()
 {
 	++epoch_;
 	values_.clear();
@@ -230,11 +236,11 @@ void InspectorController::retire(wb::ApplyResult* applied)
 			std::abort();
 		transport_.reset();
 	}
-	if (state_ && state_->remote) {
+	std::optional<bool> applied;
+	if (state_) {
 		state_->closeAndDrain();
-		if (applied && state_->applied)
-			*applied = *state_->applied;
-		if (state_->inspector.recoveryRequired()) {
+		applied = consumeApply(*state_, false);
+		if (state_->remote && state_->inspector.recoveryRequired()) {
 			// Local abort releases all Qt-owned TX/RX storage. It does not prove
 			// that a peer finished an already handed-off request. Preserve that
 			// obligation until the same single-client server admits fresh bootstrap.
@@ -250,6 +256,85 @@ void InspectorController::retire(wb::ApplyResult* applied)
 		}
 	}
 	state_.reset();
+	return applied;
+}
+
+std::optional<bool> InspectorController::consumeApply(State& state, bool displaySnapshot)
+{
+	if (!state.applying || !state.applied)
+		return {};
+	const auto applied = *state.applied;
+	state.applied.reset();
+	state.applying = false;
+	busy_ = false;
+	// The terminal operation result survives retirement of its schema/cache.
+	// A readback completed before Disconnect is still a historical confirmation.
+	const bool confirmed = applied.writeCompleted && applied.write.succeeded() &&
+	                       applied.refreshCompleted && applied.refresh.operation.succeeded() &&
+	                       applied.refresh.published;
+	const bool publish = confirmed && displaySnapshot && state.inspector.isCurrent();
+	if (publish)
+		values_.resetSnapshot(state.inspector);
+	else
+		values_.clear();
+	if (confirmed) {
+		writeOutcome_ = QStringLiteral("Applied · confirmed by a fresh Field read.");
+		status_ = publish
+		              ? QStringLiteral("Write applied · displayed values are the device readback.")
+		              : QStringLiteral("Write applied · readback completed · no cached values.");
+	} else if (applied.write.status == cl::Status::OutcomeUnknown) {
+		writeOutcome_ =
+		    QStringLiteral("OutcomeUnknown · the write may have executed. It will not be retried.");
+		status_ = writeOutcome_;
+	} else if (applied.writeCompleted && applied.write.succeeded()) {
+		const auto reason =
+		    applied.refreshCompleted
+		        ? QStringLiteral("%1 · dispatch %2 · endpoint %3 · value %4 · model %5")
+		              .arg(statusName(applied.refresh.operation.status))
+		              .arg(applied.refresh.operation.dispatch)
+		              .arg(applied.refresh.operation.endpointStatus)
+		              .arg(static_cast<unsigned>(applied.refresh.valueStatus))
+		              .arg(static_cast<unsigned>(applied.refresh.modelStatus))
+		        : QStringLiteral("submission %1").arg(statusName(applied.refreshSubmission));
+		writeOutcome_ = QStringLiteral("Write applied · readback unconfirmed (%1).").arg(reason);
+		status_ = writeOutcome_;
+	} else {
+		writeOutcome_ = QStringLiteral("Write finished: %1 · dispatch %2 · endpoint %3.")
+		                    .arg(statusName(applied.write.status))
+		                    .arg(applied.write.dispatch)
+		                    .arg(applied.write.endpointStatus);
+		status_ = writeOutcome_;
+	}
+	const auto fatal = [](cl::Status value) {
+		return value == cl::Status::TransportError || value == cl::Status::MalformedReply ||
+		       value == cl::Status::SessionLost || value == cl::Status::OutcomeUnknown;
+	};
+	if (displaySnapshot && state.remote && transport_ &&
+	    (state.inspector.recoveryRequired() || fatal(applied.write.status) ||
+	     (applied.refreshCompleted && fatal(applied.refresh.operation.status)))) {
+		transport_->close();
+		state.inspector.invalidate();
+		connected_ = false;
+		endpoints_.clear();
+		selection_.clear();
+	}
+	return confirmed;
+}
+
+void InspectorController::notifyState(std::optional<bool> applied, std::optional<bool> read)
+{
+	// A terminal Apply belongs to the accepted operation, not a connection epoch.
+	// Deliver it before stateChanged slots can replace the connection and erase
+	// the sole notification. Never access this object after a slot destroys it.
+	const auto epoch = epoch_;
+	QPointer<InspectorController> alive{this};
+	if (applied)
+		Q_EMIT applyFinished(*applied);
+	if (!alive || epoch_ != epoch)
+		return;
+	Q_EMIT stateChanged();
+	if (alive && epoch_ == epoch && read)
+		Q_EMIT readFinished(*read);
 }
 
 bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool remote,
@@ -320,20 +405,24 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 		peerAddress_ = address;
 	}
 	updating_ = true;
+	std::optional<bool> retiredApply;
 	if (remote) {
 		values_.clear();
 		endpoints_.clear();
 		selection_.clear();
-		state_.reset();
+		if (state_) {
+			state_->closeAndDrain();
+			retiredApply = consumeApply(*state_, false);
+			state_.reset();
+		}
 	} else {
-		retire();
+		retiredApply = retire();
 	}
 	++session_;
 	state_ = std::move(candidate);
 	endpoints_.rebuild(state_->inspector);
 	connected_ = demo || remote;
 	writesEnabled_ = demo && writableDemo;
-	writeOutcome_.clear();
 	connecting_ = false;
 	status_ =
 	    remote && serial_
@@ -345,7 +434,7 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 	    : demo ? QStringLiteral("Demo connected · read-only · Encoded transport")
 	           : QStringLiteral("Descriptor file · metadata only · no transport connected");
 	updating_ = false;
-	Q_EMIT stateChanged();
+	notifyState(retiredApply);
 	return true;
 }
 
@@ -376,7 +465,7 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 	    port == 0)
 		return false;
 	updating_ = true;
-	retire();
+	const auto retiredApply = retire();
 	auto normalized = host.trimmed().toLower();
 	QHostAddress numeric;
 	if (numeric.setAddress(normalized))
@@ -388,7 +477,7 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 		        .arg(retiredPeerHost_)
 		        .arg(retiredPeerPort_);
 		updating_ = false;
-		Q_EMIT stateChanged();
+		notifyState(retiredApply);
 		return false;
 	}
 	serial_ = false;
@@ -402,7 +491,7 @@ bool InspectorController::connectTcp(const QString& host, quint16 port)
 	bindTransportSignals();
 	tcpPortAdapter->connectTo(peerHost_, peerPort_);
 	updating_ = false;
-	Q_EMIT stateChanged();
+	notifyState(retiredApply);
 	return true;
 }
 
@@ -475,13 +564,13 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	    baud > qint32(inspector_serial::maxBaudRate))
 		return false;
 	updating_ = true;
-	retire();
+	const auto retiredApply = retire();
 	const auto name = port.trimmed();
 	if (retiredState_ &&
 	    (!retiredSerial_ || name != retiredSerialPort_ || baud != retiredSerialBaud_)) {
 		status_ = QStringLiteral("Reconnect the previous device first to finish session cleanup.");
 		updating_ = false;
-		Q_EMIT stateChanged();
+		notifyState(retiredApply);
 		return false;
 	}
 	serial_ = true;
@@ -495,7 +584,7 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	bindTransportSignals();
 	serial->connectTo(name, baud);
 	updating_ = false;
-	Q_EMIT stateChanged();
+	notifyState(retiredApply);
 	return true;
 #endif
 }
@@ -536,38 +625,18 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 	// The transport preserves complete packets received before EOF. Apply them
 	// before closing the logical operation; onReply/process still enforce its
 	// deadline. The socket is already closed, so pump cannot authorize new TX.
-	if (state_ && state_->remote && !state_->replies.empty()) {
+	if (state_ && state_->remote && !state_->applying && !state_->replies.empty()) {
 		QPointer<InspectorController> alive{this};
 		pump();
 		if (!alive || epoch != epoch_)
 			return;
 	}
-	const bool pending = busy_;
-	const bool wasApplying = state_ && state_->applying;
-	wb::ApplyResult closedApply;
+	const bool readPending = busy_ && state_ && !state_->applying;
 	updating_ = true;
-	retire(wasApplying ? &closedApply : nullptr);
-	if (wasApplying) {
-		writeOutcome_ =
-		    closedApply.write.status == cl::Status::OutcomeUnknown
-		        ? QStringLiteral(
-		              "OutcomeUnknown · the write may have executed. It will not be retried.")
-		    : closedApply.writeCompleted && closedApply.write.succeeded()
-		        ? QStringLiteral("Write applied · readback interrupted and unconfirmed.")
-		        : QStringLiteral("Write interrupted: %1.")
-		              .arg(statusName(closedApply.write.status));
-	}
+	const auto applied = retire();
 	status_ = (serial_ ? QStringLiteral("Serial: %1") : QStringLiteral("TCP: %1")).arg(error);
 	updating_ = false;
-	const auto retiredEpoch = epoch_;
-	QPointer<InspectorController> alive{this};
-	Q_EMIT stateChanged();
-	if (alive && epoch_ == retiredEpoch && pending) {
-		if (wasApplying)
-			Q_EMIT applyFinished(false);
-		else
-			Q_EMIT readFinished(false);
-	}
+	notifyState(applied, readPending ? std::optional<bool>{false} : std::nullopt);
 }
 
 bool InspectorController::canRefresh() const noexcept
@@ -868,7 +937,6 @@ void InspectorController::pump()
 		return;
 	updating_ = true;
 	auto& state = *state_;
-	const auto epoch = epoch_;
 	const auto now = state.now();
 	state.inspector.process(now);
 	if (state.remoteAccepted) {
@@ -914,8 +982,6 @@ void InspectorController::pump()
 	state.inspector.process(now);
 	const auto completion = state.completed;
 	state.completed.reset();
-	const auto applied = state.applied;
-	state.applied.reset();
 	const bool stale = !state.inspector.isCurrent();
 	bool notify = false, published = false;
 	if (stale) {
@@ -956,69 +1022,12 @@ void InspectorController::pump()
 		}
 		notify = true;
 	}
-	bool confirmed = false;
-	if (applied) {
-		state.applying = false;
-		busy_ = false;
-		confirmed = !stale && applied->writeCompleted && applied->write.succeeded() &&
-		            applied->refreshCompleted && applied->refresh.operation.succeeded() &&
-		            applied->refresh.published;
-		if (confirmed) {
-			values_.resetSnapshot(state.inspector);
-			writeOutcome_ = QStringLiteral("Applied · confirmed by a fresh Field read.");
-			status_ = QStringLiteral("Write applied · displayed values are the device readback.");
-		} else {
-			values_.clear();
-			if (applied->write.status == cl::Status::OutcomeUnknown) {
-				writeOutcome_ = QStringLiteral(
-				    "OutcomeUnknown · the write may have executed. It will not be retried.");
-			} else if (applied->writeCompleted && applied->write.succeeded()) {
-				const auto reason =
-				    applied->refreshCompleted
-				        ? QStringLiteral("%1 · dispatch %2 · endpoint %3 · value %4 · model %5")
-				              .arg(statusName(applied->refresh.operation.status))
-				              .arg(applied->refresh.operation.dispatch)
-				              .arg(applied->refresh.operation.endpointStatus)
-				              .arg(static_cast<unsigned>(applied->refresh.valueStatus))
-				              .arg(static_cast<unsigned>(applied->refresh.modelStatus))
-				        : QStringLiteral("submission %1")
-				              .arg(statusName(applied->refreshSubmission));
-				writeOutcome_ =
-				    QStringLiteral("Write applied · readback unconfirmed (%1).").arg(reason);
-			} else {
-				writeOutcome_ = QStringLiteral("Write finished: %1 · dispatch %2 · endpoint %3.")
-				                    .arg(statusName(applied->write.status))
-				                    .arg(applied->write.dispatch)
-				                    .arg(applied->write.endpointStatus);
-			}
-			status_ = writeOutcome_;
-		}
-		const auto outcome = applied->write.status;
-		const auto readOutcome = applied->refresh.operation.status;
-		const auto fatal = [](cl::Status value) {
-			return value == cl::Status::TransportError || value == cl::Status::MalformedReply ||
-			       value == cl::Status::SessionLost || value == cl::Status::OutcomeUnknown;
-		};
-		if (state.remote && transport_ &&
-		    (state.inspector.recoveryRequired() || fatal(outcome) ||
-		     (applied->refreshCompleted && fatal(readOutcome)))) {
-			transport_->close();
-			state.inspector.invalidate();
-			connected_ = false;
-			endpoints_.clear();
-			selection_.clear();
-		}
-		notify = true;
-	}
+	const auto applied = consumeApply(state, true);
+	notify = notify || applied.has_value();
 	// All backend calls have returned before application signals can run slots.
 	updating_ = false;
-	QPointer<InspectorController> alive{this};
 	if (notify)
-		Q_EMIT stateChanged();
-	if (alive && epoch_ == epoch && completion)
-		Q_EMIT readFinished(published);
-	if (alive && epoch_ == epoch && applied)
-		Q_EMIT applyFinished(confirmed);
+		notifyState(applied, completion ? std::optional<bool>{published} : std::nullopt);
 }
 
 void InspectorController::disconnectDevice()
@@ -1026,10 +1035,10 @@ void InspectorController::disconnectDevice()
 	if (updating_ || values_.changing() || endpoints_.changing())
 		return;
 	updating_ = true;
-	retire();
+	const auto applied = retire();
 	status_ = QStringLiteral("Disconnected · no cached values");
 	updating_ = false;
-	Q_EMIT stateChanged();
+	notifyState(applied);
 }
 
 void InspectorController::setReplyDelay(int milliseconds) noexcept
