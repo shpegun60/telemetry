@@ -134,7 +134,13 @@ public:
 
 	QString writeOutcome() const
 	{
-		return writeOutcome_;
+		if (writeOutcome_.isEmpty() || writeOutcomeSession_ == 0 ||
+		    writeOutcomeSession_ == session_)
+			return writeOutcome_;
+		return QStringLiteral("Previous session %1 (current session %2) · %3")
+		    .arg(writeOutcomeSession_)
+		    .arg(session_)
+		    .arg(writeOutcome_);
 	}
 
 	Q_INVOKABLE void disconnectDevice();
@@ -181,6 +187,7 @@ private:
 	bool connected_ = false, busy_ = false, dropReplies_ = false, updating_ = false;
 	bool writesEnabled_ = false;
 	QString writeOutcome_;
+	quint32 writeOutcomeSession_ = 0;
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
 	                       bool writableDemo = false);

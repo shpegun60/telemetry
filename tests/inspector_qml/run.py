@@ -144,7 +144,7 @@ def main():
         check = build / ('telemetry_inspector_qml_check' + suffix)
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector Qt checks=(\d+) reads=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 719 or int(counts[2]) < 20:
+        if not counts or int(counts[1]) < 763 or int(counts[2]) < 23:
             raise RuntimeError('Runtime did not execute the maintained model/controller checks')
         disconnected = re.findall(r'Inspector Apply disconnect phase=(queued|offered|prepared|executed|write_confirmed) '
                                   r'finished=(\d+) writes=(\d+)', runtime)
@@ -152,6 +152,9 @@ def main():
                             ('executed', '1', '1'), ('write_confirmed', '1', '1')]:
             raise RuntimeError('Explicit Disconnect did not cover all five Apply phases exactly once')
         report['executions']['apply_disconnect_phases'] = [phase[0] for phase in disconnected]
+        if 'Inspector write history: success=1 unknown=1 reset=1 refused=1 callbacks=3' not in runtime:
+            raise RuntimeError('Write history lost its session identity, outcome or exact-once completion')
+        report['executions']['write_history_sessions'] = True
         report['executions']['checks'], report['executions']['reads'] = map(int, counts.groups()[:2])
         report['qt_version'] = counts[3]
         physical_input = build / ('telemetry_inspector_qml_input_check' + suffix)

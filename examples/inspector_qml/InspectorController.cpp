@@ -818,6 +818,7 @@ bool InspectorController::apply()
 	}
 	updating_ = true;
 	state_->applying = true;
+	writeOutcomeSession_ = state_->inspector.session();
 	busy_ = true;
 	values_.clear();
 	writeOutcome_ = QStringLiteral("Pending · waiting for write result and readback.");

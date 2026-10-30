@@ -113,6 +113,11 @@ unconfirmed readback. It clears the cache and preserves the terminal write
 message. The controller also retains these outcomes during connection replacement;
 it never replays the write as part of reconnect.
 
+After a new session is admitted, the retained outcome is labelled
+`Previous session X (current session Y)`. Its original result, including
+OutcomeUnknown, remains visible as history. A newly accepted Apply replaces
+that history with its own Pending/result; a refused Apply leaves it intact.
+
 The portable [Workbench contract and API](../../doc/Workbench.md) describe its
 single-client ownership, draft storage and independent operation results.
 

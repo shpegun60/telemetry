@@ -20,7 +20,7 @@ unchanged from start to finish.
 
 `QAbstractItemModelTester` checks both models, with explicit lazy-fetch tests
 for the 16,384-element array. `QSignalSpy` observes resets, insertions and read
-completion. The maintained floor is 719 executed checks and 20 real FieldReads.
+completion. The maintained floor is 763 executed checks and 23 real FieldReads.
 Real Encoded reads check exact U64/S64 decimal strings, an unknown
 signed enum, nested structs/arrays, an empty struct, owned snapshot storage and
 stale model indexes. Controller checks cover metadata-only files, selection
@@ -50,6 +50,11 @@ Explicit Disconnect tests choose queued, offered, prepared, executed and
 confirmed-Write phases directly, with exactly one terminal signal and the
 appropriate Cancelled/OutcomeUnknown/known-Write result. Reentrant disconnect
 from synchronous state notifications cannot suppress that completion.
+
+Session-history checks retain confirmed, Cancelled and OutcomeUnknown outcomes
+with their original session ID. Repeated reconnects cannot nest historical
+labels, a refused Apply preserves history, and a new accepted Apply shows its
+current Pending/result without an old-session label or duplicate completion.
 
 `QmlInput.cpp` loads the shipped Main.qml in a real QQuickWindow and sends mouse
 and keyboard events. It types Gain=12 and clicks Apply without Enter, then edits

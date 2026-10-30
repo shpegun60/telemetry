@@ -734,6 +734,76 @@ void disconnectApplyChecks()
 		CHECK(finished.count() == 1);
 	}
 }
+
+void writeHistoryChecks()
+{
+	ui::InspectorController controller;
+	auto& endpoints = *qobject_cast<ui::EndpointModel*>(controller.endpoints());
+	auto& values = *qobject_cast<ui::ValueModel*>(controller.values());
+	QSignalSpy finished{&controller, &ui::InspectorController::applyFinished};
+	const auto draft = [&] {
+		CHECK(controller.selectEndpoint(endpoint(endpoints, 1, 0)) && controller.refresh());
+		CHECK(await([&] {
+			return !controller.busy();
+		}));
+		++reads;
+		CHECK(controller.beginEdit());
+		CHECK(controller.setScalarText(named(values, values.index(0, 0), QStringLiteral("Gain")),
+		                               QStringLiteral("9")));
+	};
+	const auto history = [&](quint32 origin, const QString& raw) {
+		CHECK(controller.inspector().session() != origin);
+		CHECK(controller.writeOutcome() ==
+		      QStringLiteral("Previous session %1 (current session %2) · %3")
+		          .arg(origin)
+		          .arg(controller.inspector().session())
+		          .arg(raw));
+		CHECK(controller.writeOutcome().count(QStringLiteral("Previous session")) == 1);
+	};
+	CHECK(controller.connectWritableDemo());
+	draft();
+	CHECK(controller.apply());
+	controller.pump();
+	controller.pump();
+	CHECK(finished.count() == 1 && finished.first()[0].toBool() && !controller.busy());
+	const auto originalSession = controller.inspector().session();
+	const auto confirmed = controller.writeOutcome();
+	CHECK(confirmed.startsWith(QStringLiteral("Applied")) &&
+	      !confirmed.contains(QStringLiteral("Previous session")));
+	CHECK(controller.connectDemo());
+	history(originalSession, confirmed);
+	CHECK(controller.connectWritableDemo());
+	history(originalSession, confirmed); // Repeated replacement cannot nest prefixes.
+	const auto previous = controller.writeOutcome();
+	CHECK(!controller.apply()); // Refused submission must not erase the previous result.
+	CHECK(controller.writeOutcome() == previous && finished.count() == 1);
+	draft();
+	CHECK(controller.apply());
+	CHECK(controller.writeOutcome().startsWith(QStringLiteral("Pending")) &&
+	      !controller.writeOutcome().contains(QStringLiteral("Previous session")));
+	const auto cancelledSession = controller.inspector().session();
+	controller.disconnectDevice();
+	CHECK(finished.count() == 2 && !finished.last()[0].toBool());
+	const auto cancelled = controller.writeOutcome();
+	CHECK(cancelled.contains(QStringLiteral("Cancelled")));
+	CHECK(controller.connectDemo());
+	history(cancelledSession, cancelled);
+	CHECK(controller.connectWritableDemo());
+	draft();
+	CHECK(controller.apply());
+	const auto packet = controller.inspector().nextPacket();
+	CHECK(packet && controller.inspector().prepareHandoff(packet.session, packet.requestId));
+	const auto unknownSession = controller.inspector().session();
+	controller.disconnectDevice();
+	CHECK(finished.count() == 3 && !finished.last()[0].toBool());
+	const auto unknown = controller.writeOutcome();
+	CHECK(unknown.contains(QStringLiteral("OutcomeUnknown")) &&
+	      !unknown.contains(QStringLiteral("Previous session")));
+	CHECK(controller.connectDemo());
+	history(unknownSession, unknown);
+	CHECK(finished.count() == 3 && !controller.busy());
+	std::puts("Inspector write history: success=1 unknown=1 reset=1 refused=1 callbacks=3");
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -744,6 +814,7 @@ int main(int argc, char** argv)
 	controllerChecks();
 	workbenchChecks();
 	disconnectApplyChecks();
+	writeHistoryChecks();
 	std::printf("Inspector Qt checks=%u reads=%u Qt=%s\n", checks, reads, qVersion());
 	return 0;
 }
