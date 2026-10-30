@@ -179,8 +179,11 @@ if (!submitted)
 
 Execute accepts unchanged initial arguments and zero-byte requests; it does not
 require `dirty()`. One accepted Execute submits one logical Command through the
-existing FIFO. Setters and another Execute are blocked while it is executing or
-its callback is running. Known terminal completion can leave the same arguments
+existing FIFO. Setters are blocked during execution; another Execute is also
+blocked until its callback returns. A normal completion callback may edit retained
+arguments while their schema/session remain current, or submit an explicit FieldRead
+subject to the ordinary queue/admission checks. Changing selection retires the old
+argument form. Known terminal completion can leave the same arguments
 available for another explicit user action. Closing, stale schema/session or
 required recovery prevents further execution.
 Accepted Execute retires the old Field snapshot, since a Command may change
