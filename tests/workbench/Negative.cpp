@@ -6,7 +6,10 @@ void probe(Workbench& model)
 {
 	(void)model;
 #ifdef WORKBENCH_COMMAND
-	model.command();
+	// Runtime calls remain behind the bound editor, never a raw-payload facade.
+	(void)model.command(telemetry::integration::dynamic::EndpointBinding{},
+	                    telemetry::client::Input{}, [](const auto&) noexcept {
+	                    });
 #endif
 #ifdef WORKBENCH_SERVICE
 	model.service();
@@ -25,6 +28,9 @@ void probe(Workbench& model)
 #endif
 #ifdef WORKBENCH_NULL_CALLBACK
 	(void)model.apply(nullptr);
+#endif
+#ifdef WORKBENCH_NULL_COMMAND_CALLBACK
+	(void)model.execute(nullptr);
 #endif
 }
 

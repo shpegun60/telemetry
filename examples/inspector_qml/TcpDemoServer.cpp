@@ -94,6 +94,7 @@ struct TcpDemoServer::Impl {
 	quint64 generation = 0, totalRequests = 0, totalReads = 0, totalWrites = 0,
 	        totalNativeWrites = 0, totalConnections = 0;
 	quint64 received = 0, sent = 0;
+	quint64 totalNativeCommands = 0, totalExecutedCommands = 0, totalAcceptedCommands = 0;
 	QVector<quint32> resourceIndices;
 
 	explicit Impl(TcpDemoServer* object) : owner(object)
@@ -198,8 +199,14 @@ struct TcpDemoServer::Impl {
 			}
 			const auto offered = input(state.pending).first(static_cast<std::size_t>(available));
 			const auto previousWrites = state.peer.writeCount();
+			const auto previousCommands = state.peer.commandCount();
+			const auto previousExecuted = state.peer.executedCount();
+			const auto previousAccepted = state.peer.acceptedCount();
 			const auto result = state.server->receive(offered);
 			totalNativeWrites += state.peer.writeCount() - previousWrites;
+			totalNativeCommands += state.peer.commandCount() - previousCommands;
+			totalExecutedCommands += state.peer.executedCount() - previousExecuted;
+			totalAcceptedCommands += state.peer.acceptedCount() - previousAccepted;
 			const auto used = static_cast<qsizetype>(result.consumed);
 			if (used > available) {
 				retire();
@@ -443,6 +450,21 @@ quint64 TcpDemoServer::fieldWrites() const noexcept
 quint64 TcpDemoServer::nativeWrites() const noexcept
 {
 	return impl_->totalNativeWrites;
+}
+
+quint64 TcpDemoServer::nativeCommands() const noexcept
+{
+	return impl_->totalNativeCommands;
+}
+
+quint64 TcpDemoServer::executedCommands() const noexcept
+{
+	return impl_->totalExecutedCommands;
+}
+
+quint64 TcpDemoServer::acceptedCommands() const noexcept
+{
+	return impl_->totalAcceptedCommands;
 }
 
 quint64 TcpDemoServer::connections() const noexcept

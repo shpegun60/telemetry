@@ -1,6 +1,6 @@
 /*
  * @file InspectorController.hpp
- * @brief Qt owner loop for runtime inspection and explicit Field editing.
+ * @brief Qt owner loop for runtime inspection and explicit Field/Command actions.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -17,6 +17,7 @@
 #include <QtCore/QSet>
 #include <memory>
 #include <optional>
+#include <utility>
 
 namespace inspector_qml {
 class DeviceTransport;
@@ -42,6 +43,9 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(bool editing READ editing NOTIFY stateChanged)
 	Q_PROPERTY(bool canApply READ canApply NOTIFY stateChanged)
 	Q_PROPERTY(QString writeOutcome READ writeOutcome NOTIFY stateChanged)
+	Q_PROPERTY(bool commandSelected READ commandSelected NOTIFY stateChanged)
+	Q_PROPERTY(bool canExecute READ canExecute NOTIFY stateChanged)
+	Q_PROPERTY(QString commandOutcome READ commandOutcome NOTIFY stateChanged)
 
 public:
 	explicit InspectorController(QObject* parent = nullptr);
@@ -120,6 +124,7 @@ public:
 	Q_INVOKABLE void cancelEdit();
 	Q_INVOKABLE bool setScalarText(const QModelIndex& index, const QString& text);
 	Q_INVOKABLE bool apply();
+	Q_INVOKABLE bool executeCommand();
 	void setWritesEnabled(bool enabled);
 
 	bool writesEnabled() const noexcept
@@ -131,6 +136,9 @@ public:
 	bool canEdit() const noexcept;
 	bool editing() const noexcept;
 	bool canApply() const noexcept;
+	bool commandSelected() const noexcept;
+	bool canExecute() const noexcept;
+	QString commandOutcome() const;
 
 	QString writeOutcome() const
 	{
@@ -151,6 +159,11 @@ public:
 	void setDropReplies(bool drop) noexcept;
 	void setRejectWrites(bool reject) noexcept;
 	quint64 demoWriteCount() const noexcept;
+	quint64 demoCommandCount() const noexcept;
+	quint64 demoExecutedCount() const noexcept;
+	quint64 demoAcceptedCount() const noexcept;
+	quint64 demoCommandCounter() const noexcept;
+	float demoCommandGain() const noexcept;
 	// Explicit enqueue deadline, including for serial reads; does not add an airtime allowance.
 	void setReadTimeout(int milliseconds) noexcept;
 	void setTcpWriteChunkBytes(int bytes) noexcept;
@@ -161,8 +174,13 @@ Q_SIGNALS:
 	void stateChanged();
 	void readFinished(bool published);
 	void applyFinished(bool confirmed);
+	void commandFinished(bool executed, bool accepted);
 
 private:
+	struct Completion {
+		std::optional<bool> applied;
+		std::optional<std::pair<bool, bool>> command;
+	};
 	struct State;
 	std::unique_ptr<State> state_;
 	std::unique_ptr<State> retiredState_;
@@ -188,12 +206,15 @@ private:
 	bool writesEnabled_ = false;
 	QString writeOutcome_;
 	quint32 writeOutcomeSession_ = 0;
+	QString commandOutcome_, commandOutcomeEndpoint_;
+	quint32 commandOutcomeSession_ = 0;
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
 	                       bool writableDemo = false);
-	std::optional<bool> retire();
+	Completion retire();
 	std::optional<bool> consumeApply(State& state, bool displaySnapshot);
-	void notifyState(std::optional<bool> applied = {}, std::optional<bool> read = {});
+	std::optional<std::pair<bool, bool>> consumeCommand(State& state, bool live);
+	void notifyState(Completion completion, std::optional<bool> read = {});
 	void bindTransportSignals();
 	void transportFailed(quint64 epoch, QString error);
 	void transportDescriptor(quint64 epoch, QByteArray bytes);

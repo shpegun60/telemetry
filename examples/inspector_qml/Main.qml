@@ -36,7 +36,7 @@ ApplicationWindow {
                 Label { text: "Universal Inspector"; font.pixelSize: 28; font.weight: Font.DemiBold }
             }
             Item { Layout.fillWidth: true }
-            Label { text: controller.editing ? "LOCAL DRAFT" : controller.writesEnabled ? "FIELD EDITING" : "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
+            Label { text: controller.editing || controller.commandSelected ? "LOCAL DRAFT" : controller.writesEnabled ? "CHANGES ENABLED" : "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
             Button { text: "Demo device"; onClicked: controller.connectDemo() }
             Button { objectName: "writableDemoButton"; text: "Writable demo"; onClicked: controller.connectWritableDemo() }
             Button { text: "Disconnect"; enabled: controller.connected || controller.busy; onClicked: controller.disconnectDevice() }
@@ -44,7 +44,7 @@ ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true
             CheckBox {
-                text: "Enable Field writes for this connection"
+                text: "Enable Field writes and Commands for this connection"
                 checked: controller.writesEnabled
                 enabled: controller.writeProfileSupported && !controller.busy
                 onToggled: controller.writesEnabled = checked
@@ -165,7 +165,7 @@ ApplicationWindow {
                             endpointTree.expandRecursively(0, 2)
                         })
                     }
-                    Label { text: "Commands and Services show metadata only."; color: "#99abbf"; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 11 }
+                    Label { text: "Commands have an explicit Request editor. Services show metadata only."; color: "#99abbf"; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 11 }
                 }
             }
             Pane {
@@ -188,7 +188,7 @@ ApplicationWindow {
                         Button {
                             objectName: "editButton"
                             text: "Edit"
-                            visible: !controller.editing
+                            visible: !controller.editing && !controller.commandSelected
                             enabled: controller.canEdit
                             onClicked: controller.beginEdit()
                         }
@@ -207,8 +207,16 @@ ApplicationWindow {
                             onClicked: controller.apply()
                         }
                         Button {
+                            objectName: "executeButton"
+                            text: "Execute once"
+                            visible: controller.commandSelected
+                            enabled: controller.canExecute
+                            onClicked: controller.executeCommand()
+                        }
+                        Button {
                             objectName: "refreshButton"
                             text: "Refresh"
+                            visible: !controller.commandSelected
                             enabled: controller.canRefresh
                             onClicked: controller.refresh()
                         }
@@ -274,12 +282,17 @@ ApplicationWindow {
                         Label {
                             anchors.centerIn: parent
                             visible: valueTree.rows === 0
-                            text: controller.busy ? "Reading the selected Field…" : "Select a Field, then press Refresh."
+                            text: controller.busy
+                                ? controller.commandSelected ? "Waiting for the Command result…" : "Reading the selected Field…"
+                                : controller.commandSelected ? "No argument values to edit. Execute sends the Command once."
+                                : "Select a Field, then press Refresh."
                             color: "#99abbf"
                         }
                     }
                     Label {
-                        text: controller.editing
+                        text: controller.commandSelected
+                            ? "Initial request values are zero; device defaults may differ. Accepted does not confirm execution."
+                            : controller.editing
                             ? "Local draft only. Edit scalar values, then Apply to write once and read the device again."
                             : "Values belong to the last completed read. Arrays load in batches as you expand them."
                         color: "#99abbf"
@@ -294,6 +307,14 @@ ApplicationWindow {
             objectName: "writeOutcomeLabel"
             visible: controller.writeOutcome.length > 0
             text: controller.writeOutcome
+            color: "#e6c57b"
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+        }
+        Label {
+            objectName: "commandOutcomeLabel"
+            visible: controller.commandOutcome.length > 0
+            text: controller.commandOutcome
             color: "#e6c57b"
             Layout.fillWidth: true
             wrapMode: Text.Wrap

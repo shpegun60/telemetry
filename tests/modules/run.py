@@ -53,7 +53,8 @@ FORBIDDEN = {
 }
 for _module in MODULES:
     if _module != 'workbench':
-        FORBIDDEN[_module] += ('integration/workbench/WorkbenchModel.hpp',)
+        FORBIDDEN[_module] += ('integration/workbench/WorkbenchModel.hpp',
+                              'integration/workbench/RequestEditor.hpp')
     if _module != 'tcp_server':
         FORBIDDEN[_module] += ('integration/tcp/Framing.hpp', 'integration/tcp/Server.hpp')
 
