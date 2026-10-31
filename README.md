@@ -10,6 +10,7 @@
 | Запустити готовий універсальний GUI | [Qt/QML Inspector: Demo, TCP або UART](examples/inspector_qml/README.md) |
 | Редагувати Field і прочитати застосоване значення | [FieldWrite Workbench: Writable demo та TCP](examples/inspector_qml/README.md#read-edit-write-and-refresh) |
 | Виконати Command через універсальну форму аргументів | [Command Workbench: аргументи та Execute](examples/inspector_qml/README.md#command-arguments-and-execute) |
+| Викликати Service і переглянути відповідь без Generated SDK | [Service Workbench: Request та Response](examples/inspector_qml/README.md#service-requests-and-responses) |
 | Підключити NUCLEO-H7S3L8 через UART/DMA | [Прошивка плати](examples/nucleo_h7s3l8/README.md), [serial-збірка Inspector](examples/inspector_qml/README.md#nucleo-h7s3l8-through-st-link-serial) |
 | Підключити окремі модулі до CMake або qmake | [Модулі, залежності та build targets](doc/Modules.md) |
 

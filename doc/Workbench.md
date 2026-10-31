@@ -303,7 +303,7 @@ host or CI results.
 
 For the Command stage before Service support (PR #11, merged as `855e9f7`),
 x86-64 GCC 13.3 with CallbackBytes=256 recorded a fixed
-240 bytes to Workbench compared with FieldWrite baseline `b06791f`. It reuses
+240-byte Workbench increase over FieldWrite baseline `b06791f`. It reused
 the same two PayloadBytes buffers and one completion slot:
 
 | Configuration (N, PayloadBytes, SnapshotBytes) | FieldWrite baseline | FieldWrite + Command | Difference |

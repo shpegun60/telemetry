@@ -14,6 +14,7 @@
 #endif
 #include <integration/encoded/Backend.hpp>
 #include <telemetry/result/EndpointStatus.hpp>
+#include <telemetry/result/ServiceResult.hpp>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QFile>
 #include <QtCore/QDir>
@@ -39,7 +40,8 @@ bool mutationPacket(const cl::Packet& packet) noexcept
 	const auto parsed = telemetry::protocol::encoded::parse(packet.bytes);
 	return packet.mayExecute && parsed &&
 	       (parsed.header.operation == telemetry::protocol::encoded::Operation::FieldWrite ||
-	        parsed.header.operation == telemetry::protocol::encoded::Operation::Command);
+	        parsed.header.operation == telemetry::protocol::encoded::Operation::Command ||
+	        parsed.header.operation == telemetry::protocol::encoded::Operation::Service);
 }
 
 QString statusName(cl::Status status)
@@ -108,6 +110,23 @@ QString commandStatusName(std::uint8_t status)
 	return QStringLiteral("Unknown endpoint status %1").arg(status);
 }
 
+QString serviceStatusName(std::uint8_t status)
+{
+	switch (static_cast<telemetry::ServiceStatus>(status)) {
+		case telemetry::ServiceStatus::Ok:
+			return QStringLiteral("Ok");
+		case telemetry::ServiceStatus::InvalidArgument:
+			return QStringLiteral("InvalidArgument");
+		case telemetry::ServiceStatus::Unavailable:
+			return QStringLiteral("Unavailable");
+		case telemetry::ServiceStatus::Busy:
+			return QStringLiteral("Busy");
+		case telemetry::ServiceStatus::Failed:
+			return QStringLiteral("Failed");
+	}
+	return QStringLiteral("Unknown endpoint status %1").arg(status);
+}
+
 template<class T>
 bool parseScalar(const QString& text, T& value)
 {
@@ -149,13 +168,16 @@ struct InspectorController::State {
 		                return static_cast<State*>(owner)->now();
 	                }};
 	telemetry::integration::encoded::EncodedBackend backend{tx, rx, clock};
-	Workbench inspector{backend, clock};
+	std::array<std::byte, 65536> serviceStorage{};
+	Workbench inspector{backend, clock, serviceStorage};
 	std::vector<Reply> replies;
 	std::optional<im::ReadResult> completed;
 	std::optional<wb::ApplyResult> applied;
 	std::optional<im::OperationResult> commanded;
+	std::optional<wb::ServiceResult> serviced;
 	bool applying = false, mutationAuthorized = false;
 	bool executing = false;
+	bool calling = false;
 	bool demo = false;
 	bool serial = false;
 	bool remote = false, remoteAccepted = false;
@@ -250,6 +272,7 @@ InspectorController::Completion InspectorController::retire()
 {
 	++epoch_;
 	values_.clear();
+	responses_.clear();
 	endpoints_.clear();
 	selection_.clear();
 	connected_ = false;
@@ -268,6 +291,7 @@ InspectorController::Completion InspectorController::retire()
 		state_->closeAndDrain();
 		completion.applied = consumeApply(*state_, false);
 		completion.command = consumeCommand(*state_, false);
+		completion.service = consumeService(*state_, false);
 		if (state_->remote && state_->inspector.recoveryRequired()) {
 			// Local abort releases all Qt-owned TX/RX storage. It does not prove
 			// that a peer finished an already handed-off request. Preserve that
@@ -343,6 +367,7 @@ std::optional<bool> InspectorController::consumeApply(State& state, bool display
 		transport_->close();
 		state.inspector.invalidate();
 		connected_ = false;
+		responses_.clear();
 		endpoints_.clear();
 		selection_.clear();
 	}
@@ -383,12 +408,70 @@ std::optional<std::pair<bool, bool>> InspectorController::consumeCommand(State& 
 		state.inspector.invalidate();
 		connected_ = false;
 		values_.clear();
+		responses_.clear();
 		endpoints_.clear();
 		selection_.clear();
 	} else if (live && state.inspector.isCurrent()) {
 		values_.resetSnapshot(state.inspector);
 	}
 	return std::pair{executed, accepted};
+}
+
+std::optional<std::pair<bool, bool>> InspectorController::consumeService(State& state, bool live)
+{
+	if (!state.calling || !state.serviced)
+		return {};
+	const auto result = *state.serviced;
+	state.serviced.reset();
+	state.calling = false;
+	busy_ = false;
+	const bool succeeded = result.operation.succeeded();
+	const bool published = succeeded && result.published;
+	if (succeeded && published)
+		serviceOutcome_ = QStringLiteral("Completed · response published.");
+	else if (succeeded &&
+	         result.valueStatus == telemetry::integration::dynamic::ValueStatus::NoValue)
+		serviceOutcome_ = QStringLiteral("Completed · no response value (Void).");
+	else if (succeeded)
+		serviceOutcome_ = QStringLiteral("Completed · response unavailable (value %1 · model %2).")
+		                      .arg(static_cast<unsigned>(result.valueStatus))
+		                      .arg(static_cast<unsigned>(result.modelStatus));
+	else if (result.operation.status == cl::Status::OutcomeUnknown)
+		serviceOutcome_ = QStringLiteral(
+		    "OutcomeUnknown · the Service may have executed. It will not be retried.");
+	else {
+		const auto reason =
+		    result.operation.status == cl::Status::Ok && result.operation.dispatch == 0
+		        ? serviceStatusName(result.operation.endpointStatus)
+		        : statusName(result.operation.status);
+		serviceOutcome_ =
+		    QStringLiteral(
+		        "Service finished: %1 · dispatch %2 · endpoint %3 · value %4 · model %5.")
+		        .arg(reason)
+		        .arg(result.operation.dispatch)
+		        .arg(result.operation.endpointStatus)
+		        .arg(static_cast<unsigned>(result.valueStatus))
+		        .arg(static_cast<unsigned>(result.modelStatus));
+	}
+	status_ = serviceOutcome_;
+	if (live && state.inspector.isCurrent()) {
+		values_.resetSnapshot(state.inspector);
+		responses_.resetServiceResponse(state.inspector);
+	}
+	const auto outcome = result.operation.status;
+	const bool fatal = outcome == cl::Status::TransportError ||
+	                   outcome == cl::Status::MalformedReply ||
+	                   outcome == cl::Status::SessionLost || outcome == cl::Status::OutcomeUnknown;
+	if (live && state.remote && transport_ && (state.inspector.recoveryRequired() || fatal)) {
+		transport_->close();
+		state.inspector.invalidate();
+		connected_ = false;
+		values_.clear();
+		responses_.clear();
+		endpoints_.clear();
+		selection_.clear();
+	}
+	return std::pair{succeeded, published};
 }
 
 void InspectorController::notifyState(Completion completion, std::optional<bool> read)
@@ -406,6 +489,10 @@ void InspectorController::notifyState(Completion completion, std::optional<bool>
 		Q_EMIT commandFinished(completion.command->first, completion.command->second);
 	if (!alive || epoch_ != epoch)
 		return;
+	if (completion.service)
+		Q_EMIT serviceFinished(completion.service->first, completion.service->second);
+	if (!alive || epoch_ != epoch)
+		return;
 	Q_EMIT stateChanged();
 	if (alive && epoch_ == epoch && read)
 		Q_EMIT readFinished(*read);
@@ -414,7 +501,7 @@ void InspectorController::notifyState(Completion completion, std::optional<bool>
 bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool remote,
                                             bool writableDemo)
 {
-	if (updating_ || values_.changing() || endpoints_.changing())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing())
 		return false;
 	if (session_ == std::numeric_limits<quint32>::max()) {
 		status_ = QStringLiteral("Session IDs exhausted; restart the application.");
@@ -482,12 +569,14 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 	Completion retiredApply;
 	if (remote) {
 		values_.clear();
+		responses_.clear();
 		endpoints_.clear();
 		selection_.clear();
 		if (state_) {
 			state_->closeAndDrain();
 			retiredApply.applied = consumeApply(*state_, false);
 			retiredApply.command = consumeCommand(*state_, false);
+			retiredApply.service = consumeService(*state_, false);
 			state_.reset();
 		}
 	} else {
@@ -536,8 +625,8 @@ bool InspectorController::connectWritableDemo()
 
 bool InspectorController::connectTcp(const QString& host, quint16 port)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || host.trimmed().isEmpty() ||
-	    port == 0)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    host.trimmed().isEmpty() || port == 0)
 		return false;
 	updating_ = true;
 	const auto retiredApply = retire();
@@ -634,8 +723,8 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	Q_EMIT stateChanged();
 	return false;
 #else
-	if (updating_ || values_.changing() || endpoints_.changing() || port.trimmed().isEmpty() ||
-	    baud < qint32(inspector_serial::minBaudRate) ||
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    port.trimmed().isEmpty() || baud < qint32(inspector_serial::minBaudRate) ||
 	    baud > qint32(inspector_serial::maxBaudRate))
 		return false;
 	updating_ = true;
@@ -675,7 +764,7 @@ void InspectorController::transportDescriptor(quint64 epoch, QByteArray bytes)
 {
 	if (epoch != epoch_ || !transport_)
 		return;
-	if (updating_ || values_.changing() || endpoints_.changing()) {
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing()) {
 		QTimer::singleShot(0, this, [this, epoch, bytes = std::move(bytes)] {
 			transportDescriptor(epoch, bytes);
 		});
@@ -691,7 +780,7 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 {
 	if (epoch != epoch_)
 		return;
-	if (updating_ || values_.changing() || endpoints_.changing()) {
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing()) {
 		QTimer::singleShot(0, this, [this, epoch, error = std::move(error)] {
 			transportFailed(epoch, error);
 		});
@@ -700,14 +789,15 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 	// The transport preserves complete packets received before EOF. Apply them
 	// before closing the logical operation; onReply/process still enforce its
 	// deadline. The socket is already closed, so pump cannot authorize new TX.
-	if (state_ && state_->remote && !state_->applying && !state_->executing &&
+	if (state_ && state_->remote && !state_->applying && !state_->executing && !state_->calling &&
 	    !state_->replies.empty()) {
 		QPointer<InspectorController> alive{this};
 		pump();
 		if (!alive || epoch != epoch_)
 			return;
 	}
-	const bool readPending = busy_ && state_ && !state_->applying && !state_->executing;
+	const bool readPending =
+	    busy_ && state_ && !state_->applying && !state_->executing && !state_->calling;
 	updating_ = true;
 	const auto applied = retire();
 	status_ = (serial_ ? QStringLiteral("Serial: %1") : QStringLiteral("TCP: %1")).arg(error);
@@ -718,7 +808,7 @@ void InspectorController::transportFailed(quint64 epoch, QString error)
 bool InspectorController::canRefresh() const noexcept
 {
 	return connected_ && !busy_ && !editing() && state_ && !commandSelected() &&
-	       state_->inspector.snapshotInfo().selected;
+	       !serviceSelected() && state_->inspector.snapshotInfo().selected;
 }
 
 bool InspectorController::writeProfileSupported() const noexcept
@@ -728,7 +818,7 @@ bool InspectorController::writeProfileSupported() const noexcept
 
 bool InspectorController::editing() const noexcept
 {
-	return state_ && !commandSelected() && state_->inspector.editing();
+	return state_ && !commandSelected() && !serviceSelected() && state_->inspector.editing();
 }
 
 bool InspectorController::commandSelected() const noexcept
@@ -756,10 +846,35 @@ QString InspectorController::commandOutcome() const
 	    .arg(outcome);
 }
 
+bool InspectorController::serviceSelected() const noexcept
+{
+	return state_ && state_->inspector.serviceSelected();
+}
+
+bool InspectorController::canCallService() const noexcept
+{
+	return writeProfileSupported() && writesEnabled_ && !busy_ && invalidEditors_.isEmpty() &&
+	       state_->inspector.canCallService();
+}
+
+QString InspectorController::serviceOutcome() const
+{
+	if (serviceOutcome_.isEmpty())
+		return {};
+	const auto outcome =
+	    QStringLiteral("Last Service %1 · %2").arg(serviceOutcomeEndpoint_, serviceOutcome_);
+	if (!serviceOutcomeSession_ || serviceOutcomeSession_ == session_)
+		return outcome;
+	return QStringLiteral("Previous session %1 (current session %2) · %3")
+	    .arg(serviceOutcomeSession_)
+	    .arg(session_)
+	    .arg(outcome);
+}
+
 bool InspectorController::canEdit() const noexcept
 {
 	return writeProfileSupported() && writesEnabled_ && !busy_ && !commandSelected() &&
-	       state_->inspector.canEdit();
+	       !serviceSelected() && state_->inspector.canEdit();
 }
 
 bool InspectorController::canApply() const noexcept
@@ -770,7 +885,7 @@ bool InspectorController::canApply() const noexcept
 
 void InspectorController::setWritesEnabled(bool enabled)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || busy_)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() || busy_)
 		return;
 	if (enabled && !writeProfileSupported()) {
 		status_ = QStringLiteral(
@@ -791,7 +906,8 @@ void InspectorController::setWritesEnabled(bool enabled)
 
 bool InspectorController::beginEdit()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !canEdit())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !canEdit())
 		return false;
 	const auto status = state_->inspector.beginEdit();
 	if (status != rt::Status::Ok) {
@@ -812,7 +928,8 @@ bool InspectorController::beginEdit()
 
 void InspectorController::cancelEdit()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !editing() || busy_)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !editing() || busy_)
 		return;
 	updating_ = true;
 	state_->inspector.cancelEdit();
@@ -825,14 +942,15 @@ void InspectorController::cancelEdit()
 
 bool InspectorController::setScalarText(const QModelIndex& index, const QString& text)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() ||
-	    (!editing() && !commandSelected()) || busy_)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    (!editing() && !commandSelected() && !serviceSelected()) || busy_)
 		return false;
 	const auto node = values_.node(index);
 	if (!node)
 		return false;
-	const auto info = commandSelected() ? state_->inspector.editorInfo(node.value)
-	                                    : state_->inspector.info(node.value);
+	const auto info = (commandSelected() || serviceSelected())
+	                      ? state_->inspector.editorInfo(node.value)
+	                      : state_->inspector.info(node.value);
 	if (!info || (info.value.kind != telemetry::TypeKind::Scalar &&
 	              info.value.kind != telemetry::TypeKind::Enum))
 		return false;
@@ -908,7 +1026,8 @@ bool InspectorController::setScalarText(const QModelIndex& index, const QString&
 
 bool InspectorController::apply()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !canApply())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !canApply())
 		return false;
 	const auto submitted = state_->inspector.apply(
 	    [state = state_.get()](const wb::ApplyResult& result) noexcept {
@@ -925,6 +1044,7 @@ bool InspectorController::apply()
 	writeOutcomeSession_ = state_->inspector.session();
 	busy_ = true;
 	values_.clear();
+	responses_.clear();
 	writeOutcome_ = QStringLiteral("Pending · waiting for write result and readback.");
 	status_ = QStringLiteral("Writing once, then refreshing from the device…");
 	updating_ = false;
@@ -934,7 +1054,8 @@ bool InspectorController::apply()
 
 bool InspectorController::executeCommand()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !canExecute())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !canExecute())
 		return false;
 	const auto submitted = state_->inspector.execute(
 	    [state = state_.get()](const im::OperationResult& result) noexcept {
@@ -952,6 +1073,7 @@ bool InspectorController::executeCommand()
 	commandOutcomeEndpoint_ = selection_;
 	busy_ = true;
 	values_.clear();
+	responses_.clear();
 	commandOutcome_ = QStringLiteral("Pending · waiting for the Command result.");
 	status_ = QStringLiteral("Sending the Command once · no automatic replay or readback.");
 	updating_ = false;
@@ -959,9 +1081,38 @@ bool InspectorController::executeCommand()
 	return true;
 }
 
+bool InspectorController::callService()
+{
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !canCallService())
+		return false;
+	const auto submitted = state_->inspector.callService(
+	    [state = state_.get()](const wb::ServiceResult& result) noexcept {
+		    state->serviced = result;
+	    },
+	    static_cast<quint32>(readTimeout_));
+	if (!submitted) {
+		status_ = QStringLiteral("Call refused: %1.").arg(statusName(submitted.status));
+		Q_EMIT stateChanged();
+		return false;
+	}
+	updating_ = true;
+	state_->calling = true;
+	serviceOutcomeSession_ = state_->inspector.session();
+	serviceOutcomeEndpoint_ = selection_;
+	busy_ = true;
+	values_.clear();
+	responses_.clear();
+	serviceOutcome_ = QStringLiteral("Pending · waiting for the Service result.");
+	status_ = QStringLiteral("Calling the Service once · no automatic replay.");
+	updating_ = false;
+	Q_EMIT stateChanged();
+	return true;
+}
+
 bool InspectorController::loadDescriptor(const QUrl& path)
 {
-	if (updating_ || values_.changing() || endpoints_.changing())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing())
 		return false;
 	QFile file(path.isLocalFile() ? path.toLocalFile() : path.toString());
 	if (!file.open(QIODevice::ReadOnly)) {
@@ -991,12 +1142,28 @@ bool InspectorController::openDescriptorPath(const QString& path)
 
 bool InspectorController::selectEndpoint(const QModelIndex& index)
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || editing() ||
-	    state_->applying || state_->executing)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !state_ || editing() || state_->applying || state_->executing || state_->calling)
 		return false;
 	const auto endpoint = endpoints_.endpoint(index);
 	if (endpoint.isEmpty())
 		return false;
+	if (endpoint.value(QStringLiteral("category")).toInt() == 3) {
+		const auto binding =
+		    state_->inspector.bindService(endpoint.value(QStringLiteral("id")).toUInt());
+		if (!binding || state_->inspector.selectService(binding.endpoint) != cl::Status::Ok)
+			return false;
+		updating_ = true;
+		invalidEditors_.clear();
+		values_.resetSnapshot(state_->inspector);
+		responses_.resetServiceResponse(state_->inspector);
+		selection_ = endpoint.value(QStringLiteral("path")).toString();
+		status_ = QStringLiteral(
+		    "Service Request · client-initialized zero arguments · Call submits one request.");
+		updating_ = false;
+		Q_EMIT stateChanged();
+		return true;
+	}
 	if (endpoint.value(QStringLiteral("category")).toInt() == 2) {
 		const auto binding =
 		    state_->inspector.bindCommand(endpoint.value(QStringLiteral("id")).toUInt());
@@ -1011,6 +1178,7 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 		updating_ = true;
 		invalidEditors_.clear();
 		values_.resetSnapshot(state_->inspector);
+		responses_.resetServiceResponse(state_->inspector);
 		selection_ = endpoint.value(QStringLiteral("path")).toString();
 		status_ = QStringLiteral(
 		    "Command Request · client-initialized zero arguments · Execute sends once.");
@@ -1023,6 +1191,7 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 		updating_ = true;
 		state_->inspector.clearSelection();
 		values_.clear();
+		responses_.resetServiceResponse(state_->inspector);
 		selection_ = endpoint.value(QStringLiteral("path")).toString();
 		status_ = QStringLiteral("Metadata only · this endpoint cannot be read as a Field.");
 		updating_ = false;
@@ -1034,6 +1203,7 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 		return false;
 	updating_ = true;
 	values_.clear();
+	responses_.resetServiceResponse(state_->inspector);
 	selection_ = endpoint.value(QStringLiteral("path")).toString();
 	status_ = connected_ ? QStringLiteral("Field selected · press Refresh to read it")
 	                     : QStringLiteral("Field metadata · no transport connected");
@@ -1044,8 +1214,8 @@ bool InspectorController::selectEndpoint(const QModelIndex& index)
 
 bool InspectorController::refresh()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !state_ || !connected_ ||
-	    busy_ || editing() || commandSelected())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !state_ || !connected_ || busy_ || editing() || commandSelected() || serviceSelected())
 		return false;
 	auto readTimeout = static_cast<quint32>(readTimeout_);
 #ifdef INSPECTOR_ENABLE_SERIAL
@@ -1086,7 +1256,8 @@ bool InspectorController::refresh()
 
 void InspectorController::pump()
 {
-	if (updating_ || values_.changing() || endpoints_.changing() || !state_)
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
+	    !state_)
 		return;
 	updating_ = true;
 	auto& state = *state_;
@@ -1140,6 +1311,7 @@ void InspectorController::pump()
 	if (stale) {
 		if (connected_ || !selection_.isEmpty() || endpoints_.rowCount()) {
 			values_.clear();
+			responses_.clear();
 			endpoints_.clear();
 			selection_.clear();
 			connected_ = false;
@@ -1170,6 +1342,7 @@ void InspectorController::pump()
 			state.inspector.invalidate();
 			connected_ = false;
 			values_.clear();
+			responses_.clear();
 			endpoints_.clear();
 			selection_.clear();
 		}
@@ -1177,17 +1350,18 @@ void InspectorController::pump()
 	}
 	const auto applied = consumeApply(state, true);
 	const auto commanded = consumeCommand(state, true);
-	notify = notify || applied.has_value() || commanded.has_value();
+	const auto serviced = consumeService(state, true);
+	notify = notify || applied.has_value() || commanded.has_value() || serviced.has_value();
 	// All backend calls have returned before application signals can run slots.
 	updating_ = false;
 	if (notify)
-		notifyState({applied, commanded},
+		notifyState({applied, commanded, serviced},
 		            completion ? std::optional<bool>{published} : std::nullopt);
 }
 
 void InspectorController::disconnectDevice()
 {
-	if (updating_ || values_.changing() || endpoints_.changing())
+	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing())
 		return;
 	updating_ = true;
 	const auto applied = retire();
@@ -1240,6 +1414,11 @@ quint64 InspectorController::demoCommandCounter() const noexcept
 float InspectorController::demoCommandGain() const noexcept
 {
 	return state_ && state_->demo ? state_->peer.lastCommandGain() : 0;
+}
+
+quint64 InspectorController::demoServiceCount() const noexcept
+{
+	return state_ && state_->demo ? state_->peer.serviceCount() : 0;
 }
 
 void InspectorController::setReadTimeout(int milliseconds) noexcept

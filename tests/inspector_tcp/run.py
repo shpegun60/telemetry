@@ -120,7 +120,7 @@ def main():
                          else 'telemetry_inspector_tcp_check')
         runtime = run('runtime', [check])
         counts = re.search(r'Inspector TCP checks=(\d+) reads=(\d+) connections=(\d+) Qt=(\S+)', runtime)
-        if not counts or int(counts[1]) < 669 or int(counts[2]) < 32 or int(counts[3]) < 26:
+        if not counts or int(counts[1]) < 812 or int(counts[2]) < 36 or int(counts[3]) < 32:
             raise RuntimeError('Runtime did not execute the maintained real-socket scenarios')
         disconnected = re.findall(r'TCP explicit disconnect phase=(prepared-lost-ack|confirmed-write) '
                                   r'callbacks=(\d+) busy=(\d+) outcome=(.*?) writes=(\d+)', runtime)
@@ -137,6 +137,11 @@ def main():
             raise RuntimeError('TCP Command statuses, Disconnect completion or no-replay proof missing')
         report['executions']['command_outcomes'] = ['executed', 'accepted', 'unknown']
         report['executions']['command_terminal_callbacks'] = 3
+        if ('Inspector TCP Service outcomes: completed=1 rejected=1 unknown=1 callbacks=3 '
+                'replay=0') not in runtime:
+            raise RuntimeError('TCP Service response, rejection or no-replay proof missing')
+        report['executions']['service_outcomes'] = ['completed', 'rejected', 'unknown']
+        report['executions']['service_terminal_callbacks'] = 3
         report['qt_version'] = counts[4]
         app = build / 'example' / ('telemetry-inspector-qml.exe' if os.name == 'nt'
                                    else 'telemetry-inspector-qml')

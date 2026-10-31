@@ -41,6 +41,7 @@ public:
 	[[nodiscard]] std::uint64_t acceptedCount() const noexcept;
 	[[nodiscard]] std::uint64_t lastCommandCounter() const noexcept;
 	[[nodiscard]] float lastCommandGain() const noexcept;
+	[[nodiscard]] std::uint64_t serviceCount() const noexcept;
 	void setRejectWrites(bool reject) noexcept;
 	// The returned server borrows this peer's workspace and caller-owned files
 	// and buffers. It must be destroyed before any of them.

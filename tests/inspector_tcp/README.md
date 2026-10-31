@@ -15,7 +15,7 @@ Requires Qt 6.4 or newer with Network, Quick Controls and Test. On Windows selec
 the matching Qt MinGW kit explicitly. The runner puts that compiler and Qt runtime
 first in `PATH`, keeps builds/logs outside the source tree, and retains before/after
 source hashes, binary hashes and a machine-readable result. Source drift fails the
-run. The maintained floor is 669 checks, 32 real FieldReads and 26 admitted socket
+run. The maintained floor is 812 checks, 36 real FieldReads and 32 admitted socket
 connections; refused discovery and extra raw socket connections are counted
 separately in the scenarios.
 
@@ -62,6 +62,12 @@ execution. The controller must report one unknown result and no replay on
 reconnect. Known terminal results retain their status and session of origin.
 Closing this synchronous protocol context does not establish completion of a
 separate application job returned as Accepted.
+
+Service scenarios use actual request/response DTOs and a separate native call
+counter. They distinguish a successful owned response, InvalidArgument and a
+lost acknowledgement followed by Disconnect. Terminal signals are delivered
+once; reconnect cannot replay a call or reinterpret a response from an old session.
+These cases use the same connection, FIFO and mutation opt-in as Field/Command.
 
 The runner also starts the real demo server executable on an ephemeral loopback
 port, opens the actual QML application with `--tcp`, and requires a published

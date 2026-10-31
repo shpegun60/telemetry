@@ -80,6 +80,7 @@ public:
 	~ValueModel() override;
 	void resetSnapshot(const Inspector& inspector);
 	void resetSnapshot(const Workbench& workbench);
+	void resetServiceResponse(const Workbench& workbench);
 	[[nodiscard]] telemetry::integration::inspector::NodeResult
 	node(const QModelIndex& index) const;
 	void updateScalar(const QModelIndex& index);
@@ -98,7 +99,7 @@ public:
 private:
 	struct Impl;
 	std::unique_ptr<Impl> impl_;
-	void resetSource(const Inspector* inspector, const Workbench* workbench);
+	void resetSource(const Inspector* inspector, const Workbench* workbench, bool response = false);
 };
 
 } // namespace inspector_qml

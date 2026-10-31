@@ -36,7 +36,7 @@ ApplicationWindow {
                 Label { text: "Universal Inspector"; font.pixelSize: 28; font.weight: Font.DemiBold }
             }
             Item { Layout.fillWidth: true }
-            Label { text: controller.editing || controller.commandSelected ? "LOCAL DRAFT" : controller.writesEnabled ? "CHANGES ENABLED" : "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
+            Label { text: controller.editing || controller.commandSelected || controller.serviceSelected ? "LOCAL DRAFT" : controller.writesEnabled ? "CHANGES ENABLED" : "READ ONLY"; color: "#99abbf"; font.pixelSize: 12 }
             Button { text: "Demo device"; onClicked: controller.connectDemo() }
             Button { objectName: "writableDemoButton"; text: "Writable demo"; onClicked: controller.connectWritableDemo() }
             Button { text: "Disconnect"; enabled: controller.connected || controller.busy; onClicked: controller.disconnectDevice() }
@@ -44,7 +44,7 @@ ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true
             CheckBox {
-                text: "Enable Field writes and Commands for this connection"
+                text: "Enable Field writes, Commands and Services for this connection"
                 checked: controller.writesEnabled
                 enabled: controller.writeProfileSupported && !controller.busy
                 onToggled: controller.writesEnabled = checked
@@ -165,7 +165,7 @@ ApplicationWindow {
                             endpointTree.expandRecursively(0, 2)
                         })
                     }
-                    Label { text: "Commands have an explicit Request editor. Services show metadata only."; color: "#99abbf"; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 11 }
+                    Label { text: "Commands and Services have an explicit Request editor. Each action submits one request."; color: "#99abbf"; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 11 }
                 }
             }
             Pane {
@@ -188,7 +188,7 @@ ApplicationWindow {
                         Button {
                             objectName: "editButton"
                             text: "Edit"
-                            visible: !controller.editing && !controller.commandSelected
+                            visible: !controller.editing && !controller.commandSelected && !controller.serviceSelected
                             enabled: controller.canEdit
                             onClicked: controller.beginEdit()
                         }
@@ -214,83 +214,164 @@ ApplicationWindow {
                             onClicked: controller.executeCommand()
                         }
                         Button {
+                            objectName: "callServiceButton"
+                            text: "Call once"
+                            visible: controller.serviceSelected
+                            enabled: controller.canCallService
+                            onClicked: controller.callService()
+                        }
+                        Button {
                             objectName: "refreshButton"
                             text: "Refresh"
-                            visible: !controller.commandSelected
+                            visible: !controller.commandSelected && !controller.serviceSelected
                             enabled: controller.canRefresh
                             onClicked: controller.refresh()
                         }
                     }
-                    TreeView {
-                        id: valueTree
-                        objectName: "valueTree"
+                    GridLayout {
+                        id: valueColumns
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        clip: true
-                        model: controller.values
-                        columnWidthProvider: function() { return Math.max(1, valueTree.width) }
-                        onWidthChanged: Qt.callLater(function() { valueTree.forceLayout() })
-                        delegate: TreeViewDelegate {
-                            id: valueDelegate
-                            objectName: "valueRow"
-                            required property string name
-                            required property string detail
-                            required property string value
-                            required property bool isAggregate
-                            required property int childCount
-                            required property int loadedCount
-                            required property bool editable
-                            required property string editorText
-                            TableView.onReused: scalarInput.inputValid = true
-                            implicitWidth: valueTree.width
-                            implicitHeight: 40
-                            text: name
-                            ToolTip.visible: hovered && detail.length > 0
-                            ToolTip.text: detail
-                            contentItem: RowLayout {
-                                Label { text: name; elide: Text.ElideRight; Layout.fillWidth: true }
-                                Label { visible: !editable; text: value; color: "#83e1ce"; font.family: "monospace" }
-                                TextField {
-                                    id: scalarInput
-                                    objectName: "scalarEditor"
-                                    property string scalarName: valueDelegate.name
-                                    property bool inputValid: true
-                                    visible: valueDelegate.editable
-                                    Layout.preferredWidth: 230
-                                    // Keep the operator's raw text while typing (for example
-                                    // the intermediate "4." in "4.25"). Invalid text also
-                                    // survives blur until corrected or the draft is cancelled.
-                                    Binding on text {
-                                        value: valueDelegate.editorText
-                                        when: !scalarInput.activeFocus && scalarInput.inputValid
-                                        restoreMode: Binding.RestoreNone
+                        columns: (controller.serviceSelected || controller.serviceResponseEndpoint.length > 0) && width >= 650 ? 2 : 1
+                        TreeView {
+                            id: valueTree
+                            objectName: "valueTree"
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumWidth: 280
+                            Layout.preferredWidth: valueColumns.width / valueColumns.columns
+                            clip: true
+                            model: controller.values
+                            Component.onCompleted: Qt.callLater(function() {
+                                valueTree.forceLayout()
+                                valueTree.expand(0)
+                            })
+                            columnWidthProvider: function() { return Math.max(1, valueTree.width) }
+                            onWidthChanged: Qt.callLater(function() { valueTree.forceLayout() })
+                            delegate: TreeViewDelegate {
+                                id: valueDelegate
+                                objectName: "valueRow"
+                                required property string name
+                                required property string detail
+                                required property string value
+                                required property bool isAggregate
+                                required property int childCount
+                                required property int loadedCount
+                                required property bool editable
+                                required property string editorText
+                                TableView.onReused: scalarInput.inputValid = true
+                                implicitWidth: valueTree.width
+                                implicitHeight: 40
+                                text: name
+                                ToolTip.visible: hovered && detail.length > 0
+                                ToolTip.text: detail
+                                contentItem: RowLayout {
+                                    Label { text: name; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Label { visible: !editable; text: value; color: "#83e1ce"; font.family: "monospace" }
+                                    TextField {
+                                        id: scalarInput
+                                        objectName: "scalarEditor"
+                                        property string scalarName: valueDelegate.name
+                                        property bool inputValid: true
+                                        visible: valueDelegate.editable
+                                        Layout.preferredWidth: Math.min(230, Math.max(120, valueTree.width - 120))
+                                        // Keep the operator's raw text while typing (for example
+                                        // the intermediate "4." in "4.25"). Invalid text also
+                                        // survives blur until corrected or the draft is cancelled.
+                                        Binding on text {
+                                            value: valueDelegate.editorText
+                                            when: !scalarInput.activeFocus && scalarInput.inputValid
+                                            restoreMode: Binding.RestoreNone
+                                        }
+                                        font.family: "monospace"
+                                        selectByMouse: true
+                                        onTextEdited: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                        onEditingFinished: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
                                     }
-                                    font.family: "monospace"
-                                    selectByMouse: true
-                                    onTextEdited: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
-                                    onEditingFinished: inputValid = controller.setScalarText(valueTree.modelIndex(Qt.point(0, valueDelegate.row)), text)
+                                    Button {
+                                        visible: isAggregate && childCount > 128
+                                        enabled: loadedCount < childCount
+                                        text: "Load next 128 · " + loadedCount + "/" + childCount
+                                        onClicked: controller.values.fetchMore(valueTree.modelIndex(Qt.point(0, row)))
+                                    }
                                 }
-                                Button {
-                                    visible: isAggregate && childCount > 128
-                                    enabled: loadedCount < childCount
-                                    text: "Load next 128 · " + loadedCount + "/" + childCount
-                                    onClicked: controller.values.fetchMore(valueTree.modelIndex(Qt.point(0, row)))
+                            }
+                            ScrollBar.vertical: ScrollBar {}
+                            Label {
+                                anchors.centerIn: parent
+                                visible: valueTree.rows === 0
+                                text: controller.busy
+                                    ? controller.serviceSelected ? "Waiting for the Service result…" : controller.commandSelected ? "Waiting for the Command result…" : "Reading the selected Field…"
+                                    : controller.serviceSelected ? "No argument values to edit. Call submits one Service request."
+                                    : controller.commandSelected ? "No argument values to edit. Execute sends the Command once."
+                                    : "Select a Field, then press Refresh."
+                                color: "#99abbf"
+                            }
+                        }
+                        ColumnLayout {
+                            visible: controller.serviceSelected || controller.serviceResponseEndpoint.length > 0
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            Layout.minimumWidth: 280
+                            Layout.preferredWidth: valueColumns.width / valueColumns.columns
+                            Label {
+                                text: controller.serviceResponseEndpoint.length
+                                    ? "Last response · " + controller.serviceResponseEndpoint : "Last response"
+                                color: "#99abbf"
+                                Layout.fillWidth: true
+                                elide: Text.ElideMiddle
+                            }
+                            TreeView {
+                                id: responseTree
+                                objectName: "responseTree"
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                clip: true
+                                model: controller.responses
+                                Component.onCompleted: Qt.callLater(function() {
+                                    responseTree.forceLayout()
+                                    responseTree.expand(0)
+                                })
+                                columnWidthProvider: function() { return Math.max(1, responseTree.width) }
+                                onWidthChanged: Qt.callLater(function() { responseTree.forceLayout() })
+                                delegate: TreeViewDelegate {
+                                    objectName: "responseRow"
+                                    required property string name
+                                    required property string detail
+                                    required property string value
+                                    required property bool isAggregate
+                                    required property int childCount
+                                    required property int loadedCount
+                                    implicitWidth: responseTree.width
+                                    implicitHeight: 40
+                                    text: name
+                                    ToolTip.visible: hovered && detail.length > 0
+                                    ToolTip.text: detail
+                                    contentItem: RowLayout {
+                                        Label { text: name; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        Label { text: value; color: "#83e1ce"; font.family: "monospace" }
+                                        Button {
+                                            visible: isAggregate && childCount > 128
+                                            enabled: loadedCount < childCount
+                                            text: "Load next 128 · " + loadedCount + "/" + childCount
+                                            onClicked: controller.responses.fetchMore(responseTree.modelIndex(Qt.point(0, row)))
+                                        }
+                                    }
+                                }
+                                ScrollBar.vertical: ScrollBar {}
+                                Label {
+                                    anchors.centerIn: parent
+                                    visible: responseTree.rows === 0
+                                    text: controller.busy ? "Waiting for a response…" : "No owned response value."
+                                    color: "#99abbf"
                                 }
                             }
                         }
-                        ScrollBar.vertical: ScrollBar {}
-                        Label {
-                            anchors.centerIn: parent
-                            visible: valueTree.rows === 0
-                            text: controller.busy
-                                ? controller.commandSelected ? "Waiting for the Command result…" : "Reading the selected Field…"
-                                : controller.commandSelected ? "No argument values to edit. Execute sends the Command once."
-                                : "Select a Field, then press Refresh."
-                            color: "#99abbf"
-                        }
                     }
                     Label {
-                        text: controller.commandSelected
+                        text: controller.serviceSelected
+                            ? "Initial request values are zero. Call submits one request; the read-only response is owned until a new accepted mutation or session change."
+                            : controller.commandSelected
                             ? "Initial request values are zero; device defaults may differ. Accepted does not confirm execution."
                             : controller.editing
                             ? "Local draft only. Edit scalar values, then Apply to write once and read the device again."
@@ -320,6 +401,14 @@ ApplicationWindow {
             wrapMode: Text.Wrap
         }
         Label {
+            objectName: "serviceOutcomeLabel"
+            visible: controller.serviceOutcome.length > 0
+            text: controller.serviceOutcome
+            color: "#e6c57b"
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+        }
+        Label {
             objectName: "statusLabel"
             text: controller.statusText
             color: controller.connected ? "#83e1ce" : "#99abbf"
@@ -342,6 +431,15 @@ ApplicationWindow {
             Qt.callLater(function() {
                 valueTree.forceLayout()
                 valueTree.expand(0)
+            })
+        }
+    }
+    Connections {
+        target: controller.responses
+        function onModelReset() {
+            Qt.callLater(function() {
+                responseTree.forceLayout()
+                responseTree.expand(0)
             })
         }
     }

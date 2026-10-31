@@ -63,11 +63,22 @@ struct Config {
 	                                 std::bit_cast<double>(UINT64_C(0x8000000000000000))};
 };
 
+struct ServiceReply {
+	float Gain;
+	std::uint64_t Counter;
+	std::int64_t Offset;
+	bool Enabled;
+	Mode OperatingMode;
+	std::array<std::array<std::int32_t, 2>, 2> Matrix;
+	std::array<std::uint32_t, 300> Samples;
+};
+
 struct WritableDevice {
 	Config config{};
 	Config lastCommand{};
 	std::uint64_t writes = 0;
 	std::uint64_t commands = 0, executed = 0, accepted = 0;
+	std::uint64_t services = 0;
 	bool rejectWrites = false;
 
 	Config read() const noexcept
@@ -113,6 +124,47 @@ struct WritableDevice {
 	telemetry::CommandResult emptyCommand(const Empty&) noexcept
 	{
 		return ping();
+	}
+
+	telemetry::ServiceResult<ServiceReply> transform(const Config& request) noexcept
+	{
+		++services;
+		if (!std::isfinite(request.Gain) || request.Gain < 0)
+			return telemetry::ServiceResult<ServiceReply>::failure(
+			    telemetry::ServiceStatus::InvalidArgument);
+		return telemetry::ServiceResult<ServiceReply>::successFrom(
+		    [&request]() noexcept -> ServiceReply {
+			    ServiceReply reply{std::clamp(request.Gain, 0.0f, 10.0f),
+			                       request.Counter,
+			                       request.Offset,
+			                       request.Enabled,
+			                       request.OperatingMode,
+			                       request.Matrix,
+			                       {}};
+			    const auto seed = static_cast<std::uint32_t>(request.Counter & 0xffu);
+			    for (std::size_t i = 0; i < reply.Samples.size(); ++i)
+				    reply.Samples[i] = seed + static_cast<std::uint32_t>(i);
+			    return reply;
+		    });
+	}
+
+	telemetry::ServiceResult<ServiceReply> reject(const Config&) noexcept
+	{
+		++services;
+		return telemetry::ServiceResult<ServiceReply>::failure(
+		    telemetry::ServiceStatus::InvalidArgument);
+	}
+
+	telemetry::ServiceResult<void> pingService() noexcept
+	{
+		++services;
+		return telemetry::ServiceResult<void>::success();
+	}
+
+	telemetry::ServiceResult<Empty> emptyService(const Empty&) noexcept
+	{
+		++services;
+		return telemetry::ServiceResult<Empty>::success({});
 	}
 };
 
@@ -218,9 +270,15 @@ constexpr telemetry::CommandTable writableCommands{
     telemetry::command<&demo::WritableDevice::emptyCommand>("Empty", writablePrototype)};
 constexpr telemetry::CommandCatalogTable writableCommandCatalogs{
     telemetry::group("control", writableCommands)};
-constexpr telemetry::ServiceCatalogTable<> noServices{};
+constexpr telemetry::ServiceTable writableServices{
+    telemetry::service<&demo::WritableDevice::transform>("Transform", writablePrototype),
+    telemetry::service<&demo::WritableDevice::reject>("Reject", writablePrototype),
+    telemetry::service<&demo::WritableDevice::pingService>("Ping", writablePrototype),
+    telemetry::service<&demo::WritableDevice::emptyService>("Empty", writablePrototype)};
+constexpr telemetry::ServiceCatalogTable writableServiceCatalogs{
+    telemetry::group("control", writableServices)};
 constexpr telemetry::Model writablePrototypeModel{writableCatalogs, writableCommandCatalogs,
-                                                  noServices};
+                                                  writableServiceCatalogs};
 constexpr telemetry::descriptor::Descriptor writableDescriptor{writablePrototypeModel};
 constexpr auto writableDescriptorBytes =
     telemetry::descriptor::packDescriptor<writableDescriptor>();
@@ -240,7 +298,13 @@ struct DemoPeer::Impl {
 	    telemetry::command<&demo::WritableDevice::ping>("Ping", device),
 	    telemetry::command<&demo::WritableDevice::emptyCommand>("Empty", device)};
 	decltype(writableCommandCatalogs) commandCatalogs{telemetry::group("control", commands)};
-	decltype(writablePrototypeModel) writableModel{catalogs, commandCatalogs, noServices};
+	decltype(writableServices) services{
+	    telemetry::service<&demo::WritableDevice::transform>("Transform", device),
+	    telemetry::service<&demo::WritableDevice::reject>("Reject", device),
+	    telemetry::service<&demo::WritableDevice::pingService>("Ping", device),
+	    telemetry::service<&demo::WritableDevice::emptyService>("Empty", device)};
+	decltype(writableServiceCatalogs) serviceCatalogs{telemetry::group("control", services)};
+	decltype(writablePrototypeModel) writableModel{catalogs, commandCatalogs, serviceCatalogs};
 	alignas(std::max_align_t) std::array<
 	    std::byte, std::max(model.maxScratch(), writablePrototypeModel.maxScratch())> scratch{};
 	telemetry::Workspace workspace{scratch};
@@ -292,6 +356,11 @@ std::uint64_t DemoPeer::lastCommandCounter() const noexcept
 float DemoPeer::lastCommandGain() const noexcept
 {
 	return impl_->device.lastCommand.Gain;
+}
+
+std::uint64_t DemoPeer::serviceCount() const noexcept
+{
+	return impl_->device.services;
 }
 
 void DemoPeer::setRejectWrites(bool reject) noexcept

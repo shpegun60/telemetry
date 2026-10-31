@@ -94,7 +94,7 @@ The default connection starts with mutations disabled. For TCP, enabling changes
 is an explicit opt-in, cleared on reconnect. The Descriptor must
 also advertise write permission. Imported files provide metadata only. The
 current UART/Nucleo profile remains read-only, even if imported metadata contains
-writable Fields or Commands. Services remain discovery-only.
+writable Fields, Commands or Services.
 
 U64/S64 and enum codes stay decimal strings; they never pass through QML Number.
 Boolean input accepts `true`, `false`, `0` or `1`. Invalid text or an out-of-range
@@ -142,6 +142,27 @@ Command execution uses the same explicit connection opt-in and supported
 Demo/TCP profiles as FieldWrite. Descriptor files remain metadata-only and the
 current UART/Nucleo profile remains read-only. Command arguments are shown as a
 request form, separately from the last Field snapshot.
+
+## Service requests and responses
+
+Choose **Writable demo**, expand Services / control and select `Transform`. Its Request is
+prepared locally with the same canonical initializer and scalar editor as Command.
+Enter arguments and press **Call**; the focused editor is included without Enter.
+The separate, read-only Response tree uses the same lazy navigation for nested
+structures and arrays. U64/S64 remain exact text, without conversion to QML Number.
+
+The response is owned by the Workbench before completion is delivered. A Void
+response has no value tree, while an empty Struct is a valid zero-byte value.
+Endpoint InvalidArgument is a rejection, never Command Accepted. The result and
+last Response identify their originating endpoint/session, even when another
+request form is selected. Editing a new Request does not execute it.
+
+Service calls require the same explicit mutation opt-in as FieldWrite/Command
+on the Demo/TCP profiles. Imported Descriptors are metadata-only and the current
+UART/Nucleo profile remains read-only. Disconnect preserves one terminal result;
+OutcomeUnknown requires recovery and never triggers an automatic call or Field
+Refresh. The native demo counter and real TCP tests check that reconnect does
+not replay a Service.
 
 ## TCP connection and Descriptor discovery
 
