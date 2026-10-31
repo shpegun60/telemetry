@@ -59,8 +59,9 @@ a standalone application or modify the Qt installation. Later shell examples use
 Set the executable variable again when opening another terminal.
 
 Expand **Fields**, then a catalog. Select a Field and press **Refresh**. Selecting
-does not issue a request. Commands provide explicit argument editing and Execute;
-Services are listed for discovery only.
+does not issue a request. Commands provide argument editing and Execute;
+Services provide explicit Call and an owned, read-only Response on writable
+Demo/TCP profiles.
 Large aggregates fetch at most 128 immediate children per call; **Load next 128**
 adds another batch. Expanding a nested aggregate fetches its own first batch.
 There is no recursive expand-all operation. Fetched rows are retained until the
