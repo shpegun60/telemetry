@@ -1,0 +1,30 @@
+# Standalone installed-module consumer; actual COBS accounting is explicit. MIT.
+cmake_minimum_required(VERSION 3.20)
+project(TelemetryReadComparison LANGUAGES CXX)
+find_package(Telemetry REQUIRED COMPONENTS dynamic_client encoded_backend encoded_server core
+    resource_adapter resource_protocol)
+set(COBS_ROOT "" CACHE PATH "External COBS checkout used for actual serial frame accounting")
+if(NOT EXISTS "${COBS_ROOT}/src/cobs/Cobs.h")
+    message(FATAL_ERROR "Set COBS_ROOT to an external COBS checkout; framed byte counts are not estimated")
+endif()
+add_executable(read-comparison Host.cpp DataModel.hpp Framing.hpp
+    "${COBS_ROOT}/src/cobs/Encoder.cpp" "${COBS_ROOT}/src/cobs/Decoder.cpp")
+target_compile_features(read-comparison PRIVATE cxx_std_20)
+set_target_properties(read-comparison PROPERTIES CXX_EXTENSIONS OFF)
+target_link_libraries(read-comparison PRIVATE Telemetry::dynamic_client Telemetry::encoded_backend
+    Telemetry::encoded_server Telemetry::core Telemetry::resource_adapter Telemetry::resource_protocol)
+target_include_directories(read-comparison PRIVATE "${COBS_ROOT}/src")
+# COBS requests the same selected tiny_delegate using its flat include spelling.
+get_target_property(_delegate_paths Telemetry::delegate INTERFACE_INCLUDE_DIRECTORIES)
+foreach(_delegate_path IN LISTS _delegate_paths)
+    if(_delegate_path MATCHES "^[$]<BUILD_INTERFACE:(.*)>$")
+        target_include_directories(read-comparison PRIVATE "${CMAKE_MATCH_1}/delegate")
+    elseif(NOT _delegate_path MATCHES "[$]<")
+        target_include_directories(read-comparison PRIVATE "${_delegate_path}/delegate")
+    endif()
+endforeach()
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(read-comparison PRIVATE -Wall -Wextra -Werror -pedantic-errors)
+endif()
+enable_testing()
+add_test(NAME read-comparison-self-check COMMAND read-comparison)
