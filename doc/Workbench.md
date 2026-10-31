@@ -2,10 +2,10 @@
 
 Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-The Workbench supports **Read → Edit → FieldWrite → Refresh** and explicit
-**Select Command → Edit arguments → Execute** through one runtime client.
-Services, batch operations, new wire formats and physical programming remain
-separate work.
+The Workbench supports **Read → Edit → FieldWrite → Refresh**, explicit
+**Select Command → Edit arguments → Execute**, and
+**Select Service → Edit Request → Call → Inspect Response** through one runtime client.
+Batch operations, new wire formats and physical programming remain separate work.
 
 ## Ownership and compatibility
 
@@ -204,6 +204,66 @@ documented in-flight packet retry semantics; Workbench adds no exactly-once
 guarantee. A fresh TCP session proves the supported protocol cleanup, not
 completion of a previously accepted application job.
 
+## Services and owned responses
+
+`bindService(id)` and `selectService(binding)` prepare a canonical Request with
+the same editor as Fields and Commands. Selection does not perform I/O.
+`callService(callback, timeout)` submits one logical operation to the same FIFO.
+Service responses are copied from the borrowed DynamicClient result before the
+user callback runs; no borrowed DynamicValueView escapes that callback.
+
+Response capacity is explicit and caller-owned:
+
+```cpp
+std::array<std::byte, 4096> responseStorage;
+wb::WorkbenchModel<> workbench{backend, clock, responseStorage};
+// Admit the existing RuntimeSchema/session, then select a Service.
+const auto bound = workbench.bindService(serviceId);
+if (!bound || workbench.selectService(bound.endpoint) != cl::Status::Ok)
+    return;
+
+const auto submitted = workbench.callService(
+    [&](const wb::ServiceResult& result) noexcept {
+        if (!result.operation.succeeded())
+            return;
+        if (result.valueStatus == telemetry::integration::dynamic::ValueStatus::NoValue)
+            return; // Successful Void response, with no value to inspect.
+        if (!result.published)
+            return; // Inspect valueStatus/modelStatus independently of the operation.
+        const auto root = workbench.serviceRoot();
+        if (!root)
+            return;
+        // Navigate serviceInfo/serviceChild/serviceScalar with checked handles.
+    });
+if (!submitted)
+    return;
+```
+
+The two-argument constructor remains valid for existing users. It reserves no
+Service response payload; a nonempty response needs an explicitly supplied span.
+Request and response capacity and illegal memory overlap are checked before
+enqueue. Response storage must remain live and unmodified through the owned
+snapshot lifetime and shutdown/drain. It must not alias the Workbench object,
+schema storage, request buffers, Field snapshot or transport buffers.
+
+`ServiceResult` separates the copied operation outcome, runtime `valueStatus`,
+snapshot `modelStatus`, response revision and `published` fact. A Service endpoint
+status of 1 means InvalidArgument, never Command Accepted. A successful Void
+response has NoValue and no snapshot; an empty Struct is a real zero-byte snapshot.
+
+`serviceSnapshotInfo`, `serviceRoot`, `serviceInfo`, `serviceChild`,
+`serviceChildCount` and `serviceScalar` inspect the owned response through the
+existing SnapshotStore implementation. A mere endpoint selection or Field read
+does not replace it. A new accepted mutation retires its revision, while a refused
+submission preserves it. New schema/session, close and invalidation make its
+handles stale before metadata or bytes are read. Handles cannot outlive Workbench.
+
+Services may mutate the device. An accepted call retires an old Field snapshot,
+has no automatic Field Refresh, and is never re-enqueued by Workbench after
+OutcomeUnknown. A valid operation outcome survives schema invalidation even when
+the response can no longer be published. Recovery retains the existing transport
+and remote-session requirements; a local reset alone is not a replay guarantee.
+
 ## Application and transport scope
 
 The Qt application owns input parsing, labels, QML models and connection policy.
@@ -241,7 +301,8 @@ host or CI results.
 
 ## Measured storage and compiler probes
 
-On x86-64 GCC 13.3 with CallbackBytes=256, the Command extension adds a fixed
+For the Command stage before Service support (PR #11, merged as `855e9f7`),
+x86-64 GCC 13.3 with CallbackBytes=256 recorded a fixed
 240 bytes to Workbench compared with FieldWrite baseline `b06791f`. It reuses
 the same two PayloadBytes buffers and one completion slot:
 
@@ -268,3 +329,19 @@ workflows, with deliberate allocation controls. Unlinked objects and .su files
 establish neither linked application Flash nor complete call-chain stack,
 hardware latency or CPU throughput. Raw commands, hashes and compiler outputs
 remain in external qualification receipts.
+
+The Service extension is measured separately against `855e9f7` with the same
+probe inputs, compiler and options:
+
+| Configuration (N, PayloadBytes, SnapshotBytes) | Command baseline | With Service | Difference |
+| --- | ---: | ---: | ---: |
+| 2, 64, 64 | 2208 B | 2320 B | +112 B |
+| 8, 4096, 65536 (Qt example) | 81888 B | 82000 B | +112 B |
+
+The extra 112 B contains fixed response bookkeeping, not a payload array. The
+caller-provided response buffer is additional and explicitly sized; the Qt State
+chooses 65536 B, while embedded callers choose their own capacity. Inspector and
+NodeHandle sizes stay unchanged. The identical Field-only ARM probe records
+GNU size text 7986 → 8032 B (+46 B) and the same 656 B largest individual frame.
+These measurements do not estimate the full linked Service path or hardware CPU
+time; the maintained ARM standalone probe also compiles the new Service API.

@@ -25,6 +25,15 @@ extern "C" bool workbench_command(Workbench& model, std::uint32_t id) noexcept
 	           }));
 }
 
+extern "C" bool workbench_service(Workbench& model, std::uint32_t id) noexcept
+{
+	const auto bound = model.bindService(id);
+	return bound && model.selectService(bound.endpoint) == telemetry::client::Status::Ok &&
+	       bool(model.callService(
+	           [](const telemetry::integration::workbench::ServiceResult&) noexcept {
+	           }));
+}
+
 int main()
 {
 	return sizeof(Workbench) > sizeof(void*) ? 0 : 1;

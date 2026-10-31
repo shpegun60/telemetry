@@ -139,7 +139,8 @@ def main():
             raise RuntimeError('Workbench has an unwanted Native, Resource or transport dependency')
         sources = [HERE / name for name in ('Host.cpp', 'Lifetime.cpp', 'Negative.cpp', 'NoHeap.cpp', 'Snapshot.cpp')]
         sources += [workbench / name for name in ('Host.cpp', 'NoHeap.cpp', 'Command.cpp',
-                                                 'CommandNoHeap.cpp', 'Standalone.cpp', 'Negative.cpp')]
+                                                 'CommandNoHeap.cpp', 'Service.cpp', 'ServiceNoHeap.cpp',
+                                                 'Standalone.cpp', 'Negative.cpp')]
         example = ROOT / 'examples/inspector/Host.cpp'
         if example.is_file():
             sources.append(example)
@@ -209,12 +210,25 @@ def main():
         if 'workbench heap allocation refused' not in output:
             raise RuntimeError('Command allocation negative control did not reach its trap')
         report['command_noheap_negative_exit'] = 86
+        service_host = build('WorkbenchService', workbench / 'Service.cpp', native_link=True)
+        count('WorkbenchService', run('execute-WorkbenchService', [service_host]), 1228)
+        service_noheap = build('WorkbenchServiceNoHeap', workbench / 'ServiceNoHeap.cpp',
+                               native_link=True, allocation_trap=True)
+        count('WorkbenchServiceNoHeap', run('execute-WorkbenchServiceNoHeap', [service_noheap]),
+              report['executions']['WorkbenchService'])
+        service_control = build('WorkbenchServiceNoHeapControl', workbench / 'ServiceNoHeap.cpp',
+                                ['-DWORKBENCH_SERVICE_HEAP_CONTROL=1'], native_link=True,
+                                allocation_trap=True)
+        output = run('execute-WorkbenchServiceNoHeapControl', [service_control], expected=86)
+        if 'workbench heap allocation refused' not in output:
+            raise RuntimeError('Service allocation negative control did not reach its trap')
+        report['service_noheap_negative_exit'] = 86
         workbench_standalone = build('WorkbenchStandalone', workbench / 'Standalone.cpp')
         run('execute-WorkbenchStandalone', [workbench_standalone])
         workbench_positive = build('WorkbenchNegativePositiveControl', workbench / 'Negative.cpp')
         run('execute-WorkbenchNegativePositiveControl', [workbench_positive])
         workbench_refusals = ('COMMAND', 'SERVICE', 'CLIENT', 'CORE', 'RAW', 'INSPECTOR',
-                             'NULL_CALLBACK', 'NULL_COMMAND_CALLBACK')
+                             'NULL_CALLBACK', 'NULL_COMMAND_CALLBACK', 'NULL_SERVICE_CALLBACK')
         for macro in workbench_refusals:
             run('workbench-negative-' + macro, flags + ['-DWORKBENCH_' + macro, '-fsyntax-only',
                                                        workbench / 'Negative.cpp'], failure=True)
