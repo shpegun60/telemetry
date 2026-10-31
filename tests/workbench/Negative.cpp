@@ -1,4 +1,4 @@
-/* Public Workbench does not expose Commands/Services or its private client. MIT. */
+/* Public Workbench excludes raw requests, private clients and invalid callbacks. MIT. */
 #include <integration/workbench/WorkbenchModel.hpp>
 using Workbench = telemetry::integration::workbench::WorkbenchModel<2, 128, 128>;
 
@@ -12,7 +12,9 @@ void probe(Workbench& model)
 	                    });
 #endif
 #ifdef WORKBENCH_SERVICE
-	model.service();
+	(void)model.service(telemetry::integration::dynamic::EndpointBinding{},
+	                    telemetry::client::Input{}, [](const auto&) noexcept {
+	                    });
 #endif
 #ifdef WORKBENCH_CLIENT
 	(void)model.client();
@@ -31,6 +33,9 @@ void probe(Workbench& model)
 #endif
 #ifdef WORKBENCH_NULL_COMMAND_CALLBACK
 	(void)model.execute(nullptr);
+#endif
+#ifdef WORKBENCH_NULL_SERVICE_CALLBACK
+	(void)model.callService(nullptr);
 #endif
 }
 

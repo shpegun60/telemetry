@@ -1,6 +1,6 @@
 /*
  * @file WorkbenchModel.hpp
- * @brief Shared FieldWrite and Command editing over the Inspector's single runtime client.
+ * @brief Shared FieldWrite, Command and Service editing over the Inspector's single runtime client.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -40,6 +40,17 @@ struct ApplyResult {
 	bool refreshCompleted = false;
 };
 
+// Owns only outcome/identity. Response nodes borrow the separate caller-owned
+// response store, which is published before this completion is invoked.
+struct ServiceResult {
+	inspector::OperationResult operation{client::Status::Ok, client::Operation::Service};
+	dynamic::ValueStatus valueStatus = dynamic::ValueStatus::Stale;
+	inspector::ModelStatus modelStatus = inspector::ModelStatus::Stale;
+	std::uint32_t serviceId = 0;
+	std::uint64_t revision = 0;
+	bool published = false;
+};
+
 // One owner serializes the facade, callbacks and schema changes. The private
 // Inspector owns the only DynamicClient/FIFO. Draft and committed request bytes
 // are separate from its published snapshot. No automatic mutation retry exists.
@@ -51,12 +62,27 @@ template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t Snapsho
 class WorkbenchModel {
 public:
 	explicit WorkbenchModel(client::Backend& backend, client::Clock clock) noexcept
+	    : WorkbenchModel(backend, clock, {})
+	{}
+
+	// Response storage remains exclusive, disjoint and alive through close/drain.
+	// The two-argument constructor reserves no implicit response payload array:
+	// Void and zero-byte Struct responses still work without one.
+	WorkbenchModel(client::Backend& backend, client::Clock clock,
+	               std::span<std::byte> responseStorage) noexcept
 	    : model_(backend, clock),
-	      commandStore_(request_,
+	      requestStore_(request_,
 	                    {this,
 	                     +[](const void* context) noexcept {
 		                     return static_cast<const WorkbenchModel*>(context)->model_.isCurrent();
 	                     }}),
+	      responseStorage_(responseStorage),
+	      responseStore_(
+	          responseStorage,
+	          {this,
+	           +[](const void* context) noexcept {
+		           return static_cast<const WorkbenchModel*>(context)->model_.isCurrent();
+	           }}),
 	      editor_(draft_, request_)
 	{}
 
@@ -70,16 +96,23 @@ public:
 	{
 		if (publishing_)
 			return publicationStatus();
-		if (!commandStore_.canAdmit()) {
+		const auto admissionGate = model_.submissionGate();
+		if (admissionGate == client::Status::Closed ||
+		    admissionGate == client::Status::RecoveryRequired)
+			return admissionGate;
+		if (!requestStore_.canAdmit() || !responseStore_.canAdmit()) {
 			const auto gate = model_.submissionGate();
 			return gate == client::Status::Closed || gate == client::Status::RecoveryRequired
 			           ? gate
 			           : client::Status::IdsExhausted;
 		}
+		if (schema.valid() && !responseMemoryValid(schema))
+			return client::Status::InvalidArgument;
 		const auto status = model_.admit(schema, header, session);
 		if (status == client::Status::Ok) {
 			cancelEdit();
-			if (commandStore_.admit(schema, session) != inspector::ModelStatus::Ok) {
+			if (requestStore_.admit(schema, session) != inspector::ModelStatus::Ok ||
+			    responseStore_.admit(schema, session) != inspector::ModelStatus::Ok) {
 				model_.invalidate();
 				return client::Status::InvalidArgument;
 			}
@@ -158,7 +191,7 @@ public:
 	{
 		if (publishing_)
 			return {publicationStatus(), inspector::ModelStatus::Ok, {}};
-		if (commandSelected_ || phase_ == Phase::Executing)
+		if (requestSelected_ || phase_ == Phase::Executing)
 			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
 		const auto submitted = model_.refresh(std::forward<F>(callback), timeout);
 		if (submitted)
@@ -214,6 +247,7 @@ public:
 
 	void invalidate() noexcept
 	{
+		responseStore_.invalidate();
 		retireEditor();
 		model_.invalidate();
 	}
@@ -280,6 +314,7 @@ public:
 
 	void close() noexcept
 	{
+		responseStore_.invalidate();
 		retireEditor();
 		model_.close();
 	}
@@ -296,7 +331,7 @@ public:
 
 	[[nodiscard]] bool canEdit() const noexcept
 	{
-		if (publishing_ || commandSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
+		if (publishing_ || requestSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
 			return false;
 		const auto snapshot = model_.snapshotInfo();
 		return snapshot.ready && snapshot.bytes <= PayloadBytes &&
@@ -314,12 +349,12 @@ public:
 
 	[[nodiscard]] bool canApply() const noexcept
 	{
-		return !publishing_ && !commandSelected_ && editing() && dirty() && !completionActive_;
+		return !publishing_ && !requestSelected_ && editing() && dirty() && !completionActive_;
 	}
 
 	[[nodiscard]] runtime::Status beginEdit() noexcept
 	{
-		if (publishing_ || commandSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
+		if (publishing_ || requestSelected_ || phase_ != Phase::Idle || !model_.isCurrent())
 			return runtime::Status::Stale;
 		const auto snapshot = model_.snapshotInfo();
 		if (!snapshot.ready)
@@ -406,6 +441,7 @@ public:
 		}
 		editor_.clear();
 		model_.snapshot_.retire();
+		responseStore_.clearSelection();
 		applyAdmission_ = model_.snapshot_.admission();
 		applyRevision_ = model_.snapshot_.revision();
 		phase_ = Phase::Writing;
@@ -421,74 +457,55 @@ public:
 
 	[[nodiscard]] client::Status selectCommand(const dynamic::EndpointBinding& command) noexcept
 	{
+		return selectRequest(command, client::Operation::Command);
+	}
+
+	[[nodiscard]] dynamic::EndpointResult bindService(std::uint32_t id) const noexcept
+	{
 		const auto gate = model_.submissionGate();
-		if (gate != client::Status::Ok)
-			return gate;
-		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
-		    phase_ == Phase::Refreshing || phase_ == Phase::Executing ||
-		    (phase_ == Phase::Editing && !commandSelected_))
-			return client::Status::Busy;
-		if (!model_.client_.isCurrent(command))
-			return client::Status::NotAdmitted;
-		if (command.operation() != client::Operation::Command)
-			return client::Status::InvalidArgument;
-		const auto rebound = bindCommand(command.id());
-		if (!rebound)
-			return rebound.status;
-		if (command.requestBytes() > request_.size())
-			return client::Status::BufferTooSmall;
-		if (!commandStore_.canAdvance())
-			return client::Status::IdsExhausted;
-		const auto initialized =
-		    RequestEditor::initialize(model_.schema(), command.requestType(),
-		                              std::span{request_}.first(command.requestBytes()));
-		if (initialized != runtime::Status::Ok)
-			return client::Status::CodecError;
-		editor_.clear();
-		const auto selected = commandStore_.selectEndpoint(command.id(), command.requestType(),
-		                                                   descriptor::Category::Command);
-		if (selected != inspector::ModelStatus::Ok)
-			return client::Status::NotAdmitted;
-		if (command.requestType() != 0 &&
-		    commandStore_.publish(client::Input{request_}.first(command.requestBytes()),
-		                          commandStore_.admission(),
-		                          commandStore_.revision()) != inspector::ModelStatus::Ok)
-			return client::Status::CodecError;
-		const auto started = editor_.begin(commandStore_);
-		if (started != runtime::Status::Ok)
-			return client::Status::CodecError;
-		command_ = command;
-		commandSelected_ = true;
-		phase_ = Phase::Editing;
-		return client::Status::Ok;
+		return gate == client::Status::Ok ? model_.client_.bind(client::Operation::Service, id)
+		                                  : dynamic::EndpointResult{gate, {}};
+	}
+
+	[[nodiscard]] client::Status selectService(const dynamic::EndpointBinding& service) noexcept
+	{
+		return selectRequest(service, client::Operation::Service);
 	}
 
 	[[nodiscard]] bool commandSelected() const noexcept
 	{
-		return commandSelected_ && model_.isCurrent(command_);
+		return requestCurrent() && requestBinding_.operation() == client::Operation::Command;
+	}
+
+	[[nodiscard]] bool serviceSelected() const noexcept
+	{
+		return requestCurrent() && requestBinding_.operation() == client::Operation::Service;
 	}
 
 	[[nodiscard]] bool canExecute() const noexcept
 	{
-		return !publishing_ && commandSelected() && phase_ == Phase::Editing &&
-		       !completionActive_ && model_.submissionGate() == client::Status::Ok &&
-		       editor_.current();
+		return commandSelected() && canSubmitRequest();
+	}
+
+	[[nodiscard]] bool canCallService() const noexcept
+	{
+		return serviceSelected() && canSubmitRequest() && responseReadyForCall();
 	}
 
 	[[nodiscard]] auto editorSnapshotInfo() const noexcept
 	{
-		return commandSelected() ? editor_.snapshotInfo() : inspector::SnapshotInfo{};
+		return requestCurrent() ? editor_.snapshotInfo() : inspector::SnapshotInfo{};
 	}
 
 	[[nodiscard]] auto editorRoot() const noexcept
 	{
-		return commandSelected() ? editor_.root()
-		                         : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
+		return requestCurrent() ? editor_.root()
+		                        : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
 	}
 
 	[[nodiscard]] auto editorInfo(const inspector::NodeHandle& node) const noexcept
 	{
-		return commandSelected()
+		return requestCurrent()
 		           ? editor_.info(node)
 		           : inspector::Result<inspector::NodeInfo>{inspector::ModelStatus::Stale, {}};
 	}
@@ -496,13 +513,13 @@ public:
 	[[nodiscard]] auto editorChild(const inspector::NodeHandle& node,
 	                               std::uint32_t index) const noexcept
 	{
-		return commandSelected() ? editor_.child(node, index)
-		                         : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
+		return requestCurrent() ? editor_.child(node, index)
+		                        : inspector::NodeResult{inspector::ModelStatus::Stale, {}};
 	}
 
 	[[nodiscard]] auto editorChildCount(const inspector::NodeHandle& node) const noexcept
 	{
-		return commandSelected()
+		return requestCurrent()
 		           ? editor_.childCount(node)
 		           : inspector::Result<std::uint32_t>{inspector::ModelStatus::Stale, 0};
 	}
@@ -514,53 +531,67 @@ public:
 		static_assert(
 		    std::is_nothrow_invocable_v<std::decay_t<F>&, const inspector::OperationResult&>,
 		    "Command completion must be noexcept");
-		const auto gate = model_.submissionGate();
-		if (gate != client::Status::Ok)
-			return {gate, inspector::ModelStatus::Ok, {}};
-		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
-		    phase_ == Phase::Refreshing || phase_ == Phase::Executing)
-			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
-		if (!canExecute())
-			return {client::Status::InvalidArgument, inspector::ModelStatus::NoSelection, {}};
-		if (!timeout || timeout > client::maxTimeoutMs)
-			return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
-			if (callback == nullptr)
-				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		const Publication publication{publishing_};
-		const auto committed = editor_.commit();
-		if (!committed)
-			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
-		completion_.bind(
-		    [fn = std::forward<F>(callback)](const Completion& result) mutable noexcept {
-			    fn(result.command);
-		    });
-		const auto submitted = model_.client_.command(
-		    command_, committed.value,
-		    [this](const dynamic::DynamicResult& result) noexcept {
-			    commandCompleted(result.operation);
-		    },
-		    timeout);
-		(void)editor_.rearm();
-		if (!submitted) {
-			completion_.reset();
-			return {submitted.status, inspector::ModelStatus::Ok, {}};
-		}
-		model_.snapshot_.retire();
-		phase_ = Phase::Executing;
-		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
+		return submitRequest<false>(std::forward<F>(callback), timeout);
+	}
+
+	template<class F>
+	[[nodiscard]] inspector::ReadSubmission callService(F&& callback,
+	                                                    std::uint32_t timeout = 30000) noexcept
+	{
+		static_assert(std::is_nothrow_invocable_v<std::decay_t<F>&, const ServiceResult&>,
+		              "Service completion must be noexcept");
+		return submitRequest<true>(std::forward<F>(callback), timeout);
+	}
+
+	[[nodiscard]] auto serviceSnapshotInfo() const noexcept
+	{
+		return responseStore_.snapshotInfo();
+	}
+
+	[[nodiscard]] auto serviceRoot() const noexcept
+	{
+		return responseStore_.root();
+	}
+
+	[[nodiscard]] auto serviceInfo(const inspector::NodeHandle& node) const noexcept
+	{
+		return responseStore_.info(node);
+	}
+
+	[[nodiscard]] auto serviceChild(const inspector::NodeHandle& node,
+	                                std::uint32_t index) const noexcept
+	{
+		return responseStore_.child(node, index);
+	}
+
+	[[nodiscard]] auto serviceChildCount(const inspector::NodeHandle& node) const noexcept
+	{
+		return responseStore_.childCount(node);
+	}
+
+	[[nodiscard]] auto serviceScalar(const inspector::NodeHandle& node) const noexcept
+	{
+		return responseStore_.scalar(node);
+	}
+
+	[[nodiscard]] auto serviceDecimal(const inspector::NodeHandle& node,
+	                                  std::span<char> output) const noexcept
+	{
+		return responseStore_.decimal(node, output);
 	}
 
 private:
 	inspector::InspectorModel<N, PayloadBytes, SnapshotBytes, CallbackBytes> model_;
 	std::array<std::byte, PayloadBytes> draft_{}, request_{};
-	inspector::SnapshotStore commandStore_;
+	inspector::SnapshotStore requestStore_;
+	std::span<std::byte> responseStorage_;
+	inspector::SnapshotStore responseStore_;
 	RequestEditor editor_;
 	dynamic::EndpointBinding editRead_{}, editWrite_{};
-	dynamic::EndpointBinding command_{};
-	std::uint64_t applyAdmission_ = 0, applyRevision_ = 0;
+	dynamic::EndpointBinding requestBinding_{};
+	std::uint64_t applyAdmission_ = 0, applyRevision_ = 0, serviceRevision_ = 0;
 	Phase phase_ = Phase::Idle;
-	bool completionActive_ = false, commandSelected_ = false, publishing_ = false;
+	bool completionActive_ = false, requestSelected_ = false, publishing_ = false;
 
 	// Owning a callable may run its user-defined move/destructor. Keep request,
 	// binding and completion publication indivisible to those owner reentries.
@@ -582,15 +613,155 @@ private:
 	struct Completion {
 		ApplyResult field{};
 		inspector::OperationResult command{};
+		ServiceResult service{};
 	};
 
 	DelegateSlot<void(const Completion&) noexcept, CallbackBytes> completion_;
 	ApplyResult applyResult_{};
 
+	[[nodiscard]] bool responseMemoryValid(const runtime::RuntimeSchema& schema) const noexcept
+	{
+		return schema.valid() &&
+		       !runtime::writer_detail::overlaps(responseStorage_,
+		                                         runtime::writer_detail::objectBytes(*this)) &&
+		       !runtime::writer_detail::overlaps(responseStorage_,
+		                                         runtime::writer_detail::objectBytes(schema)) &&
+		       !runtime::writer_detail::overlapsSchema(schema, responseStorage_);
+	}
+
+	[[nodiscard]] bool requestCurrent() const noexcept
+	{
+		return requestSelected_ && model_.isCurrent(requestBinding_);
+	}
+
+	[[nodiscard]] bool canSubmitRequest() const noexcept
+	{
+		return !publishing_ && phase_ == Phase::Editing && !completionActive_ &&
+		       model_.submissionGate() == client::Status::Ok && editor_.current();
+	}
+
+	[[nodiscard]] bool responseReadyForCall() const noexcept
+	{
+		return requestBinding_.responseBytes() <= responseStorage_.size() &&
+		       responseStore_.canAdvance() && responseMemoryValid(model_.schema());
+	}
+
+	[[nodiscard]] client::Status selectRequest(const dynamic::EndpointBinding& binding,
+	                                           client::Operation operation) noexcept
+	{
+		const auto gate = model_.submissionGate();
+		if (gate != client::Status::Ok)
+			return gate;
+		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
+		    phase_ == Phase::Refreshing || phase_ == Phase::Executing ||
+		    (phase_ == Phase::Editing && !requestSelected_))
+			return client::Status::Busy;
+		if (!model_.client_.isCurrent(binding))
+			return client::Status::NotAdmitted;
+		if (binding.operation() != operation)
+			return client::Status::InvalidArgument;
+		const auto rebound = model_.client_.bind(operation, binding.id());
+		if (!rebound)
+			return rebound.status;
+		if (binding.requestBytes() > request_.size())
+			return client::Status::BufferTooSmall;
+		if (!requestStore_.canAdvance())
+			return client::Status::IdsExhausted;
+		const auto initialized =
+		    RequestEditor::initialize(model_.schema(), binding.requestType(),
+		                              std::span{request_}.first(binding.requestBytes()));
+		if (initialized != runtime::Status::Ok)
+			return client::Status::CodecError;
+		editor_.clear();
+		const auto selected =
+		    requestStore_.selectEndpoint(binding.id(), binding.requestType(), binding.category());
+		if (selected != inspector::ModelStatus::Ok)
+			return client::Status::NotAdmitted;
+		if (binding.requestType() != 0 &&
+		    requestStore_.publish(client::Input{request_}.first(binding.requestBytes()),
+		                          requestStore_.admission(),
+		                          requestStore_.revision()) != inspector::ModelStatus::Ok)
+			return client::Status::CodecError;
+		if (editor_.begin(requestStore_) != runtime::Status::Ok)
+			return client::Status::CodecError;
+		requestBinding_ = binding;
+		requestSelected_ = true;
+		phase_ = Phase::Editing;
+		return client::Status::Ok;
+	}
+
+	template<bool Service, class F>
+	[[nodiscard]] inspector::ReadSubmission submitRequest(F&& callback,
+	                                                      std::uint32_t timeout) noexcept
+	{
+		const auto gate = model_.submissionGate();
+		if (gate != client::Status::Ok)
+			return {gate, inspector::ModelStatus::Ok, {}};
+		if (publishing_ || completionActive_ || phase_ == Phase::Writing ||
+		    phase_ == Phase::Refreshing || phase_ == Phase::Executing)
+			return {client::Status::Busy, inspector::ModelStatus::Ok, {}};
+		if (!(Service ? serviceSelected() : commandSelected()) || !canSubmitRequest())
+			return {client::Status::InvalidArgument, inspector::ModelStatus::NoSelection, {}};
+		if (!timeout || timeout > client::maxTimeoutMs)
+			return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
+		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+			if (callback == nullptr)
+				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
+		if constexpr (Service) {
+			if (requestBinding_.responseBytes() > responseStorage_.size())
+				return {
+				    client::Status::BufferTooSmall, inspector::ModelStatus::SnapshotTooLarge, {}};
+			if (!responseStore_.canAdvance())
+				return {
+				    client::Status::IdsExhausted, inspector::ModelStatus::RevisionExhausted, {}};
+			if (!responseMemoryValid(model_.schema()))
+				return {
+				    client::Status::InvalidArgument, inspector::ModelStatus::InvalidPayload, {}};
+		}
+		const Publication publication{publishing_};
+		const auto committed = editor_.commit();
+		if (!committed)
+			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
+		completion_.bind(
+		    [fn = std::forward<F>(callback)](const Completion& result) mutable noexcept {
+			    if constexpr (Service)
+				    fn(result.service);
+			    else
+				    fn(result.command);
+		    });
+		const auto completed = [this](const dynamic::DynamicResult& result) noexcept {
+			if constexpr (Service)
+				serviceCompleted(result);
+			else
+				commandCompleted(result.operation);
+		};
+		const auto submitted = [&]() noexcept {
+			if constexpr (Service)
+				return model_.client_.service(requestBinding_, committed.value, completed, timeout);
+			else
+				return model_.client_.command(requestBinding_, committed.value, completed, timeout);
+		}();
+		(void)editor_.rearm();
+		if (!submitted) {
+			completion_.reset();
+			return {submitted.status, inspector::ModelStatus::Ok, {}};
+		}
+		model_.snapshot_.retire();
+		if constexpr (Service) {
+			(void)responseStore_.selectEndpoint(requestBinding_.id(),
+			                                    requestBinding_.responseType(),
+			                                    descriptor::Category::Service);
+			serviceRevision_ = responseStore_.revision();
+		} else
+			responseStore_.clearSelection();
+		phase_ = Phase::Executing;
+		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
+	}
+
 	[[nodiscard]] bool editCurrent() const noexcept
 	{
 		return editor_.current() &&
-		       (commandSelected_ ? model_.isCurrent(command_)
+		       (requestSelected_ ? model_.isCurrent(requestBinding_)
 		                         : (model_.isCurrent(editRead_) && model_.isCurrent(editWrite_)));
 	}
 
@@ -603,17 +774,17 @@ private:
 	void retireEditor() noexcept
 	{
 		editor_.clear();
-		clearCommand();
+		clearRequest();
 		if (phase_ == Phase::Editing)
 			phase_ = Phase::Idle;
 	}
 
-	void clearCommand() noexcept
+	void clearRequest() noexcept
 	{
-		if (commandSelected_) {
+		if (requestSelected_) {
 			editor_.clear();
-			commandSelected_ = false;
-			commandStore_.clearSelection();
+			requestSelected_ = false;
+			requestStore_.clearSelection();
 		}
 	}
 
@@ -622,14 +793,43 @@ private:
 		const inspector::OperationResult result{operation.status, operation.operation,
 		                                        operation.dispatch, operation.endpointStatus,
 		                                        operation.codec};
-		if (commandSelected() && editor_.current() && model_.submissionGate() == client::Status::Ok)
+		finishRequest(Completion{{}, result, {}});
+	}
+
+	void serviceCompleted(const dynamic::DynamicResult& result) noexcept
+	{
+		const auto& operation = result.operation;
+		ServiceResult owned{{operation.status, operation.operation, operation.dispatch,
+		                     operation.endpointStatus, operation.codec},
+		                    result.valueStatus,
+		                    inspector::ModelStatus::Stale,
+		                    requestBinding_.id(),
+		                    serviceRevision_,
+		                    false};
+		if (result.valueStatus == dynamic::ValueStatus::NoValue)
+			owned.modelStatus = inspector::ModelStatus::Ok;
+		else if (result.valueStatus == dynamic::ValueStatus::TypeMismatch)
+			owned.modelStatus = inspector::ModelStatus::TypeMismatch;
+		else if (result.valueStatus == dynamic::ValueStatus::InvalidPayload)
+			owned.modelStatus = inspector::ModelStatus::InvalidPayload;
+		else if (result.hasValue()) {
+			owned.modelStatus = responseStore_.publishValidated(
+			    operation.payload, responseStore_.admission(), serviceRevision_);
+			owned.published = owned.modelStatus == inspector::ModelStatus::Ok;
+		}
+		finishRequest(Completion{{}, {}, owned});
+	}
+
+	void finishRequest(const Completion& result) noexcept
+	{
+		if (requestCurrent() && editor_.current() && model_.submissionGate() == client::Status::Ok)
 			phase_ = Phase::Editing;
 		else {
-			clearCommand();
+			clearRequest();
 			phase_ = Phase::Idle;
 		}
 		completionActive_ = true;
-		completion_.invoke(Completion{{}, result});
+		completion_.invoke(result);
 		{
 			const Publication publication{publishing_};
 			completion_.reset();

@@ -95,6 +95,7 @@ struct TcpDemoServer::Impl {
 	        totalNativeWrites = 0, totalConnections = 0;
 	quint64 received = 0, sent = 0;
 	quint64 totalNativeCommands = 0, totalExecutedCommands = 0, totalAcceptedCommands = 0;
+	quint64 totalNativeServices = 0, totalServices = 0;
 	QVector<quint32> resourceIndices;
 
 	explicit Impl(TcpDemoServer* object) : owner(object)
@@ -202,11 +203,13 @@ struct TcpDemoServer::Impl {
 			const auto previousCommands = state.peer.commandCount();
 			const auto previousExecuted = state.peer.executedCount();
 			const auto previousAccepted = state.peer.acceptedCount();
+			const auto previousServices = state.peer.serviceCount();
 			const auto result = state.server->receive(offered);
 			totalNativeWrites += state.peer.writeCount() - previousWrites;
 			totalNativeCommands += state.peer.commandCount() - previousCommands;
 			totalExecutedCommands += state.peer.executedCount() - previousExecuted;
 			totalAcceptedCommands += state.peer.acceptedCount() - previousAccepted;
+			totalNativeServices += state.peer.serviceCount() - previousServices;
 			const auto used = static_cast<qsizetype>(result.consumed);
 			if (used > available) {
 				retire();
@@ -234,6 +237,10 @@ struct TcpDemoServer::Impl {
 				    state.requestPrefix[6] ==
 				        static_cast<char>(telemetry::protocol::encoded::Operation::FieldWrite))
 					++totalWrites;
+				if (encoded && state.requestPrefix.size() >= 7 &&
+				    state.requestPrefix[6] ==
+				        static_cast<char>(telemetry::protocol::encoded::Operation::Service))
+					++totalServices;
 				if (!encoded && state.requestPrefix.size() >= 5 &&
 				    state.requestPrefix[0] == char(3))
 					resourceIndices.push_back(little32(state.requestPrefix, 1));
@@ -465,6 +472,16 @@ quint64 TcpDemoServer::executedCommands() const noexcept
 quint64 TcpDemoServer::acceptedCommands() const noexcept
 {
 	return impl_->totalAcceptedCommands;
+}
+
+quint64 TcpDemoServer::nativeServices() const noexcept
+{
+	return impl_->totalNativeServices;
+}
+
+quint64 TcpDemoServer::serviceCalls() const noexcept
+{
+	return impl_->totalServices;
 }
 
 quint64 TcpDemoServer::connections() const noexcept

@@ -204,10 +204,12 @@ struct Reader {
 	const Inspector* inspector = nullptr;
 	const Workbench* workbench = nullptr;
 	bool editor = false;
+	bool response = false;
 
-	bool commandEditor() const
+	bool requestEditor() const
 	{
-		return editor && workbench && workbench->commandSelected();
+		return editor && workbench &&
+		       (workbench->commandSelected() || workbench->serviceSelected());
 	}
 
 	explicit operator bool() const noexcept
@@ -232,7 +234,9 @@ struct Reader {
 
 	auto snapshotInfo() const
 	{
-		if (commandEditor())
+		if (response && workbench)
+			return workbench->serviceSnapshotInfo();
+		if (requestEditor())
 			return workbench->editorSnapshotInfo();
 		return visit([](const auto& model) {
 			return model.snapshotInfo();
@@ -241,7 +245,9 @@ struct Reader {
 
 	auto info(const ins::NodeHandle& node) const
 	{
-		if (commandEditor())
+		if (response && workbench)
+			return workbench->serviceInfo(node);
+		if (requestEditor())
 			return workbench->editorInfo(node);
 		return visit([&](const auto& model) {
 			return model.info(node);
@@ -250,7 +256,9 @@ struct Reader {
 
 	auto child(const ins::NodeHandle& node, std::uint32_t index) const
 	{
-		if (commandEditor())
+		if (response && workbench)
+			return workbench->serviceChild(node, index);
+		if (requestEditor())
 			return workbench->editorChild(node, index);
 		return visit([&](const auto& model) {
 			return model.child(node, index);
@@ -259,7 +267,9 @@ struct Reader {
 
 	auto root() const
 	{
-		if (commandEditor())
+		if (response && workbench)
+			return workbench->serviceRoot();
+		if (requestEditor())
 			return workbench->editorRoot();
 		return visit([](const auto& model) {
 			return model.root();
@@ -282,12 +292,14 @@ struct Reader {
 
 	bool editing() const
 	{
-		return workbench && workbench->editing() &&
+		return !response && workbench && workbench->editing() &&
 		       workbench->phase() != telemetry::integration::workbench::Phase::Executing;
 	}
 
 	ins::Result<ins::ScalarValue> scalar(const ins::NodeHandle& node) const
 	{
+		if (response && workbench)
+			return workbench->serviceScalar(node);
 		return editing() ? workbench->editScalar(node) : visit([&](const auto& model) {
 			return model.scalar(node);
 		});
@@ -552,14 +564,19 @@ void ValueModel::resetSnapshot(const Workbench& workbench)
 	resetSource(nullptr, &workbench);
 }
 
-void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbench)
+void ValueModel::resetServiceResponse(const Workbench& workbench)
+{
+	resetSource(nullptr, &workbench, true);
+}
+
+void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbench, bool response)
 {
 	if (changing())
 		return;
 	const ChangeGuard guard{impl_->tree.changing};
 	beginResetModel();
 	impl_->tree.clear();
-	impl_->inspector = {inspector, workbench, true};
+	impl_->inspector = {inspector, workbench, !response, response};
 	const auto snapshot = impl_->inspector.snapshotInfo();
 	impl_->admission = snapshot.admission;
 	impl_->revision = snapshot.revision;
@@ -568,7 +585,9 @@ void ValueModel::resetSource(const Inspector* inspector, const Workbench* workbe
 		if (root) {
 			auto row = valueRow(impl_->inspector, root.value);
 			if (row) {
-				if (impl_->inspector.commandEditor())
+				if (response)
+					row->name = QStringLiteral("Response");
+				else if (impl_->inspector.requestEditor())
 					row->name = QStringLiteral("Request");
 				impl_->tree.append(std::move(row));
 			}

@@ -80,7 +80,7 @@ QModelIndex named(ui::ValueModel& model, const QModelIndex& parent, const QStrin
 	return {};
 }
 
-QModelIndex command(ui::EndpointModel& model, const QString& name)
+QModelIndex namedEndpoint(ui::EndpointModel& model, int category, const QString& name)
 {
 	for (int root = 0; root < model.rowCount(); ++root) {
 		const auto group = model.index(root, 0);
@@ -89,13 +89,18 @@ QModelIndex command(ui::EndpointModel& model, const QString& name)
 			for (int row = 0; row < model.rowCount(parent); ++row) {
 				const auto index = model.index(row, 0, parent);
 				const auto metadata = model.endpoint(index);
-				if (metadata.value("category").toInt() == 2 &&
+				if (metadata.value("category").toInt() == category &&
 				    metadata.value("name").toString() == name)
 					return index;
 			}
 		}
 	}
 	return {};
+}
+
+QModelIndex command(ui::EndpointModel& model, const QString& name)
+{
+	return namedEndpoint(model, 2, name);
 }
 
 struct Client {
@@ -839,6 +844,182 @@ void commandSocketOutcomes()
 	std::puts(
 	    "Inspector TCP Command outcomes: executed=1 accepted=1 unknown=1 callbacks=3 replay=0 history=3");
 }
+
+void serviceSocketOutcomes()
+{
+	for (const bool rejected : {false, true}) {
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		peer.setReplyFragmentBytes(3);
+		CHECK(peer.listen());
+		Client client;
+		client.controller.setTcpWriteChunkBytes(3);
+		client.connect(peer);
+		auto& responses = *qobject_cast<ui::ValueModel*>(client.controller.responses());
+		QSignalSpy finished{&client.controller, &ui::InspectorController::serviceFinished};
+		const auto selected = namedEndpoint(
+		    client.endpoints, 3, rejected ? QStringLiteral("Reject") : QStringLiteral("Transform"));
+		CHECK(selected.isValid() && client.controller.selectEndpoint(selected));
+		CHECK(client.controller.serviceSelected() && !client.controller.canCallService());
+		CHECK(!client.controller.callService() && finished.isEmpty() && responses.rowCount() == 0);
+		CHECK(peer.nativeServices() == 0 && peer.nativeCommands() == 0 && peer.fieldReads() == 0);
+		client.controller.setWritesEnabled(true);
+		CHECK(client.controller.canCallService());
+		const auto setArgument = [&](const QString& name, const QString& text) {
+			CHECK(client.controller.setScalarText(
+			    named(client.values, client.values.index(0, 0), name), text));
+		};
+		setArgument(QStringLiteral("Gain"), QStringLiteral("25"));
+		setArgument(QStringLiteral("Counter"), QStringLiteral("18446744073709551614"));
+		setArgument(QStringLiteral("Offset"), QStringLiteral("-9223372036854775808"));
+		CHECK(client.controller.callService() && !client.controller.callService());
+		CHECK(client.controller.busy() &&
+		      client.controller.serviceOutcome().contains(QStringLiteral("Pending")));
+		CHECK(await([&] {
+			return finished.count() == 1 && !client.controller.busy();
+		}));
+		CHECK(finished.first().size() == 2 && finished.first()[0].toBool() == !rejected &&
+		      finished.first()[1].toBool() == !rejected);
+		CHECK(peer.nativeServices() == 1 && peer.nativeCommands() == 0 && peer.fieldReads() == 0 &&
+		      peer.fieldWrites() == 0);
+		const auto origin = client.controller.inspector().session();
+		const auto outcome = client.controller.serviceOutcome();
+		CHECK(outcome.startsWith(rejected ? QStringLiteral("Last Service control.Reject")
+		                                  : QStringLiteral("Last Service control.Transform")));
+		CHECK(!outcome.contains(QStringLiteral("Accepted")) &&
+		      !outcome.contains(QStringLiteral("OutcomeUnknown")) &&
+		      !outcome.contains(QStringLiteral("Previous session")));
+		if (rejected) {
+			// ServiceStatus::InvalidArgument == 1 is not CommandResult::Accepted == 1.
+			CHECK(outcome.contains(QStringLiteral("InvalidArgument")) &&
+			      outcome.contains(QStringLiteral("endpoint 1")));
+			CHECK(responses.rowCount() == 0);
+		} else {
+			const auto responseValue = [&](const QString& name) {
+				const auto index = named(responses, responses.index(0, 0), name);
+				CHECK(index.isValid());
+				const auto value = responses.data(index, ui::ValueModel::ValueRole);
+				CHECK(value.metaType().id() == QMetaType::QString);
+				return value.toString();
+			};
+			CHECK(responses.rowCount() == 1 &&
+			      responses.data(responses.index(0, 0), ui::ValueModel::NameRole).toString() ==
+			          QStringLiteral("Response"));
+			CHECK(responseValue(QStringLiteral("Gain")) == QStringLiteral("10"));
+			CHECK(responseValue(QStringLiteral("Counter")) ==
+			      QStringLiteral("18446744073709551614"));
+			CHECK(responseValue(QStringLiteral("Offset")) ==
+			      QStringLiteral("-9223372036854775808"));
+			const auto samples = named(responses, responses.index(0, 0), QStringLiteral("Samples"));
+			CHECK(samples.isValid() &&
+			      responses.data(samples, ui::ValueModel::ChildCountRole).toUInt() == 300);
+			CHECK(responses.rowCount(samples) == 0 && responses.canFetchMore(samples));
+			responses.fetchMore(samples);
+			CHECK(responses.rowCount(samples) == 128);
+			CHECK(responses.data(responses.index(0, 0, samples), ui::ValueModel::ValueRole)
+			          .toString() == QStringLiteral("254"));
+			const QPersistentModelIndex oldResponse{responses.index(0, 0)};
+			// Editing the next request cannot alter the owned previous response.
+			setArgument(QStringLiteral("Gain"), QStringLiteral("1"));
+			setArgument(QStringLiteral("Counter"), QStringLiteral("2"));
+			client.controller.pump();
+			CHECK(oldResponse.isValid() &&
+			      responseValue(QStringLiteral("Gain")) == QStringLiteral("10"));
+			client.controller.setWritesEnabled(false);
+			CHECK(!client.controller.callService() && finished.count() == 1 &&
+			      client.controller.serviceOutcome() == outcome && responses.rowCount() == 1);
+			const auto another = namedEndpoint(client.endpoints, 3, QStringLiteral("Reject"));
+			CHECK(another.isValid() && client.controller.selectEndpoint(another));
+			CHECK(client.controller.serviceOutcome() == outcome &&
+			      !client.controller.callService());
+			client.read(0); // Reuse RX buffers with unrelated Field payload after the callback.
+			CHECK(peer.nativeServices() == 1 && finished.count() == 1 &&
+			      client.controller.serviceOutcome() == outcome);
+			CHECK(responseValue(QStringLiteral("Counter")) ==
+			      QStringLiteral("18446744073709551614"));
+			const auto retained =
+			    named(responses, responses.index(0, 0), QStringLiteral("Samples"));
+			for (int page = 0; page < 3 && responses.canFetchMore(retained); ++page)
+				responses.fetchMore(retained);
+			CHECK(responses.rowCount(retained) == 300 && !responses.canFetchMore(retained));
+			CHECK(responses.data(responses.index(299, 0, retained), ui::ValueModel::ValueRole)
+			          .toString() == QStringLiteral("553"));
+		}
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1 && client.controller.serviceOutcome() == outcome &&
+		      responses.rowCount() == 0);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		client.connect(peer);
+		CHECK(client.controller.serviceOutcome() ==
+		      QStringLiteral("Previous session %1 (current session %2) · %3")
+		          .arg(origin)
+		          .arg(client.controller.inspector().session())
+		          .arg(outcome));
+		CHECK(!client.controller.writesEnabled() && !client.controller.callService());
+		client.read(0);
+		CHECK(finished.count() == 1 && peer.nativeServices() == 1 && peer.nativeCommands() == 0 &&
+		      peer.fieldWrites() == 0 && responses.rowCount() == 0);
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1);
+	}
+	{
+		ui::TcpDemoServer peer;
+		peer.setWritableDemo(true);
+		CHECK(peer.listen());
+		Client client;
+		client.connect(peer);
+		client.controller.setWritesEnabled(true);
+		client.controller.setReadTimeout(30000);
+		auto& responses = *qobject_cast<ui::ValueModel*>(client.controller.responses());
+		QSignalSpy finished{&client.controller, &ui::InspectorController::serviceFinished};
+		const auto selected = namedEndpoint(client.endpoints, 3, QStringLiteral("Transform"));
+		CHECK(selected.isValid() && client.controller.selectEndpoint(selected));
+		CHECK(client.controller.serviceSelected() && client.controller.canCallService());
+		peer.setDropNextEncodedReply();
+		CHECK(client.controller.callService());
+		// The native entry is phase evidence that the Service request was handed off.
+		CHECK(await([&] {
+			return peer.nativeServices() == 1;
+		}));
+		CHECK(client.controller.busy() && finished.isEmpty() && responses.rowCount() == 0);
+		const auto origin = client.controller.inspector().session();
+		client.controller.disconnectDevice();
+		CHECK(!client.controller.connected() && !client.controller.busy() &&
+		      client.controller.cleanupPending());
+		CHECK(finished.count() == 1 && finished.first().size() == 2 &&
+		      !finished.first()[0].toBool() && !finished.first()[1].toBool());
+		const auto outcome = client.controller.serviceOutcome();
+		CHECK(
+		    outcome.startsWith(QStringLiteral("Last Service control.Transform · OutcomeUnknown")) &&
+		    !outcome.contains(QStringLiteral("Pending")));
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1 && client.controller.serviceOutcome() == outcome &&
+		      peer.nativeServices() == 1);
+		CHECK(await([&] {
+			return !peer.hasClient();
+		}));
+		client.connect(peer);
+		CHECK(!client.controller.cleanupPending() && !client.controller.writesEnabled() &&
+		      responses.rowCount() == 0);
+		CHECK(client.controller.serviceOutcome() ==
+		      QStringLiteral("Previous session %1 (current session %2) · %3")
+		          .arg(origin)
+		          .arg(client.controller.inspector().session())
+		          .arg(outcome));
+		CHECK(!client.controller.callService());
+		client.read(0);
+		CHECK(finished.count() == 1 && peer.nativeServices() == 1 && peer.nativeCommands() == 0 &&
+		      peer.fieldWrites() == 0 && responses.rowCount() == 0);
+		CHECK(client.controller.serviceOutcome().contains(QStringLiteral("OutcomeUnknown")) &&
+		      client.controller.serviceOutcome().count(QStringLiteral("Previous session")) == 1);
+		client.controller.disconnectDevice();
+		CHECK(finished.count() == 1);
+	}
+	std::puts(
+	    "Inspector TCP Service outcomes: completed=1 rejected=1 unknown=1 callbacks=3 replay=0");
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -856,6 +1037,7 @@ int main(int argc, char** argv)
 	oneClientAndInvalidStream();
 	writableSocketCycle();
 	commandSocketOutcomes();
+	serviceSocketOutcomes();
 	std::printf("Inspector TCP checks=%u reads=%u connections=%u Qt=%s\n", checks, reads,
 	            connections, qVersion());
 	return 0;

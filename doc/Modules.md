@@ -55,7 +55,7 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
-| FieldWrite and Command Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
+| FieldWrite, Command and Service Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
 | Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
@@ -107,8 +107,10 @@ The optional `dynamic_client` component binds `runtime` to `client`, privately
 using the existing FIFO. It includes no Model, wire parser, Resource or Qt;
 choose a transport backend separately. See [Using DynamicClient](DynamicClientUsage.md).
 The optional `workbench` component reuses Inspector ownership and the same client
-FIFO for transactional Field edits, Write/Refresh and explicit Command execution.
+FIFO for transactional Field edits, Write/Refresh, Command execution and Service calls.
 Its shared request editor has no independent scheduler or storage allocation.
+Service responses use an explicitly supplied caller-owned buffer and the same
+SnapshotStore implementation as Field snapshots.
 It has no Qt, native Model or concrete backend dependency. See [Workbench](Workbench.md).
 The optional `inspector` component adds a bounded, owned snapshot and lazy value
 navigation to `dynamic_client`. It lists all endpoint categories but issues only

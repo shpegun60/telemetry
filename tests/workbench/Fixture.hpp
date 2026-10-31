@@ -111,7 +111,7 @@ struct FieldData {
 };
 
 template<std::size_t N = 4, std::size_t PayloadBytes = 512, std::size_t SnapshotBytes = 512,
-         class Data = FieldData>
+         class Data = FieldData, std::size_t ResponseBytes = 0>
 struct Encoded {
 	Metadata metadata{Data::descriptor()};
 	std::uint32_t now = 0;
@@ -121,7 +121,9 @@ struct Encoded {
 	std::array<std::byte, 1024> tx{}, rx{}, port{}, reply{}, scratch{};
 	telemetry::Workspace workspace{scratch};
 	en::EncodedBackend backend{tx, rx, clock};
-	wb::WorkbenchModel<N, PayloadBytes, SnapshotBytes, 256> inspector{backend, clock};
+	std::array<std::byte, ResponseBytes> responseStorage{};
+	wb::WorkbenchModel<N, PayloadBytes, SnapshotBytes, 256> inspector{backend, clock,
+	                                                                  responseStorage};
 
 	Encoded() noexcept
 	{
@@ -174,7 +176,7 @@ struct Encoded {
 	}
 };
 
-template<class Data = FieldData>
+template<class Data = FieldData, std::size_t ResponseBytes = 0>
 struct RpcModel {
 	Metadata metadata{Data::descriptor()};
 	std::uint32_t now = 0;
@@ -191,7 +193,8 @@ struct RpcModel {
 	std::array<std::byte, 48> reply{};
 	cl::rpc::RpcClient native{0, request, result, packet, {3, 40, 1, 1}};
 	telemetry::integration::rpc::RpcBackend backend{native, clock};
-	wb::WorkbenchModel<4, 512, 512, 256> inspector{backend, clock};
+	std::array<std::byte, ResponseBytes> responseStorage{};
+	wb::WorkbenchModel<4, 512, 512, 256> inspector{backend, clock, responseStorage};
 	unsigned packets = 0;
 
 	RpcModel() noexcept

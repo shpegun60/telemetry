@@ -22,7 +22,7 @@ late replies cannot complete a request twice or trigger a write replay.
 
 NoHeap runs the same native workflow with global C++ allocation traps and a
 deliberate allocation control exiting 86. Separate compile refusals prove that
-the facade exposes no Service, raw submission or client/core access,
+the facade exposes no raw-payload Command/Service submission or client/core access,
 and rejects a non-callable completion. The standalone dependency probe excludes
 Model/reflection, Resource and concrete wire/backend dependencies. Optional ARM
 compilation records symbols and individual compiler frames; it does not run on
@@ -42,3 +42,10 @@ editing, unchanged argument submission, Accepted versus Executed, queue refusal,
 stale identities and execution-boundary outcomes. A separate allocation-trap
 executable runs those Command cases and a deliberate allocation control. The
 existing FieldWrite and read-only Inspector suites remain mandatory regressions.
+
+`Service.cpp` uses the same Encoded/RPC fixture with caller-owned response storage.
+It distinguishes Void from empty Struct and Service InvalidArgument from Command
+Accepted, verifies the response copy after RX reuse, and keeps operation/value
+outcomes independent. Capacity, overlap, stale identities, queued/offered/prepared
+termination and callback reentrancy are checked before exposing response handles.
+The allocation-trap wrapper executes the same suite and an exit-86 control.

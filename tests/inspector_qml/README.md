@@ -67,7 +67,12 @@ The runner retains both read-only and edited window PNGs and their dimensions/ha
 to Execute without Enter. It separately checks Executed, Accepted and unknown
 outcomes, no-argument commands, shared exact scalar editing, one terminal signal
 on Disconnect and preservation of historical outcomes. These requests use the
-same Workbench/client as Fields; Services and UART mutations stay disabled.
+same Workbench/client as Fields; UART mutations stay disabled.
+`Service.cpp` uses actual keyboard/mouse events to Call without Enter, reads the
+owned Response through the shared lazy ValueModel, and distinguishes success,
+InvalidArgument and OutcomeUnknown. Request and Response are presented separately;
+their endpoint/session context and one terminal signal survive Disconnect.
+The Service window PNG is retained alongside Field and Command screenshots.
 On Linux, `--sanitize --cxx clang++-18` enables fatal AddressSanitizer and
 UndefinedBehaviorSanitizer checks. Leak detection is explicitly disabled for
 the Qt offscreen plugin's process-global allocations; this profile does not

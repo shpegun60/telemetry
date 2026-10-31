@@ -53,6 +53,8 @@ public:
 	quint64 nativeCommands() const noexcept;
 	quint64 executedCommands() const noexcept;
 	quint64 acceptedCommands() const noexcept;
+	quint64 nativeServices() const noexcept;
+	quint64 serviceCalls() const noexcept;
 	quint64 connections() const noexcept;
 	quint64 receivedBytes() const noexcept;
 	quint64 sentBytes() const noexcept;

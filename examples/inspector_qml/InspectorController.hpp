@@ -1,6 +1,6 @@
 /*
  * @file InspectorController.hpp
- * @brief Qt owner loop for runtime inspection and explicit Field/Command actions.
+ * @brief Qt owner loop for runtime inspection and explicit Field/Command/Service actions.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
@@ -27,6 +27,7 @@ class InspectorController final : public QObject {
 	Q_OBJECT
 	Q_PROPERTY(QAbstractItemModel* endpoints READ endpoints CONSTANT)
 	Q_PROPERTY(QAbstractItemModel* values READ values CONSTANT)
+	Q_PROPERTY(QAbstractItemModel* responses READ responses CONSTANT)
 	Q_PROPERTY(bool connected READ connected NOTIFY stateChanged)
 	Q_PROPERTY(bool busy READ busy NOTIFY stateChanged)
 	Q_PROPERTY(bool canRefresh READ canRefresh NOTIFY stateChanged)
@@ -46,6 +47,10 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(bool commandSelected READ commandSelected NOTIFY stateChanged)
 	Q_PROPERTY(bool canExecute READ canExecute NOTIFY stateChanged)
 	Q_PROPERTY(QString commandOutcome READ commandOutcome NOTIFY stateChanged)
+	Q_PROPERTY(bool serviceSelected READ serviceSelected NOTIFY stateChanged)
+	Q_PROPERTY(bool canCallService READ canCallService NOTIFY stateChanged)
+	Q_PROPERTY(QString serviceOutcome READ serviceOutcome NOTIFY stateChanged)
+	Q_PROPERTY(QString serviceResponseEndpoint READ serviceResponseEndpoint NOTIFY stateChanged)
 
 public:
 	explicit InspectorController(QObject* parent = nullptr);
@@ -59,6 +64,11 @@ public:
 	QAbstractItemModel* values() noexcept
 	{
 		return &values_;
+	}
+
+	QAbstractItemModel* responses() noexcept
+	{
+		return &responses_;
 	}
 
 	bool connected() const noexcept
@@ -125,6 +135,7 @@ public:
 	Q_INVOKABLE bool setScalarText(const QModelIndex& index, const QString& text);
 	Q_INVOKABLE bool apply();
 	Q_INVOKABLE bool executeCommand();
+	Q_INVOKABLE bool callService();
 	void setWritesEnabled(bool enabled);
 
 	bool writesEnabled() const noexcept
@@ -139,6 +150,14 @@ public:
 	bool commandSelected() const noexcept;
 	bool canExecute() const noexcept;
 	QString commandOutcome() const;
+	bool serviceSelected() const noexcept;
+	bool canCallService() const noexcept;
+	QString serviceOutcome() const;
+
+	QString serviceResponseEndpoint() const
+	{
+		return responses_.rowCount() ? serviceOutcomeEndpoint_ : QString{};
+	}
 
 	QString writeOutcome() const
 	{
@@ -164,6 +183,7 @@ public:
 	quint64 demoAcceptedCount() const noexcept;
 	quint64 demoCommandCounter() const noexcept;
 	float demoCommandGain() const noexcept;
+	quint64 demoServiceCount() const noexcept;
 	// Explicit enqueue deadline, including for serial reads; does not add an airtime allowance.
 	void setReadTimeout(int milliseconds) noexcept;
 	void setTcpWriteChunkBytes(int bytes) noexcept;
@@ -175,11 +195,13 @@ Q_SIGNALS:
 	void readFinished(bool published);
 	void applyFinished(bool confirmed);
 	void commandFinished(bool executed, bool accepted);
+	void serviceFinished(bool operationSucceeded, bool responsePublished);
 
 private:
 	struct Completion {
 		std::optional<bool> applied;
 		std::optional<std::pair<bool, bool>> command;
+		std::optional<std::pair<bool, bool>> service;
 	};
 	struct State;
 	std::unique_ptr<State> state_;
@@ -187,6 +209,7 @@ private:
 	std::unique_ptr<DeviceTransport> transport_;
 	EndpointModel endpoints_;
 	ValueModel values_;
+	ValueModel responses_;
 	QTimer timer_;
 	QString selection_, status_ = QStringLiteral("Connect the demo or open a Descriptor file.");
 	QString peerHost_ = QStringLiteral("10.50.0.0"), peerAddress_;
@@ -208,12 +231,15 @@ private:
 	quint32 writeOutcomeSession_ = 0;
 	QString commandOutcome_, commandOutcomeEndpoint_;
 	quint32 commandOutcomeSession_ = 0;
+	QString serviceOutcome_, serviceOutcomeEndpoint_;
+	quint32 serviceOutcomeSession_ = 0;
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
 	                       bool writableDemo = false);
 	Completion retire();
 	std::optional<bool> consumeApply(State& state, bool displaySnapshot);
 	std::optional<std::pair<bool, bool>> consumeCommand(State& state, bool live);
+	std::optional<std::pair<bool, bool>> consumeService(State& state, bool live);
 	void notifyState(Completion completion, std::optional<bool> read = {});
 	void bindTransportSignals();
 	void transportFailed(quint64 epoch, QString error);

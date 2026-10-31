@@ -26,6 +26,16 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def screenshot_record(path):
+    png = path.read_bytes()
+    if (png[:8] != b'\x89PNG\r\n\x1a\n' or len(png) < 24 or png[12:16] != b'IHDR'):
+        raise RuntimeError('Screenshot is not a PNG image: ' + str(path))
+    width, height = struct.unpack('>II', png[16:24])
+    if width < 1 or height < 1:
+        raise RuntimeError('Screenshot is empty: ' + str(path))
+    return dict(path=path.name, sha256=digest(path), width=width, height=height, bytes=len(png))
+
+
 def executable(name):
     # Preserve clang++ invocation spelling instead of switching its driver mode.
     path = Path(shutil.which(name) or name).absolute()
@@ -174,17 +184,17 @@ def main():
             raise RuntimeError('Command controls did not preserve execution, acceptance and uncertainty')
         report['executions']['command_checks'] = int(command_counts[1])
         report['executions']['command_keyboard_mouse_no_enter'] = 1
-        command_png = command_screenshot.read_bytes()
-        if (command_png[:8] != b'\x89PNG\r\n\x1a\n' or len(command_png) < 24 or
-                command_png[12:16] != b'IHDR'):
-            raise RuntimeError('Command Request screenshot is not a PNG image')
-        command_width, command_height = struct.unpack('>II', command_png[16:24])
-        if command_width < 1 or command_height < 1:
-            raise RuntimeError('Command Request screenshot is empty')
-        report['command_screenshot'] = dict(path=command_screenshot.name,
-                                           sha256=digest(command_screenshot),
-                                           width=command_width, height=command_height,
-                                           bytes=len(command_png))
+        report['command_screenshot'] = screenshot_record(command_screenshot)
+        service_check = build / ('telemetry_inspector_qml_service_check' + suffix)
+        service_screenshot = output / 'service-window.png'
+        service_output = run('qml-service', [service_check, '--screenshot', service_screenshot])
+        service_counts = re.search(r'Inspector Service checks=(\d+) completed=1 rejected=1 '
+                                   r'unknown=1 noEnter=1 Qt=(\S+)', service_output)
+        if not service_counts or int(service_counts[1]) < 126 or service_counts[2] != counts[3]:
+            raise RuntimeError('Service controls did not preserve request, response and uncertainty')
+        report['executions']['service_checks'] = int(service_counts[1])
+        report['executions']['service_keyboard_mouse_no_enter'] = 1
+        report['service_screenshot'] = screenshot_record(service_screenshot)
         app = build / 'example' / ('telemetry-inspector-qml' + suffix)
         screenshot = output / 'window.png'
         smoke = run('qml-smoke', [app, '--smoke', '--screenshot', screenshot])
@@ -193,29 +203,15 @@ def main():
             raise RuntimeError('Offscreen QML did not confirm actual endpoint and value delegates')
         report['executions']['offscreen_smoke'] = 1
         report['executions']['visible_endpoint_rows'], report['executions']['visible_value_rows'] = map(int, views.groups())
-        png = screenshot.read_bytes()
-        if png[:8] != b'\x89PNG\r\n\x1a\n' or len(png) < 24 or png[12:16] != b'IHDR':
-            raise RuntimeError('QML window screenshot is not a PNG image')
-        width, height = struct.unpack('>II', png[16:24])
-        if width < 1 or height < 1:
-            raise RuntimeError('QML window screenshot is empty')
-        report['screenshot'] = dict(path=screenshot.name, sha256=digest(screenshot),
-                                    width=width, height=height, bytes=len(png))
+        report['screenshot'] = screenshot_record(screenshot)
         edit_screenshot = output / 'edit-window.png'
         edited = run('qml-edit-smoke', [app, '--edit-smoke', '--screenshot', edit_screenshot])
         if 'Inspector QML edit smoke: writes=1 refreshed=1 gain=10 controls=Edit,TextField,Apply' not in edited:
             raise RuntimeError('QML controls did not complete the actual Write and normalized readback')
-        edit_png = edit_screenshot.read_bytes()
-        if edit_png[:8] != b'\x89PNG\r\n\x1a\n' or len(edit_png) < 24 or edit_png[12:16] != b'IHDR':
-            raise RuntimeError('Workbench screenshot is not a PNG image')
-        edit_width, edit_height = struct.unpack('>II', edit_png[16:24])
-        if edit_width < 1 or edit_height < 1:
-            raise RuntimeError('Workbench screenshot is empty')
         report['executions']['offscreen_edit_smoke'] = 1
-        report['edit_screenshot'] = dict(path=edit_screenshot.name, sha256=digest(edit_screenshot),
-                                       width=edit_width, height=edit_height, bytes=len(edit_png))
+        report['edit_screenshot'] = screenshot_record(edit_screenshot)
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path)
-                                  for path in (check, physical_input, command_check, app)}
+                                  for path in (check, physical_input, command_check, service_check, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}
         report['source_sha256_after'] = sources()

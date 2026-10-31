@@ -24,7 +24,9 @@
 
 namespace telemetry::integration::workbench {
 class RequestEditor;
-}
+template<std::size_t, std::size_t, std::size_t, std::size_t>
+class WorkbenchModel;
+} // namespace telemetry::integration::workbench
 
 namespace telemetry::integration::inspector {
 
@@ -428,6 +430,8 @@ private:
 	template<std::size_t, std::size_t, std::size_t, std::size_t>
 	friend class InspectorModel;
 	friend class ::telemetry::integration::workbench::RequestEditor;
+	template<std::size_t, std::size_t, std::size_t, std::size_t>
+	friend class ::telemetry::integration::workbench::WorkbenchModel;
 
 	runtime::RuntimeSchema schema_{};
 	std::span<std::byte> storage_;
