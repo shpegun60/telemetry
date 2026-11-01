@@ -5,6 +5,9 @@ Status: **design only; no implementation or wire layout is approved**. The
 addresses a changing Workbench watchlist without publishing a new aggregate
 Field for every selection. It does not add WriteMany or Command/Service batching.
 
+See the [bounded mapping prototype](ReadManyMapping.md) for the next experimental
+comparison. It does not make ReadMany available in production clients.
+
 ## Workload and limits
 
 These are project assumptions, not measurements of user demand or hardware:

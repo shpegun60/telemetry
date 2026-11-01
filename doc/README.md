@@ -17,6 +17,7 @@
 [FieldWrite, Command and Service Workbench](Workbench.md) ·
 [Read comparison before ReadMany](ReadComparison.md) ·
 [ReadMany proposal (not implemented)](ReadMany.md) ·
+[ReadMany mapping prototype](ReadManyMapping.md) ·
 [Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
 [NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·
 [Усі приклади та build entry points](../examples/README.md)

@@ -128,6 +128,8 @@ native little/big-endian targets and compares complete canonical wire files.
 It also executes resource client request/reply byte goldens, malformed-input
 controls and client/server round trips on both targets.
 [Source conventions](../tools/source_style/README.md) are checked in CI too.
+[ReadMany mapping checks](read_many_mapping/README.md) qualify experimental compact
+frames and a padded Service, allocation traps and separate installed ARM roots.
 
 [Ergonomic API checks](ergonomics/README.md) execute native runtime selection,
 borrowed reads, detailed read failures, stoppable traversal and bounded resource

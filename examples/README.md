@@ -60,6 +60,8 @@ client with an application Codec do not require a Generated SDK.
 | [Shared Inspector serial profile](inspector_serial/README.md) | Header used by both Inspector and Nucleo; not a separate executable |
 
 Reusable transport-neutral adapters belong to [Integration](../lib/integration/README.md).
+The [experimental ReadMany comparison](read_many_mapping/README.md) measures
+compact frames against an ordinary padded Service; it is not a production client API.
 Qt sockets, GUI objects and board HAL configuration stay in their application
 examples. See [modules](../doc/Modules.md) for CMake/qmake selection and
 [maintained tests](../tests/README.md) for qualification commands.

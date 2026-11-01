@@ -32,8 +32,10 @@ def files_below(directory, suffixes):
                 yield Path(base) / name
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(*, example='read_comparison', target='read-comparison', validator=None,
+         report_name='comparison.json', noheap=None, components=COMPONENTS):
+    parser = argparse.ArgumentParser(description='Qualify installed ' + example.replace('_', '-') +
+                                     ' accounting without a board or Qt. MIT.')
     parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--cobs-root', type=Path, required=True)
     parser.add_argument('--cxx', default='g++')
@@ -42,6 +44,7 @@ def main():
     parser.add_argument('--jobs', type=int, default=2)
     parser.add_argument('--sanitize', action='store_true')
     args = parser.parse_args()
+    validator = validator or validate_comparison
     out, cobs = args.build_dir.resolve(), args.cobs_root.resolve()
     if args.jobs < 1:
         parser.error('jobs must be positive')
@@ -67,6 +70,7 @@ def main():
         suffixes = {'.cpp', '.c', '.hpp', '.h', '.txt', '.cmake', '.in', '.py', '.yml'}
         paths = set()
         for directory in (ROOT / 'lib', ROOT / 'cmake', ROOT / 'examples/read_comparison',
+                          ROOT / 'examples' / example, ROOT / 'tests' / example,
                           HERE, cobs / 'src/cobs', cobs / 'src/wire', cobs / 'src/crc'):
             paths.update(files_below(directory, suffixes))
         paths.update((ROOT / 'CMakeLists.txt', ROOT / '.github/workflows/ci.yml',
@@ -81,8 +85,9 @@ def main():
         return result
 
     report = dict(passed=False, hardware=False, sanitize=args.sanitize, jobs=args.jobs,
+                  example=example,
                   started_utc=datetime.now(timezone.utc).isoformat(), commands=[],
-                  source_sha256_before=inputs(), selected_components=list(COMPONENTS),
+                  source_sha256_before=inputs(), selected_components=list(components),
                   external_cobs=str(cobs), installed_consumer=True,
                   timing_thresholds=False)
     if args.sanitize:
@@ -91,7 +96,7 @@ def main():
     def save():
         (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
 
-    def run(name, command, cwd=ROOT, timeout=300):
+    def run(name, command, cwd=ROOT, timeout=300, expected_exit=0):
         started = time.monotonic()
         command = list(map(str, command))
         try:
@@ -102,12 +107,12 @@ def main():
             output, code = error.stdout or b'', None
         log = out / (name + '.log')
         log.write_bytes(output)
-        report['commands'].append(dict(name=name, command=command, exit=code,
+        report['commands'].append(dict(name=name, command=command, exit=code, expected_exit=expected_exit,
                                        seconds=time.monotonic() - started,
                                        log=log.name, sha256=digest(log)))
         save()
         print(name + ': exit ' + str(code), flush=True)
-        if code != 0:
+        if code != expected_exit:
             raise RuntimeError(name + (' timed out' if code is None else ' failed') + '\n' +
                                output.decode('utf-8', errors='replace')[-10000:])
         return output.decode('utf-8', errors='strict')
@@ -137,7 +142,7 @@ def main():
                        '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined']
         run('package-configure', [tools['cmake'], '-S', ROOT, '-B', package_build,
                                  *common, '-DBUILD_TESTING=OFF',
-                                 '-DTELEMETRY_COMPONENTS=' + ';'.join(COMPONENTS),
+                                 '-DTELEMETRY_COMPONENTS=' + ';'.join(components),
                                  '-DCMAKE_INSTALL_PREFIX=' + str(prefix)])
         run('package-build', [tools['cmake'], '--build', package_build, '-j', args.jobs])
         run('package-install', [tools['cmake'], '--install', package_build])
@@ -146,16 +151,24 @@ def main():
         config = prefix / 'lib/cmake/Telemetry'
         if not (config / 'TelemetryConfig.cmake').is_file():
             raise RuntimeError('Installed TelemetryConfig.cmake is missing')
-        run('configure', [tools['cmake'], '-S', ROOT / 'examples/read_comparison', '-B', build,
+        run('configure', [tools['cmake'], '-S', ROOT / 'examples' / example, '-B', build,
                           *common, '-DTelemetry_DIR=' + str(config), '-DCOBS_ROOT=' + str(cobs)])
         run('build', [tools['cmake'], '--build', build, '-j', args.jobs])
-        binary = build / ('read-comparison.exe' if os.name == 'nt' else 'read-comparison')
-        run('runtime', [binary, '--report', out / 'comparison.json'])
-        comparison = json.loads((out / 'comparison.json').read_text(encoding='utf-8'))
-        validate_comparison(comparison)
-        report['comparison_sha256'] = digest(out / 'comparison.json')
+        binary = build / (target + ('.exe' if os.name == 'nt' else ''))
+        run('runtime', [binary, '--report', out / report_name])
+        comparison = json.loads((out / report_name).read_text(encoding='utf-8'))
+        validator(comparison)
+        if noheap:
+            noheap_binary = build / (noheap + ('.exe' if os.name == 'nt' else ''))
+            run('noheap', [noheap_binary])
+            for control in ('new', 'aligned_new', 'malloc', 'calloc', 'realloc', 'free'):
+                run('noheap-control-' + control, [noheap_binary, '--control=' + control], expected_exit=86)
+        report['comparison_sha256'] = digest(out / report_name)
+        report['runtime_report'] = report_name
         report['executions'] = comparison
         report['binary_sha256'] = {str(binary.relative_to(out)): digest(binary)}
+        if noheap:
+            report['binary_sha256'][str(noheap_binary.relative_to(out))] = digest(noheap_binary)
         usage = sorted(path for directory in (package_build, build) for path in directory.rglob('*.su'))
         if not usage:
             raise RuntimeError('Compiler stack-usage files are missing')
@@ -180,7 +193,7 @@ def main():
                 proof.append(entry)
         if len(proof) != 1:
             raise RuntimeError('Missing unique Host.cpp installed-consumer compile proof')
-        linked = run('target-commands', [tools['ninja'], '-C', build, '-t', 'commands', 'read-comparison'])
+        linked = run('target-commands', [tools['ninja'], '-C', build, '-t', 'commands', target])
         if source_lib in linked.replace('\\', '/').casefold():
             raise RuntimeError('Checkout lib sources leaked into the standalone target')
         if (prefix / 'lib').as_posix().casefold() not in linked.replace('\\', '/').casefold():
