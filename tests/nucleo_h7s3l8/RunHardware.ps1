@@ -1,10 +1,13 @@
 # Author: Ruslan Kovtun (shpegun60), codexAi
 # SPDX-License-Identifier: MIT
 # This runner programs only the explicitly identified NUCLEO, then restores it.
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Inspector')]
 param(
     [Parameter(Mandatory = $true)][string]$Elf,
-    [Parameter(Mandatory = $true)][string]$GuiExe,
+    [Parameter(Mandatory = $true, ParameterSetName = 'Inspector')][string]$GuiExe,
+    [Parameter(Mandatory = $true, ParameterSetName = 'ReadMany')][string]$ReadManyExe,
+    [Parameter(Mandatory = $true, ParameterSetName = 'ReadMany')][string]$CobsRoot,
+    [Parameter(ParameterSetName = 'ReadMany')][string]$Git = 'git',
     [Parameter(Mandatory = $true)][string]$ExternalOutput,
     [string]$Programmer,
     [string]$ArmTools,
@@ -13,12 +16,15 @@ param(
     [ValidateSet('COM6')][string]$Port = 'COM6',
     [ValidateRange(10, 180)][int]$CommandTimeoutSeconds = 60,
     [ValidateRange(10, 180)][int]$GuiTimeoutSeconds = 60,
+    [ValidateRange(10, 180)][int]$ReadManyTimeoutSeconds = 60,
+    [string]$Python = 'python',
     [ValidateRange(1, 1000)][int]$MinimumValueRows = 3,
     [switch]$ValidateOnly
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$readManyMode = $PSCmdlet.ParameterSetName -eq 'ReadMany'
 $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $output = [IO.Path]::GetFullPath($ExternalOutput)
 if ($output.TrimEnd('\', '/') -eq $repo.TrimEnd('\', '/') -or
@@ -29,15 +35,34 @@ if ($output.TrimEnd('\', '/') -eq $repo.TrimEnd('\', '/') -or
 if (Test-Path -LiteralPath $output) {
     throw 'ExternalOutput must be a new directory; an earlier backup is never reused or overwritten.'
 }
-foreach ($inputPath in @($Elf, $GuiExe)) {
+$testExecutable = if ($readManyMode) { $ReadManyExe } else { $GuiExe }
+foreach ($inputPath in @($Elf, $testExecutable)) {
     if (-not (Test-Path -LiteralPath $inputPath -PathType Leaf)) {
         throw "Input does not exist: $inputPath"
     }
 }
 $Elf = (Resolve-Path -LiteralPath $Elf).Path
-$GuiExe = (Resolve-Path -LiteralPath $GuiExe).Path
-if ([IO.Path]::GetExtension($Elf) -ine '.elf' -or [IO.Path]::GetExtension($GuiExe) -ine '.exe') {
-    throw 'Provide an explicit .elf firmware and .exe GUI.'
+$testExecutable = (Resolve-Path -LiteralPath $testExecutable).Path
+if ($readManyMode) { $ReadManyExe = $testExecutable } else { $GuiExe = $testExecutable }
+if ([IO.Path]::GetExtension($Elf) -ine '.elf' -or [IO.Path]::GetExtension($testExecutable) -ine '.exe') {
+    throw 'Provide an explicit .elf firmware and .exe checker.'
+}
+$readManyVerifier = Join-Path $PSScriptRoot 'VerifyReadManyEvidence.py'
+if ($readManyMode) {
+    if (-not (Test-Path -LiteralPath $readManyVerifier -PathType Leaf)) { throw 'ReadMany verifier is missing.' }
+    # Windows app-execution aliases are zero-byte reparse points, not a frozen
+    # interpreter binary that can be hashed. Select an actual installed file.
+    $pythonCandidates = @(Get-Command $Python -CommandType Application -ErrorAction Stop | Where-Object {
+        (Get-Item -LiteralPath $_.Source -ErrorAction Stop).Length -gt 0 })
+    if ($pythonCandidates.Count -eq 0) { throw 'Set -Python to an actual Python executable, not a Windows app alias.' }
+    $Python = $pythonCandidates[0].Source
+    $Git = (Get-Command $Git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    $CobsRoot = (Resolve-Path -LiteralPath $CobsRoot).Path
+    foreach ($directory in @('src', 'libs\spsc')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $CobsRoot $directory) -PathType Container)) {
+            throw 'CobsRoot must explicitly identify a COBS checkout with src and libs/spsc.'
+        }
+    }
 }
 if (-not $Programmer) {
     $Programmer = 'C:\ST\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe'
@@ -70,6 +95,7 @@ $receiptPath = Join-Path $output 'summary.json'
 $utf8 = New-Object Text.UTF8Encoding($false)
 $script:receipt = [ordered]@{
     schema = 1
+    profile = $(if ($readManyMode) { 'nucleo-h7s3l8-read-many' } else { 'nucleo-h7s3l8-demo' })
     started_utc = [DateTime]::UtcNow.ToString('o')
     expected_board = 'NUCLEO-H7S3L8'
     expected_device_id = '0x485'
@@ -120,7 +146,8 @@ function Quote-WindowsArgument([string]$Value) {
 }
 function Invoke-Recorded {
     param([string]$Tag, [string]$Executable, [string[]]$Arguments,
-        [int]$TimeoutSeconds = $CommandTimeoutSeconds, [switch]$AllowFailure)
+        [int]$TimeoutSeconds = $CommandTimeoutSeconds, [switch]$AllowFailure,
+        [string]$RuntimeDirectory)
     $stdoutPath = Join-Path $logs ($Tag + '.stdout.txt')
     $stderrPath = Join-Path $logs ($Tag + '.stderr.txt')
     if (Test-Path -LiteralPath $stdoutPath) { throw "Duplicate command tag: $Tag" }
@@ -137,6 +164,10 @@ function Invoke-Recorded {
     $process.StartInfo.FileName = $Executable
     $process.StartInfo.Arguments = (($Arguments | ForEach-Object { Quote-WindowsArgument $_ }) -join ' ')
     $process.StartInfo.WorkingDirectory = [IO.Path]::GetDirectoryName($Executable)
+    if ($RuntimeDirectory) {
+        $process.StartInfo.WorkingDirectory = $RuntimeDirectory
+        $process.StartInfo.EnvironmentVariables['PATH'] = $RuntimeDirectory + [IO.Path]::PathSeparator + $env:PATH
+    }
     $process.StartInfo.UseShellExecute = $false
     $process.StartInfo.CreateNoWindow = $true
     $process.StartInfo.RedirectStandardOutput = $true
@@ -276,32 +307,68 @@ function Assert-Elf([string]$Path) {
     return @($loads.ToArray())
 }
 
+function Get-SourceDigests {
+    $hashes = [ordered]@{}
+    foreach ($sourceRoot in @('lib', 'cmake', 'examples\nucleo_h7s3l8', 'examples\inspector_serial',
+            'examples\inspector_qml', 'examples\read_many_uart', 'tests\nucleo_h7s3l8')) {
+        $sourceDirectory = Join-Path $repo $sourceRoot
+        if (-not (Test-Path -LiteralPath $sourceDirectory)) { continue }
+        foreach ($file in Get-ChildItem -LiteralPath $sourceDirectory -Recurse -File | Sort-Object FullName | Where-Object {
+            $_.Extension -in '.hpp', '.h', '.cpp', '.c', '.s', '.ld', '.ps1', '.py', '.md', '.pri', '.cmake', '.txt', '.json' -and
+            $_.FullName -notmatch '[\\/](build[^\\/]*|out|Debug[^\\/]*|Release|__pycache__)[\\/]' }) {
+            $relative = $file.FullName.Substring($repo.Length + 1).Replace('\', '/')
+            $hashes[$relative] = Get-Digest $file.FullName
+        }
+    }
+    if ($readManyMode) {
+        foreach ($relativeRoot in @('src', 'libs\spsc')) {
+            foreach ($file in Get-ChildItem -LiteralPath (Join-Path $CobsRoot $relativeRoot) -Recurse -File |
+                    Sort-Object FullName | Where-Object {
+                $_.Extension -in '.hpp', '.h', '.cpp', '.c', '.pri', '.cmake', '.txt' -and
+                $_.FullName -notmatch '[\\/](build[^\\/]*|out|Debug[^\\/]*|Release|__pycache__)[\\/]' }) {
+                $relative = $file.FullName.Substring($CobsRoot.Length + 1).Replace('\', '/')
+                $hashes['@cobs/' + $relative] = Get-Digest $file.FullName
+            }
+        }
+    }
+    return $hashes
+}
+
 $backupPath = Join-Path $output 'original-08000000-08010000.bin'
 $imageElf = Join-Path $output 'tested-firmware.elf'
 $imageBin = Join-Path $output 'tested-firmware.bin'
+$frozenCli = Join-Path $output 'tested-read-many.exe'
 $backupReady = $false
 $connection = @('-c', 'port=SWD', "sn=$StLinkSerial", 'mode=UR', 'reset=HWrst', 'freq=4000')
 try {
     $script:receipt.inputs.elf = [ordered]@{ path = $Elf; sha256 = Get-Digest $Elf }
-    $script:receipt.inputs.gui = [ordered]@{ path = $GuiExe; sha256 = Get-Digest $GuiExe }
+    if ($readManyMode) {
+        $script:receipt.inputs.read_many = [ordered]@{ path = $ReadManyExe; sha256 = Get-Digest $ReadManyExe }
+        Copy-Item -LiteralPath $ReadManyExe -Destination $frozenCli
+        $script:receipt.inputs.frozen_cli_path = 'tested-read-many.exe'
+        $script:receipt.inputs.frozen_cli_sha256 = Get-Digest $frozenCli
+        if ($script:receipt.inputs.frozen_cli_sha256 -ne $script:receipt.inputs.read_many.sha256) {
+            throw 'ReadMany CLI changed during snapshot.'
+        }
+        $script:receipt.tools[$Python] = Get-Digest $Python
+        $script:receipt.tools[$Git] = Get-Digest $Git
+    } else {
+        $script:receipt.inputs.gui = [ordered]@{ path = $GuiExe; sha256 = Get-Digest $GuiExe }
+    }
     foreach ($tool in @($Programmer, $readelf, $objcopy, $compiler)) {
         $script:receipt.tools[$tool] = Get-Digest $tool
     }
-    foreach ($sourceRoot in @('lib', 'cmake', 'examples\nucleo_h7s3l8', 'examples\inspector_serial',
-            'examples\inspector_qml', 'tests\nucleo_h7s3l8')) {
-        $sourceDirectory = Join-Path $repo $sourceRoot
-        if (-not (Test-Path -LiteralPath $sourceDirectory)) { continue }
-        foreach ($file in Get-ChildItem -LiteralPath $sourceDirectory -Recurse -File | Where-Object {
-            $_.Extension -in '.hpp', '.h', '.cpp', '.c', '.s', '.ld', '.ps1', '.py', '.md', '.pri', '.cmake', '.txt', '.json' -and
-            $_.FullName -notmatch '[\\/](build[^\\/]*|out|Debug[^\\/]*|Release|__pycache__)[\\/]' }) {
-            $relative = $file.FullName.Substring($repo.Length + 1).Replace('\', '/')
-            $script:receipt.source_hashes[$relative] = Get-Digest $file.FullName
-        }
-    }
+    $script:receipt.source_hashes = Get-SourceDigests
     Copy-Item -LiteralPath $Elf -Destination $imageElf
     if ((Get-Digest $imageElf) -ne $script:receipt.inputs.elf.sha256) { throw 'ELF changed during snapshot.' }
     $script:receipt.elf_loads = @(Assert-Elf $imageElf)
     Write-Receipt
+    if ($readManyMode) {
+        $cobsHead = Invoke-Recorded 'cobs-head' $Git @('-C', $CobsRoot, 'rev-parse', 'HEAD')
+        $script:receipt.cobs_head = $cobsHead.Text.Trim()
+        $script:receipt.cobs_root = $CobsRoot
+        if ($script:receipt.cobs_head -notmatch '^[0-9a-f]{40}$') { throw 'COBS HEAD identity is invalid.' }
+    }
     [void](Invoke-Recorded 'programmer-version' $Programmer @('--version'))
     [void](Invoke-Recorded 'compiler-version' $compiler @('--version'))
     [void](Invoke-Recorded 'elf-program-headers' $readelf @('-hlW', $imageElf))
@@ -338,8 +405,11 @@ try {
         $script:receipt.restoration_required = $true
         Write-Receipt
         Assert-SerialIdentity
-        if ((Get-Digest $imageBin) -ne $script:receipt.inputs.frozen_bin_sha256 -or
-            (Get-Digest $GuiExe) -ne $script:receipt.inputs.gui.sha256) { throw 'Test inputs changed after validation.' }
+        if ((Get-Digest $imageBin) -ne $script:receipt.inputs.frozen_bin_sha256) { throw 'Test image changed after validation.' }
+        if ($readManyMode) {
+            if ((Get-Digest $frozenCli) -ne $script:receipt.inputs.frozen_cli_sha256 -or
+                (Get-Digest $ReadManyExe) -ne $script:receipt.inputs.read_many.sha256) { throw 'ReadMany CLI changed after validation.' }
+        } elseif ((Get-Digest $GuiExe) -ne $script:receipt.inputs.gui.sha256) { throw 'GUI changed after validation.' }
         $script:receipt.flash_attempted = $true
         Write-Receipt
         $flashed = Invoke-Recorded 'flash-test-image' $Programmer ($connection + @('-w',
@@ -347,6 +417,23 @@ try {
         Assert-Target $flashed.Text
         if ($flashed.Text -notmatch 'Download verified successfully') { throw 'Test image verification was not confirmed.' }
         Start-Sleep -Milliseconds 500
+        if ($readManyMode) {
+            $readManyReportPath = Join-Path $output 'read-many-report.json'
+            $verificationPath = Join-Path $output 'read-many-verification.json'
+            [void](Invoke-Recorded 'serial-read-many-check' $frozenCli @('--serial', $Port, '--baud', '115200',
+                '--report', $readManyReportPath) -TimeoutSeconds $ReadManyTimeoutSeconds `
+                -RuntimeDirectory ([IO.Path]::GetDirectoryName($ReadManyExe)))
+            if (-not (Test-Path -LiteralPath $readManyReportPath -PathType Leaf)) { throw 'ReadMany report is missing.' }
+            [void](Invoke-Recorded 'verify-read-many-report' $Python @('-B', $readManyVerifier,
+                '--report', $readManyReportPath, '--port', $Port, '--output', $verificationPath))
+            if ((Get-Digest $frozenCli) -ne $script:receipt.inputs.frozen_cli_sha256 -or
+                (Get-Digest $ReadManyExe) -ne $script:receipt.inputs.read_many.sha256) { throw 'ReadMany CLI changed during execution.' }
+            $script:receipt.read_many_check = [ordered]@{ path = 'read-many-report.json';
+                sha256 = Get-Digest $readManyReportPath; verification_path = 'read-many-verification.json';
+                verification_sha256 = Get-Digest $verificationPath }
+            $script:receipt.test_passed = $true
+            Write-Receipt
+        } else {
         $deviceReportPath = Join-Path $output 'device-report.json'
         [void](Invoke-Recorded 'serial-device-check' $GuiExe @('--serial', $Port, '--baud', '115200',
             '--check-device', '--report', $deviceReportPath) -TimeoutSeconds $GuiTimeoutSeconds)
@@ -385,6 +472,7 @@ try {
         $script:receipt.screenshot = [ordered]@{ path = 'serial-inspector.png'; sha256 = Get-Digest $screenshot;
             endpoint_rows = [int]$marker.Groups[1].Value; value_rows = [int]$marker.Groups[2].Value }
         $script:receipt.test_passed = $true
+        }
     }
 } catch {
     $script:receipt.error = $_.Exception.Message
@@ -421,6 +509,25 @@ try {
         $script:receipt.restored_and_verified = $restored
         if (-not $restored) {
             $script:receipt.error = 'ORIGINAL FIRMWARE RESTORATION NOT VERIFIED. Preserve the backup and stop hardware testing.'
+        }
+    }
+    if ($readManyMode) {
+        try {
+            if ($script:receipt.Contains('cobs_head')) {
+                $cobsHeadAfter = Invoke-Recorded 'cobs-head-after' $Git @('-C', $CobsRoot, 'rev-parse', 'HEAD')
+                $script:receipt.cobs_head_after = $cobsHeadAfter.Text.Trim()
+                if ($script:receipt.cobs_head_after -cne $script:receipt.cobs_head) { throw 'COBS HEAD identity changed.' }
+            }
+            $script:receipt.source_hashes_after = Get-SourceDigests
+            $script:receipt.source_inputs_unchanged =
+                ($script:receipt.source_hashes | ConvertTo-Json -Compress) -ceq
+                ($script:receipt.source_hashes_after | ConvertTo-Json -Compress)
+            if (-not $script:receipt.source_inputs_unchanged -and -not $script:receipt.error) {
+                $script:receipt.error = 'ReadMany source inputs changed during qualification.'
+            }
+        } catch {
+            $script:receipt.source_inputs_unchanged = $false
+            if (-not $script:receipt.error) { $script:receipt.error = 'ReadMany source inventory could not be verified: ' + $_.Exception.Message }
         }
     }
     $script:receipt.finished_utc = [DateTime]::UtcNow.ToString('o')

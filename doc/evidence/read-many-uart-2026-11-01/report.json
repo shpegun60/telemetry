@@ -1,0 +1,86 @@
+{
+    "baud": 115200,
+    "capabilityHex": "54524d31012001018200020202000000cf9350c4d44b5496",
+    "cases": [
+        {
+            "count": 8,
+            "elapsedMs": 29,
+            "ok": 8,
+            "passed": true,
+            "rawHex": "08000000020000000400403020100000030000000800ffffffffffffffff0000040000000100010000050000000200feff0100020000000400413121110100030000000800f7f8f9fafbfcfdfe0100040000000100000100050000000200fdff",
+            "replyBytes": 96,
+            "requestBytes": 34,
+            "sha256": "af83ba08905cc117d830302731468e133e5c5c787bf9ee64cc5d7adb8b48e406",
+            "unavailable": 0
+        },
+        {
+            "count": 12,
+            "elapsedMs": 34,
+            "ok": 12,
+            "passed": true,
+            "rawHex": "0c000000020000000400403020100000030000000800ffffffffffffffff0000040000000100010000050000000200feff0100020000000400413121110100030000000800f7f8f9fafbfcfdfe0100040000000100000100050000000200fdff0200020000000400423222120200030000000800eff1f3f5f7f9fbfd0200040000000100010200050000000200fcff",
+            "replyBytes": 143,
+            "requestBytes": 50,
+            "sha256": "5045d35215be750445f56822e9c4a917c95686d1c488ccc2cb9de13cc8670ce6",
+            "unavailable": 0
+        },
+        {
+            "count": 16,
+            "elapsedMs": 39,
+            "ok": 16,
+            "passed": true,
+            "rawHex": "10000000020000000400403020100000030000000800ffffffffffffffff0000040000000100010000050000000200feff0100020000000400413121110100030000000800f7f8f9fafbfcfdfe0100040000000100000100050000000200fdff0200020000000400423222120200030000000800eff1f3f5f7f9fbfd0200040000000100010200050000000200fcff0300020000000400433323130300030000000800e7eaedf0f3f6f9fc0300040000000100000300050000000200fbff",
+            "replyBytes": 190,
+            "requestBytes": 66,
+            "sha256": "e4ffe0919ee93a1f0532c2d7dca9e82dd06d6b78fbfaae77ecd699f2ef0e516b",
+            "unavailable": 0
+        },
+        {
+            "count": 32,
+            "elapsedMs": 61,
+            "ok": 32,
+            "passed": true,
+            "rawHex": "20000000020000000400403020100000030000000800ffffffffffffffff0000040000000100010000050000000200feff0100020000000400413121110100030000000800f7f8f9fafbfcfdfe0100040000000100000100050000000200fdff0200020000000400423222120200030000000800eff1f3f5f7f9fbfd0200040000000100010200050000000200fcff0300020000000400433323130300030000000800e7eaedf0f3f6f9fc0300040000000100000300050000000200fbff0400020000000400443424140400030000000800dfe3e7ebeff3f7fb0400040000000100010400050000000200faff0500020000000400453525150500030000000800d7dce1e6ebf0f5fa0500040000000100000500050000000200f9ff0600020000000400463626160600030000000800cfd5dbe1e7edf3f90600040000000100010600050000000200f8ff0700020000000400473727170700030000000800c7ced5dce3eaf1f80700040000000100000000010000000800ffffffffffffffff",
+            "replyBytes": 384,
+            "requestBytes": 130,
+            "sha256": "497d98fcbf9afc51d5e040d0f09fb827d6ec6556d43da3394f6a10f2eb4aff8f",
+            "unavailable": 0
+        }
+    ],
+    "descriptorSha256": "2b3f20ba3acc4ee3a08a53025e6b51f6779738bd405523fddcb5616c2ea6762d",
+    "individual32ElapsedMs": 540,
+    "lifecycle": {
+        "bootstrapComplete": true,
+        "callbacksOnce": true,
+        "lateReplyRejected": true,
+        "noReplay": true,
+        "preHandoffTimeout": true,
+        "preparedTimeout": true,
+        "reconnect": true,
+        "samePeer": true,
+        "sessionIncreased": true,
+        "staleBindingRejected": true,
+        "txReleased": true
+    },
+    "mixed": {
+        "count": 3,
+        "elapsedMs": 0,
+        "ok": 2,
+        "passed": true,
+        "rawHex": "030000000200000004004030201007000500030000000000010000000800ffffffffffffffff",
+        "replyBytes": 38,
+        "requestBytes": 14,
+        "sha256": "2da819ff28aca0ebf796708a2dcbeae49d05818050e7eeff3fc9b421d0366085",
+        "unavailable": 1
+    },
+    "passed": true,
+    "physicalRequests": 39,
+    "port": "COM6",
+    "profile": "nucleo-h7s3l8-read-many",
+    "qtVersion": "6.10.1",
+    "schema": 1,
+    "sessions": [
+        1,
+        2
+    ]
+}

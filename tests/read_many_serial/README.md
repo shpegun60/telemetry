@@ -1,0 +1,24 @@
+# Serial ReadMany checks
+
+```sh
+python3 -B tests/read_many_serial/run.py --build-dir /tmp/read-many-serial \
+  --cobs-root /path/to/cobs --qt-prefix /usr --cxx clang++-18 --sanitize
+```
+
+The build directory must be fresh and outside the source tree. The runner keeps
+compiler/runtime logs, binary hashes and before/after source hashes. It opens
+only host-created PTYs; it never opens a hardware serial port or a programmer.
+
+The real console executable exchanges fragmented COBS frames with the actual
+opt-in board Protocol, using Resource bootstrap and the production Encoded
+dispatcher. The successful run covers 32 individual reads, 8/12/16/32-field
+batches, mixed per-item results, controlled deadlines, stale replies and a fresh
+session after reconnect. Negative peers send invalid TRM1 bytes and a malformed
+batch reply with a valid outer CRC; neither may report success. Bootstrap tests
+separately exercise pagination and malformed Resource transcripts.
+
+The Windows build executes bootstrap and argument checks; Linux additionally
+runs real PTYs. Physical TX lease ownership is separately tested by the board's
+[host harness](../../examples/nucleo_h7s3l8/tests/Host.cpp), which holds UART TC
+and COBS lease release independently. Physical qualification uses the guarded
+[hardware runner](../nucleo_h7s3l8/README.md).

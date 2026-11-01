@@ -284,6 +284,10 @@ jobs:
         run: python3 tools/documentation_navigation/check.py --self-test
       - name: Verify retained UART Inspector hardware evidence and negative controls
         run: python3 -B tests/nucleo_h7s3l8/VerifyEvidence.py --self-test
+      - name: Verify retained ReadMany UART report and negative controls
+        run: |
+          python3 -B tests/nucleo_h7s3l8/VerifyReadManyEvidence.py \
+            --report doc/evidence/read-many-uart-2026-11-01/report.json --port COM6 --self-test
       - name: Verify retained audit hardware receipt controls
         run: |
           python3 tests/structured/mcu/h7s/verify.py --receipt doc/evidence/audit-2026-10-11/h7s-mcu-receipt.json --self-test --allow-stale-inputs
@@ -1093,6 +1097,11 @@ jobs:
           python3 -B examples/nucleo_h7s3l8/tests/run.py --build-dir "$RUNNER_TEMP/nucleo-host" \
             --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/clang++-18 \
             --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Sanitized ReadMany UART discovery and real CLI through PTYs
+        run: |
+          python3 -B tests/read_many_serial/run.py --build-dir "$RUNNER_TEMP/read-many-serial" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
+            --cxx clang++-18 --sanitize --cmake cmake --ninja ninja
       - name: Compare installed read paths and actual framed traffic
         run: |
           python3 -B tests/read_comparison/run.py --build-dir "$RUNNER_TEMP/read-comparison-gcc" \
@@ -1120,6 +1129,7 @@ jobs:
             ${{ runner.temp }}/inspector-tcp/
             ${{ runner.temp }}/inspector-serial/
             ${{ runner.temp }}/nucleo-host/
+            ${{ runner.temp }}/read-many-serial/
             ${{ runner.temp }}/read-comparison-gcc/
             ${{ runner.temp }}/read-comparison-sanitized/
             ${{ runner.temp }}/read-many-mapping-gcc/

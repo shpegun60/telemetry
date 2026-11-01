@@ -8,8 +8,9 @@ their wire size is small. Scalar lengths are 1, 2, 4 or 8 bytes.
 This is sequential reading, without an atomic snapshot guarantee. Use an
 application Aggregate/Snapshot Field when values must represent one instant.
 For one Field, normal FieldRead remains smaller. There is no implicit fan-out,
-automatic polling, GUI watchlist, RPC batch, JS/TS batch API or firmware enablement
-in this stage. Existing Inspector/Workbench and four-operation SDKs keep working.
+automatic polling, GUI watchlist, RPC batch or JS/TS batch API. Device firmware
+enables ReadMany explicitly, as in the optional NUCLEO profile. Existing
+Inspector/Workbench and four-operation SDKs keep working.
 
 ## Select the modules
 
@@ -183,5 +184,11 @@ does not guarantee coherent readings, exactly-once getters or automatic fallback
 See [maintained tests](../tests/read_many/README.md) for real Model/Encoded/FIFO,
 phase-specific deadlines, malformed replies, allocation traps, relocated consumers
 and offline ARM selected roots. Existing DynamicClient, Inspector/Workbench,
-generated SDK and wire-freeze regressions remain independent. No current result
-claims hardware ReadMany or sustained UART/DMA/cache qualification.
+generated SDK and wire-freeze regressions remain independent.
+
+The optional [UART console example](../examples/read_many_uart/README.md) uses
+the existing serial transport, Resource discovery and the same DynamicClient
+FIFO. The [NUCLEO-H7S3L8 qualification](evidence/read-many-uart-2026-11-01/README.md)
+records physical 8/12/16/32-field batches, controlled timeout/recovery and
+byte-verified original Flash restoration. Sustained UART/DMA/cache load, physical
+cable interruption and the Inspector watchlist remain separate work.

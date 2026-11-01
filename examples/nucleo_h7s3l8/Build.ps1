@@ -7,6 +7,7 @@ param(
     [string]$ArmGccBin,
     [string]$CMake,
     [string]$Ninja,
+    [switch]$ReadMany,
     [ValidateRange(1,32)][int]$Jobs = 4
 )
 $ErrorActionPreference = 'Stop'
@@ -58,7 +59,7 @@ foreach ($tool in @($gcc, $gxx, $CMake, $Ninja)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw "Missing tool $tool" }
 }
 New-Item -ItemType Directory -Path $output | Out-Null
-$receipt = [ordered]@{passed=$false; hardware=$false; flash=$false; startedUtc=[DateTime]::UtcNow.ToString('o');
+$receipt = [ordered]@{passed=$false; hardware=$false; flash=$false; readMany=[bool]$ReadMany; startedUtc=[DateTime]::UtcNow.ToString('o');
     sourceRoot=$repo; cobsRoot=$cobs; stm32CubeRoot=$sdk; toolchain=$gcc; commands=@()}
 $oldPath = $env:PATH
 $env:PATH = "$ArmGccBin;$oldPath"
@@ -107,6 +108,7 @@ try {
     Run-Logged 'configure' $CMake @('-S',$PSScriptRoot,'-B',$build,'-G','Ninja',
         "-DCMAKE_TOOLCHAIN_FILE=$PSScriptRoot\arm-gcc.cmake", "-DARM_GCC_BIN=$ArmGccBin",
         "-DCOBS_ROOT=$cobs", "-DSTM32_CUBE_ROOT=$sdk", "-DCMAKE_MAKE_PROGRAM=$Ninja",
+        "-DNUCLEO_ENABLE_READ_MANY=$($ReadMany.IsPresent.ToString().ToUpperInvariant())",
         '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON') | Out-Null
     Run-Logged 'build' $CMake @('--build',$build,'-j',"$Jobs") | Out-Null
     $elf = Join-Path $build 'telemetry-nucleo-h7s3.elf'

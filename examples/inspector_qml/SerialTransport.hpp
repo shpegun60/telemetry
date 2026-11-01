@@ -17,6 +17,10 @@ public:
 	explicit SerialTransport(QObject* parent = nullptr);
 	~SerialTransport() override;
 	void connectTo(const QString& port, qint32 baud = 115200);
+	// Opt-in configuration for the next connect; ordinary Inspector discovery
+	// remains Descriptor-only. The returned capability is owned and ready-gated.
+	void setReadManyDiscovery(bool enabled) noexcept;
+	QByteArray readManyCapability() const;
 	void close() override;
 	bool ready() const noexcept override;
 	bool canStage() const noexcept override;

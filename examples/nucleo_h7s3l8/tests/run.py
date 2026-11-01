@@ -90,7 +90,14 @@ def main():
         count = re.search(r'NUCLEO H7S host checks=(\d+) passed', output)
         if not count or int(count[1]) < 180:
             raise RuntimeError('Maintained protocol/gating checks did not run')
-        report.update(checks=int(count[1]), binarySha256=digest(binary), inputHashesAfter=inputs())
+        many = build / ('nucleo_h7s_read_many.exe' if os.name == 'nt' else 'nucleo_h7s_read_many')
+        many_output = run('read-many-runtime', [many])
+        many_count = re.search(r'NUCLEO H7S ReadMany checks=(\d+) passed', many_output)
+        if not many_count or int(many_count[1]) < 500:
+            raise RuntimeError('Maintained ReadMany protocol/gating checks did not run')
+        report.update(checks=int(count[1]), binarySha256=digest(binary),
+                      readManyChecks=int(many_count[1]), readManyBinarySha256=digest(many),
+                      inputHashesAfter=inputs())
         if report['inputHashesBefore'] != report['inputHashesAfter']:
             raise RuntimeError('Inputs changed during qualification')
         report['passed'] = True

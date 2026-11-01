@@ -17,6 +17,10 @@
 #include <array>
 #include <cstdint>
 
+#ifndef TELEMETRY_NUCLEO_READ_MANY
+#define TELEMETRY_NUCLEO_READ_MANY 0
+#endif
+
 namespace nucleo_demo {
 struct Voltage {
 	float Ua, Ub, Uc;
@@ -69,12 +73,95 @@ struct EnumReflection<nucleo_demo::Mode> {
 } // namespace telemetry::reflection
 
 namespace nucleo_demo {
+#if TELEMETRY_NUCLEO_READ_MANY
+// Stable native owners, with position-encoding values for exact wire checks.
+// Counters measure actual scalar getter execution, independently of dispatch.
+struct ScalarFixture {
+	std::uint32_t calls = 0;
+
+	template<std::size_t I>
+	std::uint32_t u32() noexcept
+	{
+		++calls;
+		return 0x10203040u + std::uint32_t{I} * 0x01010101u;
+	}
+
+	template<std::size_t I>
+	std::uint64_t u64() noexcept
+	{
+		++calls;
+		return UINT64_MAX - std::uint64_t{I} * UINT64_C(0x0102030405060708);
+	}
+
+	template<std::size_t I>
+	bool flag() noexcept
+	{
+		++calls;
+		return I % 2 == 0;
+	}
+
+	template<std::size_t I>
+	Mode mode() noexcept
+	{
+		++calls;
+		return static_cast<Mode>(-2 - static_cast<std::int16_t>(I));
+	}
+};
+
+inline ScalarFixture scalarFixture;
+inline telemetry::OwnerSlot<ScalarFixture> unavailableFixture;
+#endif
 inline constexpr telemetry::FieldTable measureFields{telemetry::field<&voltage>("Voltage")};
 inline constexpr telemetry::FieldTable deviceFields{telemetry::field<&counter>("Counter"),
                                                     telemetry::field<&readStatus>("Status"),
                                                     telemetry::field<&probe>("Probe")};
+#if TELEMETRY_NUCLEO_READ_MANY
+inline constexpr telemetry::FieldTable batch32Fields{
+    telemetry::field<&ScalarFixture::u32<0>>("U32_0", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<1>>("U32_1", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<2>>("U32_2", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<3>>("U32_3", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<4>>("U32_4", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<5>>("U32_5", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<6>>("U32_6", scalarFixture),
+    telemetry::field<&ScalarFixture::u32<7>>("U32_7", scalarFixture)};
+inline constexpr telemetry::FieldTable batch64Fields{
+    telemetry::field<&ScalarFixture::u64<0>>("U64_0", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<1>>("U64_1", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<2>>("U64_2", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<3>>("U64_3", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<4>>("U64_4", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<5>>("U64_5", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<6>>("U64_6", scalarFixture),
+    telemetry::field<&ScalarFixture::u64<7>>("U64_7", scalarFixture)};
+inline constexpr telemetry::FieldTable flagFields{
+    telemetry::field<&ScalarFixture::flag<0>>("Bool_0", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<1>>("Bool_1", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<2>>("Bool_2", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<3>>("Bool_3", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<4>>("Bool_4", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<5>>("Bool_5", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<6>>("Bool_6", scalarFixture),
+    telemetry::field<&ScalarFixture::flag<7>>("Bool_7", scalarFixture)};
+inline constexpr telemetry::FieldTable modeFields{
+    telemetry::field<&ScalarFixture::mode<0>>("Mode_0", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<1>>("Mode_1", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<2>>("Mode_2", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<3>>("Mode_3", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<4>>("Mode_4", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<5>>("Mode_5", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<6>>("Mode_6", scalarFixture),
+    telemetry::field<&ScalarFixture::mode<7>>("Unavailable", unavailableFixture)};
+// Existing four IDs are unchanged. Counter plus 31 new getters are exactly
+// 32 readable scalar Field IDs; Unavailable is a separate scalar-typed row.
+inline constexpr telemetry::FieldCatalogTable fields{
+    telemetry::group("measure", measureFields), telemetry::group("device", deviceFields),
+    telemetry::group("batch32", batch32Fields), telemetry::group("batch64", batch64Fields),
+    telemetry::group("flags", flagFields),      telemetry::group("modes", modeFields)};
+#else
 inline constexpr telemetry::FieldCatalogTable fields{telemetry::group("measure", measureFields),
                                                      telemetry::group("device", deviceFields)};
+#endif
 inline constexpr telemetry::CommandCatalogTable<> commands{};
 inline constexpr telemetry::ServiceCatalogTable<> services{};
 inline constexpr telemetry::Model model{fields, commands, services};
@@ -90,6 +177,19 @@ inline constexpr auto files =
 
 class Protocol {
 public:
+#if TELEMETRY_NUCLEO_READ_MANY
+	// A restored last epoch can be supplied by an application. The demo owns
+	// one Protocol for its whole run and starts at zero (not yet admitted).
+	explicit Protocol(std::uint32_t retiredEpoch = 0) noexcept : epoch_(retiredEpoch)
+	{}
+#else
+	Protocol() noexcept = default;
+#endif
+	Protocol(const Protocol&) = delete;
+	Protocol& operator=(const Protocol&) = delete;
+	Protocol(Protocol&&) = delete;
+	Protocol& operator=(Protocol&&) = delete;
+
 	[[nodiscard]] std::size_t dispatch(resource::Input input, resource::Output output,
 	                                   std::uint32_t now) noexcept
 	{
@@ -99,22 +199,78 @@ public:
 			return refuse();
 		const auto code = std::to_integer<unsigned>(input[0]);
 		if (code >= 1 && code <= 3) {
+#if TELEMETRY_NUCLEO_READ_MANY
+			bool initial = code == 1 && input.size() == resource::protocol::wire::listRequestSize;
+			for (std::size_t i = 1; initial && i < input.size(); ++i)
+				initial = input[i] == std::byte{0};
+			const auto result = resource::protocol::process(files_.view(), input, output);
+			// Resource validates the complete request and output capacity first.
+			// LIST cursor 0 commits a discovery boundary only after a successful
+			// reply containing at least one whole path. STAT/READ never rotate it.
+			if (initial && result.status == resource::Status::Ok &&
+			    result.written > resource::protocol::wire::chunkReplyHeaderSize)
+				advanceEpoch();
+#else
 			const auto result = resource::protocol::process(files.view(), input, output);
+#endif
 			return result.written;
 		}
 		const auto request = telemetry::protocol::encoded::parse(input);
 		if (!request || request.header.reply ||
-		    request.header.operation != telemetry::protocol::encoded::Operation::FieldRead)
+		    (request.header.operation != telemetry::protocol::encoded::Operation::FieldRead
+#if TELEMETRY_NUCLEO_READ_MANY
+		     && request.header.operation != telemetry::protocol::encoded::Operation::ReadMany
+#endif
+		     ))
 			return refuse();
+#if TELEMETRY_NUCLEO_READ_MANY
+		if (capability_.session == 0 || request.header.session != capability_.session)
+			return refuse();
+#endif
 		++status.fieldReads;
+#if TELEMETRY_NUCLEO_READ_MANY
+		// Both read operations belong to the last committed discovery epoch.
+		// Calls remain synchronous, sequential and do not promise a snapshot.
+		const auto result = telemetry::integration::encoded::dispatchEncoded(
+		    model.view(), workspace_, capability_.session, input, output, capability_);
+#else
 		// No remote session state or mailbox: every read is synchronous. The
 		// exclusive host supplies and correlates a fresh nonzero TEQ1 session.
 		const auto result = telemetry::integration::encoded::dispatchEncoded(
 		    model.view(), workspace_, request.header.session, input, output);
+#endif
 		return result ? result.written : refuse();
 	}
 
 private:
+#if TELEMETRY_NUCLEO_READ_MANY
+	void advanceEpoch() noexcept
+	{
+		if (epoch_ == UINT32_MAX) {
+			capability_ = {};
+			capabilityBytes_.fill(std::byte{0});
+			capabilityFile_ = resource::BytesFile{resource::Input{}};
+			return; // Never wrap or reuse an exhausted session.
+		}
+		++epoch_;
+		capability_ = {epoch_, descriptor.fingerprint()};
+		(void)telemetry::protocol::encoded::read_many::writeCapability(capabilityBytes_,
+		                                                               capability_);
+		capabilityFile_ = resource::BytesFile{capabilityBytes_};
+	}
+
+	std::uint32_t epoch_ = 0;
+	telemetry::protocol::encoded::read_many::Capability capability_{};
+	std::array<std::byte, telemetry::protocol::encoded::read_many::capabilityBytes>
+	    capabilityBytes_{};
+	resource::BytesFile capabilityFile_{resource::Input{}};
+	// File descriptors borrow this Protocol's provider; copying/moving would
+	// leave dangling self-pointers, so its address stays fixed for its lifetime.
+	resource::FileSystem<3> files_{
+	    resource::filesystem(resource::file("/device/version.bin", versionFile),
+	                         resource::file("/telemetry/descriptor.bin", descriptorFile),
+	                         resource::file("/telemetry/read-many.bin", capabilityFile_))};
+#endif
 	std::size_t refuse() noexcept
 	{
 		++status.refused;
