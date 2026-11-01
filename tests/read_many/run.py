@@ -108,7 +108,8 @@ def main():
                 flags += ' -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer'
                 common += ['-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined']
             common += ['-DCMAKE_CXX_FLAGS=' + flags]
-            components = 'core;encoded_server' if args.arm else 'read_many_client;encoded_backend;encoded_server;core;rpc_backend;resource'
+            components = ('core;encoded_server;read_many_client;encoded_backend' if args.arm else
+                          'read_many_client;encoded_backend;encoded_server;core;rpc_backend;resource')
             run(opt+'-package-configure', [tools['cmake'],'-S',ROOT,'-B',package,*common,
                 '-DTELEMETRY_COMPONENTS='+components,'-DCMAKE_INSTALL_PREFIX='+str(prefix)])
             run(opt+'-package-build', [tools['cmake'],'--build',package,'-j2'])
@@ -128,6 +129,14 @@ def main():
             if args.arm:
                 arm_tools = {name: tools['cxx'].with_name('arm-none-eabi-'+name+tools['cxx'].suffix)
                              for name in ('size','nm','objdump')}
+                objects = list(build.rglob('ArmClient.cpp.obj')) + list(build.rglob('ArmClient.cpp.o'))
+                if len(objects) != 1:
+                    raise RuntimeError('Missing unique Cortex-M7 client API instantiation')
+                client_symbols = run(opt+'-client-symbols', [arm_tools['nm'],'-uC',objects[0]])
+                if re.search(r'operator new|operator delete|\b(malloc|calloc|realloc|free)\b', client_symbols):
+                    raise RuntimeError('Client ARM probe references allocation')
+                report[opt+'_client_probe'] = dict(compiled=True, executed=False,
+                    object_sha256=digest(objects[0]), allocation_symbols=0)
                 for mode in ('legacy','batch'):
                     binary = build / ('read-many-'+mode)
                     sections = run(opt+'-'+mode+'-size', [arm_tools['size'],'-A',binary])

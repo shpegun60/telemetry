@@ -1,5 +1,7 @@
 # Included by the installed consumer's test project in offline mode. MIT.
-find_package(Telemetry REQUIRED COMPONENTS core encoded_server)
+find_package(Telemetry REQUIRED COMPONENTS core encoded_server read_many_client encoded_backend)
+add_library(read-many-client-probe OBJECT ArmClient.cpp)
+target_link_libraries(read-many-client-probe PRIVATE Telemetry::read_many_client Telemetry::encoded_backend)
 foreach(mode IN ITEMS legacy batch)
     add_executable(read-many-${mode} ArmProbe.cpp)
     if(mode STREQUAL "legacy")

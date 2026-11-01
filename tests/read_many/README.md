@@ -36,8 +36,11 @@ files in its existing regression suites.
 
 Offline Cortex-M7 checks build `-Os` and `-O2` selected legacy/batch roots from
 installed archives, retain ELF/map/nm/objdump/stack records, and reject heap
-symbols or batch-symbol leakage into the legacy root. The selected sections and
-individual compiler stack frames are **not** full-firmware Flash deltas or peak
+symbols or batch-symbol leakage into the legacy root. An additional object
+instantiates the optional client bind/submit/completion path without Model
+dependencies and rejects allocation symbols; its stack frames are retained too.
+The linked sections and
+compiler stack frames are **not** full-firmware Flash deltas or peak
 call-chain stack measurements. Images are never executed or flashed.
 
 `summary.json` records tool/source/log hashes, source identity, real executions,
