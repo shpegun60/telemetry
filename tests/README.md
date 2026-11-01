@@ -18,6 +18,10 @@ the existing FIFO and real Encoded/Retrying/RPC backends. Independent
 [policy and lifetime probes](dynamic_client_review/README.md) cover execution
 guards, passive completion and metadata deallocation after invalidation.
 
+The [read comparison](read_comparison/README.md) checks existing individual,
+aggregate and ValuesFile paths against the same values, with actual COBS byte
+accounting and observation-only host timings.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public
