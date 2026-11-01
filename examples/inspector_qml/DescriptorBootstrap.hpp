@@ -10,6 +10,7 @@
 
 #include <resource/protocol/Packets.hpp>
 #include <telemetry/type/WireTypes.hpp>
+#include <wire/ReadManyWire.hpp>
 #include <QtCore/QByteArray>
 #include <limits>
 #include <optional>
@@ -18,9 +19,10 @@
 namespace inspector_qml {
 class DescriptorBootstrap {
 public:
-	void reset()
+	void reset(bool requireReadMany = false)
 	{
 		*this = DescriptorBootstrap{};
+		requireReadMany_ = requireReadMany;
 	}
 
 	resource::protocol::Op operation() const noexcept
@@ -38,6 +40,13 @@ public:
 		return descriptor_;
 	}
 
+	// Owned bytes; complete() also requires their canonical TRM1 syntax when
+	// explicitly selected. The caller validates the Descriptor fingerprint.
+	const QByteArray& capability() const noexcept
+	{
+		return capability_;
+	}
+
 	resource::protocol::client::BuildResult request(std::span<std::byte> output) const noexcept
 	{
 		namespace rc = resource::protocol::client;
@@ -46,10 +55,11 @@ public:
 			return {rc::BuildStatus::BufferTooSmall, 0};
 		if (operation_ == Op::List)
 			return rc::makeList(output, cursor_);
-		if (!index_)
+		const auto index = readingCapability_ ? capabilityIndex_ : index_;
+		if (!index)
 			return {rc::BuildStatus::BufferTooSmall, 0};
-		return operation_ == Op::Stat ? rc::makeStat(output, *index_)
-		                              : rc::makeRead(output, *index_, cursor_);
+		return operation_ == Op::Stat ? rc::makeStat(output, *index)
+		                              : rc::makeRead(output, *index, cursor_);
 	}
 
 	bool accept(std::span<const std::byte> bytes)
@@ -74,25 +84,34 @@ public:
 						return false;
 					index_ = static_cast<resource::FileIndex>(index);
 				}
+				if (requireReadMany_ && path == "/telemetry/read-many.bin") {
+					if (capabilityIndex_)
+						return false;
+					capabilityIndex_ = static_cast<resource::FileIndex>(index);
+				}
 				++index;
 			}
 			if (!reply.response.eof && reply.response.next == cursor_)
 				return false;
 			cursor_ = reply.response.next;
 			if (reply.response.eof) {
-				if (!index_)
+				if (!index_ || (requireReadMany_ && !capabilityIndex_))
 					return false;
 				operation_ = Op::Stat;
 			}
 		} else if (operation_ == Op::Stat) {
 			const auto reply = rc::parseStat(bytes);
 			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok ||
-			    !resource::has(reply.response.flags, resource::FileFlag::Readable) ||
-			    reply.response.size < 64 ||
-			    reply.response.size > telemetry::Limits::maxDescriptorBytes)
+			    !resource::has(reply.response.flags, resource::FileFlag::Readable))
+				return false;
+			if (readingCapability_ ? reply.response.size !=
+			                             telemetry::protocol::encoded::read_many::capabilityBytes
+			                       : (reply.response.size < 64 ||
+			                          reply.response.size > telemetry::Limits::maxDescriptorBytes))
 				return false;
 			size_ = reply.response.size;
-			descriptor_.reserve(static_cast<qsizetype>(size_));
+			auto& destination = readingCapability_ ? capability_ : descriptor_;
+			destination.reserve(static_cast<qsizetype>(size_));
 			cursor_ = 0;
 			operation_ = Op::Read;
 		} else if (operation_ == Op::Read) {
@@ -105,10 +124,25 @@ public:
 			const auto next = reply.response.next;
 			if (reply.response.eof != (next == size_))
 				return false;
-			descriptor_.append(reinterpret_cast<const char*>(reply.response.data.data()),
+			auto& destination = readingCapability_ ? capability_ : descriptor_;
+			destination.append(reinterpret_cast<const char*>(reply.response.data.data()),
 			                   static_cast<qsizetype>(reply.response.data.size()));
 			cursor_ = next;
-			complete_ = reply.response.eof;
+			if (reply.response.eof) {
+				if (!readingCapability_ && requireReadMany_) {
+					readingCapability_ = true;
+					operation_ = Op::Stat;
+					cursor_ = 0;
+					size_ = 0;
+				} else {
+					if (readingCapability_ &&
+					    !telemetry::protocol::encoded::read_many::parseCapability(
+					        {reinterpret_cast<const std::byte*>(capability_.constData()),
+					         static_cast<std::size_t>(capability_.size())}))
+						return false;
+					complete_ = true;
+				}
+			}
 		} else {
 			return false;
 		}
@@ -116,13 +150,13 @@ public:
 	}
 
 private:
-	QByteArray descriptor_;
-	std::optional<resource::FileIndex> index_;
+	QByteArray descriptor_, capability_;
+	std::optional<resource::FileIndex> index_, capabilityIndex_;
 	resource::Cursor cursor_ = 0;
 	resource::FileSize size_ = 0;
 	unsigned pages_ = 0;
 	resource::protocol::Op operation_ = resource::protocol::Op::List;
-	bool complete_ = false;
+	bool complete_ = false, requireReadMany_ = false, readingCapability_ = false;
 };
 } // namespace inspector_qml
 #endif

@@ -1093,6 +1093,11 @@ jobs:
           python3 -B examples/nucleo_h7s3l8/tests/run.py --build-dir "$RUNNER_TEMP/nucleo-host" \
             --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/clang++-18 \
             --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Sanitized ReadMany UART discovery and real CLI through PTYs
+        run: |
+          python3 -B tests/read_many_serial/run.py --build-dir "$RUNNER_TEMP/read-many-serial" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
+            --cxx clang++-18 --sanitize --cmake cmake --ninja ninja
       - name: Compare installed read paths and actual framed traffic
         run: |
           python3 -B tests/read_comparison/run.py --build-dir "$RUNNER_TEMP/read-comparison-gcc" \
@@ -1120,6 +1125,7 @@ jobs:
             ${{ runner.temp }}/inspector-tcp/
             ${{ runner.temp }}/inspector-serial/
             ${{ runner.temp }}/nucleo-host/
+            ${{ runner.temp }}/read-many-serial/
             ${{ runner.temp }}/read-comparison-gcc/
             ${{ runner.temp }}/read-comparison-sanitized/
             ${{ runner.temp }}/read-many-mapping-gcc/

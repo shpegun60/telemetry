@@ -21,7 +21,7 @@ must use the offline mock controls below instead of physical tools or ports.
 `CheckRunner.ps1` is safe for ordinary Windows CI: it uses file-backed mock
 executables and shadows PnP enumeration. It does **not** invoke CubeProgrammer,
 ARM tools, Qt, ST-LINK, USB or COM. Its only build dependency is the Windows .NET
-Framework C# compiler. The valid ARM ELF fixture is generated locally; no board or
+Framework C# compiler and Python 3. The valid ARM ELF fixture is generated locally; no board or
 previous firmware artifact is needed.
 
 ```powershell
@@ -38,6 +38,18 @@ images. Invalid ELF must be rejected before any external tool command. Mock
 receipts are explicitly marked as simulations; they are not hardware evidence.
 The summary binds results to the current hardware runner, control source, mock
 source/executable and generated ELF hashes.
+
+The suite retains those twelve Inspector controls and adds nineteen ReadMany
+controls: a valid frozen CLI/report, missing or malformed reports, a false result,
+missing batch sizes, altered hashes/capabilities/sessions, incomplete recovery,
+invalid item statuses, duplicate IDs, incorrect mixed results, owned-process
+timeout, a failing CLI exit, partial programming, successful restoration retry,
+failed restoration, wrong readback, and mutually exclusive checker arguments. The thirty-one runner controls
+also execute the report verifier's in-memory positive and negative controls.
+
+```sh
+python -B tests/nucleo_h7s3l8/VerifyReadManyEvidence.py --self-test
+```
 
 ## Physical board run
 
@@ -64,6 +76,53 @@ available beside it or through its usual environment.
 Use `-ValidateOnly` for an offline ELF/tool/input check. This mode does not list or
 connect to ST-LINK, enumerate/open COM, reset, back up or program a board. Its
 receipt explicitly does not claim hardware qualification.
+
+## Explicit ReadMany qualification
+
+The separate `-ReadManyExe` parameter set selects the UART CLI. It cannot be
+combined with `-GuiExe`; this mode performs no Inspector/QML invocation. It uses
+the same fixed board identity, full internal-flash backup and `finally` restore
+with independent readback as the Inspector mode.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/nucleo_h7s3l8/RunHardware.ps1 `
+  -Elf C:\external-build\nucleo\telemetry-nucleo-h7s3.elf `
+  -ReadManyExe C:\external-build\read-many\telemetry-read-many-uart.exe `
+  -CobsRoot C:\Users\admin\Documents\my_workspace\Qt\COBS `
+  -ExternalOutput C:\external-evidence\nucleo-read-many-unique-run
+```
+
+The runner snapshots the CLI executable and records its original/frozen hashes.
+The frozen copy runs with the original executable directory on its child process
+PATH so its Qt runtime remains available. Source hashes include the CLI, serial
+transport/bootstrap, firmware profile and library sources, and are compared again
+after restoration. The input ELF/tool checks and `-ValidateOnly` also work with
+this parameter set. `-ReadManyTimeoutSeconds` bounds the owned CLI process;
+`-Python` can explicitly select the independent report verifier's interpreter.
+`-CobsRoot` is mandatory for ReadMany: the receipt binds the external COBS
+`src` and `libs/spsc` source hashes to the read-only `rev-parse HEAD` identity,
+checked again after restoration. The offline suite substitutes a file-only
+COBS source fixture and mock Git executable for these operations.
+
+`VerifyReadManyEvidence.py` requires the CLI's schema-1
+`nucleo-h7s3l8-read-many` report, exact port/115200 baud, canonical 24-byte `TRM1`
+capability, a descriptor SHA-256, and strictly increasing nonzero sessions. The
+four cases must be exactly 8, 12, 16 and 32 items. It independently parses each
+canonical reply body, validates unique IDs, item statuses/lengths and raw byte
+SHA-256, and checks payload byte counts. The mixed body must contain two OK items
+and one Unavailable item. All timeout, callback, stale binding, late reply,
+reconnect, same-peer bootstrap and TX-release proof flags are required.
+
+Verify a retained report or complete local runner evidence without hardware:
+
+```sh
+python -B tests/nucleo_h7s3l8/VerifyReadManyEvidence.py --report C:/external-evidence/read-many-report.json
+python -B tests/nucleo_h7s3l8/VerifyReadManyEvidence.py --receipt C:/external-evidence/nucleo-read-many-unique-run
+```
+
+The latter also checks frozen source/executable identity, recorded command/log
+hashes, and original/restored flash hashes. These checks establish consistency of
+the retained evidence; invoking the verifier does not perform a new board run.
 
 ## What the runner verifies
 

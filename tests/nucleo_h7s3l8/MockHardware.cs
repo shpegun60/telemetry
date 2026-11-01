@@ -2,6 +2,8 @@
 // Offline fault injection only. No USB/SWD/COM APIs or external tools are used.
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 internal static class MockHardware
 {
@@ -12,6 +14,15 @@ internal static class MockHardware
         string calls = Environment.GetEnvironmentVariable("TELEMETRY_MOCK_CALLS");
         string executable = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
         File.AppendAllText(calls, executable + " " + String.Join(" ", arguments) + "\n");
+        if (executable == "MockGit.exe")
+        {
+            if (arguments.Length == 4 && arguments[0] == "-C" && arguments[2] == "rev-parse" && arguments[3] == "HEAD")
+            {
+                Console.WriteLine(new string('1', 40));
+                return 0;
+            }
+            return 93;
+        }
         if (executable.StartsWith("arm-none-eabi-objcopy", StringComparison.Ordinal))
             return ConvertElf(arguments);
         if (executable.StartsWith("arm-none-eabi-", StringComparison.Ordinal))
@@ -21,6 +32,8 @@ internal static class MockHardware
         }
         if (executable == "MockGui.exe")
             return Gui(arguments, mode);
+        if (executable == "MockReadMany.exe" || executable == "tested-read-many.exe")
+            return ReadMany(arguments, mode);
         if (Array.IndexOf(arguments, "--version") >= 0)
         {
             Console.WriteLine("OFFLINE MOCK programmer; no hardware");
@@ -52,6 +65,11 @@ internal static class MockHardware
             bool restore = Path.GetFileName(arguments[write + 1]).StartsWith("original-");
             if (restore && mode == "restorefail")
                 return 8;
+            if (restore && mode == "readmany-restore-retry" && !File.Exists(flash + ".restore-attempted"))
+            {
+                File.WriteAllText(flash + ".restore-attempted", "offline first restore attempt");
+                return 8;
+            }
             byte[] image = File.ReadAllBytes(arguments[write + 1]);
             byte[] bytes = new byte[65536];
             for (int i = 0; i < bytes.Length; ++i)
@@ -122,5 +140,105 @@ internal static class MockHardware
         }
         File.WriteAllBytes(arguments[arguments.Length - 1], output);
         return 0;
+    }
+
+    private static string Hex(byte[] bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
+    }
+
+    private static string Sha(byte[] bytes)
+    {
+        using (SHA256 hash = SHA256.Create())
+            return Hex(hash.ComputeHash(bytes));
+    }
+
+    private static byte[] Reply(int count, bool mixed, string mode)
+    {
+        using (MemoryStream stream = new MemoryStream())
+        using (BinaryWriter writer = new BinaryWriter(stream))
+        {
+            writer.Write((ushort)count);
+            for (int index = 0; index < count; ++index)
+            {
+                uint id = (uint)(index + 1);
+                if (mode == "readmany-duplicate" && index == 1)
+                    id = 1;
+                byte status = (byte)(mixed && index == 1 ? 3 : 0);
+                if (mode == "readmany-status" && index == 0)
+                    status = 3;
+                writer.Write(id);
+                writer.Write(status);
+                writer.Write((byte)0);
+                writer.Write((ushort)(status == 0 ? 4 : 0));
+                if (status == 0)
+                    writer.Write((uint)index);
+            }
+            return stream.ToArray();
+        }
+    }
+
+    private static int ReadMany(string[] arguments, string mode)
+    {
+        if (Array.IndexOf(arguments, "--smoke") >= 0 || Array.IndexOf(arguments, "--check-device") >= 0)
+            return 91; // A ReadMany run must never enter the old GUI path.
+        int reportIndex = Array.IndexOf(arguments, "--report");
+        if (reportIndex < 0 || reportIndex + 1 >= arguments.Length)
+            return 92;
+        if (mode == "readmany-timeout")
+            System.Threading.Thread.Sleep(60000);
+        if (mode == "readmany-missing")
+            return 0;
+        string output = arguments[reportIndex + 1];
+        if (mode == "readmany-badjson")
+        {
+            File.WriteAllText(output, "{invalid");
+            return 0;
+        }
+        byte[] capability = new byte[24];
+        Array.Copy(Encoding.ASCII.GetBytes("TRM1"), capability, 4);
+        capability[4] = 1; capability[5] = 32; capability[6] = 1; capability[7] = 1;
+        Array.Copy(BitConverter.GetBytes((ushort)130), 0, capability, 8, 2);
+        Array.Copy(BitConverter.GetBytes((ushort)514), 0, capability, 10, 2);
+        Array.Copy(BitConverter.GetBytes((uint)2), 0, capability, 12, 4);
+        Array.Copy(BitConverter.GetBytes((ulong)123), 0, capability, 16, 8);
+        if (mode == "readmany-capability")
+            capability[0] = 0;
+        StringBuilder json = new StringBuilder("{\"schema\":1,\"profile\":\"nucleo-h7s3l8-read-many\",\"passed\":");
+        json.Append(mode == "readmany-failed" ? "false" : "true");
+        json.Append(",\"port\":\"COM6\",\"baud\":115200,\"capabilityHex\":\"").Append(Hex(capability));
+        json.Append("\",\"descriptorSha256\":\"").Append(new string('a', 64));
+        json.Append("\",\"sessions\":").Append(mode == "readmany-session" ? "[2,2]" : "[1,2]");
+        json.Append(",\"cases\":[");
+        int[] counts = { 8, 12, 16, 32 };
+        for (int at = 0; at < counts.Length; ++at)
+        {
+            if (mode == "readmany-counts" && at == counts.Length - 1)
+                break;
+            if (at != 0)
+                json.Append(',');
+            int count = counts[at];
+            byte[] raw = Reply(count, false, mode);
+            json.Append("{\"count\":").Append(count).Append(",\"passed\":true,\"rawHex\":\"").Append(Hex(raw));
+            json.Append("\",\"sha256\":\"").Append(mode == "readmany-hash" ? new string('0', 64) : Sha(raw));
+            json.Append("\",\"elapsedMs\":1,\"requestBytes\":").Append(2 + 4 * count);
+            json.Append(",\"replyBytes\":").Append(raw.Length).Append('}');
+        }
+        byte[] mixed = Reply(3, true, "pass");
+        json.Append("],\"mixed\":{\"passed\":true,\"ok\":").Append(mode == "readmany-mixed" ? 3 : 2);
+        json.Append(",\"unavailable\":1,\"rawHex\":\"").Append(Hex(mixed));
+        json.Append("\",\"sha256\":\"").Append(Sha(mixed)).Append("\"},\"lifecycle\":{");
+        string[] lifecycle = { "preHandoffTimeout", "preparedTimeout", "callbacksOnce", "lateReplyRejected",
+            "reconnect", "staleBindingRejected", "noReplay", "sessionIncreased", "txReleased", "bootstrapComplete", "samePeer" };
+        for (int at = 0; at < lifecycle.Length; ++at)
+        {
+            if (at != 0)
+                json.Append(',');
+            json.Append('"').Append(lifecycle[at]).Append("\":");
+            json.Append(mode == "readmany-recovery" && lifecycle[at] == "lateReplyRejected" ? "false" : "true");
+        }
+        json.Append("}}");
+        File.WriteAllText(output, json.ToString());
+        return mode == "readmany-exit" ? 9 : 0;
     }
 }

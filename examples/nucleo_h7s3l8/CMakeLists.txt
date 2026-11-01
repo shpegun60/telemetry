@@ -1,6 +1,7 @@
 # Standalone internal-Flash NUCLEO-H7S3L8 image; no RTOS/Qt/vendor copy. MIT.
 cmake_minimum_required(VERSION 3.21)
 project(TelemetryNucleoH7S3 LANGUAGES C CXX ASM)
+option(NUCLEO_ENABLE_READ_MANY "Enable the optional TRM1 scalar ReadMany demonstration" OFF)
 foreach(required COBS_ROOT STM32_CUBE_ROOT)
   file(TO_CMAKE_PATH "${${required}}" normalized)
   set(${required} "${normalized}")
@@ -26,6 +27,12 @@ add_executable(telemetry-nucleo-h7s3 main.cpp board.c runtime.cpp ${HAL_SOURCES}
   "${TELEMETRY_ROOT}/lib/telemetry/model/Adapter.cpp"
   "${TELEMETRY_ROOT}/lib/resource/protocol/Protocol.cpp"
   "${TELEMETRY_ROOT}/lib/integration/encoded/Dispatcher.cpp")
+if(NUCLEO_ENABLE_READ_MANY)
+  target_sources(telemetry-nucleo-h7s3 PRIVATE
+    "${TELEMETRY_ROOT}/lib/telemetry/encoded/ReadMany.cpp"
+    "${TELEMETRY_ROOT}/lib/integration/encoded/ReadManyDispatcher.cpp")
+  target_compile_definitions(telemetry-nucleo-h7s3 PRIVATE TELEMETRY_NUCLEO_READ_MANY=1)
+endif()
 set_target_properties(telemetry-nucleo-h7s3 PROPERTIES SUFFIX ".elf" C_STANDARD 11 CXX_STANDARD 20)
 target_compile_definitions(telemetry-nucleo-h7s3 PRIVATE USE_HAL_DRIVER STM32H7S3xx
   TINY_DELEGATE_ENABLE_HEAP_FALLBACK=0 UART_ENGINE_MAX_INSTANCES=1)

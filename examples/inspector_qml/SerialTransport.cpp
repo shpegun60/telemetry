@@ -73,6 +73,7 @@ struct SerialTransport::Impl {
 	std::uint32_t baudRate = 115200;
 	std::size_t stagedRequestBytes = 0, stagedResponseBytes = 0;
 	bool open = false, admitted = false, awaiting = false, handling = false;
+	bool discoverReadMany = false;
 
 	int exchangeTimeout(std::size_t requestBytes, std::size_t responseBytes) const noexcept
 	{
@@ -279,7 +280,7 @@ void SerialTransport::connectTo(const QString& name, qint32 baud)
 {
 	impl_->close();
 	impl_->identity.clear();
-	impl_->discovery.reset();
+	impl_->discovery.reset(impl_->discoverReadMany);
 	impl_->port.setPortName(name);
 	if (name.trimmed().isEmpty() || baud < qint32(inspector_serial::minBaudRate) ||
 	    baud > qint32(inspector_serial::maxBaudRate) || !impl_->port.setBaudRate(baud) ||
@@ -334,6 +335,16 @@ void SerialTransport::connectTo(const QString& name, qint32 baud)
 	impl_->later(0, [state = impl_.get()] {
 		state->bootstrap();
 	});
+}
+
+void SerialTransport::setReadManyDiscovery(bool enabled) noexcept
+{
+	impl_->discoverReadMany = enabled;
+}
+
+QByteArray SerialTransport::readManyCapability() const
+{
+	return ready() ? impl_->discovery.capability() : QByteArray{};
 }
 
 void SerialTransport::close()

@@ -24,7 +24,7 @@ TCP stream framing, RPC header, new wire operation or automatic resend.
 
 The supported profile is one exclusive, sequential host: one outstanding
 exchange and no later bytes from a retired producer after fresh bootstrap starts.
-The device accepts only Resource LIST/STAT/READ and TEQ1 FieldRead. Resource
+The default profile accepts only Resource LIST/STAT/READ and TEQ1 FieldRead. Resource
 WRITE and TEQ1 FieldWrite/Command/Service are dropped before provider/Model dispatch.
 The Model itself has no Commands or Services and all Fields are read-only.
 
@@ -33,7 +33,7 @@ It does not dispatch while any of these remain: the UART's physical TX borrow,
 the COBS endpoint's unreclaimed TX lease, or its single pending reply. A fresh
 LIST therefore cannot overtake old published RX work or old UART transmission.
 Providers execute synchronously; there is no deferred work or execution queue.
-The server has no pinned TCP-style session: a valid read uses the current
+The default profile has no pinned TCP-style session: a valid read uses the current
 request's nonzero TEQ1 session, and the host correlates its response.
 
 A fresh **validated bootstrap transcript**, including LIST, can establish an
@@ -115,6 +115,63 @@ allocator symbol fails qualification. `.su` rows describe individual compiler
 frames, not measured maximum stack including nested interrupts.
 This script never opens a serial port, invokes ST-LINK or programs a board.
 
+## Optional scalar ReadMany profile
+
+The default build preserves the four-Field Inspector demonstration above.
+Pass `Build.ps1 -ReadMany` (or CMake `-DNUCLEO_ENABLE_READ_MANY=ON`) to compile
+`TELEMETRY_NUCLEO_READ_MANY=1` and the two optional ReadMany server sources.
+The opt-in firmware also accepts read-only TEQ1 opcode 5; mutation operations
+remain refused. It uses the same UART, COBS endpoint, fixed pools and loop.
+
+This profile appends `/telemetry/read-many.bin` as ordinary Resource file index
+2; Descriptor remains index 1. Discover both paths with LIST and read their full
+STAT-reported sizes using cursor READ. The capability has canonical 24-byte TRM1
+bytes with the current Descriptor fingerprint, 32-item limit, 130-byte request
+payload limit and 514-byte reply payload limit. No new Resource tag is added.
+
+Before discovery the capability file is empty and both FieldRead and ReadMany
+are refused. A validated successful LIST at cursor 0 that returns at least one
+whole path advances the Protocol-owned discovery epoch and publishes it as the
+capability session. Malformed LIST, insufficient reply space and nonzero LIST
+cursors never advance it. STAT and READ freeze the advertised bytes. Both read
+operations must carry this session; another successful initial LIST retires the
+old one. Epoch UINT32_MAX is usable once; the next initial LIST empties the
+capability and permanently closes read admission for that Protocol instance.
+It never wraps or reuses a session within that instance.
+
+Protocol owns its capability bytes, BytesFile and file table at stable addresses
+and cannot be copied or moved. The optional `Protocol(retiredEpoch)` constructor
+can seed a restored last epoch; the demonstration starts at zero. This is an
+in-process discovery boundary, with no persistent boot identity promise. The
+same exclusive sequential host and validated bootstrap drain conditions above
+still apply. The UART borrow, unreclaimed COBS lease and pending-reply gate keep
+old published work ahead of the next initial LIST.
+
+The original four Field IDs remain unchanged. Catalogs 2 through 5 append:
+
+| Catalog | Fields | Native values for index i |
+| --- | --- | --- |
+| `batch32` | `U32_0` ... `U32_7` | U32 `0x10203040 + i * 0x01010101` |
+| `batch64` | `U64_0` ... `U64_7` | U64 `UINT64_MAX - i * 0x0102030405060708` |
+| `flags` | `Bool_0` ... `Bool_7` | Bool `i % 2 == 0` |
+| `modes` | `Mode_0` ... `Mode_6` | Signed int16 enum code `-2-i` |
+| `modes` | `Unavailable` | Signed int16 enum with an empty owner slot |
+
+Counter plus the 31 new readable getters provide exactly **32 readable scalar
+Field IDs**. Unavailable is a separate scalar-typed ID; the three original
+structured Fields remain available through FieldRead. There are 36 Field IDs
+total. Nested struct/array members do not acquire separate Field IDs. Batch
+sampling is sequential and does not promise an atomic snapshot. `fieldReads`
+counts accepted read dispatches, so one batch increments it once; the fixture's
+`calls` counter separately counts actual new scalar getter invocations.
+
+Complete maximum TEQ1 bodies are 162 request bytes and 546 reply bytes, already
+within the shared 2048-byte COBS body limit. Their worst-case physical sizes are
+168 and 554 bytes including length, CRC and COBS framing. At 115200 baud, 8N1,
+their combined airtime ceiling is 63 ms before scheduling allowance. Use the
+existing `exchangeTimeoutMs(162, 546, baud, marginMs)` for a finite exchange
+budget. DMA and endpoint leases remain owned through physical UART release.
+
 ## Host contract checks
 
 ```powershell
@@ -133,6 +190,15 @@ hold the COBS lease, proving a queued LIST cannot bypass either. An old read is
 completed before fresh LIST. Other cases verify Descriptor discovery/bytes,
 refusal of every mutation operation, corrupt CRC, truncated-frame gap recovery,
 new sessions and no automatic retry after TX-start refusal.
+
+The same runner also builds and executes the opt-in profile. Its maintained
+checks cover 8/12/16/32 cross-catalog batches, exact scalar bytes against owned
+FieldRead baselines, per-item failures, preflight before getters, paginated
+Descriptor reads, capability/epoch stability and exhaustion, and the same real
+COBS CRC, gap recovery and independent physical-TX/lease barriers. ReadError is
+injected only into a host-side copied erased row; the firmware's native typed
+getters do not expose a partial-read failure API. These offline checks do not
+replace hardware measurements or alter the retained default-profile receipts.
 
 Hardware qualification is separate: verify board identity and backup first,
 program only under explicit authorization, use the actual VCP device name,
