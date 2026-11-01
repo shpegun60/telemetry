@@ -1,0 +1,26 @@
+{
+    "schema":  1,
+    "source_commit":  "549d1a1837de8a49cf352caf4fec98665d62e8f5",
+    "board":  {
+                  "serial":  "002A001F3033510135393935",
+                  "board":  "NUCLEO-H7S3L8",
+                  "device_id":  "0x485",
+                  "flash_bytes":  65536,
+                  "port":  "COM6"
+              },
+    "baud":  115200,
+    "qualification_passed":  true,
+    "original_flash_bytes":  65536,
+    "original_flash_sha256":  "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+    "restored_flash_sha256":  "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+    "runner_receipt_sha256":  "2ea1f0ac82a9499854d5d04299d51c136a3e3f9a6ef5ea2aa6b05d6847c68bab",
+    "report_sha256":  "ed0bb21ffe4774f4a75d39037ad7a12359f78cb2d3dd43deb8704462fdc28b27",
+    "elf_sha256":  "f91ca336f6a55cfec1473ffa25546467f1ba25b743be7fc4fa7f371b625fede4",
+    "source_inventories_unchanged":  true,
+    "full_private_evidence":  "Original Flash backup, independent restored readback, ELF, executable, source inventories and all command logs are retained outside the repository.",
+    "limitations":  [
+                        "Single qualification run, not a latency distribution",
+                        "No sustained DMA/cache endurance or physical cable disconnect",
+                        "Retained report verification is not a new physical board run"
+                    ]
+}
