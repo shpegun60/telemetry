@@ -19,7 +19,9 @@
 namespace inspector_qml {
 
 using Inspector = telemetry::integration::inspector::InspectorModel<8, 4096, 65536>;
-using Workbench = telemetry::integration::workbench::WorkbenchModel<8, 4096, 65536>;
+// ReadMany copies its bounded binding into the existing FIFO completion slot.
+// This opt-in GUI budget does not change the portable Workbench default.
+using Workbench = telemetry::integration::workbench::WorkbenchModel<8, 4096, 65536, 768>;
 
 // All calls run on the Inspector owner thread. The Inspector object must outlive
 // these models. Materialized labels and values are Qt-owned copies; the controller

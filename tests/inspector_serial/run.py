@@ -135,7 +135,13 @@ def main():
             raise RuntimeError('Native build-only serial checks did not execute')
         report['executions'] = dict(checks=checks, reads=reads, admissions=admissions, pty=bool(pty))
         report['qt_version'] = counted[5]
-        report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (exe, gui)}
+        watch = build / ('telemetry_inspector_serial_watchlist_check' + ('.exe' if os.name == 'nt' else ''))
+        watched = run('watchlist', [watch])
+        marker = re.search(r'Inspector Serial Watchlist checks=(\d+) pty=1 batches=4 sessions=2 malformed=1 Qt=(\S+)', watched)
+        if os.name != 'nt' and (not marker or int(marker[1]) < 100 or marker[2] != counted[5]):
+            raise RuntimeError('Actual Watchlist UART discovery, batch and recovery checks did not execute')
+        report['executions']['watchlist_pty'] = bool(marker)
+        report['binary_sha256'] = {str(path.relative_to(output)): digest(path) for path in (exe, gui, watch)}
         if os.name != 'nt':
             phase = re.search(r'Inspector Serial pre-handoff timeout: busy=(\d+) connected=(\d+) '
                               r'recovery=(\d+) fieldReads=(\d+)', runtime)

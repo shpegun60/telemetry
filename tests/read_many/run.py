@@ -108,8 +108,8 @@ def main():
                 flags += ' -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer'
                 common += ['-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined']
             common += ['-DCMAKE_CXX_FLAGS=' + flags]
-            components = ('core;encoded_server;read_many_client;encoded_backend' if args.arm else
-                          'read_many_client;encoded_backend;encoded_server;core;rpc_backend;resource')
+            components = ('core;encoded_server;read_many_client;read_many_workbench;encoded_backend' if args.arm else
+                          'read_many_workbench;read_many_client;encoded_backend;encoded_server;core;rpc_backend;resource')
             run(opt+'-package-configure', [tools['cmake'],'-S',ROOT,'-B',package,*common,
                 '-DTELEMETRY_COMPONENTS='+components,'-DCMAKE_INSTALL_PREFIX='+str(prefix)])
             run(opt+'-package-build', [tools['cmake'],'--build',package,'-j2'])
@@ -137,6 +137,14 @@ def main():
                     raise RuntimeError('Client ARM probe references allocation')
                 report[opt+'_client_probe'] = dict(compiled=True, executed=False,
                     object_sha256=digest(objects[0]), allocation_symbols=0)
+                workbench_objects = list(build.rglob('ArmWorkbench.cpp.obj')) + list(build.rglob('ArmWorkbench.cpp.o'))
+                if len(workbench_objects) != 1:
+                    raise RuntimeError('Missing unique Cortex-M7 Workbench bridge instantiation')
+                workbench_symbols = run(opt+'-workbench-symbols', [arm_tools['nm'],'-uC',workbench_objects[0]])
+                if re.search(r'operator new|operator delete|\b(malloc|calloc|realloc|free)\b', workbench_symbols):
+                    raise RuntimeError('Workbench ARM probe references allocation')
+                report[opt+'_workbench_probe'] = dict(compiled=True, executed=False,
+                    object_sha256=digest(workbench_objects[0]), allocation_symbols=0)
                 for mode in ('legacy','batch'):
                     binary = build / ('read-many-'+mode)
                     sections = run(opt+'-'+mode+'-size', [arm_tools['size'],'-A',binary])
@@ -152,20 +160,34 @@ def main():
                         binary_sha256=digest(binary), note='Selected roots, not whole firmware delta or peak stack'))
             else:
                 suffix = '.exe' if os.name == 'nt' else ''
-                for name, floor in (('Wire',7058),('Server',324),('Client',1196),('NoHeap',1196)):
+                for name, floor in (('Wire',7058),('Server',324),('Client',1196),('NoHeap',1196),
+                                    ('Workbench', 300), ('WorkbenchNoHeap', 300)):
                     output = run('execute-'+name, [*execution,build/('read-many-'+name+suffix)])
                     match = re.search(r'(?:checks=|: )(\d+)(?: checks, 0 failures| failures=0)',output)
                     if not match or int(match[1]) < floor: raise RuntimeError(name+': check floor not reached')
                     report['executions'][name] = int(match[1])
                 for control in ('new','aligned_new','malloc','calloc','realloc','free'):
                     run('noheap-'+control, [*execution,build/('read-many-NoHeap'+suffix),control],expected=86)
-                report['negative_allocation_controls'] = 6
+                    run('workbench-noheap-'+control,
+                        [*execution,build/('read-many-WorkbenchNoHeap'+suffix),control],expected=86)
+                report['negative_allocation_controls'] = 12
                 # Use the installed include closure, with source roots solely for the test fixture.
                 includes = [arg for path in sorted((moved/'include').iterdir()) for arg in ('-I',path)]
                 for macro in ('READ_MANY_CALLBACK_TOO_SMALL','READ_MANY_FORGE'):
                     output = run('negative-'+macro, [tools['cxx'],'-std=c++20',*includes,'-D'+macro,
                                  '-fsyntax-only',HERE/'Client.cpp'],expected='nonzero')
                     if ('640' if macro.endswith('SMALL') else 'private') not in output:
+                        raise RuntimeError('Unrelated compile failure for '+macro)
+                for macro, marker in (
+                        ('READ_MANY_WORKBENCH_CORE', 'core'),
+                        ('READ_MANY_WORKBENCH_CLIENT', 'client'),
+                        ('READ_MANY_WORKBENCH_PRIVATE', 'private'),
+                        ('READ_MANY_WORKBENCH_CALLBACK_TOO_SMALL', 'CallbackBytes'),
+                        ('READ_MANY_WORKBENCH_THROWING_CALLBACK', 'noexcept'),
+                        ('READ_MANY_WORKBENCH_NULL_CALLBACK', 'noexcept')):
+                    output = run('negative-'+macro, [tools['cxx'],'-std=c++20',*includes,'-D'+macro,
+                                 '-fsyntax-only',HERE/'WorkbenchNegative.cpp'],expected='nonzero')
+                    if marker not in output:
                         raise RuntimeError('Unrelated compile failure for '+macro)
                 example = root / 'example'
                 run('example-configure', [tools['cmake'],'-S',ROOT/'examples/read_many','-B',example,*common,config])

@@ -49,6 +49,11 @@ ApplicationWindow {
                 enabled: controller.writeProfileSupported && !controller.busy
                 onToggled: controller.writesEnabled = checked
             }
+            Button {
+                objectName: "readManyDemoButton"
+                text: "ReadMany demo"
+                onClicked: controller.connectReadManyDemo()
+            }
             Label {
                 visible: controller.connected && !controller.writeProfileSupported
                 text: "This transport profile is read-only."
@@ -107,6 +112,13 @@ ApplicationWindow {
                 enabled: serialPort.editText.length > 0 && !controller.busy
                 onClicked: controller.connectSerial(serialPort.editText, serialBaud.value)
             }
+        }
+        CheckBox {
+            objectName: "readManyDiscoveryCheck"
+            visible: controller.serialAvailable
+            text: "Discover ReadMany on the next UART connection"
+            checked: controller.readManyDiscovery
+            onToggled: controller.readManyDiscovery = checked
         }
         RowLayout {
             Layout.fillWidth: true
@@ -381,6 +393,109 @@ ApplicationWindow {
                         wrapMode: Text.Wrap
                         Layout.fillWidth: true
                     }
+                }
+            }
+        }
+        Pane {
+            objectName: "watchlistPane"
+            Layout.fillWidth: true
+            Layout.preferredHeight: watchPanelExpanded.checked ? 220 : 54
+            background: Rectangle { color: "#17202b"; radius: 10 }
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 6
+                RowLayout {
+                    Layout.fillWidth: true
+                    CheckBox {
+                        id: watchPanelExpanded
+                        objectName: "watchlistExpanded"
+                        text: "Watchlist " + controller.watchCount + "/32"
+                        checked: false
+                    }
+                    Button {
+                        objectName: "addWatchButton"
+                        text: "Add selected Field"
+                        enabled: controller.canAddWatch && !controller.watchPending
+                        onClicked: {
+                            if (controller.addWatch())
+                                watchPanelExpanded.checked = true
+                        }
+                    }
+                    Button {
+                        objectName: "refreshWatchButton"
+                        text: "Read once"
+                        enabled: controller.connected && controller.watchCount > 0 && !controller.watchPending
+                        onClicked: controller.refreshWatch()
+                    }
+                    Button {
+                        objectName: "startWatchButton"
+                        text: controller.watchRunning ? "Stop" : "Start polling"
+                        enabled: controller.watchRunning || (controller.connected && controller.watchCount > 0 && !controller.watchPending)
+                        onClicked: controller.watchRunning ? controller.stopWatch() : controller.startWatch()
+                    }
+                    Label { text: controller.watchPending ? "Reading…" : controller.watchStatus; color: "#99abbf"; elide: Text.ElideRight; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.maximumWidth: 330 }
+                }
+                RowLayout {
+                    visible: watchPanelExpanded.checked
+                    Layout.fillWidth: true
+                    ComboBox {
+                        objectName: "watchMode"
+                        Layout.preferredWidth: 210
+                        model: ["ReadMany", "Individual FieldRead"]
+                        currentIndex: controller.watchIndividual ? 1 : 0
+                        enabled: !controller.watchRunning && !controller.watchPending
+                        onActivated: controller.watchIndividual = currentIndex === 1
+                    }
+                    Label { text: "Frequency"; color: "#99abbf" }
+                    SpinBox {
+                        objectName: "watchFrequency"
+                        from: 1
+                        to: 10
+                        value: Math.max(1, Math.min(10, Math.round(1000 / controller.watchIntervalMs)))
+                        enabled: !controller.watchRunning && !controller.watchPending
+                        onValueModified: controller.watchIntervalMs = Math.round(1000 / value)
+                    }
+                    Label { text: "Hz · scalar Fields only · sequential samples"; color: "#99abbf"; Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight }
+                    Button {
+                        objectName: "clearWatchButton"
+                        text: "Clear"
+                        enabled: controller.watchCount > 0 && !controller.watchPending
+                        onClicked: controller.clearWatch()
+                    }
+                }
+                ListView {
+                    id: watchList
+                    objectName: "watchlistView"
+                    visible: watchPanelExpanded.checked
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    model: controller.watchlist
+                    clip: true
+                    delegate: Item {
+                        id: watchRow
+                        objectName: "watchlistRow"
+                        required property int index
+                        required property string name
+                        required property string status
+                        required property string text
+                        width: watchList.width
+                        height: 34
+                        RowLayout {
+                            anchors.fill: parent
+                            Label { text: watchRow.name; Layout.preferredWidth: Math.min(260, watchList.width / 3); elide: Text.ElideMiddle }
+                            Label { text: watchRow.text; font.family: "monospace"; color: "#83e1ce"; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Label { text: watchRow.status; color: "#99abbf" }
+                            Button {
+                                objectName: "removeWatchButton"
+                                property int watchRowIndex: watchRow.index
+                                text: "Remove"
+                                enabled: !controller.watchPending
+                                onClicked: controller.removeWatch(watchRow.index)
+                            }
+                        }
+                    }
+                    ScrollBar.vertical: ScrollBar {}
+                    Label { anchors.centerIn: parent; visible: controller.watchCount === 0; text: "Select a scalar Field and add it to the watchlist."; color: "#718297" }
                 }
             }
         }

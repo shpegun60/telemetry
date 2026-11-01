@@ -195,6 +195,15 @@ def main():
         report['executions']['service_checks'] = int(service_counts[1])
         report['executions']['service_keyboard_mouse_no_enter'] = 1
         report['service_screenshot'] = screenshot_record(service_screenshot)
+        watch_check = build / ('telemetry_inspector_qml_watchlist_check' + suffix)
+        watch_screenshot = output / 'watchlist-window.png'
+        watched = run('qml-watchlist', [watch_check, '--screenshot', watch_screenshot])
+        watch_counts = re.search(r'Inspector Watchlist checks=(\d+) limit=32 exact=1 '
+                                 r'skippedTicks=1 fallback=1 qml=1 Qt=(\S+)', watched)
+        if not watch_counts or int(watch_counts[1]) < 100 or watch_counts[2] != counts[3]:
+            raise RuntimeError('Watchlist did not prove bounded polling, exact values and explicit fallback')
+        report['executions']['watchlist_checks'] = int(watch_counts[1])
+        report['watchlist_screenshot'] = screenshot_record(watch_screenshot)
         app = build / 'example' / ('telemetry-inspector-qml' + suffix)
         screenshot = output / 'window.png'
         smoke = run('qml-smoke', [app, '--smoke', '--screenshot', screenshot])
@@ -211,7 +220,7 @@ def main():
         report['executions']['offscreen_edit_smoke'] = 1
         report['edit_screenshot'] = screenshot_record(edit_screenshot)
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path)
-                                  for path in (check, physical_input, command_check, service_check, app)}
+                                  for path in (check, physical_input, command_check, service_check, watch_check, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}
         report['source_sha256_after'] = sources()

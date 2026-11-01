@@ -1,5 +1,5 @@
 # Module-specific include roots also apply to in-tree builds. MIT.
-set(_telemetry_modules delegate common reflection codec core runtime dynamic_client read_many_client inspector workbench resource resource_wire resource_protocol
+set(_telemetry_modules delegate common reflection codec core runtime dynamic_client read_many_client inspector workbench read_many_workbench resource resource_wire resource_protocol
     client encoded_wire rpc_wire resource_adapter encoded_server rpc_server rpc_sessions
     encoded_backend rpc_client rpc_backend tcp_server)
 set(_telemetry_selected ${TELEMETRY_COMPONENTS})
@@ -13,6 +13,7 @@ set(_telemetry_deps_dynamic_client runtime client)
 set(_telemetry_deps_read_many_client dynamic_client encoded_wire)
 set(_telemetry_deps_inspector dynamic_client)
 set(_telemetry_deps_workbench inspector)
+set(_telemetry_deps_read_many_workbench workbench read_many_client)
 set(_telemetry_deps_resource_adapter core resource)
 set(_telemetry_deps_encoded_server core encoded_wire)
 set(_telemetry_deps_rpc_server core resource rpc_wire)
@@ -262,7 +263,9 @@ foreach(_module IN LISTS _telemetry_modules)
     elseif(_module STREQUAL "dynamic_client")
         telemetry_headers(${_target} ${_module} integration/dynamic "${PROJECT_SOURCE_DIR}/lib/integration/dynamic")
     elseif(_module STREQUAL "read_many_client")
-        telemetry_headers(${_target} ${_module} integration/read_many "${PROJECT_SOURCE_DIR}/lib/integration/read_many")
+        telemetry_header(${_target} ${_module} lib/integration/read_many/Client.hpp integration/read_many/Client.hpp)
+    elseif(_module STREQUAL "read_many_workbench")
+        telemetry_header(${_target} ${_module} lib/integration/read_many/Workbench.hpp integration/read_many/Workbench.hpp)
     elseif(_module STREQUAL "inspector")
         telemetry_headers(${_target} ${_module} integration/inspector "${PROJECT_SOURCE_DIR}/lib/integration/inspector")
     elseif(_module STREQUAL "workbench")

@@ -10,9 +10,10 @@ python3 -B tests/read_many/run.py --cxx s390x-linux-gnu-g++ \
 
 Use fresh external directories. The runner finds CMake and Ninja on PATH or
 accepts `--cmake`/`--ninja`; nothing is deleted. Host checks execute Wire, Server,
-Client, NoHeap and the example through a **relocated installed package**.
-Two compile-fail controls reject forged bindings and insufficient callback space.
-Six allocation controls must exit 86. Linux and MinGW GNU-style linkers wrap
+Client, NoHeap, Workbench, WorkbenchNoHeap and the example through a **relocated installed package**.
+Compile-fail controls reject forged bindings, insufficient callback space,
+private/raw Workbench access and invalid optional-read callbacks.
+Twelve allocation controls must exit 86. Linux and MinGW GNU-style linkers wrap
 malloc/calloc/realloc/free, in addition to C++ allocation traps.
 The same complete host suite and example execute on the big-endian s390x target
 under QEMU, including the fixed little-endian capability golden bytes and
@@ -33,6 +34,25 @@ floats/open enums/U64/S64, QueueFull, copied bindings, rejected whole replies,
 queued/offered/prepared timeout, cancellation, invalidation, stale callbacks,
 reentrancy and explicit zero-traffic RPC refusal.
 
+The separate optional `read_many_workbench` component adds
+`integration/read_many/Workbench.hpp`; the base Workbench and the lighter
+`read_many_client` component do not import that header. It supplies overloads of
+`bindReadMany` and `readMany` for an existing Workbench, plus `readFieldValue`
+returning a borrowed `DynamicResult` for explicit single-Field fallback. All use
+its one private DynamicClient/FIFO and preserve the selected snapshot, Field
+draft, Command/Service request editor and published Service result. Idle and
+Editing permit reads; mutation phases and active publication/completion return
+Busy after lifecycle gates. Callback ownership and destruction are guarded;
+close/invalidate may revoke admission. Callbacks copy result bytes before return.
+Select explicit CallbackBytes=768 for the guarded binding and a small callback;
+the Workbench default and base object storage are unchanged.
+
+Workbench checks exercise ordered shared-FIFO reads, QueueFull atomicity,
+apply/refresh and execution gates, Field and request draft preservation, Service
+response preservation, reentrant callback moves/destructors, revocation during
+ownership, prepared timeout/recovery priority and typed-null callback rejection.
+The same suite runs with C/C++ allocation traps and their positive controls.
+
 `tests/modules/run.py` additionally seals every exported `read_many_client`
 header and rejects Native, Codec, Resource, RPC, backend and Workbench dependencies.
 Other modules reject this optional client header. Base DynamicClient still
@@ -44,10 +64,13 @@ installed archives, retain ELF/map/nm/objdump/stack records, and reject heap
 symbols or batch-symbol leakage into the legacy root. An additional object
 instantiates the optional client bind/submit/completion path without Model
 dependencies and rejects allocation symbols; its stack frames are retained too.
+A second object instantiates both optional Workbench paths with 768-byte callback
+storage, independently checks undefined allocator symbols and retains `.su` rows.
 The linked sections and
 compiler stack frames are **not** full-firmware Flash deltas or peak
 call-chain stack measurements. Images are never executed or flashed.
 
 `summary.json` records tool/source/log hashes, source identity, real executions,
 installed-header stability and commands. Hardware is always false. Production
-RPC, JS/TS batch calls, GUI watchlists and Nucleo ReadMany are outside this stage.
+RPC and JS/TS batch calls are outside this stage. GUI and Nucleo qualifications
+have their own maintained runners and receipts.

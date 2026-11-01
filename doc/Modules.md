@@ -44,6 +44,7 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | Descriptor builder/reader | `telemetry/descriptor/Descriptor.hpp` | `telemetry::descriptor` |
 | Runtime schema and wire views | `telemetry/runtime/DynamicValueView.hpp` | `telemetry::runtime` |
 | Transactional wire edits | `telemetry/runtime/DynamicValueWriter.hpp` | `telemetry::runtime` |
+| Optional Workbench Watchlist reads | `integration/read_many/Workbench.hpp` | `telemetry::integration::read_many` |
 | Generic files | `resource/Resource.hpp` | `resource` |
 | Portable client | `client/DeviceClient.hpp` | `telemetry::client` |
 | Native RPC engine | `client/rpc/RpcClient.hpp` | `telemetry::client::rpc` |
@@ -89,7 +90,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `inspector`, `workbench` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `inspector`, `workbench`, `read_many_workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
@@ -111,6 +112,9 @@ The optional `read_many_client` adds the Encoded scalar batch mapping over the
 same private FIFO, without changing the base target's include closure. It adds
 only `encoded_wire` to `dynamic_client`; select a concrete enabled Encoded backend
 separately. See [ReadMany](ReadManyEncoded.md).
+The optional `read_many_workbench` combines `workbench` and `read_many_client`
+for snapshot-preserving background reads on that same FIFO. It adds no storage
+to the base Workbench. See [Scalar Watchlist](ReadManyWatchlist.md).
 The optional `workbench` component reuses Inspector ownership and the same client
 FIFO for transactional Field edits, Write/Refresh, Command execution and Service calls.
 Its shared request editor has no independent scheduler or storage allocation.

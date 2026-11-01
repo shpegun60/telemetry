@@ -116,6 +116,16 @@ int main()
 {
 	return sizeof(ReadManyBinding) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_READ_MANY_WORKBENCH)
+#include <integration/read_many/Workbench.hpp>
+#include <type_traits>
+using Workbench = telemetry::integration::workbench::WorkbenchModel<2, 130, 64, 768>;
+static_assert(!std::is_copy_constructible_v<Workbench>);
+
+int main()
+{
+	return sizeof(Workbench) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_WORKBENCH)
 #include <integration/workbench/WorkbenchModel.hpp>
 #include <type_traits>

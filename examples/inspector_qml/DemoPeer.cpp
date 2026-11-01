@@ -218,6 +218,51 @@ struct Device {
 	}
 };
 
+// Independent scalar Field IDs, rather than members of an aggregate. Values
+// deliberately exercise exact wide integers, open enums and floating bits.
+struct WatchDevice {
+	template<std::size_t I>
+	std::uint64_t wide() const noexcept
+	{
+		return UINT64_MAX - I;
+	}
+
+	template<std::size_t I>
+	std::int64_t signedWide() const noexcept
+	{
+		return INT64_MIN + static_cast<std::int64_t>(I);
+	}
+
+	template<std::size_t I>
+	bool flag() const noexcept
+	{
+		return I % 2 == 0;
+	}
+
+	template<std::size_t I>
+	Mode mode() const noexcept
+	{
+		return static_cast<Mode>(-2 - int(I));
+	}
+
+	template<std::size_t I>
+	float real() const noexcept
+	{
+		constexpr std::array<std::uint32_t, 4> bits{0x7fc12345u, 0x80000000u, 0x3fa00000u,
+		                                            0xff800000u};
+		return std::bit_cast<float>(bits[I]);
+	}
+
+	template<std::size_t I>
+	double precise() const noexcept
+	{
+		constexpr std::array<std::uint64_t, 4> bits{
+		    UINT64_C(0x7ff8123456789abc), UINT64_C(0x8000000000000000),
+		    UINT64_C(0x4004000000000000), UINT64_C(0x7ff0000000000000)};
+		return std::bit_cast<double>(bits[I]);
+	}
+};
+
 } // namespace inspector_qml::demo
 
 namespace telemetry::reflection {
@@ -258,6 +303,41 @@ constexpr telemetry::Model model{fields, commands, services};
 constexpr telemetry::descriptor::Descriptor nativeDescriptor{model};
 constexpr auto descriptorBytes = telemetry::descriptor::packDescriptor<nativeDescriptor>();
 
+demo::WatchDevice watchDevice;
+#define WATCH_FIELD(method, name, I)                                                               \
+	telemetry::field<&demo::WatchDevice::method<I>>(name "_" #I, watchDevice)
+constexpr telemetry::FieldTable wideFields{
+    WATCH_FIELD(wide, "U64", 0), WATCH_FIELD(wide, "U64", 1), WATCH_FIELD(wide, "U64", 2),
+    WATCH_FIELD(wide, "U64", 3), WATCH_FIELD(wide, "U64", 4), WATCH_FIELD(wide, "U64", 5),
+    WATCH_FIELD(wide, "U64", 6), WATCH_FIELD(wide, "U64", 7)};
+constexpr telemetry::FieldTable signedFields{
+    WATCH_FIELD(signedWide, "S64", 0), WATCH_FIELD(signedWide, "S64", 1),
+    WATCH_FIELD(signedWide, "S64", 2), WATCH_FIELD(signedWide, "S64", 3),
+    WATCH_FIELD(signedWide, "S64", 4), WATCH_FIELD(signedWide, "S64", 5),
+    WATCH_FIELD(signedWide, "S64", 6), WATCH_FIELD(signedWide, "S64", 7)};
+constexpr telemetry::FieldTable flagFields{
+    WATCH_FIELD(flag, "Bool", 0), WATCH_FIELD(flag, "Bool", 1), WATCH_FIELD(flag, "Bool", 2),
+    WATCH_FIELD(flag, "Bool", 3)};
+constexpr telemetry::FieldTable enumFields{
+    WATCH_FIELD(mode, "Enum", 0), WATCH_FIELD(mode, "Enum", 1), WATCH_FIELD(mode, "Enum", 2),
+    WATCH_FIELD(mode, "Enum", 3)};
+constexpr telemetry::FieldTable realFields{WATCH_FIELD(real, "F32", 0), WATCH_FIELD(real, "F32", 1),
+                                           WATCH_FIELD(real, "F32", 2),
+                                           WATCH_FIELD(real, "F32", 3)};
+constexpr telemetry::FieldTable preciseFields{
+    WATCH_FIELD(precise, "F64", 0), WATCH_FIELD(precise, "F64", 1), WATCH_FIELD(precise, "F64", 2),
+    WATCH_FIELD(precise, "F64", 3)};
+#undef WATCH_FIELD
+constexpr telemetry::FieldCatalogTable watchFields{
+    telemetry::group("measure", measureFields), telemetry::group("device", deviceFields),
+    telemetry::group("data", dataFields),       telemetry::group("wide", wideFields),
+    telemetry::group("signed", signedFields),   telemetry::group("flags", flagFields),
+    telemetry::group("modes", enumFields),      telemetry::group("real", realFields),
+    telemetry::group("precise", preciseFields)};
+constexpr telemetry::Model watchModel{watchFields, commands, services};
+constexpr telemetry::descriptor::Descriptor watchDescriptor{watchModel};
+constexpr auto watchDescriptorBytes = telemetry::descriptor::packDescriptor<watchDescriptor>();
+
 demo::WritableDevice writablePrototype;
 constexpr telemetry::FieldTable writableFields{
     telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
@@ -287,6 +367,7 @@ constexpr auto writableDescriptorBytes =
 
 struct DemoPeer::Impl {
 	bool writable = false;
+	bool readMany = false;
 	demo::WritableDevice device;
 	decltype(writableFields) fields{
 	    telemetry::field<&demo::WritableDevice::read, &demo::WritableDevice::write>("Config",
@@ -305,27 +386,35 @@ struct DemoPeer::Impl {
 	    telemetry::service<&demo::WritableDevice::emptyService>("Empty", device)};
 	decltype(writableServiceCatalogs) serviceCatalogs{telemetry::group("control", services)};
 	decltype(writablePrototypeModel) writableModel{catalogs, commandCatalogs, serviceCatalogs};
-	alignas(std::max_align_t) std::array<
-	    std::byte, std::max(model.maxScratch(), writablePrototypeModel.maxScratch())> scratch{};
+	alignas(std::max_align_t)
+	    std::array<std::byte, std::max({model.maxScratch(), writablePrototypeModel.maxScratch(),
+	                                    watchModel.maxScratch()})> scratch{};
 	telemetry::Workspace workspace{scratch};
 };
 
-DemoPeer::DemoPeer(bool writable) : impl_(std::make_unique<Impl>())
+DemoPeer::DemoPeer(bool writable, bool readMany) : impl_(std::make_unique<Impl>())
 {
 	impl_->writable = writable;
+	impl_->readMany = readMany && !writable;
 }
 
 DemoPeer::~DemoPeer() = default;
 
 telemetry::client::Input DemoPeer::descriptor() const noexcept
 {
-	return impl_->writable ? telemetry::client::Input{writableDescriptorBytes}
-	                       : telemetry::client::Input{descriptorBytes};
+	return impl_->writable   ? telemetry::client::Input{writableDescriptorBytes}
+	       : impl_->readMany ? telemetry::client::Input{watchDescriptorBytes}
+	                         : telemetry::client::Input{descriptorBytes};
 }
 
 bool DemoPeer::writable() const noexcept
 {
 	return impl_->writable;
+}
+
+bool DemoPeer::readManyEnabled() const noexcept
+{
+	return impl_->readMany;
 }
 
 std::uint64_t DemoPeer::writeCount() const noexcept
@@ -373,13 +462,22 @@ DemoPeer::makeTcpServer(resource::FileSystemView files, telemetry::client::Outpu
                         telemetry::client::Output tx)
 {
 	return std::make_unique<telemetry::integration::tcp::Server>(
-	    impl_->writable ? impl_->writableModel.view() : model.view(), impl_->workspace, files, rx,
-	    tx);
+	    impl_->writable   ? impl_->writableModel.view()
+	    : impl_->readMany ? watchModel.view()
+	                      : model.view(),
+	    impl_->workspace, files, rx, tx);
 }
 
 std::size_t DemoPeer::dispatch(telemetry::client::Input request, telemetry::client::Output reply,
                                std::uint32_t session) noexcept
 {
+	if (impl_->readMany) {
+		const telemetry::protocol::encoded::read_many::Capability capability{
+		    session, watchDescriptor.fingerprint()};
+		const auto result = telemetry::integration::encoded::dispatchEncoded(
+		    watchModel.view(), impl_->workspace, session, request, reply, capability);
+		return result ? result.written : 0;
+	}
 	const auto result = telemetry::integration::encoded::dispatchEncoded(
 	    impl_->writable ? impl_->writableModel.view() : model.view(), impl_->workspace, session,
 	    request, reply);

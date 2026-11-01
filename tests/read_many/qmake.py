@@ -72,6 +72,9 @@ def main():
         'legacy': (['CONFIG += resource_telemetry_encoded', integration], base_sources),
         'batch': (['CONFIG += telemetry_read_many_server', integration], batch_sources),
         'client': (['CONFIG += telemetry_read_many_client telemetry_encoded_backend', integration], []),
+        'workbench': (['CONFIG += telemetry_read_many_workbench telemetry_encoded_backend', integration], []),
+        'workbench-repeated': ([include('lib/integration/read_many/read_many_workbench.pri'),
+                                include('lib/integration/read_many/read_many_workbench.pri')], []),
         'late': (late, batch_sources),
         'repeated': (late + [core, core, integration, integration], batch_sources),
     }
@@ -95,7 +98,8 @@ def main():
                 'TEMPLATE = app', 'TARGET = read_many_source_inventory',
                 'CONFIG += console c++20', 'CONFIG -= qt debug_and_release app_bundle',
                 'SOURCES += "$$PWD/main.cpp"', *selection,
-                'write_file("$$OUT_PWD/sources.txt", SOURCES)', '']), encoding='utf-8')
+                'write_file("$$OUT_PWD/sources.txt", SOURCES)',
+                'write_file("$$OUT_PWD/headers.txt", HEADERS)', '']), encoding='utf-8')
             run(name, [qmake, '-o', build / 'Makefile', project])
             inventory_file = build / 'sources.txt'
             actual = [Path(line).resolve() for line in
@@ -103,6 +107,10 @@ def main():
             expected = [main_cpp.resolve(), *[(ROOT / path).resolve() for path in selected_sources]]
             if Counter(actual) != Counter(expected) or not all(path.is_file() for path in actual):
                 raise RuntimeError(name + ': wrong source inventory: ' + repr(actual))
+            headers = [Path(line).resolve() for line in (build / 'headers.txt').read_text(encoding='utf-8').splitlines() if line]
+            bridge = (ROOT / 'lib/integration/read_many/Workbench.hpp').resolve()
+            if headers.count(bridge) != (1 if name.startswith('workbench') else 0):
+                raise RuntimeError(name + ': optional Workbench header leaked or was duplicated')
             report['cases'][name] = dict(sources=[str(path) for path in actual],
                                          count=len(actual), inventory_sha256=digest(inventory_file))
             save()
@@ -116,7 +124,7 @@ def main():
     finally:
         report['finished_utc'] = datetime.now(timezone.utc).isoformat()
         save()
-    print('ReadMany qmake source inventories: 5 cases passed; no compilation or hardware')
+    print('ReadMany qmake source inventories: 7 cases passed; no compilation or hardware')
 
 
 if __name__ == '__main__':

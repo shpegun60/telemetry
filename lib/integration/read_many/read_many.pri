@@ -3,5 +3,5 @@ isEmpty(TELEMETRY_READ_MANY_CLIENT_PRI_INCLUDED) {
     TELEMETRY_READ_MANY_CLIENT_PRI_INCLUDED = 1
     include($$PWD/../dynamic/dynamic.pri)
     include($$PWD/../../wire/wire.pri)
-    HEADERS += $$files($$PWD/*.hpp)
+    HEADERS += $$PWD/Client.hpp
 }

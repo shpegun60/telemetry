@@ -28,13 +28,14 @@ namespace inspector_qml {
 // immutable Descriptor and complete Encoded frames through this boundary.
 class DemoPeer {
 public:
-	explicit DemoPeer(bool writable = false);
+	explicit DemoPeer(bool writable = false, bool readMany = false);
 	~DemoPeer();
 	DemoPeer(const DemoPeer&) = delete;
 	DemoPeer& operator=(const DemoPeer&) = delete;
 
 	[[nodiscard]] telemetry::client::Input descriptor() const noexcept;
 	[[nodiscard]] bool writable() const noexcept;
+	[[nodiscard]] bool readManyEnabled() const noexcept;
 	[[nodiscard]] std::uint64_t writeCount() const noexcept;
 	[[nodiscard]] std::uint64_t commandCount() const noexcept;
 	[[nodiscard]] std::uint64_t executedCount() const noexcept;

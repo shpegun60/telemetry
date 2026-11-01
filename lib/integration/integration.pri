@@ -5,6 +5,9 @@ contains(CONFIG, telemetry_read_many_server) {
 contains(CONFIG, telemetry_read_many_client) {
     include($$PWD/read_many/read_many.pri)
 }
+contains(CONFIG, telemetry_read_many_workbench) {
+    include($$PWD/read_many/read_many_workbench.pri)
+}
 contains(CONFIG, telemetry_tcp_server) {
     include($$PWD/tcp/tcp.pri)
 }
