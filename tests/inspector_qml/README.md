@@ -14,6 +14,9 @@ delegates. It checks that foreground FieldRead, Command, Service, Apply Write
 and Apply readback failures clear already-rendered values and publish stale
 status, stop polling and complete once without replay. Queued and handed-off
 Watchlist reads retain their pending state until the actual callback drains.
+Both drain phases explicitly refresh the invalid DisplayRole of a live endpoint
+delegate before the owner resets its tree. Every QML warning remains a test
+failure, with the queued or handed-off phase included in its diagnostics.
 `WatchlistScheduling.cpp` pauses Individual cycles behind foreground reads and
 checks that list/mode/frequency changes and new cycles cannot disturb the
 remaining Field ID order. Stop remains available. Actual QML buttons reject

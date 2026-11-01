@@ -157,6 +157,7 @@ ApplicationWindow {
                         columnWidthProvider: function() { return Math.max(1, endpointTree.width) }
                         onWidthChanged: Qt.callLater(function() { endpointTree.forceLayout() })
                         delegate: TreeViewDelegate {
+                            id: endpointDelegate
                             objectName: "endpointRow"
                             required property string name
                             required property string detail
@@ -166,6 +167,15 @@ ApplicationWindow {
                             text: name
                             ToolTip.visible: hovered && detail.length > 0
                             ToolTip.text: detail
+                            // Basic TreeViewDelegate reads model.display directly.
+                            // A retired model may have no role data before its reset.
+                            contentItem: Label {
+                                text: endpointDelegate.name
+                                elide: Text.ElideRight
+                                color: endpointDelegate.highlighted
+                                    ? endpointDelegate.palette.highlightedText
+                                    : endpointDelegate.palette.buttonText
+                            }
                             onClicked: {
                                 if (isEndpoint)
                                     controller.selectEndpoint(endpointTree.modelIndex(Qt.point(0, row)))

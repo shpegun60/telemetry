@@ -211,6 +211,13 @@ def main():
         if not failed_counts or int(failed_counts[1]) < 100 or failed_counts[2] != counts[3]:
             raise RuntimeError('Watchlist did not retire live QML values on all foreground failure paths')
         report['executions']['watchlist_failure_checks'] = int(failed_counts[1])
+        stale_display = re.findall(r'Watchlist stale endpoint phase=(queued-watch|handed-watch) '
+                                   r'rows=(\d+) pending=1 requestDelta=(\d+)', failed_paths)
+        if ([(phase, delta) for phase, _, delta in stale_display] !=
+                [('queued-watch', '0'), ('handed-watch', '1')] or
+                any(int(rows) < 1 for _, rows, _ in stale_display)):
+            raise RuntimeError('Live endpoint delegates did not reread stale display roles before both drains')
+        report['executions']['watchlist_stale_display_phases'] = [phase for phase, _, _ in stale_display]
         watch_scheduling = build / ('telemetry_inspector_qml_watchlist_scheduling_check' + suffix)
         scheduled = run('qml-watchlist-scheduling', [watch_scheduling])
         schedule_counts = re.search(r'Inspector Watchlist scheduling checks=(\d+) failures=0 '

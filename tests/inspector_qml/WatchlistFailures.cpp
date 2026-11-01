@@ -244,8 +244,9 @@ struct Fixture {
 	QQuickWindow* window = nullptr;
 	QPointer<QQuickItem> cached;
 	bool warnings = false;
+	const char* context;
 
-	Fixture()
+	explicit Fixture(const char* phase) : context(phase)
 	{
 		CHECK(controller.connectTcp(QStringLiteral("127.0.0.1"), peer.listener.serverPort()));
 		CHECK(await([&] {
@@ -262,6 +263,9 @@ struct Fixture {
 		QObject::connect(&engine, &QQmlApplicationEngine::warnings, &controller,
 		                 [&](const QList<QQmlError>& errors) {
 			                 warnings = true;
+			                 std::fprintf(
+			                     stderr, "Watchlist QML warning phase=%s connected=%d pending=%d\n",
+			                     context, controller.connected(), controller.watchPending());
 			                 for (const auto& error : errors)
 				                 std::fprintf(stderr, "%s\n", qPrintable(error.toString()));
 		                 });
@@ -306,7 +310,7 @@ enum class Action {
 
 void foregroundFailure(Action action, const char* name)
 {
-	Fixture fixture;
+	Fixture fixture{name};
 	auto& controller = fixture.controller;
 	if (action == Action::Command)
 		fixture.select("Execute", 2);
@@ -390,7 +394,7 @@ void foregroundFailure(Action action, const char* name)
 
 void acceptedWatchDrain(bool handedOff)
 {
-	Fixture fixture;
+	Fixture fixture{handedOff ? "handed-watch" : "queued-watch"};
 	auto& controller = fixture.controller;
 	QSignalSpy changed{controller.watchlist(), &QAbstractItemModel::dataChanged};
 	QSignalSpy resets{controller.watchlist(), &QAbstractItemModel::modelReset};
@@ -405,9 +409,27 @@ void acceptedWatchDrain(bool handedOff)
 	controller.stopWatch();
 	CHECK(controller.watchPending() && controller.inspector().pending() == 1);
 	CHECK(changed.count() == 0 && resets.count() == 0);
+	auto* endpointTree = visual(fixture.window->contentItem(), "endpointTree");
+	auto* endpointRow = visual(fixture.window->contentItem(), "endpointRow");
+	auto* endpoints = controller.endpoints();
+	const auto first = endpoints->index(0, 0);
+	const auto last = endpoints->index(endpoints->rowCount() - 1, 0);
+	CHECK(endpointTree && endpointRow && !endpointRow->property("text").toString().isEmpty());
+	CHECK(first.isValid() && last.isValid() && endpoints->data(first, Qt::DisplayRole).isValid());
 	controller.inspector().invalidate();
 	// Invalidating admission does not itself deliver the already accepted callback.
 	CHECK(controller.watchPending() && controller.inspector().pending() == 1);
+	CHECK(first.isValid() && !endpoints->data(first, Qt::DisplayRole).isValid());
+	std::printf("Watchlist stale endpoint phase=%s rows=%d pending=%zu requestDelta=%u\n",
+	            fixture.context, endpoints->rowCount(), controller.inspector().pending(),
+	            fixture.peer.requests - requests);
+	std::fflush(stdout);
+	// Force a live delegate to reread the guarded role before the owner pump
+	// clears its retained tree. Qt Basic's default contentItem reads model.display.
+	Q_EMIT endpoints->dataChanged(first, last, {Qt::DisplayRole});
+	CHECK(QMetaObject::invokeMethod(endpointTree, "forceLayout", Qt::DirectConnection));
+	CHECK(controller.watchPending() && controller.inspector().pending() == 1);
+	CHECK(!fixture.warnings);
 	CHECK(await([&] {
 		return !controller.watchPending() && controller.inspector().pending() == 0;
 	}));
