@@ -28,7 +28,8 @@ enum class Operation : std::uint8_t {
 	FieldWrite = 1,
 	Command = 2,
 	Service = 3,
-	FieldRead = 4
+	FieldRead = 4,
+	ReadMany = 5
 };
 
 enum class Status : std::uint8_t {
@@ -103,12 +104,18 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 [[nodiscard]] constexpr Status validate(const Header& header) noexcept
 {
 	const auto operation = static_cast<std::uint8_t>(header.operation);
-	if (operation < 1 || operation > 4)
+	if (operation < 1 || operation > 5)
 		return Status::InvalidOperation;
 	if (header.session == 0 || header.requestId == 0 || !detail::validDispatch(header.dispatch))
 		return Status::InvalidHeader;
 	if ((header.operation == Operation::FieldWrite || header.operation == Operation::Command) &&
 	    header.expectedResponseBytes != 0)
+		return Status::InvalidHeader;
+	// Only the optional batch operation has a response budget, rather than an
+	// exact DTO size. Admission and complete body validation belong to its port.
+	if (header.operation == Operation::ReadMany &&
+	    (header.endpoint != 0 || header.endpointStatus != 0 || header.expectedResponseBytes < 10 ||
+	     header.expectedResponseBytes > 514))
 		return Status::InvalidHeader;
 	if (!header.reply) {
 		if (header.dispatch != 0 || header.endpointStatus != 0 ||
@@ -135,6 +142,10 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 			           : Status::InvalidHeader;
 		case Operation::FieldRead:
 			return header.endpointStatus == 0 && header.payloadBytes == header.expectedResponseBytes
+			           ? Status::Ok
+			           : Status::InvalidHeader;
+		case Operation::ReadMany:
+			return header.payloadBytes >= 2 && header.payloadBytes <= header.expectedResponseBytes
 			           ? Status::Ok
 			           : Status::InvalidHeader;
 	}

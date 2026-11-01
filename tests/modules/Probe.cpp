@@ -106,6 +106,16 @@ int main()
 {
 	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_READ_MANY_CLIENT)
+#include <integration/read_many/Client.hpp>
+#include <type_traits>
+using ReadManyBinding = telemetry::integration::read_many::ReadManyBinding;
+static_assert(std::is_copy_constructible_v<ReadManyBinding>);
+
+int main()
+{
+	return sizeof(ReadManyBinding) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_WORKBENCH)
 #include <integration/workbench/WorkbenchModel.hpp>
 #include <type_traits>

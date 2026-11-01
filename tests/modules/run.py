@@ -12,9 +12,13 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-MODULES = ('core', 'runtime', 'dynamic_client', 'inspector', 'workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
+MODULES = ('core', 'runtime', 'dynamic_client', 'read_many_client', 'inspector', 'workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
            'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend', 'tcp_server')
 FORBIDDEN = {
+    'read_many_client': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
+                         'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
+                         'magic_enum.hpp', 'wire/RpcWire.hpp', 'integration/encoded/Backend.hpp',
+                         'integration/rpc/Backend.hpp', 'integration/inspector/InspectorModel.hpp'),
     'workbench': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
                   'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
                   'magic_enum.hpp', 'wire/EncodedWire.hpp', 'wire/RpcWire.hpp',
@@ -52,6 +56,8 @@ FORBIDDEN = {
                    'integration/dynamic/DynamicClient.hpp', 'telemetry/runtime/RuntimeSchema.hpp'),
 }
 for _module in MODULES:
+    if _module != 'read_many_client':
+        FORBIDDEN[_module] += ('integration/read_many/Client.hpp',)
     if _module != 'workbench':
         FORBIDDEN[_module] += ('integration/workbench/WorkbenchModel.hpp',
                               'integration/workbench/RequestEditor.hpp')

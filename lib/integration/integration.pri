@@ -1,4 +1,10 @@
 # Explicit integration selection; dependency modules remain independent. MIT.
+contains(CONFIG, telemetry_read_many_server) {
+    CONFIG += resource_telemetry_encoded
+}
+contains(CONFIG, telemetry_read_many_client) {
+    include($$PWD/read_many/read_many.pri)
+}
 contains(CONFIG, telemetry_tcp_server) {
     include($$PWD/tcp/tcp.pri)
 }
@@ -41,4 +47,7 @@ contains(CONFIG, resource_telemetry_encoded):isEmpty(TELEMETRY_ENCODED_SERVER_PR
     include($$PWD/../wire/wire.pri)
     HEADERS += $$PWD/encoded/Dispatcher.hpp
     SOURCES += $$PWD/encoded/Dispatcher.cpp
+    contains(CONFIG, telemetry_read_many_server) {
+        SOURCES += $$PWD/encoded/ReadManyDispatcher.cpp
+    }
 }

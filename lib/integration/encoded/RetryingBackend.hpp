@@ -29,9 +29,11 @@ public:
 	explicit RetryingEncodedBackend(::telemetry::client::Output txStorage,
 	                                ::telemetry::client::Output resultStorage,
 	                                ::telemetry::client::Clock clock,
-	                                EncodedRetryOptions options = {}) noexcept
-	    : inner_(txStorage, resultStorage, clock, ::telemetry::client::maxTimeoutMs), clock_(clock),
-	      options_(options)
+	                                EncodedRetryOptions options = {},
+	                                bool enableReadMany = false) noexcept
+	    : inner_(txStorage, resultStorage, clock, ::telemetry::client::maxTimeoutMs,
+	             enableReadMany),
+	      clock_(clock), options_(options)
 	{
 		if (options_.replyTimeoutMs == 0 ||
 		    options_.replyTimeoutMs > ::telemetry::client::maxTimeoutMs)
@@ -42,6 +44,11 @@ public:
 	RetryingEncodedBackend& operator=(const RetryingEncodedBackend&) = delete;
 	RetryingEncodedBackend(RetryingEncodedBackend&&) = delete;
 	RetryingEncodedBackend& operator=(RetryingEncodedBackend&&) = delete;
+
+	[[nodiscard]] bool supportsReadMany() const noexcept
+	{
+		return inner_.supportsReadMany();
+	}
 
 	[[nodiscard]] ::telemetry::client::Status start(::telemetry::client::RequestView request,
 	                                                std::uint32_t now) noexcept override

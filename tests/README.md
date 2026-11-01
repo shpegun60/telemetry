@@ -130,6 +130,8 @@ controls and client/server round trips on both targets.
 [Source conventions](../tools/source_style/README.md) are checked in CI too.
 [ReadMany mapping checks](read_many_mapping/README.md) qualify experimental compact
 frames and a padded Service, allocation traps and separate installed ARM roots.
+[Production ReadMany checks](read_many/README.md) exercise the optional C++ Encoded
+mapping, real DynamicClient FIFO/lifecycle, relocated packages and allocation controls.
 
 [Ergonomic API checks](ergonomics/README.md) execute native runtime selection,
 borrowed reads, detailed read failures, stoppable traversal and bounded resource

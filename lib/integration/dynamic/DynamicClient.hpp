@@ -19,6 +19,10 @@
 #include <type_traits>
 #include <utility>
 
+namespace telemetry::integration::read_many::detail {
+struct ReadManyAccess;
+}
+
 namespace telemetry::integration::dynamic {
 
 enum class ValueStatus : std::uint8_t {
@@ -129,6 +133,26 @@ namespace detail {
 
 struct BytesOnlyCodec {
 	static constexpr std::size_t scratchBytes = 1, scratchAlign = 1;
+};
+
+// Callable ownership can execute user code too. An enclosing publication or
+// callback guard survives nested owner processing until all temporaries retire.
+struct CallbackScope {
+	bool& active;
+	bool previous;
+
+	explicit CallbackScope(bool& value) noexcept : active(value), previous(value)
+	{
+		active = true;
+	}
+
+	~CallbackScope()
+	{
+		active = previous;
+	}
+
+	CallbackScope(const CallbackScope&) = delete;
+	CallbackScope& operator=(const CallbackScope&) = delete;
 };
 
 struct AdmissionState {
@@ -308,17 +332,23 @@ public:
 			return {client::Status::InvalidArgument, {}};
 		if (endpoint.requestType_ != 0 && !state_.schema.view(endpoint.requestType_, payload))
 			return {client::Status::CodecError, {}};
-		// The bytes and completion contract are captured before core publication.
-		return core_.submitEncoded(
-		    {endpoint.operation_, endpoint.id_, payload, endpoint.responseBytes_},
-		    [this, endpoint,
-		     fn = std::forward<F>(callback)](const client::ResultView& operation) mutable noexcept {
-			    callbackActive_ = true;
-			    const auto result = complete(endpoint, operation);
-			    fn(result);
-			    callbackActive_ = false;
-		    },
-		    timeoutMs);
+		// Freeze the request before user callable moves/destructors can reenter.
+		// This scope also prevents replacing admission before core reservation.
+		detail::CallbackScope publication{callbackActive_};
+		const auto frozen = endpoint;
+		auto completion = [this, endpoint = frozen, fn = std::forward<F>(callback)](
+		                      const client::ResultView& operation) mutable noexcept {
+			detail::CallbackScope callback{callbackActive_};
+			const auto result = complete(endpoint, operation);
+			fn(result);
+		};
+		const auto capturedGate = submissionGate();
+		if (capturedGate != client::Status::Ok)
+			return {capturedGate, {}};
+		if (!isCurrent(frozen))
+			return {client::Status::NotAdmitted, {}};
+		return core_.submitEncoded({frozen.operation_, frozen.id_, payload, frozen.responseBytes_},
+		                           std::move(completion), timeoutMs);
 	}
 
 	template<class F>
@@ -450,6 +480,8 @@ public:
 	}
 
 private:
+	friend struct ::telemetry::integration::read_many::detail::ReadManyAccess;
+
 	[[nodiscard]] client::Status submissionGate() const noexcept
 	{
 		if (closed_)
@@ -473,6 +505,8 @@ private:
 			case client::Operation::Service:
 				category = descriptor::Category::Service;
 				return true;
+			case client::Operation::ReadMany:
+				return false;
 		}
 		return false;
 	}

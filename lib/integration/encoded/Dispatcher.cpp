@@ -44,6 +44,8 @@ Extents extents(ts::ModelView model, const wire::Header& header) noexcept
 			           ? Extents{true, request->wireBytes, response->wireBytes}
 			           : Extents{};
 		}
+		case wire::Operation::ReadMany:
+			return {};
 	}
 	return {};
 }
@@ -60,6 +62,8 @@ EncodedDispatchResult dispatchEncoded(ts::ModelView model, ts::Workspace& worksp
 		return {EncodedDispatchStatus::Malformed, 0,
 		        parsed ? wire::Status::InvalidFlags : parsed.status};
 	if (admittedSession == 0 || parsed.header.session != admittedSession)
+		return {EncodedDispatchStatus::NotAdmitted};
+	if (parsed.header.operation == wire::Operation::ReadMany)
 		return {EncodedDispatchStatus::NotAdmitted};
 	if (response.size() < wire::headerBytes)
 		return {EncodedDispatchStatus::BufferTooSmall};
