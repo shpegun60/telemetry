@@ -12,9 +12,15 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-MODULES = ('core', 'runtime', 'dynamic_client', 'read_many_client', 'inspector', 'workbench', 'read_many_workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
-           'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend', 'tcp_server')
+MODULES = ('core', 'runtime', 'dynamic_client', 'read_many_client', 'batch_client', 'inspector', 'workbench', 'read_many_workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
+           'encoded_server', 'batch_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend', 'tcp_server')
 FORBIDDEN = {
+    'batch_client': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
+                     'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
+                     'magic_enum.hpp', 'wire/RpcWire.hpp', 'integration/encoded/Backend.hpp',
+                     'integration/rpc/Backend.hpp', 'integration/inspector/InspectorModel.hpp'),
+    'batch_server': ('resource/Resource.hpp', 'client/DeviceClient.hpp',
+                     'telemetry/runtime/RuntimeSchema.hpp', 'integration/dynamic/DynamicClient.hpp'),
     'read_many_workbench': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
                             'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
                             'magic_enum.hpp', 'wire/RpcWire.hpp',
@@ -60,6 +66,10 @@ FORBIDDEN = {
                    'integration/dynamic/DynamicClient.hpp', 'telemetry/runtime/RuntimeSchema.hpp'),
 }
 for _module in MODULES:
+    if _module != 'batch_client':
+        FORBIDDEN[_module] += ('integration/batch/Client.hpp',)
+    if _module != 'batch_server':
+        FORBIDDEN[_module] += ('telemetry/encoded/Batch.hpp', 'integration/encoded/BatchDispatcher.hpp')
     if _module not in ('read_many_client', 'read_many_workbench'):
         FORBIDDEN[_module] += ('integration/read_many/Client.hpp',)
     if _module not in ('workbench', 'read_many_workbench'):
@@ -699,7 +709,7 @@ def main():
             if str(ROOT) in commands or str(build) in commands:
                 raise RuntimeError(module + ': consumer can see source or build tree')
             # Ensure a required compiled module is genuinely linked, not only parsed.
-            if not args.arm and module in ('core', 'rpc_client', 'resource_protocol', 'tcp_server'):
+            if not args.arm and module in ('core', 'rpc_client', 'resource_protocol', 'tcp_server', 'batch_server'):
                 compile_command = json.loads(commands)[0]
                 import shlex
                 command = shlex.split(compile_command['command'])
@@ -710,7 +720,7 @@ def main():
                 text = run([args.cxx, object_path, '-o', directory / 'missing-library'],
                            module + '-negative-link', expected_failure=True)
                 expected = {'core': 'dispatchEncoded', 'rpc_client': 'RpcClient', 'resource_protocol': 'process',
-                            'tcp_server': 'dispatchEncoded'}[module]
+                            'tcp_server': 'dispatchEncoded', 'batch_server': 'dispatchEncoded'}[module]
                 if expected not in text:
                     raise RuntimeError('Link rejection did not identify the missing module: ' + text)
             report['modules'][module] = {'headers': len(headers), 'negative_includes': len(FORBIDDEN[module]),

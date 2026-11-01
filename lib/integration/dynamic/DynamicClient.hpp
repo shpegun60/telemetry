@@ -23,6 +23,10 @@ namespace telemetry::integration::read_many::detail {
 struct ReadManyAccess;
 }
 
+namespace telemetry::integration::batch::detail {
+struct BatchAccess;
+}
+
 namespace telemetry::integration::dynamic {
 
 enum class ValueStatus : std::uint8_t {
@@ -481,6 +485,7 @@ public:
 
 private:
 	friend struct ::telemetry::integration::read_many::detail::ReadManyAccess;
+	friend struct ::telemetry::integration::batch::detail::BatchAccess;
 
 	[[nodiscard]] client::Status submissionGate() const noexcept
 	{
@@ -506,6 +511,7 @@ private:
 				category = descriptor::Category::Service;
 				return true;
 			case client::Operation::ReadMany:
+			case client::Operation::Batch:
 				return false;
 		}
 		return false;

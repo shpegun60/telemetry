@@ -29,7 +29,8 @@ enum class Operation : std::uint8_t {
 	Command = 2,
 	Service = 3,
 	FieldRead = 4,
-	ReadMany = 5
+	ReadMany = 5,
+	Batch = 6
 };
 
 enum class Status : std::uint8_t {
@@ -104,7 +105,7 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 [[nodiscard]] constexpr Status validate(const Header& header) noexcept
 {
 	const auto operation = static_cast<std::uint8_t>(header.operation);
-	if (operation < 1 || operation > 5)
+	if (operation < 1 || operation > 6)
 		return Status::InvalidOperation;
 	if (header.session == 0 || header.requestId == 0 || !detail::validDispatch(header.dispatch))
 		return Status::InvalidHeader;
@@ -116,6 +117,12 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 	if (header.operation == Operation::ReadMany &&
 	    (header.endpoint != 0 || header.endpointStatus != 0 || header.expectedResponseBytes < 10 ||
 	     header.expectedResponseBytes > 514))
+		return Status::InvalidHeader;
+	// Mixed Batch is an independent optional capability. Its bound includes all
+	// item headers and maximum successful DTOs; item results can be shorter.
+	if (header.operation == Operation::Batch &&
+	    (header.endpoint != 0 || header.endpointStatus != 0 || header.expectedResponseBytes < 14 ||
+	     header.expectedResponseBytes > 65535 || header.payloadBytes > 65535))
 		return Status::InvalidHeader;
 	if (!header.reply) {
 		if (header.dispatch != 0 || header.endpointStatus != 0 ||
@@ -146,6 +153,10 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 			           : Status::InvalidHeader;
 		case Operation::ReadMany:
 			return header.payloadBytes >= 2 && header.payloadBytes <= header.expectedResponseBytes
+			           ? Status::Ok
+			           : Status::InvalidHeader;
+		case Operation::Batch:
+			return header.payloadBytes >= 14 && header.payloadBytes <= header.expectedResponseBytes
 			           ? Status::Ok
 			           : Status::InvalidHeader;
 	}

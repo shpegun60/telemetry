@@ -18,6 +18,8 @@
 [Read comparison before ReadMany](ReadComparison.md) ·
 [ReadMany design](ReadMany.md) · [Production C++ Encoded ReadMany](ReadManyEncoded.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
+[Mixed Encoded Batch](MixedBatchEncoded.md) ·
+[Mixed Batch host example](../examples/batch/README.md) ·
 [Qt/QML scalar Watchlist](ReadManyWatchlist.md) ·
 [Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
 [NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·

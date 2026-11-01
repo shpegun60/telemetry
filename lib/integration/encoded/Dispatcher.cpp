@@ -45,6 +45,7 @@ Extents extents(ts::ModelView model, const wire::Header& header) noexcept
 			           : Extents{};
 		}
 		case wire::Operation::ReadMany:
+		case wire::Operation::Batch:
 			return {};
 	}
 	return {};
@@ -63,7 +64,8 @@ EncodedDispatchResult dispatchEncoded(ts::ModelView model, ts::Workspace& worksp
 		        parsed ? wire::Status::InvalidFlags : parsed.status};
 	if (admittedSession == 0 || parsed.header.session != admittedSession)
 		return {EncodedDispatchStatus::NotAdmitted};
-	if (parsed.header.operation == wire::Operation::ReadMany)
+	if (parsed.header.operation == wire::Operation::ReadMany ||
+	    parsed.header.operation == wire::Operation::Batch)
 		return {EncodedDispatchStatus::NotAdmitted};
 	if (response.size() < wire::headerBytes)
 		return {EncodedDispatchStatus::BufferTooSmall};

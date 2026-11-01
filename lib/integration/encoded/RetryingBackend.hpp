@@ -29,10 +29,10 @@ public:
 	explicit RetryingEncodedBackend(::telemetry::client::Output txStorage,
 	                                ::telemetry::client::Output resultStorage,
 	                                ::telemetry::client::Clock clock,
-	                                EncodedRetryOptions options = {},
-	                                bool enableReadMany = false) noexcept
-	    : inner_(txStorage, resultStorage, clock, ::telemetry::client::maxTimeoutMs,
-	             enableReadMany),
+	                                EncodedRetryOptions options = {}, bool enableReadMany = false,
+	                                bool enableBatch = false) noexcept
+	    : inner_(txStorage, resultStorage, clock, ::telemetry::client::maxTimeoutMs, enableReadMany,
+	             enableBatch),
 	      clock_(clock), options_(options)
 	{
 		if (options_.replyTimeoutMs == 0 ||
@@ -48,6 +48,11 @@ public:
 	[[nodiscard]] bool supportsReadMany() const noexcept
 	{
 		return inner_.supportsReadMany();
+	}
+
+	[[nodiscard]] bool supportsBatch() const noexcept
+	{
+		return inner_.supportsBatch();
 	}
 
 	[[nodiscard]] ::telemetry::client::Status start(::telemetry::client::RequestView request,

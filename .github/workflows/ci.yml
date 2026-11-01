@@ -50,11 +50,14 @@ jobs:
             --build-dir "$RUNNER_TEMP/client-module"
           python3 -B tests/read_many/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/read-many" "${options[@]}"
+          python3 -B tests/batch/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/mixed-batch" "${options[@]}"
       - name: Installed Cortex-M7 modules compile and link
         if: matrix.cxx == 'g++'
         run: |
           python3 -B tests/modules/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/modules-arm"
           python3 -B tests/read_many/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/read-many-arm"
+          python3 -B tests/batch/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/mixed-batch-arm"
       - name: Retain module qualification evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -72,6 +75,8 @@ jobs:
             ${{ runner.temp }}/client-module/
             ${{ runner.temp }}/read-many/
             ${{ runner.temp }}/read-many-arm/
+            ${{ runner.temp }}/mixed-batch/
+            ${{ runner.temp }}/mixed-batch-arm/
           if-no-files-found: error
 
   modules-windows:
@@ -1158,6 +1163,8 @@ jobs:
         run: python3 tests/structured/resources/run_qmake.py --qmake qmake6 --build-dir build/resource-qmake
       - name: Optional ReadMany qmake selections and include ordering
         run: python3 -B tests/read_many/qmake.py --qmake qmake6 --build-dir "$RUNNER_TEMP/read-many-qmake"
+      - name: Optional Mixed Batch qmake selections and include ordering
+        run: python3 -B tests/batch/qmake.py --qmake qmake6 --build-dir "$RUNNER_TEMP/mixed-batch-qmake"
       - name: Retain independent qmake selection manifests
         if: always()
         uses: actions/upload-artifact@v4
@@ -1166,6 +1173,7 @@ jobs:
           path: |
             build/resource-qmake/
             ${{ runner.temp }}/read-many-qmake/
+            ${{ runner.temp }}/mixed-batch-qmake/
           if-no-files-found: error
       - name: Explicit structured protocol example qmake
         run: |

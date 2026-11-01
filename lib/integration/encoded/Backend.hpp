@@ -27,9 +27,9 @@ public:
 	explicit EncodedBackend(::telemetry::client::Output txStorage,
 	                        ::telemetry::client::Output resultStorage,
 	                        ::telemetry::client::Clock clock, std::uint32_t timeoutMs = 30000,
-	                        bool enableReadMany = false) noexcept
+	                        bool enableReadMany = false, bool enableBatch = false) noexcept
 	    : tx_(txStorage), result_(resultStorage), clock_(clock), timeoutMs_(timeoutMs),
-	      readManyEnabled_(enableReadMany)
+	      readManyEnabled_(enableReadMany), batchEnabled_(enableBatch)
 	{
 		if (clock_.read == nullptr || timeoutMs_ == 0 ||
 		    timeoutMs_ > ::telemetry::client::maxTimeoutMs || overlaps(tx_, result_))
@@ -47,6 +47,11 @@ public:
 		return readManyEnabled_;
 	}
 
+	[[nodiscard]] bool supportsBatch() const noexcept
+	{
+		return batchEnabled_;
+	}
+
 	[[nodiscard]] ::telemetry::client::Status start(::telemetry::client::RequestView request,
 	                                                std::uint32_t now) noexcept override
 	{
@@ -59,6 +64,8 @@ public:
 		if (!admitted_)
 			return ::telemetry::client::Status::NotAdmitted;
 		if (request.operation == ::telemetry::client::Operation::ReadMany && !readManyEnabled_)
+			return ::telemetry::client::Status::Unsupported;
+		if (request.operation == ::telemetry::client::Operation::Batch && !batchEnabled_)
 			return ::telemetry::client::Status::Unsupported;
 		if (nextId_ == UINT32_MAX)
 			return ::telemetry::client::Status::IdsExhausted;
@@ -301,6 +308,7 @@ private:
 	bool prepared_ = false;
 	bool recovery_ = false;
 	bool readManyEnabled_ = false;
+	bool batchEnabled_ = false;
 };
 
 } // namespace telemetry::integration::encoded

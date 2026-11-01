@@ -15,7 +15,8 @@ enum class Operation : std::uint8_t {
 	Command = 2,
 	Service = 3,
 	FieldRead = 4,
-	ReadMany = 5
+	ReadMany = 5,
+	Batch = 6
 };
 
 [[nodiscard]] constexpr bool isReadOnly(Operation operation) noexcept
