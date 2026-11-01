@@ -16,7 +16,7 @@
 [Read-only Inspector Model](InspectorModel.md) ·
 [FieldWrite, Command and Service Workbench](Workbench.md) ·
 [Read comparison before ReadMany](ReadComparison.md) ·
-[ReadMany proposal (not implemented)](ReadMany.md) ·
+[ReadMany design](ReadMany.md) · [Production C++ Encoded ReadMany](ReadManyEncoded.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
 [NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·

@@ -14,8 +14,14 @@ enum class Operation : std::uint8_t {
 	FieldWrite = 1,
 	Command = 2,
 	Service = 3,
-	FieldRead = 4
+	FieldRead = 4,
+	ReadMany = 5
 };
+
+[[nodiscard]] constexpr bool isReadOnly(Operation operation) noexcept
+{
+	return operation == Operation::FieldRead || operation == Operation::ReadMany;
+}
 enum class Status : std::uint8_t {
 	Ok,
 	QueueFull,
@@ -34,7 +40,8 @@ enum class Status : std::uint8_t {
 	InvalidArgument,
 	Busy,
 	RecoveryRequired,
-	IdsExhausted
+	IdsExhausted,
+	Unsupported
 };
 
 // Status describes client/transport/decode completion. Dispatch and endpoint

@@ -6,4 +6,7 @@ isEmpty(TELEMETRY_STRUCTURED_PRI_INCLUDED) {
         $$files($$PWD/slot/*.h)
     SOURCES += $$PWD/abi/StructuredAbi.cpp \
         $$PWD/model/Adapter.cpp
+    contains(CONFIG, telemetry_read_many_core)|contains(CONFIG, telemetry_read_many_server) {
+        SOURCES += $$PWD/encoded/ReadMany.cpp
+    }
 }

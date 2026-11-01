@@ -26,9 +26,10 @@ class EncodedBackend final : public ::telemetry::client::Backend {
 public:
 	explicit EncodedBackend(::telemetry::client::Output txStorage,
 	                        ::telemetry::client::Output resultStorage,
-	                        ::telemetry::client::Clock clock,
-	                        std::uint32_t timeoutMs = 30000) noexcept
-	    : tx_(txStorage), result_(resultStorage), clock_(clock), timeoutMs_(timeoutMs)
+	                        ::telemetry::client::Clock clock, std::uint32_t timeoutMs = 30000,
+	                        bool enableReadMany = false) noexcept
+	    : tx_(txStorage), result_(resultStorage), clock_(clock), timeoutMs_(timeoutMs),
+	      readManyEnabled_(enableReadMany)
 	{
 		if (clock_.read == nullptr || timeoutMs_ == 0 ||
 		    timeoutMs_ > ::telemetry::client::maxTimeoutMs || overlaps(tx_, result_))
@@ -39,6 +40,12 @@ public:
 	EncodedBackend& operator=(const EncodedBackend&) = delete;
 	EncodedBackend(EncodedBackend&&) = delete;
 	EncodedBackend& operator=(EncodedBackend&&) = delete;
+
+	// This is local transport support; peer capability is admitted separately.
+	[[nodiscard]] bool supportsReadMany() const noexcept
+	{
+		return readManyEnabled_;
+	}
 
 	[[nodiscard]] ::telemetry::client::Status start(::telemetry::client::RequestView request,
 	                                                std::uint32_t now) noexcept override
@@ -51,6 +58,8 @@ public:
 			return ::telemetry::client::Status::RecoveryRequired;
 		if (!admitted_)
 			return ::telemetry::client::Status::NotAdmitted;
+		if (request.operation == ::telemetry::client::Operation::ReadMany && !readManyEnabled_)
+			return ::telemetry::client::Status::Unsupported;
 		if (nextId_ == UINT32_MAX)
 			return ::telemetry::client::Status::IdsExhausted;
 		if (request.payload.size() > UINT32_MAX)
@@ -260,9 +269,11 @@ private:
 
 	void finish(::telemetry::client::Status reason) noexcept
 	{
-		completion_.status = prepared_ && request_.operation != encoded_wire::Operation::FieldRead
-		                         ? ::telemetry::client::Status::OutcomeUnknown
-		                         : reason;
+		completion_.status =
+		    prepared_ && !::telemetry::client::isReadOnly(
+		                     static_cast<::telemetry::client::Operation>(request_.operation))
+		        ? ::telemetry::client::Status::OutcomeUnknown
+		        : reason;
 		completion_.payload = {};
 		completion_.dispatch = completion_.endpointStatus = completion_.codec = 0;
 		if (prepared_) {
@@ -289,6 +300,7 @@ private:
 	bool admitted_ = false;
 	bool prepared_ = false;
 	bool recovery_ = false;
+	bool readManyEnabled_ = false;
 };
 
 } // namespace telemetry::integration::encoded

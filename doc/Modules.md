@@ -54,6 +54,7 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | Retrying Encoded backend | `integration/encoded/RetryingBackend.hpp` | `telemetry::integration::encoded` |
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
+| Optional ReadMany | `integration/read_many/Client.hpp` | `telemetry::integration::read_many` |
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
 | FieldWrite, Command and Service Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
 | Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
@@ -88,7 +89,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `inspector`, `workbench` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `inspector`, `workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
@@ -106,6 +107,10 @@ See [Runtime schema](RuntimeSchema.md) for workspace and borrowed-buffer lifetim
 The optional `dynamic_client` component binds `runtime` to `client`, privately
 using the existing FIFO. It includes no Model, wire parser, Resource or Qt;
 choose a transport backend separately. See [Using DynamicClient](DynamicClientUsage.md).
+The optional `read_many_client` adds the Encoded scalar batch mapping over the
+same private FIFO, without changing the base target's include closure. It adds
+only `encoded_wire` to `dynamic_client`; select a concrete enabled Encoded backend
+separately. See [ReadMany](ReadManyEncoded.md).
 The optional `workbench` component reuses Inspector ownership and the same client
 FIFO for transactional Field edits, Write/Refresh, Command execution and Service calls.
 Its shared request editor has no independent scheduler or storage allocation.
@@ -120,7 +125,7 @@ The optional `tcp_server` component frames existing Resource and TEQ1 packets
 into caller-owned storage and invokes the existing dispatchers. Its dependencies
 are `resource_protocol` and `encoded_server`; it creates no socket, task, heap
 allocation or execution queue. See [TCP integration](../lib/integration/tcp/README.md).
-`encoded_backend` exports both the unchanged `EncodedBackend` and the optional
+`encoded_backend` exports both `EncodedBackend` and the optional
 `RetryingEncodedBackend`; including the latter adds no server, Resource, Qt or
 native Model dependency. Both share `client` and `encoded_wire` dependencies.
 

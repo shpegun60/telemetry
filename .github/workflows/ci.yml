@@ -48,9 +48,13 @@ jobs:
             --build-dir "$RUNNER_TEMP/tcp-stream" "${options[@]}" "${dynamic_options[@]}"
           python3 -B tests/client_module/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/client-module"
+          python3 -B tests/read_many/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/read-many" "${options[@]}"
       - name: Installed Cortex-M7 modules compile and link
         if: matrix.cxx == 'g++'
-        run: python3 -B tests/modules/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/modules-arm"
+        run: |
+          python3 -B tests/modules/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/modules-arm"
+          python3 -B tests/read_many/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/read-many-arm"
       - name: Retain module qualification evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,6 +70,8 @@ jobs:
             ${{ runner.temp }}/inspector/
             ${{ runner.temp }}/tcp-stream/
             ${{ runner.temp }}/client-module/
+            ${{ runner.temp }}/read-many/
+            ${{ runner.temp }}/read-many-arm/
           if-no-files-found: error
 
   modules-windows:
@@ -1020,13 +1026,18 @@ jobs:
           ref: 2e0abf260848fcb74e4a57b37532188047759643
           path: build/dependencies/cobs
       - name: Install s390x C++ compiler and user-mode emulator
-        run: sudo apt-get update && sudo apt-get install -y g++-s390x-linux-gnu qemu-user
+        run: sudo apt-get update && sudo apt-get install -y g++-s390x-linux-gnu qemu-user cmake ninja-build
       - name: Canonical codec, resource client, Descriptor and Values bytes
         run: python3 tests/structured/codec/endian.py --build-dir build/endian
       - name: Generated standalone codec on real little and big endian
         run: python3 tests/codegen/endian.py --build-dir "$RUNNER_TEMP/codegen-endian"
       - name: Runtime reader and transactional writer on real little and big endian
         run: python3 -B tests/runtime_schema/run.py --big-endian --build-dir "$RUNNER_TEMP/runtime-endian"
+      - name: Production ReadMany on the big-endian s390x target
+        run: |
+          python3 -B tests/read_many/run.py --cxx s390x-linux-gnu-g++ \
+            --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu \
+            --build-dir "$RUNNER_TEMP/read-many-endian"
       - name: COBS telemetry/resource on a real big-endian target
         run: python3 tests/cobs/run.py --cxx s390x-linux-gnu-g++ --emulator qemu-s390x --sysroot /usr/s390x-linux-gnu --expect-big-endian --cobs-root build/dependencies/cobs --build-dir build/cobs-big
       - name: Retain endian execution and byte equivalence evidence
@@ -1038,6 +1049,7 @@ jobs:
             build/endian/
             ${{ runner.temp }}/codegen-endian/
             ${{ runner.temp }}/runtime-endian/
+            ${{ runner.temp }}/read-many-endian/
             build/cobs-big/
           if-no-files-found: error
 

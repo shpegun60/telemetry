@@ -442,7 +442,7 @@ static void cancellationAndCapacity() noexcept
 	CHECK(h.backend.start({client::Operation::FieldRead, 0, payload, 5}, 0) ==
 	      client::Status::InvalidArgument);
 	CHECK(h.tx == before);
-	CHECK(h.backend.start({static_cast<client::Operation>(5), 0, {}, 0}, 0) ==
+	CHECK(h.backend.start({static_cast<client::Operation>(6), 0, {}, 0}, 0) ==
 	      client::Status::InvalidArgument);
 	CHECK(h.backend.start({client::Operation::Service, 0, payload, 1025}, 0) ==
 	      client::Status::BufferTooSmall);

@@ -14,6 +14,7 @@ remain under `lib/integration`.
 | CMake component | Public header | Direct component dependencies | Use |
 | --- | --- | --- | --- |
 | `dynamic_client` | `integration/dynamic/DynamicClient.hpp` | `runtime`, `client` | Runtime endpoint checks over the existing DeviceClient FIFO |
+| `read_many_client` | `integration/read_many/Client.hpp` | `dynamic_client`, `encoded_wire` | Optional scalar Encoded batch over that same FIFO |
 | `inspector` | `integration/inspector/InspectorModel.hpp` | `dynamic_client` | Read-only discovery and one owned selected-Field snapshot |
 | `workbench` | `integration/workbench/WorkbenchModel.hpp` | `inspector` | Fixed-storage Field editing and one Write/Refresh workflow on the same FIFO |
 | `encoded_backend` | `integration/encoded/Backend.hpp`, `integration/encoded/RetryingBackend.hpp` | `client`, `encoded_wire` | Client-side TEQ1 packets, with optional explicit retries |

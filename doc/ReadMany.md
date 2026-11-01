@@ -1,12 +1,14 @@
 # Bounded ReadMany: proposed decision
 
-Status: **design only; no implementation or wire layout is approved**. The
+This document records the initial design decision. The optional
+[production C++ Encoded mapping](ReadManyEncoded.md) now implements the scalar
+profile; GUI watchlists, RPC and JS/TS batch calls remain future work. The
 [read comparison](ReadComparison.md) measures existing paths. This proposal
 addresses a changing Workbench watchlist without publishing a new aggregate
 Field for every selection. It does not add WriteMany or Command/Service batching.
 
 See the [bounded mapping prototype](ReadManyMapping.md) for the next experimental
-comparison. It does not make ReadMany available in production clients.
+comparison. Its experimental bytes remain separate from the production mapping.
 
 ## Workload and limits
 

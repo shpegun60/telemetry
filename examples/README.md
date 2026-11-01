@@ -20,6 +20,7 @@ required only by the examples that explicitly select them.
 | Integrate your device class and receive complete requests | [Device integration](device_integration/README.md), `device_integration/CMakeLists.txt` |
 | Inspect or transactionally edit unknown DTO bytes offline | [Runtime schema](runtime_schema/README.md); standalone reader/writer commands |
 | Call unknown runtime endpoints | [DynamicClient](dynamic_client/README.md), `dynamic_client/CMakeLists.txt` |
+| Read 1–32 selected scalar Fields in one Encoded operation | [ReadMany](read_many/README.md), `read_many/CMakeLists.txt` |
 | Compare individual, aggregate and Resource reads before ReadMany | [Read comparison](read_comparison/README.md), `read_comparison/CMakeLists.txt` |
 | Use a portable read-only model without Qt | [InspectorModel](inspector/README.md), `inspector/CMakeLists.txt` |
 | Open the Universal Inspector window | [Qt/QML Inspector](inspector_qml/README.md), `inspector_qml/CMakeLists.txt` |

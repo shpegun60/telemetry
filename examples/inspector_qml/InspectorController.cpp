@@ -83,6 +83,8 @@ QString statusName(cl::Status status)
 			return QStringLiteral("RecoveryRequired");
 		case cl::Status::IdsExhausted:
 			return QStringLiteral("IdsExhausted");
+		case cl::Status::Unsupported:
+			return QStringLiteral("Unsupported");
 	}
 	return QStringLiteral("Unknown");
 }
