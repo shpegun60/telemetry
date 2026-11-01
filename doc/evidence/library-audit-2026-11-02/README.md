@@ -47,7 +47,16 @@ ASan repros exercise the original delegate lifetime failures. A Qt bootstrap
 repro uses a real 900-byte Descriptor and a non-offset READ token.
 
 Final local evidence uses fresh external build directories and retained
-compiler/runtime logs and source fingerprints. Relevant maintained gates:
+compiler/runtime logs and source fingerprints.
+
+A supplementary native Windows Qt 6.10.1 run exposed a Watchlist test-harness
+race: adding a row expanded the panel, but the next simulated click used its
+pre-polish position. The button received zero clicks, so no request was submitted.
+The maintained helper now settles pending layout polish before the real mouse
+click. The original completion assertions and strict warning checks remain;
+application scheduling and test timeouts are unchanged.
+
+Relevant maintained gates:
 
 - Async, DynamicClient, Inspector/Workbench and ReadMany with Clang 18 ASan/UBSan,
   no-heap controls, negative API probes and Cortex-M7 compile/symbol checks.
