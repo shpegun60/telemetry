@@ -34,3 +34,20 @@ target_compile_definitions(telemetry_inspector_qml_service_check PRIVATE
 target_link_libraries(telemetry_inspector_qml_service_check PRIVATE inspector_qml_support
     Qt6::Quick Qt6::QuickControls2 Qt6::Test)
 qt_import_qml_plugins(telemetry_inspector_qml_service_check)
+qt_add_executable(telemetry_inspector_qml_watchlist_check Watchlist.cpp)
+target_compile_features(telemetry_inspector_qml_watchlist_check PRIVATE cxx_std_20)
+target_compile_definitions(telemetry_inspector_qml_watchlist_check PRIVATE
+    INSPECTOR_QML_SOURCE_FILE="${TELEMETRY_ROOT}/examples/inspector_qml/Main.qml")
+target_link_libraries(telemetry_inspector_qml_watchlist_check PRIVATE inspector_qml_support
+    Qt6::Quick Qt6::QuickControls2 Qt6::Test)
+qt_import_qml_plugins(telemetry_inspector_qml_watchlist_check)
+foreach(_case Failures Scheduling)
+    string(TOLOWER "${_case}" _name)
+    qt_add_executable(telemetry_inspector_qml_watchlist_${_name}_check Watchlist${_case}.cpp)
+    target_compile_features(telemetry_inspector_qml_watchlist_${_name}_check PRIVATE cxx_std_20)
+    target_compile_definitions(telemetry_inspector_qml_watchlist_${_name}_check PRIVATE
+        INSPECTOR_QML_SOURCE_FILE="${TELEMETRY_ROOT}/examples/inspector_qml/Main.qml")
+    target_link_libraries(telemetry_inspector_qml_watchlist_${_name}_check PRIVATE inspector_qml_support
+        Qt6::Quick Qt6::QuickControls2 Qt6::Test)
+    qt_import_qml_plugins(telemetry_inspector_qml_watchlist_${_name}_check)
+endforeach()

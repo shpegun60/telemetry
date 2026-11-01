@@ -15,6 +15,12 @@ an explicitly selected external checkout. Its compiled source/header hashes and
 Git identity are retained with the Telemetry source inventory. The fresh external
 build keeps logs, binaries and `summary.json` outside both repositories.
 
+The separate Watchlist executable uses the actual optional NUCLEO ReadMany
+Protocol over fragmented PTYs. It checks TRM1 discovery and fingerprint/session
+admission, 32 independent Fields, per-item Unavailable, malformed item IDs,
+timeout after proven handoff, and recovery through a strictly newer session.
+No test automatically falls back to individual reads or replays a timed-out batch.
+
 Coverage includes paginated Descriptor discovery after a decoy file, fragmented
 COBS deliveries, bad CRC followed by a correct response without replaying the
 request, real FieldReads, exact U64/S64 text, unknown enum values, nested/empty

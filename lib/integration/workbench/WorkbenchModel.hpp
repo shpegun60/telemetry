@@ -19,6 +19,10 @@
 #include <type_traits>
 #include <utility>
 
+namespace telemetry::integration::read_many::detail {
+struct WorkbenchAccess;
+}
+
 namespace telemetry::integration::workbench {
 
 enum class Phase : std::uint8_t {
@@ -581,6 +585,20 @@ public:
 	}
 
 private:
+	friend struct ::telemetry::integration::read_many::detail::WorkbenchAccess;
+
+	// Optional read integrations use this same FIFO without exposing it to
+	// applications or adding wire dependencies/storage to the Workbench.
+	[[nodiscard]] auto& readOnlyClient() noexcept
+	{
+		return model_.client_;
+	}
+
+	[[nodiscard]] client::Status readOnlyGate() const noexcept
+	{
+		return model_.submissionGate();
+	}
+
 	inspector::InspectorModel<N, PayloadBytes, SnapshotBytes, CallbackBytes> model_;
 	std::array<std::byte, PayloadBytes> draft_{}, request_{};
 	inspector::SnapshotStore requestStore_;

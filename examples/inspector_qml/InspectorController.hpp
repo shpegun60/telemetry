@@ -9,6 +9,7 @@
 #pragma once
 
 #include "Models.hpp"
+#include "WatchlistModel.hpp"
 #include <QtCore/QByteArray>
 #include <QtCore/QObject>
 #include <QtCore/QTimer>
@@ -51,6 +52,19 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(bool canCallService READ canCallService NOTIFY stateChanged)
 	Q_PROPERTY(QString serviceOutcome READ serviceOutcome NOTIFY stateChanged)
 	Q_PROPERTY(QString serviceResponseEndpoint READ serviceResponseEndpoint NOTIFY stateChanged)
+	Q_PROPERTY(QAbstractItemModel* watchlist READ watchlist CONSTANT)
+	Q_PROPERTY(bool watchRunning READ watchRunning NOTIFY stateChanged)
+	Q_PROPERTY(bool watchPending READ watchPending NOTIFY stateChanged)
+	Q_PROPERTY(bool watchActive READ watchActive NOTIFY stateChanged)
+	Q_PROPERTY(bool canAddWatch READ canAddWatch NOTIFY stateChanged)
+	Q_PROPERTY(int watchCount READ watchCount NOTIFY stateChanged)
+	Q_PROPERTY(QString watchStatus READ watchStatus NOTIFY stateChanged)
+	Q_PROPERTY(
+	    int watchIntervalMs READ watchIntervalMs WRITE setWatchIntervalMs NOTIFY stateChanged)
+	Q_PROPERTY(
+	    bool watchIndividual READ watchIndividual WRITE setWatchIndividual NOTIFY stateChanged)
+	Q_PROPERTY(bool readManyDiscovery READ readManyDiscovery WRITE setReadManyDiscovery NOTIFY
+	               stateChanged)
 
 public:
 	explicit InspectorController(QObject* parent = nullptr);
@@ -125,6 +139,7 @@ public:
 	void setSerialWriteChunkBytes(int bytes) noexcept;
 	Q_INVOKABLE bool connectDemo();
 	Q_INVOKABLE bool connectWritableDemo();
+	Q_INVOKABLE bool connectReadManyDemo();
 	Q_INVOKABLE bool connectTcp(const QString& host, quint16 port = 5577);
 	Q_INVOKABLE bool loadDescriptor(const QUrl& path);
 	Q_INVOKABLE bool openDescriptorPath(const QString& path);
@@ -172,6 +187,65 @@ public:
 
 	Q_INVOKABLE void disconnectDevice();
 
+	QAbstractItemModel* watchlist() noexcept
+	{
+		return &watchlist_;
+	}
+
+	bool watchRunning() const noexcept
+	{
+		return watchRunning_;
+	}
+
+	bool watchPending() const noexcept
+	{
+		return watchPending_;
+	}
+
+	// Includes an Individual cycle paused behind a foreground request and the
+	// accepted read being drained after Stop. Its row set and mode stay fixed.
+	bool watchActive() const noexcept
+	{
+		return watchRunning_ || watchCycle_ || watchPending_;
+	}
+
+	bool canAddWatch() const noexcept;
+
+	int watchCount() const noexcept
+	{
+		return watchlist_.count();
+	}
+
+	QString watchStatus() const
+	{
+		return watchStatus_;
+	}
+
+	int watchIntervalMs() const noexcept
+	{
+		return watchIntervalMs_;
+	}
+
+	bool watchIndividual() const noexcept
+	{
+		return watchIndividual_;
+	}
+
+	bool readManyDiscovery() const noexcept
+	{
+		return readManyDiscovery_;
+	}
+
+	void setWatchIntervalMs(int milliseconds);
+	void setWatchIndividual(bool individual);
+	void setReadManyDiscovery(bool enabled);
+	Q_INVOKABLE bool addWatch();
+	Q_INVOKABLE bool removeWatch(int row);
+	Q_INVOKABLE void clearWatch();
+	Q_INVOKABLE bool startWatch();
+	Q_INVOKABLE void stopWatch();
+	Q_INVOKABLE bool refreshWatch();
+
 	// Host-port controls also let the Qt tests exercise actual asynchronous reads.
 	void pump();
 	void setReplyDelay(int milliseconds) noexcept;
@@ -210,6 +284,7 @@ private:
 	EndpointModel endpoints_;
 	ValueModel values_;
 	ValueModel responses_;
+	WatchlistModel watchlist_;
 	QTimer timer_;
 	QString selection_, status_ = QStringLiteral("Connect the demo or open a Descriptor file.");
 	QString peerHost_ = QStringLiteral("10.50.0.0"), peerAddress_;
@@ -227,6 +302,12 @@ private:
 	bool connecting_ = false;
 	bool connected_ = false, busy_ = false, dropReplies_ = false, updating_ = false;
 	bool writesEnabled_ = false;
+	bool watchRunning_ = false, watchPending_ = false, watchIndividual_ = false;
+	bool readManyDiscovery_ = false, watchCycle_ = false;
+	int watchIntervalMs_ = 1000, watchCursor_ = 0;
+	quint32 watchDue_ = 0;
+	quint64 watchRevision_ = 0;
+	QString watchStatus_ = QStringLiteral("Select scalar Fields to watch.");
 	QString writeOutcome_;
 	quint32 writeOutcomeSession_ = 0;
 	QString commandOutcome_, commandOutcomeEndpoint_;
@@ -235,7 +316,11 @@ private:
 	quint32 serviceOutcomeSession_ = 0;
 	QSet<quintptr> invalidEditors_;
 	bool replaceDescriptor(QByteArray bytes, bool demo, bool remote = false,
-	                       bool writableDemo = false);
+	                       bool writableDemo = false, bool readManyDemo = false);
+	bool submitWatch();
+	void retireWatch(bool clear);
+	void invalidateSession(State& state);
+	bool consumeWatch(State& state);
 	Completion retire();
 	std::optional<bool> consumeApply(State& state, bool displaySnapshot);
 	std::optional<std::pair<bool, bool>> consumeCommand(State& state, bool live);

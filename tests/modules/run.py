@@ -12,9 +12,13 @@ import time
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
-MODULES = ('core', 'runtime', 'dynamic_client', 'read_many_client', 'inspector', 'workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
+MODULES = ('core', 'runtime', 'dynamic_client', 'read_many_client', 'inspector', 'workbench', 'read_many_workbench', 'resource', 'resource_protocol', 'client', 'resource_adapter',
            'encoded_server', 'rpc_server', 'rpc_sessions', 'encoded_backend', 'rpc_client', 'rpc_backend', 'tcp_server')
 FORBIDDEN = {
+    'read_many_workbench': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
+                            'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
+                            'magic_enum.hpp', 'wire/RpcWire.hpp',
+                            'integration/encoded/Backend.hpp', 'integration/rpc/Backend.hpp'),
     'read_many_client': ('telemetry/Telemetry.hpp', 'telemetry/type/Traits.hpp',
                          'telemetry/codec/Codec.hpp', 'resource/Resource.hpp', 'boost/pfr.hpp',
                          'magic_enum.hpp', 'wire/RpcWire.hpp', 'integration/encoded/Backend.hpp',
@@ -56,11 +60,13 @@ FORBIDDEN = {
                    'integration/dynamic/DynamicClient.hpp', 'telemetry/runtime/RuntimeSchema.hpp'),
 }
 for _module in MODULES:
-    if _module != 'read_many_client':
+    if _module not in ('read_many_client', 'read_many_workbench'):
         FORBIDDEN[_module] += ('integration/read_many/Client.hpp',)
-    if _module != 'workbench':
+    if _module not in ('workbench', 'read_many_workbench'):
         FORBIDDEN[_module] += ('integration/workbench/WorkbenchModel.hpp',
                               'integration/workbench/RequestEditor.hpp')
+    if _module != 'read_many_workbench':
+        FORBIDDEN[_module] += ('integration/read_many/Workbench.hpp',)
     if _module != 'tcp_server':
         FORBIDDEN[_module] += ('integration/tcp/Framing.hpp', 'integration/tcp/Server.hpp')
 
@@ -546,7 +552,7 @@ def check_default_install(args, out, run, extra_config, flags):
             '#include <integration/workbench/WorkbenchModel.hpp>\n' \
             '#include <integration/encoded/Backend.hpp>\n' + (HERE / 'Probe.cpp').read_text()
     (consumer / 'main.cpp').write_text(probe, encoding='utf-8')
-    components = ('inspector', 'workbench', 'encoded_backend', 'encoded_server', 'core', 'tcp_server')
+    components = ('inspector', 'workbench', 'read_many_workbench', 'encoded_backend', 'encoded_server', 'core', 'tcp_server')
     code = ['cmake_minimum_required(VERSION 3.20)', 'project(DefaultConsumer LANGUAGES CXX)',
             'set(CMAKE_EXPORT_COMPILE_COMMANDS ON)',
             'find_package(Telemetry REQUIRED COMPONENTS ' + ' '.join(components) + ')',

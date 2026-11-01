@@ -9,6 +9,12 @@ passes actual Encoded request/reply packets through its dispatcher. Demonstratio
 values are not measurements from a connected controller. Importing a Descriptor
 file enables metadata browsing only; its endpoint IDs are never sent to the demo.
 
+The [scalar Watchlist](../../doc/ReadManyWatchlist.md) adds bounded periodic reads
+of up to 32 selected Fields. Use **ReadMany demo**, or explicitly enable TRM1
+discovery for the UART ReadMany firmware. **Individual FieldRead** is an explicit
+fallback for older devices. Missed polling ticks are skipped; foreground
+snapshots and editing drafts keep their own state.
+
 ## Build and run
 
 Requires Qt 6.4 or newer with Core, Gui, Qml, Quick, Quick Controls 2 and Network,
@@ -28,7 +34,7 @@ inspector_exe=/tmp/telemetry-inspector-qml/telemetry-inspector-qml
 ```
 
 The CMake project uses installed Telemetry components when found; otherwise it
-builds only `workbench`, `inspector`, `encoded_backend`, `encoded_server`, `tcp_server`, `core`
+builds only `workbench`, `inspector`, `read_many_workbench`, `encoded_backend`, `encoded_server`, `tcp_server`, `core`
 and their dependencies from this repository. Qt stays in this host application.
 An installed package must contain every selected component. Use
 `-DCMAKE_DISABLE_FIND_PACKAGE_Telemetry=ON` to explicitly choose this checkout
@@ -325,6 +331,12 @@ An accepted Refresh retires the previous snapshot. Rejected submission leaves
 the current Inspector snapshot intact. Schema/session invalidation clears old
 values. Changing the displayed Field supersedes an old read instead of publishing
 it under the new selection.
+
+Watchlist invalidation also notifies existing QML delegates after foreground
+transport failures. A logical read cycle stays active while paused behind
+foreground work, so its selection, mode and frequency cannot change mid-cycle.
+Stop revokes future reads; an accepted read still drains before these controls
+become available again.
 
 Qt model reset/insertion signals may run application slots synchronously. Both
 models guard their mutation phases; controller reconnect, disconnect and refresh

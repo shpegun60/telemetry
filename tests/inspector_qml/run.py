@@ -195,6 +195,36 @@ def main():
         report['executions']['service_checks'] = int(service_counts[1])
         report['executions']['service_keyboard_mouse_no_enter'] = 1
         report['service_screenshot'] = screenshot_record(service_screenshot)
+        watch_check = build / ('telemetry_inspector_qml_watchlist_check' + suffix)
+        watch_screenshot = output / 'watchlist-window.png'
+        watched = run('qml-watchlist', [watch_check, '--screenshot', watch_screenshot])
+        watch_counts = re.search(r'Inspector Watchlist checks=(\d+) limit=32 exact=1 '
+                                 r'skippedTicks=1 fallback=1 qml=1 Qt=(\S+)', watched)
+        if not watch_counts or int(watch_counts[1]) < 100 or watch_counts[2] != counts[3]:
+            raise RuntimeError('Watchlist did not prove bounded polling, exact values and explicit fallback')
+        report['executions']['watchlist_checks'] = int(watch_counts[1])
+        report['watchlist_screenshot'] = screenshot_record(watch_screenshot)
+        watch_failures = build / ('telemetry_inspector_qml_watchlist_failures_check' + suffix)
+        failed_paths = run('qml-watchlist-failures', [watch_failures])
+        failed_counts = re.search(r'Inspector Watchlist Failures checks=(\d+) paths=5 qml=1 '
+                                  r'drain=1 failures=0 Qt=(\S+)', failed_paths)
+        if not failed_counts or int(failed_counts[1]) < 100 or failed_counts[2] != counts[3]:
+            raise RuntimeError('Watchlist did not retire live QML values on all foreground failure paths')
+        report['executions']['watchlist_failure_checks'] = int(failed_counts[1])
+        stale_display = re.findall(r'Watchlist stale endpoint phase=(queued-watch|handed-watch) '
+                                   r'rows=(\d+) pending=1 requestDelta=(\d+)', failed_paths)
+        if ([(phase, delta) for phase, _, delta in stale_display] !=
+                [('queued-watch', '0'), ('handed-watch', '1')] or
+                any(int(rows) < 1 for _, rows, _ in stale_display)):
+            raise RuntimeError('Live endpoint delegates did not reread stale display roles before both drains')
+        report['executions']['watchlist_stale_display_phases'] = [phase for phase, _, _ in stale_display]
+        watch_scheduling = build / ('telemetry_inspector_qml_watchlist_scheduling_check' + suffix)
+        scheduled = run('qml-watchlist-scheduling', [watch_scheduling])
+        schedule_counts = re.search(r'Inspector Watchlist scheduling checks=(\d+) failures=0 '
+                                    r'cycleWindow=1 continuation=1 stop=1 qmlGap=1 Qt=(\S+)', scheduled)
+        if not schedule_counts or int(schedule_counts[1]) < 272 or schedule_counts[2] != counts[3]:
+            raise RuntimeError('Watchlist logical-cycle guards or QML controls did not execute')
+        report['executions']['watchlist_scheduling_checks'] = int(schedule_counts[1])
         app = build / 'example' / ('telemetry-inspector-qml' + suffix)
         screenshot = output / 'window.png'
         smoke = run('qml-smoke', [app, '--smoke', '--screenshot', screenshot])
@@ -211,7 +241,8 @@ def main():
         report['executions']['offscreen_edit_smoke'] = 1
         report['edit_screenshot'] = screenshot_record(edit_screenshot)
         report['binary_sha256'] = {str(path.relative_to(output)): digest(path)
-                                  for path in (check, physical_input, command_check, service_check, app)}
+                                  for path in (check, physical_input, command_check, service_check,
+                                               watch_check, watch_failures, watch_scheduling, app)}
         report['qt_runtime_sha256'] = {str(path.relative_to(qt)): digest(path)
                                        for path in (qt / 'bin').glob('Qt6*.dll') if path.is_file()}
         report['source_sha256_after'] = sources()
