@@ -4,7 +4,8 @@
 #include <cstdint>
 
 #if defined(MODULE_CORE) || defined(MODULE_RESOURCE_ADAPTER) || defined(MODULE_ENCODED_SERVER) ||  \
-    defined(MODULE_RPC_SERVER) || defined(MODULE_RPC_SESSIONS) || defined(MODULE_TCP_SERVER)
+    defined(MODULE_RPC_SERVER) || defined(MODULE_RPC_SESSIONS) || defined(MODULE_TCP_SERVER) ||    \
+    defined(MODULE_BATCH_SERVER)
 #include <telemetry/Telemetry.hpp>
 #include <telemetry/descriptor/Descriptor.hpp>
 static constexpr telemetry::ServiceCatalogTable services{};
@@ -116,6 +117,16 @@ int main()
 {
 	return sizeof(ReadManyBinding) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_BATCH_CLIENT)
+#include <integration/batch/Client.hpp>
+#include <type_traits>
+using BatchBinding = telemetry::integration::batch::BatchBinding;
+static_assert(std::is_copy_constructible_v<BatchBinding>);
+
+int main()
+{
+	return sizeof(BatchBinding) > sizeof(void*) ? 0 : 1;
+}
 #elif defined(MODULE_READ_MANY_WORKBENCH)
 #include <integration/read_many/Workbench.hpp>
 #include <type_traits>
@@ -197,6 +208,19 @@ int main()
 	telemetry::Workspace workspace{scratch};
 	const auto result =
 	    telemetry::integration::encoded::dispatchEncoded(model.view(), workspace, 1, {}, {});
+	return result.status == telemetry::integration::encoded::EncodedDispatchStatus::Malformed ? 0
+	                                                                                          : 1;
+}
+#elif defined(MODULE_BATCH_SERVER)
+#include <integration/encoded/BatchDispatcher.hpp>
+
+int main()
+{
+	std::array<std::byte, 256> scratch{};
+	telemetry::Workspace workspace{scratch};
+	const telemetry::protocol::encoded::batch::Capability capability{1, 0};
+	const auto result = telemetry::integration::encoded::dispatchEncoded(model.view(), workspace, 1,
+	                                                                     {}, {}, capability);
 	return result.status == telemetry::integration::encoded::EncodedDispatchStatus::Malformed ? 0
 	                                                                                          : 1;
 }

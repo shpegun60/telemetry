@@ -56,6 +56,8 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | RPC backend | `integration/rpc/Backend.hpp` | `telemetry::integration::rpc` |
 | Runtime client | `integration/dynamic/DynamicClient.hpp` | `telemetry::integration::dynamic` |
 | Optional ReadMany | `integration/read_many/Client.hpp` | `telemetry::integration::read_many` |
+| Optional Mixed Batch client | `integration/batch/Client.hpp` | `telemetry::integration::batch` |
+| Optional Mixed Batch server | `integration/encoded/BatchDispatcher.hpp` | `telemetry::integration::encoded` |
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
 | FieldWrite, Command and Service Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
 | Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
@@ -90,7 +92,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `inspector`, `workbench`, `read_many_workbench` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `batch_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
@@ -112,6 +114,10 @@ The optional `read_many_client` adds the Encoded scalar batch mapping over the
 same private FIFO, without changing the base target's include closure. It adds
 only `encoded_wire` to `dynamic_client`; select a concrete enabled Encoded backend
 separately. See [ReadMany](ReadManyEncoded.md).
+The optional `batch_client` adds ordered FieldRead/FieldWrite/Command/Service
+requests over that same FIFO. `batch_server` selects the transport-independent
+executor and its explicit Encoded admission mapping; selecting `core` alone
+does not link either Batch implementation. See [Mixed Batch](MixedBatchEncoded.md).
 The optional `read_many_workbench` combines `workbench` and `read_many_client`
 for snapshot-preserving background reads on that same FIFO. It adds no storage
 to the base Workbench. See [Scalar Watchlist](ReadManyWatchlist.md).

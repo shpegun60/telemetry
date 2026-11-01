@@ -1,0 +1,20 @@
+# Qualify the optional Mixed Batch through installed public components. MIT.
+cmake_minimum_required(VERSION 3.20)
+project(TelemetryBatchTests LANGUAGES CXX)
+option(BATCH_ARM_PROBE "Build offline Cortex-M7 roots" OFF)
+find_package(Telemetry REQUIRED COMPONENTS batch_server batch_client encoded_backend)
+if(BATCH_ARM_PROBE)
+    include(arm.cmake)
+    return()
+endif()
+find_package(Telemetry REQUIRED COMPONENTS rpc_backend rpc_sessions)
+foreach(test IN ITEMS Wire Server Client NoHeap)
+    add_executable(batch-${test} ${test}.cpp)
+    target_link_libraries(batch-${test} PRIVATE Telemetry::batch_server Telemetry::batch_client
+        Telemetry::encoded_backend Telemetry::rpc_backend Telemetry::rpc_sessions)
+    if(test STREQUAL "NoHeap" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_definitions(batch-${test} PRIVATE BATCH_WRAP_ALLOCATIONS=1)
+        target_link_options(batch-${test} PRIVATE -Wl,--wrap=malloc -Wl,--wrap=calloc
+            -Wl,--wrap=realloc -Wl,--wrap=free)
+    endif()
+endforeach()

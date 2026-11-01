@@ -253,7 +253,7 @@ static void refusalAndCompatibility() noexcept
 	static_assert(cl::isReadOnly(cl::Operation::ReadMany));
 	static_assert(cl::isReadOnly(cl::Operation::FieldRead));
 	static_assert(!cl::isReadOnly(cl::Operation::Command));
-	static_assert(!cl::isReadOnly(static_cast<cl::Operation>(6)));
+	static_assert(!cl::isReadOnly(cl::Operation::Batch));
 	const cl::ResultView success{cl::Status::Ok, cl::Operation::ReadMany};
 	CHECK(success.succeeded() && !success.accepted() && !success.executed());
 	Harness h;
@@ -293,7 +293,8 @@ static void refusalAndCompatibility() noexcept
 	CHECK(h.client.pending() == 0 && !h.backend.nextPacket());
 	CHECK(h.client.bind(cl::Operation::ReadMany, 0).status == cl::Status::InvalidArgument);
 	CHECK(h.client.bind(static_cast<cl::Operation>(6), 0).status == cl::Status::InvalidArgument);
-	CHECK(h.backend.start({static_cast<cl::Operation>(6), 0, {}, 10}, h.now) ==
+	CHECK(h.backend.start({cl::Operation::Batch, 0, {}, 14}, h.now) == cl::Status::Unsupported);
+	CHECK(h.backend.start({static_cast<cl::Operation>(7), 0, {}, 10}, h.now) ==
 	      cl::Status::InvalidArgument);
 	Harness<mixedModel, mixedBytes> mixedHarness;
 	const std::array<std::uint32_t, 1> structId{6};

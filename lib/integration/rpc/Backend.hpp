@@ -41,7 +41,8 @@ public:
 	[[nodiscard]] ::telemetry::client::Status start(::telemetry::client::RequestView request,
 	                                                std::uint32_t now) noexcept override
 	{
-		if (request.operation == ::telemetry::client::Operation::ReadMany)
+		if (request.operation == ::telemetry::client::Operation::ReadMany ||
+		    request.operation == ::telemetry::client::Operation::Batch)
 			return ::telemetry::client::Status::Unsupported;
 		if (recovery_)
 			return ::telemetry::client::Status::RecoveryRequired;

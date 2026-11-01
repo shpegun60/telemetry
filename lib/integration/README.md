@@ -15,6 +15,8 @@ remain under `lib/integration`.
 | --- | --- | --- | --- |
 | `dynamic_client` | `integration/dynamic/DynamicClient.hpp` | `runtime`, `client` | Runtime endpoint checks over the existing DeviceClient FIFO |
 | `read_many_client` | `integration/read_many/Client.hpp` | `dynamic_client`, `encoded_wire` | Optional scalar Encoded batch over that same FIFO |
+| `batch_client` | `integration/batch/Client.hpp` | `dynamic_client`, `encoded_wire` | Optional ordered mixed operations over the same FIFO |
+| `batch_server` | `integration/encoded/BatchDispatcher.hpp` | `core`, `encoded_wire`, `encoded_server` | Global preflight and independent per-item outcomes for Mixed Batch |
 | `read_many_workbench` | `integration/read_many/Workbench.hpp` | `workbench`, `read_many_client` | Background read values without replacing the selected snapshot or draft |
 | `inspector` | `integration/inspector/InspectorModel.hpp` | `dynamic_client` | Read-only discovery and one owned selected-Field snapshot |
 | `workbench` | `integration/workbench/WorkbenchModel.hpp` | `inspector` | Fixed-storage Field editing and one Write/Refresh workflow on the same FIFO |
@@ -92,6 +94,11 @@ the same way. The existing Inspector API remains read-only.
 For the native RPC engine without DeviceClient, select
 `CONFIG += telemetry_client_rpc` and include `lib/client/client.pri`.
 Repeated inclusion of these manifests does not duplicate compiled sources.
+
+Mixed Batch selects `CONFIG += telemetry_batch_client` or `telemetry_batch_server`
+through `integration.pri`. Its separate TBM1 capability enables operation 6;
+TRM1 remains read-only. See [Mixed Batch](../../doc/MixedBatchEncoded.md) for
+buffer budgets, ordered execution and explicit retry semantics.
 
 qmake uses the shared source include root and its Resource manifest includes the
 generic packet processor. CMake provides finer component and header isolation;
