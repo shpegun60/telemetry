@@ -112,3 +112,6 @@ version or add Command/Service batching.
 The [maintained runner](../tests/read_comparison/README.md) retains reproducible
 inputs, logs and reports. Its deterministic correctness checks cover result
 equality, counters, framing and paging; host timing remains an observation.
+
+The [proposed ReadMany decision](ReadMany.md) applies this baseline to a changing
+Workbench watchlist. It is a design proposal, not an implemented batch operation.
