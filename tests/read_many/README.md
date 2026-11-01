@@ -18,6 +18,11 @@ The same complete host suite and example execute on the big-endian s390x target
 under QEMU, including the fixed little-endian capability golden bytes and
 bit-exact scalar replies. This is CPU emulation, not physical hardware.
 
+`python3 -B tests/read_many/qmake.py --qmake qmake6 --build-dir /external/read-many-qmake`
+checks legacy/client/batch source selections, enabling the server after base core,
+and repeated includes. qmake generates external manifests; these checks do not
+claim compilation or runtime behavior. CI runs them in the Qt job.
+
 Wire checks cover golden TRM1 bytes, truncation at every extent, count/order,
 reserved/status/length failures and 4096 deterministically generated arbitrary
 frames. Server checks exercise global preflight before getters, remaining aligned

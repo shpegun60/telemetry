@@ -1146,12 +1146,16 @@ jobs:
         run: build/qt/telemetry_playground -platform offscreen --smoke-test
       - name: Independent resource qmake configurations
         run: python3 tests/structured/resources/run_qmake.py --qmake qmake6 --build-dir build/resource-qmake
-      - name: Retain eight independent qmake selection manifests
+      - name: Optional ReadMany qmake selections and include ordering
+        run: python3 -B tests/read_many/qmake.py --qmake qmake6 --build-dir "$RUNNER_TEMP/read-many-qmake"
+      - name: Retain independent qmake selection manifests
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: resource-qmake-selections
-          path: build/resource-qmake/
+          path: |
+            build/resource-qmake/
+            ${{ runner.temp }}/read-many-qmake/
           if-no-files-found: error
       - name: Explicit structured protocol example qmake
         run: |
