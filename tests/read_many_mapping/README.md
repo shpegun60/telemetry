@@ -20,7 +20,8 @@ and signed zero are checked without floating-point equality.
 The ordinary Service has fixed request/reply wire sizes of 130/514 bytes. Invalid
 batch contents can enter the Service callback, but invoke zero Field getters.
 Insufficient outer response capacity prevents even that Service callback.
-Unused/error Service slots remain zero. Both mappings use one shared executor.
+Unused Service slots and error payload bytes remain zero. Both mappings use one
+shared executor.
 
 No-heap checks arm replacement C++ new/delete and GNU allocation-call wrappers
 around real prototype work. Separate `new`, `aligned_new`, `malloc`, `calloc`,

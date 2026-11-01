@@ -110,6 +110,31 @@ Object sizes, explicit buffers, selected-root ARM sections and individual stack
 frames are retained by the [qualification runner](../tests/read_many_mapping/README.md).
 They are not full firmware RAM/Flash or call-chain peak stack measurements.
 
+The clean code revision `17d1bc3` passed 595,791 checks per host profile on
+GCC 13.3, Clang 18 ASan/UBSan with leak checking, and Windows MinGW 13.1. Each also
+passed the 55-check no-heap probe and six expected allocation-trap controls. The
+unchanged baseline example passed its 194,329 checks through the shared runner.
+
+Offline ARM GCC 13.2.1 produced these separate GC-selected images:
+
+| Optimization / mapping | Linked `.text` | `.rodata` | `.data` | `.bss` | Entry frame only |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `-Os` compact | 5,568 B | 2,156 B | 0 B | 816 B | 232 B |
+| `-Os` Service | 7,844 B | 3,380 B | 96 B | 1,472 B | 272 B |
+| `-O2` compact | 5,604 B | 2,156 B | 0 B | 816 B | 264 B |
+| `-O2` Service | 7,768 B | 3,400 B | 96 B | 1,472 B | 304 B |
+
+These totals include fixture/application code, not an incremental cost estimate
+for an existing firmware. The individual entry frames exclude their callees.
+Both images use installed ARM packages and contain no allocation symbols.
+
+On the measured x86-64 ABI, Capture is 432 B and Batch is 516 B. The 9,928-byte
+Context already contains 4,456-byte schema metadata, 2,048-byte request and reply
+buffers, 690-byte Workspace storage and Batch. Other caller locals, including
+reply views, are additional. The native fixed request/reply objects are 132/516 B,
+while their canonical wire payloads are 130/514 B. These are accounting components,
+not a full stack or application RAM bound.
+
 ## Required production work
 
 Before integration, approve capability discovery/lifecycle and a production mapping
