@@ -920,12 +920,17 @@ jobs:
         run: |
           python3 tests/structured/freeze/run.py --arm --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze
           python3 tests/structured/freeze/run.py --arm --null-checks --cxx arm-none-eabi-g++ --build-dir build/arm-structured-freeze-nullchecks
+      - name: Experimental ReadMany selected ARM roots and installed package
+        run: |
+          python3 -B tests/read_many_mapping/run.py --arm-only --cxx arm-none-eabi-g++ \
+            --build-dir "$RUNNER_TEMP/read-many-arm" --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cortex-m7-check-logs
           path: |
+            ${{ runner.temp }}/read-many-arm/
             build/arm/*.log
             build/arm/*.json
             build/arm/*.su
@@ -1084,6 +1089,14 @@ jobs:
           python3 -B tests/read_comparison/run.py --build-dir "$RUNNER_TEMP/read-comparison-sanitized" \
             --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/clang++-18 \
             --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+      - name: Qualify experimental bounded ReadMany mappings
+        run: |
+          python3 -B tests/read_many_mapping/run.py --build-dir "$RUNNER_TEMP/read-many-mapping-gcc" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/g++ \
+            --cmake /usr/bin/cmake --ninja /usr/bin/ninja
+          python3 -B tests/read_many_mapping/run.py --build-dir "$RUNNER_TEMP/read-many-mapping-sanitized" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --cxx /usr/bin/clang++-18 \
+            --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Retain source, tool, build and runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -1097,6 +1110,8 @@ jobs:
             ${{ runner.temp }}/nucleo-host/
             ${{ runner.temp }}/read-comparison-gcc/
             ${{ runner.temp }}/read-comparison-sanitized/
+            ${{ runner.temp }}/read-many-mapping-gcc/
+            ${{ runner.temp }}/read-many-mapping-sanitized/
           if-no-files-found: error
 
   qt:
