@@ -244,6 +244,55 @@ void recoveryBeforeCachedAdmission() noexcept
 	rig.close();
 }
 
+void nullCallbacks() noexcept
+{
+	void (*callback)(const dy::DynamicResult&) noexcept = nullptr;
+	Rig rig;
+	dy::EndpointBinding absent;
+	CHECK(rig.client.submit(absent, {}, callback).status == cl::Status::NotAdmitted);
+	rig.backend.recovery = true;
+	CHECK(rig.client.submit(absent, {}, callback).status == cl::Status::RecoveryRequired);
+	rig.backend.recovery = false;
+	rig.admit();
+	const auto command = rig.command();
+	const auto field = rig.client.bind(cl::Operation::FieldRead, 0);
+	CHECK(field);
+	const auto processes = rig.backend.processes, reads = rig.time.reads;
+	CHECK(rig.client.submit(command, {}, callback).status == cl::Status::InvalidArgument);
+	CHECK(rig.client.command(command, callback).status == cl::Status::InvalidArgument);
+	CHECK(rig.client.readField(field.endpoint, callback).status == cl::Status::InvalidArgument);
+	CHECK(rig.client.pending() == 0 && rig.backend.starts == 0);
+	CHECK(rig.backend.processes == processes && rig.time.reads == reads);
+
+	struct FalseCallable {
+		unsigned* calls;
+
+		explicit operator bool() const noexcept
+		{
+			return false;
+		}
+
+		void operator()(const dy::DynamicResult& result) noexcept
+		{
+			CHECK(result.operation.succeeded());
+			++*calls;
+		}
+	};
+
+	unsigned calls = 0;
+	CHECK(rig.client.command(command, FalseCallable{&calls}));
+	rig.client.process(0);
+	CHECK(rig.backend.starts == 1 && calls == 0);
+	rig.backend.finish(cl::Operation::Command);
+	rig.client.process(0);
+	CHECK(calls == 1 && rig.client.pending() == 0);
+	rig.backend.recovery = true;
+	CHECK(rig.client.command(command, callback).status == cl::Status::RecoveryRequired);
+	rig.client.close();
+	CHECK(rig.client.submit(command, {}, callback).status == cl::Status::Closed);
+	rig.close();
+}
+
 void failedAdmissionAndStickyIdentity() noexcept
 {
 	Rig rig;
@@ -355,6 +404,7 @@ void failedOutcomeRetainsCurrentIdentity() noexcept
 int main()
 {
 	synchronousPriority();
+	nullCallbacks();
 	recoveryBeforeCachedAdmission();
 	failedAdmissionAndStickyIdentity();
 	checkedOutcomeAndCallbackQuiescence();

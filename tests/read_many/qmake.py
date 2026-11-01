@@ -67,7 +67,15 @@ def main():
                     'lib/integration/encoded/Dispatcher.cpp']
     batch_sources = base_sources + ['lib/telemetry/encoded/ReadMany.cpp',
                                     'lib/integration/encoded/ReadManyDispatcher.cpp']
+    mixed_sources = ['lib/telemetry/encoded/Batch.cpp',
+                     'lib/integration/encoded/BatchDispatcher.cpp']
     late = [core, 'CONFIG += telemetry_read_many_server', integration]
+    late_encoded = ['CONFIG += resource_telemetry_encoded', integration,
+                    'CONFIG += telemetry_read_many_server', integration]
+    mixed_first = ['CONFIG += telemetry_batch_server', integration,
+                   'CONFIG += telemetry_read_many_server', integration]
+    read_many_first = ['CONFIG += telemetry_read_many_server', integration,
+                       'CONFIG += telemetry_batch_server', integration]
     cases = {
         'legacy': (['CONFIG += resource_telemetry_encoded', integration], base_sources),
         'batch': (['CONFIG += telemetry_read_many_server', integration], batch_sources),
@@ -77,6 +85,11 @@ def main():
                                 include('lib/integration/read_many/read_many_workbench.pri')], []),
         'late': (late, batch_sources),
         'repeated': (late + [core, core, integration, integration], batch_sources),
+        'late-encoded': (late_encoded, batch_sources),
+        'late-encoded-repeated': (late_encoded + [integration, core, integration], batch_sources),
+        'mixed-first': (mixed_first, batch_sources + mixed_sources),
+        'read-many-first': (read_many_first, batch_sources + mixed_sources),
+        'mixed-repeated': (mixed_first + [integration, core, integration], batch_sources + mixed_sources),
     }
     try:
         report['source_sha256_before'] = snapshot()
@@ -124,7 +137,7 @@ def main():
     finally:
         report['finished_utc'] = datetime.now(timezone.utc).isoformat()
         save()
-    print('ReadMany qmake source inventories: 7 cases passed; no compilation or hardware')
+    print(f'ReadMany qmake source inventories: {len(cases)} cases passed; no compilation or hardware')
 
 
 if __name__ == '__main__':

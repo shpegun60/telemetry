@@ -53,6 +53,20 @@ than `SnapshotBytes` is refused before enqueue with client `BufferTooSmall` and
 model `SnapshotTooLarge`. Queue refusal is the existing `QueueFull`, with no
 hidden pending queue in the inspector.
 
+Callable ownership may run user code in move constructors and destructors.
+While a read is being published, reentrant admission, selection, read and refresh
+requests return `Busy`. Clearing, processing, transport handoff/reply entry,
+cancellation and quiescence confirmation do not advance state during that short
+scope. Invalidation and close still revoke admission; their `NotAdmitted` or
+`Closed` status, and backend `RecoveryRequired`, take priority over `Busy`.
+The endpoint binding is copied before callable ownership changes, so modifying
+the caller's binding cannot redirect the accepted read. Normal completion
+callbacks run after publication and retain their existing reentrant behavior.
+
+Typed null function-pointer completions are refused as `InvalidArgument`
+without reserving a queue entry or retiring the current snapshot. A user functor
+with a false bool conversion remains valid if its call operator is noexcept.
+
 The callback receives a copied `ReadResult`: operation status, dispatch/endpoint
 details, runtime value status and model publication status remain distinct. A
 superseded read still completes once, but `published` is false and its

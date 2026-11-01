@@ -186,6 +186,10 @@ with READ. The file index is discovered, never assumed to be zero. Only a valid
 Descriptor is admitted. Discovery has a 10-second exchange timeout and a
 60-second overall limit. Missing paths, malformed lengths, unexpected tails,
 EOF or timeout close the connection without automatic packet replay.
+READ cursors are forwarded as opaque provider tokens, including nonmonotonic
+values. Accumulated payload bytes must fit STAT and match its size at EOF.
+Cursor-only progress is supported with a limit of 4096 such replies per file;
+it does not extend the absolute discovery deadline.
 
 Subsequent Refresh requests use the existing `EncodedBackend` and Inspector
 FIFO. TCP fragments are accumulated into complete existing TEQ1 frames; no

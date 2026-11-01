@@ -104,10 +104,12 @@ parser controls are separate from the interoperability tally below.
   example's existing library ABI/Workspace, not a second JS-aware endpoint.
 - `Resources.cpp`: the client also consumes the unchanged Stage 10 fixture.
   Both newly emitted C++ descriptors pass the independent Python oracle.
-- `Browser.py`: **20 counted checks** in a real browser, including a recursive
+- `Browser.py`: **30 counted checks** in a real browser, including a recursive
   form, exact downloaded bytes, U64/S64/unknown enum display, every application
   status, Void/unavailable, fingerprint mismatch, literal HTML-like text, and
-  a delayed operation that executes once despite the client timeout.
+  a delayed operation that executes once despite the client timeout. Deferred
+  real File reads cover service selection ABA, identical-descriptor reload,
+  stale errors and values, and fresh native response/values decoding afterward.
 - `QtSmoke.cpp`: Qt 6.10.1 MinGW C++20 smoke passed with `-Werror`, exact 41-byte
   response, U64/S64 preserved and native readAs using the same model.
 

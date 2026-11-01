@@ -9,7 +9,8 @@ import sys
 HERE = Path(__file__).resolve().parent
 POSITIVES = ('SlotLifecycleCheck', 'SlotEdgesCheck', 'SlotCallableCheck',
              'SlotOverloadCheck', 'NumericEdges', 'NumericOracle', 'HonorFlagsCheck',
-             'IdBoundaryCheck', 'WeakTargetCheck', 'BorrowedBraceCompileFail')
+             'IdBoundaryCheck', 'WeakTargetCheck', 'BorrowedBraceCompileFail',
+             'DelegateInlineCheck', 'DelegateHeapCheck')
 SLOT_CASES = {
     'TelemetryOwnerSlotCompileFail': ('TELEMETRY_OWNER_SLOT_FAIL_CASE',
         {case: 'OwnerSlot requires a non-volatile object type' if case in (13, 14) else 'deleted'
@@ -49,6 +50,7 @@ RUNTIME_CHECKS = {
     'NumericEdges-run': 78, 'NumericOracle-run': 1572092,
     'HonorFlagsCheck-run': 6, 'IdBoundaryCheck-run': 71,
     'BorrowedBraceCompileFail-run': 15,
+    'DelegateInlineCheck-run': 50, 'DelegateHeapCheck-run': 112,
     **{'id-name-' + str(case) + '-run': 1 for case in range(1, 5)},
     'debug-Og-run': 2, 'WeakTargetCheck-run': 5, 'weak-override-run': 3,
 }

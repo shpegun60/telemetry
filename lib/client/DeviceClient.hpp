@@ -250,6 +250,9 @@ public:
 		              "Completion ownership must be constructed without exceptions");
 		if (!validTimeout(timeoutMs))
 			return {Status::InvalidArgument, {}};
+		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+			if (!callback)
+				return {Status::InvalidArgument, {}};
 		if (!admission_.current())
 			return {queue_.closing()              ? Status::Closed
 			        : backend_.recoveryRequired() ? Status::RecoveryRequired
@@ -388,6 +391,9 @@ private:
 		              "Completion must be noexcept");
 		if (!validTimeout(timeoutMs))
 			return {Status::InvalidArgument, {}};
+		if constexpr (std::is_pointer_v<Callback>)
+			if (!callback)
+				return {Status::InvalidArgument, {}};
 		if constexpr (!std::is_void_v<R>) {
 			static_assert(sizeof(R) <= ScratchBytes && alignof(R) <= ScratchAlign,
 			              "Response exceeds the single DTO scratch");

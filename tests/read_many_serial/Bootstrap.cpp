@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -204,6 +205,44 @@ void listFailures()
 	CHECK(!empty.accept(shortError));
 }
 
+void opaqueReadCursors()
+{
+	auto bootstrap = listed();
+	CHECK(bootstrap.accept(stat(64)));
+	std::array<std::byte, 64> descriptor{};
+	for (std::size_t i = 0; i < descriptor.size(); ++i)
+		descriptor[i] = std::byte(i);
+	constexpr auto large = std::numeric_limits<resource::Cursor>::max();
+	CHECK(bootstrap.accept(chunk(large, false, {})));
+	request(bootstrap, Op::Read, 1, large);
+	CHECK(bootstrap.accept(chunk(3, false, Input{descriptor}.first(17))));
+	request(bootstrap, Op::Read, 1, 3);
+	// Producing bytes is progress even when the opaque token is unchanged.
+	CHECK(bootstrap.accept(chunk(3, false, Input{descriptor}.subspan(17))));
+	request(bootstrap, Op::Read, 1, 3);
+	CHECK(bootstrap.accept(chunk(large, true, {})));
+	CHECK(bootstrap.descriptor() ==
+	      QByteArray(reinterpret_cast<const char*>(descriptor.data()), 64));
+	request(bootstrap, Op::Stat, 2);
+	CHECK(bootstrap.accept(stat(many::capabilityBytes)));
+	const auto cap = capability();
+	CHECK(bootstrap.accept(chunk(large, false, Input{cap}.first(7))));
+	request(bootstrap, Op::Read, 2, large);
+	CHECK(bootstrap.accept(chunk(2, true, Input{cap}.subspan(7))));
+	CHECK(bootstrap.complete());
+	CHECK(bootstrap.capability() == QByteArray(reinterpret_cast<const char*>(cap.data()), 24));
+
+	// Cursor-only cycles cannot retain bootstrap indefinitely, even when
+	// every individual response satisfies the Resource progress contract.
+	auto stalled = capabilityRead();
+	for (unsigned i = 0; i < 4096; ++i)
+		CHECK(stalled.accept(chunk(i % 2 + 1, false, {})));
+	CHECK(!stalled.accept(chunk(1, false, {})) && !stalled.complete());
+	CHECK(stalled.capability().isEmpty());
+	stalled.reset();
+	CHECK(stalled.descriptor().isEmpty() && stalled.capability().isEmpty());
+}
+
 void fileFailures()
 {
 	for (const auto size : {0u, 63u, telemetry::Limits::maxDescriptorBytes + 1u}) {
@@ -219,9 +258,8 @@ void fileFailures()
 		CHECK(!bootstrap.accept(stat(24, resource::FileFlag::None)));
 	}
 	const auto cap = capability();
-	for (const auto& reply :
-	     {chunk(0, false, {}), chunk(23, true, Input{cap}.first(23)), chunk(24, false, cap),
-	      chunk(25, true, cap), chunk(24, true, Input{cap}.first(23))}) {
+	for (const auto& reply : {chunk(0, false, {}), chunk(23, true, Input{cap}.first(23)),
+	                          chunk(24, true, Input{cap}.first(23))}) {
 		auto bootstrap = capabilityRead();
 		CHECK(!bootstrap.accept(reply) && !bootstrap.complete());
 	}
@@ -235,6 +273,14 @@ void fileFailures()
 		auto bootstrap = capabilityRead();
 		CHECK(bootstrap.accept(chunk(7, false, Input{cap}.first(7))));
 		CHECK(!bootstrap.accept(chunk(24, true, cap)));
+	}
+	{
+		auto bootstrap = capabilityRead();
+		CHECK(bootstrap.accept(chunk(1, false, cap)));
+		CHECK(!bootstrap.complete());
+		const auto saved = bootstrap.capability();
+		CHECK(!bootstrap.accept(chunk(2, true, Input{cap}.first(1))));
+		CHECK(bootstrap.capability() == saved && !bootstrap.complete());
 	}
 }
 
@@ -274,6 +320,7 @@ void capabilityFailures()
 int main()
 {
 	positiveAndLegacy();
+	opaqueReadCursors();
 	listFailures();
 	fileFailures();
 	capabilityFailures();

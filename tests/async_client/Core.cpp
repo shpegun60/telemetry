@@ -20,6 +20,55 @@ static unsigned checks = 0, failures = 0;
 	} while (false)
 using Client = cl::DeviceClient<af::Codec, 4, 16>;
 
+static void nullCallbacks()
+{
+	af::now = 0;
+	af::Backend backend;
+	Client client{backend, af::clock};
+	void (*number)(const cl::Result<std::uint32_t>&) noexcept = nullptr;
+	void (*empty)(const cl::Result<void>&) noexcept = nullptr;
+	void (*raw)(const cl::ResultView&) noexcept = nullptr;
+	const cl::RequestView request{cl::Operation::FieldRead, 42, {}, 4};
+	// Argument checks precede queue reservation, just like an invalid timeout.
+	CHECK(client.submitEncoded(request, raw).status == cl::Status::InvalidArgument);
+	CHECK(client.admitDescriptor(af::Codec::header, 1) == cl::Status::Ok);
+	CHECK(client.read(af::Field{}, number).status == cl::Status::InvalidArgument);
+	CHECK(client.write(af::Field{}, 7U, empty).status == cl::Status::InvalidArgument);
+	CHECK(client.command(af::Command{}, 7U, empty).status == cl::Status::InvalidArgument);
+	CHECK(client.command(af::EmptyCommand{}, empty).status == cl::Status::InvalidArgument);
+	CHECK(client.service(af::Service{}, 7U, number).status == cl::Status::InvalidArgument);
+	CHECK(client.submitEncoded(request, raw).status == cl::Status::InvalidArgument);
+	CHECK(client.pending() == 0 && backend.starts == 0);
+
+	// A valid user functor may have a false bool conversion; it is still callable.
+	struct FalseCallable {
+		unsigned* calls;
+
+		explicit operator bool() const noexcept
+		{
+			return false;
+		}
+
+		void operator()(const cl::Result<std::uint32_t>& result) noexcept
+		{
+			CHECK(result.hasValue() && result.value() == 99);
+			++*calls;
+		}
+	};
+
+	unsigned calls = 0;
+	CHECK(client.read(af::Field{}, FalseCallable{&calls}));
+	client.process(0);
+	CHECK(backend.starts == 1 && client.pending() == 1 && calls == 0);
+	backend.finish();
+	client.process(0);
+	CHECK(calls == 1 && client.pending() == 0);
+	client.close();
+	CHECK(client.submitEncoded(request, raw).status == cl::Status::InvalidArgument);
+	client.process(0);
+	CHECK(client.drained());
+}
+
 static void lifecycle()
 {
 	af::now = 10;
@@ -471,6 +520,7 @@ static void failedEncodingCloseWake()
 
 int main()
 {
+	nullCallbacks();
 	lifecycle();
 	cancellationAndTime();
 	reentrant();

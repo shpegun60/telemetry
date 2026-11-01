@@ -332,6 +332,9 @@ public:
 			return {gate, {}};
 		if (!isCurrent(endpoint))
 			return {client::Status::NotAdmitted, {}};
+		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+			if (!callback)
+				return {client::Status::InvalidArgument, {}};
 		if (!contractsMatch(endpoint) || payload.size() != endpoint.requestBytes_)
 			return {client::Status::InvalidArgument, {}};
 		if (endpoint.requestType_ != 0 && !state_.schema.view(endpoint.requestType_, payload))

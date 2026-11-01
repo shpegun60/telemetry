@@ -111,6 +111,8 @@ public:
 			return client::Status::Closed;
 		if (client_.recoveryRequired())
 			return client::Status::RecoveryRequired;
+		if (publishing_)
+			return client::Status::Busy;
 		if (!snapshot_.canAdmit())
 			return client::Status::IdsExhausted;
 		const auto status = client_.admit(schema, observedHeader, session);
@@ -172,7 +174,8 @@ public:
 
 	void clearSelection() noexcept
 	{
-		snapshot_.clearSelection();
+		if (!publishing_)
+			snapshot_.clearSelection();
 	}
 
 	// Submission refusal is transactional: selection and any published snapshot
@@ -189,15 +192,22 @@ public:
 		const auto gate = validateField(field);
 		if (gate != client::Status::Ok)
 			return {gate, ModelStatus::Ok, {}};
+		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+			if (!callback)
+				return {client::Status::InvalidArgument, ModelStatus::Ok, {}};
 		if (field.responseBytes() > snapshot_.capacity())
 			return {client::Status::BufferTooSmall, ModelStatus::SnapshotTooLarge, {}};
 		if (!snapshot_.canAdvance())
 			return {client::Status::IdsExhausted, ModelStatus::RevisionExhausted, {}};
 		const auto revision = snapshot_.revision() + 1;
 		const auto admission = snapshot_.admission();
-		const auto id = field.id();
+		// Owning/moving/destroying the callable can run user code. Freeze the
+		// binding and protect this predicted revision until publication finishes.
+		const auto frozen = field;
+		const auto id = frozen.id();
+		dynamic::detail::CallbackScope publication{publishing_};
 		const auto submitted = client_.readField(
-		    field,
+		    frozen,
 		    [this, admission, revision, id, fn = std::forward<F>(callback)](
 		        const dynamic::DynamicResult& result) mutable noexcept {
 			    const auto completed = publish(result, admission, revision, id);
@@ -206,8 +216,8 @@ public:
 		    timeoutMs);
 		if (!submitted)
 			return {submitted.status, ModelStatus::Ok, {}};
-		(void)snapshot_.select(field.id(), field.responseType());
-		selection_ = field;
+		(void)snapshot_.select(frozen.id(), frozen.responseType());
+		selection_ = frozen;
 		return {client::Status::Ok, ModelStatus::Ok, submitted.handle};
 	}
 
@@ -276,6 +286,8 @@ public:
 
 	[[nodiscard]] bool confirmQuiescence(dynamic::Quiescence proof) noexcept
 	{
+		if (publishing_)
+			return false;
 		const bool confirmed = client_.confirmQuiescence(proof);
 		if (confirmed) {
 			snapshot_.invalidate();
@@ -285,6 +297,8 @@ public:
 
 	void process(std::uint32_t now) noexcept
 	{
+		if (publishing_)
+			return;
 		(void)current();
 		client_.process(now);
 		(void)current();
@@ -292,30 +306,34 @@ public:
 
 	[[nodiscard]] client::Packet nextPacket() noexcept
 	{
+		if (publishing_)
+			return {};
 		(void)current();
 		return client_.nextPacket();
 	}
 
 	[[nodiscard]] bool prepareHandoff(std::uint32_t session, std::uint32_t requestId) noexcept
 	{
+		if (publishing_)
+			return false;
 		(void)current();
 		return client_.prepareHandoff(session, requestId);
 	}
 
 	[[nodiscard]] bool onSendAccepted(std::uint32_t session, std::uint32_t requestId) noexcept
 	{
-		return client_.onSendAccepted(session, requestId);
+		return !publishing_ && client_.onSendAccepted(session, requestId);
 	}
 
 	[[nodiscard]] bool onReply(client::Input bytes, std::uint32_t session,
 	                           std::uint32_t requestId) noexcept
 	{
-		return client_.onReply(bytes, session, requestId);
+		return !publishing_ && client_.onReply(bytes, session, requestId);
 	}
 
 	[[nodiscard]] bool cancel(client::RequestHandle handle) noexcept
 	{
-		return client_.cancel(handle);
+		return !publishing_ && client_.cancel(handle);
 	}
 
 	[[nodiscard]] std::size_t pending() const noexcept
@@ -325,7 +343,7 @@ public:
 
 	[[nodiscard]] bool drained() const noexcept
 	{
-		return client_.drained();
+		return !publishing_ && client_.drained();
 	}
 
 	[[nodiscard]] bool recoveryRequired() const noexcept
@@ -353,7 +371,7 @@ private:
 	std::array<std::byte, SnapshotBytes> storage_{};
 	SnapshotStore snapshot_;
 	dynamic::EndpointBinding selection_{};
-	bool closed_ = false;
+	bool closed_ = false, publishing_ = false;
 
 	[[nodiscard]] const runtime::RuntimeSchema& schema() const noexcept
 	{
@@ -371,7 +389,9 @@ private:
 			return client::Status::Closed;
 		if (client_.recoveryRequired())
 			return client::Status::RecoveryRequired;
-		return current() ? client::Status::Ok : client::Status::NotAdmitted;
+		if (!current())
+			return client::Status::NotAdmitted;
+		return publishing_ ? client::Status::Busy : client::Status::Ok;
 	}
 
 	[[nodiscard]] client::Status validateField(const dynamic::EndpointBinding& field) const noexcept

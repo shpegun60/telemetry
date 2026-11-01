@@ -33,6 +33,7 @@ const dispatchStatuses = {
 };
 let model, readEditor, pending;
 let isFake = false;
+let displayRevision = 0;
 
 function message(text, error = false)
 {
@@ -144,6 +145,7 @@ function editor(typeId, label, value, budget)
 
 function renderService()
 {
+	++displayRevision;
 	pending?.abort();
 	$('response').textContent = 'No response yet.';
 	$('editor').replaceChildren();
@@ -206,6 +208,7 @@ async function callFake()
 	if (pending || !readEditor)
 		return;
 	const current = model;
+	const revision = displayRevision;
 	const service = selectedService();
 	const controller = new AbortController();
 	pending = controller;
@@ -224,7 +227,7 @@ async function callFake()
 		if (!response.ok)
 			throw new Error(await response.text());
 		const bytes = new Uint8Array(await response.arrayBuffer());
-		if (model !== current || selectedService().id !== service.id)
+		if (displayRevision !== revision)
 			return;
 		const dispatchText = response.headers.get('X-Dispatch-Status');
 		const endpointText = response.headers.get('X-Endpoint-Status');
@@ -242,7 +245,7 @@ async function callFake()
 		$('response').textContent = pretty(decodeServiceResponse(current, service.id, bytes));
 		message('Ok — one application call.');
 	} catch (error) {
-		if (model === current && selectedService().id === service.id) {
+		if (displayRevision === revision) {
 			$('response').textContent = 'No response confirmed.';
 			message(error.name === 'AbortError'
 			            ? 'Timeout or cancelled: outcome unknown. Request was not repeated.'
@@ -260,17 +263,26 @@ async function callFake()
 $('service').addEventListener('change', renderService);
 $('call').addEventListener('click', callFake);
 $('load-device').addEventListener('click', async () => {
+	let revision = displayRevision;
 	try {
 		const response = await fetch('/descriptor.bin');
 		if (!response.ok)
 			throw new Error('Cannot load fake Device descriptor.');
-		loadModel(await response.arrayBuffer(), true);
+		const descriptor = await response.arrayBuffer();
+		if (displayRevision !== revision)
+			return;
+		loadModel(descriptor, true);
+		revision = displayRevision;
 		const values = await fetch('/values.bin');
 		if (!values.ok)
 			throw new Error('Cannot load fake Device values.');
-		$('values').textContent = pretty(decodeValues(model, await values.arrayBuffer()));
+		const bytes = await values.arrayBuffer();
+		if (displayRevision !== revision)
+			return;
+		$('values').textContent = pretty(decodeValues(model, bytes));
 	} catch (error) {
-		message(error.message, true);
+		if (displayRevision === revision)
+			message(error.message, true);
 	}
 });
 
@@ -292,6 +304,7 @@ for (const [id, action] of [[ 'descriptor-file', bytes => loadModel(bytes, false
                             ],
 ]) {
 	$(id).addEventListener('change', async event => {
+		const revision = displayRevision;
 		try {
 			const file = event.target.files[0];
 			if (!file)
@@ -308,9 +321,13 @@ for (const [id, action] of [[ 'descriptor-file', bytes => loadModel(bytes, false
 			if (maximum === undefined || file.size > Math.min(maximum, 16 * 1024 * 1024))
 				throw new Error(
 				    'File exceeds the selected structural size or no descriptor is loaded.');
-			action(await file.arrayBuffer());
+			const bytes = await file.arrayBuffer();
+			if (displayRevision !== revision)
+				return;
+			action(bytes);
 		} catch (error) {
-			message(error.message, true);
+			if (displayRevision === revision)
+				message(error.message, true);
 		}
 	});
 }

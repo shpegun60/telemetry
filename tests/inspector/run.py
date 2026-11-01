@@ -156,7 +156,7 @@ def main():
         report['source_sha256_before'] = snapshot()
         host = build('Host', HERE / 'Host.cpp', native_link=True)
         output = run('execute-Host', [host])
-        count('Host', output, 1147)
+        count('Host', output, 1313)
         timeout_phases('Host', output)
         lifetime = build('Lifetime', HERE / 'Lifetime.cpp', native_link=True)
         count('Lifetime', run('execute-Lifetime', [lifetime]), 348)

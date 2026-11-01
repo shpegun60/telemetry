@@ -120,6 +120,9 @@ Fenced fragments пояснюють окремий крок; повну прог
 
 ## Перевірки та вимірювання
 
+[Аудит бібліотеки 2026-11-02](evidence/library-audit-2026-11-02/README.md):
+покриття файлів, відтворені дефекти, виправлення, перевірки та виміряна вартість.
+
 Почніть із [test index](../tests/README.md): host execution, sanitizers,
 ARM compile/link/disassembly та H7S execution — окремі види доказів.
 Кожний receipt/report має власні captured inputs і source identity.

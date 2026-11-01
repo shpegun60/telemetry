@@ -178,7 +178,8 @@ an owned callback must not reset or replace its own slot while executing: that
 would destroy its executing closure. Replace it after the call returns. No locks,
 atomic counters or deferred deletion are inserted on any slot's invocation path.
 
-`DelegateRefSlot` and `DelegateSlot` use the unmodified bundled tiny_delegate
-header. Its configuration macros must agree in all translation units, as when
+`DelegateRefSlot` and `DelegateSlot` use the bundled tiny_delegate
+header with the documented [owning-assignment correction](../../delegate/README.md).
+Its configuration macros must agree in all translation units, as when
 using tiny_delegate directly. Include the individual non-delegate slot headers
 when a consumer wants that subset without including the delegate header.

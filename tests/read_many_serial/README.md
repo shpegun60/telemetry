@@ -15,7 +15,9 @@ dispatcher. The successful run covers 32 individual reads, 8/12/16/32-field
 batches, mixed per-item results, controlled deadlines, stale replies and a fresh
 session after reconnect. Negative peers send invalid TRM1 bytes and a malformed
 batch reply with a valid outer CRC; neither may report success. Bootstrap tests
-separately exercise pagination and malformed Resource transcripts.
+separately exercise pagination, opaque/nonmonotonic READ cursors, cursor-only
+progress and its finite budget, exact accumulated lengths at EOF, and malformed
+Resource transcripts. These cursor tests use the same bootstrap class as TCP.
 
 The Windows build executes bootstrap and argument checks; Linux additionally
 runs real PTYs. Physical TX lease ownership is separately tested by the board's

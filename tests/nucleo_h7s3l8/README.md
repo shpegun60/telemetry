@@ -44,7 +44,11 @@ controls: a valid frozen CLI/report, missing or malformed reports, a false resul
 missing batch sizes, altered hashes/capabilities/sessions, incomplete recovery,
 invalid item statuses, duplicate IDs, incorrect mixed results, owned-process
 timeout, a failing CLI exit, partial programming, successful restoration retry,
-failed restoration, wrong readback, and mutually exclusive checker arguments. The thirty-one runner controls
+failed restoration, wrong readback, and mutually exclusive checker arguments.
+Two public `Build.ps1` controls accept an existing empty external output directory
+and reject a nonempty directory without changing its sentinel or invoking a tool.
+The accepted case runs only the mock compiler's version command, then stops at
+deliberately missing SDK headers before CMake. The thirty-three runner controls
 also execute the report verifier's in-memory positive and negative controls.
 
 ```sh

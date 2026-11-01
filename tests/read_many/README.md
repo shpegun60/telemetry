@@ -20,8 +20,9 @@ under QEMU, including the fixed little-endian capability golden bytes and
 bit-exact scalar replies. This is CPU emulation, not physical hardware.
 
 `python3 -B tests/read_many/qmake.py --qmake qmake6 --build-dir /external/read-many-qmake`
-checks legacy/client/batch source selections, enabling the server after base core,
-and repeated includes. qmake generates external manifests; these checks do not
+checks twelve source inventories: legacy/client/batch selections, enabling the
+server after base core or after the Encoded server, repeated includes, and
+ReadMany/Mixed Batch opt-in in both orders. qmake generates external manifests; these checks do not
 claim compilation or runtime behavior. CI runs them in the Qt job.
 
 Wire checks cover golden TRM1 bytes, truncation at every extent, count/order,
@@ -33,6 +34,9 @@ real Encoded and RetryingEncoded backends, the sole FIFO, 32 items, bit-exact
 floats/open enums/U64/S64, QueueFull, copied bindings, rejected whole replies,
 queued/offered/prepared timeout, cancellation, invalidation, stale callbacks,
 reentrancy and explicit zero-traffic RPC refusal.
+Typed null callbacks are refused before queue reservation or transmission;
+ordinary functors with a false bool conversion remain callable. These checks
+also preserve recovery/admission/closed status priority.
 
 The separate optional `read_many_workbench` component adds
 `integration/read_many/Workbench.hpp`; the base Workbench and the lighter

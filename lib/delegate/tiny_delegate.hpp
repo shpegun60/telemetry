@@ -671,7 +671,12 @@ public:
     // Inline targets move without throwing; heap targets transfer by pointer.
     delegate_sbo(delegate_sbo&& other) noexcept { move_from_(other); }
     delegate_sbo& operator=(delegate_sbo&& other) noexcept {
-        if (this != &other) { reset(); move_from_(other); }
+        if (this != &other) {
+            // The source may be a member of the target that reset destroys.
+            delegate_sbo prepared(std::move(other));
+            reset();
+            move_from_(prepared);
+        }
         return *this;
     }
 
@@ -772,28 +777,16 @@ public:
               std::enable_if_t<detail::callable_accepted<detail::callable_error_v<delegate_sbo, F, fnptr_t, R, InlineBytes, InlineAlign, Args...>>::value,
                                int> = 0>
     delegate_sbo& operator=(F&& f) {
-        using DF = std::decay_t<F>;
         if constexpr (std::is_convertible_v<F&&, fnptr_t>) {
             // Complete a possibly stateful/throwing conversion before reset.
             fnptr_t fp = std::forward<F>(f);
             return *this = fp;
         } else {
-            if constexpr (std::is_object_v<std::remove_reference_t<F>>) {
-                if (detail::erase_ptr(std::addressof(f)) == ctx_) {
-                    // Preserve an escaped reference to our own target.
-                    DF saved(std::forward<F>(f));
-                    reset();
-                    if constexpr (std::is_constructible_v<DF, decltype(std::move_if_noexcept(saved))>) {
-                        assign_callable_(std::move_if_noexcept(saved));
-                    } else {
-                        // Heap targets may require the original source's cv/ref category.
-                        assign_callable_(std::forward<F>(saved));
-                    }
-                    return *this;
-                }
-            }
+            // Prepare before destruction, including sources inside the old
+            // target. Storage remains bounded by this delegate's capacity.
+            delegate_sbo prepared(std::forward<F>(f));
             reset();
-            assign_callable_(std::forward<F>(f));
+            move_from_(prepared);
             return *this;
         }
     }
@@ -981,7 +974,12 @@ public:
     // Inline targets move without throwing; heap targets transfer by pointer.
     delegate(delegate&& other) noexcept { move_from_(other); }
     delegate& operator=(delegate&& other) noexcept {
-        if (this != &other) { reset(); move_from_(other); }
+        if (this != &other) {
+            // The source may be a member of the target that reset destroys.
+            delegate prepared(std::move(other));
+            reset();
+            move_from_(prepared);
+        }
         return *this;
     }
 
@@ -1082,28 +1080,16 @@ public:
               std::enable_if_t<detail::callable_accepted<detail::callable_error_v<delegate, F, fnptr_t, R, InlineBytes, InlineAlign, Args...>>::value,
                                int> = 0>
     delegate& operator=(F&& f) {
-        using DF = std::decay_t<F>;
         if constexpr (std::is_convertible_v<F&&, fnptr_t>) {
             // Complete a possibly stateful/throwing conversion before reset.
             fnptr_t fp = std::forward<F>(f);
             return *this = fp;
         } else {
-            if constexpr (std::is_object_v<std::remove_reference_t<F>>) {
-                if (detail::erase_ptr(std::addressof(f)) == ctx_) {
-                    // Preserve an escaped reference to our own target.
-                    DF saved(std::forward<F>(f));
-                    reset();
-                    if constexpr (std::is_constructible_v<DF, decltype(std::move_if_noexcept(saved))>) {
-                        assign_callable_(std::move_if_noexcept(saved));
-                    } else {
-                        // Heap targets may require the original source's cv/ref category.
-                        assign_callable_(std::forward<F>(saved));
-                    }
-                    return *this;
-                }
-            }
+            // Prepare before destruction, including sources inside the old
+            // target. Storage remains bounded by this delegate's capacity.
+            delegate prepared(std::forward<F>(f));
             reset();
-            assign_callable_(std::forward<F>(f));
+            move_from_(prepared);
             return *this;
         }
     }
