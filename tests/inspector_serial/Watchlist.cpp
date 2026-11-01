@@ -215,6 +215,15 @@ void checksForPeer()
 	CHECK(cell(controller, 1, ui::WatchlistModel::TextRole) == "270544960");
 	CHECK(cell(controller, 3, ui::WatchlistModel::StatusRole) == "Unavailable");
 	CHECK(cell(controller, 3, ui::WatchlistModel::TextRole).isEmpty());
+	controller.setWatchIndividual(true);
+	CHECK(controller.refreshWatch());
+	CHECK(await([&] {
+		return !controller.watchPending();
+	}));
+	CHECK(peer.fieldReads == 4);
+	CHECK(!cell(controller, 3, ui::WatchlistModel::StatusRole).startsWith("Ok"));
+	CHECK(cell(controller, 3, ui::WatchlistModel::TextRole).isEmpty());
+	controller.setWatchIndividual(false);
 	controller.clearWatch();
 	// All 32 independent readable Fields cross the actual GUI transport.
 	add(controller, 1u << 16);
@@ -252,7 +261,7 @@ void checksForPeer()
 	CHECK(controller.refreshWatch() && await([&] {
 		      return !controller.watchPending();
 	      }));
-	CHECK(peer.batches == 4 && peer.fieldReads == 0 && peer.mutations == 0);
+	CHECK(peer.batches == 4 && peer.fieldReads == 4 && peer.mutations == 0);
 	controller.disconnectDevice();
 }
 

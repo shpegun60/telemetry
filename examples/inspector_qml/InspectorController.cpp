@@ -1550,7 +1550,9 @@ bool InspectorController::submitWatch()
 			    out.id = id;
 			    out.status = !result.operation.succeeded()
 			                     ? QStringLiteral("%1 (dispatch %2, endpoint %3)")
-			                           .arg(statusName(result.operation.status))
+			                           .arg(result.operation.status == cl::Status::Ok
+			                                    ? QStringLiteral("Field refused")
+			                                    : statusName(result.operation.status))
 			                           .arg(result.operation.dispatch)
 			                           .arg(result.operation.endpointStatus)
 			                 : result.hasValue() ? QStringLiteral("Ok")
