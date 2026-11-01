@@ -308,6 +308,7 @@ InspectorController::Completion InspectorController::retire()
 	Completion completion;
 	if (state_) {
 		state_->closeAndDrain();
+		watchPending_ = false;
 		completion.applied = consumeApply(*state_, false);
 		completion.command = consumeCommand(*state_, false);
 		completion.service = consumeService(*state_, false);
@@ -383,12 +384,7 @@ std::optional<bool> InspectorController::consumeApply(State& state, bool display
 	if (displaySnapshot && state.remote && transport_ &&
 	    (state.inspector.recoveryRequired() || fatal(applied.write.status) ||
 	     (applied.refreshCompleted && fatal(applied.refresh.operation.status)))) {
-		transport_->close();
-		state.inspector.invalidate();
-		connected_ = false;
-		responses_.clear();
-		endpoints_.clear();
-		selection_.clear();
+		invalidateSession(state);
 	}
 	return confirmed;
 }
@@ -423,13 +419,7 @@ std::optional<std::pair<bool, bool>> InspectorController::consumeCommand(State& 
 	                   result.status == cl::Status::SessionLost ||
 	                   result.status == cl::Status::OutcomeUnknown;
 	if (live && state.remote && transport_ && (state.inspector.recoveryRequired() || fatal)) {
-		transport_->close();
-		state.inspector.invalidate();
-		connected_ = false;
-		values_.clear();
-		responses_.clear();
-		endpoints_.clear();
-		selection_.clear();
+		invalidateSession(state);
 	} else if (live && state.inspector.isCurrent()) {
 		values_.resetSnapshot(state.inspector);
 	}
@@ -482,13 +472,7 @@ std::optional<std::pair<bool, bool>> InspectorController::consumeService(State& 
 	                   outcome == cl::Status::MalformedReply ||
 	                   outcome == cl::Status::SessionLost || outcome == cl::Status::OutcomeUnknown;
 	if (live && state.remote && transport_ && (state.inspector.recoveryRequired() || fatal)) {
-		transport_->close();
-		state.inspector.invalidate();
-		connected_ = false;
-		values_.clear();
-		responses_.clear();
-		endpoints_.clear();
-		selection_.clear();
+		invalidateSession(state);
 	}
 	return std::pair{succeeded, published};
 }
@@ -634,6 +618,8 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 	}
 	++session_;
 	state_ = std::move(candidate);
+	// Any previous State has completed closeAndDrain before replacement.
+	watchPending_ = false;
 	watchlist_.bind(state_->inspector);
 	endpoints_.rebuild(state_->inspector);
 	connected_ = demo || remote;
@@ -1317,9 +1303,8 @@ bool InspectorController::refresh()
 
 bool InspectorController::canAddWatch() const noexcept
 {
-	if (updating_ || watchRunning_ || watchPending_ || !connected_ || !state_ ||
-	    !state_->inspector.isCurrent() || watchlist_.count() >= 32 || commandSelected() ||
-	    serviceSelected())
+	if (updating_ || watchActive() || !connected_ || !state_ || !state_->inspector.isCurrent() ||
+	    watchlist_.count() >= 32 || commandSelected() || serviceSelected())
 		return false;
 	const auto selected = state_->inspector.snapshotInfo();
 	const auto* type = selected.selected ? state_->schema.type(selected.type) : nullptr;
@@ -1347,7 +1332,7 @@ bool InspectorController::addWatch()
 
 bool InspectorController::removeWatch(int row)
 {
-	if (updating_ || watchlist_.changing() || watchRunning_ || watchPending_)
+	if (updating_ || watchlist_.changing() || watchActive())
 		return false;
 	updating_ = true;
 	const auto removed = watchlist_.remove(row);
@@ -1360,7 +1345,7 @@ bool InspectorController::removeWatch(int row)
 
 void InspectorController::clearWatch()
 {
-	if (updating_ || watchlist_.changing() || watchRunning_ || watchPending_)
+	if (updating_ || watchlist_.changing() || watchActive())
 		return;
 	updating_ = true;
 	retireWatch(true);
@@ -1372,7 +1357,9 @@ void InspectorController::clearWatch()
 
 void InspectorController::retireWatch(bool clear)
 {
-	watchRunning_ = watchPending_ = watchCycle_ = false;
+	watchRunning_ = watchCycle_ = false;
+	// Revoking admission is callback-free. Preserve the accepted-read flag
+	// until consumeWatch sees its completion or closeAndDrain really finishes.
 	watchCursor_ = 0;
 	++watchRevision_;
 	if (clear)
@@ -1382,9 +1369,24 @@ void InspectorController::retireWatch(bool clear)
 	watchStatus_ = QStringLiteral("Stopped - no current watch values.");
 }
 
+void InspectorController::invalidateSession(State& state)
+{
+	// Called only after backend processing returned, under the owner update
+	// guard. Notify live QML role caches as well as guarding future data() calls.
+	if (transport_)
+		transport_->close();
+	state.inspector.invalidate();
+	retireWatch(false);
+	connected_ = false;
+	values_.clear();
+	responses_.clear();
+	endpoints_.clear();
+	selection_.clear();
+}
+
 void InspectorController::setWatchIntervalMs(int milliseconds)
 {
-	if (updating_ || watchlist_.changing())
+	if (updating_ || watchlist_.changing() || watchActive())
 		return;
 	watchIntervalMs_ = std::clamp(milliseconds, 100, 10000);
 	if (state_)
@@ -1394,7 +1396,7 @@ void InspectorController::setWatchIntervalMs(int milliseconds)
 
 void InspectorController::setWatchIndividual(bool individual)
 {
-	if (updating_ || watchRunning_ || watchPending_ || watchIndividual_ == individual)
+	if (updating_ || watchActive() || watchIndividual_ == individual)
 		return;
 	watchIndividual_ = individual;
 	++watchRevision_;
@@ -1411,8 +1413,8 @@ void InspectorController::setReadManyDiscovery(bool enabled)
 
 bool InspectorController::startWatch()
 {
-	if (updating_ || watchlist_.changing() || watchRunning_ || watchPending_ || !state_ ||
-	    !connected_ || !state_->inspector.isCurrent() || watchlist_.count() == 0)
+	if (updating_ || watchlist_.changing() || watchActive() || !state_ || !connected_ ||
+	    !state_->inspector.isCurrent() || watchlist_.count() == 0)
 		return false;
 	watchCycle_ = true;
 	watchCursor_ = 0;
@@ -1443,8 +1445,8 @@ void InspectorController::stopWatch()
 
 bool InspectorController::refreshWatch()
 {
-	if (updating_ || watchlist_.changing() || watchRunning_ || watchPending_ || !state_ ||
-	    !connected_ || !state_->inspector.isCurrent() || watchlist_.count() == 0)
+	if (updating_ || watchlist_.changing() || watchActive() || !state_ || !connected_ ||
+	    !state_->inspector.isCurrent() || watchlist_.count() == 0)
 		return false;
 	watchCycle_ = true;
 	watchCursor_ = 0;
@@ -1609,14 +1611,9 @@ bool InspectorController::consumeWatch(State& state)
 	                   completion.status == cl::Status::MalformedReply ||
 	                   completion.status == cl::Status::SessionLost;
 	if (state.remote && transport_ && (state.inspector.recoveryRequired() || fatal)) {
-		transport_->close();
-		state.inspector.invalidate();
-		connected_ = watchRunning_ = watchCycle_ = false;
-		watchlist_.invalidateValues();
-		values_.clear();
-		responses_.clear();
-		endpoints_.clear();
-		selection_.clear();
+		invalidateSession(state);
+		if (completion.status != cl::Status::Ok)
+			watchStatus_ = QStringLiteral("Watch read: %1").arg(statusName(completion.status));
 	}
 	return true;
 }
@@ -1706,13 +1703,7 @@ void InspectorController::pump()
 		    outcome == cl::Status::TransportError || outcome == cl::Status::MalformedReply ||
 		    outcome == cl::Status::SessionLost || outcome == cl::Status::OutcomeUnknown;
 		if (state.remote && transport_ && (state.inspector.recoveryRequired() || fatalTransport)) {
-			transport_->close();
-			state.inspector.invalidate();
-			connected_ = false;
-			values_.clear();
-			responses_.clear();
-			endpoints_.clear();
-			selection_.clear();
+			invalidateSession(state);
 		}
 		notify = true;
 	}

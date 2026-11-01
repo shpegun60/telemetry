@@ -37,8 +37,13 @@ value with an explicit status.
 
 Stop prevents subsequent reads and lets an already accepted read drain. A
 superseded completion is ignored. Editing the list or changing its mode waits
-for that drain. Disconnect or schema invalidation stops polling and invalidates
-old values. The next admission starts an empty list. A timed-out prepared UART
+for the entire logical cycle, including an Individual cycle paused behind a
+foreground operation, and for any accepted read to drain after Stop. List,
+mode and frequency controls remain disabled during that interval; Stop stays
+available. Disconnect, schema invalidation or a foreground transport failure
+stops polling and notifies existing QML rows that their values are stale.
+Logical invalidation does not discard an outstanding read's completion.
+The next admission starts an empty list. A timed-out prepared UART
 exchange still requires the existing session-recovery procedure; the Watchlist
 does not retry it automatically.
 
@@ -64,6 +69,9 @@ storage and display strings belong to the application, not the portable core.
 Maintained portable bridge checks cover FIFO sharing, preserved drafts,
 reentrancy, allocation traps and lifecycle failures. Qt tests exercise actual
 production Encoded dispatch, bounded scheduling, owned results, exact scalar
-display and the QML controls. UART integration uses the established transport
+display and the QML controls. Regression tests inspect already-rendered QML
+rows after FieldRead, Apply, Command and Service failures, including a lost
+Apply readback. They also pause Individual cycles behind foreground work and
+verify unchanged IDs, mode, frequency and remaining read order. UART integration uses the established transport
 and opt-in TRM1 bootstrap. This feature does not claim an additional physical
 board run or sustained DMA/cache stress qualification.

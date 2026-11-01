@@ -55,6 +55,7 @@ class InspectorController final : public QObject {
 	Q_PROPERTY(QAbstractItemModel* watchlist READ watchlist CONSTANT)
 	Q_PROPERTY(bool watchRunning READ watchRunning NOTIFY stateChanged)
 	Q_PROPERTY(bool watchPending READ watchPending NOTIFY stateChanged)
+	Q_PROPERTY(bool watchActive READ watchActive NOTIFY stateChanged)
 	Q_PROPERTY(bool canAddWatch READ canAddWatch NOTIFY stateChanged)
 	Q_PROPERTY(int watchCount READ watchCount NOTIFY stateChanged)
 	Q_PROPERTY(QString watchStatus READ watchStatus NOTIFY stateChanged)
@@ -201,6 +202,13 @@ public:
 		return watchPending_;
 	}
 
+	// Includes an Individual cycle paused behind a foreground request and the
+	// accepted read being drained after Stop. Its row set and mode stay fixed.
+	bool watchActive() const noexcept
+	{
+		return watchRunning_ || watchCycle_ || watchPending_;
+	}
+
 	bool canAddWatch() const noexcept;
 
 	int watchCount() const noexcept
@@ -311,6 +319,7 @@ private:
 	                       bool writableDemo = false, bool readManyDemo = false);
 	bool submitWatch();
 	void retireWatch(bool clear);
+	void invalidateSession(State& state);
 	bool consumeWatch(State& state);
 	Completion retire();
 	std::optional<bool> consumeApply(State& state, bool displaySnapshot);

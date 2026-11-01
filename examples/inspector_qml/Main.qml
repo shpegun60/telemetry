@@ -415,7 +415,7 @@ ApplicationWindow {
                     Button {
                         objectName: "addWatchButton"
                         text: "Add selected Field"
-                        enabled: controller.canAddWatch && !controller.watchPending
+                        enabled: controller.canAddWatch && !controller.watchActive
                         onClicked: {
                             if (controller.addWatch())
                                 watchPanelExpanded.checked = true
@@ -424,14 +424,14 @@ ApplicationWindow {
                     Button {
                         objectName: "refreshWatchButton"
                         text: "Read once"
-                        enabled: controller.connected && controller.watchCount > 0 && !controller.watchPending
+                        enabled: controller.connected && controller.watchCount > 0 && !controller.watchActive
                         onClicked: controller.refreshWatch()
                     }
                     Button {
                         objectName: "startWatchButton"
-                        text: controller.watchRunning ? "Stop" : "Start polling"
-                        enabled: controller.watchRunning || (controller.connected && controller.watchCount > 0 && !controller.watchPending)
-                        onClicked: controller.watchRunning ? controller.stopWatch() : controller.startWatch()
+                        text: controller.watchActive ? "Stop" : "Start polling"
+                        enabled: controller.watchActive || (controller.connected && controller.watchCount > 0)
+                        onClicked: controller.watchActive ? controller.stopWatch() : controller.startWatch()
                     }
                     Label { text: controller.watchPending ? "Reading…" : controller.watchStatus; color: "#99abbf"; elide: Text.ElideRight; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.maximumWidth: 330 }
                 }
@@ -443,7 +443,7 @@ ApplicationWindow {
                         Layout.preferredWidth: 210
                         model: ["ReadMany", "Individual FieldRead"]
                         currentIndex: controller.watchIndividual ? 1 : 0
-                        enabled: !controller.watchRunning && !controller.watchPending
+                        enabled: !controller.watchActive
                         onActivated: controller.watchIndividual = currentIndex === 1
                     }
                     Label { text: "Frequency"; color: "#99abbf" }
@@ -452,14 +452,14 @@ ApplicationWindow {
                         from: 1
                         to: 10
                         value: Math.max(1, Math.min(10, Math.round(1000 / controller.watchIntervalMs)))
-                        enabled: !controller.watchRunning && !controller.watchPending
+                        enabled: !controller.watchActive
                         onValueModified: controller.watchIntervalMs = Math.round(1000 / value)
                     }
                     Label { text: "Hz · scalar Fields only · sequential samples"; color: "#99abbf"; Layout.fillWidth: true; Layout.minimumWidth: 0; elide: Text.ElideRight }
                     Button {
                         objectName: "clearWatchButton"
                         text: "Clear"
-                        enabled: controller.watchCount > 0 && !controller.watchPending
+                        enabled: controller.watchCount > 0 && !controller.watchActive
                         onClicked: controller.clearWatch()
                     }
                 }
@@ -489,7 +489,7 @@ ApplicationWindow {
                                 objectName: "removeWatchButton"
                                 property int watchRowIndex: watchRow.index
                                 text: "Remove"
-                                enabled: !controller.watchPending
+                                enabled: !controller.watchActive
                                 onClicked: controller.removeWatch(watchRow.index)
                             }
                         }

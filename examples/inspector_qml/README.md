@@ -332,6 +332,12 @@ the current Inspector snapshot intact. Schema/session invalidation clears old
 values. Changing the displayed Field supersedes an old read instead of publishing
 it under the new selection.
 
+Watchlist invalidation also notifies existing QML delegates after foreground
+transport failures. A logical read cycle stays active while paused behind
+foreground work, so its selection, mode and frequency cannot change mid-cycle.
+Stop revokes future reads; an accepted read still drains before these controls
+become available again.
+
 Qt model reset/insertion signals may run application slots synchronously. Both
 models guard their mutation phases; controller reconnect, disconnect and refresh
 are refused during those phases. Completion signals run after returning from the

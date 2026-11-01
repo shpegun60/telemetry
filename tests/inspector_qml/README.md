@@ -9,6 +9,16 @@ scalar/enum text, real ReadMany dispatch, explicit individual-read fallback,
 missed polling ticks, stop/drain, immediate admission invalidation and actual
 QML mouse/keyboard controls. The runner saves a separate Watchlist screenshot.
 
+`WatchlistFailures.cpp` uses a real loopback TCP peer and the shipped QML
+delegates. It checks that foreground FieldRead, Command, Service, Apply Write
+and Apply readback failures clear already-rendered values and publish stale
+status, stop polling and complete once without replay. Queued and handed-off
+Watchlist reads retain their pending state until the actual callback drains.
+`WatchlistScheduling.cpp` pauses Individual cycles behind foreground reads and
+checks that list/mode/frequency changes and new cycles cannot disturb the
+remaining Field ID order. Stop remains available. Actual QML buttons reject
+Read once, Clear and Remove between polling ticks.
+
 ```sh
 python3 -B tests/inspector_qml/run.py --build-dir /external/inspector-qml \
   --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
