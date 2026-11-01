@@ -19,6 +19,15 @@ allocation attempts must terminate with code `86`; separate negative compile
 controls prove private binding state and insufficient callback storage are
 rejected.
 
+`CrossGroup.cpp` drives a real Model, Descriptor, RuntimeSchema, DynamicClient
+and Encoded dispatcher through twelve ordered operations over catalog groups
+1, 2 and 3 with nonconsecutive local indices. It checks complete wire IDs,
+independent Field/Command/Service address spaces, repeated Write/Read IDs,
+per-item results and an independent execution trace. Unselected endpoints,
+including all group-zero decoys, must remain untouched. This regression runs
+through the relocated installed SDK on both host profiles; it is not a board
+test or an exactly-once delivery guarantee.
+
 ARM mode compiles the full runtime bind/submit/completion path as an object and
 links selected legacy and optional server roots at `-Os` and `-O2`. It retains
 section sizes, symbols, disassembly and compiler `.su` records. Allocation

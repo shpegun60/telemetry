@@ -148,7 +148,8 @@ def main():
                         binary_sha256=digest(binary), note='Selected roots, not firmware delta or peak stack'))
             else:
                 suffix = '.exe' if os.name == 'nt' else ''
-                for name, floor in (('Wire', 15327), ('Server', 87), ('Client', 436), ('NoHeap', 436)):
+                for name, floor in (('Wire', 15327), ('Server', 87), ('Client', 436),
+                                    ('CrossGroup', 200), ('NoHeap', 436)):
                     output = run('execute-'+name, [build/('batch-'+name+suffix)])
                     match = re.search(r'(?:checks=|: )(\d+)(?: checks, 0 failures| failures=0)', output)
                     if not match or int(match[1]) < floor:

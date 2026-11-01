@@ -8,7 +8,7 @@ if(BATCH_ARM_PROBE)
     return()
 endif()
 find_package(Telemetry REQUIRED COMPONENTS rpc_backend rpc_sessions)
-foreach(test IN ITEMS Wire Server Client NoHeap)
+foreach(test IN ITEMS Wire Server Client CrossGroup NoHeap)
     add_executable(batch-${test} ${test}.cpp)
     target_link_libraries(batch-${test} PRIVATE Telemetry::batch_server Telemetry::batch_client
         Telemetry::encoded_backend Telemetry::rpc_backend Telemetry::rpc_sessions)
