@@ -55,6 +55,16 @@ snapshot budget.
 See the [runnable example](../../../examples/client_web/README.md) and
 [qualification runner](../../../tests/client_web/run.py).
 
+## Optional Encoded ReadMany
+
+Use `new EncodedBackend(sendFrame, {readMany: true})`, discover remote TRM1 and
+call `client.bindReadMany(trm1, [sdk.device.fields.Voltage, sdk.device.fields.Counter])`.
+After checking the binding status, `client.readMany(binding)` returns an inferred
+tuple with independent item statuses and owned values. Only explicitly marked
+scalar/open-enum Fields are eligible. RPC refuses this operation before transfer.
+See [JS/TS ReadMany](../../../doc/JsReadMany.md) for a checked example and the
+[native interoperability tests](../../../tests/client_read_many_web/README.md).
+
 ## Optional Encoded retries
 
 `EncodedBackend` performs one TEQ1 request/reply exchange. Choose the separate

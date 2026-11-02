@@ -18,11 +18,12 @@ export const Status = Object.freeze({
 	Busy : 15,
 	RecoveryRequired : 16,
 	IdsExhausted : 17,
+	Unsupported : 18,
 } as const);
 export type ClientStatus = typeof Status[keyof typeof Status];
-export type Operation = 'FieldWrite'|'Command'|'Service'|'FieldRead';
+export type Operation = 'FieldWrite'|'Command'|'Service'|'FieldRead'|'ReadMany';
 export const Operations =
-    Object.freeze({FieldWrite : 1, Command : 2, Service : 3, FieldRead : 4} as const);
+    Object.freeze({FieldWrite : 1, Command : 2, Service : 3, FieldRead : 4, ReadMany : 5} as const);
 export type ByteInput = ArrayBuffer|ArrayBufferView;
 export interface ReadBinding<T> {
 	readonly fingerprint: bigint;
@@ -30,7 +31,58 @@ export interface ReadBinding<T> {
 	readonly id: number;
 	readonly requestBytes: number;
 	readonly responseBytes: number;
+	// Explicit scalar/open-enum underlying ScalarCode; absent on legacy/aggregate bindings.
+	readonly readManyScalar?: ReadManyScalar;
 	decode(input: ByteInput): T;
+}
+export type ReadManyScalar = 1|2|3|4|5|6|7|8|9|10|11;
+export interface ReadManyReadBinding<T> extends ReadBinding<T> {
+	readonly readManyScalar: ReadManyScalar;
+}
+export type ReadManyField<T> = ReadManyReadBinding<T>|{readonly read : ReadManyReadBinding<T>};
+export const ReadManyStatus = Object.freeze(
+    {Ok : 0, NotFound : 1, UnsupportedType : 2, Unavailable : 3, ReadError : 4} as const);
+export type ReadManyItem<T> = {
+	readonly id: number; readonly status : 0; readonly value : T; readonly payload : Uint8Array
+}|
+{
+	readonly id: number;
+	readonly status: 1|2|3|4;
+	readonly value?: never;
+	readonly payload: Uint8Array
+};
+type ReadManyValue<F> = F extends {readonly read : ReadBinding<infer T>}
+                                      ? T
+                                      : F extends ReadBinding<infer T>? T : never;
+export type ReadManyValues<F extends readonly ReadManyField<unknown>[]> = {
+	readonly[K in keyof F]: ReadManyItem<ReadManyValue<F[K]>>;
+};
+declare const readManyTypes: unique symbol;
+export interface ReadManyBinding<T extends readonly unknown[]> {
+	readonly session: number;
+	readonly fingerprint: bigint;
+	readonly count: number;
+	readonly[readManyTypes]: T;
+}
+export type ReadManyBindingResult<T extends readonly unknown[]> = {
+	readonly status: typeof Status.Ok; readonly binding : ReadManyBinding<T>
+}|
+{
+	readonly status: Exclude<ClientStatus, typeof Status.Ok>;
+	readonly binding?: never
+};
+interface ReadManyEntry {
+	readonly id: number;
+	readonly size: number;
+	readonly scalar: ReadManyScalar;
+	readonly decode: (input: ByteInput) => unknown;
+}
+interface ReadManySnapshot {
+	readonly session: number;
+	readonly fingerprint: bigint;
+	readonly payload: Uint8Array;
+	readonly responseBytes: number;
+	readonly entries: readonly ReadManyEntry[];
 }
 export interface WriteBinding<T> {
 	readonly fingerprint: bigint;
@@ -125,6 +177,8 @@ export interface BackendContext extends ExchangeContext {
 	handoff(mayExecute: boolean): boolean;
 }
 export interface Backend {
+	// Pure synchronous opt-in for optional operations; legacy operations do not need a hook.
+	supports?(operation: Operation): boolean;
 	// Settlement releases physical I/O, unless a checked result supplies released.
 	execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
 	// Application asserts this aborted session's transport has actually closed/drained.
@@ -146,6 +200,13 @@ function checkWireResult(request: WireRequest, result: WireResult): void
 		throw new BackendFailure(Status.MalformedReply, 'Invalid dispatch/status envelope');
 	if (dispatch !== 0)
 		return;
+	if (request.operation === 'ReadMany') {
+		if (request.endpointId !== 0 || endpointStatus !== 0 || request.responseBytes < 10 ||
+		    request.responseBytes > 514 || payload.length < 2 ||
+		    payload.length > request.responseBytes)
+			throw new BackendFailure(Status.MalformedReply, 'Invalid ReadMany envelope');
+		return;
+	}
 	const maximum = {FieldRead : 0, FieldWrite : 5, Command : 7, Service : 4}[request.operation];
 	const expected = endpointStatus === 0 &&
 	                         (request.operation === 'FieldRead' || request.operation === 'Service')
@@ -171,6 +232,7 @@ interface Pending {
 	decode?: (input: ByteInput) => unknown;
 	controller: AbortController;
 	possibleExecution: boolean;
+	checkedReadMany?: WireResult;
 	done: boolean;
 }
 
@@ -196,6 +258,7 @@ export class DeviceClient {
 	private scheduled = false;
 	private pumping = false;
 	private confirming = false;
+	private readonly readManyBindings = new WeakMap<object, ReadManySnapshot>();
 
 	constructor(options: ClientOptions)
 	{
@@ -340,6 +403,194 @@ export class DeviceClient {
 		return this.enqueue(binding, value, binding.decodeResponse, timeoutMs);
 	}
 
+	// Discover TRM1 outside this client, then cache this binding for the admitted session.
+	bindReadMany<const F extends readonly ReadManyField<unknown>[]>(capability: ByteInput,
+	                                                                fields: F):
+	    ReadManyBindingResult<ReadManyValues<F>>
+	{
+		const refused = (status: ClientStatus): ReadManyBindingResult<ReadManyValues<F>> =>
+		    ({status : status as Exclude<ClientStatus, typeof Status.Ok>});
+		const gate = this.readManyGate();
+		if (gate !== Status.Ok)
+			return refused(gate);
+		const session = this.epoch, fingerprint = this.fingerprint;
+		let entries: ReadManyEntry[], payload: Uint8Array, responseBytes = 2;
+		try {
+			const record = bytes(capability).slice();
+			if (record.length !== 24)
+				return refused(Status.InvalidArgument);
+			const cap = new DataView(record.buffer);
+			const itemLimit = record[5], requestLimit = cap.getUint16(8, true),
+			      replyLimit = cap.getUint16(10, true);
+			if (cap.getUint32(0, true) !== 0x314d5254 || record[4] !== 1 || record[6] !== 1 ||
+			    record[7] !== 1 || itemLimit < 1 || itemLimit > 32 || requestLimit < 6 ||
+			    requestLimit > 130 || replyLimit < 10 || replyLimit > 514 ||
+			    cap.getUint32(12, true) === 0)
+				return refused(Status.InvalidArgument);
+			if (cap.getUint32(12, true) !== session || cap.getBigUint64(16, true) !== fingerprint)
+				return refused(Status.NotAdmitted);
+			if (!Array.isArray(fields))
+				return refused(Status.InvalidArgument);
+			const count = fields.length;
+			if (!Number.isInteger(count) || count < 1 || count > itemLimit)
+				return refused(Status.InvalidArgument);
+			if (2 + 4 * count > requestLimit)
+				return refused(Status.BufferTooSmall);
+			// Snapshot exactly the validated indices, never an overridable iterator/species.
+			const selected: ReadManyField<unknown>[] = [];
+			for (let i = 0; i < count; ++i)
+				selected.push(fields[i]);
+			entries = [];
+			const sizes = [ 0, 1, 1, 1, 2, 2, 4, 4, 8, 8, 4, 8 ];
+			for (const field of selected) {
+				const read = 'read' in field ? field.read : field;
+				const {
+					id,
+					operation,
+					requestBytes,
+					responseBytes : size,
+					readManyScalar : scalar,
+					decode,
+					fingerprint : identity
+				} = read;
+				if (identity !== fingerprint)
+					return refused(Status.NotAdmitted);
+				if (operation !== 'FieldRead' || !u32(id) || requestBytes !== 0 ||
+				    typeof decode !== 'function' || entries.some(entry => entry.id === id))
+					return refused(Status.InvalidArgument);
+				if (!Number.isInteger(scalar) || scalar < 1 || scalar > 11 ||
+				    size !== sizes[scalar])
+					return refused(Status.Unsupported);
+				entries.push(Object.freeze({id, size, scalar, decode}));
+				responseBytes += 8 + size;
+			}
+			if (responseBytes > replyLimit)
+				return refused(Status.BufferTooSmall);
+			payload = new Uint8Array(2 + 4 * entries.length);
+			const request = new DataView(payload.buffer);
+			request.setUint16(0, entries.length, true);
+			entries.forEach((entry, i) => request.setUint32(2 + 4 * i, entry.id, true));
+		} catch {
+			return refused(Status.InvalidArgument);
+		}
+		// Property getters and the backend support hook can re-enter. Never publish across admission.
+		const finalGate = this.readManyGate();
+		if (finalGate !== Status.Ok || this.epoch !== session || this.fingerprint !== fingerprint)
+			return refused(finalGate === Status.Ok ? Status.NotAdmitted : finalGate);
+		const binding = Object.freeze({session, fingerprint, count : entries.length}) as
+		                ReadManyBinding<ReadManyValues<F>>;
+		this.readManyBindings.set(
+		    binding,
+		    Object.freeze(
+		        {session, fingerprint, payload, responseBytes, entries : Object.freeze(entries)}));
+		return Object.freeze({status : Status.Ok, binding});
+	}
+
+	readMany<T extends readonly unknown[]>(binding: ReadManyBinding<T>,
+	                                       timeoutMs?: number): RequestPromise<T>
+	{
+		const gate = this.readManyGate();
+		if (gate !== Status.Ok)
+			return this.refused('ReadMany', gate);
+		const snapshot = this.readManyBindings.get(binding);
+		if (!snapshot || snapshot.session !== this.epoch ||
+		    snapshot.fingerprint !== this.fingerprint)
+			return this.refused('ReadMany', Status.NotAdmitted);
+		return this.enqueue({
+			fingerprint : snapshot.fingerprint,
+			operation : 'ReadMany',
+			id : 0,
+			requestBytes : snapshot.payload.length,
+			responseBytes : snapshot.responseBytes,
+			encode : () => snapshot.payload
+		},
+		                    undefined,
+		                    input => this.decodeReadMany(snapshot, input) as unknown as T,
+		                    timeoutMs, snapshot);
+	}
+
+	private readManyGate(): ClientStatus
+	{
+		if (this.stopped)
+			return Status.Closed;
+		if (this.recoveryRequired)
+			return Status.RecoveryRequired;
+		if (!this.ready)
+			return Status.NotAdmitted;
+		const session = this.epoch;
+		let supported = false;
+		try {
+			const answer: unknown = this.backend.supports?.('ReadMany');
+			supported = answer === true;
+			// Invalid asynchronous hooks are refused; still observe their rejected promises.
+			if (answer !== null && (typeof answer === 'object' || typeof answer === 'function'))
+				Promise.resolve(answer).catch(() => {
+				                              });
+		} catch { /* A support query never advances the queue. */
+		}
+		if (this.stopped)
+			return Status.Closed;
+		if (this.recoveryRequired)
+			return Status.RecoveryRequired;
+		if (!this.ready || session !== this.epoch)
+			return Status.NotAdmitted;
+		return supported ? Status.Ok : Status.Unsupported;
+	}
+
+	private decodeReadMany(snapshot: ReadManySnapshot,
+	                       input: ByteInput): readonly ReadManyItem<unknown>[]
+	{
+		const payload = bytes(input).slice(), data = new DataView(payload.buffer);
+		const invalid = (): never => {
+			throw new BackendFailure(Status.CodecError, 'Invalid ReadMany item body');
+		};
+		if (payload.length < 2 || data.getUint16(0, true) !== snapshot.entries.length)
+			invalid();
+		let cursor = 2;
+		const items: {id: number; status : 0 | 1 | 2 | 3 | 4; payload : Uint8Array}[] = [];
+		for (const entry of snapshot.entries) {
+			if (payload.length - cursor < 8)
+				invalid();
+			const id = data.getUint32(cursor, true), status = payload[cursor + 4],
+			      length = data.getUint16(cursor + 6, true);
+			if (id !== entry.id || status > 4 || payload[cursor + 5] !== 0 ||
+			    (status === 0 ? length !== entry.size : length !== 0))
+				invalid();
+			cursor += 8;
+			if (length > payload.length - cursor ||
+			    (status === 0 && entry.scalar === 1 && payload[cursor] > 1))
+				invalid();
+			items.push({
+				id,
+				status : status as 0 | 1 | 2 | 3 | 4,
+				payload : payload.slice(cursor, cursor + length)
+			});
+			cursor += length;
+		}
+		if (cursor !== payload.length)
+			invalid();
+		// Only after the entire body and every scalar are canonical may user codecs run.
+		const current = () => this.ready && this.epoch === snapshot.session &&
+		                      this.fingerprint === snapshot.fingerprint;
+		const result: ReadManyItem<unknown>[] = [];
+		for (let i = 0; i < items.length; ++i) {
+			if (!current())
+				throw new BackendFailure(Status.CodecError,
+				                         'ReadMany session changed during decode');
+			const item = items[i];
+			if (item.status === 0) {
+				const value = snapshot.entries[i].decode(item.payload.slice());
+				if (!current())
+					throw new BackendFailure(Status.CodecError,
+					                         'ReadMany session changed during decode');
+				result.push(Object.freeze({...item, status : 0, value}));
+			} else {
+				result.push(Object.freeze({...item, status : item.status}));
+			}
+		}
+		return Object.freeze(result);
+	}
+
 	private refused<T>(operation: Operation, status: ClientStatus): RequestPromise<T>
 	{
 		const result = this.makeResult(operation, this.epoch, 0, status);
@@ -355,8 +606,8 @@ export class DeviceClient {
 		responseBytes : number;
 		encode?: (value: never) => Uint8Array;
 	},
-	                   value: unknown, decode?: (input: ByteInput) => T,
-	                   timeoutMs?: number): RequestPromise<T>
+	                   value: unknown, decode?: (input: ByteInput) => T, timeoutMs?: number,
+	                   readMany?: ReadManySnapshot): RequestPromise<T>
 	{
 		const operation = binding.operation;
 		if (this.stopped)
@@ -365,9 +616,17 @@ export class DeviceClient {
 			return this.refused(operation, Status.RecoveryRequired);
 		if (!this.ready || binding.fingerprint !== this.fingerprint)
 			return this.refused(operation, Status.NotAdmitted);
+		if (operation === 'ReadMany') {
+			const gate = this.readManyGate();
+			if (gate !== Status.Ok)
+				return this.refused(operation, gate);
+			if (!readMany || readMany.session !== this.epoch ||
+			    readMany.fingerprint !== this.fingerprint)
+				return this.refused(operation, Status.NotAdmitted);
+		}
 		if (this.pending.length >= this.limit)
 			return this.refused(operation, Status.QueueFull);
-		const timeout = timeoutMs ?? this.timeout, now = this.clock.now(), generation = this.epoch;
+		const timeout = timeoutMs ?? this.timeout, generation = this.epoch, now = this.clock.now();
 		if (!validOperation(operation) || !u32(binding.id) || !u32(binding.requestBytes) ||
 		    !u32(binding.responseBytes) || !Number.isFinite(timeout) || timeout <= 0 ||
 		    timeout > 0x7fffffff)
@@ -474,17 +733,39 @@ export class DeviceClient {
 					this.finish(pending, Status.Timeout);
 			}
 			if (!this.active && !this.invocation && this.ready && this.pending.length) {
-				const pending = this.invocation = this.active = this.pending[0];
+				const pending = this.pending[0];
+				if (pending.request.operation === 'ReadMany') {
+					const gate = this.readManyGate();
+					if (gate !== Status.Ok) {
+						this.finish(pending, gate);
+						return;
+					}
+					// A support hook can cancel/replace this queued operation synchronously.
+					if (pending.done || this.pending[0] !== pending || !this.ready ||
+					    pending.request.session !== this.epoch) {
+						this.schedule();
+						return;
+					}
+				}
+				this.invocation = this.active = pending;
 				const context: BackendContext = {
 					session : pending.request.session,
 					requestId : pending.request.requestId,
 					signal : pending.controller.signal,
 					clock : this.clock,
 					handoff : mayExecute => {
+					    if (pending.request.operation === 'ReadMany' &&
+					        this.readManyGate() !== Status.Ok)
+						    return false;
 					    if (pending.done || pending !== this.active || !this.ready ||
 					        this.epoch !== pending.request.session)
 						    return false;
-					    if (this.clock.now() >= pending.deadline) {
+					    const handoffTime = this.clock.now();
+					    // Clock hooks can revoke the operation synchronously, just like codecs.
+					    if (pending.done || pending !== this.active || !this.ready ||
+					        this.epoch !== pending.request.session)
+						    return false;
+					    if (handoffTime >= pending.deadline) {
 						    this.finish(pending, Status.Timeout);
 						    return false;
 					    }
@@ -525,11 +806,19 @@ export class DeviceClient {
 					        }
 					        try {
 						        checkWireResult(pending.request, wire);
+						        // A valid ReadMany envelope is known before re-entrant user codecs run.
+						        if (pending.request.operation === 'ReadMany')
+							        pending.checkedReadMany = Object.freeze({
+								        dispatch : wire.dispatch,
+								        endpointStatus : wire.endpointStatus,
+								        payload : wire.payload.slice()
+							        });
 						        let value: unknown;
 						        if (wire.dispatch === 0 && wire.endpointStatus === 0 &&
 						            pending.decode) {
 							        try {
-								        value = pending.decode(wire.payload);
+								        value = pending.decode(pending.checkedReadMany?.payload ??
+								                               wire.payload);
 							        } catch {
 								        this.finish(pending, Status.CodecError, wire);
 								        return;
@@ -574,6 +863,14 @@ export class DeviceClient {
 	{
 		if (pending.done)
 			return;
+		if (pending.checkedReadMany) {
+			// Closing/resetting in a decoder invalidates values, not an already checked outcome.
+			wire = pending.checkedReadMany;
+			if (status !== Status.Ok) {
+				status = Status.CodecError;
+				value = undefined;
+			}
+		}
 		// A checked reply proves an endpoint outcome. A failed transaction after
 		// possible execution requires external session recovery, including reads.
 		const uncertain = pending === this.active && pending.possibleExecution &&
@@ -581,7 +878,8 @@ export class DeviceClient {
 		if (uncertain) {
 			this.recoveryEpoch = pending.request.session;
 			this.admitted = false;
-			if (pending.possibleExecution && pending.request.operation !== 'FieldRead')
+			if (pending.possibleExecution && pending.request.operation !== 'FieldRead' &&
+			    pending.request.operation !== 'ReadMany')
 				status = Status.OutcomeUnknown;
 		}
 		pending.done = true;
@@ -623,7 +921,11 @@ export class DeviceClient {
 
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void|Promise<void>;
 
-export interface EncodedRetryOptions {
+export interface EncodedOptions {
+	// Explicit local transport opt-in; a matching remote TRM1 is required separately.
+	readonly readMany?: boolean;
+}
+export interface EncodedRetryOptions extends EncodedOptions {
 	readonly replyTimeoutMs?: number;
 	// Retransmissions after the initial send. Endpoints may execute more than once.
 	readonly maxRetries?: number;
@@ -650,8 +952,14 @@ class EncodedEngine implements Backend {
 		reject : (error: unknown) => void
 	};
 
-	constructor(private readonly send: EncodedSend, private readonly retry?: EncodedRetryPolicy)
+	constructor(private readonly send: EncodedSend, private readonly retry?: EncodedRetryPolicy,
+	            private readonly readManyEnabled = false)
 	{}
+
+	supports(operation: Operation): boolean
+	{
+		return operation === 'ReadMany' ? this.readManyEnabled : validOperation(operation);
+	}
 
 	confirmSessionClosed(generation: number): boolean
 	{
@@ -664,6 +972,8 @@ class EncodedEngine implements Backend {
 
 	async execute(request: WireRequest, context: BackendContext): Promise<WireResult>
 	{
+		if (!this.supports(request.operation))
+			throw new BackendFailure(Status.Unsupported, 'Encoded operation not enabled');
 		if (this.execution)
 			throw new BackendFailure(Status.Busy, 'Encoded backend already active');
 		const packet = new Uint8Array(32 + request.payload.length),
@@ -855,18 +1165,18 @@ class EncodedEngine implements Backend {
 
 // Complete frames only. The port owns framing and exposes received frames via receive().
 export class EncodedBackend extends EncodedEngine {
-	constructor(send: EncodedSend)
+	constructor(send: EncodedSend, options: EncodedOptions = {})
 	{
-		super(send);
+		super(send, undefined, options.readMany === true);
 	}
 
-	static fromExchange(exchange: Exchange): EncodedBackend
+	static fromExchange(exchange: Exchange, options: EncodedOptions = {}): EncodedBackend
 	{
 		const backend = new EncodedBackend(async (packet, context) => {
 			const reply = await exchange(packet, context);
 			if (!context.signal.aborted)
 				backend.receive(reply);
-		});
+		}, options);
 		return backend;
 	}
 }
@@ -877,7 +1187,7 @@ export class EncodedBackend extends EncodedEngine {
 export class RetryingEncodedBackend extends EncodedEngine {
 	constructor(send: EncodedSend, options: EncodedRetryOptions = {})
 	{
-		super(send, encodedRetryPolicy(options));
+		super(send, encodedRetryPolicy(options), options.readMany === true);
 	}
 
 	static fromExchange(exchange: Exchange,
@@ -925,7 +1235,8 @@ export class RpcError extends Error {
 	}
 }
 
-const codes = Operations;
+// RPC supports only operations 1-4, independently of optional Encoded operations.
+const codes = Object.freeze({FieldWrite : 1, Command : 2, Service : 3, FieldRead : 4} as const);
 const ensure: (condition: unknown, message: string) => asserts condition = (condition, message) => {
 	if (!condition)
 		throw new RpcError(message);
@@ -992,7 +1303,8 @@ async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | 
                                  waitForPoll?: () => Promise<void>): Promise<RpcOutcome>
 {
 	ensure(typeof exchange === 'function', 'Exchange callback required');
-	ensure(Object.hasOwn(codes, operation), 'Explicit RPC operation required');
+	if (!Object.hasOwn(codes, operation))
+		throw new RpcError('RPC supports only operations 1-4', {clientStatus : Status.Unsupported});
 	ensure(payload instanceof Uint8Array, 'RPC payload requires Uint8Array');
 	ensure(options !== null && typeof options === 'object',
 	       'RPC options with transaction ID required');
@@ -1026,7 +1338,7 @@ async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | 
 	header.setUint32(8, transactionId, true);
 	header.setUint32(12, id, true);
 	header.setUint32(16, payload.length, true);
-	header.setUint8(20, codes[operation]);
+	header.setUint8(20, codes[operation as keyof typeof codes]);
 	request.set(payload, 24);
 	let offset = 0;
 	while (offset < request.length) {
@@ -1053,7 +1365,7 @@ async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | 
 		           data.getUint16(6, true) === 0,
 		       'RPC reply magic/version');
 		ensure(data.getUint32(8, true) === transactionId && data.getUint32(12, true) === id &&
-		           data.getUint8(20) === codes[operation],
+		           data.getUint8(20) === codes[operation as keyof typeof codes],
 		       'RPC reply transaction/endpoint/operation identity');
 		const state = data.getUint8(21), payloadBytes = data.getUint32(16, true);
 		ensure(data.getUint32(24, true) === request.length &&
@@ -1104,7 +1416,10 @@ async function rpcPacketExchange(exchange: (packet: Uint8Array) => Uint8Array | 
 			throw new RpcError('Encoded dispatch refused operation',
 			                   {dispatchStatus, endpointStatus});
 	}
-	const maximumStatus = {FieldRead : 0, FieldWrite : 5, Command : 7, Service : 4}[operation];
+	const maximumStatus = {FieldRead : 0,
+		                   FieldWrite : 5,
+		                   Command : 7,
+		                   Service : 4}[operation as keyof typeof codes];
 	ensure(endpointStatus <= maximumStatus, 'Unknown endpoint status');
 	const successful = endpointStatus === 0 || (operation === 'Command' && endpointStatus === 1);
 	const hasValue = operation === 'FieldRead' || operation === 'Service';
@@ -1194,6 +1509,11 @@ export class RpcBackend implements Backend {
 		integer(options.maxReplyBytes ?? 1048576, 32, 0xffffffff, 'Reply capacity');
 	}
 
+	supports(operation: Operation): boolean
+	{
+		return Object.hasOwn(codes, operation);
+	}
+
 	confirmSessionClosed(generation: number): boolean
 	{
 		if (this.executing && (this.executing.context.session !== generation ||
@@ -1205,6 +1525,8 @@ export class RpcBackend implements Backend {
 
 	async execute(request: WireRequest, context: BackendContext): Promise<WireResult>
 	{
+		if (!this.supports(request.operation))
+			throw new BackendFailure(Status.Unsupported, 'RPC supports only operations 1-4');
 		if (this.executing)
 			throw new BackendFailure(Status.Busy, 'RPC backend already active');
 		if (request.payload.length > (this.options.maxRequestBytes ?? 1048576) - 24 ||

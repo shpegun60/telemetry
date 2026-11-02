@@ -257,6 +257,10 @@ the transport. After `close()`, `drained` also waits for this release. See the
 [web runtime contract](../lib/client/web/README.md) for explicit
 confirmation after an application has closed and drained an old session.
 
+Optional [JS/TS ReadMany](JsReadMany.md) uses that same FIFO with inferred scalar
+tuples, explicit Encoded opt-in and remote TRM1 capability. It preserves the
+physical recovery contract and never hides an individual-read fallback.
+
 The [bare-metal example](../examples/async_client/README.md),
 [C++ qualification](../tests/async_client/README.md),
 [DMA transport fixture](../tests/transport_dma/README.md), and

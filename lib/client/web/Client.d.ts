@@ -17,14 +17,16 @@ export declare const Status: Readonly<{
     readonly Busy: 15;
     readonly RecoveryRequired: 16;
     readonly IdsExhausted: 17;
+    readonly Unsupported: 18;
 }>;
 export type ClientStatus = typeof Status[keyof typeof Status];
-export type Operation = 'FieldWrite' | 'Command' | 'Service' | 'FieldRead';
+export type Operation = 'FieldWrite' | 'Command' | 'Service' | 'FieldRead' | 'ReadMany';
 export declare const Operations: Readonly<{
     readonly FieldWrite: 1;
     readonly Command: 2;
     readonly Service: 3;
     readonly FieldRead: 4;
+    readonly ReadMany: 5;
 }>;
 export type ByteInput = ArrayBuffer | ArrayBufferView;
 export interface ReadBinding<T> {
@@ -33,8 +35,54 @@ export interface ReadBinding<T> {
     readonly id: number;
     readonly requestBytes: number;
     readonly responseBytes: number;
+    readonly readManyScalar?: ReadManyScalar;
     decode(input: ByteInput): T;
 }
+export type ReadManyScalar = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+export interface ReadManyReadBinding<T> extends ReadBinding<T> {
+    readonly readManyScalar: ReadManyScalar;
+}
+export type ReadManyField<T> = ReadManyReadBinding<T> | {
+    readonly read: ReadManyReadBinding<T>;
+};
+export declare const ReadManyStatus: Readonly<{
+    readonly Ok: 0;
+    readonly NotFound: 1;
+    readonly UnsupportedType: 2;
+    readonly Unavailable: 3;
+    readonly ReadError: 4;
+}>;
+export type ReadManyItem<T> = {
+    readonly id: number;
+    readonly status: 0;
+    readonly value: T;
+    readonly payload: Uint8Array;
+} | {
+    readonly id: number;
+    readonly status: 1 | 2 | 3 | 4;
+    readonly value?: never;
+    readonly payload: Uint8Array;
+};
+type ReadManyValue<F> = F extends {
+    readonly read: ReadBinding<infer T>;
+} ? T : F extends ReadBinding<infer T> ? T : never;
+export type ReadManyValues<F extends readonly ReadManyField<unknown>[]> = {
+    readonly [K in keyof F]: ReadManyItem<ReadManyValue<F[K]>>;
+};
+declare const readManyTypes: unique symbol;
+export interface ReadManyBinding<T extends readonly unknown[]> {
+    readonly session: number;
+    readonly fingerprint: bigint;
+    readonly count: number;
+    readonly [readManyTypes]: T;
+}
+export type ReadManyBindingResult<T extends readonly unknown[]> = {
+    readonly status: typeof Status.Ok;
+    readonly binding: ReadManyBinding<T>;
+} | {
+    readonly status: Exclude<ClientStatus, typeof Status.Ok>;
+    readonly binding?: never;
+};
 export interface WriteBinding<T> {
     readonly fingerprint: bigint;
     readonly operation: 'FieldWrite';
@@ -112,6 +160,7 @@ export interface BackendContext extends ExchangeContext {
     handoff(mayExecute: boolean): boolean;
 }
 export interface Backend {
+    supports?(operation: Operation): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     confirmSessionClosed?(generation: number): boolean;
 }
@@ -145,6 +194,7 @@ export declare class DeviceClient {
     private scheduled;
     private pumping;
     private confirming;
+    private readonly readManyBindings;
     constructor(options: ClientOptions);
     get session(): number;
     get ready(): boolean;
@@ -161,6 +211,10 @@ export declare class DeviceClient {
     write<T>(field: Field<T> | WriteBinding<T>, value: T, timeoutMs?: number): RequestPromise<undefined>;
     command<T>(binding: CommandBinding<T>, value: T, timeoutMs?: number): RequestPromise<undefined>;
     service<Q, R>(binding: ServiceBinding<Q, R>, value: Q, timeoutMs?: number): RequestPromise<R>;
+    bindReadMany<const F extends readonly ReadManyField<unknown>[]>(capability: ByteInput, fields: F): ReadManyBindingResult<ReadManyValues<F>>;
+    readMany<T extends readonly unknown[]>(binding: ReadManyBinding<T>, timeoutMs?: number): RequestPromise<T>;
+    private readManyGate;
+    private decodeReadMany;
     private refused;
     private enqueue;
     private makeResult;
@@ -172,7 +226,10 @@ export declare class DeviceClient {
     private armTimer;
 }
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void | Promise<void>;
-export interface EncodedRetryOptions {
+export interface EncodedOptions {
+    readonly readMany?: boolean;
+}
+export interface EncodedRetryOptions extends EncodedOptions {
     readonly replyTimeoutMs?: number;
     readonly maxRetries?: number;
 }
@@ -183,17 +240,19 @@ interface EncodedRetryPolicy {
 declare class EncodedEngine implements Backend {
     private readonly send;
     private readonly retry?;
+    private readonly readManyEnabled;
     private execution?;
     private waiting?;
-    constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined);
+    constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined, readManyEnabled?: boolean);
+    supports(operation: Operation): boolean;
     confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     protected receiveFromExchange(input: ByteInput, context: ExchangeContext): boolean;
     receive(input: ByteInput): boolean;
 }
 export declare class EncodedBackend extends EncodedEngine {
-    constructor(send: EncodedSend);
-    static fromExchange(exchange: Exchange): EncodedBackend;
+    constructor(send: EncodedSend, options?: EncodedOptions);
+    static fromExchange(exchange: Exchange, options?: EncodedOptions): EncodedBackend;
 }
 export declare class RetryingEncodedBackend extends EncodedEngine {
     constructor(send: EncodedSend, options?: EncodedRetryOptions);
@@ -243,6 +302,7 @@ export declare class RpcBackend implements Backend {
     private readonly options;
     private executing?;
     constructor(exchange: Exchange, options?: RpcBackendOptions);
+    supports(operation: Operation): boolean;
     confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
     private run;

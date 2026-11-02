@@ -265,6 +265,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install native sanitizer tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang-18 libclang-rt-18-dev
       - name: Install the pinned TypeScript compiler
         run: npm install --prefix "$RUNNER_TEMP/async-tools" typescript@5.9.3 --no-audit --no-fund
       - name: Strict TS, emitted JS, shared traces and real Encoded/RPC servers
@@ -272,12 +274,25 @@ jobs:
           python3 -B tests/client_web/run.py --node node \
             --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
             --build-dir "$RUNNER_TEMP/async-client-web"
+      - name: ReadMany inferred tuples and native Encoded interoperability
+        run: |
+          python3 -B tests/client_read_many_web/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx g++ --build-dir "$RUNNER_TEMP/read-many-web"
+      - name: Sanitized native ReadMany interoperability
+        run: |
+          python3 -B tests/client_read_many_web/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx clang++-18 --sanitize --build-dir "$RUNNER_TEMP/read-many-web-sanitized"
       - name: Retain cross-language evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: async-client-web
-          path: ${{ runner.temp }}/async-client-web/
+          path: |
+            ${{ runner.temp }}/async-client-web/
+            ${{ runner.temp }}/read-many-web/
+            ${{ runner.temp }}/read-many-web-sanitized/
           if-no-files-found: error
 
   source-style:

@@ -36,6 +36,10 @@ The [typed Static Batch suite](batch_static/README.md) checks typed ordered
 operations, explicit storage and callable lifetime, whole-reply publication,
 noheap and installed consumers without RuntimeSchema or UI dependencies.
 
+The [JS/TS ReadMany suite](client_read_many_web/README.md) checks inferred generated
+tuples, owned results, canonical scalar validation, controlled clocks and the
+actual C++ Encoded dispatcher, including a sanitized native peer.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public
