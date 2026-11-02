@@ -50,7 +50,7 @@ RUNTIME_CHECKS = {
     'NumericEdges-run': 78, 'NumericOracle-run': 1572092,
     'HonorFlagsCheck-run': 6, 'IdBoundaryCheck-run': 71,
     'BorrowedBraceCompileFail-run': 15,
-    'DelegateInlineCheck-run': 50, 'DelegateHeapCheck-run': 112,
+    'DelegateInlineCheck-run': 898, 'DelegateHeapCheck-run': 1764,
     **{'id-name-' + str(case) + '-run': 1 for case in range(1, 5)},
     'debug-Og-run': 2, 'WeakTargetCheck-run': 5, 'weak-override-run': 3,
 }

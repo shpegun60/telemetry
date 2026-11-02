@@ -2,7 +2,7 @@
 
 `DelegateInlineCheck.cpp` and `DelegateHeapCheck.cpp` are maintained executable
 checks in the shared `tests/run_checks.py` gate. They share `AssignmentChecks.hpp`
-and emit exactly `CHECKS 50` and `CHECKS 112`, respectively.
+and emit exactly `CHECKS 898` and `CHECKS 1764`, respectively.
 
 Both delegate families must prepare owning replacements while the previous target
 is alive. Cases cover complete targets and callable subobjects at nonzero offsets,
@@ -22,9 +22,23 @@ object layout do not change. Borrow/bind targets still need externally surviving
 storage; replacing an owner with a borrow into its destroyed target violates that
 existing lifetime contract.
 
+The lifetime-reentry matrix additionally covers both owning families with inline
+and (where enabled) heap targets. Target destruction occurs through explicit
+reset, replacement by a function/callable/delegate and owner destruction.
+Recursive reset, lvalue/rvalue callable assignment, function conversion,
+move-assignment, move-from-owner and borrowed assignment cannot escape the active
+transition. Rejected sources retain their ownership and are not copied, moved or
+converted. Resource counters must balance without allocating in the default gate.
+
+Moved-from destructors explicitly refer to both the source owner and the real
+destination, including placement-construction of a destination at a known address.
+A target move constructor also attempts reentry during direct owner construction.
+The owner is empty throughout these transitions, including ownership queries.
+The former alias-assignment, throwing-copy and allocation-failure checks remain.
+
 The shared runner executes these tests in its ordinary and ASan/UBSan profiles.
 They can also be compiled directly with C++17 or C++20 and `-I lib`.
 Exception-injection controls run only when C++ exceptions are enabled; the
-50/112 counts above describe those host runs. The shared ARM gate compiles the
+898/1764 counts above describe those host runs. The shared ARM gate compiles the
 applicable assignment cases at `-O2` and `-Os` with exceptions and RTTI disabled.
 It does not execute them on an MCU.

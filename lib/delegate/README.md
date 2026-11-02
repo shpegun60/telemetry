@@ -12,7 +12,7 @@ dependency for the complete public umbrella. No Qt dependency, separate
 compilation or machine-specific path is required.
 
 The bundled header SHA-256 is
-`41d4e028ae823abc3a06c9dc4bac630ba6a356d0b0dfba88cbff23fe137d909e`.
+`353376f7eab5b0c3df79cbe4d585ebf27b91ed2f8e652ac6da3975b098f8a3e3`.
 Line-ending conversion can change this byte-level hash.
 
 Local audit correction relative to v1.2.1:
@@ -26,8 +26,20 @@ Local audit correction relative to v1.2.1:
   and invocation stay unchanged. Ordinary inline assignment adds one noexcept
   target move. Borrowed targets still require backing storage to outlive them.
 
+Owned-target lifetime reentry is bounded. While an owner constructs, relocates
+or destroys its owned target, that owner is observably empty. Recursive `reset()`
+is harmless. Assignment to that same owner is refused before copying, moving or
+converting its argument; moving from it produces an empty destination without
+clearing the active transition. Ordinary assignment resumes after publication or
+reset. This prevents a destructor from installing ownership that the outer
+operation would silently overwrite. The guard uses existing metadata, preserving
+object layout and invocation. It adds no allocation, cleanup loop or payload-sized
+temporary and provides no thread synchronization. Constructor/allocation failure
+still preserves an ordinary assignment's previous target through its staged copy.
+
 Maintained checks are `tests/regression/DelegateInlineCheck.cpp` and
-`tests/regression/DelegateHeapCheck.cpp`, sharing `tests/delegate/AssignmentChecks.hpp`.
+`tests/regression/DelegateHeapCheck.cpp`, sharing `tests/delegate/AssignmentChecks.hpp`
+and `tests/delegate/ReentryChecks.hpp`.
 
 Upstream audit corrections relative to v1.2.0:
 
