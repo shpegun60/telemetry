@@ -802,6 +802,7 @@ public:
             // Prepare before destruction, including sources inside the old
             // target. Storage remains bounded by this delegate's capacity.
             delegate_sbo prepared(std::forward<F>(f));
+            if (!prepared) return *this; // A nullable allocation did not prepare a replacement.
             reset();
             move_from_(prepared);
             return *this;
@@ -1125,6 +1126,7 @@ public:
             // Prepare before destruction, including sources inside the old
             // target. Storage remains bounded by this delegate's capacity.
             delegate prepared(std::forward<F>(f));
+            if (!prepared) return *this; // A nullable allocation did not prepare a replacement.
             reset();
             move_from_(prepared);
             return *this;

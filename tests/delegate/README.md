@@ -42,3 +42,9 @@ Exception-injection controls run only when C++ exceptions are enabled; the
 898/1764 counts above describe those host runs. The shared ARM gate compiles the
 applicable assignment cases at `-O2` and `-Os` with exceptions and RTTI disabled.
 It does not execute them on an MCU.
+
+`DelegateNullAllocationCheck.cpp` enables heap fallback and a returning assertion
+hook. Its 85 checks cover class-specific noexcept allocation returning null,
+failed construction and lvalue/rvalue assignment while retaining both inline and
+heap old targets, no source constructor call, ordinary false-valued functors, and
+empty delegate move assignment still clearing the destination.
