@@ -198,9 +198,9 @@ struct RuntimeFunction {
 	}
 };
 
-// A real named callable lvalue is always present; its object and transitive
-// references outlive every invocation. No closure copy or function conversion
-// occurs, and constness is retained when selecting operator().
+// Named callable objects remain borrowed, retaining their constness and
+// transitive lifetimes. A wrapped function-pointer variable is also borrowed,
+// but each invocation copies its nullable target once before checking it.
 // Public methods:
 // - snapshot(): Select borrowed callable.
 // - available(): Confirm borrowed presence.
@@ -213,20 +213,30 @@ struct BorrowedCallable {
 	    "Endpoint callable must be noexcept-invocable as borrowed");
 	Callable* callable;
 
-	[[nodiscard]] constexpr Callable* snapshot() const noexcept
+	[[nodiscard]] constexpr auto snapshot() const noexcept
 	{
-		return callable;
+		if constexpr (functionPointer<std::remove_cv_t<Callable>>)
+			return *callable;
+		else
+			return callable;
 	}
 
-	[[nodiscard]] static constexpr bool available(Callable*) noexcept
+	template<class Target>
+	[[nodiscard]] static constexpr bool available(Target selected) noexcept
 	{
-		return true;
+		if constexpr (functionPointer<std::remove_cv_t<Callable>>)
+			return telemetry::detail::pointerPresent(selected);
+		else
+			return true;
 	}
 
-	template<class... Args>
-	static decltype(auto) invoke(Callable* selected, Args&&... args) noexcept
+	template<class Target, class... Args>
+	static decltype(auto) invoke(Target selected, Args&&... args) noexcept
 	{
-		return (*selected)(std::forward<Args>(args)...);
+		if constexpr (functionPointer<std::remove_cv_t<Callable>>)
+			return selected(std::forward<Args>(args)...);
+		else
+			return (*selected)(std::forward<Args>(args)...);
 	}
 };
 
@@ -266,7 +276,9 @@ struct BorrowedSlot {
 template<class Callable>
 [[nodiscard]] constexpr auto borrow(Callable& callable) noexcept
 {
-	if constexpr (telemetry::detail::isCallableSlot<Callable>)
+	if constexpr (std::is_function_v<Callable>)
+		return RuntimeFunction<Callable*>{std::addressof(callable)};
+	else if constexpr (telemetry::detail::isCallableSlot<Callable>)
 		return BorrowedSlot<Callable>{std::addressof(callable)};
 	else
 		return BorrowedCallable<Callable>{std::addressof(callable)};
@@ -356,9 +368,9 @@ struct ErasedBinding<BorrowedCallable<Callable>> {
 		return eraseBindingObject(binding.callable);
 	}
 
-	[[nodiscard]] static Callable* snapshot(const void* context) noexcept
+	[[nodiscard]] static auto snapshot(const void* context) noexcept
 	{
-		return restoreBindingObject<Callable>(context);
+		return BorrowedCallable<Callable>{restoreBindingObject<Callable>(context)}.snapshot();
 	}
 };
 
