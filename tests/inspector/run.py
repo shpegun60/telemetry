@@ -228,7 +228,8 @@ def main():
         workbench_positive = build('WorkbenchNegativePositiveControl', workbench / 'Negative.cpp')
         run('execute-WorkbenchNegativePositiveControl', [workbench_positive])
         workbench_refusals = ('COMMAND', 'SERVICE', 'CLIENT', 'CORE', 'RAW', 'INSPECTOR',
-                             'NULL_CALLBACK', 'NULL_COMMAND_CALLBACK', 'NULL_SERVICE_CALLBACK')
+                             'NULL_CALLBACK', 'NULL_COMMAND_CALLBACK', 'NULL_SERVICE_CALLBACK',
+                             'THROW_COPY_APPLY', 'THROW_COPY_COMMAND', 'THROW_COPY_SERVICE')
         for macro in workbench_refusals:
             run('workbench-negative-' + macro, flags + ['-DWORKBENCH_' + macro, '-fsyntax-only',
                                                        workbench / 'Negative.cpp'], failure=True)

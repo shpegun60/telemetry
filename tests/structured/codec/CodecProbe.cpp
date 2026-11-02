@@ -189,6 +189,50 @@ void checkFailures()
 	    !buffersDisjoint({}, std::span{related}.subspan(3, 4), std::span{related}.subspan(5, 4)));
 }
 
+void checkPointerInputAlias()
+{
+	// The input need only be disjoint from Workspace. The output pointer's
+	// live object representation is also a valid source of canonical bytes.
+	using Value = std::uintptr_t;
+	static_assert(sizeof(Value*) == wireSize<Value>);
+	Value original = 7;
+	Value* decoded = &original;
+	const auto bytes = std::as_bytes(std::span{&decoded, 1});
+	Value expected = 0;
+	for (std::size_t i = 0; i < bytes.size(); ++i)
+		expected |= static_cast<Value>(std::to_integer<unsigned>(bytes[i])) << (8 * i);
+	std::array<std::byte, scratchBytes<Value>> storage{};
+	Workspace workspace{storage};
+	{
+		auto lease = workspace.reserve<Value>();
+		require(decode<Value>(bytes, lease, decoded) == CodecStatus::Ok);
+		require(decoded && *decoded == expected);
+	}
+	require(workspace.used() == 0);
+
+	// Find a noncanonical bool byte within the representation of a valid
+	// pointer. Nulling that pointer before validation would hide this error.
+	std::array<bool, 256> values{};
+	bool* boolean = nullptr;
+	std::span<const std::byte> invalid;
+	for (auto& value : values) {
+		boolean = &value;
+		const auto representation = std::as_bytes(std::span{&boolean, 1});
+		for (std::size_t i = 0; i < representation.size(); ++i) {
+			if (std::to_integer<unsigned>(representation[i]) > 1) {
+				invalid = representation.subspan(i, 1);
+				break;
+			}
+		}
+		if (!invalid.empty())
+			break;
+	}
+	require(!invalid.empty());
+	auto lease = workspace.reserve<bool>();
+	require(decode<bool>(invalid, lease, boolean) == CodecStatus::InvalidValue);
+	require(boolean == nullptr && !lease.constructed());
+}
+
 void checkWorkspace()
 {
 	alignas(State) std::array<std::byte, scratchBytes<State> + 2> bytes{};
@@ -255,5 +299,6 @@ int main()
 {
 	checkGoldens();
 	checkFailures();
+	checkPointerInputAlias();
 	checkWorkspace();
 }

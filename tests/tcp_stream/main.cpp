@@ -273,6 +273,59 @@ void framingChecks() noexcept
 	CHECK(rc::parseRead(reader.frame()));
 }
 
+void inputOverlapChecks() noexcept
+{
+	std::array<std::byte, 32> packet{};
+	const auto built = rc::makeRead(packet, 0x12345678, UINT64_C(0x1122334455667788));
+	CHECK(built.status == rc::BuildStatus::Ok && built.written == 13);
+	const auto request = Input{packet}.first(built.written);
+	// Exact overlap, input after storage begins, and input before storage begins.
+	// Refusal must precede even the first-byte store, not merely the bulk copy.
+	for (const auto offset : {32u, 37u, 27u}) {
+		std::array<std::byte, 96> backing{};
+		backing.fill(std::byte{0xa5});
+		std::copy(request.begin(), request.end(), backing.begin() + offset);
+		const auto before = backing;
+		const auto storage = Output{backing}.subspan(32, 32);
+		tcp::FrameReader reader{storage};
+		const auto rejected = reader.feed(Input{backing}.subspan(offset, request.size()));
+		CHECK(rejected.status == tcp::Status::Invalid && rejected.consumed == 0);
+		CHECK(backing == before && reader.empty() && !reader.partial() && !reader.ready() &&
+		      !reader.failed());
+		CHECK(reader.feed(Input{storage}.first(0)).status == tcp::Status::NeedMore);
+		CHECK(reader.feed(request).status == tcp::Status::Ready);
+		CHECK(reader.frame().size() == request.size() &&
+		      std::memcmp(reader.frame().data(), request.data(), request.size()) == 0);
+	}
+	std::array<std::byte, 96> backing{};
+	const auto storage = Output{backing}.subspan(32, 32);
+	tcp::FrameReader reader{storage};
+	CHECK(reader.feed(request.first(4)).status == tcp::Status::NeedMore);
+	CHECK(reader.partial());
+	std::copy(request.begin() + 4, request.end(), backing.begin() + 48);
+	const auto before = backing;
+	const auto rejected = reader.feed(Input{backing}.subspan(48, request.size() - 4));
+	CHECK(rejected.status == tcp::Status::Invalid && rejected.consumed == 0);
+	CHECK(backing == before && reader.partial() && !reader.empty() && !reader.ready() &&
+	      !reader.failed());
+	const auto completed = reader.feed(request.subspan(4));
+	CHECK(completed.status == tcp::Status::Ready && completed.consumed == request.size() - 4);
+	CHECK(reader.frame().size() == request.size() &&
+	      std::memcmp(reader.frame().data(), request.data(), request.size()) == 0);
+	// An already-ready reader keeps its existing no-consumption precedence.
+	CHECK(reader.feed(reader.frame()).status == tcp::Status::Ready);
+	reader.release();
+	// Adjacent nonoverlapping spans in the same array are accepted.
+	for (const auto offset : {32 - request.size(), std::size_t{64}}) {
+		std::copy(request.begin(), request.end(), backing.begin() + offset);
+		const auto result = reader.feed(Input{backing}.subspan(offset, request.size()));
+		CHECK(result.status == tcp::Status::Ready && result.consumed == request.size());
+		CHECK(reader.frame().size() == request.size() &&
+		      std::memcmp(reader.frame().data(), request.data(), request.size()) == 0);
+		reader.release();
+	}
+}
+
 void serverChecks() noexcept
 {
 	std::array<std::byte, 512> packet{}, joined{};
@@ -443,6 +496,7 @@ int main()
 	return 1;
 #else
 	framingChecks();
+	inputOverlapChecks();
 	serverChecks();
 	lifetimeChecks();
 	std::printf("Native TCP stream: %u checks, 0 failures\n", checks);

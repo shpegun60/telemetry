@@ -1,0 +1,4403 @@
+{
+  "baseline": "e5226b3fdc8bbc9cb08cd25a5c0ea67d189c503b",
+  "source_commit": "c7c384f9e02c0820906dd6b24330e35e0da3641b",
+  "note": "Manual review attestation reconciled from four reviewers; hashes and range validation identify inputs, not a proof of correctness.",
+  "files": 221,
+  "baseline_lines": 47537,
+  "reviewed_current_lines": 47641,
+  "gaps": [],
+  "generated_pfr_display": {
+    "path": "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp",
+    "ranges": [
+      [
+        811,
+        4500
+      ],
+      [
+        4751,
+        9078
+      ]
+    ],
+    "legend": "C(X,Y) = detail::workaround_cast<T, decltype(X)>(Y)",
+    "method": "Each line text manually read with reversible abbreviation of this repeated expression; original identifiers/order retained and reverse expansion asserted. Printed line endings are normalized; checkout hash is separate."
+  },
+  "entries": [
+    {
+      "path": "lib/boost_pfr/LICENSE_1_0.txt",
+      "baseline_lines": 23,
+      "lines": 23,
+      "sha256_lf": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+      "windows_checkout_sha256": "beb8e42e9d6b4284e03304d05a81a0755200a965fc8d0a5e0aea1e84cf805d6e",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/VERSION.md",
+      "baseline_lines": 22,
+      "lines": 22,
+      "sha256_lf": "2f1792e09b5863cf5797eb29fe72e79d9bfba5da159b36e3793a52d546e82c55",
+      "windows_checkout_sha256": "2f1792e09b5863cf5797eb29fe72e79d9bfba5da159b36e3793a52d546e82c55",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          22
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr.hpp",
+      "baseline_lines": 25,
+      "lines": 25,
+      "sha256_lf": "4649852228196a1857e209f6ad84ffe95eb42ba3d53fff2b91802eb4be474fcd",
+      "windows_checkout_sha256": "ab6145684b0ddfd8f18a22ad9ba1b79b2932c0f21f6dafb840c7753fa5f16939",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          25
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/config.hpp",
+      "baseline_lines": 187,
+      "lines": 187,
+      "sha256_lf": "46fc8f34b8d5ed9fa46a452543fb091059d861fe45ff413fecd9a0d3f2ac7ab7",
+      "windows_checkout_sha256": "cb5a8f318983e12975011dc111d08469de9e985d9eb62a6f65a3f93aea319707",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          187
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/core.hpp",
+      "baseline_lines": 292,
+      "lines": 292,
+      "sha256_lf": "f7f89a3725d1278b53d864c6a4cdc32ea81b320f442e393b0943108ab1d46530",
+      "windows_checkout_sha256": "8e3ca0ee9f33b2ecb2e3812fc6b9a1737e8d9f157e1b9d35f91932bae1d37fba",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          292
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/core_name.hpp",
+      "baseline_lines": 139,
+      "lines": 139,
+      "sha256_lf": "fcf91dde2849a12c6f1fc1ea330959677b95e5b7266a35947d4a327eb5ceaf28",
+      "windows_checkout_sha256": "d41aab44afc2600185d43b35ca1eb10a501cf857c12cab6543a34661228b353d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          139
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/config.hpp",
+      "baseline_lines": 26,
+      "lines": 26,
+      "sha256_lf": "10e20426d95ca544acf013ac6d8df61caf7b354fe92958ad9b62b792d52ad80c",
+      "windows_checkout_sha256": "d3de9445d680ce21ed3f1c822ab95742b9dc776928d5397cb8a4bce833c72146",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          26
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core.hpp",
+      "baseline_lines": 28,
+      "lines": 28,
+      "sha256_lf": "c1c7c2a633844697ff1f91dc0fc1cad43a44325fa7eb097e828fd89253078b25",
+      "windows_checkout_sha256": "0e1d2d524c7095fbe63aa7511a521214721bfa38fb17508d0019e4a62a3c0831",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          28
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core14_classic.hpp",
+      "baseline_lines": 708,
+      "lines": 708,
+      "sha256_lf": "7083f69e3e2fe6859979efc65a4a5c8335ae348acaab7963fb960c904b1fb426",
+      "windows_checkout_sha256": "dafcb8ce86c880536dfdeeb8a807a7605ce4e0149a8e5de60f623064402565be",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          708
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core14_loophole.hpp",
+      "baseline_lines": 200,
+      "lines": 200,
+      "sha256_lf": "6ca6eb541a90a780ef3020c0c6f58bafe6259f9688337aca7ce5dd2adebcebb9",
+      "windows_checkout_sha256": "49e433ff27b26e851f37b0f9d57cbd60339b2a385bf5f606ca57c69848374684",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          200
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core17.hpp",
+      "baseline_lines": 72,
+      "lines": 72,
+      "sha256_lf": "700cbe805be53e049981b9d279916b42b6c8e2e583a5dc8d0693382ecf497910",
+      "windows_checkout_sha256": "36b280fbad4c2f53588678bc5d8798161d03a2ff82d5062a2e680572a36f51b8",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          72
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp",
+      "baseline_lines": 9078,
+      "lines": 9078,
+      "sha256_lf": "07903414f0798758fe140eea5e0048123878fd4204ce34baf502f72da866e9dd",
+      "windows_checkout_sha256": "14588743736c3f9ecbcac69cfdacf2b129db0dad8833dcb0423201c78e30f6d9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          170
+        ],
+        [
+          171,
+          490
+        ],
+        [
+          491,
+          810
+        ],
+        [
+          811,
+          1250
+        ],
+        [
+          1251,
+          2150
+        ],
+        [
+          2151,
+          3050
+        ],
+        [
+          3051,
+          3950
+        ],
+        [
+          3951,
+          4500
+        ],
+        [
+          4501,
+          4750
+        ],
+        [
+          4751,
+          5150
+        ],
+        [
+          5151,
+          5550
+        ],
+        [
+          5551,
+          5950
+        ],
+        [
+          5951,
+          6450
+        ],
+        [
+          6451,
+          6950
+        ],
+        [
+          6951,
+          7450
+        ],
+        [
+          7451,
+          7950
+        ],
+        [
+          7951,
+          8450
+        ],
+        [
+          8451,
+          8950
+        ],
+        [
+          8951,
+          9078
+        ]
+      ],
+      "reviewers": [
+        "/root",
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json",
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core26.hpp",
+      "baseline_lines": 39,
+      "lines": 39,
+      "sha256_lf": "5297b0557d614e48a7475ba8d717697839966894350412f924f90de716f15eca",
+      "windows_checkout_sha256": "877118b052e42fae5e404c575bf1018f35a30ccb65834a42afd353eee1c46987",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          39
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core26_reflection.hpp",
+      "baseline_lines": 64,
+      "lines": 64,
+      "sha256_lf": "5addeb8579d39ae470426b84b25a266fa9edc68a4bd1a19085e6bb4e4dfbe483",
+      "windows_checkout_sha256": "f6442aa7efd4240fde189b61d9a5f34f74b634dec9cb20ebe2a36891f5740823",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          64
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core_name.hpp",
+      "baseline_lines": 31,
+      "lines": 31,
+      "sha256_lf": "9c838ff1156cdd2acaf911aa59739c4e602e66410f21f53f5209cbbf784de4fe",
+      "windows_checkout_sha256": "68baf7623cc9dfa16961144993ac8826efe7ca934e97f2f7dfd99e15b4891078",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          31
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core_name14_disabled.hpp",
+      "baseline_lines": 43,
+      "lines": 43,
+      "sha256_lf": "a4d65ef53fa5d05b0edc48f81c78aa9f17fde4c7c573c7fa41b8496b92be2a73",
+      "windows_checkout_sha256": "ee8c02eb9a5225513957c4bc52ad60102cbb0b837620e41a06f265a5e5d6ef71",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          43
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core_name20_static.hpp",
+      "baseline_lines": 247,
+      "lines": 247,
+      "sha256_lf": "738061339251d85be02901dff9ad723d776967511fb6645d119d0893ab8ad7f4",
+      "windows_checkout_sha256": "800254cbcc55b58398522784dbd3f94e88945e8d1cb09e5f133116cba3683747",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          247
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/core_name26_reflection.hpp",
+      "baseline_lines": 63,
+      "lines": 63,
+      "sha256_lf": "5bb8954b4b91087755bb6683156fe7b4768150b5ddf2a2f133dfda4e14e8d884",
+      "windows_checkout_sha256": "9669aa5c44221af8b1c239d5551a47f62563043be617cfd23506e9c93dd7d555",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          63
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/detectors.hpp",
+      "baseline_lines": 72,
+      "lines": 72,
+      "sha256_lf": "40cac68c7a01af7307eec4725de71783ac7ad72db158463ed63eb049385f6242",
+      "windows_checkout_sha256": "cbee8bd5e06e840475d132b4e61e36c93e645c9f553a83132c801df4bc8590fa",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          72
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/fake_object.hpp",
+      "baseline_lines": 54,
+      "lines": 54,
+      "sha256_lf": "48ed22e2c7d63e8030ef919c9ff0c64f95a660043064025b1584861038104320",
+      "windows_checkout_sha256": "624a75be033071f1d05f4784c145a9af986c83ca1dde690986c04e7c279b04e7",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          54
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/fields_count.hpp",
+      "baseline_lines": 511,
+      "lines": 511,
+      "sha256_lf": "2ad090e16de6857b65580fc757f2ff908a2dcc1e8dfd4df5be7899b8edad8891",
+      "windows_checkout_sha256": "ef7f5635b756df1f9c8303db7fb377eee0fd7244697a05384d473db38ad04ed5",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          511
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/for_each_field.hpp",
+      "baseline_lines": 65,
+      "lines": 65,
+      "sha256_lf": "6f49900af1ad7fd4094ae0b4901c18d08bd80dc2176626069aca4d6670bdad80",
+      "windows_checkout_sha256": "e6e78dfa4534701cb0035dacd6871b0873279ee858ef1a30b08af16c57f8acbe",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          65
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/for_each_field_impl.hpp",
+      "baseline_lines": 89,
+      "lines": 89,
+      "sha256_lf": "b9d4dc8b4470a7d62a0e34f25e253e8e983c2f7fb356808c0724990df91a75dd",
+      "windows_checkout_sha256": "c9e7fe90d97866445fb8e0c7f39dfa7a1d54a2cb0c958732131f1ebf1143e08f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          89
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/functional.hpp",
+      "baseline_lines": 241,
+      "lines": 241,
+      "sha256_lf": "6acbac4eea43b28d5c01f592756753b42d6d3be2820f3dab9f31d2c12d54a35a",
+      "windows_checkout_sha256": "357e639676fecf8419d873a6f82f79176a000cf8f59618643d05c29fd33fbb29",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          241
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/io.hpp",
+      "baseline_lines": 89,
+      "lines": 89,
+      "sha256_lf": "63370759c7d28ae670b3dd78ddd5e91778f81da8f06ddbcb252ff755c592f63b",
+      "windows_checkout_sha256": "5841ede283126f4a9ecb1d759524a3e85d40ccb0464295f217aa74f7f876aa1f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          89
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/make_flat_tuple_of_references.hpp",
+      "baseline_lines": 98,
+      "lines": 98,
+      "sha256_lf": "2aad27e108445944e7cbf2b1e6a3326bb5cd1c2edaae04735f018cd898576e79",
+      "windows_checkout_sha256": "83f32b2c0ffd22bea28a3a01ab761c8b943b93c7ad931711270a0010c9210468",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          98
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/make_integer_sequence.hpp",
+      "baseline_lines": 92,
+      "lines": 92,
+      "sha256_lf": "7de6fd4a8e0385da613d60d19a1d33536a9764ae0060a18a6bc643f1d9ee5add",
+      "windows_checkout_sha256": "07f15073eb11264188b11f1390c5364f29327363754c36c45d3e2e47c42ced08",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          92
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/offset_based_getter.hpp",
+      "baseline_lines": 143,
+      "lines": 143,
+      "sha256_lf": "2ffb10662802fcb329b0c4da5119bc24058219862546dc9a38b226fa32a83c0e",
+      "windows_checkout_sha256": "e3bf437b10d00df32b6a0c7d077a1654f2b746e3c5dd1670290e12ee451469c9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          143
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/possible_reflectable.hpp",
+      "baseline_lines": 51,
+      "lines": 51,
+      "sha256_lf": "74125e2b26a16e07e40236ccb7f24b2e7539963cadbaea9f04f5af295f1b3286",
+      "windows_checkout_sha256": "46250f8c1b040ca8fd75cf136b81053b2385fd0de32f93904a65842f238f9a47",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          51
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/rvalue_t.hpp",
+      "baseline_lines": 37,
+      "lines": 37,
+      "sha256_lf": "4125eb1e522c042648a0c473d1a34372f9d2004eb92598eee7ab35b1c576dbb5",
+      "windows_checkout_sha256": "f3e9f7a27172fed392dac90ab5d289a4a2e30342b18ba177f598ae32609ab2e5",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          37
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/sequence_tuple.hpp",
+      "baseline_lines": 180,
+      "lines": 180,
+      "sha256_lf": "793d632854dbf755442629cd5713a2196dff6498912c3b7971dce7836a5c853d",
+      "windows_checkout_sha256": "bd2208d53a45437bf825b1ec6a7d76d52f7791d52ae74821f5c7b35af1838fa6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          180
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/size_array.hpp",
+      "baseline_lines": 81,
+      "lines": 81,
+      "sha256_lf": "9efcc3a3bfe24896d23ee0f8fd9a6e7ab5f55a87776bd7bcde89656e9e9d1d46",
+      "windows_checkout_sha256": "ba45ab55f722803a2f67533fd77b27d92087641a803e21ca7fd06edce4a6751f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          81
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/size_t_.hpp",
+      "baseline_lines": 23,
+      "lines": 23,
+      "sha256_lf": "d6b90bfaf92b8ec264d2fd4d2f72e42f7268c06632b76a66e79211c125e9b173",
+      "windows_checkout_sha256": "247f90d4224fb68afe2c14dfff103589cee2e2c9c97a11c4b9e03de3070070fe",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/stdarray.hpp",
+      "baseline_lines": 41,
+      "lines": 41,
+      "sha256_lf": "8f4aa7cd432f5118a94353abf93e36b0e12724bde1ad0eab55ad0e40e154bec0",
+      "windows_checkout_sha256": "b918aa505f84cc431b4f301441d6819c160d4e77ce6514c1884b452493c560af",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          41
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/stdtuple.hpp",
+      "baseline_lines": 51,
+      "lines": 51,
+      "sha256_lf": "9b14e3ecf131d8ccbfbfafa6e2e9c0abf61c178ce549486ad2907cfd8f3c9045",
+      "windows_checkout_sha256": "01f7733673abe21728f7b51c12b32e01591fd1b521771e05a661c65eb8ea8531",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          51
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/tie_from_structure_tuple.hpp",
+      "baseline_lines": 46,
+      "lines": 46,
+      "sha256_lf": "4d5d4fe37f233c89b6224d5a446a4399d6e1dab5ecc8288235523b42f0b2348f",
+      "windows_checkout_sha256": "1e20ab942c54c1b009ba0ee124c3cf8c13951934921e928f6f5e085f45814246",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          46
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/detail/unsafe_declval.hpp",
+      "baseline_lines": 49,
+      "lines": 49,
+      "sha256_lf": "a833b833a0febd16f68ea90835df287dee1ea03b2f3a8ce40ad35f6c18338752",
+      "windows_checkout_sha256": "16bbe4199b9afc1311916f5824a053c84208334524aaff4babaf0e7673bd4164",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          49
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/functions_for.hpp",
+      "baseline_lines": 95,
+      "lines": 95,
+      "sha256_lf": "76d131adf7981b395e4ac164382e25cce18842abd428f30ba3f4a0196b248d21",
+      "windows_checkout_sha256": "28ce77091783c44ac437ef4e2999d524627876495af3e484e7455d23563e5400",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          95
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/functors.hpp",
+      "baseline_lines": 229,
+      "lines": 229,
+      "sha256_lf": "e3a921e058c73d08c116b8620bd35f839c5fa7aa935c85c8647e736b06793479",
+      "windows_checkout_sha256": "ffb3a5d80ffdeeb391cacf29c4f03c87f0a89078cad4af93d405c032c5e4de98",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          229
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/io.hpp",
+      "baseline_lines": 125,
+      "lines": 125,
+      "sha256_lf": "3d9ed56e1c5a192a773c7ecd05745512bdd1e9b7940997e6ae0300c158a9c822",
+      "windows_checkout_sha256": "df753afd097cbdb84da758b05a9af23f4d3a7ac85a7c371732d64359cee6e5d4",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          125
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/io_fields.hpp",
+      "baseline_lines": 176,
+      "lines": 176,
+      "sha256_lf": "c80e394cc3578deaf4b0b7576aa7f87cb6348034144009133ee1d897cae13778",
+      "windows_checkout_sha256": "f1db07782a6a6bb8b386c2b95ab2d19caabf14363a51403688e482c419ee80f2",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          176
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/ops.hpp",
+      "baseline_lines": 194,
+      "lines": 194,
+      "sha256_lf": "dfd8233a5c1041cd9971d85dc28175ade6b6439f9aff4bd99e65b117c9dc791f",
+      "windows_checkout_sha256": "83ab893935242c4c71ba63403cecbf303da942d3461011cd454925eabbb4a7be",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          194
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/ops_fields.hpp",
+      "baseline_lines": 136,
+      "lines": 136,
+      "sha256_lf": "4e3caefc635ba685aa4c5f6855bbcdc0c00f622023f9c4079c09576b9ce4e833",
+      "windows_checkout_sha256": "52082fe7af4763ca3c0746e3d8225f16bc59b32e85bea08dfd88eeef83f0c9f1",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          136
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/traits.hpp",
+      "baseline_lines": 71,
+      "lines": 71,
+      "sha256_lf": "00dfb9158b0971f500fa864394a185fd02b56b9b529232ba3ff4cc333d60f55e",
+      "windows_checkout_sha256": "89b25610b1dd5d5a3a9aba0823cdf8ed3e4624f929a73846a488003230ecd5b6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          71
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/traits_fwd.hpp",
+      "baseline_lines": 28,
+      "lines": 28,
+      "sha256_lf": "dc75f37c001d33707110eaaee90b1dff8b6d4efe1719142b677d5c4c4b21af54",
+      "windows_checkout_sha256": "d5ff86222136140bfd41fbad64ead381862f449611ca557b1842e5dd6d8b395a",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          28
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/boost_pfr/include/boost/pfr/tuple_size.hpp",
+      "baseline_lines": 58,
+      "lines": 58,
+      "sha256_lf": "b4e65002af093af2749490d26dd171757162474454384188dd7aec78eb04540e",
+      "windows_checkout_sha256": "77e8189d3465b26026c28bb741d9339613687c3bb7f6bcbe19df987f98cec827",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          58
+        ]
+      ],
+      "reviewers": [
+        "/root"
+      ],
+      "ledgers": [
+        "pfr-build-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/Backend.hpp",
+      "baseline_lines": 62,
+      "lines": 62,
+      "sha256_lf": "54535d0a90fd7a309cd207f8a705416970435716ac06413331f868e3f4362889",
+      "windows_checkout_sha256": "54535d0a90fd7a309cd207f8a705416970435716ac06413331f868e3f4362889",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          62
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/CMakeLists.txt",
+      "baseline_lines": 15,
+      "lines": 15,
+      "sha256_lf": "af348dd9d57d4df985669b9cd9c02903388afa68c7996e11ac62be614b36d96d",
+      "windows_checkout_sha256": "af348dd9d57d4df985669b9cd9c02903388afa68c7996e11ac62be614b36d96d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          15
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/ClientResult.hpp",
+      "baseline_lines": 150,
+      "lines": 150,
+      "sha256_lf": "26c423eb413ff70e388e3bd3d612dcff4cdc0fc8116e6ed1dfc14413571e994f",
+      "windows_checkout_sha256": "26c423eb413ff70e388e3bd3d612dcff4cdc0fc8116e6ed1dfc14413571e994f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          150
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/DeviceClient.hpp",
+      "baseline_lines": 455,
+      "lines": 455,
+      "sha256_lf": "3b8ec8905e66e535b30e26de0b4fd843c0bcddb7feae4a8e08390700cedb6f2e",
+      "windows_checkout_sha256": "ee1aa8d24e24e97d4cf9b61155ae3643bd47f82575f16a6c78306ae663d74ead",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          230
+        ],
+        [
+          231,
+          455
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/README.md",
+      "baseline_lines": 16,
+      "lines": 16,
+      "sha256_lf": "fc807f1a98ab9fe64e0c0eb7ef43c87f0753dc2b8bb3f50fddc7dc8e9cba45cf",
+      "windows_checkout_sha256": "fc807f1a98ab9fe64e0c0eb7ef43c87f0753dc2b8bb3f50fddc7dc8e9cba45cf",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          16
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/RequestQueue.hpp",
+      "baseline_lines": 294,
+      "lines": 294,
+      "sha256_lf": "bc7615733344e56dac65308a6d3e1bc073ac09c205fea4c2bd11ad5b53254c00",
+      "windows_checkout_sha256": "bc7615733344e56dac65308a6d3e1bc073ac09c205fea4c2bd11ad5b53254c00",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          294
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/ThreadSafeClient.hpp",
+      "baseline_lines": 89,
+      "lines": 89,
+      "sha256_lf": "768c4b4acccc5be0214518a60784702b92c764126a48edd05f43f25c26d9f3b2",
+      "windows_checkout_sha256": "768c4b4acccc5be0214518a60784702b92c764126a48edd05f43f25c26d9f3b2",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          89
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/client.pri",
+      "baseline_lines": 17,
+      "lines": 17,
+      "sha256_lf": "9a52dbf2fd3d22e6cb43128ff6d563ec3e3557fe42550646570acb1db404a34f",
+      "windows_checkout_sha256": "9a52dbf2fd3d22e6cb43128ff6d563ec3e3557fe42550646570acb1db404a34f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          17
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/rpc/RpcClient.cpp",
+      "baseline_lines": 408,
+      "lines": 408,
+      "sha256_lf": "4952fea617f9fec791f99725ac3d41c139217517d5561a1227f6758f570cf040",
+      "windows_checkout_sha256": "4952fea617f9fec791f99725ac3d41c139217517d5561a1227f6758f570cf040",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          408
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/rpc/RpcClient.hpp",
+      "baseline_lines": 345,
+      "lines": 345,
+      "sha256_lf": "31444d6267c65b12aef42228eccd8cd9b8c95201ff45ff5dab78c7e717178d58",
+      "windows_checkout_sha256": "31444d6267c65b12aef42228eccd8cd9b8c95201ff45ff5dab78c7e717178d58",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          345
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/Client.d.ts",
+      "baseline_lines": 252,
+      "lines": 252,
+      "sha256_lf": "40aba685fc90cb3dfc8c15329e2d8dc307a261e587d7ea43491a29a24fc75ccf",
+      "windows_checkout_sha256": "40aba685fc90cb3dfc8c15329e2d8dc307a261e587d7ea43491a29a24fc75ccf",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          252
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/Client.js",
+      "baseline_lines": 1023,
+      "lines": 1023,
+      "sha256_lf": "fe3ef3c9b56d9638cbbdef30120d471fecf8a2c87893752fff5f22451488fc91",
+      "windows_checkout_sha256": "fe3ef3c9b56d9638cbbdef30120d471fecf8a2c87893752fff5f22451488fc91",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          220
+        ],
+        [
+          221,
+          440
+        ],
+        [
+          441,
+          660
+        ],
+        [
+          661,
+          840
+        ],
+        [
+          841,
+          1023
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/Client.ts",
+      "baseline_lines": 1344,
+      "lines": 1344,
+      "sha256_lf": "653423e1ebae435a3a0587af65a29107dc8361b80dc92954824a204dd50c38c8",
+      "windows_checkout_sha256": "1ca4ef094834df36366d313872e63eb49c6d5bdd73f5d4b255b7b929f6273bd5",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          220
+        ],
+        [
+          221,
+          440
+        ],
+        [
+          441,
+          660
+        ],
+        [
+          661,
+          880
+        ],
+        [
+          881,
+          1100
+        ],
+        [
+          1101,
+          1344
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/README.md",
+      "baseline_lines": 106,
+      "lines": 106,
+      "sha256_lf": "a187d76f455532a64ab0ca03b2c9bc7825785c30d0aaf23feccea006b1b0f5cc",
+      "windows_checkout_sha256": "a187d76f455532a64ab0ca03b2c9bc7825785c30d0aaf23feccea006b1b0f5cc",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          106
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/build.py",
+      "baseline_lines": 38,
+      "lines": 38,
+      "sha256_lf": "3b48b9e78a942a1abecd7c2864791b008acb58783bb217eaeb48ec51e1f68725",
+      "windows_checkout_sha256": "3b48b9e78a942a1abecd7c2864791b008acb58783bb217eaeb48ec51e1f68725",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          38
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/client/web/package.json",
+      "baseline_lines": 1,
+      "lines": 1,
+      "sha256_lf": "86f0206a14378e837ed85648a2a851ea84e016de74de328ff262262107ab7332",
+      "windows_checkout_sha256": "86f0206a14378e837ed85648a2a851ea84e016de74de328ff262262107ab7332",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          1
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/Compiler.hpp",
+      "baseline_lines": 46,
+      "lines": 46,
+      "sha256_lf": "a080cb61f2aa1a3cff22e825efe1d5b87065a37f7283c6b6db175409337578c0",
+      "windows_checkout_sha256": "a080cb61f2aa1a3cff22e825efe1d5b87065a37f7283c6b6db175409337578c0",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          46
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/ContextFunctionSlot.hpp",
+      "baseline_lines": 112,
+      "lines": 112,
+      "sha256_lf": "2cfb58181c75ab3f798ea361d17d73fc84cd53f8c34ce5f4a083c15cf36f1f0b",
+      "windows_checkout_sha256": "2cfb58181c75ab3f798ea361d17d73fc84cd53f8c34ce5f4a083c15cf36f1f0b",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          112
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/DelegateRefSlot.hpp",
+      "baseline_lines": 223,
+      "lines": 223,
+      "sha256_lf": "f226252ee928670dfc5ddff2b1764f7e2cb7f8745cccbd018b9424e0beb5ef99",
+      "windows_checkout_sha256": "f226252ee928670dfc5ddff2b1764f7e2cb7f8745cccbd018b9424e0beb5ef99",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          223
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/DelegateSlot.hpp",
+      "baseline_lines": 177,
+      "lines": 177,
+      "sha256_lf": "b8bdcd07e1268b7e057167cc1352f15e23e5c0cea0d2e1d6642d93572a810ad3",
+      "windows_checkout_sha256": "b8bdcd07e1268b7e057167cc1352f15e23e5c0cea0d2e1d6642d93572a810ad3",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          177
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/FunctionSlot.hpp",
+      "baseline_lines": 94,
+      "lines": 94,
+      "sha256_lf": "86d27609e68a7489b664182e041656be36bf2546625067e5e86b1be83e8676a5",
+      "windows_checkout_sha256": "86d27609e68a7489b664182e041656be36bf2546625067e5e86b1be83e8676a5",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          94
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/LICENSE",
+      "baseline_lines": 24,
+      "lines": 24,
+      "sha256_lf": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+      "windows_checkout_sha256": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          24
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/Owner.hpp",
+      "baseline_lines": 77,
+      "lines": 77,
+      "sha256_lf": "49f838064fb340cebbecef54eaa2aeee4cde8be01c2a97d6c3f891dd217fcbe7",
+      "windows_checkout_sha256": "49f838064fb340cebbecef54eaa2aeee4cde8be01c2a97d6c3f891dd217fcbe7",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          77
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/OwnerSlot.hpp",
+      "baseline_lines": 99,
+      "lines": 99,
+      "sha256_lf": "de936dfbe534d855c40bca1fa69ed31dfdec9bea08b753fa6f793f63b3616b49",
+      "windows_checkout_sha256": "de936dfbe534d855c40bca1fa69ed31dfdec9bea08b753fa6f793f63b3616b49",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          99
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/README.md",
+      "baseline_lines": 12,
+      "lines": 12,
+      "sha256_lf": "20bfbc51054b1ab6b92c2c4c2558c21164853bb73b807cc128afaf6a79069056",
+      "windows_checkout_sha256": "20bfbc51054b1ab6b92c2c4c2558c21164853bb73b807cc128afaf6a79069056",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          12
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/SlotCallable.hpp",
+      "baseline_lines": 334,
+      "lines": 334,
+      "sha256_lf": "585d25067dde652407213dbe0be08729628ea70fd09cf9af2ab6031b22b199fa",
+      "windows_checkout_sha256": "585d25067dde652407213dbe0be08729628ea70fd09cf9af2ab6031b22b199fa",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          334
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/SlotTraits.hpp",
+      "baseline_lines": 57,
+      "lines": 57,
+      "sha256_lf": "d0d56162a31e852081675720ef6cd946aec69ef3424631ebb1ed4edd5be616a1",
+      "windows_checkout_sha256": "d0d56162a31e852081675720ef6cd946aec69ef3424631ebb1ed4edd5be616a1",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          57
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/Target.hpp",
+      "baseline_lines": 78,
+      "lines": 78,
+      "sha256_lf": "25b1751792309e102524dc4435af1c3c77ea204272bce155d2ad77d8f0f72b72",
+      "windows_checkout_sha256": "25b1751792309e102524dc4435af1c3c77ea204272bce155d2ad77d8f0f72b72",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          78
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/common/common.pri",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "90ace79328781b4b76235ce6843983449c843c7711dbe2ca2fca8cc13668ab01",
+      "windows_checkout_sha256": "90ace79328781b4b76235ce6843983449c843c7711dbe2ca2fca8cc13668ab01",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/delegate/LICENSE",
+      "baseline_lines": 21,
+      "lines": 21,
+      "sha256_lf": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+      "windows_checkout_sha256": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          21
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/delegate/README.md",
+      "baseline_lines": 44,
+      "lines": 58,
+      "sha256_lf": "12652e5bceb58bd69ab4d6c1cd91d26d88aaf5166339423693ca7955862a8e68",
+      "windows_checkout_sha256": "5a338ef616f7359e4b12f4e72aca52ea5c8779c3acaaa7ded732d9b39b87de50",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          58
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/delegate/delegate.pri",
+      "baseline_lines": 5,
+      "lines": 5,
+      "sha256_lf": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+      "windows_checkout_sha256": "e67e7728c08e13b38a42a1f3db8c183acf119129eb282becb161bcaaf720116d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          5
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/delegate/tiny_delegate.hpp",
+      "baseline_lines": 1537,
+      "lines": 1589,
+      "sha256_lf": "69ea681b7934303d222f3160a660d7048e6667abc1e4862ad04e8c6607607d05",
+      "windows_checkout_sha256": "69ea681b7934303d222f3160a660d7048e6667abc1e4862ad04e8c6607607d05",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          260
+        ],
+        [
+          261,
+          530
+        ],
+        [
+          531,
+          810
+        ],
+        [
+          811,
+          1080
+        ],
+        [
+          1081,
+          1350
+        ],
+        [
+          1351,
+          1589
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/README.md",
+      "baseline_lines": 119,
+      "lines": 119,
+      "sha256_lf": "01e991250bbb935f8022979a81f3e4ce595d569a34458fb1c498756f876af6e4",
+      "windows_checkout_sha256": "2e74804751bcf6b53ab34809475194a1aa208f1a41a82ac3133a2631efc5a074",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          119
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/batch/Client.hpp",
+      "baseline_lines": 379,
+      "lines": 379,
+      "sha256_lf": "6a085fb3deecd2b18235c6a27570feac9deb4e2b0e382f9d0b637a242c0097a9",
+      "windows_checkout_sha256": "6a085fb3deecd2b18235c6a27570feac9deb4e2b0e382f9d0b637a242c0097a9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          379
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/batch/batch.pri",
+      "baseline_lines": 7,
+      "lines": 7,
+      "sha256_lf": "7fc0f5db6400152c51f4e66db76ea8661a318f1be478e627ec2d0b1b2873c8ad",
+      "windows_checkout_sha256": "7fc0f5db6400152c51f4e66db76ea8661a318f1be478e627ec2d0b1b2873c8ad",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          7
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/batch/batch_server.pri",
+      "baseline_lines": 7,
+      "lines": 7,
+      "sha256_lf": "3265a462d0e65fa9104369ca76d8590a44f8943c9066c2e5fa5ff582cc00d728",
+      "windows_checkout_sha256": "3265a462d0e65fa9104369ca76d8590a44f8943c9066c2e5fa5ff582cc00d728",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          7
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/dynamic/DynamicClient.hpp",
+      "baseline_lines": 615,
+      "lines": 619,
+      "sha256_lf": "e73380d738abad6e7659d4dcd3fe769c0d18daa78f210f3561dd168a5b08bc78",
+      "windows_checkout_sha256": "8568fa60dbcc90dbce06918f34964644a23b0994b7af8eb4fb7bded676e9d46d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          210
+        ],
+        [
+          211,
+          420
+        ],
+        [
+          421,
+          619
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/dynamic/dynamic.pri",
+      "baseline_lines": 9,
+      "lines": 9,
+      "sha256_lf": "66bdb0d52f3ef27cf5a555371061ee50641567add801a9c386e8304a56ef131f",
+      "windows_checkout_sha256": "90c09aa9594c20796dd70ca6623e6c2831794cb1f1398cfe9847175cbf0de0e7",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          9
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/Backend.hpp",
+      "baseline_lines": 315,
+      "lines": 315,
+      "sha256_lf": "a9e67cf477c28fc5e1f93b5519fb63464edd8b32a97c186b060d3c5ceccbf429",
+      "windows_checkout_sha256": "a9e67cf477c28fc5e1f93b5519fb63464edd8b32a97c186b060d3c5ceccbf429",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          315
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/BatchDispatcher.cpp",
+      "baseline_lines": 69,
+      "lines": 69,
+      "sha256_lf": "204c26d9f41a7815703f3e8edae4903138333347547271dfac957ca21198140b",
+      "windows_checkout_sha256": "204c26d9f41a7815703f3e8edae4903138333347547271dfac957ca21198140b",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          69
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/BatchDispatcher.hpp",
+      "baseline_lines": 52,
+      "lines": 52,
+      "sha256_lf": "ea8555465af7124060a584bd53940317b0eb21405943b7210697e74f67b95bff",
+      "windows_checkout_sha256": "ea8555465af7124060a584bd53940317b0eb21405943b7210697e74f67b95bff",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          52
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/Dispatcher.cpp",
+      "baseline_lines": 110,
+      "lines": 110,
+      "sha256_lf": "8e8d9601919618938a4608d365a13132c70a9f0d36c0d7441561ca5e8318601c",
+      "windows_checkout_sha256": "8e8d9601919618938a4608d365a13132c70a9f0d36c0d7441561ca5e8318601c",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          110
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/Dispatcher.hpp",
+      "baseline_lines": 106,
+      "lines": 106,
+      "sha256_lf": "453cfed9ec5eb112ec80a98bb05f97b688c41f6b8259f53f70db452ddb90dc54",
+      "windows_checkout_sha256": "453cfed9ec5eb112ec80a98bb05f97b688c41f6b8259f53f70db452ddb90dc54",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          106
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/ReadManyDispatcher.cpp",
+      "baseline_lines": 83,
+      "lines": 83,
+      "sha256_lf": "98bc38d432e26fdd20af44f14f7587848630f3a4c447f6dfd9343fe13aa1d06d",
+      "windows_checkout_sha256": "98bc38d432e26fdd20af44f14f7587848630f3a4c447f6dfd9343fe13aa1d06d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          83
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/encoded/RetryingBackend.hpp",
+      "baseline_lines": 239,
+      "lines": 239,
+      "sha256_lf": "683ad61233261cbc75b3b443153f217fd2ed7a194978719af1790d02977246d1",
+      "windows_checkout_sha256": "683ad61233261cbc75b3b443153f217fd2ed7a194978719af1790d02977246d1",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          239
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/inspector/InspectorModel.hpp",
+      "baseline_lines": 438,
+      "lines": 438,
+      "sha256_lf": "75fa4d861cd794b00b1fd450d0b2a599c6e3114cec4dee068a2718888ba44c11",
+      "windows_checkout_sha256": "6d8c9558378bb21e6322ae9a8f6c76112b8a84bd4db552d39bb3524ed286c138",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          230
+        ],
+        [
+          231,
+          438
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/inspector/SnapshotStore.hpp",
+      "baseline_lines": 609,
+      "lines": 609,
+      "sha256_lf": "2bdd9c5bf5eba16782f8f239de1d261230ca36c9072828237eeaeaf7bafa0250",
+      "windows_checkout_sha256": "00b1da756c0c886f93d4d569235504ee4ee1d55f427eaddbebc28f0659e86d2e",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          220
+        ],
+        [
+          221,
+          420
+        ],
+        [
+          421,
+          609
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/inspector/inspector.pri",
+      "baseline_lines": 8,
+      "lines": 8,
+      "sha256_lf": "ef78c59a6f52a6bc03a5988ddf5d089b6d4da25e786beb2130cf1fac8b26c33e",
+      "windows_checkout_sha256": "e9700b876e1371ec58f76d8c3fe81a822abc50ab0ed9a5bbcb8c9319e7c01670",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          8
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/integration.pri",
+      "baseline_lines": 64,
+      "lines": 64,
+      "sha256_lf": "bd2e523d81c1a50603b8a405009ebf8f433b2109fa4d5b2d5391aa0412429b3f",
+      "windows_checkout_sha256": "ea82c10b1eb3c73b71fda99f21ec17efc5b2281810b8037dfc9852ee0e5442c9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          64
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/read_many/Client.hpp",
+      "baseline_lines": 317,
+      "lines": 317,
+      "sha256_lf": "516550f2878fcfd05f319623540938e7f17f563d9f9e058e251006e94c239a7c",
+      "windows_checkout_sha256": "516550f2878fcfd05f319623540938e7f17f563d9f9e058e251006e94c239a7c",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          180
+        ],
+        [
+          181,
+          317
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/read_many/Workbench.hpp",
+      "baseline_lines": 202,
+      "lines": 202,
+      "sha256_lf": "d56709205176faf5229a7c6d97a04281d218cdc26884d654d37454742b7e8760",
+      "windows_checkout_sha256": "d56709205176faf5229a7c6d97a04281d218cdc26884d654d37454742b7e8760",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          202
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/read_many/read_many.pri",
+      "baseline_lines": 7,
+      "lines": 7,
+      "sha256_lf": "c9cc4369c05692f047f67bc7d68b0ec3ce827a23152e7a47a37033a0cc32ccbe",
+      "windows_checkout_sha256": "c9cc4369c05692f047f67bc7d68b0ec3ce827a23152e7a47a37033a0cc32ccbe",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          7
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/read_many/read_many_workbench.pri",
+      "baseline_lines": 7,
+      "lines": 7,
+      "sha256_lf": "895dc4b7d06c07697cccf8f319b7ae35811a10e61054ccb900d1696529f00902",
+      "windows_checkout_sha256": "895dc4b7d06c07697cccf8f319b7ae35811a10e61054ccb900d1696529f00902",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          7
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/rpc/Backend.hpp",
+      "baseline_lines": 320,
+      "lines": 320,
+      "sha256_lf": "3f01a3d970b2f85b1ff31ae4d3b0fba213caca15433ad4479af464a76a4392df",
+      "windows_checkout_sha256": "3f01a3d970b2f85b1ff31ae4d3b0fba213caca15433ad4479af464a76a4392df",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          320
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/tcp/Framing.hpp",
+      "baseline_lines": 275,
+      "lines": 283,
+      "sha256_lf": "f5af7850cd6c2ac9612d466e5d11ca20869a156f0d5af168b69e2243e50da5f9",
+      "windows_checkout_sha256": "f7942be83b76e2f6365e851b0c763535b4f8e7aeaef14395ac672cba09c93127",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          160
+        ],
+        [
+          161,
+          283
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/tcp/README.md",
+      "baseline_lines": 62,
+      "lines": 67,
+      "sha256_lf": "04eef28a657e4638bb48edb347d2490d67f1e0e53942d931ec176302dedfa5f9",
+      "windows_checkout_sha256": "20c1621db1f43d8f8858422fe9f2a088d450b22007eee858b15cdf4b0261318c",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          67
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/tcp/Server.hpp",
+      "baseline_lines": 142,
+      "lines": 142,
+      "sha256_lf": "a079cd06a10bbec16a7c0cec6efa007cea1edc7719d92fd0b864fff8a4c7c926",
+      "windows_checkout_sha256": "aec1cda0c6023bb2b3e7db5cfa4c71e7cf16bbd3f3e9dec13d808109a53e3570",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          142
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/tcp/tcp.pri",
+      "baseline_lines": 8,
+      "lines": 8,
+      "sha256_lf": "e5f3b6fc94818f7107a6cff8094b4dd09b8c2cc6a2ead1e740d15eee39d82974",
+      "windows_checkout_sha256": "fb8855bd3d173b76d32236bcff78521edc884d9ad61c8d419c2f804810305e00",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          8
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/DescriptorFile.hpp",
+      "baseline_lines": 100,
+      "lines": 100,
+      "sha256_lf": "a93b66aca65fe542792781fe0152163a57396231ef07a0df54c3a13925f851c4",
+      "windows_checkout_sha256": "ca5f21c4f2d7c4fab631d9b2bb7323bcd5d7922fbe7e2f667684b0831ead6b64",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          100
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/README.md",
+      "baseline_lines": 354,
+      "lines": 354,
+      "sha256_lf": "705faa7ed39511ae497a2e3ca53e6860073c59663919e8e398bb907339ed143e",
+      "windows_checkout_sha256": "705faa7ed39511ae497a2e3ca53e6860073c59663919e8e398bb907339ed143e",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          180
+        ],
+        [
+          181,
+          354
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/RpcMailbox.cpp",
+      "baseline_lines": 249,
+      "lines": 249,
+      "sha256_lf": "610e62cc8c0c131d486ee55accc4514454439a821204b11ac6feda50bb6e2c31",
+      "windows_checkout_sha256": "610e62cc8c0c131d486ee55accc4514454439a821204b11ac6feda50bb6e2c31",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          249
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/RpcMailbox.hpp",
+      "baseline_lines": 144,
+      "lines": 144,
+      "sha256_lf": "11def35667b0ba0262071ff9232ad6441fb86b86ddd6962f938f7de4da7efa56",
+      "windows_checkout_sha256": "11def35667b0ba0262071ff9232ad6441fb86b86ddd6962f938f7de4da7efa56",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          144
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/RpcSessionPool.hpp",
+      "baseline_lines": 324,
+      "lines": 324,
+      "sha256_lf": "c5c56a122275b1f9dc050b9d954d6df2970c5eefb2605d363923bc722a85819a",
+      "windows_checkout_sha256": "c5c56a122275b1f9dc050b9d954d6df2970c5eefb2605d363923bc722a85819a",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          324
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/ValuesFile.hpp",
+      "baseline_lines": 138,
+      "lines": 138,
+      "sha256_lf": "7f6d144179614c1383fef6604fc8340742c3ef93c4d284ab21744b590d460a93",
+      "windows_checkout_sha256": "4b3b3c05a0eb32024287bdd996caf153f886c1727320b427edcc9ce4d8063e36",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          138
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/ValuesFormat.hpp",
+      "baseline_lines": 23,
+      "lines": 23,
+      "sha256_lf": "45218c2fb1d3894fe4047d2b358164dee2b389ef7afa24ff703c5630afc5e691",
+      "windows_checkout_sha256": "45218c2fb1d3894fe4047d2b358164dee2b389ef7afa24ff703c5630afc5e691",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/detail/DescriptorRead.hpp",
+      "baseline_lines": 38,
+      "lines": 38,
+      "sha256_lf": "17d2cbf40858209193d9d7875aa75727024a7b5a02ecb9d9da2406b3396d29fd",
+      "windows_checkout_sha256": "17d2cbf40858209193d9d7875aa75727024a7b5a02ecb9d9da2406b3396d29fd",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          38
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/detail/Values.cpp",
+      "baseline_lines": 125,
+      "lines": 125,
+      "sha256_lf": "b4cf65eab6c7ccee485bacb41a50d8ebe41455056ebc86ccba47e18f540f2995",
+      "windows_checkout_sha256": "b4cf65eab6c7ccee485bacb41a50d8ebe41455056ebc86ccba47e18f540f2995",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          125
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/telemetry/v3/detail/Values.hpp",
+      "baseline_lines": 58,
+      "lines": 58,
+      "sha256_lf": "ff6f49aaaa987538f41a7348d16a04399d331fafb052c42399476723cc4eb404",
+      "windows_checkout_sha256": "076fb12429eed91580b79ddf1b7356081c176b6cb332a6644f12130acd6e5e03",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          58
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/workbench/RequestEditor.hpp",
+      "baseline_lines": 307,
+      "lines": 307,
+      "sha256_lf": "81dadc767027480a0cd9900506316a0cd36957cc0f055ac12199a9c4cc86c5df",
+      "windows_checkout_sha256": "62395289ef15de2ce8de4aa276521d9049f456efcb04ffdea6c65dd997667493",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          307
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/workbench/WorkbenchModel.hpp",
+      "baseline_lines": 912,
+      "lines": 916,
+      "sha256_lf": "f1c11f0bf2ed4d713df46f085b5f8305c6a6082450950cd19cdab24f7dc848d3",
+      "windows_checkout_sha256": "786ff2975ab1f843e13b01d49a9dcea949315ab7064e2d1ac6ea723f66fc0dc8",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          230
+        ],
+        [
+          231,
+          460
+        ],
+        [
+          461,
+          690
+        ],
+        [
+          691,
+          916
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/integration/workbench/workbench.pri",
+      "baseline_lines": 8,
+      "lines": 8,
+      "sha256_lf": "ce99dee55c1cc878bd7fd6f36a4bda28561abc17356a38c8f40400f892347dc9",
+      "windows_checkout_sha256": "84f7132ed8650542312761a016de92a57ff0915420b63bc001e14e7422f45f70",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          8
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/magic_enum/LICENSE",
+      "baseline_lines": 21,
+      "lines": 21,
+      "sha256_lf": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
+      "windows_checkout_sha256": "bd227b8a5586dc73012262abfc0fc4eb84c2a91ad3f93b3591f8148fe17324d3",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          21
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/magic_enum/README.md",
+      "baseline_lines": 27,
+      "lines": 27,
+      "sha256_lf": "8d9a7f6e8311642aad1a7be54d61f8a8c65f0f1d1f9e4ad29a4aacf35406c601",
+      "windows_checkout_sha256": "8d9a7f6e8311642aad1a7be54d61f8a8c65f0f1d1f9e4ad29a4aacf35406c601",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          27
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/magic_enum/magic_enum.hpp",
+      "baseline_lines": 1549,
+      "lines": 1549,
+      "sha256_lf": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+      "windows_checkout_sha256": "5130d8830a7a74bf15fded8db94b46b0adc2c1098461dd4b21051050fe2d841d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          1549
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/magic_enum/magic_enum.pri",
+      "baseline_lines": 3,
+      "lines": 3,
+      "sha256_lf": "92dce0a5168f4f11fbbb986eb135bb2bafcc7038ded83a5501118fbdd97d19c7",
+      "windows_checkout_sha256": "92dce0a5168f4f11fbbb986eb135bb2bafcc7038ded83a5501118fbdd97d19c7",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          3
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/BytesFile.hpp",
+      "baseline_lines": 113,
+      "lines": 113,
+      "sha256_lf": "10d305d63d4f962e5fe841c0ff9b909132e39ee1af9f9459f7897869e9f23594",
+      "windows_checkout_sha256": "07d516714b16a2ace3cda52a2ed5861dc19885b79b0311405a439f39b90b8e2d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          113
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/ChunkWriter.hpp",
+      "baseline_lines": 78,
+      "lines": 78,
+      "sha256_lf": "a89df16c8c428fa1e0b5e2285d271461d89e5ff36897aa8a4ef708b3546b9a19",
+      "windows_checkout_sha256": "6db94cdf2538d5d2865b07cf8cfb3b1afdc81ea312a0c012c11d1ca59a5ef23b",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          78
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/File.hpp",
+      "baseline_lines": 180,
+      "lines": 180,
+      "sha256_lf": "195e596919e69a62191b0ce2118b83bf61f724cd45dc1f85bd1e685cc09c381f",
+      "windows_checkout_sha256": "ae8a390f8150f745d12884ff40605ebdf6388ee2983d5ab1e35cce4544b5fd46",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          180
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/FileSystem.hpp",
+      "baseline_lines": 247,
+      "lines": 247,
+      "sha256_lf": "815d005ba7d160daefccd27392a9b17eea85bbcd669e464079629c03a270668f",
+      "windows_checkout_sha256": "55146bdddee52ccb050b8329b5c8c6e508d418a3153098b45ba4be9fdd4321c7",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          247
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/FileView.hpp",
+      "baseline_lines": 167,
+      "lines": 167,
+      "sha256_lf": "bf86d3584ccdd9321a87c7e8c913365b8b1893b28224c5b4a390e9a2c77cf2d0",
+      "windows_checkout_sha256": "7e1d9e6bc8cbd9f04f37cd6b425cea7c42cff9920d7899b51d6c376d22b70c2a",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          167
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/LICENSE",
+      "baseline_lines": 21,
+      "lines": 21,
+      "sha256_lf": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+      "windows_checkout_sha256": "e89e1a865754b1cae866bb8adafe983c0999ede85c88ce3c0d016cae98154b8f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          21
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/README.md",
+      "baseline_lines": 282,
+      "lines": 282,
+      "sha256_lf": "b28a33b01b3d61dc3acd1024e949a62962d9e09793edbbfb3ee0ebbc1490ecd0",
+      "windows_checkout_sha256": "b28a33b01b3d61dc3acd1024e949a62962d9e09793edbbfb3ee0ebbc1490ecd0",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          282
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/Resource.hpp",
+      "baseline_lines": 23,
+      "lines": 23,
+      "sha256_lf": "c5a1430dea2101ebee3f9056f1cf4ef211a4553ca2d69c893d826ae97721a4db",
+      "windows_checkout_sha256": "fb3bb5d3a5db8c9eb80a3613c32d804fa94bb652410b5980ceb12288e13bba3f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/Types.hpp",
+      "baseline_lines": 104,
+      "lines": 104,
+      "sha256_lf": "9b48c584443c7a2d9b984476a5fecb15caab2bf45b0bfc3d05995a565b5b40cb",
+      "windows_checkout_sha256": "96b41fcc577c984cb7c90d4943ec526507dcf334c01d2ee50b99ca23c444accc",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          104
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/protocol/Packets.hpp",
+      "baseline_lines": 398,
+      "lines": 398,
+      "sha256_lf": "0266cc02188e579573d9d56a4f217bb73fd79a9b029562879873e1cd31907ab9",
+      "windows_checkout_sha256": "0266cc02188e579573d9d56a4f217bb73fd79a9b029562879873e1cd31907ab9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          398
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/protocol/Protocol.cpp",
+      "baseline_lines": 184,
+      "lines": 184,
+      "sha256_lf": "5f40b5a71552a4d1d96f3fe608695ef408d3856919b5dca9ac75e54c56e22166",
+      "windows_checkout_sha256": "0380c876270b4293c771e8ddb8f58989324491506196c41f47052205f2987abc",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          184
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/protocol/Protocol.hpp",
+      "baseline_lines": 33,
+      "lines": 33,
+      "sha256_lf": "7ade646e675979bbace6f90ac28c47a8d6a6827c587f4cb99bf819f8a4ee4ba4",
+      "windows_checkout_sha256": "0e81ad063ab9b558e19793a417c00210549eb04cb8a1ea801325278cfa99aec0",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          33
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/protocol/README.md",
+      "baseline_lines": 142,
+      "lines": 142,
+      "sha256_lf": "394089920431d7706e23d9ebad84fae0e54d2a410d08cbe66454c8273cbb0396",
+      "windows_checkout_sha256": "2a8c92d26853beb58a39329a70ff4a2209ae2ffef5f1f2177d3b40e48ddf893c",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          142
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/protocol/Wire.hpp",
+      "baseline_lines": 35,
+      "lines": 35,
+      "sha256_lf": "a6ab005e9f63243cab47d56385f865e51ea6c19e5a06b3e3f30c5204d76c208c",
+      "windows_checkout_sha256": "a6ab005e9f63243cab47d56385f865e51ea6c19e5a06b3e3f30c5204d76c208c",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          35
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/resource/resource.pri",
+      "baseline_lines": 9,
+      "lines": 9,
+      "sha256_lf": "106d29bb7f1da7313739fb2cb6427ffcbe378dd1805f2673cf2e998a58ebf68a",
+      "windows_checkout_sha256": "106d29bb7f1da7313739fb2cb6427ffcbe378dd1805f2673cf2e998a58ebf68a",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          9
+        ]
+      ],
+      "reviewers": [
+        "/root/full_audit_client"
+      ],
+      "ledgers": [
+        "lowlevel-generator-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/LICENSE",
+      "baseline_lines": 24,
+      "lines": 24,
+      "sha256_lf": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+      "windows_checkout_sha256": "8e41fc0e5a188a2ba12b9fed16f009472064fba4e6a7689eb629fa13c41ff501",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          24
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/README.md",
+      "baseline_lines": 329,
+      "lines": 329,
+      "sha256_lf": "eb95fea1471f9188ad258aabb7b3d748f250e4c065cb789ac71c1ec95b69d656",
+      "windows_checkout_sha256": "eb95fea1471f9188ad258aabb7b3d748f250e4c065cb789ac71c1ec95b69d656",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          329
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/Telemetry.hpp",
+      "baseline_lines": 35,
+      "lines": 35,
+      "sha256_lf": "4245b26acbeaa707d49d27fdec9c5281e847e57dc36906234be2efcd7b84117d",
+      "windows_checkout_sha256": "1328881036dbb4d044798ce2f4e788d7975a760c75a61ea6d1f13daf266ae628",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          35
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/abi/StructuredAbi.cpp",
+      "baseline_lines": 24,
+      "lines": 24,
+      "sha256_lf": "c54422d2ee92eece98ba0f9df0aa4e2b832a784f122bc35f7cbbfeef6334acb9",
+      "windows_checkout_sha256": "d75eea01906ffadabcfe5c8249f32e671c673fc44000a26b18d84b4fcc450d9b",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          24
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/abi/StructuredAbi.hpp",
+      "baseline_lines": 150,
+      "lines": 150,
+      "sha256_lf": "e23f695de2c1842af43911121686837e91afa63e3ecdfd41e4d38382815a5ea2",
+      "windows_checkout_sha256": "93f8202b43b529a066fd94185f2a16aecc98afe1d735902e5976e8b56dc5208f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          150
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/codec/Codec.hpp",
+      "baseline_lines": 473,
+      "lines": 478,
+      "sha256_lf": "2a682ac6cb463b22ac512695595a0b587c1a1fd3d44be55935ce7dd33da0b2b1",
+      "windows_checkout_sha256": "9f1dadc3f26d82a77796f83cf9e8cc790bf13b8ebb73b90be8bb388205e28a55",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          478
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/codec/StoragePolicy.hpp",
+      "baseline_lines": 70,
+      "lines": 70,
+      "sha256_lf": "a8f82edfc62dba89ab838d79811fce1a40a0df10646d74e4f377ebff3e47688f",
+      "windows_checkout_sha256": "67aa2f89e1fe908c46f3ae62d951db0c5e34b3c84447cae9ee99eaaa3e34b92f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          70
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/codec/Workspace.hpp",
+      "baseline_lines": 190,
+      "lines": 190,
+      "sha256_lf": "8a79929bdf6da79614ffdfd545a907c0df0cf0b180b3bb2a983dd261e65bcbdb",
+      "windows_checkout_sha256": "8a79929bdf6da79614ffdfd545a907c0df0cf0b180b3bb2a983dd261e65bcbdb",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          190
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/codec/codec.pri",
+      "baseline_lines": 12,
+      "lines": 12,
+      "sha256_lf": "d32e1b17053b978f69bff882c213bc552c7c6193cef865d04d3b722f2d538141",
+      "windows_checkout_sha256": "59a6507a2e546a305455eead37e8a7d2ce885c3153d680e97ea019e71e1b62ca",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          12
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/command/Command.hpp",
+      "baseline_lines": 127,
+      "lines": 127,
+      "sha256_lf": "a283b2c19d7de0347ecb9e9d6d7efcc5365ab003221528ca47ee994eb9e13565",
+      "windows_checkout_sha256": "7a528f094454c80e560bb5ef64cd8786cb730374adef4441662c0ed610cfa412",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          127
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/command/CommandCatalogs.hpp",
+      "baseline_lines": 376,
+      "lines": 376,
+      "sha256_lf": "c30eb7482bdbabe50d4cd30736709208a3dbcb3d45ef3803709d0b250cbe033a",
+      "windows_checkout_sha256": "2ef81e4541e404ed2ceb8433e3a7d1b8b483839cfb136f8cb0c88528a8edd458",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          376
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/command/CommandTable.hpp",
+      "baseline_lines": 345,
+      "lines": 345,
+      "sha256_lf": "6e5b97747d52f6e23c00a593b351992aa67a044a79c2a2d954dadfd2ba4c2959",
+      "windows_checkout_sha256": "d22d97c40ba4f0204ce6730d79f8df1d2e8529fbf9b8eda974ea27703ad70a0d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          345
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/core/Compiler.hpp",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "3b76b0658ba3b90de1a27ab22f0fb34e3f1be2260e73388a3350cdb15492572a",
+      "windows_checkout_sha256": "3b76b0658ba3b90de1a27ab22f0fb34e3f1be2260e73388a3350cdb15492572a",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/core/Id.hpp",
+      "baseline_lines": 210,
+      "lines": 210,
+      "sha256_lf": "e2c5489a7f12c8370cb925fe7fb78f7d7d31fad68b58aa9ce73c248071b1aeb1",
+      "windows_checkout_sha256": "22254f2b256dfc7627279850fee91a46f8e0c958ec98628411610e0e168d3500",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          210
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/core/Operation.hpp",
+      "baseline_lines": 23,
+      "lines": 23,
+      "sha256_lf": "e7199390629772e19570ac1d01fb75a884ecf668474360ed18c4be0fa0d56e03",
+      "windows_checkout_sha256": "e7199390629772e19570ac1d01fb75a884ecf668474360ed18c4be0fa0d56e03",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          23
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/descriptor/Descriptor.hpp",
+      "baseline_lines": 587,
+      "lines": 587,
+      "sha256_lf": "5afbb57bc28e2c3757991503099edfbc0d803c43b7574ee16fb35f9f39cd503d",
+      "windows_checkout_sha256": "5afbb57bc28e2c3757991503099edfbc0d803c43b7574ee16fb35f9f39cd503d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          587
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/descriptor/Format.hpp",
+      "baseline_lines": 45,
+      "lines": 45,
+      "sha256_lf": "f16ecf94380e1fe532f213ec4f341cee1f96897528e525b43d4ee7fcf9deddb1",
+      "windows_checkout_sha256": "f16ecf94380e1fe532f213ec4f341cee1f96897528e525b43d4ee7fcf9deddb1",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          45
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/descriptor/README.md",
+      "baseline_lines": 34,
+      "lines": 34,
+      "sha256_lf": "8ba2d07c86a4490a663d3df26f30295a6f95512ba634be5295a9931c138911be",
+      "windows_checkout_sha256": "8ba2d07c86a4490a663d3df26f30295a6f95512ba634be5295a9931c138911be",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          34
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/descriptor/ReadResult.hpp",
+      "baseline_lines": 42,
+      "lines": 42,
+      "sha256_lf": "66e9880708b9d6470bf80bf0427fca33e279ef24111743c49324420b0278ad56",
+      "windows_checkout_sha256": "66e9880708b9d6470bf80bf0427fca33e279ef24111743c49324420b0278ad56",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          42
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/descriptor/detail/Segments.hpp",
+      "baseline_lines": 298,
+      "lines": 298,
+      "sha256_lf": "ad48d4ec7630776359f5cb0a4a10485c4ab6e6abbdc27b22265fcb153f09aa37",
+      "windows_checkout_sha256": "ad48d4ec7630776359f5cb0a4a10485c4ab6e6abbdc27b22265fcb153f09aa37",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          298
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Binding.hpp",
+      "baseline_lines": 431,
+      "lines": 443,
+      "sha256_lf": "84e912383b0ddbc8ac942ef5d42700737eefe035375fd429bfc95efd7f5f68c7",
+      "windows_checkout_sha256": "ba7c352b153da0407f41054cbf0afb4cc569b6f69bc64b200c528c3e4fc4afe9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          443
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Encoded.hpp",
+      "baseline_lines": 111,
+      "lines": 111,
+      "sha256_lf": "a3339dfbdc8db7db794dcfb80d9a8af8b64afe3486a24a488a003a7e8552188e",
+      "windows_checkout_sha256": "5d620f5ae1f97f17a2f9008d6fa35fe3e3e2ac0160267dc5e73976e3fefe699e",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          111
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/FieldAccess.hpp",
+      "baseline_lines": 305,
+      "lines": 305,
+      "sha256_lf": "dc2b446223a606f10036cc1d97634a8a328a14e78d46fc06d85be0bc6f914165",
+      "windows_checkout_sha256": "9cb641b2f40b856fe0f6f91ebc14ee5562880c4b108a84628513a5ba0b5a6c48",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          305
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Name.hpp",
+      "baseline_lines": 93,
+      "lines": 93,
+      "sha256_lf": "e846b34c25bc8b27ae7c0b32b8bd869bf724f0f8ae0f2faf22d1876f514e3787",
+      "windows_checkout_sha256": "0955191d587c5e4df46206886e54f69bea849313d03d6585bfb8be17f74ae399",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          93
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/NativeCall.hpp",
+      "baseline_lines": 123,
+      "lines": 123,
+      "sha256_lf": "bee0308f864396347bdf546f7ff10d9c21e76f9d4f77311d6ad8193caf32e12d",
+      "windows_checkout_sha256": "bee0308f864396347bdf546f7ff10d9c21e76f9d4f77311d6ad8193caf32e12d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          123
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/NumberConversion.hpp",
+      "baseline_lines": 173,
+      "lines": 173,
+      "sha256_lf": "4f4f2d477be9e1fbf803423f1f21933781df72baf10c4d1573eeac8d63887da6",
+      "windows_checkout_sha256": "82d74959652299fb8ec9ce2305957ad601293ab8ac7dbbb48ce5fe4baa21dfed",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          173
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Owner.hpp",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "b131dcad048e64ebf00af5b3cef32fbbd86cff117196f7c8bf076f4dac12c4d9",
+      "windows_checkout_sha256": "b131dcad048e64ebf00af5b3cef32fbbd86cff117196f7c8bf076f4dac12c4d9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/SlotCallable.hpp",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "ce025e74374f47406e35d7fbf413c6b0d7f53e1ce65da55e855c6ae21aac1256",
+      "windows_checkout_sha256": "ce025e74374f47406e35d7fbf413c6b0d7f53e1ce65da55e855c6ae21aac1256",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Target.hpp",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "62dd1a0ee7ff877a414e42fa2bf1cb89ad9896362d7d6e673facd34b3e59d882",
+      "windows_checkout_sha256": "62dd1a0ee7ff877a414e42fa2bf1cb89ad9896362d7d6e673facd34b3e59d882",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/detail/Traversal.hpp",
+      "baseline_lines": 235,
+      "lines": 235,
+      "sha256_lf": "3c0afe3dc09462404301132ee5104dd9b11148b4713139c1a1368ae13169020e",
+      "windows_checkout_sha256": "58e8da37860520048e62409a609f60f327f95b2bcdb8854add75a50c7c3973e6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          235
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/encoded/Batch.cpp",
+      "baseline_lines": 259,
+      "lines": 259,
+      "sha256_lf": "85d57ffb1eaa8a093a95006b9099c377f7b89df036597be2a9e6e4c4627f1dfa",
+      "windows_checkout_sha256": "85d57ffb1eaa8a093a95006b9099c377f7b89df036597be2a9e6e4c4627f1dfa",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          259
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/encoded/Batch.hpp",
+      "baseline_lines": 66,
+      "lines": 66,
+      "sha256_lf": "2831bd47a15090774f1031aabdc3495e4b16d7cc60c64bb1a802d150511270b8",
+      "windows_checkout_sha256": "2831bd47a15090774f1031aabdc3495e4b16d7cc60c64bb1a802d150511270b8",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          66
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/encoded/Dispatcher.hpp",
+      "baseline_lines": 65,
+      "lines": 65,
+      "sha256_lf": "17c18ad67c3a1a944ae5dd3bcd6b67e835bab394f3f6b972637d71d7ef17c9d0",
+      "windows_checkout_sha256": "17c18ad67c3a1a944ae5dd3bcd6b67e835bab394f3f6b972637d71d7ef17c9d0",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          65
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/encoded/ReadMany.cpp",
+      "baseline_lines": 109,
+      "lines": 109,
+      "sha256_lf": "2a959a8c2b79864e9eb14e7c7da203dfcef3f505b2b848d1a0b2b2a1230b99bd",
+      "windows_checkout_sha256": "2a959a8c2b79864e9eb14e7c7da203dfcef3f505b2b848d1a0b2b2a1230b99bd",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          109
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/encoded/ReadMany.hpp",
+      "baseline_lines": 69,
+      "lines": 69,
+      "sha256_lf": "1f4bf48467502ab2885cee8068e02caa1023e02ef0386a6439c9f255ad73f16d",
+      "windows_checkout_sha256": "1f4bf48467502ab2885cee8068e02caa1023e02ef0386a6439c9f255ad73f16d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          69
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/field/Field.hpp",
+      "baseline_lines": 263,
+      "lines": 263,
+      "sha256_lf": "4ed6e8b2aa769f1206fccf834e55bec4ab26d34fb334a306de14849a269b0322",
+      "windows_checkout_sha256": "fa27b3a5a03d34b49d87d7f81fbfb911c11e1c848bb527ed2beadc12941d15d3",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          263
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/field/FieldCatalogs.hpp",
+      "baseline_lines": 476,
+      "lines": 476,
+      "sha256_lf": "7ec6cc5ff334106fc6515b3e3a327036d1967a4ae4b226f58db40b4a5589053e",
+      "windows_checkout_sha256": "d2590791f7686c020e678407adc10a92bd18e157b27fabf02fe670c2288f1de8",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          476
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/field/FieldTable.hpp",
+      "baseline_lines": 510,
+      "lines": 510,
+      "sha256_lf": "237d9f6cd762e0b81695e1c98cd1a8aa693c5cf058c5c9ff00a6183859cbf331",
+      "windows_checkout_sha256": "468d3f4a4cdbb0fcee4441b222bf92b21c7ace9b36eb461d517f5373385183e9",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          510
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/model/Adapter.cpp",
+      "baseline_lines": 93,
+      "lines": 93,
+      "sha256_lf": "a87b47980ed2e633e1d4132bebb321d94aabd327a0ed039cbbdacc040b3c589b",
+      "windows_checkout_sha256": "193062b14d52f8bffd9b32423fbc41136ba034f8275ce0243eee5ca8507d1fed",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          93
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/model/Adapter.hpp",
+      "baseline_lines": 87,
+      "lines": 87,
+      "sha256_lf": "ddeeeb5a0b77db36449a987a085dc62c428784155122aff6530665a3ec1989bb",
+      "windows_checkout_sha256": "562b3b7a75d969b80e4265bcf8e617645674369b3c0fd8e203106a0073999af2",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          87
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/model/Catalog.hpp",
+      "baseline_lines": 56,
+      "lines": 56,
+      "sha256_lf": "e08ffe04e7632a6e39cd11b4877bce4bef519c9a861cbe828d6c40c3da7c9682",
+      "windows_checkout_sha256": "71ce5ac72a8ce5472e6737bdff1c5a7f3c3ffe2b14c9786c0eb53cfe4ff36566",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          56
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/model/Model.hpp",
+      "baseline_lines": 330,
+      "lines": 330,
+      "sha256_lf": "bfa8536387dcb7266664f6db5b07877b4d1a85f42a30aafd38417751a906a4d6",
+      "windows_checkout_sha256": "bff1a7231daa571d4850750aa4fc69854b66dd6f050e80e2875ae65e83353c17",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          330
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/Aggregate.hpp",
+      "baseline_lines": 78,
+      "lines": 78,
+      "sha256_lf": "a905e6bd6b0d37e6cdbe062d5a1c7c9ec1e75d1ff637442301a64ea235ceaec5",
+      "windows_checkout_sha256": "aae45ef5f9770f8af15a67709530b45e61a3b87adcbb81496149960a6bc8b44f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          78
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/Callable.hpp",
+      "baseline_lines": 153,
+      "lines": 153,
+      "sha256_lf": "6dfe1b02fda380e18f710ddb5d3b06cb0928bce0876f85966afbf1e1285b60e0",
+      "windows_checkout_sha256": "61d6b92a94740c7cd41a57e96e13ae1729628fa529da3160f70a2f472899fdc6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          153
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/Enum.hpp",
+      "baseline_lines": 352,
+      "lines": 352,
+      "sha256_lf": "977d94fbde0e3833a56be6c989d4cb94994707486e419833a1a652bb4b5b2350",
+      "windows_checkout_sha256": "57626e3c5ba3b7cc56ed054d5fa371e84dbb87359bdd8c91ab675109183826ae",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          352
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/Reflection.hpp",
+      "baseline_lines": 24,
+      "lines": 24,
+      "sha256_lf": "75b4495b60c18f87978ba510226068e83646f2b0897ad029182594c49b31a15d",
+      "windows_checkout_sha256": "d73ba41a4fa5070bec42477ee7e47c1ec0ab465752676a003c134c84797ad457",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          24
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/detail/CallableTraitsAdapter.hpp",
+      "baseline_lines": 187,
+      "lines": 187,
+      "sha256_lf": "8505b90e6615d71371f4568fe8e404896b88257051d487bc72ad7f834ff0149d",
+      "windows_checkout_sha256": "8505b90e6615d71371f4568fe8e404896b88257051d487bc72ad7f834ff0149d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          187
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/detail/MagicEnumAdapter.hpp",
+      "baseline_lines": 60,
+      "lines": 60,
+      "sha256_lf": "b293b6a7b08efd5ef762ec32bcff13119bdbc002f00557c7fd3fe0e52f24d218",
+      "windows_checkout_sha256": "229389bc6baea41d5f22d680f2c570093e1eb839bfef702bcb2e9cfe22c394f3",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          60
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/reflection/detail/PfrAdapter.hpp",
+      "baseline_lines": 86,
+      "lines": 86,
+      "sha256_lf": "c6151e19ab101d313ae063bdfddba16e995e54255883206871758374fd067d15",
+      "windows_checkout_sha256": "be09168fa8952606a98a410b09b83e690e9a138bb0e963e11f8743e28488a0d2",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          86
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/BorrowedServiceResult.hpp",
+      "baseline_lines": 106,
+      "lines": 106,
+      "sha256_lf": "51c64bc33f5784966c5ef544802c1c2b427298019b8ec4c4893086fd793977fd",
+      "windows_checkout_sha256": "d534864367fe7d6e32c64be2c31ebbbbc262581764ff4e3192a2064f9677618f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          106
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/BorrowedValue.hpp",
+      "baseline_lines": 102,
+      "lines": 102,
+      "sha256_lf": "54aefba7d1c104c9807db9d1a6a94a41b5b6725c0da3582f2377ae24340452f1",
+      "windows_checkout_sha256": "14d148e7cbc71400a5695fb25e49ea095737dab0b41b9d9593ad764e7f347463",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          102
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/CommandCallStatus.hpp",
+      "baseline_lines": 78,
+      "lines": 78,
+      "sha256_lf": "3f5ca6ee0131dcbc532eaabb0574dfd55a6a3df4c89ea90821051d3ce47e7a01",
+      "windows_checkout_sha256": "3f5ca6ee0131dcbc532eaabb0574dfd55a6a3df4c89ea90821051d3ce47e7a01",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          78
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/Dispatch.hpp",
+      "baseline_lines": 51,
+      "lines": 51,
+      "sha256_lf": "dff827dda7cf7f6d26b066bcd03594e48dec2490b0e709dea57f236241ea1c65",
+      "windows_checkout_sha256": "f26b1df0a3814799d1ff1481dc73974297c401758e46e302abe8a4cd6f352242",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          51
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/EndpointResults.hpp",
+      "baseline_lines": 82,
+      "lines": 82,
+      "sha256_lf": "4c3c6555db9fdd706c1328c4bd0f40d2f85520a8c4c075ce26abcc3e57caa3ca",
+      "windows_checkout_sha256": "4ff5a7eb23de0a973b8e2d30bf44a56fa68ee5713a76995db200b1ad25b2023f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          82
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/EndpointStatus.hpp",
+      "baseline_lines": 45,
+      "lines": 45,
+      "sha256_lf": "3b336f53c261553ae7caf40f48ce7c35783cb6001ae0145257f4adff1f846b7d",
+      "windows_checkout_sha256": "09212a71ad1203bd68ecd57002a4a53c021eb230b294b622da942cd1bbb0ce8d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          45
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/FieldReadResult.hpp",
+      "baseline_lines": 250,
+      "lines": 250,
+      "sha256_lf": "8fbd1b195cced91d3c664dc8d65d64cfd4b13895748f2f4f99125ed809429dea",
+      "windows_checkout_sha256": "8fbd1b195cced91d3c664dc8d65d64cfd4b13895748f2f4f99125ed809429dea",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          250
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/NativeCallResult.hpp",
+      "baseline_lines": 252,
+      "lines": 252,
+      "sha256_lf": "74a983edd892416ea320bd4bea68d8e186061c94329be981f860893f8386c23d",
+      "windows_checkout_sha256": "74a983edd892416ea320bd4bea68d8e186061c94329be981f860893f8386c23d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          252
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/ServiceCallResult.hpp",
+      "baseline_lines": 273,
+      "lines": 273,
+      "sha256_lf": "b470a5c4cac0774b459a807210a134e11079d293a3f7508a35616656909db905",
+      "windows_checkout_sha256": "b470a5c4cac0774b459a807210a134e11079d293a3f7508a35616656909db905",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          273
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/result/ServiceResult.hpp",
+      "baseline_lines": 280,
+      "lines": 280,
+      "sha256_lf": "ddfe0deb9aac27c6b873e0f3543c79800b89427b26c4d8d06b8e939006aef2c5",
+      "windows_checkout_sha256": "4d39e3b145f99d3ec3b8d0eabaea2ae228523aa9cf1427711995b574a39b8625",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          280
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/runtime/DynamicValueView.hpp",
+      "baseline_lines": 433,
+      "lines": 433,
+      "sha256_lf": "7b8caf2f663b98cbae979d1806ffbf58735af3fdb32f242a5b0a2a032becb467",
+      "windows_checkout_sha256": "31cad5c12154fbf99fba34a91d7a41f5f18b08d73b1ad885b805e41125bf4584",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          433
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/runtime/DynamicValueWriter.hpp",
+      "baseline_lines": 238,
+      "lines": 238,
+      "sha256_lf": "0410f43dcd919c65782de7400722c29b0ad3739f99ba90eaa77e913fa6af107a",
+      "windows_checkout_sha256": "b8fdf75d9798333a96b9bdb4e3de8b854ddb92b43da106f22e2ca8b3effc57de",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          238
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/runtime/RuntimeSchema.hpp",
+      "baseline_lines": 461,
+      "lines": 461,
+      "sha256_lf": "3fe57fcc53e4553a06b55abc441ad1b87365939507b9e750e8e3c62ce14c1482",
+      "windows_checkout_sha256": "575fdc5c21f0deb8a63efd03a6ee25bfe19f8ce83d495367eca5cd731400b972",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          461
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/runtime/detail/SchemaParser.hpp",
+      "baseline_lines": 605,
+      "lines": 605,
+      "sha256_lf": "d97be582fbc1c472a49e4825e3b85746e0cfef10d59d8c8d397462945b079d44",
+      "windows_checkout_sha256": "8924d308279fc00786d945936135104d117b94e04e32ad5a958da166a5d68c29",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          605
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/runtime/runtime.pri",
+      "baseline_lines": 10,
+      "lines": 10,
+      "sha256_lf": "fb2ae9ee74c9bbcac9220fc3963d3f446583ad33f37e6b61dd9fef2c8395e86c",
+      "windows_checkout_sha256": "90940a7d82c552656c756aa018b83c3bb9f11f0429e0ffedc53ccaf4ce059a85",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          10
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/service/Service.hpp",
+      "baseline_lines": 248,
+      "lines": 248,
+      "sha256_lf": "1a220f6bbc015bc3dde0e1a27ffeb94458d467206389bed6e814e9379a2b7514",
+      "windows_checkout_sha256": "b619f28bf222cd7520dadde5e3434a32548a73e86c0cc2f9c825be5503c90034",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          248
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/service/ServiceCatalogs.hpp",
+      "baseline_lines": 429,
+      "lines": 429,
+      "sha256_lf": "23d7e4b72947681559bea12b8898873bdaa1a63134809fc0d5bba30cd9820932",
+      "windows_checkout_sha256": "11d8c1f61a1098462b79db98f1c06f3ec2e2594ba6293a2b6f567499e665574f",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          429
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/service/ServiceTable.hpp",
+      "baseline_lines": 496,
+      "lines": 496,
+      "sha256_lf": "f895bf8cfe6f1dc4985ba2ff9f2e097734867c9183ff148303b495a331f1f7bb",
+      "windows_checkout_sha256": "780d7fa85aaf4564872c5468fcb78d96b881a07549200b5c747cbc12d0c256a6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          496
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/README.md",
+      "baseline_lines": 185,
+      "lines": 185,
+      "sha256_lf": "bb0f5774aa5543454cdc625c35444aa89553bcd699cb3d0db96d50becb50c1ab",
+      "windows_checkout_sha256": "5acbfffd76c5970755fd5e46f0abadc82c08e6540f90cb498ac03be95c04c518",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          185
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetryContextFunctionSlot.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "5665677c8d7944ad914200cdc24b4ecad8eccf5d5c7ec24017a3e6328492c130",
+      "windows_checkout_sha256": "5665677c8d7944ad914200cdc24b4ecad8eccf5d5c7ec24017a3e6328492c130",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetryDelegateRefSlot.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "5b7ad1504979fdba7195eeca15f91e8a3cf48af48f15cb86b0c3486fffaab5b3",
+      "windows_checkout_sha256": "5b7ad1504979fdba7195eeca15f91e8a3cf48af48f15cb86b0c3486fffaab5b3",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetryDelegateSlot.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "203bbcef44aa9f9211979d544cdee4744a2c8ecede232844c49d91baae5ab6ed",
+      "windows_checkout_sha256": "203bbcef44aa9f9211979d544cdee4744a2c8ecede232844c49d91baae5ab6ed",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetryFunctionSlot.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "b83b77ef54d16ccb52443ea193b89258421f633abbb4dc02ca446b4499b3cbb8",
+      "windows_checkout_sha256": "b83b77ef54d16ccb52443ea193b89258421f633abbb4dc02ca446b4499b3cbb8",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetryOwnerSlot.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "828e8b6450ccadc1b6b50ed28d87c303b127c05787a37f65e3332239de2b8471",
+      "windows_checkout_sha256": "828e8b6450ccadc1b6b50ed28d87c303b127c05787a37f65e3332239de2b8471",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/slot/TelemetrySlotTraits.h",
+      "baseline_lines": 6,
+      "lines": 6,
+      "sha256_lf": "8e457b6d17a37e7b5fb684d9f4f564416edd3557caf6f37fcc2b8490fd5386f6",
+      "windows_checkout_sha256": "8e457b6d17a37e7b5fb684d9f4f564416edd3557caf6f37fcc2b8490fd5386f6",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          6
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/telemetry.pri",
+      "baseline_lines": 13,
+      "lines": 13,
+      "sha256_lf": "b0d8de353ce8fbaaf488093c1880701cd16ad551b89152e444e2bb26c4956b94",
+      "windows_checkout_sha256": "b0d8de353ce8fbaaf488093c1880701cd16ad551b89152e444e2bb26c4956b94",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          13
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/type/Descriptor.hpp",
+      "baseline_lines": 95,
+      "lines": 95,
+      "sha256_lf": "522aaf09fe7c2f8170d04f9b0bce55c1d9edc4f882b7252246f6ebf7d6e7b2bd",
+      "windows_checkout_sha256": "846ff702f800cfaf85e3cd736a62876781c09bc6c8f4bd19492d1aa326bf6696",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          95
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/type/Registry.hpp",
+      "baseline_lines": 435,
+      "lines": 435,
+      "sha256_lf": "406a99b04eef048919466e60c4bd0d89f0c61bd7f34763a21c9f69fde470b9bf",
+      "windows_checkout_sha256": "c228ab085afb40295ddf0d2064e656107c5e3e74bc36318768f6ac6f1d56d21e",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          435
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/type/Traits.hpp",
+      "baseline_lines": 297,
+      "lines": 297,
+      "sha256_lf": "a404dee29a8f7c138de00c90077d350ed48cce3efe20080f9292dbbefc7e77c6",
+      "windows_checkout_sha256": "bbe709ad8e344ea4ff17bc328c638eb92949c88bc54eb0d6d1c1554fb48d704b",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          297
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/telemetry/type/WireTypes.hpp",
+      "baseline_lines": 60,
+      "lines": 60,
+      "sha256_lf": "5d99d63fc34699578e1d3b9399e78b923bf3f0d1b595b604572b5cc15f60fd72",
+      "windows_checkout_sha256": "b68821e3dab3b3ec85b7b51f97f3662f714b6cee39f44f51e24756e21e200565",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          60
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_ci"
+      ],
+      "ledgers": [
+        "telemetry-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/wire/BatchWire.hpp",
+      "baseline_lines": 294,
+      "lines": 294,
+      "sha256_lf": "9aab3754fa5853f8865625888b62c4624116f423cd9d839ba1902c86b383e060",
+      "windows_checkout_sha256": "9aab3754fa5853f8865625888b62c4624116f423cd9d839ba1902c86b383e060",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          294
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/wire/EncodedWire.hpp",
+      "baseline_lines": 241,
+      "lines": 241,
+      "sha256_lf": "203ee6c646a05d164949766c3a9c51d74c9bf0395f21f1aaeeb0d5c6288d761d",
+      "windows_checkout_sha256": "203ee6c646a05d164949766c3a9c51d74c9bf0395f21f1aaeeb0d5c6288d761d",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          241
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/wire/ReadManyWire.hpp",
+      "baseline_lines": 225,
+      "lines": 225,
+      "sha256_lf": "83d436b5b48369f45571fd22a64a087cbe49454965f46f4511e8d903005d72d4",
+      "windows_checkout_sha256": "83d436b5b48369f45571fd22a64a087cbe49454965f46f4511e8d903005d72d4",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          225
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/wire/RpcWire.hpp",
+      "baseline_lines": 59,
+      "lines": 59,
+      "sha256_lf": "7b4ea93b9e82d202b2278160871ba10ce080c6a4fe6e986adfb95d8334677dbc",
+      "windows_checkout_sha256": "7b4ea93b9e82d202b2278160871ba10ce080c6a4fe6e986adfb95d8334677dbc",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          59
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    },
+    {
+      "path": "lib/wire/wire.pri",
+      "baseline_lines": 8,
+      "lines": 8,
+      "sha256_lf": "d0907e26fc674288c52b77a067c6e9b1932ece91ef6666a19c26a931a84abc92",
+      "windows_checkout_sha256": "d0907e26fc674288c52b77a067c6e9b1932ece91ef6666a19c26a931a84abc92",
+      "manually_read_inclusive_ranges": [
+        [
+          1,
+          8
+        ]
+      ],
+      "reviewers": [
+        "/root/batch_crossgroup_review"
+      ],
+      "ledgers": [
+        "client-integration-ledger.json"
+      ]
+    }
+  ]
+}

@@ -407,6 +407,8 @@ public:
 	{
 		static_assert(std::is_nothrow_invocable_v<std::decay_t<F>&, const ApplyResult&>,
 		              "Workbench completion must be noexcept");
+		static_assert(std::is_nothrow_constructible_v<std::decay_t<F>, F&&>,
+		              "Workbench completion ownership must not throw");
 		const auto gate = model_.submissionGate();
 		if (gate != client::Status::Ok)
 			return {gate, inspector::ModelStatus::Ok, {}};
@@ -712,6 +714,8 @@ private:
 	[[nodiscard]] inspector::ReadSubmission submitRequest(F&& callback,
 	                                                      std::uint32_t timeout) noexcept
 	{
+		static_assert(std::is_nothrow_constructible_v<std::decay_t<F>, F&&>,
+		              "Workbench completion ownership must not throw");
 		const auto gate = model_.submissionGate();
 		if (gate != client::Status::Ok)
 			return {gate, inspector::ModelStatus::Ok, {}};

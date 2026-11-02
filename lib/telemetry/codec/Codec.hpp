@@ -333,35 +333,40 @@ template<class T>
                                  typename Workspace::Lease<T>& lease, T*& output) noexcept
 {
 	static_assert(Type<T>::kind != TypeKind::Void, "Void has no decoded object");
-	output = nullptr;
+	// The pointer object itself may supply input bytes. Publish only after the
+	// last read on each path, including canonical-value validation failures.
+	const auto fail = [&output](CodecStatus status) noexcept {
+		output = nullptr;
+		return status;
+	};
 	if (input.size() != wireSize<T>)
-		return CodecStatus::LengthMismatch;
+		return fail(CodecStatus::LengthMismatch);
 	if (buffersOverlap(input, lease.workspaceStorage()))
-		return CodecStatus::Overlap;
+		return fail(CodecStatus::Overlap);
 	if (!lease.valid())
-		return CodecStatus::WorkspaceTooSmall;
+		return fail(CodecStatus::WorkspaceTooSmall);
 	if (lease.constructed())
-		return CodecStatus::InvalidState;
+		return fail(CodecStatus::InvalidState);
 
 	codec_detail::Reader validator{input};
 	if (!codec_detail::validValue<T>(validator))
-		return CodecStatus::InvalidValue;
+		return fail(CodecStatus::InvalidValue);
 	if (validator.cursor != input.size())
-		return CodecStatus::InvalidState;
+		return fail(CodecStatus::InvalidState);
 
 	codec_detail::Reader reader{input};
+	T* decoded;
 	if constexpr (std::is_trivially_default_constructible_v<T>) {
-		output = lease.constructDefault();
+		decoded = lease.constructDefault();
 	} else {
-		output = lease.constructFrom([]() noexcept {
+		decoded = lease.constructFrom([]() noexcept {
 			return codec_detail::neutralValue<T>();
 		});
 	}
-	codec_detail::decodeInto(*output, reader);
-	if (reader.cursor != input.size()) {
-		output = nullptr;
-		return CodecStatus::InvalidState;
-	}
+	codec_detail::decodeInto(*decoded, reader);
+	if (reader.cursor != input.size())
+		return fail(CodecStatus::InvalidState);
+	output = decoded;
 	return CodecStatus::Ok;
 }
 

@@ -123,6 +123,9 @@ Fenced fragments пояснюють окремий крок; повну прог
 [Аудит бібліотеки 2026-11-02](evidence/library-audit-2026-11-02/README.md):
 покриття файлів, відтворені дефекти, виправлення, перевірки та виміряна вартість.
 
+[Повний повторний перегляд рядків бібліотеки](evidence/library-line-review-2026-11-02/README.md):
+221 файл `lib`, генератор, Qt/QML, точні діапазони та сім адресних виправлень.
+
 Почніть із [test index](../tests/README.md): host execution, sanitizers,
 ARM compile/link/disassembly та H7S execution — окремі види доказів.
 Кожний receipt/report має власні captured inputs і source identity.

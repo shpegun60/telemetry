@@ -13,6 +13,15 @@
 //   owned targets must be nothrow-destructible. Heap targets move by pointer.
 // - Optional global default bytes/alignment and heap fallback toggle
 //
+// Owned-target lifetime reentry:
+// - During target construction, inline relocation or destruction, that owner is
+//   observably empty. Recursive reset is harmless; same-owner assignment is
+//   refused before moving/copying/converting its argument.
+// - Moving from such an owner yields an empty destination and leaves its ongoing
+//   transition intact. Ordinary binding resumes after target publication/reset.
+// - This is owner-local serialization, not thread synchronization. Borrowed
+//   callable lifetimes remain the application's responsibility.
+//
 // Main types:
 //   tiny::delegate_ref<Sig>                 // non-owning
 //   tiny::delegate_sbo<Sig, InlineBytes, InlineAlign>
@@ -671,6 +680,7 @@ public:
     // Inline targets move without throwing; heap targets transfer by pointer.
     delegate_sbo(delegate_sbo&& other) noexcept { move_from_(other); }
     delegate_sbo& operator=(delegate_sbo&& other) noexcept {
+        if (mutation_active_()) return *this;
         if (this != &other) {
             // The source may be a member of the target that reset destroys.
             delegate_sbo prepared(std::move(other));
@@ -683,10 +693,15 @@ public:
     ~delegate_sbo() { reset(); }
 
     constexpr void reset() noexcept {
+        if (mutation_active_()) return;
         const manager* old_mgr = mgr_;
         void* old_ctx = ctx_;
-        clear_(); // A target destructor may harmlessly reset its owner again.
-        if (old_mgr) old_mgr->destroy(old_ctx);
+        clear_();
+        if (old_mgr) {
+            ctx_ = this; // Empty ownership-transition marker, with no layout cost.
+            old_mgr->destroy(old_ctx);
+            clear_();
+        }
     }
 
     constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
@@ -743,6 +758,7 @@ public:
 
     delegate_sbo(fnptr_t fp) { *this = fp; }
     delegate_sbo& operator=(fnptr_t fp) {
+        if (mutation_active_()) return *this;
         reset();
         TINY_DELEGATE_ASSERT(fp, "tiny::delegate_sbo: null function pointer");
         if (!fp) return *this;
@@ -777,6 +793,7 @@ public:
               std::enable_if_t<detail::callable_accepted<detail::callable_error_v<delegate_sbo, F, fnptr_t, R, InlineBytes, InlineAlign, Args...>>::value,
                                int> = 0>
     delegate_sbo& operator=(F&& f) {
+        if (mutation_active_()) return *this;
         if constexpr (std::is_convertible_v<F&&, fnptr_t>) {
             // Complete a possibly stateful/throwing conversion before reset.
             fnptr_t fp = std::forward<F>(f);
@@ -785,6 +802,7 @@ public:
             // Prepare before destruction, including sources inside the old
             // target. Storage remains bounded by this delegate's capacity.
             delegate_sbo prepared(std::forward<F>(f));
+            if (!prepared) return *this; // A nullable allocation did not prepare a replacement.
             reset();
             move_from_(prepared);
             return *this;
@@ -807,6 +825,10 @@ private:
         return static_cast<void*>(const_cast<std::byte*>(storage_));
     }
 
+    constexpr bool mutation_active_() const noexcept {
+        return !invoke_ && !mgr_ && ctx_ == this;
+    }
+
     constexpr void clear_() noexcept {
         ctx_ = nullptr;
         invoke_ = nullptr;
@@ -814,6 +836,7 @@ private:
     }
 
     void move_from_(delegate_sbo& other) noexcept {
+        if (other.mutation_active_()) { clear_(); return; }
         if (other.mgr_) {
             other.mgr_->move(other, *this);
         } else {
@@ -839,9 +862,13 @@ private:
             },
             +[](delegate_sbo& src, delegate_sbo& dst) noexcept {
                 Obj& s = *std::launder(reinterpret_cast<Obj*>(src.inline_ptr_()));
+                // User move/destruction may refer to either participating owner.
+                src.clear_();
+                src.ctx_ = &src;
+                dst.ctx_ = &dst;
                 ::new (dst.inline_ptr_()) Obj(std::move(s));
-                src.clear_(); // The moved-from destructor sees an empty owner.
                 s.~Obj();
+                src.clear_();
                 dst.ctx_ = dst.inline_ptr_();
                 dst.invoke_ = &invoke_obj_<Obj>;
                 dst.mgr_ = &mgr_inline_<Obj>();
@@ -893,6 +920,9 @@ private:
             constexpr bool inline_ok =
                 fits_storage && std::is_nothrow_move_constructible_v<DF>;
 
+            // Members are initialized before a user target constructor runs.
+            // Keep replacement/reset and moves from this owner blocked until publication.
+            ctx_ = this;
             if constexpr (inline_ok) {
                 ::new (inline_ptr_()) DF(std::forward<F>(f));
                 ctx_ = inline_ptr_();
@@ -902,7 +932,7 @@ private:
 #if TINY_DELEGATE_ENABLE_HEAP_FALLBACK
                 DF* p = new DF(std::forward<F>(f));
                 TINY_DELEGATE_ASSERT(p, "tiny::delegate family: allocation returned null");
-                if (!p) return; // A class-specific noexcept operator new may return null.
+                if (!p) { clear_(); return; } // A noexcept operator new may return null.
                 ctx_ = static_cast<void*>(p);
                 invoke_ = &invoke_obj_<DF>;
                 mgr_ = &mgr_heap_<DF>();
@@ -974,6 +1004,7 @@ public:
     // Inline targets move without throwing; heap targets transfer by pointer.
     delegate(delegate&& other) noexcept { move_from_(other); }
     delegate& operator=(delegate&& other) noexcept {
+        if (mutation_active_()) return *this;
         if (this != &other) {
             // The source may be a member of the target that reset destroys.
             delegate prepared(std::move(other));
@@ -986,10 +1017,15 @@ public:
     ~delegate() { reset(); }
 
     constexpr void reset() noexcept {
+        if (mutation_active_()) return;
         const manager* old_mgr = mgr_;
         void* old_ctx = ctx_;
-        clear_(); // A target destructor may harmlessly reset its owner again.
-        if (old_mgr) old_mgr->destroy(old_ctx);
+        clear_();
+        if (old_mgr) {
+            ctx_ = this; // Empty ownership-transition marker, with no layout cost.
+            old_mgr->destroy(old_ctx);
+            clear_();
+        }
     }
 
     constexpr explicit operator bool() const noexcept { return invoke_ != nullptr; }
@@ -1046,6 +1082,7 @@ public:
 
     delegate(fnptr_t fp) { *this = fp; }
     delegate& operator=(fnptr_t fp) {
+        if (mutation_active_()) return *this;
         reset();
         TINY_DELEGATE_ASSERT(fp, "tiny::delegate: null function pointer");
         if (!fp) return *this;
@@ -1080,6 +1117,7 @@ public:
               std::enable_if_t<detail::callable_accepted<detail::callable_error_v<delegate, F, fnptr_t, R, InlineBytes, InlineAlign, Args...>>::value,
                                int> = 0>
     delegate& operator=(F&& f) {
+        if (mutation_active_()) return *this;
         if constexpr (std::is_convertible_v<F&&, fnptr_t>) {
             // Complete a possibly stateful/throwing conversion before reset.
             fnptr_t fp = std::forward<F>(f);
@@ -1088,6 +1126,7 @@ public:
             // Prepare before destruction, including sources inside the old
             // target. Storage remains bounded by this delegate's capacity.
             delegate prepared(std::forward<F>(f));
+            if (!prepared) return *this; // A nullable allocation did not prepare a replacement.
             reset();
             move_from_(prepared);
             return *this;
@@ -1111,6 +1150,7 @@ public:
     template <class F, std::enable_if_t<std::is_object_v<F>
               && detail::safely_invocable_r_v<R, F&, Args...>, int> = 0>
     delegate& operator=(borrow_t<F> br) {
+        if (mutation_active_()) return *this;
         reset();
         assign_borrow_(br);
         return *this;
@@ -1205,6 +1245,10 @@ private:
         return static_cast<void*>(const_cast<std::byte*>(storage_));
     }
 
+    constexpr bool mutation_active_() const noexcept {
+        return !invoke_ && !mgr_ && ctx_ == this;
+    }
+
     constexpr void clear_() noexcept {
         ctx_ = nullptr;
         invoke_ = nullptr;
@@ -1212,6 +1256,7 @@ private:
     }
 
     void move_from_(delegate& other) noexcept {
+        if (other.mutation_active_()) { clear_(); return; }
         if (other.mgr_) {
             other.mgr_->move(other, *this);
         } else {
@@ -1286,9 +1331,13 @@ private:
             },
             +[](delegate& src, delegate& dst) noexcept {
                 Obj& s = *std::launder(reinterpret_cast<Obj*>(src.inline_ptr_()));
+                // User move/destruction may refer to either participating owner.
+                src.clear_();
+                src.ctx_ = &src;
+                dst.ctx_ = &dst;
                 ::new (dst.inline_ptr_()) Obj(std::move(s));
-                src.clear_(); // The moved-from destructor sees an empty owner.
                 s.~Obj();
+                src.clear_();
                 dst.ctx_ = dst.inline_ptr_();
                 dst.invoke_ = &invoke_obj_<Obj>;
                 dst.mgr_ = &mgr_inline_<Obj>();
@@ -1375,6 +1424,9 @@ private:
             constexpr bool inline_ok =
                 fits_storage && std::is_nothrow_move_constructible_v<DF>;
 
+            // Members are initialized before a user target constructor runs.
+            // Keep replacement/reset and moves from this owner blocked until publication.
+            ctx_ = this;
             if constexpr (inline_ok) {
                 ::new (inline_ptr_()) DF(std::forward<F>(f));
                 ctx_ = inline_ptr_();
@@ -1384,7 +1436,7 @@ private:
 #if TINY_DELEGATE_ENABLE_HEAP_FALLBACK
                 DF* p = new DF(std::forward<F>(f));
                 TINY_DELEGATE_ASSERT(p, "tiny::delegate family: allocation returned null");
-                if (!p) return; // A class-specific noexcept operator new may return null.
+                if (!p) { clear_(); return; } // A noexcept operator new may return null.
                 ctx_ = static_cast<void*>(p);
                 invoke_ = &invoke_obj_<DF>;
                 mgr_ = &mgr_heap_<DF>();

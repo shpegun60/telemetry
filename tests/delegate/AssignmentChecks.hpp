@@ -479,6 +479,8 @@ void heap()
 #endif
 } // namespace delegate_assignment_checks
 
+#include "ReentryChecks.hpp"
+
 int main()
 {
 	using namespace delegate_assignment_checks;
@@ -488,9 +490,15 @@ int main()
 	static_assert(std::is_nothrow_move_assignable_v<Sbo>);
 	common<Delegate>();
 	common<Sbo>();
+	destructionReentry<Delegate, 8>();
+	destructionReentry<Sbo, 8>();
+	constructionReentry<Delegate>();
+	constructionReentry<Sbo>();
 #if TINY_DELEGATE_ENABLE_HEAP_FALLBACK
 	heap<Delegate>();
 	heap<Sbo>();
+	destructionReentry<Delegate, 128>();
+	destructionReentry<Sbo, 128>();
 	DELEGATE_CHECK(allocations > 0 && deallocations > 0);
 #else
 	DELEGATE_CHECK(allocations == 0 && deallocations == 0);

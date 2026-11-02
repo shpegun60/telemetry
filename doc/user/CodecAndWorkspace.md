@@ -182,9 +182,12 @@ synchronization: application забезпечує exclusive access до object �
 протягом усього виклику. Decode не перевіряє бізнес-обмеження, тому live
 `device.settings` зазвичай слід змінювати через setter після окремого DTO decode.
 
-Low-level `decode(input, lease, output)` насамперед присвоює `output = nullptr`, потім перевіряє length, Workspace
-overlap, lease capacity та fresh state. Bool validation завершується до object
-construction. Уже constructed lease не використовується для повторного decode;
+Low-level `decode(input, lease, output)` перевіряє length, Workspace overlap,
+lease capacity та fresh state. Bool validation завершується до object construction.
+`output` отримує pointer на decoded object при успіху або `nullptr` при відмові,
+лише після останнього читання input на відповідному шляху. Тому object representation
+самого output-pointer може бути input, якщо вона не перетинає Workspace.
+Уже constructed lease не використовується для повторного decode;
 створіть новий scope/lease після звільнення попереднього.
 
 | `CodecStatus` | Коли повертається | Дія caller |

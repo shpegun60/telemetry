@@ -80,6 +80,11 @@ CR call(const Value& value) noexcept
 	return device.call(value);
 }
 
+Value query(const Value& value) noexcept
+{
+	return value;
+}
+
 Value contextGet(void* p) noexcept
 {
 	return static_cast<Device*>(p)->get();
@@ -181,6 +186,70 @@ bool empty(Getter& getter, Setter& setter, Command& command)
 	       workspace.used() == 0;
 }
 
+bool wrappedFunctions()
+{
+	using namespace fixture;
+	auto refGet = std::ref(get);
+	auto refSet = std::ref(set);
+	auto refCall = std::ref(call);
+	if (!roundtrip(refGet, refSet, refCall))
+		return false;
+	auto constGet = std::cref(get);
+	auto constSet = std::cref(set);
+	auto constCall = std::cref(call);
+	if (!roundtrip(constGet, constSet, constCall))
+		return false;
+
+	auto getter = &get;
+	auto setter = &set;
+	auto command = &call;
+	auto service = &query;
+	ts::FieldTable fields{ts::field("value", std::ref(getter), std::cref(setter))};
+	ts::CommandTable commands{ts::command("update", std::cref(command))};
+	ts::ServiceTable services{ts::service("query", std::ref(service)),
+	                          ts::service("function", std::cref(query))};
+	std::array<std::byte, 64> storage{};
+	ts::Workspace workspace{storage};
+	std::array<std::byte, ts::wireSize<Value>> bytes{}, output{};
+	const Value expected{31, true};
+	if (ts::encode(expected, bytes) != ts::CodecStatus::Ok)
+		return false;
+	getter = nullptr;
+	setter = nullptr;
+	command = nullptr;
+	service = nullptr;
+	if (fields.read<0>() || fields.write<0>(expected) != WR::Unavailable ||
+	    commands.call<0>(expected) != CR::Unavailable ||
+	    services.call<0>(expected).status() != ts::ServiceStatus::Unavailable)
+		return false;
+	if (fields.data()[0].readEncoded(output, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable ||
+	    fields.data()[0].writeEncoded(bytes, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable ||
+	    commands.data()[0].executeEncoded(bytes, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable ||
+	    services.data()[0].callEncoded(bytes, output, workspace).dispatch !=
+	        ts::DispatchStatus::Unavailable)
+		return false;
+	getter = &get;
+	setter = &set;
+	command = &call;
+	service = &query;
+	if (fields.write<0>(expected) != WR::Applied || !fields.read<0>() ||
+	    commands.call<0>(expected) != CR::Executed ||
+	    services.call<0>(expected).status() != ts::ServiceStatus::Ok)
+		return false;
+	for (const auto& entry : services) {
+		const auto result = entry.callEncoded(bytes, output, workspace);
+		if (result.dispatch != ts::DispatchStatus::Ok ||
+		    result.endpointStatus != ts::ServiceStatus::Ok || result.written != bytes.size() ||
+		    output != bytes)
+			return false;
+	}
+	return fields.data()[0].readEncoded(output, workspace).dispatch == ts::DispatchStatus::Ok &&
+	       output == bytes && workspace.used() == 0;
+}
+
 int main()
 {
 	using namespace fixture;
@@ -189,6 +258,7 @@ int main()
 	CHECK(fixed.write(Value{20, true}) == WR::Applied && fixed.read()->number == 20);
 	CHECK(action.call(Value{21, false}) == CR::Executed);
 	CHECK(roundtrip(get, set, call)); // Bare functions must decay to stored pointers.
+	CHECK(wrappedFunctions());
 	auto g = &get;
 	auto s = &set;
 	auto c = &call;

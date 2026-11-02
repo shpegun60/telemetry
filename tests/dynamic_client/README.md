@@ -15,6 +15,12 @@ input, foreign bindings, bounded queue/close behavior, current and stale values,
 empty structs versus Void, Accepted versus Executed, malformed replies and
 wire-valid invalid Boolean payloads. No alternate wire serializer is introduced.
 
+Noexcept callable moves deliberately change a previously valid request Boolean
+to `2`. Mutation during wrapper ownership is rejected before FIFO publication for
+FieldWrite, Command and Service; mutation in later moves leaves the already-owned
+wire snapshot intact. Submission now performs a second bounded canonical traversal
+after wrapper ownership, without another payload buffer or payload-sized stack.
+
 A second valid Native schema replaces U32 with F32 at the same endpoint and
 TypeId and the same five-byte DTO width. Reparse into the same workspace must
 cancel the old queued read without any Model invocation. Only quiescence proof

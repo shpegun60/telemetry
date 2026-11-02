@@ -9,6 +9,11 @@ storage, returns the consumed prefix, and retains one complete frame until
 `release()`. `Server::receive()` dispatches that frame through the existing
 Resource or Encoded dispatcher. One pending reply blocks further ingress until
 `releaseReply()`. Preserve unconsumed input; no operation execution queue exists.
+Input passed to `FrameReader::feed()` must be disjoint from its entire storage
+span. An overlapping input is refused with `Invalid` and zero consumed bytes,
+before any write; the reader's prior state and storage remain unchanged, so a
+disjoint continuation can still complete a partial frame. An already ready or
+failed reader keeps its existing status without consuming input.
 
 ## Boundaries and bootstrap
 
