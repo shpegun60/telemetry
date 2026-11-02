@@ -92,10 +92,13 @@ device Flash, binary dumps or private transport data.
 ## Measured costs
 
 Inspector/Workbench object sizes are unchanged on the measured x86-64 and
-Cortex-M7 ABIs. Freezing the binding increases the existing Cortex-M7 `-O2`
-`inspector_read` local frame from 728 to 776 bytes. Child, decimal and handoff
-probe frames stay 152, 144 and 24 bytes. These are local `.su` frames, not peak
-stack estimates.
+Cortex-M7 ABIs. With the original fixed lambda probe, freezing the binding
+increases the Cortex-M7 `-O2` `inspector_read` local frame from 728 to 776 bytes.
+The final function-reference probe instead emits a 184-byte `inspector_read`
+frame and an outlined 704-byte `DynamicClient::submit` frame. These different
+caller/inlining shapes must not be compared as a stack improvement. Child,
+decimal and handoff probe frames stay 152, 144 and 24 bytes. All numbers are
+local `.su` frames, not peak stack estimates.
 The Qt bootstrap remains 88 bytes on the measured x86-64 / Qt 6.4.2 ABI;
 the new cursor-progress counter uses existing padding.
 
