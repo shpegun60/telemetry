@@ -48,7 +48,7 @@ failed restoration, wrong readback, and mutually exclusive checker arguments.
 Two public `Build.ps1` controls accept an existing empty external output directory
 and reject a nonempty directory without changing its sentinel or invoking a tool.
 The accepted case runs only the mock compiler's version command, then stops at
-deliberately missing SDK headers before CMake. The thirty-three runner controls
+deliberately missing SDK headers before CMake. These baseline runner controls
 also execute the report verifier's in-memory positive and negative controls.
 
 ```sh
@@ -185,3 +185,60 @@ delayed old Resource reply, old TEQ1 reply, partial COBS frame, CRC failure, pen
 reply, and DMA completion before UART physical completion. Descriptor parsing,
 cursor/size/EOF checks and owner-thread invalidation remain required before a new
 schema is admitted.
+
+
+## Sustained ReadMany load
+
+The optional `-ReadManyLoadSeconds` selects a bounded sustained read-only run,
+from 1 to 1800 seconds. Zero preserves the original short qualification. Build
+the same `-ReadMany` firmware and the current serial CLI, then select the duration
+explicitly in the existing physical runner:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/nucleo_h7s3l8/RunHardware.ps1 `
+  -Elf C:\external-build\nucleo\telemetry-nucleo-h7s3.elf `
+  -ReadManyExe C:\external-build\read-many\telemetry-read-many-uart.exe `
+  -CobsRoot C:\path\to\COBS `
+  -ReadManyLoadSeconds 1800 `
+  -ExternalOutput C:\external-evidence\nucleo-load-unique-run
+```
+
+This is a physical programming operation with the same explicit board identity,
+fresh full internal-Flash backup and restoration/readback requirements above.
+The process budget includes the requested load duration and a bounded allowance
+for initial checks, a final accepted exchange and the existing recovery checks.
+No source edits or other use of the board/port may occur while it runs.
+
+The CLI rotates and reverses selections of 8, 12, 16 and 32 scalar Fields, includes
+Unavailable results, and validates every completed canonical reply against the
+fixture's independently read values. There is one accepted request at a time,
+with no polling queue and no automatic replay. Full exchange latency uses the
+host monotonic clock. The original timeout/recovery and reconnect checks execute
+after the load. An error fails the entire qualification.
+
+The `load` report is bounded: four per-size aggregates and four last validated
+samples, plus counters, elapsed time and a rolling reply-payload digest. Byte
+totals count ReadMany payloads, not physical UART/COBS traffic. The digest commits
+to the observed payload sequence; bounded retained samples do not independently
+replay the entire run. The independent verifier requires the requested minimum
+duration, consistent aggregate counts and canonical sample bodies.
+
+The unchanged firmware enables caches and uses the existing DMA/cache-maintenance
+path. This run measures sustained end-to-end correctness and latency on that path;
+it does not measure CPU utilization, peak stack, or all possible cache interactions.
+The CLI does not read the SWD-only UART diagnostic counters. The normal fixture's
+mostly constant values also limit detection of stale payload regions.
+
+Restoration commands retain strict backup, target and readback checks. During
+restoration, receipt/log write errors are recorded on a best-effort basis and
+cannot prevent launching the programmer. Evidence I/O failure still makes the
+qualification fail. Offline controls exercise both blocked receipt and blocked log
+writes after simulated programming; they require actual mock restoration and a
+matching independent 65536-byte readback. A receipt failure immediately after
+starting an owned child also triggers bounded PID termination before restoration.
+If child exit cannot be established, later external commands (including restore)
+are refused to avoid overlap; the backup and retained PID require manual recovery.
+An isolated control runs the actual launcher function with this injected failure
+and requires that its 30-second mock child has exited within ten seconds.
+Host process termination or power loss cannot be covered by a PowerShell `finally`
+guarantee.

@@ -17,6 +17,9 @@ import sys
 
 PROFILE = 'nucleo-h7s3l8-read-many'
 COUNTS = (8, 12, 16, 32)
+MAX_LOAD_SECONDS = 1800
+MAX_EXACT_INTEGER = (1 << 53) - 1
+LOAD_FINISH_GRACE_MS = 25000  # One finite 20-second exchange plus scheduler slack.
 LIFECYCLE = ('preHandoffTimeout', 'preparedTimeout', 'callbacksOnce',
              'lateReplyRejected', 'reconnect', 'staleBindingRejected', 'noReplay',
              'sessionIncreased', 'txReleased', 'bootstrapComplete', 'samePeer')
@@ -97,7 +100,127 @@ def reply(record, expected_count, expected_statuses):
     return raw
 
 
-def verify_report(report, port='COM6'):
+def reply_items(raw):
+    """Navigate a body only after reply() has independently validated its bounds."""
+    result, cursor = [], 2
+    for _ in range(struct.unpack_from('<H', raw)[0]):
+        item_id, status, _reserved, length = struct.unpack_from('<IBBH', raw, cursor)
+        cursor += 8
+        result.append((item_id, status, raw[cursor:cursor + length]))
+        cursor += length
+    return result
+
+
+def rotating_reply(baseline, unavailable_id, count, round_index):
+    """Reconstruct the versioned fixed-fixture order without trusting sample IDs."""
+    start, stride = (round_index * 7) % 32, 31 if round_index % 2 else 5
+    selected = [baseline[(start + index * stride) % 32] for index in range(count)]
+    if round_index % 8 == 7:
+        selected[count // 2] = (unavailable_id, 3, b'')
+    return struct.pack('<H', count) + b''.join(
+        struct.pack('<IBBH', item_id, status, 0, len(payload)) + payload
+        for item_id, status, payload in selected)
+
+
+def latency(value, count, elapsed_ms, name):
+    require(isinstance(value, dict), 'missing load latency: ' + name)
+    lower = 1 if count else 0
+    maximum = elapsed_ms * 1000 + 999
+    minimum = integer(value.get('min'), name + '.min', lower, maximum)
+    largest = integer(value.get('max'), name + '.max', lower, maximum)
+    total = integer(value.get('sum'), name + '.sum', lower, maximum)
+    if not count:
+        require(minimum == largest == total == 0, 'nonzero empty load latency: ' + name)
+    else:
+        require(minimum <= largest and largest + (count - 1) * minimum <= total
+                <= minimum + (count - 1) * largest, 'inconsistent load latency: ' + name)
+    return minimum, largest, total
+
+
+def verify_load(report, minimum_seconds):
+    load = report.get('load')
+    require(isinstance(load, dict) and load.get('passed') is True,
+            'successful sustained load report is required')
+    require(type(load.get('schema')) is int and load['schema'] == 1
+            and load.get('pattern') == 'rotating-v1', 'load schema/pattern mismatch')
+    requested = integer(load.get('requestedSeconds'), 'load.requestedSeconds', 1, MAX_LOAD_SECONDS)
+    require(requested >= minimum_seconds, 'load requested duration is too short')
+    elapsed = integer(load.get('elapsedMs'), 'load.elapsedMs', requested * 1000,
+                      requested * 1000 + LOAD_FINISH_GRACE_MS)
+    completed = integer(load.get('completed'), 'load.completed', len(COUNTS), MAX_EXACT_INTEGER)
+    for key in ('attempted', 'callbacks', 'physicalRequests'):
+        require(integer(load.get(key), 'load.' + key, 1, MAX_EXACT_INTEGER) == completed,
+                'load completion accounting mismatch: ' + key)
+    baseline_record = next(case for case in report['cases'] if case['count'] == 32)
+    baseline = reply_items(reply(baseline_record, 32, [0] * 32))
+    missing = [item_id for item_id, status, _ in reply_items(reply(report['mixed'], 3, [0, 0, 3]))
+               if status == 3]
+    require(len(missing) == 1 and missing[0] not in {item[0] for item in baseline},
+            'load Unavailable ID overlaps baseline fields')
+    rows = load.get('byCount')
+    require(isinstance(rows, list) and len(rows) == len(COUNTS)
+            and all(isinstance(row, dict) and type(row.get('count')) is int for row in rows)
+            and sorted(row['count'] for row in rows) == list(COUNTS),
+            'load must contain exactly four count rows')
+    totals = dict.fromkeys(('requestPayloadBytes', 'replyPayloadBytes', 'okItems', 'unavailableItems'), 0)
+    row_latencies = {}
+    row_counts = {}
+    for position, count in enumerate(COUNTS):
+        row = next(row for row in rows if row['count'] == count)
+        iterations = (completed + len(COUNTS) - 1 - position) // len(COUNTS)
+        row_counts[count] = iterations
+        for key in ('attempted', 'completed', 'callbacks'):
+            require(integer(row.get(key), 'load row ' + key, 1, MAX_EXACT_INTEGER) == iterations,
+                    'load row rotation/completion mismatch: ' + key)
+        # The selection, stride and failure injection repeat every 32 rounds.
+        # Even malicious large counters cause only bounded reconstruction work.
+        lengths = [len(rotating_reply(baseline, missing[0], count, index)) for index in range(32)]
+        periods, remainder = divmod(iterations, 32)
+        unavailable = iterations // 8
+        expected = {'requestPayloadBytes': iterations * (2 + 4 * count),
+                    'replyPayloadBytes': periods * sum(lengths) + sum(lengths[:remainder]),
+                    'okItems': iterations * count - unavailable, 'unavailableItems': unavailable}
+        for key, value in expected.items():
+            require(integer(row.get(key), 'load row ' + key, 0, MAX_EXACT_INTEGER) == value,
+                    'load row aggregate mismatch: ' + key)
+            totals[key] += value
+        row_latencies[count] = latency(row.get('latencyUs'), iterations, elapsed, 'load row latency')
+    for key, value in totals.items():
+        require(integer(load.get(key), 'load.' + key, 0, MAX_EXACT_INTEGER) == value,
+                'load total aggregate mismatch: ' + key)
+    global_latency = latency(load.get('latencyUs'), completed, elapsed, 'load latency')
+    require(global_latency == (min(value[0] for value in row_latencies.values()),
+                               max(value[1] for value in row_latencies.values()),
+                               sum(value[2] for value in row_latencies.values())),
+            'load total latency does not match rows')
+    hash_value(load.get('transcriptSha256'))
+    samples = load.get('samples')
+    require(isinstance(samples, list) and len(samples) == len(COUNTS)
+            and all(isinstance(sample, dict) and type(sample.get('count')) is int for sample in samples)
+            and sorted(sample['count'] for sample in samples) == list(COUNTS),
+            'load must retain four latest samples')
+    for count in COUNTS:
+        sample = next(sample for sample in samples if sample['count'] == count)
+        last_round = row_counts[count] - 1
+        unavailable = int(last_round % 8 == 7)
+        raw = reply(sample, count, [0] * (count - unavailable) + [3] * unavailable)
+        require(raw == rotating_reply(baseline, missing[0], count, last_round),
+                'load sample order, status or canonical value mismatch')
+        for key, expected in (('requestBytes', 2 + 4 * count), ('replyBytes', len(raw)),
+                              ('ok', count - unavailable), ('unavailable', unavailable)):
+            require(integer(sample.get(key), 'load sample ' + key) == expected,
+                    'load sample aggregate mismatch: ' + key)
+        milliseconds = integer(sample.get('elapsedMs'), 'load sample elapsedMs', 0, elapsed)
+        minimum, largest, _ = row_latencies[count]
+        require(minimum // 1000 <= milliseconds <= largest // 1000,
+                'load sample latency is outside its row bounds')
+    return {'verified': True, 'requested_seconds': requested, 'elapsed_ms': elapsed,
+            'completed': completed, 'samples': len(samples), 'transcript_format_verified': True,
+            'transcript_limitation': 'Digest format only; full per-exchange history is not retained.'}
+
+
+def verify_report(report, port='COM6', minimum_load_seconds=0):
+    integer(minimum_load_seconds, 'minimum-load-seconds', 0, MAX_LOAD_SECONDS)
     require(type(report.get('schema')) is int and report['schema'] == 1, 'report schema mismatch')
     require(report.get('profile') == PROFILE and report.get('passed') is True,
             'ReadMany profile/result mismatch')
@@ -148,10 +271,13 @@ def verify_report(report, port='COM6'):
     require(isinstance(lifecycle, dict), 'lifecycle proof is missing')
     for flag in LIFECYCLE:
         require(lifecycle.get(flag) is True, 'lifecycle proof is not true: ' + flag)
-    return {'schema': 1, 'verified': True, 'profile': PROFILE,
+    result = {'schema': 1, 'verified': True, 'profile': PROFILE,
             'counts': list(COUNTS), 'session_count': len(sessions),
             'final_session': session, 'mixed_ok': 2, 'mixed_unavailable': 1,
             'lifecycle_flags': len(LIFECYCLE), 'hardware_access': False}
+    if minimum_load_seconds or 'load' in report:
+        result['load'] = verify_load(report, minimum_load_seconds)
+    return result
 
 
 def local_file(root, name):
@@ -165,7 +291,23 @@ def local_file(root, name):
     return path
 
 
-def verify_receipt(root):
+def verify_load_arguments(command, requested):
+    arguments = command.get('arguments')
+    require(isinstance(arguments, list) and all(isinstance(value, str) for value in arguments),
+            'invalid ReadMany command arguments')
+    flags = [index for index, value in enumerate(arguments) if value.startswith('--load-seconds')]
+    if requested:
+        require(len(flags) == 1 and arguments[flags[0]] == '--load-seconds'
+                and flags[0] + 1 < len(arguments) and arguments[flags[0] + 1] == str(requested),
+                'recorded ReadMany load duration mismatch')
+        require(integer(command.get('timeout_seconds'), 'ReadMany process timeout', 1,
+                        MAX_EXACT_INTEGER) >= requested + 20, 'ReadMany load process budget is too short')
+    else:
+        require(not flags, 'unexpected ReadMany load command')
+
+
+def verify_receipt(root, minimum_load_seconds=0):
+    integer(minimum_load_seconds, 'minimum-load-seconds', 0, MAX_LOAD_SECONDS)
     receipt = decode((root / 'summary.json').read_bytes())
     require(receipt.get('profile') == PROFILE and receipt.get('validate_only') is False,
             'ReadMany hardware receipt/profile mismatch')
@@ -204,13 +346,22 @@ def verify_receipt(root):
     check = receipt.get('read_many_check', {})
     report_bytes = local_file(root, check.get('path')).read_bytes()
     require(digest(report_bytes) == hash_value(check.get('sha256')), 'ReadMany report SHA256 mismatch')
-    result = verify_report(decode(report_bytes))
+    requested_load = integer(receipt.get('read_many_load_seconds', 0),
+                             'receipt read_many_load_seconds', 0, MAX_LOAD_SECONDS)
+    report = decode(report_bytes)
+    result = verify_report(report, minimum_load_seconds=max(minimum_load_seconds, requested_load))
+    require(('load' in report) == bool(requested_load), 'receipt/report load scope mismatch')
+    if requested_load:
+        require(report['load']['requestedSeconds'] == requested_load,
+                'receipt/report requested load duration mismatch')
     commands = receipt.get('commands')
     require(isinstance(commands, list) and commands, 'recorded commands are missing')
     tags = [command.get('tag') for command in commands]
     require(tags.count('serial-read-many-check') == 1
             and not any(tag in tags for tag in ('serial-gui-smoke', 'serial-device-check')),
             'ReadMany receipt command scope mismatch')
+    load_command = next(command for command in commands if command.get('tag') == 'serial-read-many-check')
+    verify_load_arguments(load_command, requested_load)
     successful_readbacks = []
     for command in commands:
         tag = command.get('tag', '')
@@ -233,6 +384,186 @@ def verify_receipt(root):
     result.update({'receipt_verified': True, 'flash_restoration_verified': True,
                    'limitation': 'Recorded consistency and integrity; not a new hardware run.'})
     return result
+
+
+def load_self_test(original):
+    """Construct bounded independent synthetic transcripts, then corrupt their claims."""
+    baseline = [(index + 1, 0, bytes((index + offset) % 256 for offset in range((1, 2, 4, 8)[index % 4])))
+                for index in range(32)]
+
+    def encoded(items):
+        return struct.pack('<H', len(items)) + b''.join(
+            struct.pack('<IBBH', item_id, status, 0, len(data)) + data for item_id, status, data in items)
+
+    def capture(items, microseconds=1000):
+        raw = encoded(items)
+        unavailable = sum(item[1] == 3 for item in items)
+        return {'count': len(items), 'passed': True, 'rawHex': raw.hex(), 'sha256': digest(raw),
+                'elapsedMs': microseconds // 1000, 'requestBytes': 2 + 4 * len(items),
+                'replyBytes': len(raw), 'ok': len(items) - unavailable, 'unavailable': unavailable}
+
+    def fixture(iterations):
+        report = copy.deepcopy(original)
+        report['cases'] = [capture(baseline[:count]) for count in COUNTS]
+        report['mixed'] = capture([baseline[0], (33, 3, b''), baseline[-1]])
+        rows = [{'count': count, 'attempted': 0, 'completed': 0, 'callbacks': 0,
+                 'requestPayloadBytes': 0, 'replyPayloadBytes': 0, 'okItems': 0,
+                 'unavailableItems': 0} for count in COUNTS]
+        times = [[] for _ in COUNTS]
+        samples = [None] * len(COUNTS)
+        transcript = hashlib.sha256()
+        for sequence in range(iterations):
+            position, round_index = sequence % 4, sequence // 4
+            count = COUNTS[position]
+            selected = [baseline[((round_index * 7) + index * (31 if round_index % 2 else 5)) % 32]
+                        for index in range(count)]
+            if round_index % 8 == 7:
+                selected[count // 2] = (33, 3, b'')
+            microseconds = 1000 + (sequence % 7) * 100
+            sample = capture(selected, microseconds)
+            raw = bytes.fromhex(sample['rawHex'])
+            transcript.update(struct.pack('<QI', sequence, len(raw)) + raw)
+            row = rows[position]
+            for key in ('attempted', 'completed', 'callbacks'):
+                row[key] += 1
+            for key, value in (('requestPayloadBytes', sample['requestBytes']),
+                               ('replyPayloadBytes', len(raw)), ('okItems', sample['ok']),
+                               ('unavailableItems', sample['unavailable'])):
+                row[key] += value
+            samples[position] = sample
+            times[position].append(microseconds)
+        for row, values in zip(rows, times):
+            row['latencyUs'] = {'min': min(values), 'max': max(values), 'sum': sum(values)}
+        load = {'schema': 1, 'pattern': 'rotating-v1', 'requestedSeconds': 2, 'elapsedMs': 2000,
+                'passed': True, 'physicalRequests': iterations, 'byCount': rows, 'samples': samples,
+                'transcriptSha256': transcript.hexdigest()}
+        for key in ('attempted', 'completed', 'callbacks', 'requestPayloadBytes',
+                    'replyPayloadBytes', 'okItems', 'unavailableItems'):
+            load[key] = sum(row[key] for row in rows)
+        load['latencyUs'] = {'min': min(min(values) for values in times),
+                             'max': max(max(values) for values in times),
+                             'sum': sum(sum(values) for values in times)}
+        report['load'] = load
+        return report
+
+    positives = 0
+    for iterations in (4, 32, 128, 139):
+        verify_report(fixture(iterations), minimum_load_seconds=2)
+        positives += 1
+    report = fixture(139)  # Beyond one full pattern period, ending mid rotation.
+    reordered = copy.deepcopy(report)
+    reordered['load']['byCount'].reverse()
+    reordered['load']['samples'].reverse()
+    verify_report(reordered, minimum_load_seconds=2)
+    positives += 1
+
+    def changed(path, value):
+        def mutate(result):
+            item = result
+            for key in path[:-1]:
+                item = item[key]
+            item[path[-1]] = value
+        return mutate
+
+    mutations = {
+        'missing-load': lambda result: result.pop('load'),
+        'schema': changed(('load', 'schema'), True),
+        'pattern': changed(('load', 'pattern'), 'rotating-v2'),
+        'failed': changed(('load', 'passed'), False),
+        'zero-duration': changed(('load', 'requestedSeconds'), 0),
+        'excess-duration': changed(('load', 'requestedSeconds'), MAX_LOAD_SECONDS + 1),
+        'short-elapsed': changed(('load', 'elapsedMs'), 1999),
+        'excess-elapsed': changed(('load', 'elapsedMs'), 2000 + LOAD_FINISH_GRACE_MS + 1),
+        'zero-count': changed(('load', 'completed'), 0),
+        'inexact-count': changed(('load', 'completed'), MAX_EXACT_INTEGER + 1),
+        'few-count': changed(('load', 'completed'), 3),
+        'row-missing': lambda result: result['load']['byCount'].pop(),
+        'row-duplicate': changed(('load', 'byCount', 0, 'count'), 12),
+        'row-wrong-count': changed(('load', 'byCount', 0, 'completed'), 34),
+        'empty-latency': changed(('load', 'latencyUs', 'min'), 0),
+        'row-latency-min': changed(('load', 'byCount', 0, 'latencyUs', 'min'), 0),
+        'row-latency-max': changed(('load', 'byCount', 0, 'latencyUs', 'max'), 1),
+        'row-latency-sum-low': changed(('load', 'byCount', 0, 'latencyUs', 'sum'), 1),
+        'row-latency-sum-high': changed(('load', 'byCount', 0, 'latencyUs', 'sum'), 100000),
+        'total-latency-min': changed(('load', 'latencyUs', 'min'), 1001),
+        'total-latency-max': changed(('load', 'latencyUs', 'max'), 1601),
+        'total-latency-sum': changed(('load', 'latencyUs', 'sum'), report['load']['latencyUs']['sum'] + 1),
+        'digest-length': changed(('load', 'transcriptSha256'), 'a' * 63),
+        'digest-character': changed(('load', 'transcriptSha256'), 'z' * 64),
+        'sample-missing': lambda result: result['load']['samples'].pop(),
+        'sample-duplicate': changed(('load', 'samples', 0, 'count'), 12),
+        'sample-failed': changed(('load', 'samples', 0, 'passed'), False),
+        'sample-hash': changed(('load', 'samples', 0, 'sha256'), '0' * 64),
+        'sample-elapsed': changed(('load', 'samples', 0, 'elapsedMs'), 2),
+    }
+    for key in ('attempted', 'callbacks', 'physicalRequests'):
+        mutations['total-' + key] = changed(('load', key), report['load'][key] + 1)
+    for key in ('attempted', 'callbacks'):
+        mutations['row-' + key] = changed(('load', 'byCount', 0, key),
+                                          report['load']['byCount'][0][key] + 1)
+    for key in ('requestPayloadBytes', 'replyPayloadBytes', 'okItems', 'unavailableItems'):
+        mutations['aggregate-' + key] = changed(('load', key), report['load'][key] + 1)
+        mutations['row-' + key] = changed(('load', 'byCount', 0, key),
+                                          report['load']['byCount'][0][key] + 1)
+    for key in ('requestBytes', 'replyBytes', 'ok', 'unavailable'):
+        mutations['sample-' + key] = changed(('load', 'samples', 0, key),
+                                             report['load']['samples'][0][key] + 1)
+    for value, label in ((True, 'bool'), (1.0, 'float'), (float('nan'), 'nan'),
+                         (float('inf'), 'infinity'), (-1, 'negative')):
+        for key in ('elapsedMs', 'completed', 'requestPayloadBytes'):
+            mutations[label + '-' + key] = changed(('load', key), value)
+        mutations[label + '-latency'] = changed(('load', 'byCount', 0, 'latencyUs', 'sum'), value)
+
+    def corrupt_sample(result, position):
+        sample = result['load']['samples'][position]
+        raw = bytearray.fromhex(sample['rawHex'])
+        raw[-1] ^= 0x80  # Rehash a canonical, still bounded but incorrect scalar value.
+        sample.update(rawHex=raw.hex(), sha256=digest(raw))
+
+    for position in range(4):
+        mutations['sample-value-' + str(position)] = lambda result, at=position: corrupt_sample(result, at)
+    negatives = 0
+    for name, mutate in mutations.items():
+        invalid = copy.deepcopy(report)
+        mutate(invalid)
+        try:
+            verify_report(invalid, minimum_load_seconds=2)
+        except EvidenceError:
+            negatives += 1
+            continue
+        raise EvidenceError('negative load self-test was accepted: ' + name)
+    for candidate, minimum in ((original, 1), (report, 3), (report, True), (report, MAX_LOAD_SECONDS + 1)):
+        try:
+            verify_report(candidate, minimum_load_seconds=minimum)
+        except EvidenceError:
+            negatives += 1
+            continue
+        raise EvidenceError('minimum load duration self-test was accepted')
+    command = {'arguments': ['--load-seconds', '1800'], 'timeout_seconds': 1980}
+    verify_load_arguments(command, 1800)
+    verify_load_arguments({'arguments': ['--report', 'legacy.json']}, 0)
+    positives += 2
+    for arguments, timeout, requested in (([], 1980, 1800), (['--load-seconds'], 1980, 1800),
+            (['--load-seconds', '2'], 1980, 1800), (['--load-seconds=1800'], 1980, 1800),
+            (['--load-seconds', '1800', '--load-seconds', '1800'], 1980, 1800),
+            (['--load-seconds', '1800'], 1819, 1800), (['--load-seconds', '1800'], True, 1800),
+            (['--load-seconds', '1800'], 1980, 0), ([None], 1980, 0)):
+        try:
+            verify_load_arguments({'arguments': arguments, 'timeout_seconds': timeout}, requested)
+        except EvidenceError:
+            negatives += 1
+            continue
+        raise EvidenceError('recorded load command self-test was accepted')
+    for value in (float('nan'), float('inf'), -float('inf')):
+        invalid = copy.deepcopy(report)
+        invalid['load']['elapsedMs'] = value
+        try:
+            decode(json.dumps(invalid).encode())
+        except EvidenceError:
+            negatives += 1
+            continue
+        raise EvidenceError('nonfinite load JSON was accepted')
+    return positives, negatives
 
 
 def self_test():
@@ -298,8 +629,11 @@ def self_test():
         pass
     else:
         raise EvidenceError('duplicate JSON key was accepted')
-    return {'self_test': True, 'positive_controls': 1,
-            'negative_controls': len(mutations) + 6, 'hardware_access': False}
+    load_positive, load_negative = load_self_test(report)
+    return {'self_test': True, 'positive_controls': 1 + load_positive,
+            'negative_controls': len(mutations) + 6 + load_negative,
+            'load_positive_controls': load_positive, 'load_negative_controls': load_negative,
+            'hardware_access': False}
 
 
 def main():
@@ -308,13 +642,19 @@ def main():
     group.add_argument('--report', type=Path)
     group.add_argument('--receipt', type=Path)
     parser.add_argument('--port', default='COM6')
+    parser.add_argument('--minimum-load-seconds', type=int, default=0,
+                        help='Require a verified sustained load of at least this many seconds (0..1800)')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--self-test', action='store_true')
     args = parser.parse_args()
     try:
         require(args.report or args.receipt or args.self_test, 'select --report, --receipt or --self-test')
-        result = verify_receipt(args.receipt) if args.receipt else (
-            verify_report(decode(args.report.read_bytes()), args.port) if args.report else {})
+        integer(args.minimum_load_seconds, 'minimum-load-seconds', 0, MAX_LOAD_SECONDS)
+        require(not args.minimum_load_seconds or args.report or args.receipt,
+                '--minimum-load-seconds requires a report or receipt')
+        result = verify_receipt(args.receipt, args.minimum_load_seconds) if args.receipt else (
+            verify_report(decode(args.report.read_bytes()), args.port, args.minimum_load_seconds)
+            if args.report else {})
         if args.self_test:
             result.update(self_test())
         encoded = json.dumps(result, indent=2) + '\n'
