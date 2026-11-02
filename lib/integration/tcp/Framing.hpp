@@ -44,7 +44,8 @@ struct FeedResult {
 
 // Public methods:
 // - FrameReader(): Borrow bounded stable input storage.
-// - feed(): Consume at most one frame and report the exact consumed prefix.
+// - feed(): Consume at most one frame from disjoint input and report its exact prefix.
+//   Input overlapping storage is refused without consuming bytes or changing state.
 // - frame()/ready()/partial()/empty()/failed(): Inspect framing state.
 // - release(): Retire a ready frame without changing its bytes.
 // - expect(): Change reply interpretation only at an empty boundary.
@@ -68,6 +69,13 @@ public:
 			return {status_, 0};
 		if (ready())
 			return {Status::Ready, 0};
+		if (!bytes.empty() && !storage_.empty()) {
+			const auto source = reinterpret_cast<std::uintptr_t>(bytes.data());
+			const auto destination = reinterpret_cast<std::uintptr_t>(storage_.data());
+			if (source <= destination ? destination - source < bytes.size()
+			                          : source - destination < storage_.size())
+				return {Status::Invalid, 0};
+		}
 		std::size_t consumed = 0;
 		while (!bytes.empty()) {
 			if (used_ == 0) {

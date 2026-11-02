@@ -214,7 +214,7 @@ Run a reproducible local TCP device in a second terminal:
 ```
 
 The demo listener binds only to loopback. `--serve-demo 0` selects and prints an
-ephemeral port. It uses the real native Model, Resource DescriptorFile and
+ephemeral port. It uses the real native Model, Resource file providers and
 [TCP server adapter](../../lib/integration/tcp/README.md); its values remain
 demonstration data. The optional serial profile is described below.
 

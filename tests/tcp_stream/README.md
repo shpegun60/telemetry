@@ -9,6 +9,11 @@ discovery uses a decoy file at index0 and the descriptor at index1; downloaded
 bytes must equal the real packed Descriptor. A separate allocation-trap build
 executes the same cases. No socket, STM32 or network device is opened.
 
+FrameReader input/storage overlap controls cover exact and both partial overlap
+directions, including an already partial frame. Invalid/zero-consumption refusal
+preserves all storage and framing state; a subsequent disjoint continuation still
+completes the original frame. Adjacent disjoint spans remain accepted.
+
 ```sh
 python3 -B tests/tcp_stream/run.py --build-dir /external/tcp-gcc --cxx g++ --arm-cxx arm-none-eabi-g++
 python3 -B tests/tcp_stream/run.py --build-dir /external/tcp-clang --cxx clang++-18 --sanitize
