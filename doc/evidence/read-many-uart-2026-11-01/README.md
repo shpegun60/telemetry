@@ -42,6 +42,10 @@ does not simulate a physical unplug, a reset mid-DMA, or sustained DMA/cache loa
 Those remain separate qualification work. Batch reads are sequential samples,
 not an atomic measurement snapshot.
 
+The later [30-minute UART qualification](../read-many-uart-load-2026-11-02/README.md)
+records sustained reads on the same cache-enabled DMA path, including exact
+values, observed latency, guarded restoration and its measurement limits.
+
 ## Offline reproduction and integrity checks
 
 [report.json](report.json) retains the canonical response bodies, hashes and

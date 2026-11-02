@@ -56,6 +56,45 @@ struct Completion {
 	QByteArray bytes;
 };
 
+constexpr std::array<unsigned, 4> loadCounts{8, 12, 16, 32};
+
+struct LoadMetrics {
+	quint64 attempted = 0, completed = 0, callbacks = 0;
+	quint64 requestBytes = 0, replyBytes = 0, ok = 0, unavailable = 0;
+	quint64 minimumUs = 0, maximumUs = 0, sumUs = 0;
+
+	void accepted(unsigned count) noexcept
+	{
+		++attempted;
+		requestBytes += 2 + 4 * count;
+	}
+
+	void validated(quint64 microseconds, unsigned count, unsigned unavailableCount) noexcept
+	{
+		if (!completed || microseconds < minimumUs)
+			minimumUs = microseconds;
+		maximumUs = std::max(maximumUs, microseconds);
+		sumUs += microseconds;
+		++completed;
+		ok += count - unavailableCount;
+		unavailable += unavailableCount;
+	}
+
+	QJsonObject json() const
+	{
+		return {{"attempted", double(attempted)},
+		        {"completed", double(completed)},
+		        {"callbacks", double(callbacks)},
+		        {"requestPayloadBytes", double(requestBytes)},
+		        {"replyPayloadBytes", double(replyBytes)},
+		        {"okItems", double(ok)},
+		        {"unavailableItems", double(unavailable)},
+		        {"latencyUs", QJsonObject{{"min", double(minimumUs)},
+		                                  {"max", double(maximumUs)},
+		                                  {"sum", double(sumUs)}}}};
+	}
+};
+
 // Application storage, not another request scheduler. The portable client owns
 // its sole FIFO; Qt owns physical frame copies and all diagnostic JSON strings.
 class Check {
@@ -240,6 +279,105 @@ class Check {
 		    timeout);
 	}
 
+	void load(QJsonObject& report, int seconds)
+	{
+		if (!seconds)
+			return;
+		LoadMetrics total;
+		std::array<LoadMetrics, 4> metrics{};
+		std::array<QJsonObject, 4> samples{};
+		QCryptographicHash transcript{QCryptographicHash::Sha256};
+		QElapsedTimer duration;
+		duration.start();
+		const auto sentBefore = sent_;
+		qint64 nextProgress = 60000;
+		const auto publish = [&](bool passed) {
+			auto value = total.json();
+			value["schema"] = 1;
+			value["pattern"] = "rotating-v1";
+			value["requestedSeconds"] = seconds;
+			value["elapsedMs"] = double(duration.elapsed());
+			value["passed"] = passed;
+			value["physicalRequests"] = double(sent_ - sentBefore);
+			value["transcriptSha256"] = QString::fromLatin1(transcript.result().toHex());
+			QJsonArray rows, last;
+			for (std::size_t i = 0; i < loadCounts.size(); ++i) {
+				auto row = metrics[i].json();
+				row["count"] = int(loadCounts[i]);
+				rows.append(row);
+				last.append(samples[i]);
+			}
+			value["byCount"] = rows;
+			value["samples"] = last;
+			report["load"] = value;
+		};
+		publish(false);
+		try {
+			while (duration.elapsed() < qint64(seconds) * 1000) {
+				const auto sequence = total.attempted;
+				const auto at = std::size_t(sequence % loadCounts.size());
+				const auto count = loadCounts[at];
+				const auto round = sequence / loadCounts.size();
+				const auto start = (round * 7) % ids_.size();
+				const auto stride = round % 2 ? 31u : 5u;
+				std::array<std::uint32_t, 32> selected{};
+				for (unsigned i = 0; i < count; ++i)
+					selected[i] = ids_[std::size_t((start + i * stride) % ids_.size())];
+				const bool mixed = round % 8 == 7;
+				if (mixed)
+					selected[count / 2] = unavailable_;
+				const auto ids = std::span{selected}.first(count);
+				require(client_.pending() == 0, "Load queued an extra exchange");
+				const auto binding = rm::bindReadMany(client_, backend_, capability_, ids);
+				require(bool(binding), "Load binding failed");
+				QElapsedTimer exchange;
+				exchange.start();
+				require(bool(submit(binding.binding, completion_)), "Load submission failed");
+				for (auto* metric : {&total, &metrics[at]})
+					metric->accepted(count);
+				// An accepted exchange finishes before checking the duration again.
+				wait([&] {
+					return completion_.callbacks != 0;
+				});
+				const auto microseconds = quint64(exchange.nsecsElapsed() / 1000);
+				for (auto* metric : {&total, &metrics[at]}) {
+					metric->callbacks += completion_.callbacks;
+					metric->replyBytes += quint64(completion_.bytes.size());
+				}
+				const auto sample = capture(completion_, ids, qint64(microseconds / 1000), mixed);
+				require(client_.pending() == 0 && sent_ - sentBefore == total.attempted,
+				        "Load duplicate callback, replay or pending exchange");
+				for (auto* metric : {&total, &metrics[at]})
+					metric->validated(microseconds, count, mixed ? 1u : 0u);
+				samples[at] = sample;
+				// Versioned, unambiguous bounded transcript; no per-exchange JSON grows.
+				std::array<char, 12> prefix{};
+				for (unsigned i = 0; i < 8; ++i)
+					prefix[i] = char((sequence >> (8 * i)) & 255);
+				for (unsigned i = 0; i < 4; ++i)
+					prefix[8 + i] = char((quint32(completion_.bytes.size()) >> (8 * i)) & 255);
+				transcript.addData(QByteArrayView{prefix.data(), qsizetype(prefix.size())});
+				transcript.addData(completion_.bytes);
+				if (duration.elapsed() >= nextProgress) {
+					std::printf("ReadMany load elapsedMs=%lld completed=%llu\n",
+					            static_cast<long long>(duration.elapsed()),
+					            static_cast<unsigned long long>(total.completed));
+					std::fflush(stdout);
+					nextProgress += 60000;
+				}
+			}
+			for (const auto& metric : metrics)
+				require(metric.completed != 0, "Load did not exercise every batch size");
+			require(total.attempted == total.completed && total.callbacks == total.completed &&
+			            sent_ - sentBefore == total.completed,
+			        "Load completion accounting mismatch");
+			publish(true);
+		} catch (...) {
+			publish(false); // Preserve partial counts when a later exchange fails.
+			throw;
+		}
+	}
+
 public:
 	Check(QString name, qint32 baud) : name_(std::move(name)), baud_(baud)
 	{
@@ -277,7 +415,7 @@ public:
 		port_.close();
 	}
 
-	void run(QJsonObject& report)
+	void run(QJsonObject& report, int loadSeconds)
 	{
 		capability_ = discover();
 		descriptor_ = discovered_;
@@ -338,6 +476,7 @@ public:
 			return mixedResult.callbacks != 0;
 		});
 		report["mixed"] = capture(mixedResult, mixedIds, 0, true);
+		load(report, loadSeconds);
 
 		const auto binding =
 		    rm::bindReadMany(client_, backend_, capability_, std::span{ids_}.first(8));
@@ -425,6 +564,8 @@ int main(int argc, char** argv)
 	const auto path = value("--report");
 	bool baudOk = false;
 	const auto baud = value("--baud", "115200").toInt(&baudOk);
+	bool loadOk = false;
+	const auto loadSeconds = value("--load-seconds", "0").toInt(&loadOk);
 	QJsonObject report{{"schema", 1},
 	                   {"profile", "nucleo-h7s3l8-read-many"},
 	                   {"qtVersion", qVersion()},
@@ -436,8 +577,13 @@ int main(int argc, char** argv)
 		            baud >= int(inspector_serial::minBaudRate) &&
 		            baud <= int(inspector_serial::maxBaudRate),
 		        "Usage: telemetry-read-many-uart --serial PORT --baud 115200 --report FILE");
+		require(loadOk && loadSeconds >= 0 && loadSeconds <= 1800 &&
+		            arguments.count("--load-seconds") <= 1 &&
+		            (!arguments.contains("--load-seconds") ||
+		             arguments.indexOf("--load-seconds") + 1 < arguments.size()),
+		        "--load-seconds requires one integer from 0 through 1800");
 		Check check{port, baud};
-		check.run(report);
+		check.run(report, loadSeconds);
 	} catch (const std::exception& error) {
 		report["error"] = QString::fromUtf8(error.what());
 	}

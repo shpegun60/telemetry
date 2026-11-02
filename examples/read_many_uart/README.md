@@ -42,4 +42,37 @@ mode of [the hardware runner](../../tests/nucleo_h7s3l8/README.md) for controlle
 programming and byte-verified restoration. Running this console executable by
 itself never programs or resets the board.
 
+## Optional sustained load
+
+`--load-seconds N` selects zero through 1800 seconds; zero (the default) preserves
+the original short checker and its report. For example, append
+`--load-seconds 1800` for a 30-minute maximum-speed application loop. There is no
+polling delay between exchanges beyond the existing event/transport pump, one
+request is pending, and an accepted exchange finishes before the duration is
+checked again. The existing timeout, late-reply and fresh-bootstrap lifecycle
+checks run after the load. There is no automatic retry.
+
+The loop cycles through 8/12/16/32 IDs, rotates and reverses the cross-catalog
+selection deterministically, and periodically substitutes the unavailable Field.
+Every completion must have exactly one callback, canonical status/order/length
+and the same exact scalar bytes as the checked individual baseline. The CLI also
+requires one physical request per completed batch and an empty FIFO between
+exchanges. `physicalRequests` counts authorized transport sends, not an external
+wire analyzer's observations. A failure retains partial load counts and fails
+the overall report.
+
+The optional `load` report has four aggregate rows and four latest validated
+reply samples, not an array of every exchange. It records duration, attempted
+and validated batches, callback/request counts, payload bytes and per-item status
+counts, plus minimum/maximum/sum exchange latency in microseconds. Mean latency
+is the sum divided by validated completions. The SHA-256 transcript hashes each
+validated reply with its little-endian 64-bit attempt index and 32-bit payload
+length. Pattern `rotating-v1` is independently checked by the evidence verifier.
+
+This measures sustained end-to-end exchanges on the current firmware with
+caches enabled. It does not read the board's SWD-only UART/DMA diagnostics or
+measure CPU usage, interrupt stack high-watermark, physical cable faults or
+universal cache coherency. Host PTYs validate the load controller and failure
+handling; they are not a hardware endurance result.
+
 Maintained offline checks are in [tests/read_many_serial](../../tests/read_many_serial/README.md).

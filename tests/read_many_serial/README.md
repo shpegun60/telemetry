@@ -19,6 +19,17 @@ separately exercise pagination, opaque/nonmonotonic READ cursors, cursor-only
 progress and its finite budget, exact accumulated lengths at EOF, and malformed
 Resource transcripts. These cursor tests use the same bootstrap class as TCP.
 
+The sustained-load controls run the same CLI for two seconds over a real PTY,
+check the bounded report, four batch-size aggregates, exact completion accounting
+and the unchanged lifecycle after load. Another peer corrupts the ninth load
+reply after eight validated exchanges; its requested duration is long enough
+that this deterministic packet boundary, rather than a scheduling deadline,
+causes failure. Partial counts must survive and no reconnect/replay may follow.
+Both peers still use the actual board Protocol and production serial/COBS path.
+Argument controls reject negative, excessive, malformed, missing and duplicated
+`--load-seconds` values before any serial bootstrap. The report remains below
+20,000 bytes rather than growing with exchange count.
+
 The Windows build executes bootstrap and argument checks; Linux additionally
 runs real PTYs. Physical TX lease ownership is separately tested by the board's
 [host harness](../../examples/nucleo_h7s3l8/tests/Host.cpp), which holds UART TC

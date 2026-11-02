@@ -17,6 +17,7 @@ param(
     [ValidateRange(10, 180)][int]$CommandTimeoutSeconds = 60,
     [ValidateRange(10, 180)][int]$GuiTimeoutSeconds = 60,
     [ValidateRange(10, 180)][int]$ReadManyTimeoutSeconds = 60,
+    [Parameter(ParameterSetName = 'ReadMany')][ValidateRange(0, 1800)][int]$ReadManyLoadSeconds = 0,
     [string]$Python = 'python',
     [ValidateRange(1, 1000)][int]$MinimumValueRows = 3,
     [switch]$ValidateOnly
@@ -117,10 +118,27 @@ $script:receipt = [ordered]@{
     restored_and_verified = $false
     qualification_passed = $false
     error = $null
+    evidence_io_errors = New-Object Collections.Generic.List[object]
+    owned_process_stop_failed = $false
+}
+
+if ($readManyMode -and $ReadManyLoadSeconds -gt 0) {
+    $script:receipt.read_many_load_seconds = $ReadManyLoadSeconds
 }
 
 function Write-Receipt {
     [IO.File]::WriteAllText($receiptPath, ($script:receipt | ConvertTo-Json -Depth 12) + "`n", $utf8)
+}
+# Emergency restoration cannot depend on writable receipts/logs. This switch is
+# used only by restore/readback commands; backup hashes and target checks stay strict.
+function Invoke-EvidenceWrite {
+    param([string]$Description, [scriptblock]$Action, [switch]$BestEffort)
+    try { & $Action } catch {
+        if (-not $BestEffort) { throw }
+        $message = $Description + ': ' + $_.Exception.Message
+        $script:receipt.evidence_io_errors.Add($message)
+        if (-not $script:receipt.error) { $script:receipt.error = 'Evidence I/O failed: ' + $message }
+    }
 }
 function Get-Digest([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -147,10 +165,11 @@ function Quote-WindowsArgument([string]$Value) {
 function Invoke-Recorded {
     param([string]$Tag, [string]$Executable, [string[]]$Arguments,
         [int]$TimeoutSeconds = $CommandTimeoutSeconds, [switch]$AllowFailure,
-        [string]$RuntimeDirectory)
+        [string]$RuntimeDirectory, [switch]$BestEffortEvidence)
+    if ($script:receipt.owned_process_stop_failed) { throw 'An earlier owned process has no verified exit; refusing another command.' }
     $stdoutPath = Join-Path $logs ($Tag + '.stdout.txt')
     $stderrPath = Join-Path $logs ($Tag + '.stderr.txt')
-    if (Test-Path -LiteralPath $stdoutPath) { throw "Duplicate command tag: $Tag" }
+    if (-not $BestEffortEvidence -and (Test-Path -LiteralPath $stdoutPath)) { throw "Duplicate command tag: $Tag" }
     $entry = [ordered]@{
         tag = $Tag; executable = $Executable; arguments = $Arguments
         started_utc = [DateTime]::UtcNow.ToString('o'); timeout_seconds = $TimeoutSeconds
@@ -158,7 +177,7 @@ function Invoke-Recorded {
         stdout = ('logs/' + $Tag + '.stdout.txt'); stderr = ('logs/' + $Tag + '.stderr.txt')
     }
     $script:receipt.commands.Add($entry)
-    Write-Receipt
+    Invoke-EvidenceWrite "$Tag receipt before start" { Write-Receipt } -BestEffort:$BestEffortEvidence
     $process = New-Object Diagnostics.Process
     $process.StartInfo = New-Object Diagnostics.ProcessStartInfo
     $process.StartInfo.FileName = $Executable
@@ -176,7 +195,7 @@ function Invoke-Recorded {
     try {
         if (-not $process.Start()) { throw "Could not start $Executable" }
         $entry.pid = $process.Id
-        Write-Receipt
+        Invoke-EvidenceWrite "$Tag receipt after start" { Write-Receipt } -BestEffort:$BestEffortEvidence
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
         $stderrTask = $process.StandardError.ReadToEndAsync()
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
@@ -192,13 +211,40 @@ function Invoke-Recorded {
         $startError = $_.Exception.Message
         $stderr += "`n$startError"
     } finally {
+        # A receipt/pipe exception after Start must not leave this owned process
+        # using COM or programming the board while restoration begins.
+        if ($null -ne $entry.pid) {
+            try {
+                if (-not $process.HasExited) {
+                    $process.Kill()
+                    if (-not $process.WaitForExit(5000)) { throw 'Owned process exit could not be established.' }
+                    $entry.stopped_in_finally = $true
+                }
+            } catch {
+                $terminationError = $_.Exception.Message
+                $exitVerified = $false
+                # Kill can race a natural exit; only an unproven exit is fatal.
+                try { $exitVerified = $process.HasExited } catch {}
+                if (-not $exitVerified) {
+                    $script:receipt.owned_process_stop_failed = $true
+                    $entry.termination_error = $terminationError
+                    if (-not $script:receipt.error) { $script:receipt.error = 'Owned process termination was not verified.' }
+                }
+            }
+        }
         $process.Dispose()
-        [IO.File]::WriteAllText($stdoutPath, $stdout, $utf8)
-        [IO.File]::WriteAllText($stderrPath, $stderr, $utf8)
         $entry.finished_utc = [DateTime]::UtcNow.ToString('o')
-        $entry.stdout_sha256 = Get-Digest $stdoutPath
-        $entry.stderr_sha256 = Get-Digest $stderrPath
-        Write-Receipt
+        Invoke-EvidenceWrite "$Tag stdout" {
+            if ($BestEffortEvidence -and (Test-Path -LiteralPath $stdoutPath)) { throw "Existing stdout evidence retained: $Tag" }
+            [IO.File]::WriteAllText($stdoutPath, $stdout, $utf8)
+            $entry.stdout_sha256 = Get-Digest $stdoutPath
+        } -BestEffort:$BestEffortEvidence
+        Invoke-EvidenceWrite "$Tag stderr" {
+            if ($BestEffortEvidence -and (Test-Path -LiteralPath $stderrPath)) { throw "Existing stderr evidence retained: $Tag" }
+            [IO.File]::WriteAllText($stderrPath, $stderr, $utf8)
+            $entry.stderr_sha256 = Get-Digest $stderrPath
+        } -BestEffort:$BestEffortEvidence
+        Invoke-EvidenceWrite "$Tag receipt after exit" { Write-Receipt } -BestEffort:$BestEffortEvidence
     }
     Write-Host "$Tag`: exit $($entry.exit_code), timeout=$($entry.timed_out)"
     $result = [pscustomobject]@{ ExitCode = $entry.exit_code; TimedOut = $entry.timed_out;
@@ -341,6 +387,13 @@ $frozenCli = Join-Path $output 'tested-read-many.exe'
 $backupReady = $false
 $connection = @('-c', 'port=SWD', "sn=$StLinkSerial", 'mode=UR', 'reset=HWrst', 'freq=4000')
 try {
+    if ($readManyMode) {
+        # Exercise the exact native launcher and verifier dependencies before any
+        # target or tool command, including in ValidateOnly. A usable PowerShell
+        # app alias does not prove that Process.Start can launch its frozen path.
+        $script:receipt.tools[$Python] = Get-Digest $Python
+        [void](Invoke-Recorded 'python-verifier-preflight' $Python @('-B', $readManyVerifier, '--self-test'))
+    }
     $script:receipt.inputs.elf = [ordered]@{ path = $Elf; sha256 = Get-Digest $Elf }
     if ($readManyMode) {
         $script:receipt.inputs.read_many = [ordered]@{ path = $ReadManyExe; sha256 = Get-Digest $ReadManyExe }
@@ -420,12 +473,20 @@ try {
         if ($readManyMode) {
             $readManyReportPath = Join-Path $output 'read-many-report.json'
             $verificationPath = Join-Path $output 'read-many-verification.json'
-            [void](Invoke-Recorded 'serial-read-many-check' $frozenCli @('--serial', $Port, '--baud', '115200',
-                '--report', $readManyReportPath) -TimeoutSeconds $ReadManyTimeoutSeconds `
-                -RuntimeDirectory ([IO.Path]::GetDirectoryName($ReadManyExe)))
+            $readManyArguments = @('--serial', $Port, '--baud', '115200', '--report', $readManyReportPath)
+            $verificationArguments = @('-B', $readManyVerifier, '--report', $readManyReportPath,
+                '--port', $Port, '--output', $verificationPath)
+            $processBudget = $ReadManyTimeoutSeconds
+            if ($ReadManyLoadSeconds -gt 0) {
+                $readManyArguments += @('--load-seconds', [string]$ReadManyLoadSeconds)
+                $verificationArguments += @('--minimum-load-seconds', [string]$ReadManyLoadSeconds)
+                # Reserve bootstrap/lifecycle time outside the bounded load interval.
+                $processBudget = [Math]::Max($processBudget, $ReadManyLoadSeconds + 180)
+            }
+            [void](Invoke-Recorded 'serial-read-many-check' $frozenCli $readManyArguments `
+                -TimeoutSeconds $processBudget -RuntimeDirectory ([IO.Path]::GetDirectoryName($ReadManyExe)))
             if (-not (Test-Path -LiteralPath $readManyReportPath -PathType Leaf)) { throw 'ReadMany report is missing.' }
-            [void](Invoke-Recorded 'verify-read-many-report' $Python @('-B', $readManyVerifier,
-                '--report', $readManyReportPath, '--port', $Port, '--output', $verificationPath))
+            [void](Invoke-Recorded 'verify-read-many-report' $Python $verificationArguments)
             if ((Get-Digest $frozenCli) -ne $script:receipt.inputs.frozen_cli_sha256 -or
                 (Get-Digest $ReadManyExe) -ne $script:receipt.inputs.read_many.sha256) { throw 'ReadMany CLI changed during execution.' }
             $script:receipt.read_many_check = [ordered]@{ path = 'read-many-report.json';
@@ -479,19 +540,20 @@ try {
     $script:receipt.error_position = $_.InvocationInfo.PositionMessage
     $script:receipt.error_stack = $_.ScriptStackTrace
 } finally {
-    if ($backupReady) {
+    if ($backupReady -and -not $script:receipt.owned_process_stop_failed) {
         $restored = $false
         for ($attempt = 1; $attempt -le 3; ++$attempt) {
+            if ($script:receipt.owned_process_stop_failed) { break }
             try {
                 if ((Get-Digest $backupPath) -ne $script:receipt.backup.sha256) { throw 'Original backup hash changed; refusing corrupted restore.' }
                 $restore = Invoke-Recorded "restore-original-$attempt" $Programmer ($connection + @('-w',
-                    $backupPath, '0x08000000', '-v', '-rst')) -AllowFailure
+                    $backupPath, '0x08000000', '-v', '-rst')) -AllowFailure -BestEffortEvidence
                 Assert-Target $restore.Text
                 if ($restore.ExitCode -eq 0 -and -not $restore.TimedOut -and
                     $restore.Text -match 'Download verified successfully') {
                     $readbackPath = Join-Path $output ("restored-readback-$attempt.bin")
                     $readback = Invoke-Recorded "verify-original-readback-$attempt" $Programmer ($connection + @('-u',
-                        '0x08000000', '0x10000', $readbackPath, '-rst')) -AllowFailure
+                        '0x08000000', '0x10000', $readbackPath, '-rst')) -AllowFailure -BestEffortEvidence
                     Assert-Target $readback.Text
                     if ($readback.ExitCode -eq 0 -and -not $readback.TimedOut -and
                         (Test-Path -LiteralPath $readbackPath -PathType Leaf) -and
@@ -510,6 +572,9 @@ try {
         if (-not $restored) {
             $script:receipt.error = 'ORIGINAL FIRMWARE RESTORATION NOT VERIFIED. Preserve the backup and stop hardware testing.'
         }
+    }
+    if ($backupReady -and $script:receipt.owned_process_stop_failed) {
+        $script:receipt.error = 'OWNED PROCESS TERMINATION NOT VERIFIED. Restoration not started concurrently; preserve the backup and stop hardware testing.'
     }
     if ($readManyMode) {
         try {

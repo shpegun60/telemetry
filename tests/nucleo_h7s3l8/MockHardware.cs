@@ -14,6 +14,11 @@ internal static class MockHardware
         string calls = Environment.GetEnvironmentVariable("TELEMETRY_MOCK_CALLS");
         string executable = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
         File.AppendAllText(calls, executable + " " + String.Join(" ", arguments) + "\n");
+        if (executable == "MockPythonFail.exe")
+        {
+            Console.Error.WriteLine("OFFLINE mock interpreter failed verifier preflight.");
+            return 7;
+        }
         if (executable == "MockGit.exe")
         {
             if (arguments.Length == 4 && arguments[0] == "-C" && arguments[2] == "rev-parse" && arguments[3] == "HEAD")
@@ -83,8 +88,36 @@ internal static class MockHardware
         return 0;
     }
 
+    private static void ObstructEvidence(string report, string mode)
+    {
+        string root = Path.GetDirectoryName(report);
+        if (mode.EndsWith("receipt-io", StringComparison.Ordinal))
+        {
+            string summary = Path.Combine(root, "summary.json");
+            File.Move(summary, Path.Combine(root, "summary-before-io.json"));
+            Directory.CreateDirectory(summary); // Deterministic permanent receipt write failure.
+        }
+        else if (mode.EndsWith("log-io", StringComparison.Ordinal))
+        {
+            string logs = Path.Combine(root, "logs");
+            Directory.Move(logs, Path.Combine(root, "logs-before-io"));
+            File.WriteAllText(logs, "OFFLINE MOCK: log directory is no longer writable");
+        }
+        else if (mode == "restore-log-exists")
+        {
+            for (int attempt = 1; attempt <= 3; ++attempt)
+                File.WriteAllText(Path.Combine(root, "logs", "restore-original-" + attempt + ".stdout.txt"),
+                    "OFFLINE MOCK: preserve existing restoration evidence");
+        }
+    }
+
     private static int Gui(string[] arguments, string mode)
     {
+        if (mode == "process-wait")
+        {
+            System.Threading.Thread.Sleep(30000); // Owned-process cleanup unit control only.
+            return 0;
+        }
         if (Array.IndexOf(arguments, "--check-device") >= 0)
         {
             int report = Array.IndexOf(arguments, "--report");
@@ -95,6 +128,7 @@ internal static class MockHardware
                 "{\"field\":\"device.Counter\",\"values\":[{\"value\":\"18446744073709551615\"}]}," +
                 "{\"field\":\"device.Status\",\"values\":[{\"value\":\"true\"}]}]}";
             File.WriteAllText(arguments[report + 1], json);
+            ObstructEvidence(arguments[report + 1], mode);
             return mode == "checkfail" ? 9 : 0;
         }
         if (mode == "guifail")
@@ -161,7 +195,7 @@ internal static class MockHardware
             writer.Write((ushort)count);
             for (int index = 0; index < count; ++index)
             {
-                uint id = (uint)(index + 1);
+                uint id = mixed ? (index == 1 ? 33u : index == 2 ? 32u : 1u) : (uint)(index + 1);
                 if (mode == "readmany-duplicate" && index == 1)
                     id = 1;
                 byte status = (byte)(mixed && index == 1 ? 3 : 0);
@@ -172,10 +206,60 @@ internal static class MockHardware
                 writer.Write((byte)0);
                 writer.Write((ushort)(status == 0 ? 4 : 0));
                 if (status == 0)
-                    writer.Write((uint)index);
+                    writer.Write(id - 1);
             }
             return stream.ToArray();
         }
+    }
+
+    private static byte[] LoadReply(int count)
+    {
+        using (MemoryStream stream = new MemoryStream())
+        using (BinaryWriter writer = new BinaryWriter(stream))
+        {
+            writer.Write((ushort)count);
+            for (int index = 0; index < count; ++index)
+            {
+                uint position = (uint)((index * 5) % 32); // First rotating-v1 round.
+                writer.Write(position + 1);
+                writer.Write((byte)0); writer.Write((byte)0); writer.Write((ushort)4);
+                writer.Write(position);
+            }
+            return stream.ToArray();
+        }
+    }
+
+    private static string LoadReport(int seconds)
+    {
+        int[] counts = { 8, 12, 16, 32 };
+        string[] samples = new string[counts.Length];
+        StringBuilder rows = new StringBuilder();
+        string transcript;
+        using (MemoryStream stream = new MemoryStream())
+        using (BinaryWriter writer = new BinaryWriter(stream))
+        {
+            for (int index = 0; index < counts.Length; ++index)
+            {
+                int count = counts[index];
+                byte[] raw = LoadReply(count);
+                writer.Write((ulong)index); writer.Write((uint)raw.Length); writer.Write(raw);
+                if (index != 0) rows.Append(',');
+                rows.Append("{\"count\":").Append(count);
+                rows.Append(",\"attempted\":1,\"completed\":1,\"callbacks\":1,\"requestPayloadBytes\":").Append(2 + 4 * count);
+                rows.Append(",\"replyPayloadBytes\":").Append(raw.Length);
+                rows.Append(",\"okItems\":").Append(count).Append(",\"unavailableItems\":0,\"latencyUs\":{\"min\":1,\"max\":1,\"sum\":1}}");
+                samples[index] = "{\"count\":" + count + ",\"passed\":true,\"rawHex\":\"" + Hex(raw) +
+                    "\",\"sha256\":\"" + Sha(raw) + "\",\"elapsedMs\":0,\"requestBytes\":" + (2 + 4 * count) +
+                    ",\"replyBytes\":" + raw.Length + ",\"ok\":" + count + ",\"unavailable\":0}";
+            }
+            transcript = Sha(stream.ToArray());
+        }
+        // Synthetic mock timing verifies admission only; it is never hardware evidence.
+        return "{\"schema\":1,\"pattern\":\"rotating-v1\",\"requestedSeconds\":" + seconds +
+            ",\"elapsedMs\":" + (seconds * 1000) + ",\"passed\":true,\"attempted\":4,\"completed\":4,\"callbacks\":4," +
+            "\"physicalRequests\":4,\"requestPayloadBytes\":280,\"replyPayloadBytes\":824,\"okItems\":68," +
+            "\"unavailableItems\":0,\"latencyUs\":{\"min\":1,\"max\":1,\"sum\":4},\"byCount\":[" + rows +
+            "],\"transcriptSha256\":\"" + transcript + "\",\"samples\":[" + String.Join(",", samples) + "]}";
     }
 
     private static int ReadMany(string[] arguments, string mode)
@@ -237,8 +321,16 @@ internal static class MockHardware
             json.Append('"').Append(lifecycle[at]).Append("\":");
             json.Append(mode == "readmany-recovery" && lifecycle[at] == "lateReplyRejected" ? "false" : "true");
         }
-        json.Append("}}");
+        json.Append('}');
+        if (mode == "readmany-load")
+        {
+            int duration = Array.IndexOf(arguments, "--load-seconds");
+            if (duration < 0 || duration + 1 >= arguments.Length) return 94;
+            json.Append(",\"load\":").Append(LoadReport(Int32.Parse(arguments[duration + 1])));
+        }
+        json.Append('}');
         File.WriteAllText(output, json.ToString());
+        ObstructEvidence(output, mode);
         return mode == "readmany-exit" ? 9 : 0;
     }
 }

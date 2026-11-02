@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "verified": true,
+  "profile": "nucleo-h7s3l8-read-many",
+  "counts": [
+    8,
+    12,
+    16,
+    32
+  ],
+  "session_count": 2,
+  "final_session": 2,
+  "mixed_ok": 2,
+  "mixed_unavailable": 1,
+  "lifecycle_flags": 11,
+  "hardware_access": false,
+  "load": {
+    "verified": true,
+    "requested_seconds": 1800,
+    "elapsed_ms": 1800039,
+    "completed": 43932,
+    "samples": 4,
+    "transcript_format_verified": true,
+    "transcript_limitation": "Digest format only; full per-exchange history is not retained."
+  },
+  "receipt_verified": true,
+  "flash_restoration_verified": true,
+  "limitation": "Recorded consistency and integrity; not a new hardware run."
+}

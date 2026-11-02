@@ -136,6 +136,9 @@ public:
 		if (fault_ == 2 && encoded && encoded.header.operation == ew::Operation::ReadMany &&
 		    size > 34)
 			reply_[34] ^= std::byte{1}; // valid COBS CRC, wrong first item ID
+		if (fault_ == 3 && batches == 14 && encoded &&
+		    encoded.header.operation == ew::Operation::ReadMany && size > 34)
+			reply_[34] ^= std::byte{1}; // Eight load exchanges passed before this wrong ID.
 		if (size == 0)
 			return;
 		auto message = link_.make_message(size);
@@ -154,11 +157,16 @@ int main(int argc, char** argv)
 	CHECK(argc == 3);
 	const QString cli = QString::fromLocal8Bit(argv[1]);
 	const QString output = QString::fromLocal8Bit(argv[2]);
-	for (int fault = 0; fault < 3; ++fault) {
+	constexpr std::array faults{0, 1, 2, 0, 3};
+	for (std::size_t scenario = 0; scenario < faults.size(); ++scenario) {
+		const auto fault = faults[scenario];
 		Peer peer{fault};
 		QProcess child;
-		const auto path = output + QStringLiteral("/serial-%1.json").arg(fault);
-		child.start(cli, {"--serial", peer.name(), "--baud", "115200", "--report", path});
+		const auto path = output + QStringLiteral("/serial-%1.json").arg(qulonglong(scenario));
+		QStringList arguments{"--serial", peer.name(), "--baud", "115200", "--report", path};
+		if (scenario >= 3)
+			arguments << "--load-seconds" << (fault == 3 ? "1800" : "2");
+		child.start(cli, arguments);
 		CHECK(child.waitForStarted(5000));
 		QElapsedTimer deadline;
 		deadline.start();
@@ -172,22 +180,67 @@ int main(int argc, char** argv)
 			CHECK(false);
 		}
 		const auto log = child.readAllStandardOutput() + child.readAllStandardError();
-		std::printf("ReadMany serial fault=%d exit=%d batches=%u lists=%u\n%s", fault,
-		            child.exitCode(), peer.batches, peer.lists, log.constData());
+		std::printf("ReadMany serial scenario=%zu fault=%d exit=%d batches=%u lists=%u\n%s",
+		            scenario, fault, child.exitCode(), peer.batches, peer.lists, log.constData());
 		QFile file{path};
 		CHECK(file.open(QIODevice::ReadOnly));
-		const auto report = QJsonDocument::fromJson(file.readAll()).object();
+		const auto bytes = file.readAll();
+		CHECK(bytes.size() < 20000); // Duration never creates per-exchange JSON records.
+		const auto report = QJsonDocument::fromJson(bytes).object();
 		CHECK(report["passed"].toBool() == (fault == 0));
 		CHECK((child.exitCode() == 0) == (fault == 0));
 		CHECK(peer.mutations == 0);
 		if (fault == 0) {
 			CHECK(report["cases"].toArray().size() == 4);
-			CHECK(peer.batches == 7 && peer.lists == 2);
+			CHECK(peer.lists == 2);
 			CHECK(report["lifecycle"].toObject()["noReplay"].toBool());
+			if (scenario < 3) {
+				CHECK(peer.batches == 7 && !report.contains("load"));
+			} else {
+				const auto load = report["load"].toObject();
+				const auto completed = load["completed"].toInt();
+				CHECK(load["passed"].toBool() && load["requestedSeconds"].toInt() == 2);
+				CHECK(load["elapsedMs"].toDouble() >= 2000);
+				CHECK(completed >= 4 && peer.batches == unsigned(completed + 7));
+				CHECK(load["attempted"].toInt() == completed &&
+				      load["callbacks"].toInt() == completed &&
+				      load["physicalRequests"].toInt() == completed);
+				const auto rows = load["byCount"].toArray();
+				CHECK(rows.size() == 4 && load["samples"].toArray().size() == 4);
+				unsigned total = 0, ok = 0, unavailable = 0;
+				for (const auto row : rows) {
+					const auto metric = row.toObject();
+					const auto count = metric["count"].toInt();
+					const auto iterations = metric["completed"].toInt();
+					CHECK(iterations > 0 && metric["callbacks"].toInt() == iterations &&
+					      metric["attempted"].toInt() == iterations);
+					CHECK(metric["requestPayloadBytes"].toInt() == iterations * (2 + 4 * count));
+					CHECK(metric["okItems"].toInt() + metric["unavailableItems"].toInt() ==
+					      iterations * count);
+					CHECK(metric["unavailableItems"].toInt() == iterations / 8);
+					const auto latency = metric["latencyUs"].toObject();
+					CHECK(latency["min"].toDouble() <= latency["max"].toDouble() &&
+					      latency["sum"].toDouble() >= latency["max"].toDouble());
+					total += unsigned(iterations);
+					ok += unsigned(metric["okItems"].toInt());
+					unavailable += unsigned(metric["unavailableItems"].toInt());
+				}
+				CHECK(total == unsigned(completed) && load["okItems"].toInt() == int(ok) &&
+				      load["unavailableItems"].toInt() == int(unavailable));
+				CHECK(load["transcriptSha256"].toString().size() == 64);
+			}
 		} else if (fault == 1)
 			CHECK(peer.batches == 0);
-		else
+		else if (fault == 2)
 			CHECK(peer.batches == 1);
+		else {
+			const auto load = report["load"].toObject();
+			CHECK(peer.batches == 14 && peer.lists == 1);
+			CHECK(!load["passed"].toBool() && load["requestedSeconds"].toInt() == 1800);
+			CHECK(load["attempted"].toInt() == 9 && load["completed"].toInt() == 8 &&
+			      load["callbacks"].toInt() == 9 && load["physicalRequests"].toInt() == 9);
+			CHECK(!report["error"].toString().isEmpty());
+		}
 	}
 	std::printf("ReadMany Serial checks=%u pty=1\n", checks);
 #else

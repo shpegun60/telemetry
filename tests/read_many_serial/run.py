@@ -109,6 +109,16 @@ def main():
         run("invalid-arguments", [cli, "--report", output / "invalid.json"], expected=1)
         if json.loads((output / "invalid.json").read_text())["passed"]:
             raise ValueError("Invalid CLI arguments reported success")
+        for name, values in (("negative", ["-1"]), ("excess", ["1801"]),
+                             ("text", ["invalid"]), ("missing", []),
+                             ("duplicate", ["1", "--load-seconds", "1"])):
+            path = output / ("invalid-load-" + name + ".json")
+            run("invalid-load-" + name,
+                [cli, "--serial", "OFFLINE-NOT-OPENED", "--report", path,
+                 "--load-seconds", *values], expected=1)
+            invalid = json.loads(path.read_text())
+            if invalid["passed"] or "--load-seconds requires" not in invalid.get("error", ""):
+                raise ValueError("Invalid load arguments reached serial bootstrap: " + name)
         report["binary_sha256"] = {path.relative_to(output).as_posix(): digest(path) for path in (bootstrap, serial, cli)}
         report["passed"] = True
     finally:
