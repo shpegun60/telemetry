@@ -92,7 +92,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `batch_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `read_many_static_client`, `batch_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
@@ -114,6 +114,10 @@ The optional `read_many_client` adds the Encoded scalar batch mapping over the
 same private FIFO, without changing the base target's include closure. It adds
 only `encoded_wire` to `dynamic_client`; select a concrete enabled Encoded backend
 separately. See [ReadMany](ReadManyEncoded.md).
+The optional `read_many_static_client` provides typed scalar ReadMany for generated
+or handwritten Codec policies. Its only direct dependencies are `client` and
+`encoded_wire`, with no RuntimeSchema, Model or UI headers. See
+[Typed ReadMany](StaticReadMany.md).
 The optional `batch_client` adds ordered FieldRead/FieldWrite/Command/Service
 requests over that same FIFO. `batch_server` selects the transport-independent
 executor and its explicit Encoded admission mapping; selecting `core` alone

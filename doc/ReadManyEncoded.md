@@ -1,5 +1,9 @@
 # Optional Encoded ReadMany
 
+Typed generated/handwritten C++ clients can select the independent
+[Static ReadMany adapter](StaticReadMany.md). The runtime adapter described
+below retains its existing API and component dependencies.
+
 The first production mapping is C++ complete-frame Encoded v1 only. It reads
 1–32 distinct scalar/open-enum Fields from any catalogs through **one existing
 DynamicClient FIFO request**. Struct and Array Fields are unsupported even when

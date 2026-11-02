@@ -11,6 +11,9 @@ contains(CONFIG, telemetry_read_many_server) {
 contains(CONFIG, telemetry_read_many_client) {
     include($$PWD/read_many/read_many.pri)
 }
+contains(CONFIG, telemetry_read_many_static_client) {
+    include($$PWD/read_many/static_client.pri)
+}
 contains(CONFIG, telemetry_read_many_workbench) {
     include($$PWD/read_many/read_many_workbench.pri)
 }

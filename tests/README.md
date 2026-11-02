@@ -27,6 +27,11 @@ Service operations, global preflight, independent item results, explicit repeate
 execution, no-heap, relocated SDK consumers and offline Cortex-M7 roots. It uses
 the existing DynamicClient FIFO and adds no transaction journal or deduplication.
 
+The [typed Static ReadMany suite](read_many_static/README.md) checks generated and
+handwritten Codec policies over that same core FIFO, exact scalar/item outcomes,
+controlled lifecycle and malformed replies, noheap, isolated installed consumers
+and offline Cortex-M7 roots without RuntimeSchema or UI dependencies.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public

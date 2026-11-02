@@ -17,12 +17,14 @@
 [FieldWrite, Command and Service Workbench](Workbench.md) ·
 [Read comparison before ReadMany](ReadComparison.md) ·
 [ReadMany design](ReadMany.md) · [Production C++ Encoded ReadMany](ReadManyEncoded.md) ·
+[Typed C++ ReadMany](StaticReadMany.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·
 [Mixed Batch host example](../examples/batch/README.md) ·
 [Qt/QML scalar Watchlist](ReadManyWatchlist.md) ·
 [Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
 [NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·
+[SDK and UX roadmap](SdkUxRoadmap.md) ·
 [Усі приклади та build entry points](../examples/README.md)
 
 [Optional Integration adapters](../lib/integration/README.md) поєднують незалежні

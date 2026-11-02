@@ -80,6 +80,9 @@ def main():
         'legacy': (['CONFIG += resource_telemetry_encoded', integration], base_sources),
         'batch': (['CONFIG += telemetry_read_many_server', integration], batch_sources),
         'client': (['CONFIG += telemetry_read_many_client telemetry_encoded_backend', integration], []),
+        'static-client': (['CONFIG += telemetry_read_many_static_client telemetry_encoded_backend', integration], []),
+        'static-client-repeated': ([include('lib/integration/read_many/static_client.pri'),
+                                    include('lib/integration/read_many/static_client.pri')], []),
         'workbench': (['CONFIG += telemetry_read_many_workbench telemetry_encoded_backend', integration], []),
         'workbench-repeated': ([include('lib/integration/read_many/read_many_workbench.pri'),
                                 include('lib/integration/read_many/read_many_workbench.pri')], []),
@@ -124,6 +127,13 @@ def main():
             bridge = (ROOT / 'lib/integration/read_many/Workbench.hpp').resolve()
             if headers.count(bridge) != (1 if name.startswith('workbench') else 0):
                 raise RuntimeError(name + ': optional Workbench header leaked or was duplicated')
+            static_client = (ROOT / 'lib/integration/read_many/StaticClient.hpp').resolve()
+            if headers.count(static_client) != (1 if name.startswith('static-client') else 0):
+                raise RuntimeError(name + ': optional Static ReadMany header leaked or was duplicated')
+            if name.startswith('static-client') and any('/telemetry/runtime/' in path.as_posix()
+                                                       or '/integration/dynamic/' in path.as_posix()
+                                                       for path in headers):
+                raise RuntimeError(name + ': Static ReadMany imported runtime metadata')
             report['cases'][name] = dict(sources=[str(path) for path in actual],
                                          count=len(actual), inventory_sha256=digest(inventory_file))
             save()
