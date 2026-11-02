@@ -354,6 +354,10 @@ public:
 			return {capturedGate, {}};
 		if (!isCurrent(frozen))
 			return {client::Status::NotAdmitted, {}};
+		// User callable ownership can change caller bytes after the first check.
+		// Recheck before the core copies them; its later callable moves follow that copy.
+		if (frozen.requestType_ != 0 && !state_.schema.view(frozen.requestType_, payload))
+			return {client::Status::CodecError, {}};
 		return core_.submitEncoded({frozen.operation_, frozen.id_, payload, frozen.responseBytes_},
 		                           std::move(completion), timeoutMs);
 	}

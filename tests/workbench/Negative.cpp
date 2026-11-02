@@ -2,9 +2,45 @@
 #include <integration/workbench/WorkbenchModel.hpp>
 using Workbench = telemetry::integration::workbench::WorkbenchModel<2, 128, 128>;
 
+struct NothrowMoveOnly {
+	NothrowMoveOnly() = default;
+	NothrowMoveOnly(const NothrowMoveOnly&) = delete;
+	NothrowMoveOnly(NothrowMoveOnly&&) noexcept = default;
+
+	template<class T>
+	void operator()(const T&) noexcept
+	{}
+};
+
+struct ThrowingCopy {
+	ThrowingCopy() = default;
+	ThrowingCopy(const ThrowingCopy&) noexcept(false);
+	ThrowingCopy(ThrowingCopy&&) noexcept = default;
+
+	template<class T>
+	void operator()(const T&) noexcept
+	{}
+};
+
 void probe(Workbench& model)
 {
-	(void)model;
+	// Positive controls preserve move-only ownership through every public path.
+	(void)model.apply(NothrowMoveOnly{});
+	(void)model.execute(NothrowMoveOnly{});
+	(void)model.callService(NothrowMoveOnly{});
+#if defined(WORKBENCH_THROW_COPY_APPLY) || defined(WORKBENCH_THROW_COPY_COMMAND) ||                \
+    defined(WORKBENCH_THROW_COPY_SERVICE)
+	ThrowingCopy callback;
+#endif
+#ifdef WORKBENCH_THROW_COPY_APPLY
+	(void)model.apply(callback);
+#endif
+#ifdef WORKBENCH_THROW_COPY_COMMAND
+	(void)model.execute(callback);
+#endif
+#ifdef WORKBENCH_THROW_COPY_SERVICE
+	(void)model.callService(callback);
+#endif
 #ifdef WORKBENCH_COMMAND
 	// Runtime calls remain behind the bound editor, never a raw-payload facade.
 	(void)model.command(telemetry::integration::dynamic::EndpointBinding{},

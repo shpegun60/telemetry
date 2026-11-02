@@ -23,7 +23,14 @@ late replies cannot complete a request twice or trigger a write replay.
 NoHeap runs the same native workflow with global C++ allocation traps and a
 deliberate allocation control exiting 86. Separate compile refusals prove that
 the facade exposes no raw-payload Command/Service submission or client/core access,
-and rejects a non-callable completion. The standalone dependency probe excludes
+and rejects a non-callable completion.
+
+Three compile refusals also reject a potentially throwing lvalue callable copy
+through Apply, Execute and Service, even when invocation and moves are noexcept.
+The positive control instantiates all three paths with noexcept move-only targets;
+the existing real workflows exercise their ownership and callback reentry.
+
+The standalone dependency probe excludes
 Model/reflection, Resource and concrete wire/backend dependencies. Optional ARM
 compilation records symbols and individual compiler frames; it does not run on
 a board or measure complete call-chain stack.

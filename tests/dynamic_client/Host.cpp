@@ -162,6 +162,73 @@ static void ownedRequestSnapshot() noexcept
 	CHECK(device.current.value == 91 && device.current.enabled && device.commands == 1);
 }
 
+struct PayloadMoveProbe {
+	std::byte* source;
+	unsigned* moves;
+	unsigned mutateAt;
+	Observed* result;
+
+	PayloadMoveProbe(std::byte* bytes, unsigned& count, unsigned when, Observed& observed) noexcept
+	    : source(bytes), moves(&count), mutateAt(when), result(&observed)
+	{}
+
+	PayloadMoveProbe(const PayloadMoveProbe&) = delete;
+
+	PayloadMoveProbe(PayloadMoveProbe&& other) noexcept
+	    : source(other.source), moves(other.moves), mutateAt(other.mutateAt), result(other.result)
+	{
+		if (++*moves == mutateAt)
+			source[4] = std::byte{2};
+	}
+
+	void operator()(const dy::DynamicResult& completed) noexcept
+	{
+		(*result)(completed);
+	}
+};
+
+static void requestMutationDuringOwnership() noexcept
+{
+	for (const auto operation :
+	     {cl::Operation::FieldWrite, cl::Operation::Command, cl::Operation::Service}) {
+		for (const unsigned mutateAt : {1U, 2U}) {
+			Encoded h;
+			Observed result;
+			auto payload = config(111, true);
+			const auto endpoint = h.bind(operation, 0);
+			CHECK(h.metadata.schema.view(endpoint.requestType(), payload));
+			unsigned moves = 0;
+			const auto submitted = h.client.submit(
+			    endpoint, payload, PayloadMoveProbe{payload.data(), moves, mutateAt, result});
+			CHECK(moves >= mutateAt && payload[4] == std::byte{2});
+			if (mutateAt == 1) {
+				// The wrapper's first ownership move precedes the FIFO copy.
+				CHECK(submitted.status == cl::Status::CodecError);
+				CHECK(h.client.pending() == 0 && !h.client.nextPacket() && result.calls == 0);
+				CHECK(device.writes == 0 && device.commands == 0 && device.services == 0);
+			} else {
+				// Later moves run only after the core has copied the canonical bytes.
+				CHECK(submitted);
+				auto packet = h.offered();
+				const auto parsed = telemetry::protocol::encoded::parse(packet.bytes);
+				CHECK(parsed && parsed.payload.size() == 5 && parsed.payload[4] == std::byte{1});
+				CHECK(h.metadata.schema.view(endpoint.requestType(), parsed.payload));
+				h.send(packet);
+				CHECK(result.calls == 1 && result.status == cl::Status::Ok);
+				if (operation == cl::Operation::Service)
+					CHECK(result.hasValue && result.number == 111 &&
+					      result.snapshot[4] == std::byte{1});
+				else
+					CHECK(device.current.value == 111 && device.current.enabled);
+				CHECK(device.writes + device.commands + device.services == 1);
+			}
+			h.client.close();
+			h.client.process(h.now);
+			CHECK(h.client.drained());
+		}
+	}
+}
+
 static void refusals() noexcept
 {
 	Encoded h;
@@ -637,6 +704,7 @@ int main()
 	validReplacementSameIds();
 	ordinary();
 	ownedRequestSnapshot();
+	requestMutationDuringOwnership();
 	refusals();
 	beforeAndAfterAuthorization();
 	staleReadAndDeadline();
