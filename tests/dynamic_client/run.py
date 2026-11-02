@@ -125,7 +125,7 @@ def main():
                     inputs.add(path)
         report['source_sha256_before'] = snapshot()
         gates = build('Gates', HERE / 'Gates.cpp', native_link=True)
-        count('Gates', run('execute-Gates', [gates]), 101)
+        count('Gates', run('execute-Gates', [gates]), 122)
         normal = build('Host', HERE / 'Host.cpp', native_link=True)
         count('Host', run('execute-Host', [normal]), 594)
         noheap = build('NoHeap', HERE / 'NoHeap.cpp', native_link=True)

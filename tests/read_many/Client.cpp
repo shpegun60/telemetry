@@ -313,6 +313,80 @@ static void refusalAndCompatibility() noexcept
 	CHECK(calls == 1);
 }
 
+static void nullCallbacks() noexcept
+{
+	Harness h;
+	Data::owner.reset();
+	const std::array<std::uint32_t, 2> ids{0, 1};
+	const auto binding = h.bind(ids);
+	void (*callback)(const rm::ReadManyResult&) noexcept = nullptr;
+	CHECK(rm::readMany(h.client, binding, callback).status == cl::Status::InvalidArgument);
+	CHECK(h.client.pending() == 0 && !h.backend.nextPacket() && Data::owner.calls() == 0);
+
+	struct FalseCallable {
+		unsigned* calls;
+
+		explicit operator bool() const noexcept
+		{
+			return false;
+		}
+
+		void operator()(const rm::ReadManyResult& result) noexcept
+		{
+			CHECK(result.operation.succeeded() && result.valueStatus == rm::ValueStatus::Ok);
+			++*calls;
+		}
+	};
+
+	unsigned calls = 0;
+	CHECK(rm::readMany(h.client, binding, FalseCallable{&calls}));
+	h.send(h.offered());
+	CHECK(calls == 1 && h.client.pending() == 0 && Data::owner.calls() == 2);
+	unsigned timeouts = 0;
+	CHECK(rm::readMany(
+	    h.client, binding,
+	    [&](const auto& result) noexcept {
+		    ++timeouts;
+		    CHECK(result.operation.status == cl::Status::Timeout);
+	    },
+	    5));
+	const auto packet = h.offered();
+	CHECK(h.client.prepareHandoff(packet.session, packet.requestId));
+	CHECK(h.client.onSendAccepted(packet.session, packet.requestId));
+	h.now = 5;
+	h.client.process(h.now);
+	CHECK(timeouts == 1 && h.client.recoveryRequired() && h.client.pending() == 0);
+	CHECK(rm::readMany(h.client, binding, callback).status == cl::Status::RecoveryRequired);
+	CHECK(h.client.pending() == 0 && Data::owner.calls() == 2);
+	h.client.invalidate();
+	CHECK(h.client.confirmQuiescence({17, true, true, true}));
+	CHECK(rm::readMany(h.client, binding, callback).status == cl::Status::NotAdmitted);
+	h.client.close();
+	CHECK(rm::readMany(h.client, binding, callback).status == cl::Status::Closed);
+	h.client.process(h.now);
+	CHECK(h.client.drained());
+}
+
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const rm::ReadManyResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.valueStatus == rm::ValueStatus::Ok &&
+	      result.count == 2);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Harness h;
+	const std::array<std::uint32_t, 2> ids{0, 1};
+	const auto binding = h.bind(ids);
+	functionCalls = 0;
+	CHECK(rm::readMany(h.client, binding, functionCompletion));
+	h.send(h.offered());
+	CHECK(functionCalls == 1 && h.client.pending() == 0);
+}
+
 static void lifecycle() noexcept
 {
 	const std::array<std::uint32_t, 2> ids{0, 1};
@@ -827,6 +901,7 @@ static void legacyOwnershipPublication() noexcept
 
 int main()
 {
+	functionReferences();
 #ifdef READ_MANY_CALLBACK_TOO_SMALL
 	Harness probe;
 	dy::DynamicClient<> small{probe.backend, probe.clock};
@@ -840,6 +915,7 @@ int main()
 	valuesAndCopiedBindings();
 	mixedValues();
 	refusalAndCompatibility();
+	nullCallbacks();
 	lifecycle();
 	malformedBodies();
 	rpcAndRetry();

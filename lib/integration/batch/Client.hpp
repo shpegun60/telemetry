@@ -306,7 +306,7 @@ struct BatchAccess {
 			return {client::Status::Unsupported, {}};
 		if (!timeoutMs || timeoutMs > client::maxTimeoutMs || payloads.size() != binding.count_)
 			return {client::Status::InvalidArgument, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (!callback)
 				return {client::Status::InvalidArgument, {}};
 		if (!contractsMatch(owner, binding))

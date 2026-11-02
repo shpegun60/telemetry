@@ -58,7 +58,7 @@ $Ninja = Resolve-BuildTool $Ninja 'ninja' 'C:\Qt\Tools\Ninja\ninja.exe'
 foreach ($tool in @($gcc, $gxx, $CMake, $Ninja)) {
     if (-not (Test-Path -LiteralPath $tool -PathType Leaf)) { throw "Missing tool $tool" }
 }
-New-Item -ItemType Directory -Path $output | Out-Null
+New-Item -ItemType Directory -Path $output -Force | Out-Null
 $receipt = [ordered]@{passed=$false; hardware=$false; flash=$false; readMany=[bool]$ReadMany; startedUtc=[DateTime]::UtcNow.ToString('o');
     sourceRoot=$repo; cobsRoot=$cobs; stm32CubeRoot=$sdk; toolchain=$gcc; commands=@()}
 $oldPath = $env:PATH

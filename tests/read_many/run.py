@@ -160,7 +160,7 @@ def main():
                         binary_sha256=digest(binary), note='Selected roots, not whole firmware delta or peak stack'))
             else:
                 suffix = '.exe' if os.name == 'nt' else ''
-                for name, floor in (('Wire',7058),('Server',324),('Client',1196),('NoHeap',1196),
+                for name, floor in (('Wire',7058),('Server',324),('Client',1222),('NoHeap',1222),
                                     ('Workbench', 300), ('WorkbenchNoHeap', 300)):
                     output = run('execute-'+name, [*execution,build/('read-many-'+name+suffix)])
                     match = re.search(r'(?:checks=|: )(\d+)(?: checks, 0 failures| failures=0)',output)

@@ -5,6 +5,9 @@ namespace bt = telemetry::integration::batch;
 namespace en = telemetry::integration::encoded;
 using Client = telemetry::integration::dynamic::DynamicClient<4, 1024, 1536>;
 
+static void batchCompletion(const bt::BatchResult&) noexcept
+{}
+
 telemetry::client::Submission batchClientProbe(Client& client, en::EncodedBackend& backend,
                                                bt::wire::Capability capability,
                                                std::span<const bt::Endpoint> endpoints,
@@ -14,7 +17,5 @@ telemetry::client::Submission batchClientProbe(Client& client, en::EncodedBacken
 	const auto binding = bt::bindBatch(client, backend, capability, endpoints);
 	if (!binding)
 		return {binding.status, {}};
-	return bt::batch(client, binding.binding, payloads, requestScratch,
-	                 [](const bt::BatchResult&) noexcept {
-	                 });
+	return bt::batch(client, binding.binding, payloads, requestScratch, batchCompletion);
 }

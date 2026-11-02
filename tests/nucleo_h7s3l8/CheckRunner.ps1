@@ -241,6 +241,56 @@ try {
     $results.Add([ordered]@{ mode = 'read-many-mutually-exclusive'; passed = $true; runner_failed = $true; command_count = 0 })
     & $python -B $readManyVerifier --self-test
     if ($LASTEXITCODE -ne 0) { throw 'ReadMany report negative self-tests failed.' }
+    # Exercise the public offline build entry point without invoking an ARM
+    # compiler: the existing mock answers --version, then missing SDK headers
+    # deliberately stop qualification before CMake or any build can run.
+    $buildScript = Join-Path $repo 'examples\nucleo_h7s3l8\Build.ps1'
+    $mockArm = Join-Path $mockDirectory 'STM32CubeIDE-offline\bin'
+    [void][IO.Directory]::CreateDirectory($mockArm)
+    foreach ($name in @('arm-none-eabi-gcc.exe', 'arm-none-eabi-g++.exe')) {
+        Copy-Item -LiteralPath $mockProgrammer -Destination (Join-Path $mockArm $name)
+    }
+    $mockSdk = Join-Path $output 'mock-sdk-without-headers'
+    [void][IO.Directory]::CreateDirectory($mockSdk)
+    foreach ($mode in @('empty', 'nonempty')) {
+        $case = Join-Path $output ('build-output-' + $mode)
+        [void][IO.Directory]::CreateDirectory($case)
+        $sentinel = Join-Path $case 'keep.txt'
+        if ($mode -eq 'nonempty') { [IO.File]::WriteAllText($sentinel, 'preserve this output') }
+        $env:TELEMETRY_MOCK_CALLS = Join-Path $output ('build-' + $mode + '-calls.txt')
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            & (Join-Path $PSHOME 'powershell.exe') -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+                -File $buildScript -OutputDirectory $case -CobsRoot $mockCobs -Stm32CubeRoot $mockSdk `
+                -ArmGccBin $mockArm -CMake $mockProgrammer -Ninja $mockProgrammer 2>&1 |
+                Out-File -LiteralPath (Join-Path $output ('build-' + $mode + '.log')) -Encoding UTF8
+            $buildExit = $LASTEXITCODE
+        } finally { $ErrorActionPreference = $previousPreference }
+        if ($buildExit -eq 0) { throw 'Incomplete mock SDK unexpectedly built firmware.' }
+        if ($mode -eq 'empty') {
+            $buildReceipt = Get-Content -LiteralPath (Join-Path $case 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $calls = [IO.File]::ReadAllLines($env:TELEMETRY_MOCK_CALLS)
+            if ($buildReceipt.passed -or $buildReceipt.hardware -or $buildReceipt.flash -or
+                $buildReceipt.commands.Count -ne 1 -or $buildReceipt.commands[0].name -ne 'gcc-version' -or
+                $buildReceipt.commands[0].exit -ne 0 -or $buildReceipt.commands[0].tool -ne (Join-Path $mockArm 'arm-none-eabi-gcc.exe') -or
+                $calls.Count -ne 1 -or $calls[0] -ne 'arm-none-eabi-gcc.exe --version' -or
+                -not $buildReceipt.error.Contains($mockSdk)) {
+                throw 'Existing empty build output was not accepted before the deliberate SDK stop.'
+            }
+            $commandCount = 1
+        } else {
+            if ((Test-Path -LiteralPath $env:TELEMETRY_MOCK_CALLS) -or
+                (Test-Path -LiteralPath (Join-Path $case 'summary.json')) -or
+                [IO.File]::ReadAllText($sentinel) -ne 'preserve this output' -or
+                @(Get-ChildItem -LiteralPath $case -Force).Count -ne 1) {
+                throw 'Nonempty build output was modified or allowed to invoke a tool.'
+            }
+            $commandCount = 0
+        }
+        $results.Add([ordered]@{ mode = ('build-output-' + $mode); passed = $true;
+            runner_failed = $true; command_count = $commandCount })
+    }
     $passed = $true
 } catch { $failure = $_.ToString(); throw }
 finally {
@@ -253,6 +303,7 @@ finally {
         controls_sha256 = (Get-FileHash -LiteralPath $PSCommandPath).Hash.ToLowerInvariant()
         mock_source_sha256 = (Get-FileHash -LiteralPath $mockSource).Hash.ToLowerInvariant()
         read_many_verifier_sha256 = (Get-FileHash -LiteralPath $readManyVerifier).Hash.ToLowerInvariant()
+        build_script_sha256 = (Get-FileHash -LiteralPath (Join-Path $repo 'examples\nucleo_h7s3l8\Build.ps1')).Hash.ToLowerInvariant()
         mock_executable_sha256 = (Get-FileHash -LiteralPath $mockProgrammer).Hash.ToLowerInvariant()
         framework_compiler = $compiler; framework_compiler_sha256 = (Get-FileHash -LiteralPath $compiler).Hash.ToLowerInvariant()
         valid_elf_sha256 = (Get-FileHash -LiteralPath $elf).Hash.ToLowerInvariant()
@@ -263,4 +314,4 @@ finally {
     $encoded = $summary | ConvertTo-Json -Depth 8
     [IO.File]::WriteAllText((Join-Path $output 'summary.json'), $encoded, (New-Object Text.UTF8Encoding($false)))
 }
-Write-Host "Offline runner controls: $($results.Count)/31 passed; no physical hardware access."
+Write-Host "Offline runner controls: $($results.Count)/33 passed; no physical hardware access."

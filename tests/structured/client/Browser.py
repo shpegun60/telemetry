@@ -104,6 +104,77 @@ def main():
             page.wait_for_function("document.querySelector('#message').textContent.includes('fingerprint')")
             check('fingerprint' in page.locator('#message').inner_text())
 
+            # File I/O can complete after selection changes, including an ABA
+            # switch or reloading identical DescriptorCache bytes. Exercise the
+            # real File event path and codec with native-generated fixtures.
+            page.evaluate('''() => {
+                window.deferredFiles = new Map();
+                window.openDeferredFile = (id, name, bytes) => {
+                    const file = new File([new Uint8Array(bytes)], name);
+                    file.arrayBuffer = () => new Promise((resolve, reject) => {
+                        window.deferredFiles.set(name, {resolve, reject, bytes});
+                    });
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    const input = document.getElementById(id);
+                    input.files = transfer.files;
+                    input.dispatchEvent(new Event('change', {bubbles: true}));
+                };
+                window.finishDeferredFile = async (name, fail = false) => {
+                    const pending = window.deferredFiles.get(name);
+                    window.deferredFiles.delete(name);
+                    if (fail) pending.reject(new Error('stale file failure'));
+                    else pending.resolve(new Uint8Array(pending.bytes).buffer);
+                    await new Promise(requestAnimationFrame);
+                };
+            }''')
+
+            def defer_file(element, name, fixture):
+                page.evaluate('([id, name, bytes]) => window.openDeferredFile(id, name, bytes)',
+                              [element, name, list((out / fixture).read_bytes())])
+
+            def finish_file(name, fail=False):
+                page.evaluate('([name, fail]) => window.finishDeferredFile(name, fail)', [name, fail])
+
+            def reload_descriptor():
+                page.evaluate('window.previousServiceOption = document.querySelector("#service").firstElementChild')
+                page.locator('#descriptor-file').set_input_files([])
+                page.locator('#descriptor-file').set_input_files(str(out / 'descriptor.bin'))
+                page.wait_for_function('document.querySelector("#service").firstElementChild !== window.previousServiceOption')
+
+            defer_file('response-file', 'selection-response.bin', 'response.bin')
+            page.locator('#service').select_option('2')
+            page.locator('#service').select_option('0')
+            finish_file('selection-response.bin')
+            check(page.locator('#response').inner_text() == 'No response yet.')
+            check(page.locator('#message').inner_text() != 'Response decoded.')
+
+            defer_file('response-file', 'descriptor-response.bin', 'response.bin')
+            reload_descriptor()
+            finish_file('descriptor-response.bin')
+            check(page.locator('#response').inner_text() == 'No response yet.')
+            check(page.locator('#message').inner_text() == 'Descriptor validated.')
+
+            defer_file('values-file', 'descriptor-values.bin', 'values.bin')
+            reload_descriptor()
+            finish_file('descriptor-values.bin')
+            check(page.locator('#values').inner_text() == 'No values loaded.')
+
+            defer_file('response-file', 'failed-old-response.bin', 'response.bin')
+            page.locator('#service').select_option('2')
+            page.locator('#service').select_option('0')
+            finish_file('failed-old-response.bin', fail=True)
+            check(page.locator('#message').inner_text() == 'Descriptor validated.')
+            check(page.locator('#response').inner_text() == 'No response yet.')
+
+            page.locator('#response-file').set_input_files(str(out / 'response.bin'))
+            page.wait_for_function("document.querySelector('#message').textContent === 'Response decoded.'")
+            check('263168' in page.locator('#response').inner_text())
+            page.locator('#values-file').set_input_files(str(out / 'values.bin'))
+            page.wait_for_function("document.querySelector('#message').textContent === 'Values decoded.'")
+            check('18446744073709551615' in page.locator('#values').inner_text())
+            check(server.request_count == 8 and server.application_calls == 7)
+
             # A reflected name is literal text, never HTML or an expression.
             oracle = runpy.run_path(str(HERE.parent / 'descriptor/parser.py'))
             descriptor = bytearray((out / 'descriptor.bin').read_bytes())

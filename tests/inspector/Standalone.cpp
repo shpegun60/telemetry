@@ -10,12 +10,14 @@ using Inspector = telemetry::integration::inspector::InspectorModel<2, 64, 64>;
 static_assert(!std::is_copy_constructible_v<Inspector>);
 static_assert(!std::is_move_constructible_v<Inspector>);
 
+static void inspectorCompletion(const telemetry::integration::inspector::ReadResult&) noexcept
+{}
+
 extern "C" bool
 inspector_read(Inspector& inspector,
                const telemetry::integration::dynamic::EndpointBinding& field) noexcept
 {
-	return bool(inspector.readField(field, [](const auto&) noexcept {
-	}));
+	return bool(inspector.readField(field, inspectorCompletion));
 }
 
 extern "C" bool inspector_handoff(Inspector& inspector, std::uint32_t session,

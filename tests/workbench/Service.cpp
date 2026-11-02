@@ -659,8 +659,27 @@ static void ownershipPublication() noexcept
 	}
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const wb::ServiceResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.valueStatus == dy::ValueStatus::NoValue);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	svc::Encoded<> f;
+	(void)svc::select(f, 2);
+	functionCalls = 0;
+	CHECK(f.inspector.callService(functionCompletion));
+	f.pump();
+	CHECK(functionCalls == 1 && svc::device.calls == 1);
+}
+
 int main()
 {
+	functionReferences();
 	exactResponse<svc::Encoded<>>();
 	exactResponse<svc::Rpc>();
 	voidEmptyAndRead<svc::Encoded<>>();

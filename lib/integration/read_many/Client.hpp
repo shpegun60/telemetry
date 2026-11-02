@@ -259,6 +259,9 @@ struct ReadManyAccess {
 			return {client::Status::NotAdmitted, {}};
 		if (!binding.supported_ || !binding.supported_(owner.backend_))
 			return {client::Status::Unsupported, {}};
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
+			if (!callback)
+				return {client::Status::InvalidArgument, {}};
 		if (!contractsMatch(owner, binding))
 			return {client::Status::InvalidArgument, {}};
 		std::array<std::uint32_t, wire::maxItems> ids{};

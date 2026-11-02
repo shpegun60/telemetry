@@ -54,7 +54,9 @@ and the single outstanding call belong to the example, not the codec or
 telemetry core. A timeout can occur after the Device executes: the page
 reports an unknown outcome and does not repeat the operation. Changing
 descriptor/service selection cancels the pending display; an old response
-is never decoded through a newly loaded model.
+is never decoded through a newly loaded model. Delayed file reads also discard
+their success/error completion after selection or descriptor replacement, even
+when the same service or identical descriptor is selected again.
 
 This is a localhost fake, not a firmware HTTP server. Each request starts a
 fresh native helper, so application state does not persist between requests.

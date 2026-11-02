@@ -44,6 +44,13 @@ reply and canonical-value refusal. A valid replacement descriptor preserves
 endpoint ID and wire length while changing the root type, so stale admission
 cannot be accepted using only size or ID checks.
 
+Callable move/destructor regressions also replace the caller's endpoint binding
+and attempt reentrant admission, selection, read/refresh, clearing, processing,
+transport handoff/reply, cancel and quiescence. The short ownership-publication
+scope blocks advancement without blocking invalidation or close. An accepted
+read still publishes its frozen endpoint, and revocation cannot restore an old
+snapshot. Null function-pointer callbacks leave the snapshot and FIFO unchanged.
+
 `Lifetime.cpp` deallocates descriptor and all five metadata arrays after reset
 or explicit invalidation while keeping the workspace control object alive. It
 also checks old completions versus new selections, reentrant refresh/close,

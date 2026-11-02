@@ -319,6 +319,13 @@ QQuickItem* control(QQuickWindow& window, const QString& name)
 
 void click(QQuickWindow& window, QQuickItem& item)
 {
+	QCoreApplication::processEvents();
+	const auto polish = [](auto&& self, QQuickItem* node) -> void {
+		if (node->parentItem())
+			self(self, node->parentItem());
+		node->ensurePolished();
+	};
+	polish(polish, &item);
 	const auto point = item.mapToScene(QPointF{item.width() / 2, item.height() / 2}).toPoint();
 	CHECK(point.x() >= 0 && point.y() >= 0 && point.x() < window.width() &&
 	      point.y() < window.height());

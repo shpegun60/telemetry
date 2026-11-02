@@ -56,7 +56,9 @@ contains(CONFIG, resource_telemetry_encoded):isEmpty(TELEMETRY_ENCODED_SERVER_PR
     include($$PWD/../wire/wire.pri)
     HEADERS += $$PWD/encoded/Dispatcher.hpp
     SOURCES *= $$PWD/encoded/Dispatcher.cpp
-    contains(CONFIG, telemetry_read_many_server) {
-        SOURCES += $$PWD/encoded/ReadManyDispatcher.cpp
-    }
+}
+# Optional server sources also support opt-in after Encoded was already included.
+contains(CONFIG, telemetry_read_many_server) {
+    include($$PWD/../telemetry/telemetry.pri)
+    SOURCES *= $$PWD/encoded/ReadManyDispatcher.cpp
 }

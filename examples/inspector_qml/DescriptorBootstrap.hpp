@@ -113,20 +113,28 @@ public:
 			auto& destination = readingCapability_ ? capability_ : descriptor_;
 			destination.reserve(static_cast<qsizetype>(size_));
 			cursor_ = 0;
+			cursorOnlyReads_ = 0;
 			operation_ = Op::Read;
 		} else if (operation_ == Op::Read) {
 			const auto reply = rc::parseRead(bytes);
-			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok ||
-			    cursor_ > size_ || reply.response.data.empty() ||
-			    reply.response.data.size() > size_ - cursor_ ||
-			    reply.response.next != cursor_ + reply.response.data.size())
-				return false;
-			const auto next = reply.response.next;
-			if (reply.response.eof != (next == size_))
+			if (!reply || reply.shortError || reply.response.status != resource::Status::Ok)
 				return false;
 			auto& destination = readingCapability_ ? capability_ : descriptor_;
-			destination.append(reinterpret_cast<const char*>(reply.response.data.data()),
-			                   static_cast<qsizetype>(reply.response.data.size()));
+			const auto received = static_cast<resource::FileSize>(destination.size());
+			const auto count = reply.response.data.size();
+			const auto next = reply.response.next;
+			// READ cursors are opaque provider state, independent of file size.
+			// Bound storage by accumulated bytes and cursor-only progress by a
+			// separate budget; neither arriving bytes nor cursor changes reset
+			// the transport's absolute discovery deadline.
+			if (received > size_ || count > size_ - received ||
+			    (reply.response.eof && count != size_ - received) ||
+			    (!reply.response.eof && count == 0 &&
+			     (next == cursor_ || ++cursorOnlyReads_ > 4096)))
+				return false;
+			if (count != 0)
+				destination.append(reinterpret_cast<const char*>(reply.response.data.data()),
+				                   static_cast<qsizetype>(count));
 			cursor_ = next;
 			if (reply.response.eof) {
 				if (!readingCapability_ && requireReadMany_) {
@@ -154,7 +162,7 @@ private:
 	std::optional<resource::FileIndex> index_, capabilityIndex_;
 	resource::Cursor cursor_ = 0;
 	resource::FileSize size_ = 0;
-	unsigned pages_ = 0;
+	unsigned pages_ = 0, cursorOnlyReads_ = 0;
 	resource::protocol::Op operation_ = resource::protocol::Op::List;
 	bool complete_ = false, requireReadMany_ = false, readingCapability_ = false;
 };

@@ -421,8 +421,29 @@ static void cancellationPhases() noexcept
 	}
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const wb::ApplyResult& result) noexcept
+{
+	CHECK(result.write.succeeded() && result.refresh.published);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Encoded<> f;
+	const auto root = read(f);
+	CHECK(f.inspector.beginEdit() == rt::Status::Ok);
+	CHECK(f.inspector.setScalar(child(f.inspector, root, 1), std::uint8_t{10}) == rt::Status::Ok);
+	functionCalls = 0;
+	CHECK(f.inspector.apply(functionCompletion));
+	f.pump();
+	CHECK(functionCalls == 1 && owner.writes == 1);
+}
+
 int main()
 {
+	functionReferences();
 	richWrite<Encoded<>>();
 	richWrite<Rpc>();
 	exactFloatPreservation<Encoded<>>();

@@ -495,8 +495,287 @@ static void changedSchemaSameEndpointAndWidth() noexcept
 	readonlyCounters();
 }
 
+static void nullCallbacks() noexcept
+{
+	Encoded fixture;
+	auto& model = fixture.inspector;
+	const auto field = fixture.bind();
+	CHECK(model.readField(field, [](const auto& result) noexcept {
+		CHECK(result.published);
+	}));
+	fixture.pump();
+	const auto old = checkedRoot(model);
+	const auto revision = model.snapshotInfo().revision;
+	void (*callback)(const im::ReadResult&) noexcept = nullptr;
+	CHECK(model.readField(field, callback).status == cl::Status::InvalidArgument);
+	CHECK(model.refresh(callback).status == cl::Status::InvalidArgument);
+	CHECK(model.pending() == 0 && device.reads == 1 && model.info(old));
+	CHECK(model.snapshotInfo().revision == revision && !fixture.backend.nextPacket());
+
+	struct FalseCallable {
+		unsigned* calls;
+
+		explicit operator bool() const noexcept
+		{
+			return false;
+		}
+
+		void operator()(const im::ReadResult& result) noexcept
+		{
+			CHECK(result.published);
+			++*calls;
+		}
+	};
+
+	unsigned calls = 0;
+	CHECK(model.refresh(FalseCallable{&calls}));
+	fixture.pump();
+	CHECK(calls == 1 && device.reads == 2);
+	model.invalidate();
+	CHECK(model.readField(field, callback).status == cl::Status::NotAdmitted);
+	model.close();
+	CHECK(model.readField(field, callback).status == cl::Status::Closed);
+	model.process(fixture.now);
+	CHECK(model.drained());
+}
+
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const im::ReadResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.published);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Encoded fixture;
+	functionCalls = 0;
+	CHECK(fixture.inspector.readField(fixture.bind(), functionCompletion));
+	fixture.pump();
+	CHECK(functionCalls == 1 && device.reads == 1);
+	fixture.inspector.close();
+	fixture.inspector.process(fixture.now);
+	CHECK(fixture.inspector.drained());
+}
+
+static void frozenBindingDuringOwnership() noexcept
+{
+	Encoded fixture;
+	auto field = fixture.bind(0);
+	const auto replacement = fixture.bind(1);
+	bool changed = false;
+	unsigned calls = 0;
+
+	struct ReplaceOnMove {
+		telemetry::integration::dynamic::EndpointBinding* target;
+		const telemetry::integration::dynamic::EndpointBinding* replacement;
+		bool* changed;
+		unsigned* calls;
+
+		ReplaceOnMove(decltype(target) target, decltype(replacement) replacement, bool& changed,
+		              unsigned& calls) noexcept
+		    : target(target), replacement(replacement), changed(&changed), calls(&calls)
+		{}
+
+		ReplaceOnMove(ReplaceOnMove&& other) noexcept
+		    : target(other.target), replacement(other.replacement), changed(other.changed),
+		      calls(other.calls)
+		{
+			if (!*changed) {
+				*changed = true;
+				*target = *replacement;
+			}
+		}
+
+		void operator()(const im::ReadResult& result) noexcept
+		{
+			CHECK(result.published && result.fieldId == 0);
+			++*calls;
+		}
+	};
+
+	CHECK(fixture.inspector.readField(field, ReplaceOnMove{&field, &replacement, changed, calls}));
+	CHECK(changed && field.id() == 1);
+	const auto packet = fixture.offered();
+	CHECK(telemetry::protocol::encoded::parse(packet.bytes).header.endpoint == 0);
+	CHECK(fixture.inspector.snapshotInfo().fieldId == 0);
+	fixture.send(packet);
+	CHECK(calls == 1 && fixture.inspector.root());
+	CHECK(fixture.inspector.snapshotInfo().fieldId == 0 && device.reads == 1);
+	fixture.inspector.close();
+	fixture.inspector.process(fixture.now);
+	CHECK(fixture.inspector.drained());
+}
+
+struct PublicationState {
+	Encoded<>* fixture;
+	telemetry::integration::dynamic::EndpointBinding field;
+	cl::RequestHandle queued;
+	unsigned moves = 0, destructors = 0, calls = 0, nestedCalls = 0;
+	bool moved = false, destroyed = false;
+
+	void exercise() noexcept
+	{
+		auto& model = fixture->inspector;
+		const auto before = model.snapshotInfo();
+		const auto pending = model.pending();
+		CHECK(before.selected && pending >= 1 && pending <= 2 && device.reads == 0);
+		CHECK(model.selectField(field) == cl::Status::Busy);
+		CHECK(model
+		          .readField(field,
+		                     [&](const auto&) noexcept {
+			                     ++nestedCalls;
+		                     })
+		          .status == cl::Status::Busy);
+		CHECK(model
+		          .refresh([&](const auto&) noexcept {
+			          ++nestedCalls;
+		          })
+		          .status == cl::Status::Busy);
+		CHECK(model.admit(fixture->metadata.schema, cl::Input{bytes}.first(64), 18) ==
+		      cl::Status::Busy);
+		model.clearSelection();
+		model.process(fixture->now);
+		CHECK(!model.nextPacket() && !fixture->backend.nextPacket());
+		CHECK(!model.prepareHandoff(17, 1) && !model.onSendAccepted(17, 1));
+		CHECK(!model.onReply({}, 17, 1) && !model.cancel(queued));
+		CHECK(!model.confirmQuiescence({17, true, true, true}));
+		const auto after = model.snapshotInfo();
+		CHECK(after.selected && after.fieldId == before.fieldId &&
+		      after.revision == before.revision);
+		CHECK(model.pending() == pending && device.reads == 0 && nestedCalls == 0);
+	}
+};
+
+struct PublicationCallback {
+	PublicationState* state;
+	unsigned depth = 0;
+	bool movedFrom = false;
+
+	explicit PublicationCallback(PublicationState& value) noexcept : state(&value)
+	{}
+
+	PublicationCallback(PublicationCallback&& other) noexcept
+	    : state(other.state), depth(other.depth + 1)
+	{
+		other.movedFrom = true;
+		++state->moves;
+		if (!state->moved) {
+			state->moved = true;
+			state->exercise();
+		}
+	}
+
+	~PublicationCallback()
+	{
+		// Skip the original caller-owned object, whose destruction is outside
+		// readField(). Moved-from wrapper temporaries retire inside publication.
+		if (movedFrom && depth && !state->destroyed) {
+			state->destroyed = true;
+			++state->destructors;
+			state->exercise();
+		}
+	}
+
+	void operator()(const im::ReadResult& result) noexcept
+	{
+		CHECK(result.published && result.fieldId == 1);
+		++state->calls;
+	}
+};
+
+static void ownershipReentry() noexcept
+{
+	Encoded fixture;
+	unsigned superseded = 0;
+	const auto first =
+	    fixture.inspector.readField(fixture.bind(0), [&](const auto& result) noexcept {
+		    ++superseded;
+		    CHECK(result.operation.succeeded() && !result.published);
+	    });
+	CHECK(first);
+	PublicationState state{&fixture, fixture.bind(1), first.handle};
+	PublicationCallback completion{state};
+	CHECK(fixture.inspector.readField(state.field, std::move(completion)));
+	CHECK(state.moved && state.destroyed && state.moves > 0 && state.destructors == 1);
+	CHECK(fixture.inspector.pending() == 2 && state.nestedCalls == 0 &&
+	      !fixture.backend.nextPacket());
+	fixture.pump();
+	CHECK(superseded == 1 && state.calls == 1 && state.nestedCalls == 0 && device.reads == 2);
+	CHECK(fixture.inspector.snapshotInfo().fieldId == 1 && fixture.inspector.root());
+	fixture.inspector.close();
+	fixture.inspector.process(fixture.now);
+	CHECK(fixture.inspector.drained());
+}
+
+static void ownershipRevocation() noexcept
+{
+	for (bool close : {false, true}) {
+		Encoded fixture;
+		const auto field = fixture.bind();
+		CHECK(fixture.inspector.readField(field, [](const auto& result) noexcept {
+			CHECK(result.published);
+		}));
+		fixture.pump();
+		const auto old = checkedRoot(fixture.inspector);
+		unsigned calls = 0;
+		bool revoked = false;
+
+		struct RevokeOnMove {
+			Encoded<>* fixture;
+			bool close;
+			bool* revoked;
+			unsigned* calls;
+
+			RevokeOnMove(Encoded<>& fixture, bool close, bool& revoked, unsigned& calls) noexcept
+			    : fixture(&fixture), close(close), revoked(&revoked), calls(&calls)
+			{}
+
+			RevokeOnMove(RevokeOnMove&& other) noexcept
+			    : fixture(other.fixture), close(other.close), revoked(other.revoked),
+			      calls(other.calls)
+			{
+				if (!*revoked) {
+					*revoked = true;
+					if (close)
+						fixture->inspector.close();
+					else
+						fixture->inspector.invalidate();
+					CHECK(!fixture->inspector.drained());
+					// Revocation wins over the transient publication Busy gate.
+					CHECK(fixture->inspector
+					          .refresh([](const auto&) noexcept {
+					          })
+					          .status == (close ? cl::Status::Closed : cl::Status::NotAdmitted));
+				}
+			}
+
+			void operator()(const im::ReadResult&) noexcept
+			{
+				++*calls;
+			}
+		};
+
+		const auto submitted =
+		    fixture.inspector.readField(field, RevokeOnMove{fixture, close, revoked, calls});
+		CHECK(submitted.status == (close ? cl::Status::Closed : cl::Status::NotAdmitted));
+		CHECK(revoked && calls == 0 && fixture.inspector.pending() == 0 && device.reads == 1);
+		CHECK(!fixture.inspector.info(old) && !fixture.inspector.root() &&
+		      !fixture.inspector.nextPacket());
+		fixture.inspector.close();
+		fixture.inspector.process(fixture.now);
+		CHECK(fixture.inspector.drained());
+	}
+}
+
 int main()
 {
+	functionReferences();
+	nullCallbacks();
+	frozenBindingDuringOwnership();
+	ownershipReentry();
+	ownershipRevocation();
 	metadataAndEncoded();
 	zeroAndCapacity();
 	rpcReads();
