@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "tested_commit": "810183404032a72ab9b0a7eadec753aa7e887241",
+  "files": {
+    "qualification.json": "a9d71907ce3aa77dcf76198d09e4d59a660d8d4e01dfde17682ffbf13964b657",
+    "README.md": "fdd427c931fd596f637d089f16fb651f9362ef541f43994b3c5be1cba4bf6668",
+    "report.json": "848455f4d023045ed4920234ed56df9182c48355ab0f8e2838cf6fa5e0f0bbbe",
+    "sources.json": "90e5547b7b57ad0e2802e46cef64aaaaae172f0db80b8a1c43571ed0b85f9d50",
+    "verification.json": "f80d0c072d367bc0e2264521bef031db470aba2e0b3f7e3a0199a3ce5f6812d1"
+  }
+}

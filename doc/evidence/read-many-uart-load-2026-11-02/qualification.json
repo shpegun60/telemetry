@@ -1,0 +1,194 @@
+{
+  "schema": 1,
+  "tested_commit": "810183404032a72ab9b0a7eadec753aa7e887241",
+  "firmware_compile_scope_unchanged_from": "492ef45afeccfcf37d3a6425fc29a647ad51964d",
+  "board": {
+    "serial": "002A001F3033510135393935",
+    "board": "NUCLEO-H7S3L8",
+    "device_id": "0x485",
+    "flash_bytes": 65536,
+    "port": "COM6"
+  },
+  "baud": 115200,
+  "qualification_passed": true,
+  "original_flash_bytes": 65536,
+  "original_flash_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+  "restored_flash_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+  "backup_and_readback_byte_equal": true,
+  "runner_receipt_sha256": "41dca4ce824df7c5d4c2f3a8a5c403d2bd5cc1c845310d1fa03ae1bb67d4fbdf",
+  "private_report_sha256": "2003ffd8befa867e56e65150aa041b6b16b0d8e6bdf9be3d7ee7e886420a9e7a",
+  "elf_sha256": "8be14013c1cfc9056bc65670f4b6e8bec84cdd8fbde26714040c0bad9119c045",
+  "build_bin_sha256": "87ac134151af1c31aaea0e46c15599898217615948367efef40fdf91f658ebc5",
+  "programmed_bin_sha256": "52f70f021d85cddedc77e3c1b60a9aa9122fb3bdb3542fde86fb886a3bcfc04e",
+  "binary_conversion": {
+    "binary_bytes": 29480,
+    "build_bin_sha256": "87ac134151af1c31aaea0e46c15599898217615948367efef40fdf91f658ebc5",
+    "programmed_bin_sha256": "52f70f021d85cddedc77e3c1b60a9aa9122fb3bdb3542fde86fb886a3bcfc04e",
+    "difference_bytes": 4,
+    "difference_ranges": [
+      {
+        "offset": 23860,
+        "physical": "0x8005d34",
+        "bytes": 4,
+        "default": "00",
+        "gapff": "ff"
+      }
+    ],
+    "all_allocated_filebacked_section_bytes_identical": true,
+    "differences_only_unallocated_gaps": true,
+    "sections": [
+      {
+        "name": ".isr_vector",
+        "physical": "0x08000000",
+        "binary_offset": 0,
+        "bytes": 688,
+        "sha256": "8a62c56539e6cd4cc6174caf64d2dba3b416bae243213d41373ebe9a45c706ea"
+      },
+      {
+        "name": ".text",
+        "physical": "0x080002b0",
+        "binary_offset": 688,
+        "bytes": 23172,
+        "sha256": "4df7372cdf8e57488ce02b499ad50385b88e6f6a5c70ac7d578c65c22bdb9f58"
+      },
+      {
+        "name": ".rodata",
+        "physical": "0x08005d38",
+        "binary_offset": 23864,
+        "bytes": 5528,
+        "sha256": "7c1ce64bbb3afaf07fb866a1ad5d0fbf1ab27ea50568b647c2e021a1414be426"
+      },
+      {
+        "name": ".ARM.exidx",
+        "physical": "0x080072d0",
+        "binary_offset": 29392,
+        "bytes": 8,
+        "sha256": "2d2faba3811a917754be39927b738b9480f5ecb65bdd0ff76d756cf3d0bef2ab"
+      },
+      {
+        "name": ".init_array",
+        "physical": "0x080072d8",
+        "binary_offset": 29400,
+        "bytes": 4,
+        "sha256": "81ae9a10d5af2d23de46e086b80762932a9591d3ad5ea9faa4bb292dc095c5c9"
+      },
+      {
+        "name": ".fini_array",
+        "physical": "0x080072dc",
+        "binary_offset": 29404,
+        "bytes": 4,
+        "sha256": "f14de08df455b0c12296d105ab3364279aaf29ce90185f7fa5566897cb9d9fbc"
+      },
+      {
+        "name": ".data",
+        "physical": "0x080072e0",
+        "binary_offset": 29408,
+        "bytes": 72,
+        "sha256": "481743cd08e5bac75acb610859af2153e3ac81ef5561d277339225b0c00237d3"
+      }
+    ],
+    "objcopy_sha256": "08bc4ccb5bf92fecf395e11d6f046d4582cf80c0f0e1e33428f6609eb4b1a6dd",
+    "offline_rederivation_receipt_sha256": "6dac68918ce4c87afcc9ad07efe51cd7e68efe17e9e5c4c1d118dfff7f4cf7b0",
+    "default_matches_build": true,
+    "gapff_matches_programmed": true
+  },
+  "cli_sha256": "4c4fda3b5a0ed75ef442fcff2c78d09f909990189dd4a8fdb4e5ee41ee24fe54",
+  "firmware_build_receipt_sha256": "439b61a10c70234f63a6d1c4aeacfc5af5bb1585705a25508bef67d130b45d37",
+  "cli_checks_receipt_sha256": "f152e61322751fc006a2868b804e9c136b077a435253544e69c6b285e1a6bf28",
+  "source_inventories_unchanged": true,
+  "source_git_identity_entries": 262,
+  "tools": [
+    {
+      "name": "git.exe",
+      "sha256": "3cbd024d9d11ef08bd6a0cb5a973613c50825b4952bc6006f3f4222f436091e5"
+    },
+    {
+      "name": "arm-none-eabi-g++.exe",
+      "sha256": "ae046a80ebc6e5f46a8d049b5e4ec6b3980bbc6ef05633dd176cae77e08bb01c"
+    },
+    {
+      "name": "arm-none-eabi-objcopy.exe",
+      "sha256": "08bc4ccb5bf92fecf395e11d6f046d4582cf80c0f0e1e33428f6609eb4b1a6dd"
+    },
+    {
+      "name": "arm-none-eabi-readelf.exe",
+      "sha256": "d1666499ce1f6278d26ae1f4d5937a0f756c068eb38af39d13f6e7d87ab6c7a5"
+    },
+    {
+      "name": "STM32_Programmer_CLI.exe",
+      "sha256": "22434a8b78fb23a3f1034bed2d253310b1265681c40a6fd3e017cae83809c16e"
+    },
+    {
+      "name": "python.exe",
+      "sha256": "d6ce22aed0f646654db30776e48cf31c25dce03b1ae82b1f61de08eba2e14d55"
+    }
+  ],
+  "limitations": [
+    "Mostly constant scalar fixture; reordered IDs and changing reply layouts do not prove arbitrary payload-line freshness.",
+    "UART/DMA SWD counters, CPU utilization and runtime stack watermark were not collected.",
+    "Latency is application submit-to-completion; byte totals are payloads, not physical COBS/TEQ traffic.",
+    "Transcript digest format is retained; independent verifier does not replay full per-exchange history.",
+    "Controlled host timeout/reconnect is not a cable-unplug or reset-mid-DMA test.",
+    "Flash bytes restored, not prior volatile execution state."
+  ],
+  "private_evidence": "Flash backup/readback, binary artifacts, original build/run receipts and command logs remain outside Git.",
+  "prior_failed_attempt": {
+    "runner_qualification_passed": false,
+    "cli_exit_code": 0,
+    "report_passed": true,
+    "cause": "Independent verifier could not start: .NET Process.Start denied the WindowsApps Python executable.",
+    "runner_receipt_sha256": "89f6d24ace2c136b8a891db48ecda9d61f2a9a07c6cde0ed57dd88e31276b9e1",
+    "report_sha256": "2e55b7160f1edcf413fe6aa3fc6107ef1f7b970fb5898123ecb28b7aa1110cce",
+    "load_requested_seconds": 1800,
+    "load_elapsed_ms": 1800000,
+    "load_completed": 39004,
+    "latencyUs": {
+      "min": 24588,
+      "max": 142181,
+      "sum": 1798469295
+    },
+    "byCount": [
+      {
+        "count": 8,
+        "completed": 9751,
+        "latencyUs": {
+          "min": 24588,
+          "max": 99965,
+          "sum": 334659401
+        }
+      },
+      {
+        "count": 12,
+        "completed": 9751,
+        "latencyUs": {
+          "min": 30945,
+          "max": 112492,
+          "sum": 381782164
+        }
+      },
+      {
+        "count": 16,
+        "completed": 9751,
+        "latencyUs": {
+          "min": 35276,
+          "max": 110013,
+          "sum": 437421756
+        }
+      },
+      {
+        "count": 32,
+        "completed": 9751,
+        "latencyUs": {
+          "min": 58069,
+          "max": 142181,
+          "sum": 644605974
+        }
+      }
+    ],
+    "flash_restored_and_verified": true,
+    "original_flash_bytes": 65536,
+    "original_flash_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+    "restored_flash_sha256": "a5903024dba85fab5121150ca8ad13482f97384aa450aab67413881991fb9456",
+    "qualification_relabelled": false
+  }
+}

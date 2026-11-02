@@ -113,6 +113,12 @@ stops before backup or programming. Windows app aliases may work in a shell whil
 their resolved executable cannot be launched directly. Select a working native
 Python executable with `-Python` in that case; explicit failures never fall back
 silently to another interpreter.
+
+The [physical 30-minute qualification](../../doc/evidence/read-many-uart-load-2026-11-02/README.md)
+retains the successful report, source/artifact identities and complete Flash
+restoration evidence. It also preserves the earlier interpreter-launch failure
+as a failed attempt rather than relabelling it as successful.
+
 `-CobsRoot` is mandatory for ReadMany: the receipt binds the external COBS
 `src` and `libs/spsc` source hashes to the read-only `rev-parse HEAD` identity,
 checked again after restoration. The offline suite substitutes a file-only
