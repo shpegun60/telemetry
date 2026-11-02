@@ -14,6 +14,11 @@ internal static class MockHardware
         string calls = Environment.GetEnvironmentVariable("TELEMETRY_MOCK_CALLS");
         string executable = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
         File.AppendAllText(calls, executable + " " + String.Join(" ", arguments) + "\n");
+        if (executable == "MockPythonFail.exe")
+        {
+            Console.Error.WriteLine("OFFLINE mock interpreter failed verifier preflight.");
+            return 7;
+        }
         if (executable == "MockGit.exe")
         {
             if (arguments.Length == 4 && arguments[0] == "-C" && arguments[2] == "rev-parse" && arguments[3] == "HEAD")

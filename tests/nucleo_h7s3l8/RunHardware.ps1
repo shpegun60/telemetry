@@ -387,6 +387,13 @@ $frozenCli = Join-Path $output 'tested-read-many.exe'
 $backupReady = $false
 $connection = @('-c', 'port=SWD', "sn=$StLinkSerial", 'mode=UR', 'reset=HWrst', 'freq=4000')
 try {
+    if ($readManyMode) {
+        # Exercise the exact native launcher and verifier dependencies before any
+        # target or tool command, including in ValidateOnly. A usable PowerShell
+        # app alias does not prove that Process.Start can launch its frozen path.
+        $script:receipt.tools[$Python] = Get-Digest $Python
+        [void](Invoke-Recorded 'python-verifier-preflight' $Python @('-B', $readManyVerifier, '--self-test'))
+    }
     $script:receipt.inputs.elf = [ordered]@{ path = $Elf; sha256 = Get-Digest $Elf }
     if ($readManyMode) {
         $script:receipt.inputs.read_many = [ordered]@{ path = $ReadManyExe; sha256 = Get-Digest $ReadManyExe }

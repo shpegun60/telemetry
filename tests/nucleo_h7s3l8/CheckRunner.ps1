@@ -24,9 +24,11 @@ $mockProgrammer = Join-Path $mockDirectory 'MockProgrammer.exe'
 $compiled = & $compiler /nologo /target:exe ("/out:" + $mockProgrammer) $mockSource 2>&1
 $compiled | Set-Content -LiteralPath (Join-Path $output 'mock-compile.txt') -Encoding UTF8
 if ($LASTEXITCODE -ne 0) { throw 'Offline mock compilation failed.' }
-foreach ($name in @('MockGui.exe', 'MockReadMany.exe', 'MockGit.exe', 'arm-none-eabi-g++.exe', 'arm-none-eabi-readelf.exe', 'arm-none-eabi-objcopy.exe')) {
+foreach ($name in @('MockGui.exe', 'MockReadMany.exe', 'MockGit.exe', 'MockPythonFail.exe', 'arm-none-eabi-g++.exe', 'arm-none-eabi-readelf.exe', 'arm-none-eabi-objcopy.exe')) {
     Copy-Item -LiteralPath $mockProgrammer -Destination (Join-Path $mockDirectory $name)
 }
+$unlaunchablePython = Join-Path $mockDirectory 'UnlaunchablePython.exe'
+[IO.File]::WriteAllText($unlaunchablePython, 'OFFLINE non-executable interpreter fixture.')
 # Function precedence shadows the real Windows PnP cmdlets in RunHardware's scope.
 # Even their inventory path therefore does not enumerate a physical device.
 function Get-PnpDevice {
@@ -84,9 +86,58 @@ $oldEnvironment = @{}
 foreach ($name in $environmentNames) { $oldEnvironment[$name] = [Environment]::GetEnvironmentVariable($name) }
 $pnpCallsPath = Join-Path $output 'mock-pnp-calls.txt'
 $env:TELEMETRY_MOCK_PNP_CALLS = $pnpCallsPath
+[IO.File]::WriteAllText($pnpCallsPath, '')
 $passed = $false
 $failure = $null
 try {
+    # Fail at the actual verifier launcher before any target, programmer, ARM,
+    # Git or PnP operation. An explicit failed interpreter must never fall back.
+    foreach ($pythonMode in @('python-exit', 'python-unlaunchable')) {
+        foreach ($validate in @($false, $true)) {
+            $mode = $pythonMode + $(if ($validate) { '-validate' } else { '-hardware' })
+            $case = Join-Path $output $mode
+            [void][IO.Directory]::CreateDirectory($case)
+            $env:TELEMETRY_MOCK_MODE = 'pass'
+            $env:TELEMETRY_MOCK_FLASH = Join-Path $case 'FAKE-flash.bin'
+            $env:TELEMETRY_MOCK_CALLS = Join-Path $case 'FAKE-calls.txt'
+            [IO.File]::WriteAllBytes($env:TELEMETRY_MOCK_FLASH, (New-Object byte[] 65536))
+            $before = (Get-FileHash -LiteralPath $env:TELEMETRY_MOCK_FLASH).Hash
+            $pnpBefore = if (Test-Path -LiteralPath $pnpCallsPath) { [IO.File]::ReadAllText($pnpCallsPath) } else { '' }
+            $candidate = if ($pythonMode -eq 'python-exit') {
+                Join-Path $mockDirectory 'MockPythonFail.exe'
+            } else { $unlaunchablePython }
+            $failed = $false
+            $caseReceipt = Join-Path $case 'receipt'
+            try {
+                & $runner -Elf $elf -ReadManyExe (Join-Path $mockDirectory 'MockReadMany.exe') -Python $candidate `
+                    -CobsRoot $mockCobs -Git (Join-Path $mockDirectory 'MockGit.exe') -Programmer $mockProgrammer `
+                    -ArmTools $mockDirectory -ExternalOutput $caseReceipt -ValidateOnly:$validate
+            } catch { $failed = $true; Write-Host "Control $mode`: $($_.Exception.Message)" }
+            $receipt = Get-Content -LiteralPath (Join-Path $caseReceipt 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $pnpAfter = if (Test-Path -LiteralPath $pnpCallsPath) { [IO.File]::ReadAllText($pnpCallsPath) } else { '' }
+            $calls = @()
+            if (Test-Path -LiteralPath $env:TELEMETRY_MOCK_CALLS) {
+                $calls = @([IO.File]::ReadAllLines($env:TELEMETRY_MOCK_CALLS))
+            }
+            $preflight = @($receipt.commands | Where-Object { $_.tag -eq 'python-verifier-preflight' })
+            if (-not $failed -or $receipt.qualification_passed -or $receipt.test_passed -or
+                $receipt.flash_attempted -or $receipt.restoration_required -or $null -ne $receipt.backup -or
+                $null -ne $receipt.target -or $receipt.commands.Count -ne 1 -or $preflight.Count -ne 1 -or
+                $preflight[0].executable -ne $candidate -or $preflight[0].arguments[2] -ne '--self-test' -or
+                $pnpBefore -cne $pnpAfter -or (Get-FileHash -LiteralPath $env:TELEMETRY_MOCK_FLASH).Hash -ne $before -or
+                (Test-Path -LiteralPath (Join-Path $caseReceipt 'original-08000000-08010000.bin'))) {
+                throw "Interpreter preflight touched a target or failed to reject the explicit interpreter: $mode"
+            }
+            if ($pythonMode -eq 'python-exit') {
+                if ($preflight[0].exit_code -ne 7 -or $calls.Count -ne 1 -or
+                    -not $calls[0].StartsWith('MockPythonFail.exe -B ')) { throw 'Interpreter exit failure was not exercised.' }
+            } elseif ($null -ne $preflight[0].pid -or $null -ne $preflight[0].exit_code -or $calls.Count -ne 0) {
+                throw 'The non-executable interpreter fixture unexpectedly launched a process.'
+            }
+            $results.Add([ordered]@{ mode = $mode; passed = $true; runner_failed = $true;
+                target_commands = 0; pnp_calls_added = 0; simulated_flash_unchanged = $true })
+        }
+    }
     # Invoke the exact current process function in a fresh runspace. Fault only
     # its receipt dependency on call2, immediately after the owned process starts.
     $tokens = $null; $parseErrors = $null
@@ -274,6 +325,27 @@ $fault = [IO.File]::ReadAllText((Join-Path $UnitOutput 'owned-wait.stderr.txt'))
         }
         $results.Add([ordered]@{ mode = $mode; passed = $true; runner_failed = $true; command_count = 0 })
     }
+    # A successful ValidateOnly ReadMany preflight uses real Python but no device.
+    $case = Join-Path $output 'python-valid-validate'
+    [void][IO.Directory]::CreateDirectory($case)
+    $env:TELEMETRY_MOCK_MODE = 'pass'
+    $env:TELEMETRY_MOCK_FLASH = Join-Path $case 'FAKE-flash.bin'
+    $env:TELEMETRY_MOCK_CALLS = Join-Path $case 'FAKE-calls.txt'
+    $pnpBefore = [IO.File]::ReadAllText($pnpCallsPath)
+    $caseReceipt = Join-Path $case 'receipt'
+    & $runner -Elf $elf -ReadManyExe (Join-Path $mockDirectory 'MockReadMany.exe') -Python $python `
+        -CobsRoot $mockCobs -Git (Join-Path $mockDirectory 'MockGit.exe') -Programmer $mockProgrammer `
+        -ArmTools $mockDirectory -ExternalOutput $caseReceipt -ValidateOnly
+    $receipt = Get-Content -LiteralPath (Join-Path $caseReceipt 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $calls = [IO.File]::ReadAllLines($env:TELEMETRY_MOCK_CALLS)
+    if ($receipt.commands[0].tag -ne 'python-verifier-preflight' -or $receipt.commands[0].exit_code -ne 0 -or
+        $receipt.stage -ne 'validated_without_hardware_access' -or $receipt.flash_attempted -or
+        $receipt.restoration_required -or $null -ne $receipt.target -or $receipt.error -or
+        $pnpBefore -cne [IO.File]::ReadAllText($pnpCallsPath) -or ($calls -cmatch ' -c | -l | -w | -u ')) {
+        throw 'Successful interpreter validation performed target operations or omitted the native preflight.'
+    }
+    $results.Add([ordered]@{ mode = 'python-valid-validate'; passed = $true; runner_failed = $false;
+        target_commands = 0; pnp_calls_added = 0 })
     # The existing twelve Inspector/ELF controls remain above. These controls
     # explicitly select the separate ReadMany parameter set and frozen mock CLI.
     foreach ($mode in @('readmany-pass', 'readmany-missing', 'readmany-badjson', 'readmany-failed',
@@ -343,7 +415,7 @@ $fault = [IO.File]::ReadAllText((Join-Path $UnitOutput 'owned-wait.stderr.txt'))
         if ($mode -eq 'flashfail') { $okay = $okay -and -not ($calls -match 'tested-read-many.exe') }
         if (-not $okay) { throw "Offline ReadMany mock control failed: $mode" }
         foreach ($command in $receipt.commands) {
-            if ($command.tag -eq 'verify-read-many-report') {
+            if ($command.tag -in @('python-verifier-preflight', 'verify-read-many-report')) {
                 if ($command.executable -ne $python -or $command.arguments[1] -ne $readManyVerifier) {
                     throw 'A control invoked an unexpected report verifier.'
                 }
@@ -480,4 +552,4 @@ finally {
     $encoded = $summary | ConvertTo-Json -Depth 8
     [IO.File]::WriteAllText((Join-Path $output 'summary.json'), $encoded, (New-Object Text.UTF8Encoding($false)))
 }
-Write-Host "Offline runner controls: $($results.Count)/41 passed; no physical hardware access."
+Write-Host "Offline runner controls: $($results.Count)/46 passed; no physical hardware access."

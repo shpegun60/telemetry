@@ -50,6 +50,9 @@ and reject a nonempty directory without changing its sentinel or invoking a tool
 The accepted case runs only the mock compiler's version command, then stops at
 deliberately missing SDK headers before CMake. These baseline runner controls
 also execute the report verifier's in-memory positive and negative controls.
+Five interpreter controls additionally verify native-launch failure and a nonzero
+verifier exit before any target operation, both with and without `-ValidateOnly`,
+and successful ReadMany validation without a device. The full suite has 46 controls.
 
 ```sh
 python -B tests/nucleo_h7s3l8/VerifyReadManyEvidence.py --self-test
@@ -103,6 +106,13 @@ transport/bootstrap, firmware profile and library sources, and are compared agai
 after restoration. The input ELF/tool checks and `-ValidateOnly` also work with
 this parameter set. `-ReadManyTimeoutSeconds` bounds the owned CLI process;
 `-Python` can explicitly select the independent report verifier's interpreter.
+Before any programmer/tool command or target access, ReadMany runs that exact
+interpreter through its native process launcher with the verifier's `--self-test`.
+This also runs in `-ValidateOnly`; an unlaunchable interpreter or failed self-test
+stops before backup or programming. Windows app aliases may work in a shell while
+their resolved executable cannot be launched directly. Select a working native
+Python executable with `-Python` in that case; explicit failures never fall back
+silently to another interpreter.
 `-CobsRoot` is mandatory for ReadMany: the receipt binds the external COBS
 `src` and `libs/spsc` source hashes to the read-only `rev-parse HEAD` identity,
 checked again after restoration. The offline suite substitutes a file-only
