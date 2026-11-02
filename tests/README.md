@@ -32,6 +32,10 @@ handwritten Codec policies over that same core FIFO, exact scalar/item outcomes,
 controlled lifecycle and malformed replies, noheap, isolated installed consumers
 and offline Cortex-M7 roots without RuntimeSchema or UI dependencies.
 
+The [typed Static Batch suite](batch_static/README.md) checks typed ordered
+operations, explicit storage and callable lifetime, whole-reply publication,
+noheap and installed consumers without RuntimeSchema or UI dependencies.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public

@@ -47,6 +47,9 @@ def main():
         'legacy': (['CONFIG += resource_telemetry_encoded', integration], base),
         'server': (['CONFIG += telemetry_batch_server', integration], batch),
         'client': (['CONFIG += telemetry_batch_client telemetry_encoded_backend', integration], []),
+        'static-client': (['CONFIG += telemetry_batch_static_client telemetry_encoded_backend', integration], []),
+        'static-client-repeated': (['CONFIG += telemetry_batch_static_client', integration, integration,
+                                     include('lib/integration/batch/static_client.pri')], []),
         'late': ([core, *late], batch),
         'repeated': ([*late, core, integration, standalone, standalone], batch),
         'standalone': ([standalone], batch),
@@ -65,7 +68,8 @@ def main():
             project.write_text('\n'.join(['TEMPLATE = app', 'TARGET = batch_inventory',
                 'CONFIG += console c++20', 'CONFIG -= qt debug_and_release app_bundle',
                 'SOURCES += "$$PWD/main.cpp"', *selection,
-                'write_file("$$OUT_PWD/sources.txt", SOURCES)', '']), encoding='utf-8')
+                'write_file("$$OUT_PWD/sources.txt", SOURCES)',
+                'write_file("$$OUT_PWD/headers.txt", HEADERS)', '']), encoding='utf-8')
             result = subprocess.run([str(tool), '-o', str(case/'Makefile'), str(project)],
                 cwd=case, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60)
             (case/'qmake.log').write_bytes(result.stdout)
@@ -76,6 +80,13 @@ def main():
             expected = [main_cpp, *[ROOT/path for path in sources]]
             if Counter(actual) != Counter(expected) or not all(path.is_file() for path in actual):
                 raise RuntimeError(name+': incorrect or repeated sources: '+repr(actual))
+            if name.startswith('static-client'):
+                headers = [Path(line).resolve() for line in (case/'headers.txt').read_text().splitlines() if line]
+                if headers.count(ROOT/'lib/integration/batch/StaticClient.hpp') != 1:
+                    raise RuntimeError(name+': missing or repeated static batch header')
+                if any('/telemetry/runtime/' in path.as_posix() or '/integration/dynamic/' in path.as_posix()
+                       for path in headers):
+                    raise RuntimeError(name+': static client imported runtime metadata')
             report['cases'][name] = dict(sources=[str(path) for path in actual],
                                         inventory_sha256=digest(inventory))
         report['source_sha256_before'] = before
@@ -88,7 +99,7 @@ def main():
         raise
     finally:
         (out/'summary.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
-    print('Mixed Batch qmake: 7 source inventories passed; not compiled')
+    print(f'Mixed Batch qmake: {len(cases)} source inventories passed; not compiled')
 
 
 if __name__ == '__main__':

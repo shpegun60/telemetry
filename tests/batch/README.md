@@ -39,7 +39,8 @@ Flash deltas, total peak stack or physical MCU results.
 installed files, source inputs and generated artifacts. A successful run checks
 that neither the installed SDK nor source inputs changed during execution.
 
-The qmake runner separately checks seven source inventories, including late
+The qmake runner separately checks nine source inventories, including static
+client selection/repeated includes and late
 opt-in, repeated includes, standalone server inclusion and combined ReadMany /
 Mixed Batch selection. It does not compile those qmake configurations. The
 independent module runner in `tests/modules` also checks that `batch_client`

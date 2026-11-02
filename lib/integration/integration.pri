@@ -5,6 +5,9 @@ contains(CONFIG, telemetry_batch_server) {
 contains(CONFIG, telemetry_batch_client) {
     include($$PWD/batch/batch.pri)
 }
+contains(CONFIG, telemetry_batch_static_client) {
+    include($$PWD/batch/static_client.pri)
+}
 contains(CONFIG, telemetry_read_many_server) {
     CONFIG += resource_telemetry_encoded
 }

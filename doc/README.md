@@ -18,6 +18,7 @@
 [Read comparison before ReadMany](ReadComparison.md) ·
 [ReadMany design](ReadMany.md) · [Production C++ Encoded ReadMany](ReadManyEncoded.md) ·
 [Typed C++ ReadMany](StaticReadMany.md) ·
+[Typed C++ Mixed Batch](StaticBatch.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·
 [Mixed Batch host example](../examples/batch/README.md) ·
