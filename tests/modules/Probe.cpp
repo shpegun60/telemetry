@@ -107,6 +107,16 @@ int main()
 {
 	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_READ_MANY_STATIC_CLIENT)
+#include <integration/read_many/StaticClient.hpp>
+#include <type_traits>
+using StaticBinding = telemetry::integration::read_many::StaticReadManyBinding<std::uint32_t>;
+static_assert(std::is_copy_constructible_v<StaticBinding>);
+
+int main()
+{
+	return StaticBinding{} ? 1 : 0;
+}
 #elif defined(MODULE_READ_MANY_CLIENT)
 #include <integration/read_many/Client.hpp>
 #include <type_traits>

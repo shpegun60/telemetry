@@ -101,6 +101,29 @@ public:
 		return backend_.recoveryRequired();
 	}
 
+	// Owner-only observations for optional operation adapters. These never
+	// advance a backend, reserve queue space or invoke a completion callback.
+	[[nodiscard]] Status submissionStatus() const noexcept
+	{
+		if (queue_.closing())
+			return Status::Closed;
+		if (backend_.recoveryRequired())
+			return Status::RecoveryRequired;
+		if (!queue_.admitted() || !admission_.current())
+			return Status::NotAdmitted;
+		return Status::Ok;
+	}
+
+	[[nodiscard]] bool usesBackend(const Backend& backend) const noexcept
+	{
+		return &backend_ == &backend;
+	}
+
+	[[nodiscard]] std::uint32_t session() const noexcept
+	{
+		return backend_.session();
+	}
+
 	[[nodiscard]] bool cancel(RequestHandle handle) noexcept
 	{
 		return queue_.cancel(handle);
