@@ -1,10 +1,10 @@
 {
   "baseline": "e5226b3fdc8bbc9cb08cd25a5c0ea67d189c503b",
-  "source_commit": "68f1379621e3a2d1212626a5ecb846ed78d49f11",
+  "source_commit": "c7c384f9e02c0820906dd6b24330e35e0da3641b",
   "note": "Manual review attestation reconciled from four reviewers; hashes and range validation identify inputs, not a proof of correctness.",
   "files": 221,
   "baseline_lines": 47537,
-  "reviewed_current_lines": 47637,
+  "reviewed_current_lines": 47641,
   "gaps": [],
   "generated_pfr_display": {
     "path": "lib/boost_pfr/include/boost/pfr/detail/core17_generated.hpp",
@@ -1583,13 +1583,13 @@
     {
       "path": "lib/delegate/README.md",
       "baseline_lines": 44,
-      "lines": 56,
-      "sha256_lf": "cdd1f486d72b61754d0c63bdf9afac24e212c35a36f5baa589757cc5d2045026",
-      "windows_checkout_sha256": "76ff7fe27bcce3c4de221c7df33490154fa95974c664b1629489ac9f83de688d",
+      "lines": 58,
+      "sha256_lf": "12652e5bceb58bd69ab4d6c1cd91d26d88aaf5166339423693ca7955862a8e68",
+      "windows_checkout_sha256": "5a338ef616f7359e4b12f4e72aca52ea5c8779c3acaaa7ded732d9b39b87de50",
       "manually_read_inclusive_ranges": [
         [
           1,
-          56
+          58
         ]
       ],
       "reviewers": [
@@ -1621,29 +1621,33 @@
     {
       "path": "lib/delegate/tiny_delegate.hpp",
       "baseline_lines": 1537,
-      "lines": 1587,
-      "sha256_lf": "353376f7eab5b0c3df79cbe4d585ebf27b91ed2f8e652ac6da3975b098f8a3e3",
-      "windows_checkout_sha256": "353376f7eab5b0c3df79cbe4d585ebf27b91ed2f8e652ac6da3975b098f8a3e3",
+      "lines": 1589,
+      "sha256_lf": "69ea681b7934303d222f3160a660d7048e6667abc1e4862ad04e8c6607607d05",
+      "windows_checkout_sha256": "69ea681b7934303d222f3160a660d7048e6667abc1e4862ad04e8c6607607d05",
       "manually_read_inclusive_ranges": [
         [
           1,
-          300
+          260
         ],
         [
-          301,
-          600
+          261,
+          530
         ],
         [
-          601,
-          900
+          531,
+          810
         ],
         [
-          901,
-          1200
+          811,
+          1080
         ],
         [
-          1201,
-          1587
+          1081,
+          1350
+        ],
+        [
+          1351,
+          1589
         ]
       ],
       "reviewers": [
