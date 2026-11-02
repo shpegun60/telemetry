@@ -20,6 +20,43 @@ static unsigned checks = 0, failures = 0;
 	} while (false)
 using Client = cl::DeviceClient<af::Codec, 4, 16>;
 
+static unsigned functionCalls = 0;
+
+static void typedFunction(const cl::Result<std::uint32_t>& result) noexcept
+{
+	CHECK(result.hasValue() && result.value() == 99);
+	++functionCalls;
+}
+
+static void encodedFunction(const cl::ResultView& result) noexcept
+{
+	CHECK(result.succeeded() && result.payload.size() == 4);
+	++functionCalls;
+}
+
+static void functionReferences()
+{
+	af::now = 0;
+	af::Backend backend;
+	Client client{backend, af::clock};
+	functionCalls = 0;
+	CHECK(client.admitDescriptor(af::Codec::header, 1) == cl::Status::Ok);
+	// Pass function references by name, without converting them to pointers.
+	CHECK(client.read(af::Field{}, typedFunction));
+	client.process(0);
+	backend.finish();
+	client.process(0);
+	CHECK(functionCalls == 1);
+	CHECK(client.submitEncoded({cl::Operation::FieldRead, 42, {}, 4}, encodedFunction));
+	client.process(0);
+	backend.finish();
+	client.process(0);
+	CHECK(functionCalls == 2 && client.pending() == 0 && backend.starts == 2);
+	client.close();
+	client.process(0);
+	CHECK(client.drained());
+}
+
 static void nullCallbacks()
 {
 	af::now = 0;
@@ -33,6 +70,10 @@ static void nullCallbacks()
 	CHECK(client.submitEncoded(request, raw).status == cl::Status::InvalidArgument);
 	CHECK(client.admitDescriptor(af::Codec::header, 1) == cl::Status::Ok);
 	CHECK(client.read(af::Field{}, number).status == cl::Status::InvalidArgument);
+	const auto constNumber = number;
+	const auto constRaw = raw;
+	CHECK(client.read(af::Field{}, constNumber).status == cl::Status::InvalidArgument);
+	CHECK(client.submitEncoded(request, constRaw).status == cl::Status::InvalidArgument);
 	CHECK(client.write(af::Field{}, 7U, empty).status == cl::Status::InvalidArgument);
 	CHECK(client.command(af::Command{}, 7U, empty).status == cl::Status::InvalidArgument);
 	CHECK(client.command(af::EmptyCommand{}, empty).status == cl::Status::InvalidArgument);
@@ -520,6 +561,7 @@ static void failedEncodingCloseWake()
 
 int main()
 {
+	functionReferences();
 	nullCallbacks();
 	lifecycle();
 	cancellationAndTime();

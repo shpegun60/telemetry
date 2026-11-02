@@ -4,12 +4,14 @@
 using Client = telemetry::integration::dynamic::DynamicClient<2, 64>;
 static_assert(!std::is_copy_constructible_v<Client>);
 
+static void dynamicCompletion(const telemetry::integration::dynamic::DynamicResult&) noexcept
+{}
+
 extern "C" bool dynamic_submit(Client& client,
                                const telemetry::integration::dynamic::EndpointBinding& endpoint,
                                telemetry::client::Input payload) noexcept
 {
-	return bool(client.submit(endpoint, payload, [](const auto&) noexcept {
-	}));
+	return bool(client.submit(endpoint, payload, dynamicCompletion));
 }
 
 extern "C" bool dynamic_handoff(Client& client, std::uint32_t session,

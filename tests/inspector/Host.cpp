@@ -539,6 +539,26 @@ static void nullCallbacks() noexcept
 	CHECK(model.drained());
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const im::ReadResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.published);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Encoded fixture;
+	functionCalls = 0;
+	CHECK(fixture.inspector.readField(fixture.bind(), functionCompletion));
+	fixture.pump();
+	CHECK(functionCalls == 1 && device.reads == 1);
+	fixture.inspector.close();
+	fixture.inspector.process(fixture.now);
+	CHECK(fixture.inspector.drained());
+}
+
 static void frozenBindingDuringOwnership() noexcept
 {
 	Encoded fixture;
@@ -751,6 +771,7 @@ static void ownershipRevocation() noexcept
 
 int main()
 {
+	functionReferences();
 	nullCallbacks();
 	frozenBindingDuringOwnership();
 	ownershipReentry();

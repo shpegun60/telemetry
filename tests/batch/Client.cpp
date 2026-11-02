@@ -455,8 +455,30 @@ static void publicationAndPassiveGate() noexcept
 	CHECK(rejectedCallbacks == 0);
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const bt::BatchResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.valueStatus == bt::ValueStatus::Ok &&
+	      result.count == 1);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Harness h;
+	const std::array<bt::Endpoint, 1> endpoints{{{cl::Operation::FieldRead, 0}}};
+	const auto binding = h.bind(endpoints);
+	const std::array<cl::Input, 1> payloads{};
+	functionCalls = 0;
+	CHECK(bt::batch(h.client, binding, payloads, h.request, functionCompletion));
+	h.send(h.offered());
+	CHECK(functionCalls == 1 && h.client.pending() == 0);
+}
+
 int main()
 {
+	functionReferences();
 #ifdef BATCH_CALLBACK_TOO_SMALL
 	Harness probe;
 	dy::DynamicClient<> small{probe.backend, probe.clock};

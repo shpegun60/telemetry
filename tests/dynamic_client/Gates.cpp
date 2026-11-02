@@ -293,6 +293,27 @@ void nullCallbacks() noexcept
 	rig.close();
 }
 
+unsigned functionCalls = 0;
+
+void functionCompletion(const dy::DynamicResult& result) noexcept
+{
+	CHECK(result.operation.succeeded());
+	++functionCalls;
+}
+
+void functionReferences() noexcept
+{
+	Rig rig;
+	rig.admit();
+	functionCalls = 0;
+	CHECK(rig.client.command(rig.command(), functionCompletion));
+	rig.client.process(0);
+	rig.backend.finish(cl::Operation::Command);
+	rig.client.process(0);
+	CHECK(functionCalls == 1 && rig.client.pending() == 0);
+	rig.close();
+}
+
 void failedAdmissionAndStickyIdentity() noexcept
 {
 	Rig rig;
@@ -404,6 +425,7 @@ void failedOutcomeRetainsCurrentIdentity() noexcept
 int main()
 {
 	synchronousPriority();
+	functionReferences();
 	nullCallbacks();
 	recoveryBeforeCachedAdmission();
 	failedAdmissionAndStickyIdentity();

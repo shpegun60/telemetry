@@ -332,7 +332,7 @@ public:
 			return {gate, {}};
 		if (!isCurrent(endpoint))
 			return {client::Status::NotAdmitted, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (!callback)
 				return {client::Status::InvalidArgument, {}};
 		if (!contractsMatch(endpoint) || payload.size() != endpoint.requestBytes_)

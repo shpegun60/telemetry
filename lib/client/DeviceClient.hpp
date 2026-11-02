@@ -250,7 +250,8 @@ public:
 		              "Completion ownership must be constructed without exceptions");
 		if (!validTimeout(timeoutMs))
 			return {Status::InvalidArgument, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		// A function reference is never null; check the argument's pointer type.
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (!callback)
 				return {Status::InvalidArgument, {}};
 		if (!admission_.current())
@@ -391,7 +392,7 @@ private:
 		              "Completion must be noexcept");
 		if (!validTimeout(timeoutMs))
 			return {Status::InvalidArgument, {}};
-		if constexpr (std::is_pointer_v<Callback>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (!callback)
 				return {Status::InvalidArgument, {}};
 		if constexpr (!std::is_void_v<R>) {

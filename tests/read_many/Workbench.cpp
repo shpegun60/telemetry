@@ -573,8 +573,36 @@ static void bindingFrozenBeforeOwnership() noexcept
 	CHECK(callbacks == 2);
 }
 
+static unsigned functionCalls = 0;
+
+static void manyFunction(const rm::ReadManyResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.count == 2);
+	++functionCalls;
+}
+
+static void fieldFunction(const dy::DynamicResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.hasValue());
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Harness h;
+	const auto binding = h.many();
+	functionCalls = 0;
+	CHECK(rm::readMany(h.workbench, binding, manyFunction));
+	h.pump();
+	CHECK(functionCalls == 1);
+	CHECK(rm::readFieldValue(h.workbench, h.field(1), fieldFunction));
+	h.pump();
+	CHECK(functionCalls == 2);
+}
+
 int main()
 {
+	functionReferences();
 	preservedDraftAndFifo();
 	requestAndServicePreserved();
 	ownershipPublication();

@@ -64,7 +64,7 @@ private:
 	{
 		if (!timeout || timeout > client::maxTimeoutMs)
 			return false;
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			return callback != nullptr;
 		return true;
 	}

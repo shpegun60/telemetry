@@ -640,8 +640,27 @@ static void ownershipPublication() noexcept
 	}
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const im::OperationResult& result) noexcept
+{
+	CHECK(result.executed());
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	cmd::Encoded<> f;
+	(void)cmd::select(f, 2);
+	functionCalls = 0;
+	CHECK(f.inspector.execute(functionCompletion));
+	f.pump();
+	CHECK(functionCalls == 1 && cmd::device.commands == 1);
+}
+
 int main()
 {
+	functionReferences();
 	initializationAndOverlap();
 	exactCommand<cmd::Encoded<>>();
 	exactCommand<cmd::Rpc>();

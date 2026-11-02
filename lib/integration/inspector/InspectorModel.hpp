@@ -192,7 +192,7 @@ public:
 		const auto gate = validateField(field);
 		if (gate != client::Status::Ok)
 			return {gate, ModelStatus::Ok, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (!callback)
 				return {client::Status::InvalidArgument, ModelStatus::Ok, {}};
 		if (field.responseBytes() > snapshot_.capacity())

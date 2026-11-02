@@ -418,7 +418,7 @@ public:
 		if (!writeTimeout || writeTimeout > client::maxTimeoutMs || !refreshTimeout ||
 		    refreshTimeout > client::maxTimeoutMs)
 			return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (callback == nullptr)
 				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
 		const Publication publication{publishing_};
@@ -722,7 +722,7 @@ private:
 			return {client::Status::InvalidArgument, inspector::ModelStatus::NoSelection, {}};
 		if (!timeout || timeout > client::maxTimeoutMs)
 			return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		if constexpr (std::is_pointer_v<std::decay_t<F>>)
+		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (callback == nullptr)
 				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
 		if constexpr (Service) {

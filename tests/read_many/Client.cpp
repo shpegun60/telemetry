@@ -367,6 +367,26 @@ static void nullCallbacks() noexcept
 	CHECK(h.client.drained());
 }
 
+static unsigned functionCalls = 0;
+
+static void functionCompletion(const rm::ReadManyResult& result) noexcept
+{
+	CHECK(result.operation.succeeded() && result.valueStatus == rm::ValueStatus::Ok &&
+	      result.count == 2);
+	++functionCalls;
+}
+
+static void functionReferences() noexcept
+{
+	Harness h;
+	const std::array<std::uint32_t, 2> ids{0, 1};
+	const auto binding = h.bind(ids);
+	functionCalls = 0;
+	CHECK(rm::readMany(h.client, binding, functionCompletion));
+	h.send(h.offered());
+	CHECK(functionCalls == 1 && h.client.pending() == 0);
+}
+
 static void lifecycle() noexcept
 {
 	const std::array<std::uint32_t, 2> ids{0, 1};
@@ -881,6 +901,7 @@ static void legacyOwnershipPublication() noexcept
 
 int main()
 {
+	functionReferences();
 #ifdef READ_MANY_CALLBACK_TOO_SMALL
 	Harness probe;
 	dy::DynamicClient<> small{probe.backend, probe.clock};

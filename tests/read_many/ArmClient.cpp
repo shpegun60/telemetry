@@ -5,6 +5,9 @@ namespace rm = telemetry::integration::read_many;
 namespace en = telemetry::integration::encoded;
 using Client = telemetry::integration::dynamic::DynamicClient<4, 130, 640>;
 
+static void readManyCompletion(const rm::ReadManyResult&) noexcept
+{}
+
 // The application supplies the existing client, backend and admission. This
 // root compiles the full bind/submit/completion path without a native Model.
 telemetry::client::Submission readManyClientProbe(Client& client, en::EncodedBackend& backend,
@@ -14,6 +17,5 @@ telemetry::client::Submission readManyClientProbe(Client& client, en::EncodedBac
 	const auto binding = rm::bindReadMany(client, backend, capability, ids);
 	if (!binding)
 		return {binding.status, {}};
-	return rm::readMany(client, binding.binding, [](const rm::ReadManyResult&) noexcept {
-	});
+	return rm::readMany(client, binding.binding, readManyCompletion);
 }

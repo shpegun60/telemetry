@@ -25,7 +25,7 @@ of every repository test.
 
 | ID | Observed failure | Correction and maintained regression |
 | --- | --- | --- |
-| B1 | A typed null function-pointer completion could be accepted and called after a real operation | Pointer-only rejection before reservation in five submission layers; existing Async, DynamicClient, Inspector and ReadMany suites verify no queued work or snapshot retirement. Callable bool conversion is not an admission test. |
+| B1 | A typed null function-pointer completion could be accepted and called after a real operation | Pointer-only rejection before reservation in five submission layers; existing Async, DynamicClient, Inspector and ReadMany suites verify no queued work or snapshot retirement. All nine callback guards distinguish actual pointer arguments from non-null function references, keeping function-name calls warning-clean. Callable bool conversion is not an admission test. |
 | B2 | Moving a callback could replace the caller's Inspector binding or change selection while the next revision was being published | Copy the binding and guard ownership publication with the existing scope helper. Reentrant progress is suppressed, while close/invalidation remain effective. Inspector tests exercise move/destructor reentry and revocation. |
 | B3 | ReadMany opt-in after Encoded's qmake include omitted optional implementation sources | Move optional source selection outside the one-time include guard and deduplicate it. Twelve source-inventory cases cover both Batch/ReadMany orders and repeated includes. These inventories are not compilation of all twelve configurations. |
 | C01 | Owning delegate assignment destroyed a callable subobject before copying it | Prepare the replacement while the source is alive. The default inline case produced a wrong value; heap-enabled cases produced ASan use-after-free. Both delegate families have maintained regressions. |
@@ -60,10 +60,12 @@ Relevant maintained gates:
 
 - Async, DynamicClient, Inspector/Workbench and ReadMany with Clang 18 ASan/UBSan,
   no-heap controls, negative API probes and Cortex-M7 compile/symbol checks.
-- Inspector Host/NoHeap: 1313 checks each; FieldWrite: 1647 each; Command: 980 each;
-  Service: 1228 each. Existing FIFO and backend lifecycle tests remain enabled.
-- Mixed Batch: Wire 15,327, Server 87, Client/NoHeap 436 each and CrossGroup 223;
-  six deliberate allocation traps and negative API controls remain enabled.
+- Inspector/Workbench Host and NoHeap profiles cover snapshots, FieldWrite,
+  Command and Service, including direct function-name callbacks. Existing FIFO
+  and backend lifecycle tests remain enabled.
+- Mixed Batch: Wire 15,327, Server 87 and CrossGroup 223, plus Client/NoHeap
+  callback checks; six deliberate allocation traps and negative API controls
+  remain enabled.
 - Shared registered delegate checks: default no-heap 50 and opt-in heap 112,
   including allocation/construction failures and source cv/ref categories.
   The full shared Clang sanitizer gate executes 1,572,541 runtime conditions,
