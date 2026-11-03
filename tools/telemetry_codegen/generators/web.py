@@ -236,13 +236,23 @@ def _enum_expression(schema, row) -> str:
     return "Object.freeze({" + ", ".join(entries) + "})"
 
 
+def _read_many_scalar(schema, type_id: int) -> int | None:
+    """Explicit scalar/open-enum eligibility; aggregate wire widths are irrelevant."""
+    row = schema.types[type_id]
+    if row["kind"] == 2:
+        row = schema.types[row["underlying"]]
+    return row["code"] if row["kind"] == 1 else None
+
+
 def _endpoint_expression(schema, endpoint) -> str:
     parts = [f"id: {endpoint.id}", f"category: {endpoint.category}",
              f"catalogName: {_quote(endpoint.catalog_name)}", f"name: {_quote(endpoint.name)}"]
     if endpoint.category == 1:
         i = endpoint.value_type
+        scalar = _read_many_scalar(schema, i)
+        marker = f"readManyScalar: {scalar}, " if scalar is not None else ""
         parts += [f"valueTypeId: {i}", f"capabilities: {endpoint.capabilities}",
-                  f"read: Object.freeze({{fingerprint, operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, requestBytes: 0, responseBytes: {schema.types[i]['wire']}, decode: _decode_{i}}})"]
+                  f"read: Object.freeze({{fingerprint, operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, requestBytes: 0, responseBytes: {schema.types[i]['wire']}, {marker}decode: _decode_{i}}})"]
         if endpoint.capabilities == 3:
             parts.append(f"write: Object.freeze({{fingerprint, operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, requestBytes: {schema.types[i]['wire']}, responseBytes: 0, encode: _encode_{i}, encodeInto: _encodeInto_{i}}})")
     else:
@@ -362,8 +372,10 @@ def _declarations(schema) -> str:
                           "readonly catalogName: string", "readonly name: string"]
                 i = endpoint.value_type if category == 1 else endpoint.request_type
                 if category == 1:
+                    scalar = _read_many_scalar(schema, i)
+                    marker = f"readonly readManyScalar: {scalar}; " if scalar is not None else ""
                     fields += [f"readonly valueTypeId: {i}", f"readonly capabilities: {endpoint.capabilities}",
-                               f"readonly read: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; requestBytes: 0; responseBytes: {schema.types[i]['wire']}; decode: ValueCodec<Type_{i}>['decode']}}>" ]
+                               f"readonly read: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; requestBytes: 0; responseBytes: {schema.types[i]['wire']}; {marker}decode: ValueCodec<Type_{i}>['decode']}}>" ]
                     if endpoint.capabilities == 3:
                         fields.append(f"readonly write: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; requestBytes: {schema.types[i]['wire']}; responseBytes: 0; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']}}>")
                 else:

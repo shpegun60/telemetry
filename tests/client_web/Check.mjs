@@ -47,7 +47,12 @@ for (const test of tests) {
 	truth(events.length >= 4);
 	truth(events.some(line => line.startsWith('DONE ')));
 }
-equal(Object.values(Status), Array.from({length : 18}, (_, index) => index));
+equal(Object.values(Status), Array.from({length : 19}, (_, index) => index));
+equal(Object.keys(Status), [
+	'Ok', 'QueueFull', 'PayloadFull', 'NotAdmitted', 'ReadOnly', 'Closed', 'Cancelled', 'Timeout',
+	'SessionLost', 'OutcomeUnknown', 'MalformedReply', 'TransportError', 'CodecError',
+	'BufferTooSmall', 'InvalidArgument', 'Busy', 'RecoveryRequired', 'IdsExhausted', 'Unsupported'
+]);
 {
 	const {client, starts, operations} = controlled();
 	equal((await client.command(operations[2], 1)).status, Status.NotAdmitted);
