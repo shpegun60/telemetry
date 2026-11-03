@@ -359,7 +359,7 @@ signaling/quiet NaN patterns для F32/F64. Для NaN вони вимагаю�
 
 | Задача | Повний source / перевірка |
 | --- | --- |
-| Mixed reflected DTOs, immutable descriptor та Values | [Device.hpp](../../examples/structured_client/Device.hpp), [client README](../../examples/structured_client/README.md) |
+| Mixed reflected DTOs, immutable descriptor та Values | [Device.hpp](../../examples/structured_client/Device.hpp), [client README](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) |
 | Незалежний JS parser/codec, U64/S64 BigInt і shape-driven payload | [Client API](../../tests/structured/client/README.md), [telemetry.js](../../web/telemetry.js) |
 | Provider internals, exact default/profile contracts і qmake | [V3 README](../../lib/integration/telemetry/v3/README.md) |
 | Exact bytes/header/record/fingerprint reference | [Wire v3.0](../WireV3.md) |

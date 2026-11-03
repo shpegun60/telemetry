@@ -74,7 +74,7 @@ project sources наведені у [прикладах](../../examples/user_gui
 | Оголосити масив файлів і власний provider, вибрати шляхи | [Resource files](Resources.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
 | LIST/STAT/READ/WRITE, порційний transfer і cursor | [Resource files](Resources.md), [protocol](../../lib/resource/protocol/README.md) | [Resources.cpp](../../examples/user_guide/Resources.cpp) |
 | Прийняти UART/TCP frame і звернутися до Model без файлів | [Транспорт і ресурси](TransportAndResources.md) | [Encoded.cpp](../../examples/user_guide/Encoded.cpp) |
-| Descriptor/Values та browser decoding | [Descriptor and Values](DescriptorAndValues.md) | [Клієнти](../../examples/structured_client/README.md) |
+| Descriptor/Values та browser decoding | [Descriptor and Values](DescriptorAndValues.md) | [Клієнти](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) |
 | Узгодити descriptor один раз на з'єднання | [Bind/Exchange example](../../examples/structured_protocol/README.md) | [Транспорт і ресурси](TransportAndResources.md) |
 | Типізовано викликати віддалений endpoint | [RpcClient](../RpcClientV1.md) | [Typed client](../../examples/rpc_client/README.md) |
 | Обслуговувати кілька незалежних RPC-сеансів | [RpcSessionPool](../RpcSessionsV1.md) | [Multi-session setup](../../examples/rpc_multi_session/README.md) |

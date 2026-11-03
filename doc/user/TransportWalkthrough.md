@@ -622,7 +622,7 @@ inline constinit const auto telemetryFiles = resource::filesystem(
 Після цього читає Values. Його 24-byte `TVL3` header містить fingerprint
 descriptor; клієнт перевіряє його **перед** декодуванням values за завантаженою
 схемою. Приклад незалежного JS reader —
-[structured_client](../../examples/structured_client/README.md).
+[structured_client](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md).
 
 Descriptor cursor є byte offset і допускає поділ запису між READ chunks.
 Values читає цілі tokens `u8 status + canonical Field payload`. Поставте

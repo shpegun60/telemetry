@@ -40,7 +40,7 @@ provides metadata browsing, not live device values.
 | [Generated C++](codegen_cpp/README.md) | `codegen_cpp/CMakeLists.txt` generates the SDK and builds the standalone, Encoded and RPC programs |
 | [Generated Encoded](codegen_encoded/README.md) | Build the `codegen_encoded` target through the C++ project above |
 | [Generated RPC](codegen_rpc/README.md) | Build the `codegen_rpc` target through the C++ project above |
-| [Generated Qt/QML](codegen_qml/README.md) | `codegen_qml/CMakeLists.txt`; a device-specific generated API, distinct from the Universal Inspector |
+| [Generated Qt/QML](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md) | Telemetry UX example over an installed SDK; a device-specific generated API, distinct from the Universal Inspector |
 | [Generated web](codegen_web/README.md) | Follow its SDK generation and Node/browser commands |
 | [Portable async client](async_client/README.md) | Bare-metal owner loop and FreeRTOS port examples; application supplies the backend and transport |
 | [JS/TS async client](client_web/README.md) | Shared runtime, typed callbacks and application transport |
@@ -57,7 +57,8 @@ client with an application Codec do not require a Generated SDK.
 | [RPC mailbox](rpc_mailbox/README.md) | Server request/result lifecycle through Resource |
 | [RPC client](rpc_client/README.md) | Low-level client packet engine and host peer |
 | [RPC sessions](rpc_multi_session/README.md) | Multiple independent server mailbox sessions |
-| [Structured client](structured_client/README.md) | Descriptor/codec browser and Qt consumers |
+| [Structured native fixture](structured_client/README.md) | Native DTOs and a Qt Core console payload smoke |
+| [Structured browser payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) | Telemetry UX over installed C++ and npm SDK packages |
 | [Bind/Exchange](structured_protocol/README.md) | Optional application-owned agreement example |
 | [Shared serial profile](../lib/integration/serial/README.md) | SDK header used by both Inspector and Nucleo; not a separate executable |
 

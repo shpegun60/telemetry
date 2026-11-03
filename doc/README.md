@@ -107,7 +107,7 @@
 | [RPC mailbox](../examples/rpc_mailbox/README.md) | RPC через file table, зовнішній connectionGeneration, ACK до dispatch та checked reply |
 | [Typed RPC client](../examples/rpc_client/README.md) | Begin/decode API, реальні Resource packets і втрачений ACK |
 | [Multi-session RPC](../examples/rpc_multi_session/README.md) | Незалежні mailbox-и, generation/release, спільний Model та serialized Workspace |
-| [Structured client](../examples/structured_client/README.md) | JS parser/codec, browser та Qt consumer |
+| [Structured client](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) | Installed SDK payload tools in Telemetry UX |
 | [Optional Bind/Exchange](../examples/structured_protocol/README.md) | Descriptor agreement і control envelope, якими володіє application |
 
 Fenced fragments пояснюють окремий крок; повну програму для збирання

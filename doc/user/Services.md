@@ -117,7 +117,7 @@ application refusal: `query` може повернути `Busy` чи `InvalidArg
 Runnable examples із broader coverage:
 [Native.cpp](../../examples/user_guide/Native.cpp),
 [Encoded.cpp](../../examples/user_guide/Encoded.cpp),
-[browser/Qt client](../../examples/structured_client/README.md).
+[browser payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md).
 
 ## 2. Request та response shapes
 
@@ -689,7 +689,7 @@ application changes.
   response, що посилається на request.
 - [Encoded.cpp](../../examples/user_guide/Encoded.cpp): owning/borrowed
   large Report, insufficient scratch без callback та application refusals.
-- [Browser/Qt client](../../examples/structured_client/README.md): exact
+- [Browser payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md): exact
   integer64, unknown enum codes, request editor і payload decoding.
 - [Device integration](../../examples/device_integration/README.md):
   ordinary business types за runtime facade та serialized framed dispatch.

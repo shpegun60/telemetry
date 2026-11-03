@@ -1,10 +1,17 @@
-# Stage 12: structural JS client and Qt example
+# Headless structural JS payload checks and Qt Core example
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 [web/telemetry.js](../../../web/telemetry.js) is the final v3 payload codec.
 It requires BigInt/DataView support; CI uses Node 22. It imports no transport,
 resource protocol or Bind/Exchange. The former v2 decoder is retired.
+
+The maintained HTML editor, HTTP example and browser suite are now owned by
+[Telemetry UX payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) and its
+[installed-package tests](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/structured_client/README.md). This SDK runner remains headless;
+`--browser` fails with an actionable migration diagnostic before any output
+directory or compiler/Node process is created. The retained Qt example is a
+[Qt Core console smoke](../../../examples/structured_client/README.md).
 
 ## Client API
 
@@ -59,19 +66,19 @@ zero payloads and canonical bool representations.
 python3 tests/structured/client/run.py --cxx g++ --node node --build-dir build/client
 python3 tests/structured/client/run.py --cxx g++ --null-checks --build-dir build/client-null
 python3 tests/structured/client/run.py --cxx clang++-18 --sanitize --build-dir build/client-san
-python3 -m venv build/client-venv
-build/client-venv/bin/pip install playwright==1.63.0
-build/client-venv/bin/python -m playwright install --with-deps chromium
-build/client-venv/bin/python tests/structured/client/run.py --browser --build-dir build/client-browser
 ```
 
-Windows venv paths use `Scripts/python.exe`. For an existing browser set
-`TELEMETRY_BROWSER_EXECUTABLE` to its executable; the same Playwright tests
-then run against that browser. Generated fixtures/logs/images remain in the
-chosen build directory. Node and Playwright are desktop test dependencies,
-not dependencies of the MCU library.
+Generated fixtures and logs remain in the chosen build directory. Node is a
+desktop test dependency, not a dependency of the MCU library. Playwright is
+required only by the separate UX browser suite. The headless runner also
+executes a negative CLI control with nonexistent compiler/Node names: the
+retired browser option must return exit 2 and leave its output nonexistent.
 
-## Evidence and scope
+## Current headless gate and retained earlier evidence
+
+The 8889-check headless gate remains active. Browser/Qt results below retain
+their recorded earlier scope; they do not imply that this SDK runner still
+ships or executes Browser.py. Current browser acceptance is in the linked UX suite.
 
 The runner requires the exact `Check.mjs` report: 8889 integer checks, zero
 integer failures and `cppInterop: true`, with exactly those three fields.
@@ -116,7 +123,9 @@ parser controls are separate from the interoperability tally below.
 The final-path preview on 2026-10-03 passed the same 3057 JS checks and 20
 Chromium browser checks, plus the Qt smoke, against the migrated C++ API.
 
-The host runner executes five successful commands (six with the browser);
+The current host runner executes five successful interoperability commands;
+its browser-migration refusal control is reported separately. Historical
+runs with the former browser option executed six successful commands;
 those are command counts, separate from the assertions above. Local MinGW
 13.1, GCC 13.3 with null checks and Clang 18 ASan/UBSan runs passed. The original Stage 12 browser run used Edge through
 Playwright 1.63.0; the final-path preview and CI use pinned Chromium. The

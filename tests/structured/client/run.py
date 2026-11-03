@@ -11,6 +11,7 @@ from pathlib import Path
 import runpy
 import shutil
 import subprocess
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
@@ -58,6 +59,23 @@ def report_controls():
             'scope': 'result parser controls; no interoperability checks generated'}
 
 
+def browser_migration_controls():
+    """The retired UI switch refuses before output or compiler/Node execution."""
+    with tempfile.TemporaryDirectory(prefix='telemetry-browser-migration-') as temporary:
+        output = Path(temporary) / 'must-not-be-created'
+        result = subprocess.run(
+            [os.sys.executable, '-B', str(Path(__file__).resolve()), '--browser',
+             '--build-dir', str(output), '--cxx', '__telemetry_never_run_cxx__',
+             '--node', '__telemetry_never_run_node__'],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+        if (result.returncode != 2 or output.exists() or
+                'Browser qualification moved to Telemetry UX:' not in result.stdout):
+            raise AssertionError('Retired browser switch did not fail before output/tools: ' +
+                                 repr((result.returncode, output.exists(), result.stdout)))
+    return {'rejected_browser_requests': 1, 'diagnostic_exit': 2,
+            'no_output_created': True}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cxx', default=os.environ.get('CXX', 'g++'))
@@ -65,9 +83,13 @@ def main():
     parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--sanitize', action='store_true')
     parser.add_argument('--null-checks', action='store_true')
-    parser.add_argument('--browser', action='store_true')
+    parser.add_argument('--browser', action='store_true',
+                        help='Retired switch: browser qualification moved to Telemetry UX')
     args = parser.parse_args()
+    if args.browser:
+        parser.error('Browser qualification moved to Telemetry UX: https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/structured_client/README.md')
     controls = report_controls()
+    migration_controls = browser_migration_controls()
     out = args.build_dir.resolve()
     out.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -106,12 +128,10 @@ def main():
         oracle((out / name).read_bytes())
     report = client_report(run([args.node, HERE / 'Check.mjs', out,
                                 out / ('client-device' + suffix)], 'js-check'))
-    if args.browser:
-        run([os.sys.executable, HERE / 'Browser.py', '--device', out / ('client-device' + suffix),
-             '--build-dir', out], 'browser-check')
     report['successful_commands'] = commands
     report['independent_descriptors'] = 2
     report['result_controls'] = controls
+    report['browser_migration_controls'] = migration_controls
     (out / 'summary.json').write_text(json.dumps(report, indent=2) + '\n')
     print('Structured client checks passed:', report, flush=True)
 

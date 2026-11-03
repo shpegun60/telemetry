@@ -42,7 +42,9 @@ prepared source directories. Child processes run outside either repository with 
   the source checkout. Fifteen frozen output profiles match **282 file hashes including
   manifests**, with `--check` repeated for each. The existing nine QML naming/ownership
   unit tests also execute using installed implementations and external fixture-only
-  source copies. Their compatibility parser only re-exports the installed sole parser.
+  source copies from Telemetry UX. The explicit UX-owned descriptor fixture is test data;
+  production parsing and generation use the installed core/UX distributions. Both
+  copied UX unit sources are included in the before/after input hashes.
 - Removing the metapackage leaves the core/UX implementations usable. Removing UX leaves
   the core modules and command usable, with an honest missing-extension error for QML.
 - The documented migration is explicit uninstall-before-install. An **ownership-only
@@ -60,7 +62,7 @@ commit before accepting the moved emitter; CI does not need to fetch old history
 carry a second generator implementation.
 
 This is a Python/package/source-output gate. Real generated Qt/QML compilation,
-`QQmlEngine`, RPC and UI behavior remain covered by `tests/codegen_qml`; this suite
+`QQmlEngine`, RPC and UI behavior remain covered by the [UX Qt/QML suite](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/codegen_qml/README.md); this suite
 does not claim to execute Qt or hardware.
 
 The installed core also runs 76 focused optional web-starter hook and guarded

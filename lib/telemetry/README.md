@@ -325,5 +325,5 @@ wire v3.0 or its existing descriptor/values fixtures.
 The [frozen contract](../../doc/StructuredTelemetryV3FreezeQualification.md)
 records wire constants and dependency pins. The
 [protocol](../../examples/structured_protocol/README.md) and
-[client](../../examples/structured_client/README.md) examples keep application
+[client](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md) examples keep application
 transport behavior outside the library.
