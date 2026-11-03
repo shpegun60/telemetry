@@ -825,6 +825,12 @@ jobs:
           python3 tests/codegen/run.py --cxx '${{ matrix.compiler }}' \
             --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
             --build-dir "$RUNNER_TEMP/codegen-${{ matrix.mode }}" "${options[@]}"
+      - name: Optional C++ wire editing and failure atomicity
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          python3 -B tests/cpp_wire_editing/run.py --cxx '${{ matrix.compiler }}' \
+            --build-dir "$RUNNER_TEMP/cpp-wire-editing-${{ matrix.mode }}" "${options[@]}"
       - name: Build and execute separate CMake and qmake consumers
         if: matrix.mode == 'release'
         run: |
@@ -883,6 +889,7 @@ jobs:
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.elf
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/generated/manifest.json
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/native/descriptor.bin
+            ${{ runner.temp }}/cpp-wire-editing-${{ matrix.mode }}/
             ${{ runner.temp }}/sdk-metadata-${{ matrix.mode }}/
             ${{ runner.temp }}/sdk-conformance-${{ matrix.mode }}/
             ${{ runner.temp }}/sdk-packages/*.json
@@ -1029,6 +1036,10 @@ jobs:
         run: |
           python3 -B tests/read_many_mapping/run.py --arm-only --cxx arm-none-eabi-g++ \
             --build-dir "$RUNNER_TEMP/read-many-arm" --cmake cmake --ninja ninja
+      - name: Generated C++ wire editing Cortex-M7 roots
+        run: |
+          python3 -B tests/cpp_wire_editing/run.py --cxx g++ --arm-cxx arm-none-eabi-g++ \
+            --build-dir "$RUNNER_TEMP/cpp-wire-editing-arm"
       - name: Retain compiler and object inspection logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -1036,6 +1047,7 @@ jobs:
           name: cortex-m7-check-logs
           path: |
             ${{ runner.temp }}/read-many-arm/
+            ${{ runner.temp }}/cpp-wire-editing-arm/
             build/arm/*.log
             build/arm/*.json
             build/arm/*.su

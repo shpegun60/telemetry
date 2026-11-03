@@ -45,6 +45,24 @@ leave output unchanged. It does not put a second large DTO on the stack.
 Array element loops and all payload buffers are caller owned. Input bytes must
 remain stable throughout a call. The codec supplies no synchronization.
 
+## Optional preserving edits
+
+Generate C++ with `--wire-editing` to add
+`codec::encodePreserving(value, originalPayload, output)`. Both byte spans have
+exactly `codec::wireSize<T>` bytes. The original span and native value must be
+disjoint from output and stable throughout the call. Invalid length, overlap or
+noncanonical original bytes refuse before changing output.
+
+If both original and new F32/F64 values are NaN, the original sign, signaling
+bit and payload are preserved. Other leaves use the edited typed values. This
+supports an editor that changes one member without canonicalizing unrelated
+NaNs. It is allocation-free, uses the existing generated adapter/writer, and
+adds no RuntimeSchema, Qt, transport or hidden scratch DTO. Zero-byte structures
+and arrays remain valid. Ordinary output without this opt-in is unchanged.
+
+The [focused suite](../tests/cpp_wire_editing/README.md) covers nested types,
+canonical/overlap failures, exact float bits, no-heap controls and ARM probes.
+
 ## Direct Encoded dispatch
 
 `EncodedBindings.hpp` adds optional local helpers over the existing ModelView:

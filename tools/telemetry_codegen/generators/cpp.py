@@ -320,10 +320,58 @@ template<class Q> [[nodiscard]] Status decodeResponse(endpoint::Service<Q, void>
 """
 
 
-def _codec(schema, reachable):
+PRESERVING_FLOAT = r"""    static void write(const T& value, Writer& out) noexcept {
+        const U bits = std::bit_cast<U>(value);
+        if (!out.original.empty()) {
+            Reader seed{out.original, out.cursor};
+            const U old = seed.integer<U>();
+            constexpr U fraction = (U{1} << (sizeof(U) == 4 ? 23 : 52)) - U{1};
+            constexpr U exponent = static_cast<U>((std::numeric_limits<U>::max() >> 1) ^ fraction);
+            if ((bits & exponent) == exponent && (bits & fraction) != 0 &&
+                (old & exponent) == exponent && (old & fraction) != 0) {
+                out.integer(old);
+                return;
+            }
+        }
+        out.integer(bits);
+    }"""
+
+
+PRESERVING_CODEC = r"""// The original canonical payload is stable throughout this call. Its bytes and
+// the native value must both be disjoint from output; no scratch or heap is used.
+// All refusal checks precede output writes. Existing float bytes are retained
+// only when both their original representation and the new value are NaN.
+template<class T> [[nodiscard]] Status encodePreserving(const T& value,
+    std::span<const std::byte> original, std::span<std::byte> output) noexcept {
+    static_assert(!std::is_volatile_v<T> && !std::is_void_v<T>);
+    if (original.size() != wireSize<T> || output.size() != wireSize<T>)
+        return Status::LengthMismatch;
+    if (codec_detail::overlap(original, output) ||
+        codec_detail::overlap(std::as_bytes(std::span<const T>{std::addressof(value), 1}), output))
+        return Status::Overlap;
+    codec_detail::Reader validator{original};
+    if (!codec_detail::Adapter<T>::valid(validator)) return Status::InvalidValue;
+    if (validator.cursor != original.size()) return Status::InvalidState;
+    codec_detail::Writer writer{output, 0, original};
+    codec_detail::Adapter<T>::write(value, writer);
+    return writer.cursor == output.size() ? Status::Ok : Status::InvalidState;
+}
+"""
+
+
+def _codec(schema, reachable, wire_editing=False):
     includes = ('#include "Endpoints.hpp"\n#include <bit>\n#include <climits>\n#include <cstddef>\n#include <cstring>\n'
                 '#include <functional>\n#include <limits>\n#include <memory>\n#include <span>\n#include <type_traits>\n')
-    rows = [_header(schema, "Codec", includes), PRIMITIVES]
+    primitives = PRIMITIVES
+    codec = CODEC
+    if wire_editing:
+        primitives = primitives.replace("struct Writer {\n    std::span<std::byte> bytes;\n    std::size_t cursor = 0;",
+                                        "struct Writer {\n    std::span<std::byte> bytes;\n    std::size_t cursor = 0;\n    std::span<const std::byte> original{};")
+        primitives = primitives.replace("    static void write(const T& value, Writer& out) noexcept { out.integer(std::bit_cast<U>(value)); }",
+                                        PRESERVING_FLOAT)
+        codec = codec.replace("// Input is stable for the whole call.",
+                              PRESERVING_CODEC + "// Input is stable for the whole call.")
+    rows = [_header(schema, "Codec", includes), primitives]
     for index in reachable:
         item = schema.types[index]
         kind = item["kind"]
@@ -353,7 +401,7 @@ def _codec(schema, reachable):
                 rows.append(f"        Adapter<{_type(child)}>::read(in, value.{symbol});\n")
             rows.append("    }\n")
         rows.append("};\n")
-    rows.extend((CODEC, f"}} // namespace {schema.namespace}\n"))
+    rows.extend((codec, f"}} // namespace {schema.namespace}\n"))
     return "".join(rows)
 
 
@@ -529,7 +577,7 @@ inline Outcome callService(::telemetry::ModelView model, endpoint::Service<void,
 """
 
 
-def generate(schema):
+def generate(schema, wire_editing=False):
     """Return deterministic relative-path/source pairs, without writing files."""
     reachable = _reachable(schema)
     root = "cpp/" + schema.namespace.replace("::", "/") + "/"
@@ -538,7 +586,7 @@ def generate(schema):
         root + "Types.hpp": _types(schema, reachable),
         root + "Schema.hpp": _schema(schema),
         root + "Endpoints.hpp": _endpoints(schema),
-        root + "Codec.hpp": _codec(schema, reachable),
+        root + "Codec.hpp": _codec(schema, reachable, wire_editing),
         root + "TelemetryBindings.hpp": _telemetry_bindings(schema, reachable),
         root + "RpcBindings.hpp": _header(schema, "RpcBindings", '#include "Codec.hpp"\n#include "TelemetryBindings.hpp"\n#include <client/rpc/RpcClient.hpp>\n') + RPC + suffix,
         root + "EncodedBindings.hpp": _header(schema, "EncodedBindings", '#include "Codec.hpp"\n#include <telemetry/model/Adapter.hpp>\n') + ENCODED.replace("@NS@", schema.namespace) + suffix,
