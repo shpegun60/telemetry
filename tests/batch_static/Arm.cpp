@@ -33,8 +33,8 @@ void qualify(Client<C>& client, telemetry::integration::encoded::EncodedBackend&
 	if (bound)
 		(void)bt::batch(client, bound.binding, request, storage, [](const auto& result) noexcept {
 			const auto value = result.template get<3>();
-			if (value && value->hasValue())
-				observed = value->value().large;
+			if (const auto* dto = value ? value->valueIf() : nullptr)
+				observed = dto->large;
 		});
 	client.process(now);
 	client.close();
