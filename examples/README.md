@@ -5,7 +5,7 @@ Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 Choose an application here before selecting its build project. The repository's
 root `CMakeLists.txt` builds and installs the library, while `telemetry.pro`
 builds the separate [Qt Widgets playground](../app/README.md). The Universal
-Inspector has its own CMake project under `inspector_qml`.
+Inspector has its own CMake project in `telemetry-ux/apps/inspector`.
 
 Run commands in each linked README from the Telemetry repository root unless
 that README explicitly changes directory. Put generated SDKs, build directories
