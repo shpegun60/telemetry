@@ -45,6 +45,10 @@ def main():
     parser.add_argument('--cmake', default='cmake')
     parser.add_argument('--ninja', default='ninja')
     args = parser.parse_args()
+    selected_node = shutil.which(args.node)
+    if selected_node is None:
+        parser.error('Node must name an executable on PATH or an explicit executable path')
+    args.node = str(Path(selected_node).resolve())
     out = args.build_dir.resolve()
     if out == ROOT or ROOT in out.parents or out in ROOT.parents:
         parser.error('Use a fresh external output directory')
