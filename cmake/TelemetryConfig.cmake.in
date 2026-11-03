@@ -1,5 +1,7 @@
 # Relocatable module exports. MIT.
 @PACKAGE_INIT@
+set(Telemetry_VERSION "@PROJECT_VERSION@")
+set(Telemetry_SOURCE_REVISION "@TELEMETRY_SOURCE_REVISION@")
 include("${CMAKE_CURRENT_LIST_DIR}/TelemetryTargets.cmake")
 foreach(component IN LISTS Telemetry_FIND_COMPONENTS)
     if(TARGET Telemetry::${component})

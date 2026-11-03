@@ -1,0 +1,19 @@
+{
+  "name": "telemetry-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Headless Telemetry client, Descriptor codecs and runtime sessions",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {"types": "./lib/client/web/Client.d.ts", "default": "./lib/client/web/Client.js"},
+    "./client": {"types": "./lib/client/web/Client.d.ts", "default": "./lib/client/web/Client.js"},
+    "./runtime": {"types": "./web/telemetry.d.ts", "default": "./web/telemetry.js"},
+    "./dynamic": {"types": "./web/DynamicClient.d.ts", "default": "./web/DynamicClient.js"}
+  },
+  "files": [
+    "VERSION", "LICENSE", "lib/client/web/Client.js", "lib/client/web/Client.d.ts",
+    "lib/client/web/package.json", "web/telemetry.js", "web/telemetry.d.ts",
+    "web/DynamicClient.js", "web/DynamicClient.d.ts", "web/package.json"
+  ]
+}

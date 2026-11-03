@@ -68,18 +68,15 @@ def symbol_mapping(schema):
     return {"endpoints": [asdict(endpoint) for endpoint in schema.endpoints], "types": types}
 
 
-def render(schema, targets, client_runtime=False):
+def render(schema, targets, client_runtime=False, structural_metadata=False):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
     if client_runtime and not set(targets) & {"js", "ts"}:
         raise ValueError("--client-runtime requires a js or ts target")
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
-    for target in effective:
-        module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
-                                         __package__)
-        generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
-        result = generate(schema, client_runtime=True) if client_runtime and target in ("js", "ts") else generate(schema)
+
+    def append(result):
         if not isinstance(result, dict):
             raise ValueError("generator must return a relative-path/text dictionary")
         for name, content in result.items():
@@ -90,6 +87,16 @@ def render(schema, targets, client_runtime=False):
                 raise ValueError("generator output must be text")
             seen.add(name.casefold())
             files[name] = content.encode("utf-8")
+
+    for target in effective:
+        module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
+                                         __package__)
+        generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
+        result = generate(schema, client_runtime=True) if client_runtime and target in ("js", "ts") else generate(schema)
+        append(result)
+    if structural_metadata:
+        from .generators.metadata import generate
+        append(generate(schema, effective))
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
     manifest = dict(format=FORMAT, descriptor_sha256=schema.descriptor_sha256,
                     descriptor_fingerprint=f"0x{schema.fingerprint:016x}",
@@ -98,6 +105,8 @@ def render(schema, targets, client_runtime=False):
                     generated_files=hashes, generated_symbol_mapping=symbol_mapping(schema))
     if client_runtime:
         manifest["options"]["client_runtime"] = True
+    if structural_metadata:
+        manifest["options"]["structural_metadata"] = True
     if "qml" in targets:
         from .generators.qml import symbol_mapping as qml_symbols
         manifest["generated_symbol_mapping"]["qml"] = qml_symbols(schema)
@@ -288,6 +297,8 @@ def main(argv=None):
     generate.add_argument("descriptor")
     generate.add_argument("--targets", default="cpp,ts,js")
     generate.add_argument("--client-runtime", action="store_true", help="include optional JS/TS asynchronous FIFO client")
+    generate.add_argument("--structural-metadata", action="store_true",
+                          help="include optional wire type/catalog/endpoint metadata; no UI hints")
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
@@ -314,7 +325,8 @@ def main(argv=None):
                              type_count=len(schema.types), endpoint_count=len(schema.endpoints),
                              symbols=symbol_mapping(schema))), end="")
         else:
-            files = render(schema, _targets(args.targets), client_runtime=args.client_runtime)
+            files = render(schema, _targets(args.targets), client_runtime=args.client_runtime,
+                           structural_metadata=args.structural_metadata)
             publish(files, args.output, args.check)
             print(("Verified " if args.check else "Generated ") + str(len(files) - 1) + " files")
         return 0

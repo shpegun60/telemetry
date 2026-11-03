@@ -7,6 +7,7 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 from dataclasses import dataclass
 import hashlib
+import struct
 from types import MappingProxyType
 from typing import Mapping
 
@@ -56,6 +57,15 @@ class Schema:
     @property
     def fingerprint(self):
         return self.raw["fingerprint"]
+
+    @property
+    def descriptor_header(self):
+        """Reproduce the exact declared header from the already validated IR."""
+        counts = []
+        for catalogs, endpoints in zip(self.raw["catalogs"], self.raw["endpoints"]):
+            counts.extend((len(catalogs), len(endpoints)))
+        return struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, self.raw["total"],
+                           self.fingerprint, len(self.types), *counts, *self.raw["offsets"])
 
 
 def load_schema(data: bytes, namespace="device_api", limits=Limits()):

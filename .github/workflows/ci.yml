@@ -836,6 +836,29 @@ jobs:
           qmake6 "$GITHUB_WORKSPACE/examples/codegen_cpp/codegen_cpp.pro" CODEGEN_SDK="$RUNNER_TEMP/codegen-cmake/generated"
           make -j2
           ./codegen_cpp
+      - name: Optional structural metadata through standalone consumers
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          if [ '${{ matrix.mode }}' = release ]; then options+=(--arm-cxx arm-none-eabi-g++); fi
+          python3 -B tests/sdk_metadata/run.py --cxx '${{ matrix.compiler }}' \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-metadata-${{ matrix.mode }}" "${options[@]}"
+      - name: Four-surface installed SDK conformance
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          python3 -B tests/sdk_conformance/run.py --cxx '${{ matrix.compiler }}' \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-conformance-${{ matrix.mode }}" "${options[@]}"
+      - name: Relocated CMake, packed ESM and installed Python consumers
+        if: matrix.mode == 'release'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sdk-package-tools"
+          "$RUNNER_TEMP/sdk-package-tools/bin/pip" install setuptools==80.9.0 wheel==0.45.1
+          "$RUNNER_TEMP/sdk-package-tools/bin/python" -B tests/sdk_packages/run.py \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-packages"
       - name: Retain generated SDK qualification logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -848,6 +871,10 @@ jobs:
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.elf
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/generated/manifest.json
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/native/descriptor.bin
+            ${{ runner.temp }}/sdk-metadata-${{ matrix.mode }}/
+            ${{ runner.temp }}/sdk-conformance-${{ matrix.mode }}/
+            ${{ runner.temp }}/sdk-packages/*.json
+            ${{ runner.temp }}/sdk-packages/*.log
           if-no-files-found: ignore
   arm:
     name: Cortex-M7 compile and link

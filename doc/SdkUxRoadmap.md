@@ -48,7 +48,11 @@ available and are reused by UX; their ownership logic must not be copied.
 
 Each stage may contain several small PRs. Do not combine repository migration,
 wire changes, several clients and a new GUI into one unreviewable change.
-The first implementation stage is S1; later rows remain planned until qualified.
+S1 is integrated. S2-S4 have separate implementation PRs with their own
+qualification records. S5 adds optional structural metadata, installed SDK
+packages and the [four-surface conformance suite](../tests/sdk_conformance/README.md).
+Local qualification and integration into `main` remain separate milestones;
+the later UX and self-hosted stages are still planned.
 
 ## Contracts that every stage preserves
 

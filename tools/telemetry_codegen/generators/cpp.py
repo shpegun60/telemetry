@@ -5,9 +5,6 @@ descriptor graph, native offset table, allocation or transport state machine.
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 """
 
-import struct
-
-
 SCALARS = {
     1: "bool", 2: "std::uint8_t", 3: "std::int8_t", 4: "std::uint16_t",
     5: "std::int16_t", 6: "std::uint32_t", 7: "std::int32_t",
@@ -99,12 +96,7 @@ def _types(schema, reachable):
 
 
 def _schema(schema):
-    raw = schema.raw
-    counts = []
-    for catalogs, endpoints in zip(raw["catalogs"], raw["endpoints"]):
-        counts.extend((len(catalogs), len(endpoints)))
-    header = struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, raw["total"],
-                         schema.fingerprint, len(schema.types), *counts, *raw["offsets"])
+    header = schema.descriptor_header
     values = ", ".join(f"std::byte{{0x{byte:02x}}}" for byte in header)
     return (_header(schema, "Schema", "#include <array>\n#include <cstddef>\n#include <cstdint>\n#include <span>\n") +
             f"namespace schema {{\ninline constexpr std::uint16_t major = 3, minor = 0;\n"

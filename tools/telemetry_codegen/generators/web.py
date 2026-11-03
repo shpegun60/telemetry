@@ -7,7 +7,6 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 from __future__ import annotations
 
 import json
-import struct
 
 
 def _quote(value: str) -> str:
@@ -270,11 +269,7 @@ def _endpoint_expression(schema, endpoint) -> str:
 
 def _runtime_exports(schema, typed: bool) -> list[str]:
     a = lambda annotation: annotation if typed else ""
-    raw, counts = schema.raw, []
-    for catalogs, endpoints in zip(raw["catalogs"], raw["endpoints"]):
-        counts.extend((len(catalogs), len(endpoints)))
-    header = struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, raw["total"],
-                         schema.fingerprint, len(schema.types), *counts, *raw["offsets"])
+    header = schema.descriptor_header
     lines = [f"export const fingerprint = {schema.fingerprint}n;",
              f"export const descriptorSha256 = {_quote(schema.descriptor_sha256)};",
              "export const wireVersion = Object.freeze({major: 3, minor: 0});",
@@ -426,7 +421,17 @@ def generate_ts(schema, client_runtime=False) -> dict[str, str]:
 
 def _client_files(target, extensions):
     """Copy the optional self-contained runtime; codecs keep no runtime import."""
+    from importlib.resources import files
     from pathlib import Path
-    runtime = Path(__file__).resolve().parents[3] / "lib/client/web"
+    packaged = files("tools.telemetry_codegen").joinpath("_runtime")
+    if packaged.is_dir():
+        if not all(packaged.joinpath(f"Client.{extension}").is_file() for extension in extensions):
+            raise ValueError("Installed codegen client runtime assets are incomplete")
+        return {f"{target}/client.{extension}": packaged.joinpath(f"Client.{extension}").read_text(encoding="utf-8")
+                for extension in extensions}
+    source = Path(__file__).resolve().parents[3]
+    if not (source / "VERSION").is_file() or not (source / "pyproject.toml").is_file():
+        raise ValueError("Installed codegen client runtime assets are missing")
+    runtime = source / "lib/client/web"
     return {f"{target}/client.{extension}": (runtime / f"Client.{extension}").read_text(encoding="utf-8")
             for extension in extensions}
