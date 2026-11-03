@@ -20,6 +20,7 @@
 [Typed C++ ReadMany](StaticReadMany.md) ·
 [JS/TS ReadMany](JsReadMany.md) ·
 [JS/TS Mixed Batch](JsBatch.md) ·
+[Dynamic JS/TS client](DynamicJsClient.md) ·
 [Typed C++ Mixed Batch](StaticBatch.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·

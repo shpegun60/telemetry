@@ -44,6 +44,11 @@ The [JS/TS Mixed Batch suite](client_batch_web/README.md) checks all four item
 operations through that FIFO, inferred DTO tuples, independent mutation outcomes,
 canonical payload failures, deterministic lifecycle and the native Model trace.
 
+The [dynamic JS/TS suite](client_dynamic_web/README.md) uses a full validated
+Descriptor and compares all six operations with the generated static SDK over
+the native Model. It checks opaque admission, passive invalidation, explicit
+quiescence and controlled Encoded/RPC deadlines without a browser or GUI.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public

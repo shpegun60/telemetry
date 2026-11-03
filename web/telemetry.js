@@ -369,8 +369,26 @@ export function parseDescriptor(input, overrides = {})
 		commands : endpoints[1],
 		services : endpoints[2],
 	});
-	schemas.set(model, endpoints.map(rows => new Map(rows.map(row => [row.id, row]))));
+	schemas.set(model, {
+		endpoints : endpoints.map(rows => new Map(rows.map(row => [row.id, row]))),
+		header : bytes.slice(0, 64)
+	});
 	return model;
+}
+
+// Compare the full admitted header with the parser-owned bytes. A fingerprint
+// alone is not the runtime admission contract; arbitrary lookalike models fail.
+export function matchesDescriptorHeader(model, input)
+{
+	const schema = schemas.get(model);
+	if (!schema)
+		return false;
+	try {
+		const observed = bytesOf(input);
+		return observed.length === 64 && schema.header.every((byte, i) => observed[i] === byte);
+	} catch {
+		return false;
+	}
 }
 
 function typeOf(model, id)
@@ -384,7 +402,7 @@ function endpointOf(model, category, id)
 {
 	require(schemas.has(model), 'Expected a validated descriptor model');
 	require(Number.isInteger(id) && id >= 0 && id <= u32Max, 'Invalid packed u32 ID');
-	const endpoint = schemas.get(model)[category].get(id);
+	const endpoint = schemas.get(model).endpoints[category].get(id);
 	require(endpoint !== undefined, 'Unknown endpoint ID');
 	return endpoint;
 }
