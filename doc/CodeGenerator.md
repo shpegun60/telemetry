@@ -26,14 +26,23 @@ to build that module, not to run the generator. The default remains `cpp,ts,js`.
 It changes C++ namespaces and their directory paths. JS/TS expose named catalog
 exports from `device.js`/`device.ts` instead of an extra namespace wrapper.
 
-Optional `--wire-editing` adds `encodePreserving(value, originalPayload)` to JS/TS
-value codecs and writable bindings. It uses the existing typed writer with an
-owned copy of the exact original payload, retaining each NaN's wire bytes when
-its new value is also NaN. Finite edits encode normally; invalid lengths, Bool
-representations or edited values refuse the complete output. The original input
-is never modified. Default generated output and ordinary `encode` stay unchanged.
-The option requires a `js` or `ts` target and needs no UX package. Selecting the
-[UX browser starter](UXGeneratorExtension.md) enables it automatically.
+Optional `--wire-editing` adds preserving codecs to selected C++/JS/TS targets.
+They retain the original NaN wire representation when the edited value is still
+NaN; finite values, infinities and signed zero encode normally. Ordinary
+`encode` and generation without this option remain unchanged.
+
+C++ adds `codec::encodePreserving(value, originalPayload, output)` with caller-owned,
+exact-size, stable and disjoint spans. Complete original-payload validation,
+length and overlap checks happen before output changes. No allocation or
+scratch DTO is introduced. See the [C++ contract](GeneratedCppApi.md).
+
+JS/TS adds `encodePreserving(value, originalPayload)` to value codecs and writable
+bindings; it owns an original-payload copy before reading edited properties.
+The [UX browser starter](UXGeneratorExtension.md) automatically enables this
+JS/TS option. The optional `--ux-starter qml` instead requires an explicit `qml`
+target and `--structural-metadata`; its matching installed UX extension supplies
+the Configurator binding and it automatically enables the C++ preserving codec.
+A web starter alone keeps its previous C++ output when C++ is also selected.
 
 For the default namespace the outputs are:
 
@@ -42,7 +51,7 @@ For the default namespace the outputs are:
 | C++ | `cpp/device_api/Types.hpp`, `Schema.hpp`, `Endpoints.hpp`, `Codec.hpp`, `TelemetryBindings.hpp`, `EncodedBindings.hpp`, `RpcBindings.hpp` |
 | JavaScript | `js/device.js`, `js/device.d.ts` |
 | TypeScript | `ts/device.ts` |
-| QML (optional) | `qml/DeviceApi.hpp`, `DeviceApi.cpp`, `QmlValues.hpp`, `QmlInput.hpp`, `QmlRpcAdapter.hpp`, `CMakeLists.txt` |
+| QML (optional) | `qml/DeviceApi.hpp`, `DeviceApi.cpp`, `QmlValues.hpp`, `QmlInput.hpp`, `QmlRpcAdapter.hpp`, `DeviceClientAdapter.hpp`, `CMakeLists.txt` |
 | Receipt | `manifest.json` |
 
 The receipt records generator version, descriptor SHA-256, schema fingerprint,

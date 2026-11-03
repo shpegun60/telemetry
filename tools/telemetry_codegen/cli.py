@@ -107,13 +107,14 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
     targets = _targets(targets)
     if client_runtime and not set(targets) & {"js", "ts"}:
         raise ValueError("--client-runtime requires a js or ts target")
-    if ux_starter not in (None, 'web'):
-        raise ValueError('--ux-starter must be web')
+    if ux_starter not in (None, 'web', 'qml'):
+        raise ValueError('--ux-starter must be web or qml')
     if ux_starter == 'web' and ('js' not in targets or not structural_metadata):
         raise ValueError('--ux-starter web requires an explicit js target and --structural-metadata')
-    wire_editing = wire_editing or ux_starter == 'web'
-    if wire_editing and not set(targets) & {'js', 'ts'}:
-        raise ValueError('--wire-editing requires a js or ts target')
+    if ux_starter == 'qml' and ('qml' not in targets or not structural_metadata):
+        raise ValueError('--ux-starter qml requires an explicit qml target and --structural-metadata')
+    cpp_wire_editing = wire_editing or ux_starter == 'qml'
+    wire_editing = wire_editing or ux_starter is not None
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
 
@@ -135,7 +136,8 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         # UX is an error; no bundled second implementation or silent fallback.
         extension = _ux_extension()
         if 'qml' in targets:
-            qml_result = _ux_target(extension, 'generate_qml', schema)
+            qml_result = _ux_target(extension, 'generate_qml_configurator' if ux_starter == 'qml'
+                                    else 'generate_qml', schema)
         if ux_starter == 'web':
             web_result = _ux_target(extension, 'generate_web_starter', schema)
 
@@ -150,8 +152,9 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         if target in ('js', 'ts'):
             if client_runtime:
                 options['client_runtime'] = True
-            if wire_editing:
-                options['wire_editing'] = True
+        if ((target == 'cpp' and cpp_wire_editing) or
+                (target in ('js', 'ts') and wire_editing)):
+            options['wire_editing'] = True
         result = generate(schema, **options)
         append(result)
     if structural_metadata:
@@ -173,8 +176,9 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         manifest['options']['wire_editing'] = True
     if "qml" in targets:
         manifest["generated_symbol_mapping"]["qml"] = qml_result.symbol_mapping
-    if web_result is not None:
+    if ux_starter is not None:
         manifest['options']['ux_starter'] = ux_starter
+    if web_result is not None:
         manifest['generated_symbol_mapping']['web_starter'] = web_result.symbol_mapping
     files[MANIFEST] = _json(manifest).encode("utf-8")
     return files
@@ -365,10 +369,10 @@ def main(argv=None):
     generate.add_argument("--client-runtime", action="store_true", help="include optional JS/TS asynchronous FIFO client")
     generate.add_argument("--structural-metadata", action="store_true",
                           help="include optional wire type/catalog/endpoint metadata; no UI hints")
-    generate.add_argument('--ux-starter', choices=('web',),
-                          help='include an optional host-client-owned UX web mount; requires js and structural metadata')
+    generate.add_argument('--ux-starter', choices=('web', 'qml'),
+                          help='include an optional host-client-owned UX starter; requires its target and structural metadata')
     generate.add_argument('--wire-editing', action='store_true',
-                          help='include optional JS/TS codecs preserving original NaN wire bits; enabled by the web starter')
+                          help='include optional C++/JS/TS codecs preserving original NaN wire bits; enabled by UX starters')
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
