@@ -45,6 +45,12 @@ executable hashes and unchanged source inputs. GCC and Clang ASan/UBSan profiles
 cover the native peer; JavaScript checks execute in Node. No physical board or
 browser result is implied.
 
+`Preserving.mjs` exercises typed FieldWrite with a retained wire seed. It checks
+both signs of quiet/signaling F32/F64 NaNs and signed zero, finite edits, offset
+views, malformed seed length/Bool, failure without mutation, getter reentry and
+seed ownership. Closed, revoked and QueueFull paths do not touch seed/value
+getters. The same 97 controls run with published JS and the compiled TS client.
+
 ```sh
 python3 -B tests/client_dynamic_web/run.py --build-dir /external/dynamic-gcc \
   --cxx g++ --node /path/to/node --tsc /path/to/typescript/lib/tsc.js

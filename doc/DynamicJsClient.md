@@ -63,7 +63,14 @@ escapes. Promise requestId/session/cancel are preserved through projection.
 JS parsing/decoding, arrays, Promises and result copies allocate normally; this
 is not the C++ no-heap contract. U64/S64 remain BigInt. Retained raw bytes preserve
 float representations; Number does not preserve every NaN bit after re-encoding.
-An editor that must keep untouched float bits should edit staged wire bytes.
+An editor can retain the checked FieldRead `operation.payload` and use
+`writeFieldPreserving(writeEndpoint, editedValue, originalPayload, timeoutMs)`.
+This optional typed path uses the same FIFO and codec, snapshots the seed before
+reading caller value getters, and preserves its exact F32/F64 NaN bytes whenever
+that leaf is still NaN. Finite edits encode normally. Exact seed length and all
+scalar representations, including Bool, are checked before a request is admitted.
+Wrong type/session handles and full/closed/revoked clients retain their normal
+refusal behavior. No payload, editor or second queue is stored in DynamicClient.
 
 ## Invalidation and quiescence
 

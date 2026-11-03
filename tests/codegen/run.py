@@ -27,7 +27,7 @@ sys.path[:0] = [str(ROOT), str(HERE)]
 
 def source_snapshot():
     """Hash execution inputs; documentation edits do not change this code receipt."""
-    roots = ("tools/telemetry_codegen", "tests/codegen", "tests/structured/descriptor",
+    roots = ("tools/telemetry_codegen", "tests/codegen", "tests/structured/descriptor", "web",
              "examples/structured_client", "examples/codegen_cpp", "examples/codegen_encoded",
              "examples/codegen_rpc", "examples/codegen_web", "lib/telemetry", "lib/resource",
              "lib/client", "lib/common", "lib/wire", "lib/integration",
@@ -164,6 +164,8 @@ def main():
             floor = 155  # Includes the separately compiled injected-transport client.
         elif name.startswith("browser-"):
             floor = 84
+        elif name.startswith("wire-editing-"):
+            floor = 250
         else:
             floor = next((count for fixture, count in
                 (("native", 1650), ("empty", 175), ("mixed", 850), ("edge", 1400), ("hostile", 600))
@@ -380,6 +382,46 @@ def main():
                     if args.browser_python:
                         counted([args.browser_python, HERE / "Browser.py", "--module", module,
                                  "--fixtures", native], "browser-" + kind)
+
+        # Wire editing is opt-in: isolated outputs leave the ordinary modules above
+        # intact. Execute both JS and strict-compiled TS against native Descriptor.
+        wire_editing = build / "wire-editing"
+        run([*cli, "generate", descriptor, "--targets", "js,ts", "--structural-metadata",
+             "--wire-editing", "--output", wire_editing], "generate-wire-editing")
+        wire_consumer = wire_editing / "Consumer.ts"
+        wire_consumer.write_text(consumer_source(load_schema(descriptor.read_bytes())) +
+            "function preserving<T>(codec: J.ValueCodec<T>, value: T, seed: J.ByteInput): Uint8Array {\n"
+            "  const encoded: Uint8Array = codec.encodePreserving(value, seed);\n"
+            "  // @ts-expect-error the original payload must be bytes\n"
+            "  codec.encodePreserving(value, 'invalid');\n"
+            "  return encoded;\n}\n"
+            "import * as Legacy from '../web-native/js/device.js';\n"
+            "// @ts-expect-error ordinary generation has no wire-editing method\n"
+            "Legacy.codecs.Type_10.encodePreserving(NaN, new Uint8Array(4));\n")
+        run([*tsc, "--strict", "--target", "ES2022", "--module", "ES2022",
+             "--moduleResolution", "node", "--noEmit", wire_consumer], "type-wire-editing")
+        wire_compiled = build / "ts-wire-editing"
+        run([*tsc, "--strict", "--target", "ES2022", "--module", "ES2022",
+             "--moduleResolution", "node", "--declaration", "--outDir", wire_compiled,
+             wire_editing / "ts/device.ts", wire_editing / "ts/device.metadata.ts"],
+            "compile-ts-wire-editing")
+        for kind, module, metadata in (
+                ("js", wire_editing / "js/device.js", wire_editing / "js/device.metadata.js"),
+                ("ts", wire_compiled / "device.js", wire_compiled / "device.metadata.js")):
+            counted([args.node, HERE / "WireEditing.mjs", module, build / "native.hex", metadata,
+                     build / "web-native/js/device.js"], "wire-editing-" + kind)
+
+        # A copied opt-in codec still loads, but losing one IEEE byte must fail
+        # an independently constructed raw-bit assertion in the maintained test.
+        mutated_wire = build / "negative-wire-editing"
+        mutated_wire.mkdir(exist_ok=True)
+        shutil.copy2(wire_editing / "js/device.js", mutated_wire / "device.js")
+        mutation = mutate_copy(mutated_wire / "device.js",
+            "for (let i = 0; i < 4; ++i) view.setUint8(offset + i, original.getUint8(offset + i));",
+            "for (let i = 0; i < 4; ++i) view.setUint8(offset + i, 0);")
+        refused([args.node, HERE / "WireEditing.mjs", mutated_wire / "device.js", build / "native.hex",
+                 wire_editing / "js/device.metadata.js", build / "web-native/js/device.js"],
+                "negative-wire-editing-bits", r"AssertionError.*ERR_ASSERTION", **mutation)
 
         # Node imports successfully; independent canonical-byte comparisons must
         # reject the deliberately changed U16 writer in this copied module.

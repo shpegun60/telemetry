@@ -15,6 +15,20 @@ values for all supported operations. See the [checked usage and lifecycle
 contract](../doc/DynamicJsClient.md) and [native parity tests](../tests/client_dynamic_web/README.md).
 It introduces no DOM/Qt dependency or second execution engine.
 
+For editing a previously read DTO, `encodeValuePreserving(model, typeId, edited,
+originalPayload)` snapshots the original bytes and uses the same checked writer.
+When an original floating leaf and its edited value are both NaN, its exact
+original wire bits are retained. A finite edit uses ordinary encoding. Invalid
+old Bool representations, lengths or new values refuse the whole operation;
+neither caller buffer is modified. Plain `encodeValue` keeps its existing behavior.
+`DynamicClient.writeFieldPreserving(endpoint, edited, originalPayload, timeoutMs)`
+uses this codec through the same admission, FIFO and handoff path. The caller
+must retain the corresponding FieldRead payload for the intended DTO/session.
+
+For a known schema, `--wire-editing` adds the equivalent `encodePreserving` method
+to generated JS/TS codecs and writable bindings. The UX web starter enables this
+option automatically. Default generated output is unchanged.
+
 For asynchronous Field/Command/Service requests, use the shared
 [Client runtime](../lib/client/web/README.md) under `lib/client/web`. For known
 schemas, the [generator](../doc/CodeGenerator.md) can instead emit standalone

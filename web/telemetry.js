@@ -440,8 +440,11 @@ function readScalar(view, offset, code)
 	}
 }
 
-function writeScalar(view, offset, code, value)
+function writeScalar(view, offset, code, value, original)
 {
+	// Fixed-size scalar representations are canonical except Bool. Validate the
+	// old leaf using the same reader before copying any of its floating bits.
+	const previous = original ? readScalar(original, offset, code) : undefined;
 	if (code === 1) {
 		require(typeof value === 'boolean', 'Bool requires a boolean');
 		view.setUint8(offset, value ? 1 : 0);
@@ -481,6 +484,9 @@ function writeScalar(view, offset, code, value)
 		};
 		view[setters[code]](offset, value, true);
 	}
+	if (original && (code === 10 || code === 11) && Number.isNaN(previous) && Number.isNaN(value))
+		for (let i = 0; i < scalarWidths[code]; ++i)
+			view.setUint8(offset + i, original.getUint8(offset + i));
 }
 
 // Recursion follows only validated backward type references, whose depth and
@@ -516,17 +522,18 @@ function decodeAt(model, type, view, offset)
 	}
 }
 
-function encodeAt(model, type, view, offset, value)
+function encodeAt(model, type, view, offset, value, original)
 {
 	switch (type.kind) {
 		case TypeKind.Void:
 			require(value === undefined, 'Void has no value');
 			break;
 		case TypeKind.Scalar:
-			writeScalar(view, offset, type.scalarCode, value);
+			writeScalar(view, offset, type.scalarCode, value, original);
 			break;
 		case TypeKind.Enum:
-			writeScalar(view, offset, model.types[type.underlyingTypeId].scalarCode, value);
+			writeScalar(view, offset, model.types[type.underlyingTypeId].scalarCode, value,
+			            original);
 			break;
 		case TypeKind.Struct:
 			require(value !== null && typeof value === 'object' && !Array.isArray(value),
@@ -535,7 +542,7 @@ function encodeAt(model, type, view, offset, value)
 			for (const member of type.members) {
 				require(Object.hasOwn(value, member.name), 'Missing struct member');
 				const child = model.types[member.typeId];
-				encodeAt(model, child, view, offset, value[member.name]);
+				encodeAt(model, child, view, offset, value[member.name], original);
 				offset += child.wireBytes;
 			}
 			break;
@@ -544,7 +551,7 @@ function encodeAt(model, type, view, offset, value)
 			        'Exact array length');
 			const child = model.types[type.elementTypeId];
 			for (let i = 0; i < type.elementCount; ++i) {
-				encodeAt(model, child, view, offset, value[i]);
+				encodeAt(model, child, view, offset, value[i], original);
 				offset += child.wireBytes;
 			}
 			break;
@@ -559,6 +566,21 @@ export function encodeValue(model, typeId, value)
 	const type = typeOf(model, typeId);
 	const bytes = new Uint8Array(type.wireBytes);
 	encodeAt(model, type, new DataView(bytes.buffer), 0, value);
+	return bytes;
+}
+
+// Encode an edited DTO while retaining an existing NaN's exact wire bits when
+// its new logical value is still NaN. The seed is snapshotted before DTO getters
+// run, checked for exact length and canonical scalar representations, and never
+// retained. Changing a NaN to a finite value uses the normal scalar writer.
+export function encodeValuePreserving(model, typeId, value, originalPayload)
+{
+	const type = typeOf(model, typeId);
+	const source = bytesOf(originalPayload);
+	require(source.length === type.wireBytes, 'Exact original value payload length');
+	const original = new Uint8Array(source);
+	const bytes = new Uint8Array(type.wireBytes);
+	encodeAt(model, type, new DataView(bytes.buffer), 0, value, new DataView(original.buffer));
 	return bytes;
 }
 

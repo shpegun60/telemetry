@@ -101,7 +101,8 @@ def _ux_target(extension, name, schema):
     return result
 
 
-def render(schema, targets, client_runtime=False, structural_metadata=False, ux_starter=None):
+def render(schema, targets, client_runtime=False, structural_metadata=False, ux_starter=None,
+           wire_editing=False):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
     if client_runtime and not set(targets) & {"js", "ts"}:
@@ -110,6 +111,9 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         raise ValueError('--ux-starter must be web')
     if ux_starter == 'web' and ('js' not in targets or not structural_metadata):
         raise ValueError('--ux-starter web requires an explicit js target and --structural-metadata')
+    wire_editing = wire_editing or ux_starter == 'web'
+    if wire_editing and not set(targets) & {'js', 'ts'}:
+        raise ValueError('--wire-editing requires a js or ts target')
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
 
@@ -142,7 +146,13 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
                                          __package__)
         generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
-        result = generate(schema, client_runtime=True) if client_runtime and target in ("js", "ts") else generate(schema)
+        options = {}
+        if target in ('js', 'ts'):
+            if client_runtime:
+                options['client_runtime'] = True
+            if wire_editing:
+                options['wire_editing'] = True
+        result = generate(schema, **options)
         append(result)
     if structural_metadata:
         from .generators.metadata import generate
@@ -159,6 +169,8 @@ def render(schema, targets, client_runtime=False, structural_metadata=False, ux_
         manifest["options"]["client_runtime"] = True
     if structural_metadata:
         manifest["options"]["structural_metadata"] = True
+    if wire_editing:
+        manifest['options']['wire_editing'] = True
     if "qml" in targets:
         manifest["generated_symbol_mapping"]["qml"] = qml_result.symbol_mapping
     if web_result is not None:
@@ -355,6 +367,8 @@ def main(argv=None):
                           help="include optional wire type/catalog/endpoint metadata; no UI hints")
     generate.add_argument('--ux-starter', choices=('web',),
                           help='include an optional host-client-owned UX web mount; requires js and structural metadata')
+    generate.add_argument('--wire-editing', action='store_true',
+                          help='include optional JS/TS codecs preserving original NaN wire bits; enabled by the web starter')
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
@@ -382,7 +396,8 @@ def main(argv=None):
                              symbols=symbol_mapping(schema))), end="")
         else:
             files = render(schema, _targets(args.targets), client_runtime=args.client_runtime,
-                           structural_metadata=args.structural_metadata, ux_starter=args.ux_starter)
+                           structural_metadata=args.structural_metadata, ux_starter=args.ux_starter,
+                           wire_editing=args.wire_editing)
             publish(files, args.output, args.check)
             print(("Verified " if args.check else "Generated ") + str(len(files) - 1) + " files")
         return 0

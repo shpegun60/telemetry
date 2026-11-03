@@ -90,6 +90,9 @@ export function descriptorFingerprint(input: ByteInput): bigint;
 export function parseDescriptor(input: ByteInput, overrides?: Partial<Limits>): RuntimeSchema;
 export function matchesDescriptorHeader(model: RuntimeSchema, input: ByteInput): boolean;
 export function encodeValue(model: RuntimeSchema, typeId: number, value: unknown): Uint8Array;
+/** Preserve original IEEE NaN wire bits when the corresponding edited leaf remains NaN. */
+export function encodeValuePreserving(model: RuntimeSchema, typeId: number, value: unknown,
+                                      originalPayload: ByteInput): Uint8Array;
 export function decodeValue(model: RuntimeSchema, typeId: number, input: ByteInput): unknown;
 export function encodeFieldWrite(model: RuntimeSchema, id: number, value: unknown): Uint8Array;
 export function decodeFieldValue(model: RuntimeSchema, id: number, input: ByteInput): unknown;

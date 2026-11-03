@@ -7,7 +7,13 @@
  * Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
  */
 import {DeviceClient, Status, Batch} from '../lib/client/web/Client.js';
-import {TypeKind, matchesDescriptorHeader, encodeValue, decodeValue} from './telemetry.js';
+import {
+	TypeKind,
+	matchesDescriptorHeader,
+	encodeValue,
+	encodeValuePreserving,
+	decodeValue
+} from './telemetry.js';
 
 export const ValueStatus = Object.freeze(
     {Ok : 'Ok', Stale : 'Stale', NoValue : 'NoValue', InvalidPayload : 'InvalidPayload'});
@@ -223,6 +229,12 @@ export class DynamicClient {
 	writeField(endpoint, value, timeoutMs)
 	{
 		return this.#produce(() => this.#submit('FieldWrite', endpoint, value, timeoutMs));
+	}
+
+	writeFieldPreserving(endpoint, value, originalPayload, timeoutMs)
+	{
+		return this.#produce(
+		    () => this.#submit('FieldWrite', endpoint, value, timeoutMs, originalPayload, true));
 	}
 
 	command(endpoint, value = undefined, timeoutMs)
@@ -473,7 +485,7 @@ export class DynamicClient {
 		});
 	}
 
-	#submit(operation, endpoint, value, timeoutMs)
+	#submit(operation, endpoint, value, timeoutMs, originalPayload, preserving = false)
 	{
 		const gate = this.#gate();
 		if (gate !== Status.Ok)
@@ -483,11 +495,21 @@ export class DynamicClient {
 			return this.#refused(operation, Status.NotAdmitted);
 		if (entry.endpoint.operation !== operation)
 			return this.#refused(operation, Status.InvalidArgument);
-		const pending =
-		    operation === 'FieldRead'    ? this.#core.read(entry.binding, timeoutMs)
-		    : operation === 'FieldWrite' ? this.#core.write(entry.binding, value, timeoutMs)
-		    : operation === 'Command'    ? this.#core.command(entry.binding, value, timeoutMs)
-		                                 : this.#core.service(entry.binding, value, timeoutMs);
+		const binding = preserving ? {
+			...entry.binding,
+			encode : request => {
+			    if (!this.#current(entry.token))
+				    throw new Error('Retired runtime binding');
+			    return encodeValuePreserving(entry.token.model, entry.endpoint.requestType, request,
+			                                 originalPayload);
+			}
+		}
+		                           : entry.binding;
+		const pending = operation === 'FieldRead'    ? this.#core.read(entry.binding, timeoutMs)
+		                : operation === 'FieldWrite' ? this.#core.write(binding, value, timeoutMs)
+		                : operation === 'Command'
+		                    ? this.#core.command(entry.binding, value, timeoutMs)
+		                    : this.#core.service(entry.binding, value, timeoutMs);
 		return this.#map(pending, result => {
 			if (!this.#current(entry.token))
 				return Object.freeze(

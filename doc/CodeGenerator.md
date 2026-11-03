@@ -26,6 +26,15 @@ to build that module, not to run the generator. The default remains `cpp,ts,js`.
 It changes C++ namespaces and their directory paths. JS/TS expose named catalog
 exports from `device.js`/`device.ts` instead of an extra namespace wrapper.
 
+Optional `--wire-editing` adds `encodePreserving(value, originalPayload)` to JS/TS
+value codecs and writable bindings. It uses the existing typed writer with an
+owned copy of the exact original payload, retaining each NaN's wire bytes when
+its new value is also NaN. Finite edits encode normally; invalid lengths, Bool
+representations or edited values refuse the complete output. The original input
+is never modified. Default generated output and ordinary `encode` stay unchanged.
+The option requires a `js` or `ts` target and needs no UX package. Selecting the
+[UX browser starter](UXGeneratorExtension.md) enables it automatically.
+
 For the default namespace the outputs are:
 
 | Target | Files |

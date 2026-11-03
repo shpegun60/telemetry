@@ -87,6 +87,8 @@ export class DynamicClient {
 	readField(endpoint: EndpointBinding, timeoutMs?: number): DynamicRequest<DynamicResult>;
 	writeField(endpoint: EndpointBinding, value: unknown,
 	           timeoutMs?: number): DynamicRequest<DynamicResult>;
+	writeFieldPreserving(endpoint: EndpointBinding, value: unknown, originalPayload: ByteInput,
+	                     timeoutMs?: number): DynamicRequest<DynamicResult>;
 	command(endpoint: EndpointBinding, value?: unknown,
 	        timeoutMs?: number): DynamicRequest<DynamicResult>;
 	service(endpoint: EndpointBinding, value?: unknown,

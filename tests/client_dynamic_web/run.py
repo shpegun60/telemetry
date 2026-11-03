@@ -116,6 +116,8 @@ def main():
             runtime_module = consumer / 'lib/client/web/Client.js'
             run('checks-' + label, [node, HERE / 'Check.mjs', module, runtime_module,
                 descriptor, read_many, capability], 361)
+            run('preserving-' + label, [node, HERE / 'Preserving.mjs', module, runtime_module,
+                descriptor], 97)
             run('integration-' + label, [node, HERE / 'Integration.mjs', module, runtime_module,
                 generated / 'device.js', descriptor, read_many, capability, bridge], 101)
             shutil.copy2(HERE / 'Consumer.ts', consumer / 'Consumer.ts')
