@@ -48,13 +48,25 @@ available and are reused by UX; their ownership logic must not be copied.
 
 Each stage may contain several small PRs. Do not combine repository migration,
 wire changes, several clients and a new GUI into one unreviewable change.
-S1 is integrated. S2-S4 have separate implementation PRs with their own
-qualification records. S5 adds optional structural metadata, installed SDK
-packages and the [four-surface conformance suite](../tests/sdk_conformance/README.md).
-Local qualification and integration into `main` remain separate milestones.
-U1 has begun with the separately packaged QML generator and a versioned public
-emitter seam; application migration, reusable components and self-hosting still
-have their own acceptance gates.
+S1-S5 are integrated through SDK PR #33 (merge `b4e372a`), with qualification
+records including the [four-surface conformance suite](../tests/sdk_conformance/README.md).
+Feature qualification and the CI of a final `main` revision remain separate
+evidence: verify the exact merge revision before making a release claim.
+
+U1 now has a separate repository, installed versioned generator extension and
+compatibility distribution. UX owns the Inspector app, reusable Qt-only
+Configurator view, generated-QML demo/tests, and
+[structured browser payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md). SDK retains its headless
+clients/codecs, native fixtures and Qt Core console smoke. Legacy Widgets
+source retirement is separately blocked and is not declared complete here.
+
+U2 has the installed reusable QML view and existing dynamic Inspector provider;
+the typed/generated static QML provider is still pending. U3 has the shared
+ES-module renderer, static/dynamic web providers and optional generated web
+starter, but a registered browser Custom Element API is not complete in this
+snapshot. Host demonstration HTTP adapters do not complete W1 persistent
+WebSocket integration, W2 STM32 network self-hosting or their hardware/resource
+qualification. No UART/DMA receipt establishes those network/UI milestones.
 
 ## Contracts that every stage preserves
 

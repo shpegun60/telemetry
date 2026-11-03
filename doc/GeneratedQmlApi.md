@@ -22,7 +22,7 @@ Choose a host namespace such as `device_api` or `company::device_api`; Qt-style
 for this target, since moc also uses the requested namespace. Descriptor member,
 endpoint and group names are normalized or shielded independently.
 Keep generated SDKs and build directories outside the
-source repository, as shown by the [Qt example](../examples/codegen_qml/README.md).
+source repository, as shown by the [Qt example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md).
 
 Field getters return confirmed local snapshots. Reading a property never sends
 a packet. A readable Field has `refresh<Name>()`; a writable Field has
@@ -208,7 +208,7 @@ Timeout while still requiring remote session recovery. No queued invocation
 is replayed after recovery. On shutdown stop producers, call `close()`, and keep
 owner processing until `drained()` before destroying the adapter. This lifetime
 precondition keeps accepted callbacks alive through their single completion.
-The [runnable example](../examples/codegen_qml/README.md) uses this same adapter
+The [runnable example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md) uses this same adapter
 and FIFO for both actual Encoded and RPC loopbacks.
 
 Including `QmlRpcAdapter.hpp` instead adds the legacy single-active optional
@@ -291,8 +291,8 @@ boundary. It does not need RpcClient, RpcMailbox, Resource framing or retry
 machinery. Serialize Model/owner/Workspace access and keep slow native
 callbacks off the UI thread.
 
-See the [Qt example and build commands](../examples/codegen_qml/README.md),
-[QML regression runner](../tests/codegen_qml/README.md),
+See the [Qt example and build commands](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md),
+[QML regression runner](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/codegen_qml/README.md),
 [standalone C++ API](GeneratedCppApi.md) and
 [schema compatibility contract](GeneratedSchemaCompatibility.md).
 

@@ -4,7 +4,7 @@ Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
 [telemetry.js](telemetry.js) validates Descriptor v3, provides runtime type and
 endpoint lookup, and encodes/decodes values without a Generated SDK. It is used by
-the [structured browser example](../examples/structured_client/README.md).
+the [structured browser example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md).
 U64/S64 use JavaScript BigInt. This helper does not own an asynchronous request
 queue, transport or connection lifecycle.
 

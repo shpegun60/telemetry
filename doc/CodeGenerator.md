@@ -108,7 +108,7 @@ and [schema admission](GeneratedSchemaCompatibility.md). Runnable examples:
 [Encoded](../examples/codegen_encoded/README.md),
 [RpcClient](../examples/codegen_rpc/README.md),
 [web](../examples/codegen_web/README.md).
-The [QML example](../examples/codegen_qml/README.md) runs the same Qt interface
+The [QML example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md) runs the same Qt interface
 with a direct Encoded adapter or the existing `RpcClient` and Resource server.
 
 The [repeatable suite](../tests/codegen/README.md) executes native canonical

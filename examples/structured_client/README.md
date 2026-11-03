@@ -1,69 +1,23 @@
-# Structured client example
+# Structured native fixture and Qt Core console
 
 Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
-This desktop example uses one C++ Model for Field, Command and Service, its
-canonical descriptor, and a transport-independent JavaScript payload codec.
-It does not require the optional Bind/Exchange example.
+This SDK example retains the application DTO/table fixture in [Device.hpp](Device.hpp)
+and the headless Qt Core binary-payload smoke in [QtSmoke.cpp](QtSmoke.cpp).
+QByteArray owns its wire buffers; Workspace owns decoded object lifetimes. It
+checks the native Model, encoded Service, U64/S64 extremes and exact 41-byte
+response. Qt JSON is only a desktop summary with integer64 strings, not an MCU
+formatter or a new Telemetry format.
 
-```text
-C++ DTOs + methods
-    -> Model / Descriptor / ValuesFile
-    -> validated JS structural model
-    -> recursive Service form
-    -> canonical request payload
-    -> example HTTP adapter -> C++ encoded index
-    -> status + canonical response payload
-    -> JS response decoder
-```
+The HTML editor, localhost adapter and real-browser tests now belong to
+[Telemetry UX payload tools](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md), with an independent
+[installed-package browser suite](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/structured_client/README.md). That example imports the installed
+SDK npm runtime and links installed SDK C++ targets. Starting it does not require
+running a test suite or accessing the SDK source tree.
 
-The [Device.hpp](Device.hpp) declarations contain only names and bindings.
-One `Config` is shared by a writable Field, a Command and a Service request
-and response. Types and reflected member names reach the UI automatically.
-The example also includes a Void Service and an empty FunctionSlot.
-`multiplier` status decisions belong to the fake Device method; they are not
-exported as limits/defaults in the descriptor.
+## Qt Core smoke
 
-## Run
-
-Build and test the native helper and client first, from the repository root:
-
-```sh
-python3 tests/structured/client/run.py --cxx g++ --node node --build-dir build/client
-python3 examples/structured_client/serve.py --device build/client/client-device --data-dir build/client --port 8080
-```
-
-Open `http://127.0.0.1:8080/examples/structured_client/` and press **Load fake
-Device**. On Windows the helper is `client-device.exe`; put the selected
-MinGW compiler's runtime DLL directory on PATH when running it separately.
-The test runner handles that PATH for its child processes.
-
-The page can also open a descriptor without any server-side device, save
-request payloads, read response payloads and decode a matching values file.
-In this mode the fake call button stays disabled. U64/S64 inputs are decimal
-text converted directly to BigInt. Display strings do not change wire bytes.
-
-The form starts with **local UI zeros**, including an enum code of zero when
-it is representable. These are not descriptor defaults. Unknown enum codes
-are accepted; named codes are suggestions. All reflected text uses textContent.
-There are no units, application limits, defaults or per-member overlays.
-
-The illustrative HTTP adapter uses `/service/<u32-id>`, a raw request body,
-and `X-Dispatch-Status` / `X-Endpoint-Status` response headers. This routing
-and the single outstanding call belong to the example, not the codec or
-telemetry core. A timeout can occur after the Device executes: the page
-reports an unknown outcome and does not repeat the operation. Changing
-descriptor/service selection cancels the pending display; an old response
-is never decoded through a newly loaded model. Delayed file reads also discard
-their success/error completion after selection or descriptor replacement, even
-when the same service or identical descriptor is selected again.
-
-This is a localhost fake, not a firmware HTTP server. Each request starts a
-fresh native helper, so application state does not persist between requests.
-The UI caps form expansion at 4096 nodes and whole-file uploads at 16 MiB;
-larger streams need an application reader instead of this demonstration form.
-
-## Qt smoke
+From this SDK checkout, with a matching Qt 6 C++20 kit:
 
 ```sh
 mkdir -p build/client-qt
@@ -73,10 +27,24 @@ make -j2
 ./structured_client_qt
 ```
 
-The console smoke uses QByteArray payloads with the same Model, native
-readAs and encoded Service. It verifies U64/S64 extremes and the exact 41-byte
-response. Qt JSON is used only for a desktop summary, with integer64 strings.
-It is not an MCU formatter or a different telemetry format.
+On Windows use the matching kit's qmake/make and `.exe` suffix; put that MinGW
+runtime directory first on PATH. This is a console program and creates no GUI.
 
-Automated validation and dependency commands are in
-[tests/structured/client](../../tests/structured/client/README.md).
+## Headless payload interoperability
+
+The SDK [structural client suite](../../tests/structured/client/README.md) keeps
+the independent native producer, canonical Descriptor/Values and request/response
+bytes, exhaustive JS parser/codec checks and application-status controls. Its
+current command requires neither Qt nor Playwright:
+
+```sh
+python3 tests/structured/client/run.py --cxx g++ --node node --build-dir build/client
+```
+
+The old `--browser` switch produces an actionable migration error before creating
+an output directory or running tools. The new browser suite has its own explicit
+installed C++/npm SDK inputs; it is not silently substituted into this runner.
+
+The local [Device.hpp](Device.hpp) remains the shared SDK test fixture used by
+headless generator/codec tests. The UX demo owns its separate application fixture
+with recorded provenance; no SDK client, parser, codec or FIFO implementation is copied.

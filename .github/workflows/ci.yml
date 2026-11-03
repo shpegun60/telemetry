@@ -856,7 +856,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: shpegun60/telemetry-ux
-          ref: e1a875cf80296e3c5911541468deb81bf026f73d
+          ref: a336b8c2984d5adf235b0791b545a37d3da3cc8b
           path: .ci/telemetry-ux
       - name: Relocated CMake, packed ESM and installed Python consumers
         if: matrix.mode == 'release'
@@ -1162,25 +1162,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: shpegun60/telemetry-ux
-          ref: da08ef7d2e4b80cba9eb018527cf7ce27f248e7f
+          ref: a336b8c2984d5adf235b0791b545a37d3da3cc8b
           path: .ci/telemetry-ux
-      - name: Install only the selected UX emitter for source runtime tests
+      - name: Install current core and pinned UX generator wheels outside checkouts
         run: |
           python3 -m venv "$RUNNER_TEMP/ux-generator-tools"
           "$RUNNER_TEMP/ux-generator-tools/bin/pip" install setuptools==80.9.0 wheel==0.45.1
-          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install --no-deps --no-build-isolation \
-            --target "$RUNNER_TEMP/ux-generator" .ci/telemetry-ux
-          echo "PYTHONPATH=$RUNNER_TEMP/ux-generator" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/ux-generator-core-source" "$RUNNER_TEMP/ux-generator-ux-source" "$RUNNER_TEMP/ux-generator-wheels"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/ux-generator-core-source"
+          git -C .ci/telemetry-ux archive HEAD | tar -x -C "$RUNNER_TEMP/ux-generator-ux-source"
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" wheel --no-deps --no-index --no-build-isolation \
+            --wheel-dir "$RUNNER_TEMP/ux-generator-wheels" \
+            "$RUNNER_TEMP/ux-generator-core-source" "$RUNNER_TEMP/ux-generator-ux-source"
+          version="$(tr -d '\r\n' < VERSION)"
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install --no-index --find-links "$RUNNER_TEMP/ux-generator-wheels" \
+            "telemetry-codegen-core==$version" "telemetry-ux-codegen==$version"
       - name: Install Qt host development and QML runtime
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-18 cmake ninja-build qt6-base-dev qt6-declarative-dev libqt6serialport6-dev \
             qml6-module-qtquick qml6-module-qtquick-window qml6-module-qtquick-controls \
             qml6-module-qtquick-layouts qml6-module-qtquick-templates qml6-module-qtqml-workerscript
-      - name: Generate, build and execute QML with Encoded and existing RpcClient
-        run: |
-          python3 tests/codegen_qml/run.py --build-dir "$RUNNER_TEMP/codegen-qml" \
-            --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Check out the qualified COBS transport
         uses: actions/checkout@v4
         with:
@@ -1192,16 +1194,22 @@ jobs:
           python3 -B tests/qt_transport/run.py --build-dir "$RUNNER_TEMP/qt-transport-packages" \
             --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
             --cxx /usr/bin/g++ --cmake cmake --ninja ninja
-      - name: Install the current SDK for the cross-repository GUI peer test
+      - name: Install the current SDK for cross-repository Qt consumers
         run: |
           cmake -S . -B "$RUNNER_TEMP/ux-sdk-build" -G Ninja \
-            '-DTELEMETRY_COMPONENTS=inspector;workbench;read_many_workbench;encoded_backend;encoded_server;core;tcp_server;qt_serial_transport;resource_adapter' \
+            '-DTELEMETRY_COMPONENTS=inspector;workbench;read_many_workbench;encoded_backend;encoded_server;core;tcp_server;qt_serial_transport;resource_adapter;rpc_backend;rpc_sessions' \
             -DCOBS_ROOT="$GITHUB_WORKSPACE/build/dependencies/cobs" -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER=/usr/bin/clang++-18 \
             '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -g -DNDEBUG -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer' \
             -DTELEMETRY_SOURCE_REVISION="$(git rev-parse HEAD)" \
             -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ux-sdk-prefix"
           cmake --build "$RUNNER_TEMP/ux-sdk-build" --target install --parallel 2
+      - name: Installed SDK and Python wheels through the pinned UX QML consumer
+        run: |
+          python3 -B .ci/telemetry-ux/tests/codegen_qml/run.py --build-dir "$RUNNER_TEMP/codegen-qml" \
+            --sdk-prefix "$RUNNER_TEMP/ux-sdk-prefix" \
+            --codegen-python "$RUNNER_TEMP/ux-generator-tools/bin/python" \
+            --qt-prefix /usr --cxx /usr/bin/clang++-18 --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Sanitized serial discovery and fault injection through real PTYs
         run: |
           python3 -B tests/inspector_serial/run.py --build-dir "$RUNNER_TEMP/inspector-serial" \
@@ -1241,6 +1249,8 @@ jobs:
           name: generated-qml-sdk
           path: |
             ${{ runner.temp }}/codegen-qml/
+            ${{ runner.temp }}/ux-generator-wheels/
+            ${{ runner.temp }}/ux-sdk-prefix/share/telemetry/SDKMetadata.json
             ${{ runner.temp }}/inspector-serial/
             ${{ runner.temp }}/qt-transport-packages/
             ${{ runner.temp }}/nucleo-host/
@@ -1307,19 +1317,3 @@ jobs:
           make -j2
           ./structured_qualification
           if grep -E 'TelemetryJson.cpp|resource/telemetry/(Schema|Commands|Values)File.cpp|structured_protocol/(Bind|Exchange).cpp' Makefile; then exit 1; fi
-      - name: Structured client browser and fake Device
-        run: |
-          python3 -m venv build/client-venv
-          build/client-venv/bin/pip install playwright==1.63.0
-          build/client-venv/bin/python -m playwright install --with-deps chromium
-          build/client-venv/bin/python tests/structured/client/run.py --browser --build-dir build/client-browser
-      - name: Retain client browser evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: structured-client-browser
-          path: |
-            build/client-browser/*.log
-            build/client-browser/summary.json
-            build/client-browser/*.png
-          if-no-files-found: ignore

@@ -24,7 +24,7 @@ Git's tracked and nonignored new files define the source inventory. Only
 authored `.md` files are inspected, so downloaded dependencies or generated
 build documentation cannot silently expand the scope. Vendor trees
 `lib/boost_pfr`, `lib/magic_enum` and `lib/delegate`, and sealed
-`doc/evidence` records are excluded as source documents. They remain valid
+`doc/evidence` and `tests/resources/evidence` records are excluded as source documents. They remain valid
 link targets, including their heading anchors; retained bytes are unchanged.
 
 Inline links, linked images, reference links and HTML `href`/`src` attributes
@@ -54,4 +54,6 @@ percent-encoded, Unicode, duplicate-heading, rendered-markup, setext,
 reference, explicit-anchor and image destinations. It also requires failure
 for a missing file and a missing heading. Fenced/inline code and comment
 controls ensure examples containing apparent links are ignored.
-No fixture or generated file is left in the checkout.
+A temporary Git inventory also verifies that retained resource-evidence records
+are excluded as source guides but remain valid file/heading targets, while a
+broken authored guide still fails. No fixture or generated file is left in the checkout.

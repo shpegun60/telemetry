@@ -20,6 +20,7 @@ from urllib.parse import unquote, urlsplit
 ROOT = Path(__file__).resolve().parents[2]
 RETAINED_OR_VENDOR = (
     "lib/boost_pfr/", "lib/magic_enum/", "lib/delegate/", "doc/evidence/",
+    "tests/resources/evidence/",
 )
 INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)(.*?)\1(?!`)", re.S)
 
@@ -266,6 +267,27 @@ def self_test():
         require(github_slug("_Word_ / `some_value` / `__literal__` / user_id / \\_escaped\\_") ==
                 "word--some_value--__literal__--user_id--_escaped_",
                 "emphasis differs from literal code, word-internal and escaped underscores")
+    # Retained records keep historical links, but authored guides remain strict.
+    with tempfile.TemporaryDirectory(prefix="telemetry-navigation-inventory-") as temporary:
+        root = Path(temporary)
+        subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+        retained = root / "tests/resources/evidence/README.md"
+        retained.parent.mkdir(parents=True)
+        retained.write_text("# Retained record\n[historical](../../codegen_qml/README.md)\n",
+                            encoding="utf-8")
+        authored = root / "README.md"
+        authored.write_text("[record](tests/resources/evidence/README.md#retained-record)\n",
+                            encoding="utf-8")
+        documents = authored_documents(root)
+        require(documents == [authored], "Git inventory excludes only retained evidence sources")
+        report = check_documents(root, documents)
+        require(report["completed"] and report["heading_links"] == 1,
+                "retained records remain valid file/heading targets")
+        authored.write_text("[broken](missing-authored-guide.md)\n", encoding="utf-8")
+        report = check_documents(root, authored_documents(root))
+        require(not report["completed"] and len(report["errors"]) == 1 and
+                "missing file" in report["errors"][0],
+                "a broken authored guide still fails beside retained evidence")
     print(f"Documentation navigation self-tests: {checks} passed")
     return checks
 

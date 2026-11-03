@@ -16,7 +16,7 @@ the source tree. See [qualification](../tests/codegen/README.md).
 The optional `--targets qml` emits a Qt 6 QML module over the unchanged C++ SDK.
 It includes `cpp` automatically and supports application Encoded transports and
 the existing `RpcClient`; see [QML API](../doc/GeneratedQmlApi.md) and its
-[runnable example](../examples/codegen_qml/README.md).
+[runnable example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md).
 
 With the matching UX extension installed, `--targets js --structural-metadata
 --ux-starter web` additionally emits a thin browser page importing the shared UX

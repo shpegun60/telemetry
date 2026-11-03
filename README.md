@@ -39,8 +39,8 @@ Descriptor v3.0 та створює готові типи, endpoint contracts і
 оригінальні структури STM32 та wire-контракти залишаються чинними.
 Додатковий [QML target із C++ backend](doc/GeneratedQmlApi.md) створює готовий
 Qt 6 модуль: кешовані властивості, `NOTIFY` та асинхронні Field/Command/Service.
-Є [Qt Quick приклад](examples/codegen_qml/README.md) і
-[перевірки на справжньому QML runtime](tests/codegen_qml/README.md).
+Є [Qt Quick приклад](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/codegen_qml/README.md) і
+[перевірки на справжньому QML runtime](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/tests/codegen_qml/README.md).
 
 **[API Map: Native / Encoded / Codec / Resource](doc/user/APIOverview.md)** ·
 [Посібник користувача](doc/user/README.md) ·

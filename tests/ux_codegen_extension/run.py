@@ -39,9 +39,9 @@ def inputs(ux):
                       and p.suffix in ('.py','.toml','.in','.json','.md')]
     sdk_paths += [ROOT/'lib/client/web'/name for name in ('Client.ts','Client.js','Client.d.ts')]
     sdk_paths += [ROOT/'tests/structured/descriptor'/(name+'.hex') for name in ('empty','mixed','edge')]
-    sdk_paths += [ROOT/name for name in ('tests/codegen_qml/test_generator.py','tests/codegen/test_core.py','tests/structured/descriptor/golden.py','tests/structured/descriptor/parser.py')]
     ux_paths = [ux/name for name in (*PACKAGE_FILES,'MIGRATION.md')]
     ux_paths += [p for p in (ux/'python').rglob('*.py') if '__pycache__' not in p.parts]
+    ux_paths += [ux/'tests/codegen_qml'/name for name in ('test_generator.py','descriptor_fixture.py')]
     return {**{'sdk/'+p.relative_to(ROOT).as_posix():digest(p) for p in sorted(set(sdk_paths))},
             **{'ux/'+p.relative_to(ux).as_posix():digest(p) for p in sorted(set(ux_paths))}}
 
@@ -259,13 +259,14 @@ def main():
         run('full-web-starter-check',[*web_command,'--check'])
         check(set(inventory(web_output/'ui'))=={'DevicePage.js','DevicePage.d.ts','README.md'},
             'The real installed UX web starter owns only three thin files')
-        # Run the maintained legacy QML unit suite with fixture files but no SDK source tree.
+        # Run UX-owned QML unit/fixture source with the installed implementations.
+        # Headless SDK golden profiles above remain an independent frozen oracle.
         units=out/'installed-legacy-units'
-        for path in ('tests/codegen_qml/test_generator.py','tests/codegen/test_core.py',
-                     'tests/structured/descriptor/golden.py','tests/structured/descriptor/parser.py'):
-            target=units/path;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(ROOT/path,target)
-        for fixture in ('empty','mixed','edge'):
-            shutil.copy2(ROOT/'tests/structured/descriptor'/(fixture+'.hex'),units/'tests/structured/descriptor'/(fixture+'.hex'))
+        unit_source=ux/'tests/codegen_qml'
+        for name in ('test_generator.py','descriptor_fixture.py'):
+            target=units/'tests/codegen_qml'/name
+            target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copy2(unit_source/name,target)
         script=("import tools.telemetry_codegen as c;import telemetry_ux_codegen as u;import sys,unittest;from pathlib import Path;"
             "assert Path(c.__file__).resolve().is_relative_to(Path(sys.prefix).resolve());"
             "assert Path(u.__file__).resolve().is_relative_to(Path(sys.prefix).resolve());"
