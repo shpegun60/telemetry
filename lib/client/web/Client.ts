@@ -21,9 +21,9 @@ export const Status = Object.freeze({
 	Unsupported : 18,
 } as const);
 export type ClientStatus = typeof Status[keyof typeof Status];
-export type Operation = 'FieldWrite'|'Command'|'Service'|'FieldRead'|'ReadMany';
-export const Operations =
-    Object.freeze({FieldWrite : 1, Command : 2, Service : 3, FieldRead : 4, ReadMany : 5} as const);
+export type Operation = 'FieldWrite'|'Command'|'Service'|'FieldRead'|'ReadMany'|'Batch';
+export const Operations = Object.freeze(
+    {FieldWrite : 1, Command : 2, Service : 3, FieldRead : 4, ReadMany : 5, Batch : 6} as const);
 export type ByteInput = ArrayBuffer|ArrayBufferView;
 export interface ReadBinding<T> {
 	readonly fingerprint: bigint;
@@ -113,6 +113,105 @@ export interface Field<T> {
 	readonly read: ReadBinding<T>;
 	readonly write?: WriteBinding<T>;
 }
+export type BatchOperation = 'FieldRead'|'FieldWrite'|'Command'|'Service';
+export const BatchValueStatus = Object.freeze(
+    {Ok : 'Ok', NoValue : 'NoValue', InvalidPayload : 'InvalidPayload', Stale : 'Stale'} as const);
+export type BatchValueStatus = typeof BatchValueStatus[keyof typeof BatchValueStatus];
+declare const batchTypes: unique symbol;
+export interface BatchItem<T> {
+	readonly operation: BatchOperation;
+	readonly[batchTypes]: T;
+}
+export type BatchItemResult<T> = Omit<Result<T>, 'value'>&{readonly id : number}&({
+	readonly valueStatus: typeof BatchValueStatus.Ok;
+	readonly value: T
+}|{
+	readonly valueStatus: Exclude<BatchValueStatus, typeof BatchValueStatus.Ok>;
+	readonly value: undefined
+});
+export type BatchItems<I extends readonly BatchItem<unknown>[]> = {
+	readonly[K in keyof I]: BatchItemResult<I[K] extends BatchItem<infer T>? T : never>;
+};
+type BatchRequest<B extends {encode : (value: never) => Uint8Array}> = Parameters<B['encode']>[ 0 ];
+type BatchArguments<B extends {encode : (value: never) => Uint8Array}> =
+    [ BatchRequest<B>] extends [void] ? [ value?: BatchRequest<B>] : [ value: BatchRequest<B>];
+export interface BatchResult<T extends readonly unknown[]> extends Result<undefined> {
+	readonly items: T|undefined;
+	readonly valueStatus: BatchValueStatus;
+}
+export interface BatchPromise<T extends readonly unknown[]> extends Promise<BatchResult<T>> {
+	readonly requestId: number;
+	readonly session: number;
+	cancel(): boolean;
+}
+interface BatchArgument {
+	readonly operation: BatchOperation;
+	readonly binding: unknown;
+	readonly argument: unknown;
+}
+const batchArguments = new WeakMap<object, BatchArgument>();
+
+function batchItem<T>(operation: BatchOperation, binding: unknown, argument?: unknown): BatchItem<T>
+{
+	const item = Object.freeze({operation}) as BatchItem<T>;
+	batchArguments.set(item, {operation, binding, argument});
+	return item;
+}
+
+// Pure argument selectors. Encoding/ownership starts only inside DeviceClient.batch().
+export const Batch = Object.freeze({
+	items<const I extends readonly BatchItem<unknown>[]>(...items: I) : I {
+	    return Object.freeze(items) as I;
+	},
+	read<T>(field: Field<T>|ReadBinding<T>) : BatchItem<T> {
+	    return batchItem('FieldRead', field);
+	},
+	write<T>(field: {readonly write: WriteBinding<T>}|WriteBinding<T>, value: NoInfer<T>) :
+	    BatchItem<undefined> {
+	        return batchItem('FieldWrite', field, value);
+	    },
+	command<const B extends CommandBinding<never>>(
+	    binding: B, ...value: BatchArguments<NoInfer<B>>) : BatchItem<undefined> {
+	    return batchItem('Command', binding, value[0]);
+	},
+	service<const B extends ServiceBinding<never, unknown>>(binding: B,
+	                                                        ...value: BatchArguments<NoInfer<B>>) :
+	    BatchItem<ReturnType<B['decodeResponse']>> {
+	        return batchItem('Service', binding, value[0]);
+	    }
+});
+interface BatchEntry {
+	readonly operation: BatchOperation;
+	readonly id: number;
+	readonly requestBytes: number;
+	readonly responseBytes: number;
+	readonly encode?: (value: never) => Uint8Array;
+	readonly decode?: (input: ByteInput) => unknown;
+	readonly voidResponse: boolean;
+}
+interface BatchMetadata {
+	fingerprint: bigint;
+	operation: BatchOperation;
+	id: number;
+	requestBytes: number;
+	responseBytes: number;
+	responseTypeId?: number;
+	encode?: (value: never) => Uint8Array;
+	decode?: (input: ByteInput) => unknown;
+	decodeResponse?: (input: ByteInput) => unknown;
+}
+interface BatchState {
+	readonly session: number;
+	readonly fingerprint: bigint;
+	readonly startedAt: number;
+	readonly payload: Uint8Array;
+	readonly responseBytes: number;
+	readonly entries: readonly BatchEntry[];
+	requestId: number;
+	checked?: WireResult;
+	items?: readonly BatchItemResult<unknown>[];
+	valueStatus: BatchValueStatus;
+}
 export interface Result<T = undefined> {
 	readonly status: ClientStatus;
 	readonly operation: Operation;
@@ -146,6 +245,16 @@ const bytes = (input: ByteInput): Uint8Array =>
     input instanceof ArrayBuffer ? new Uint8Array(input)
                                  : new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 const u32 = (n: number): boolean => Number.isInteger(n) && n >= 0 && n <= 0xffffffff;
+const typedArrayLength =
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Uint8Array.prototype), 'length')!.get!;
+
+function encodedSnapshot(input: unknown, expected: number): Uint8Array
+{
+	if (!(input instanceof Uint8Array) || typedArrayLength.call(input) !== expected)
+		throw new BackendFailure(Status.CodecError, 'Exact encoded request length');
+	return new Uint8Array(input);
+}
+
 const validOperation = (operation: string): operation is Operation =>
     Object.hasOwn(Operations, operation);
 export interface WireRequest {
@@ -207,6 +316,13 @@ function checkWireResult(request: WireRequest, result: WireResult): void
 			throw new BackendFailure(Status.MalformedReply, 'Invalid ReadMany envelope');
 		return;
 	}
+	if (request.operation === 'Batch') {
+		if (request.endpointId !== 0 || endpointStatus !== 0 || request.responseBytes < 14 ||
+		    request.responseBytes > 65535 || payload.length < 14 ||
+		    payload.length > request.responseBytes)
+			throw new BackendFailure(Status.MalformedReply, 'Invalid Batch envelope');
+		return;
+	}
 	const maximum = {FieldRead : 0, FieldWrite : 5, Command : 7, Service : 4}[request.operation];
 	const expected = endpointStatus === 0 &&
 	                         (request.operation === 'FieldRead' || request.operation === 'Service')
@@ -233,6 +349,7 @@ interface Pending {
 	controller: AbortController;
 	possibleExecution: boolean;
 	checkedReadMany?: WireResult;
+	batch?: BatchState;
 	done: boolean;
 }
 
@@ -410,7 +527,7 @@ export class DeviceClient {
 	{
 		const refused = (status: ClientStatus): ReadManyBindingResult<ReadManyValues<F>> =>
 		    ({status : status as Exclude<ClientStatus, typeof Status.Ok>});
-		const gate = this.readManyGate();
+		const gate = this.optionalGate();
 		if (gate !== Status.Ok)
 			return refused(gate);
 		const session = this.epoch, fingerprint = this.fingerprint;
@@ -474,7 +591,7 @@ export class DeviceClient {
 			return refused(Status.InvalidArgument);
 		}
 		// Property getters and the backend support hook can re-enter. Never publish across admission.
-		const finalGate = this.readManyGate();
+		const finalGate = this.optionalGate();
 		if (finalGate !== Status.Ok || this.epoch !== session || this.fingerprint !== fingerprint)
 			return refused(finalGate === Status.Ok ? Status.NotAdmitted : finalGate);
 		const binding = Object.freeze({session, fingerprint, count : entries.length}) as
@@ -489,7 +606,7 @@ export class DeviceClient {
 	readMany<T extends readonly unknown[]>(binding: ReadManyBinding<T>,
 	                                       timeoutMs?: number): RequestPromise<T>
 	{
-		const gate = this.readManyGate();
+		const gate = this.optionalGate();
 		if (gate !== Status.Ok)
 			return this.refused('ReadMany', gate);
 		const snapshot = this.readManyBindings.get(binding);
@@ -509,7 +626,274 @@ export class DeviceClient {
 		                    timeoutMs, snapshot);
 	}
 
-	private readManyGate(): ClientStatus
+	batch<const I extends readonly BatchItem<unknown>[]>(capability: ByteInput, items: I,
+	                                                     timeoutMs
+	                                                     ?: number): BatchPromise<BatchItems<I>>
+	{
+		const refused = (status: ClientStatus) => this.refusedBatch<BatchItems<I>>(status);
+		const gate = this.optionalGate('Batch');
+		if (gate !== Status.Ok)
+			return refused(gate);
+		if (this.pending.length >= this.limit)
+			return refused(Status.QueueFull);
+		if (this.nextId > 0xffffffff)
+			return refused(Status.IdsExhausted);
+		const session = this.epoch, fingerprint = this.fingerprint, startedAt = this.clock.now();
+		if (!this.ready || this.epoch !== session || this.fingerprint !== fingerprint)
+			return refused(this.stopped            ? Status.Closed
+			               : this.recoveryRequired ? Status.RecoveryRequired
+			                                       : Status.NotAdmitted);
+		const timeout = timeoutMs ?? this.timeout;
+		if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 0x7fffffff)
+			return refused(Status.InvalidArgument);
+		let entries: BatchEntry[], payload: Uint8Array, responseBytes = 2;
+		try {
+			const record = new Uint8Array(bytes(capability));
+			if (record.length !== 24)
+				return refused(Status.InvalidArgument);
+			const cap = new DataView(record.buffer), countLimit = record[5];
+			const requestLimit = cap.getUint16(8, true), replyLimit = cap.getUint16(10, true);
+			if (cap.getUint32(0, true) !== 0x314d4254 || record[4] !== 1 || record[6] !== 1 ||
+			    record[7] !== 1 || countLimit < 1 || countLimit > 32 || requestLimit < 10 ||
+			    replyLimit < 14 || cap.getUint32(12, true) === 0)
+				return refused(Status.InvalidArgument);
+			if (cap.getUint32(12, true) !== session || cap.getBigUint64(16, true) !== fingerprint)
+				return refused(Status.NotAdmitted);
+			if (!Array.isArray(items))
+				return refused(Status.InvalidArgument);
+			const count = items.length;
+			if (!Number.isInteger(count) || count < 1 || count > countLimit)
+				return refused(Status.InvalidArgument);
+			const selected: BatchArgument[] = [];
+			for (let i = 0; i < count; ++i) {
+				const argument = batchArguments.get(items[i]);
+				if (!argument)
+					return refused(Status.InvalidArgument);
+				selected.push(argument);
+			}
+			entries = [];
+			let requestBytes = 2;
+			for (const selectedItem of selected) {
+				let metadata = selectedItem.binding as object;
+				if (!metadata || (typeof metadata !== 'object' && typeof metadata !== 'function'))
+					return refused(Status.InvalidArgument);
+				if (selectedItem.operation === 'FieldRead' && 'read' in metadata)
+					metadata = (metadata as Field<unknown>).read;
+				if (selectedItem.operation === 'FieldWrite' &&
+				    ('read' in metadata || 'write' in metadata)) {
+					metadata = (metadata as Field<unknown>).write!;
+					if (!metadata)
+						return refused(Status.ReadOnly);
+				}
+				const {
+					operation,
+					id,
+					fingerprint : identity,
+					requestBytes : requestSize,
+					responseBytes : responseSize,
+					encode,
+					decode,
+					decodeResponse,
+					responseTypeId
+				} = metadata as BatchMetadata;
+				if (identity !== fingerprint)
+					return refused(Status.NotAdmitted);
+				if (operation !== selectedItem.operation || !u32(id) || !u32(requestSize) ||
+				    !u32(responseSize) || (responseTypeId !== undefined && !u32(responseTypeId)) ||
+				    (operation === 'FieldRead' ? requestSize !== 0 || typeof decode !== 'function'
+				                               : typeof encode !== 'function') ||
+				    (operation === 'Service' && typeof decodeResponse !== 'function') ||
+				    ((operation === 'FieldWrite' || operation === 'Command') &&
+				     responseSize !== 0) ||
+				    (operation === 'Service' && responseTypeId === 0 && responseSize !== 0))
+					return refused(Status.InvalidArgument);
+				requestBytes += 8 + requestSize;
+				responseBytes += 12 + responseSize;
+				if (requestBytes > requestLimit || responseBytes > replyLimit)
+					return refused(Status.BufferTooSmall);
+				entries.push(Object.freeze({
+					operation,
+					id,
+					requestBytes : requestSize,
+					responseBytes : responseSize,
+					encode,
+					decode : operation === 'Service'     ? decodeResponse
+					         : operation === 'FieldRead' ? decode
+					                                     : undefined,
+					voidResponse : operation === 'FieldWrite' || operation === 'Command' ||
+					                   (operation === 'Service' && responseTypeId === 0)
+				}));
+			}
+			if (requestBytes > this.byteLimit - this.payloadBytes)
+				return refused(Status.PayloadFull);
+			const ownershipGate = this.optionalGate('Batch');
+			if (ownershipGate !== Status.Ok || this.epoch !== session ||
+			    this.fingerprint !== fingerprint)
+				return refused(ownershipGate === Status.Ok ? Status.NotAdmitted : ownershipGate);
+			if (this.pending.length >= this.limit)
+				return refused(Status.QueueFull);
+			if (this.nextId > 0xffffffff)
+				return refused(Status.IdsExhausted);
+			if (requestBytes > this.byteLimit - this.payloadBytes)
+				return refused(Status.PayloadFull);
+			payload = new Uint8Array(requestBytes);
+			const output = new DataView(payload.buffer);
+			output.setUint16(0, count, true);
+			let cursor = 2;
+			for (let i = 0; i < count; ++i) {
+				const entry = entries[i];
+				const value = entry.operation === 'FieldRead'
+				                  ? new Uint8Array(0)
+				                  : encodedSnapshot(entry.encode!(selected[i].argument as never),
+				                                    entry.requestBytes);
+				output.setUint32(cursor, entry.id, true);
+				payload[cursor + 4] = Operations[entry.operation];
+				output.setUint16(cursor + 6, value.length, true);
+				payload.set(value, cursor + 8);
+				cursor += 8 + value.length;
+				const current = this.optionalGate('Batch');
+				if (current !== Status.Ok || this.epoch !== session ||
+				    this.fingerprint !== fingerprint)
+					return refused(current === Status.Ok ? Status.NotAdmitted : current);
+			}
+		} catch {
+			return refused(Status.CodecError);
+		}
+		const finalGate = this.optionalGate('Batch');
+		if (finalGate !== Status.Ok || this.epoch !== session || this.fingerprint !== fingerprint)
+			return refused(finalGate === Status.Ok ? Status.NotAdmitted : finalGate);
+		const state: BatchState = {
+			session,
+			fingerprint,
+			startedAt,
+			payload,
+			responseBytes,
+			entries : Object.freeze(entries),
+			requestId : 0,
+			valueStatus : BatchValueStatus.NoValue
+		};
+		return this.enqueue({
+			fingerprint,
+			operation : 'Batch',
+			id : 0,
+			requestBytes : payload.length,
+			responseBytes,
+			encode : () => payload
+		},
+		                    undefined, input => this.decodeBatch(state, input), timeoutMs,
+		                    undefined, state) as unknown as BatchPromise<BatchItems<I>>;
+	}
+
+	private refusedBatch<T extends readonly unknown[]>(status: ClientStatus): BatchPromise<T>
+	{
+		const result = this.makeBatchResult(this.makeResult('Batch', this.epoch, 0, status));
+		return Object.assign(Promise.resolve(result as BatchResult<T>),
+		                     {requestId : 0, session : this.epoch, cancel : () => false});
+	}
+
+	private decodeBatch(state: BatchState, input: ByteInput): undefined
+	{
+		state.valueStatus = BatchValueStatus.InvalidPayload;
+		const payload = new Uint8Array(bytes(input)), data = new DataView(payload.buffer);
+		if (payload.length < 2 || data.getUint16(0, true) !== state.entries.length)
+			return;
+		const rows: BatchItemResult<unknown>[] = [];
+		let cursor = 2;
+		for (const entry of state.entries) {
+			if (payload.length - cursor < 12)
+				return;
+			const id = data.getUint32(cursor, true), operation = payload[cursor + 4],
+			      dispatch = payload[cursor + 5], endpointStatus = payload[cursor + 6],
+			      length = data.getUint16(cursor + 8, true);
+			if (id !== entry.id || operation !== Operations[entry.operation] ||
+			    payload[cursor + 7] !== 0 || payload[cursor + 10] !== 0 ||
+			    payload[cursor + 11] !== 0 || ![0, 4, 5, 6, 7, 8, 9].includes(dispatch))
+				return;
+			const maximum = {FieldRead : 0,
+				             FieldWrite : 5,
+				             Command : 7,
+				             Service : 4}[entry.operation];
+			const successful =
+			    dispatch === 0 &&
+			    (endpointStatus === 0 || (entry.operation === 'Command' && endpointStatus === 1));
+			const hasPayload =
+			    successful && (entry.operation === 'FieldRead' || entry.operation === 'Service');
+			if ((dispatch !== 0 && endpointStatus !== 0) || endpointStatus > maximum ||
+			    length !== (hasPayload ? entry.responseBytes : 0))
+				return;
+			cursor += 12;
+			if (length > payload.length - cursor)
+				return;
+			const operationResult = this.makeResult(
+			    entry.operation, state.session, state.requestId, Status.Ok,
+			    {dispatch, endpointStatus, payload : payload.subarray(cursor, cursor + length)});
+			rows.push(Object.freeze({
+				...operationResult,
+				id,
+				value : undefined,
+				valueStatus : successful && entry.decode && !entry.voidResponse
+				                  ? BatchValueStatus.InvalidPayload
+				                  : BatchValueStatus.NoValue
+			}));
+			cursor += length;
+		}
+		if (cursor !== payload.length)
+			return;
+		// All operation outcomes are owned/checked before any user decoder may re-enter.
+		state.items = Object.freeze(rows);
+		const current = () =>
+		    this.ready && this.epoch === state.session && this.fingerprint === state.fingerprint;
+		const values: unknown[] = [];
+		for (let i = 0; i < rows.length; ++i) {
+			if (!current()) {
+				state.valueStatus = BatchValueStatus.Stale;
+				return;
+			}
+			const entry = state.entries[i], row = rows[i];
+			if (row.succeeded && entry.decode) {
+				try {
+					const value = entry.decode(new Uint8Array(row.payload));
+					if (!entry.voidResponse)
+						values[i] = value;
+				} catch {
+					return;
+				}
+			}
+			if (!current()) {
+				state.valueStatus = BatchValueStatus.Stale;
+				return;
+			}
+		}
+		state.items = Object.freeze(rows.map((row, i) => Object.freeze({
+			...row,
+			valueStatus : values[i] === undefined ? BatchValueStatus.NoValue : BatchValueStatus.Ok,
+			value : values[i]
+		})) as BatchItemResult<unknown>[]);
+		state.valueStatus = BatchValueStatus.Ok;
+		return;
+	}
+
+	private makeBatchResult(operation: Result<unknown>,
+	                        state?: BatchState): BatchResult<readonly BatchItemResult<unknown>[]>
+	{
+		let valueStatus = state?.valueStatus ?? BatchValueStatus.NoValue, items = state?.items;
+		if (state?.checked &&
+		    (!this.ready || state.session !== this.epoch || state.fingerprint !== this.fingerprint))
+			valueStatus = BatchValueStatus.Stale;
+		if (items && valueStatus !== BatchValueStatus.Ok) {
+			items = Object.freeze(items.map((row, i) => Object.freeze({
+				...row,
+				value : undefined,
+				valueStatus :
+				    row.succeeded && state!.entries[i].decode && !state!.entries[i].voidResponse
+				        ? valueStatus
+				        : BatchValueStatus.NoValue
+			}))) as readonly BatchItemResult<unknown>[];
+		}
+		return Object.freeze({...operation, value : undefined, valueStatus, items});
+	}
+
+	private optionalGate(operation: 'ReadMany'|'Batch' = 'ReadMany'): ClientStatus
 	{
 		if (this.stopped)
 			return Status.Closed;
@@ -520,7 +904,7 @@ export class DeviceClient {
 		const session = this.epoch;
 		let supported = false;
 		try {
-			const answer: unknown = this.backend.supports?.('ReadMany');
+			const answer: unknown = this.backend.supports?.(operation);
 			supported = answer === true;
 			// Invalid asynchronous hooks are refused; still observe their rejected promises.
 			if (answer !== null && (typeof answer === 'object' || typeof answer === 'function'))
@@ -593,6 +977,8 @@ export class DeviceClient {
 
 	private refused<T>(operation: Operation, status: ClientStatus): RequestPromise<T>
 	{
+		if (operation === 'Batch')
+			return this.refusedBatch(status) as unknown as RequestPromise<T>;
 		const result = this.makeResult(operation, this.epoch, 0, status);
 		return Object.assign(Promise.resolve(result as Result<T>), {
 			requestId : 0,
@@ -607,7 +993,7 @@ export class DeviceClient {
 		encode?: (value: never) => Uint8Array;
 	},
 	                   value: unknown, decode?: (input: ByteInput) => T, timeoutMs?: number,
-	                   readMany?: ReadManySnapshot): RequestPromise<T>
+	                   readMany?: ReadManySnapshot, batch?: BatchState): RequestPromise<T>
 	{
 		const operation = binding.operation;
 		if (this.stopped)
@@ -616,17 +1002,19 @@ export class DeviceClient {
 			return this.refused(operation, Status.RecoveryRequired);
 		if (!this.ready || binding.fingerprint !== this.fingerprint)
 			return this.refused(operation, Status.NotAdmitted);
-		if (operation === 'ReadMany') {
-			const gate = this.readManyGate();
+		if (operation === 'ReadMany' || operation === 'Batch') {
+			const gate = this.optionalGate(operation);
 			if (gate !== Status.Ok)
 				return this.refused(operation, gate);
-			if (!readMany || readMany.session !== this.epoch ||
-			    readMany.fingerprint !== this.fingerprint)
+			const snapshot = operation === 'ReadMany' ? readMany : batch;
+			if (!snapshot || snapshot.session !== this.epoch ||
+			    snapshot.fingerprint !== this.fingerprint)
 				return this.refused(operation, Status.NotAdmitted);
 		}
 		if (this.pending.length >= this.limit)
 			return this.refused(operation, Status.QueueFull);
-		const timeout = timeoutMs ?? this.timeout, generation = this.epoch, now = this.clock.now();
+		const timeout = timeoutMs ?? this.timeout, generation = this.epoch,
+		      now = batch?.startedAt ?? this.clock.now();
 		if (!validOperation(operation) || !u32(binding.id) || !u32(binding.requestBytes) ||
 		    !u32(binding.responseBytes) || !Number.isFinite(timeout) || timeout <= 0 ||
 		    timeout > 0x7fffffff)
@@ -637,10 +1025,9 @@ export class DeviceClient {
 			return this.refused(operation, Status.PayloadFull);
 		let payload: Uint8Array;
 		try {
-			payload = operation === 'FieldRead' ? new Uint8Array(0)
-			                                    : binding.encode!(value as never).slice();
-			if (!(payload instanceof Uint8Array) || payload.length !== binding.requestBytes)
-				return this.refused(operation, Status.CodecError);
+			payload = operation === 'FieldRead'
+			              ? new Uint8Array(0)
+			              : encodedSnapshot(binding.encode!(value as never), binding.requestBytes);
 		} catch {
 			return this.refused(operation, Status.CodecError);
 		}
@@ -672,11 +1059,14 @@ export class DeviceClient {
 			request,
 			resolve,
 			decode,
+			batch,
 			deadline : now + timeout,
 			controller : new AbortController(),
 			possibleExecution : false,
 			done : false
 		};
+		if (batch)
+			batch.requestId = request.requestId;
 		this.pending.push(pending);
 		this.payloadBytes += payload.length;
 		this.schedule();
@@ -705,7 +1095,7 @@ export class DeviceClient {
 			succeeded,
 			accepted : succeeded && operation === 'Command' && endpointStatus === 1,
 			executed : succeeded && operation === 'Command' && endpointStatus === 0,
-			payload : wire?.payload.slice() ?? new Uint8Array(0),
+			payload : wire ? new Uint8Array(wire.payload) : new Uint8Array(0),
 			value
 		});
 	}
@@ -734,8 +1124,9 @@ export class DeviceClient {
 			}
 			if (!this.active && !this.invocation && this.ready && this.pending.length) {
 				const pending = this.pending[0];
-				if (pending.request.operation === 'ReadMany') {
-					const gate = this.readManyGate();
+				if (pending.request.operation === 'ReadMany' ||
+				    pending.request.operation === 'Batch') {
+					const gate = this.optionalGate(pending.request.operation);
 					if (gate !== Status.Ok) {
 						this.finish(pending, gate);
 						return;
@@ -754,8 +1145,9 @@ export class DeviceClient {
 					signal : pending.controller.signal,
 					clock : this.clock,
 					handoff : mayExecute => {
-					    if (pending.request.operation === 'ReadMany' &&
-					        this.readManyGate() !== Status.Ok)
+					    if ((pending.request.operation === 'ReadMany' ||
+					         pending.request.operation === 'Batch') &&
+					        this.optionalGate(pending.request.operation) !== Status.Ok)
 						    return false;
 					    if (pending.done || pending !== this.active || !this.ready ||
 					        this.epoch !== pending.request.session)
@@ -811,13 +1203,25 @@ export class DeviceClient {
 							        pending.checkedReadMany = Object.freeze({
 								        dispatch : wire.dispatch,
 								        endpointStatus : wire.endpointStatus,
-								        payload : wire.payload.slice()
+								        payload : new Uint8Array(wire.payload)
 							        });
+						        if (pending.batch) {
+							        pending.batch.checked = Object.freeze({
+								        dispatch : wire.dispatch,
+								        endpointStatus : wire.endpointStatus,
+								        payload : new Uint8Array(wire.payload)
+							        });
+							        pending.batch.valueStatus =
+							            wire.dispatch === 0 && wire.endpointStatus === 0
+							                ? BatchValueStatus.InvalidPayload
+							                : BatchValueStatus.NoValue;
+						        }
 						        let value: unknown;
 						        if (wire.dispatch === 0 && wire.endpointStatus === 0 &&
 						            pending.decode) {
 							        try {
-								        value = pending.decode(pending.checkedReadMany?.payload ??
+								        value = pending.decode(pending.batch?.checked?.payload ??
+								                               pending.checkedReadMany?.payload ??
 								                               wire.payload);
 							        } catch {
 								        this.finish(pending, Status.CodecError, wire);
@@ -871,6 +1275,11 @@ export class DeviceClient {
 				value = undefined;
 			}
 		}
+		if (pending.batch?.checked) {
+			wire = pending.batch.checked;
+			status = Status.Ok;
+			value = undefined;
+		}
 		// A checked reply proves an endpoint outcome. A failed transaction after
 		// possible execution requires external session recovery, including reads.
 		const uncertain = pending === this.active && pending.possibleExecution &&
@@ -892,7 +1301,8 @@ export class DeviceClient {
 		const request = pending.request;
 		const result = this.makeResult(request.operation, request.session, request.requestId,
 		                               status, wire, value);
-		pending.resolve(result);
+		pending.resolve(request.operation === 'Batch' ? this.makeBatchResult(result, pending.batch)
+		                                              : result);
 		pending.controller.abort();
 		for (const queued of abandoned)
 			this.finish(queued, Status.Cancelled);
@@ -924,6 +1334,8 @@ export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void
 export interface EncodedOptions {
 	// Explicit local transport opt-in; a matching remote TRM1 is required separately.
 	readonly readMany?: boolean;
+	// Batch is independently enabled and requires a matching remote TBM1.
+	readonly batch?: boolean;
 }
 export interface EncodedRetryOptions extends EncodedOptions {
 	readonly replyTimeoutMs?: number;
@@ -953,12 +1365,14 @@ class EncodedEngine implements Backend {
 	};
 
 	constructor(private readonly send: EncodedSend, private readonly retry?: EncodedRetryPolicy,
-	            private readonly readManyEnabled = false)
+	            private readonly readManyEnabled = false, private readonly batchEnabled = false)
 	{}
 
 	supports(operation: Operation): boolean
 	{
-		return operation === 'ReadMany' ? this.readManyEnabled : validOperation(operation);
+		return operation === 'ReadMany' ? this.readManyEnabled
+		       : operation === 'Batch'  ? this.batchEnabled
+		                                : validOperation(operation);
 	}
 
 	confirmSessionClosed(generation: number): boolean
@@ -1167,7 +1581,7 @@ class EncodedEngine implements Backend {
 export class EncodedBackend extends EncodedEngine {
 	constructor(send: EncodedSend, options: EncodedOptions = {})
 	{
-		super(send, undefined, options.readMany === true);
+		super(send, undefined, options.readMany === true, options.batch === true);
 	}
 
 	static fromExchange(exchange: Exchange, options: EncodedOptions = {}): EncodedBackend
@@ -1187,7 +1601,7 @@ export class EncodedBackend extends EncodedEngine {
 export class RetryingEncodedBackend extends EncodedEngine {
 	constructor(send: EncodedSend, options: EncodedRetryOptions = {})
 	{
-		super(send, encodedRetryPolicy(options), options.readMany === true);
+		super(send, encodedRetryPolicy(options), options.readMany === true, options.batch === true);
 	}
 
 	static fromExchange(exchange: Exchange,
