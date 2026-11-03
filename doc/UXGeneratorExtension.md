@@ -3,7 +3,7 @@
 The SDK generator owns Descriptor validation, immutable schema construction,
 symbol allocation, C++/JS/TS source generation, manifests and transactional
 publication. The optional `telemetry-ux-codegen` distribution owns QML source
-generation. Qt is needed to compile generated C++, not to run either Python
+generation and the thin browser starter. Qt is needed to compile generated C++, not to run either Python
 package. No UI implementation is bundled in the minimal core wheel.
 
 The existing CLI spelling remains:
@@ -23,7 +23,7 @@ replaced with a hidden fallback.
 | Distribution | Owns | Dependencies |
 | --- | --- | --- |
 | `telemetry-codegen-core` | `tools.telemetry_codegen`, canonical optional client assets and `telemetry-codegen` console command | No mandatory third-party runtime |
-| `telemetry-ux-codegen` | `telemetry_ux_codegen` and six QML emitter modules | Exact matching core version |
+| `telemetry-ux-codegen` | `telemetry_ux_codegen`, QML emitters and browser starter | Exact matching core version |
 | `telemetry-codegen` | Full-install dependency metadata only | Exact matching core and UX versions |
 
 The full distribution has no Python modules and no second console command.
@@ -66,6 +66,19 @@ mapping. The CLI calls it once, applies its ordinary path/collision/text checks
 and includes the symbol mapping under the existing manifest key `qml`.
 Non-finite JSON values are rejected. All rendering and validation finish before
 the SDK's guarded output publication; the extension never publishes files.
+
+The explicit `--ux-starter web` option requires `--targets js` and
+`--structural-metadata`. The CLI checks both prerequisites before importing UX,
+then calls `generate_web_starter(schema) -> GeneratedTarget` with the same frozen
+schema. It applies the same result validation and publication contract and stores
+the starter's symbol mapping under `web_starter`. Selecting QML and the starter
+together imports the extension once. Neither option changes default output.
+
+The browser starter emits only `ui/DevicePage.js`, its TypeScript declaration and
+a short usage guide. The entry imports the generated SDK/metadata and shared
+`telemetry-ux/web` view, taking an existing admitted client from the host. It
+creates no transport, client, FIFO or additional form implementation. Custom
+application code stays outside generated output.
 
 This small seam is for installed trusted generators, not executable code from
 a Descriptor. It does not add an endpoint engine, transport or request queue.
