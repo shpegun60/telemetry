@@ -7,8 +7,11 @@ the CMake install, rejects an incompatible exact version, packs and installs the
 private ESM tarball, and builds/installs the Python wheel through its source archive.
 Its simulated 32-bit downstream CMake check accepts the header-only prefix and
 refuses a mismatched compiled prefix; it does not execute an MCU binary.
-The installed CLI generates C++/JS/TS with canonical optional runtime assets after
-the prepared source has been renamed. No registry publication or GUI is involved.
+The installed core CLI generates C++/JS/TS with canonical optional runtime assets
+after the prepared source has been renamed. Selecting QML without the optional
+UX extension must fail clearly before output publication. The full compatibility
+package and UX extension have a separate three-wheel integration suite.
+No registry publication or GUI is involved.
 
 ```sh
 python3 -B tests/sdk_packages/run.py --build-dir /external/sdk-packages \

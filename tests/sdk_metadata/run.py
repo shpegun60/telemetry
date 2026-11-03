@@ -127,8 +127,8 @@ def main():
             binary.write_bytes(data)
             schema = load_schema(data, 'edge_api')
             check(schema.descriptor_header == data[:64], name + ' exact original header')
-            plain = render(schema, ('cpp', 'js', 'ts', 'qml'))
-            optional = render(schema, ('cpp', 'js', 'ts', 'qml'), structural_metadata=True)
+            plain = render(schema, ('cpp', 'js', 'ts'))
+            optional = render(schema, ('cpp', 'js', 'ts'), structural_metadata=True)
             for path, content in plain.items():
                 if path != 'manifest.json':
                     check(optional[path] == content, name + ' ordinary output unchanged: ' + path)

@@ -199,6 +199,10 @@ void typed; void dynamic; void Batch.items; void parseDescriptor; void Status.Ok
         wheel = next(dist.glob('*.whl'))
         report['python_wheel_sha256'] = digest(wheel)
         with zipfile.ZipFile(wheel) as archive:
+            wheel_metadata = archive.read(next(n for n in archive.namelist()
+                                               if n.endswith('.dist-info/METADATA'))).decode()
+            check('Name: telemetry-codegen-core\n' in wheel_metadata,
+                  'Headless generator distribution identity')
             for name in ('Client.ts', 'Client.js', 'Client.d.ts'):
                 check(archive.read('tools/telemetry_codegen/_runtime/' + name) ==
                       (source / 'lib/client/web' / name).read_bytes(), 'Canonical wheel runtime ' + name)
@@ -244,10 +248,12 @@ int main() { return 0; }
         run('installed-metadata-types', [args.node, args.tsc,
              out / 'generated-metadata/ts/device.metadata.ts', '--strict', '--target', 'ES2022',
              '--module', 'ES2022', '--noEmit'])
-        run('python-installed-qml-compatibility', [cli, 'generate', descriptor, '--targets', 'qml',
-             '--output', out / 'generated-qml'])
-        check((out / 'generated-qml/qml/DeviceApi.hpp').is_file() and
-              (out / 'generated-qml/cpp').is_dir(), 'Legacy QML target still includes C++')
+        unavailable = run('python-installed-qml-extension-refusal', [cli, 'generate', descriptor,
+             '--targets', 'qml', '--output', out / 'generated-qml'], success=False)
+        check('telemetry-ux-codegen' in unavailable,
+              'Absent optional QML extension gives its installation name')
+        check(not (out / 'generated-qml').exists(),
+              'Absent optional QML extension publishes no output')
         run('python-module-compatibility', [python, '-m', 'tools.telemetry_codegen', 'inspect', descriptor])
         for folder, extension in (('js', 'js'), ('js', 'd.ts'), ('ts', 'ts')):
             canonical = out / 'unavailable-source/lib/client/web' / ('Client.' + extension)

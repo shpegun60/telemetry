@@ -78,7 +78,7 @@ Install a locally built wheel into an application environment:
 ```sh
 python3 -m venv /external/codegen-env
 /external/codegen-env/bin/python -m pip install --no-index \
-  /external/packages/telemetry_codegen-0.1.0-py3-none-any.whl
+  /external/packages/telemetry_codegen_core-0.1.0-py3-none-any.whl
 /external/codegen-env/bin/telemetry-codegen generate descriptor.bin \
   --targets cpp,js,ts --client-runtime --structural-metadata \
   --output /external/generated-sdk
@@ -88,17 +88,43 @@ On Windows, use the environment's `Scripts/python.exe` and
 `Scripts/telemetry-codegen.exe`. `python -m tools.telemetry_codegen` remains a
 compatible module invocation, including from the installed environment.
 
-The generator defaults to `cpp,ts,js`. `--client-runtime` includes the same
+The headless distribution is `telemetry-codegen-core`. It owns the sole
+`telemetry-codegen` command and `tools.telemetry_codegen` modules. The generator
+defaults to `cpp,ts,js`. `--client-runtime` includes the same
 canonical client source/distribution assets packaged in the wheel; an SDK
 checkout is not required at generation time. Missing installed assets produce
 an error before output publication. `--structural-metadata` is opt-in and leaves
 the normal generated files unchanged. `--check` verifies existing owned output
 without rewriting it. See [code generation](CodeGenerator.md) for output ownership.
 
-The optional `--targets qml` remains available and includes the C++ target
-automatically. Emitting it needs no Qt Python runtime; compiling its generated
-module still needs the documented Qt kit. UI code has not moved to another
-repository as part of this packaging change.
+The optional `telemetry-ux-codegen==0.1.0` package adds `--targets qml` and includes
+the C++ target automatically. It uses the same core parser, CLI and output
+transaction. Emitting it needs no Qt Python runtime; compiling its generated
+module still needs the documented Qt kit. Without the extension, selecting
+`qml` gives an installation diagnostic before output publication.
+
+Install the matching local core and UX wheels, or use the module-free full
+distribution to select both:
+
+```sh
+/external/codegen-env/bin/python -m pip install --no-index \
+  --find-links /external/packages telemetry-codegen==0.1.0
+```
+
+Use a fresh environment when migrating from the older monolithic
+`telemetry-codegen` package. Alternatively, explicitly uninstall the old package
+**before** installing the new core/full packages:
+
+```sh
+python -m pip uninstall telemetry-codegen
+python -m pip install --no-index --find-links /external/packages \
+  telemetry-codegen==0.1.0
+```
+
+This is not a transparent in-place upgrade: the old monolithic distribution and
+new core own the same module paths and command. Installing both owners and then
+uninstalling the old one could remove the new core's files. The new full package
+owns no modules or entrypoint; it only pins the matching core and UX dependencies.
 
 Maintainers build wheels from an external prepared source copy so setuptools
 build output does not enter the SDK checkout. The
@@ -109,5 +135,7 @@ a source archive and then tests installed consumers with that source unavailable
 
 The maintained package suite checks relocated CMake consumption and incompatible
 version refusal, a packed/installed ESM consumer and strict TypeScript imports,
-and a wheel-installed CLI with canonical runtime resources. It performs no
+and a core wheel-installed CLI with canonical runtime resources. The optional
+UX extension has a separate three-wheel compatibility and migration gate.
+The package suite performs no
 registry publication, hardware access or physical transport qualification.

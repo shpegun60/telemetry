@@ -29,7 +29,7 @@ TARGETS = ("cpp", "js", "ts", "qml")
 
 
 def _json(value):
-    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n"
 
 
 def _path(name):
@@ -88,7 +88,38 @@ def render(schema, targets, client_runtime=False, structural_metadata=False):
             seen.add(name.casefold())
             files[name] = content.encode("utf-8")
 
+    qml_result = None
+    if 'qml' in targets:
+        # Resolve only an explicitly requested extension. Incompatible installed
+        # UX is an error; no bundled second implementation or silent fallback.
+        from .emitter_api import API_VERSION, IR_VERSION, SDK_VERSION, GeneratedTarget
+        from collections.abc import Mapping
+        try:
+            extension = importlib.import_module('telemetry_ux_codegen')
+        except ModuleNotFoundError as error:
+            if error.name == 'telemetry_ux_codegen':
+                raise ImportError('QML generation requires telemetry-ux-codegen==' + SDK_VERSION +
+                                  '; install it in the generator environment') from error
+            raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+        except ImportError as error:
+            raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+        for name, expected in (('API_VERSION', API_VERSION), ('IR_VERSION', IR_VERSION),
+                               ('SDK_VERSION', SDK_VERSION)):
+            actual = getattr(extension, name, None)
+            if type(actual) is not type(expected) or actual != expected:
+                raise ValueError('Incompatible Telemetry UX ' + name + '; expected ' + str(expected))
+        generate_qml = getattr(extension, 'generate_qml', None)
+        if not callable(generate_qml):
+            raise ValueError('Telemetry UX must provide generate_qml(schema)')
+        qml_result = generate_qml(schema)
+        if (not isinstance(qml_result, GeneratedTarget) or not isinstance(qml_result.files, Mapping)
+                or not isinstance(qml_result.symbol_mapping, dict)):
+            raise ValueError('Telemetry UX must return GeneratedTarget with a symbol_mapping dictionary')
+
     for target in effective:
+        if target == 'qml':
+            append(dict(qml_result.files))
+            continue
         module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
                                          __package__)
         generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
@@ -108,8 +139,7 @@ def render(schema, targets, client_runtime=False, structural_metadata=False):
     if structural_metadata:
         manifest["options"]["structural_metadata"] = True
     if "qml" in targets:
-        from .generators.qml import symbol_mapping as qml_symbols
-        manifest["generated_symbol_mapping"]["qml"] = qml_symbols(schema)
+        manifest["generated_symbol_mapping"]["qml"] = qml_result.symbol_mapping
     files[MANIFEST] = _json(manifest).encode("utf-8")
     return files
 

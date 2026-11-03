@@ -26,7 +26,7 @@ class BuildPy(build_py):
 
 
 setup(
-    name="telemetry-codegen",
+    name="telemetry-codegen-core",
     version=(ROOT / "VERSION").read_text(encoding="ascii").strip(),
     description="Offline Telemetry Descriptor v3 SDK generator",
     python_requires=">=3.10",

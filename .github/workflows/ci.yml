@@ -851,6 +851,13 @@ jobs:
           python3 -B tests/sdk_conformance/run.py --cxx '${{ matrix.compiler }}' \
             --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
             --build-dir "$RUNNER_TEMP/sdk-conformance-${{ matrix.mode }}" "${options[@]}"
+      - name: Check out the versioned optional UX generator
+        if: matrix.mode == 'release'
+        uses: actions/checkout@v4
+        with:
+          repository: shpegun60/telemetry-ux
+          ref: 8ee3904fa64613d4a10b4d40798375b9642e1e36
+          path: .ci/telemetry-ux
       - name: Relocated CMake, packed ESM and installed Python consumers
         if: matrix.mode == 'release'
         run: |
@@ -859,6 +866,11 @@ jobs:
           "$RUNNER_TEMP/sdk-package-tools/bin/python" -B tests/sdk_packages/run.py \
             --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
             --build-dir "$RUNNER_TEMP/sdk-packages"
+      - name: Installed core, optional UX and complete distribution ownership
+        if: matrix.mode == 'release'
+        run: |
+          "$RUNNER_TEMP/sdk-package-tools/bin/python" -B tests/ux_codegen_extension/run.py \
+            --ux-root .ci/telemetry-ux --build-dir "$RUNNER_TEMP/ux-codegen-extension"
       - name: Retain generated SDK qualification logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -875,6 +887,8 @@ jobs:
             ${{ runner.temp }}/sdk-conformance-${{ matrix.mode }}/
             ${{ runner.temp }}/sdk-packages/*.json
             ${{ runner.temp }}/sdk-packages/*.log
+            ${{ runner.temp }}/ux-codegen-extension/*.json
+            ${{ runner.temp }}/ux-codegen-extension/*.log
           if-no-files-found: ignore
   arm:
     name: Cortex-M7 compile and link
@@ -1144,6 +1158,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the versioned optional UX generator
+        uses: actions/checkout@v4
+        with:
+          repository: shpegun60/telemetry-ux
+          ref: 8ee3904fa64613d4a10b4d40798375b9642e1e36
+          path: .ci/telemetry-ux
+      - name: Install only the selected UX emitter for source runtime tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ux-generator-tools"
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install setuptools==80.9.0 wheel==0.45.1
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install --no-deps --no-build-isolation \
+            --target "$RUNNER_TEMP/ux-generator" .ci/telemetry-ux
+          echo "PYTHONPATH=$RUNNER_TEMP/ux-generator" >> "$GITHUB_ENV"
       - name: Install Qt host development and QML runtime
         run: |
           sudo apt-get update

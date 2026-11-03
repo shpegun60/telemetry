@@ -50,18 +50,18 @@ def source_inputs():
     names = ("tools/telemetry_codegen/__init__.py", "tools/telemetry_codegen/cli.py",
              "tools/telemetry_codegen/parser.py", "tools/telemetry_codegen/schema.py",
              "tools/telemetry_codegen/naming.py", "tools/telemetry_codegen/generators/cpp.py",
-             "tools/telemetry_codegen/generators/qml.py",
-             "tools/telemetry_codegen/generators/qml_rpc.py",
-             "tools/telemetry_codegen/generators/qml_client.py",
-             "tools/telemetry_codegen/generators/qml_values.py",
-             "tools/telemetry_codegen/generators/qml_js.py",
-             "tools/telemetry_codegen/generators/qml_macros.py", "tests/codegen/test_core.py",
+             "tools/telemetry_codegen/emitter_api.py", "tests/codegen/test_core.py",
              "tests/structured/descriptor/golden.py", "tests/structured/descriptor/parser.py",
              "tests/structured/descriptor/empty.hex")
     paths = [ROOT / name for name in names]
     paths += sorted(path for path in HERE.iterdir() if path.is_file() and
                     path.suffix in (".py", ".cpp", ".txt"))
-    return {path.relative_to(ROOT).as_posix(): digest(path) for path in paths}
+    result = {path.relative_to(ROOT).as_posix(): digest(path) for path in paths}
+    import telemetry_ux_codegen
+    extension_root = Path(telemetry_ux_codegen.__file__).resolve().parent
+    result.update({'telemetry_ux_codegen/' + path.name: digest(path)
+                   for path in sorted(extension_root.glob('*.py'))})
+    return result
 
 
 def main(argv=None):

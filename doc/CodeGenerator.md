@@ -7,7 +7,7 @@ RPC v1.0 retain their existing contracts. Firmware does not run this tool.
 
 ## Generate an SDK
 
-Python 3.10 or newer and the repository checkout suffice. No Python packages,
+Python 3.10 or newer and the repository checkout suffice for C++/JS/TS. No Python packages,
 compiler, device, RPC connection or network access are needed for generation.
 From the repository root:
 
@@ -18,7 +18,8 @@ python3 -m tools.telemetry_codegen generate descriptor.bin --targets cpp,ts,js -
 ```
 
 `--targets` accepts a comma-separated selection of `cpp`, `ts`, `js`, `qml`.
-The optional [Qt/QML target](GeneratedQmlApi.md) uses the existing C++ DTOs and
+The optional [Qt/QML target](GeneratedQmlApi.md) requires the matching installed
+[`telemetry-ux-codegen` extension](UXGeneratorExtension.md). It uses the existing C++ DTOs and
 codecs and automatically includes the unchanged `cpp` output. Qt is needed only
 to build that module, not to run the generator. The default remains `cpp,ts,js`.
 `--namespace` is a valid ASCII C++ namespace, optionally nested with `::`.

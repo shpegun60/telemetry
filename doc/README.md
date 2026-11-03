@@ -23,6 +23,7 @@
 [Dynamic JS/TS client](DynamicJsClient.md) ·
 [Optional structural metadata](GeneratedMetadata.md) ·
 [Installed SDK packages](SDKPackages.md) ·
+[Optional UX generator](UXGeneratorExtension.md) ·
 [Typed C++ Mixed Batch](StaticBatch.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·
