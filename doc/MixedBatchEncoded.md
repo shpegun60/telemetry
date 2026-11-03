@@ -1,5 +1,9 @@
 # Optional Encoded Mixed Batch
 
+Typed C++ clients can use the optional
+[Static Batch adapter](StaticBatch.md) without RuntimeSchema. The runtime client
+API described below remains available independently.
+
 Mixed Batch groups 1-32 FieldRead, FieldWrite, Command and Service operations in
 one complete Encoded request and one completion through the existing FIFO.
 It is a separate optional mapping, operation **6**. ReadMany (operation 5, TRM1)

@@ -54,6 +54,8 @@ jobs:
             --build-dir "$RUNNER_TEMP/read-many-static" "${options[@]}"
           python3 -B tests/batch/run.py --cxx '${{ matrix.cxx }}' \
             --build-dir "$RUNNER_TEMP/mixed-batch" "${options[@]}"
+          python3 -B tests/batch_static/run.py --cxx '${{ matrix.cxx }}' \
+            --build-dir "$RUNNER_TEMP/mixed-batch-static" "${options[@]}"
       - name: Installed Cortex-M7 modules compile and link
         if: matrix.cxx == 'g++'
         run: |
@@ -61,6 +63,7 @@ jobs:
           python3 -B tests/read_many/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/read-many-arm"
           python3 -B tests/read_many_static/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/read-many-static-arm"
           python3 -B tests/batch/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/mixed-batch-arm"
+          python3 -B tests/batch_static/run.py --arm --cxx arm-none-eabi-g++ --build-dir "$RUNNER_TEMP/mixed-batch-static-arm"
       - name: Retain module qualification evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -82,6 +85,8 @@ jobs:
             ${{ runner.temp }}/read-many-static-arm/
             ${{ runner.temp }}/mixed-batch/
             ${{ runner.temp }}/mixed-batch-arm/
+            ${{ runner.temp }}/mixed-batch-static/
+            ${{ runner.temp }}/mixed-batch-static-arm/
           if-no-files-found: error
 
   modules-windows:

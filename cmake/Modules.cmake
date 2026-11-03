@@ -1,5 +1,5 @@
 # Module-specific include roots also apply to in-tree builds. MIT.
-set(_telemetry_modules delegate common reflection codec core runtime dynamic_client read_many_client read_many_static_client batch_client inspector workbench read_many_workbench resource resource_wire resource_protocol
+set(_telemetry_modules delegate common reflection codec core runtime dynamic_client read_many_client read_many_static_client batch_client batch_static_client inspector workbench read_many_workbench resource resource_wire resource_protocol
     client encoded_wire rpc_wire resource_adapter encoded_server rpc_server rpc_sessions
     encoded_backend rpc_client rpc_backend tcp_server batch_server)
 set(_telemetry_selected ${TELEMETRY_COMPONENTS})
@@ -13,6 +13,7 @@ set(_telemetry_deps_dynamic_client runtime client)
 set(_telemetry_deps_read_many_client dynamic_client encoded_wire)
 set(_telemetry_deps_read_many_static_client client encoded_wire)
 set(_telemetry_deps_batch_client dynamic_client encoded_wire)
+set(_telemetry_deps_batch_static_client client encoded_wire)
 set(_telemetry_deps_batch_server core encoded_wire encoded_server)
 set(_telemetry_deps_inspector dynamic_client)
 set(_telemetry_deps_workbench inspector)
@@ -274,6 +275,8 @@ foreach(_module IN LISTS _telemetry_modules)
         telemetry_header(${_target} ${_module} lib/integration/read_many/StaticClient.hpp integration/read_many/StaticClient.hpp)
     elseif(_module STREQUAL "batch_client")
         telemetry_header(${_target} ${_module} lib/integration/batch/Client.hpp integration/batch/Client.hpp)
+    elseif(_module STREQUAL "batch_static_client")
+        telemetry_header(${_target} ${_module} lib/integration/batch/StaticClient.hpp integration/batch/StaticClient.hpp)
     elseif(_module STREQUAL "batch_server")
         telemetry_header(${_target} ${_module} lib/telemetry/encoded/Batch.hpp telemetry/encoded/Batch.hpp)
         telemetry_header(${_target} ${_module} lib/integration/encoded/BatchDispatcher.hpp integration/encoded/BatchDispatcher.hpp)

@@ -92,7 +92,7 @@ target_link_libraries(application PRIVATE Telemetry::core)
 
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
-`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `read_many_static_client`, `batch_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
+`encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `read_many_static_client`, `batch_client`, `batch_static_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
 `tcp_server`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
@@ -122,6 +122,10 @@ The optional `batch_client` adds ordered FieldRead/FieldWrite/Command/Service
 requests over that same FIFO. `batch_server` selects the transport-independent
 executor and its explicit Encoded admission mapping; selecting `core` alone
 does not link either Batch implementation. See [Mixed Batch](MixedBatchEncoded.md).
+The optional `batch_static_client` provides the same ordered operations with
+typed requests and caller-owned response slots. It depends only on `client` and
+`encoded_wire`, without RuntimeSchema or native Model headers. See
+[Typed Mixed Batch](StaticBatch.md).
 The optional `read_many_workbench` combines `workbench` and `read_many_client`
 for snapshot-preserving background reads on that same FIFO. It adds no storage
 to the base Workbench. See [Scalar Watchlist](ReadManyWatchlist.md).

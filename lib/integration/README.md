@@ -17,6 +17,7 @@ remain under `lib/integration`.
 | `read_many_client` | `integration/read_many/Client.hpp` | `dynamic_client`, `encoded_wire` | Optional scalar Encoded batch over that same FIFO |
 | `read_many_static_client` | `integration/read_many/StaticClient.hpp` | `client`, `encoded_wire` | Typed scalar ReadMany without RuntimeSchema over the existing FIFO |
 | `batch_client` | `integration/batch/Client.hpp` | `dynamic_client`, `encoded_wire` | Optional ordered mixed operations over the same FIFO |
+| `batch_static_client` | `integration/batch/StaticClient.hpp` | `client`, `encoded_wire` | Typed mixed operations with caller-owned DTO storage over the same FIFO |
 | `batch_server` | `integration/encoded/BatchDispatcher.hpp` | `core`, `encoded_wire`, `encoded_server` | Global preflight and independent per-item outcomes for Mixed Batch |
 | `read_many_workbench` | `integration/read_many/Workbench.hpp` | `workbench`, `read_many_client` | Background read values without replacing the selected snapshot or draft |
 | `inspector` | `integration/inspector/InspectorModel.hpp` | `dynamic_client` | Read-only discovery and one owned selected-Field snapshot |

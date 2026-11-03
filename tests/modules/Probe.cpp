@@ -107,6 +107,16 @@ int main()
 {
 	return sizeof(Dynamic) > sizeof(void*) ? 0 : 1;
 }
+#elif defined(MODULE_BATCH_STATIC_CLIENT)
+#include <integration/batch/StaticClient.hpp>
+#include <type_traits>
+using StaticBatch = telemetry::integration::batch::StaticBatchBinding<>;
+static_assert(std::is_copy_constructible_v<StaticBatch>);
+
+int main()
+{
+	return StaticBatch{} ? 1 : 0;
+}
 #elif defined(MODULE_READ_MANY_STATIC_CLIENT)
 #include <integration/read_many/StaticClient.hpp>
 #include <type_traits>
