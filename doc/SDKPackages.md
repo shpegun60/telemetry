@@ -103,6 +103,21 @@ transaction. Emitting it needs no Qt Python runtime; compiling its generated
 module still needs the documented Qt kit. Without the extension, selecting
 `qml` gives an installation diagnostic before output publication.
 
+The same matching UX extension can emit a thin browser entry page:
+
+```sh
+telemetry-codegen generate descriptor.bin --targets js --structural-metadata \
+  --ux-starter web --output /external/device-sdk
+```
+
+This explicit option requires both the JavaScript target and structural metadata.
+Its three `ui` files import the generated bindings and installed `telemetry-ux/web`
+presentation. `mountDevice(host, {client})` receives the application's admitted
+`DeviceClient` and returns its presentation provider and unmount function. The
+application owns transport, connection and session lifecycle. The UX generator
+owns the starter implementation; the SDK retains parsing, output validation and
+guarded publication. Default headless and QML outputs remain unchanged.
+
 Install the matching local core and UX wheels, or use the module-free full
 distribution to select both:
 

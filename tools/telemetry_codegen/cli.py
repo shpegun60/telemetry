@@ -68,11 +68,48 @@ def symbol_mapping(schema):
     return {"endpoints": [asdict(endpoint) for endpoint in schema.endpoints], "types": types}
 
 
-def render(schema, targets, client_runtime=False, structural_metadata=False):
+def _ux_extension():
+    """Load only on explicit UX selection; no bundled alternate implementation."""
+    from .emitter_api import API_VERSION, IR_VERSION, SDK_VERSION
+    try:
+        extension = importlib.import_module('telemetry_ux_codegen')
+    except ModuleNotFoundError as error:
+        if error.name == 'telemetry_ux_codegen':
+            raise ImportError('UX generation requires telemetry-ux-codegen==' + SDK_VERSION +
+                              '; install it in the generator environment') from error
+        raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+    except ImportError as error:
+        raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+    for name, expected in (('API_VERSION', API_VERSION), ('IR_VERSION', IR_VERSION),
+                           ('SDK_VERSION', SDK_VERSION)):
+        actual = getattr(extension, name, None)
+        if type(actual) is not type(expected) or actual != expected:
+            raise ValueError('Incompatible Telemetry UX ' + name + '; expected ' + str(expected))
+    return extension
+
+
+def _ux_target(extension, name, schema):
+    from .emitter_api import GeneratedTarget
+    from collections.abc import Mapping
+    generate = getattr(extension, name, None)
+    if not callable(generate):
+        raise ValueError('Telemetry UX must provide ' + name + '(schema)')
+    result = generate(schema)
+    if (not isinstance(result, GeneratedTarget) or not isinstance(result.files, Mapping)
+            or not isinstance(result.symbol_mapping, dict)):
+        raise ValueError('Telemetry UX must return GeneratedTarget with a symbol_mapping dictionary')
+    return result
+
+
+def render(schema, targets, client_runtime=False, structural_metadata=False, ux_starter=None):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
     if client_runtime and not set(targets) & {"js", "ts"}:
         raise ValueError("--client-runtime requires a js or ts target")
+    if ux_starter not in (None, 'web'):
+        raise ValueError('--ux-starter must be web')
+    if ux_starter == 'web' and ('js' not in targets or not structural_metadata):
+        raise ValueError('--ux-starter web requires an explicit js target and --structural-metadata')
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
 
@@ -88,33 +125,15 @@ def render(schema, targets, client_runtime=False, structural_metadata=False):
             seen.add(name.casefold())
             files[name] = content.encode("utf-8")
 
-    qml_result = None
-    if 'qml' in targets:
+    qml_result = web_result = None
+    if 'qml' in targets or ux_starter is not None:
         # Resolve only an explicitly requested extension. Incompatible installed
         # UX is an error; no bundled second implementation or silent fallback.
-        from .emitter_api import API_VERSION, IR_VERSION, SDK_VERSION, GeneratedTarget
-        from collections.abc import Mapping
-        try:
-            extension = importlib.import_module('telemetry_ux_codegen')
-        except ModuleNotFoundError as error:
-            if error.name == 'telemetry_ux_codegen':
-                raise ImportError('QML generation requires telemetry-ux-codegen==' + SDK_VERSION +
-                                  '; install it in the generator environment') from error
-            raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
-        except ImportError as error:
-            raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
-        for name, expected in (('API_VERSION', API_VERSION), ('IR_VERSION', IR_VERSION),
-                               ('SDK_VERSION', SDK_VERSION)):
-            actual = getattr(extension, name, None)
-            if type(actual) is not type(expected) or actual != expected:
-                raise ValueError('Incompatible Telemetry UX ' + name + '; expected ' + str(expected))
-        generate_qml = getattr(extension, 'generate_qml', None)
-        if not callable(generate_qml):
-            raise ValueError('Telemetry UX must provide generate_qml(schema)')
-        qml_result = generate_qml(schema)
-        if (not isinstance(qml_result, GeneratedTarget) or not isinstance(qml_result.files, Mapping)
-                or not isinstance(qml_result.symbol_mapping, dict)):
-            raise ValueError('Telemetry UX must return GeneratedTarget with a symbol_mapping dictionary')
+        extension = _ux_extension()
+        if 'qml' in targets:
+            qml_result = _ux_target(extension, 'generate_qml', schema)
+        if ux_starter == 'web':
+            web_result = _ux_target(extension, 'generate_web_starter', schema)
 
     for target in effective:
         if target == 'qml':
@@ -128,6 +147,8 @@ def render(schema, targets, client_runtime=False, structural_metadata=False):
     if structural_metadata:
         from .generators.metadata import generate
         append(generate(schema, effective))
+    if web_result is not None:
+        append(dict(web_result.files))
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
     manifest = dict(format=FORMAT, descriptor_sha256=schema.descriptor_sha256,
                     descriptor_fingerprint=f"0x{schema.fingerprint:016x}",
@@ -140,6 +161,9 @@ def render(schema, targets, client_runtime=False, structural_metadata=False):
         manifest["options"]["structural_metadata"] = True
     if "qml" in targets:
         manifest["generated_symbol_mapping"]["qml"] = qml_result.symbol_mapping
+    if web_result is not None:
+        manifest['options']['ux_starter'] = ux_starter
+        manifest['generated_symbol_mapping']['web_starter'] = web_result.symbol_mapping
     files[MANIFEST] = _json(manifest).encode("utf-8")
     return files
 
@@ -329,6 +353,8 @@ def main(argv=None):
     generate.add_argument("--client-runtime", action="store_true", help="include optional JS/TS asynchronous FIFO client")
     generate.add_argument("--structural-metadata", action="store_true",
                           help="include optional wire type/catalog/endpoint metadata; no UI hints")
+    generate.add_argument('--ux-starter', choices=('web',),
+                          help='include an optional host-client-owned UX web mount; requires js and structural metadata')
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
@@ -356,7 +382,7 @@ def main(argv=None):
                              symbols=symbol_mapping(schema))), end="")
         else:
             files = render(schema, _targets(args.targets), client_runtime=args.client_runtime,
-                           structural_metadata=args.structural_metadata)
+                           structural_metadata=args.structural_metadata, ux_starter=args.ux_starter)
             publish(files, args.output, args.check)
             print(("Verified " if args.check else "Generated ") + str(len(files) - 1) + " files")
         return 0

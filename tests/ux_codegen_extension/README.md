@@ -63,6 +63,11 @@ This is a Python/package/source-output gate. Real generated Qt/QML compilation,
 `QQmlEngine`, RPC and UI behavior remain covered by `tests/codegen_qml`; this suite
 does not claim to execute Qt or hardware.
 
+The installed core also runs 76 focused optional web-starter hook and guarded
+publication controls. The full environment generates the real UX starter and
+checks it without changing any legacy output profile. Browser presentation and
+native-client behavior are qualified separately in Telemetry UX.
+
 ## Run
 
 ```sh

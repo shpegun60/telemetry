@@ -184,6 +184,12 @@ def main():
             "assert len([e for e in distribution('telemetry-codegen-core').entry_points if e.name=='telemetry-codegen'])==1;"
             "print(c.__file__)"])
         run('core-module-help',[core_python,'-m','tools.telemetry_codegen','--help'])
+        run('installed-web-starter-controls',[core_python,HERE/'StarterControls.py',
+            '--descriptor',fixtures/'mixed.bin','--output-dir',out/'web-starter-controls'])
+        starter_controls=json.loads((out/'web-starter-controls/summary.json').read_text())
+        check(starter_controls.get('passed') and starter_controls.get('checks',0)>=76,
+            'Installed core optional web hook and atomic publication controls')
+        report['web_starter_controls']=starter_controls
         for fixture in ('empty','mixed','edge'):
             for profile in ('core','core-options'): generate('minimal',core_cli,fixture,profile,guard=True)
         # Missing optional UI code must not publish a partial C++ SDK, even in a mixed target request.
@@ -246,6 +252,13 @@ def main():
         run('full-pip-check',[full_python,'-m','pip','check'])
         for fixture in ('empty','mixed','edge'):
             for profile in ('qml','full','full-options'): generate('legacy',full_cli,fixture,profile)
+        web_output=out/'installed-web-starter'
+        web_command=[full_cli,'generate',fixtures/'mixed.bin','--targets','js',
+            '--structural-metadata','--ux-starter','web','--output',web_output]
+        run('full-web-starter',web_command)
+        run('full-web-starter-check',[*web_command,'--check'])
+        check(set(inventory(web_output/'ui'))=={'DevicePage.js','DevicePage.d.ts','README.md'},
+            'The real installed UX web starter owns only three thin files')
         # Run the maintained legacy QML unit suite with fixture files but no SDK source tree.
         units=out/'installed-legacy-units'
         for path in ('tests/codegen_qml/test_generator.py','tests/codegen/test_core.py',

@@ -18,6 +18,11 @@ It includes `cpp` automatically and supports application Encoded transports and
 the existing `RpcClient`; see [QML API](../doc/GeneratedQmlApi.md) and its
 [runnable example](../examples/codegen_qml/README.md).
 
+With the matching UX extension installed, `--targets js --structural-metadata
+--ux-starter web` additionally emits a thin browser page importing the shared UX
+view. See [installed SDK and UX packages](../doc/SDKPackages.md) for setup and
+ownership. The host supplies its existing client and chosen transport.
+
 [Source style](source_style/check.py) verifies maintained source comments,
 guards and pinned clang-format output; [documentation navigation](documentation_navigation/check.py)
 validates local Markdown links and heading anchors. They operate on the Git
