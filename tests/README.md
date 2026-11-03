@@ -58,13 +58,13 @@ The same maintained runner executes [FieldWrite Workbench checks](workbench/READ
 with shared snapshot ownership, transactional scalar edits, real Encoded/RPC
 Write/Refresh, deterministic mutation deadlines and independent result handling.
 
-The [Qt/QML Inspector suite](inspector_qml/README.md) checks real Qt model
+The [Qt/QML Inspector suite](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_qml/README.md) checks real Qt model
 invariants, lazy snapshot browsing, exact scalar text, asynchronous read-only
 controller behavior and actual QML edit/Apply handlers over the native Encoded peer.
 
 The [native TCP suite](tcp_stream/README.md) checks bounded Resource/TEQ1 stream
 framing, real dispatch, preflight, reentrancy, no-heap and Cortex-M7 compilation.
-The [TCP Inspector suite](inspector_tcp/README.md) adds actual Qt sockets,
+The [TCP Inspector suite](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_tcp/README.md) adds actual Qt sockets,
 Resource Descriptor discovery, partial transmission, connection failures, stale
 replies, recovery and a separate-process TCP/QML window smoke test.
 

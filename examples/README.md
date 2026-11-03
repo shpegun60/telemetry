@@ -24,8 +24,8 @@ required only by the examples that explicitly select them.
 | Read 1–32 selected scalar Fields in one Encoded operation | [ReadMany](read_many/README.md), `read_many/CMakeLists.txt` |
 | Compare individual, aggregate and Resource reads before ReadMany | [Read comparison](read_comparison/README.md), `read_comparison/CMakeLists.txt` |
 | Use a portable read-only model without Qt | [InspectorModel](inspector/README.md), `inspector/CMakeLists.txt` |
-| Open the Universal Inspector window | [Qt/QML Inspector](inspector_qml/README.md), `inspector_qml/CMakeLists.txt` |
-| Edit a Field and read back its applied value | [FieldWrite Workbench](inspector_qml/README.md#read-edit-write-and-refresh), same Qt/QML project; choose Writable demo |
+| Open the Universal Inspector window | [Qt/QML Inspector](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md), `telemetry-ux/apps/inspector/CMakeLists.txt` |
+| Edit a Field and read back its applied value | [FieldWrite Workbench](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md#read-edit-write-and-refresh), same Qt/QML project; choose Writable demo |
 | Connect that window to NUCLEO-H7S3L8 over UART/DMA | [Board firmware](nucleo_h7s3l8/README.md), `nucleo_h7s3l8/Build.ps1`; enable serial in the Inspector project |
 
 The Inspector starts with an in-process Demo device. TCP can also be exercised

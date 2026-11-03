@@ -6,7 +6,7 @@ independent Field IDs. Batch reads do not promise a simultaneous snapshot.
 
 ## Use
 
-1. Start the [Qt/QML application](../examples/inspector_qml/README.md).
+1. Start the [Qt/QML application](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md).
    **ReadMany demo** supplies 32 scalar Fields without hardware.
 2. For the optional NUCLEO UART ReadMany firmware, enable **Discover ReadMany on
    the next UART connection** before connecting. Discovery obtains the existing

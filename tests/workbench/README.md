@@ -35,8 +35,8 @@ Model/reflection, Resource and concrete wire/backend dependencies. Optional ARM
 compilation records symbols and individual compiler frames; it does not run on
 a board or measure complete call-chain stack.
 
-The existing [Qt/QML runner](../inspector_qml/README.md) additionally operates the
-actual Edit, TextField and Apply QML handlers. The [TCP runner](../inspector_tcp/README.md)
+The existing [Qt/QML runner](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_qml/README.md) additionally operates the
+actual Edit, TextField and Apply QML handlers. The [TCP runner](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_tcp/README.md)
 checks opt-in, partial writes, normalizing setters, refusal, lost Write ACK,
 reconnect without replay and Write ACK followed immediately by EOF.
 

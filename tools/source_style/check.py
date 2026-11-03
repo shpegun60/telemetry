@@ -94,13 +94,19 @@ def formatter_controls(executable):
 
 
 def main():
+    global ROOT
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--root", type=Path, default=ROOT,
+                        help="Git source root to check; defaults to this SDK checkout")
     parser.add_argument("--fix-guards", action="store_true")
     parser.add_argument("--clang-format", metavar="EXECUTABLE",
                         help="Check C++/JavaScript using exactly clang-format 22.1.8")
     parser.add_argument("--self-test", action="store_true",
                         help="Run positive and negative formatter controls before checking sources")
     args = parser.parse_args()
+    ROOT = args.root.resolve()
+    if not (ROOT / ".clang-format").is_file():
+        parser.error("--root must contain the source formatting configuration")
     if args.self_test and not args.clang_format:
         parser.error("--self-test requires --clang-format")
     formatter = require_formatter(args.clang_format) if args.clang_format else None
