@@ -1,4 +1,4 @@
-# Telemetry
+# Telemetry SDK
 
 Оберіть точку входу за своїм завданням:
 
@@ -21,7 +21,7 @@
 [Qt Widgets playground](app/README.md). Для Universal Inspector відкривайте
 `examples/inspector_qml/CMakeLists.txt`.
 
-[![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)
+[![CI](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](lib/telemetry/README.md)
 [![Reflection](https://img.shields.io/badge/reflection-Boost.PFR-blueviolet)](doc/Architecture.md)
 [![Boost.PFR](https://img.shields.io/badge/Boost.PFR-1.92.0-orange)](lib/boost_pfr/VERSION.md)
@@ -387,7 +387,7 @@ python tests/run_checks.py --build-dir /tmp/telemetry-checks
 python tests/resources/run.py --build-dir /tmp/telemetry-resources
 ```
 
-[CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml) перевіряє
+[CI](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml) перевіряє
 GCC/Clang C++20, санітайзери, null-check mode, ARM compile/link/codegen/stack,
 Qt consumers, API/wire freeze і compile/run приклади. Badge показує published
 branch; локальні незапушені зміни мають окремі результати.

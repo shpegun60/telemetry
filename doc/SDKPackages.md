@@ -13,7 +13,7 @@ the wire protocol.
 Select the modules needed by the application and install into an external prefix:
 
 ```sh
-cmake -S /path/to/telemetry -B /external/sdk-build -G Ninja \
+cmake -S /path/to/telemetry-sdk -B /external/sdk-build -G Ninja \
   '-DTELEMETRY_COMPONENTS=read_many_static_client;batch_static_client;encoded_backend' \
   -DCMAKE_INSTALL_PREFIX=/external/sdk-prefix
 cmake --build /external/sdk-build --target install
@@ -46,7 +46,7 @@ itself certify a clean source tree or a successful qualification run.
 Create a local tarball, then install it into the application:
 
 ```sh
-npm pack /path/to/telemetry --pack-destination /external/packages
+npm pack /path/to/telemetry-sdk --pack-destination /external/packages
 cd /path/to/my-app
 npm install --offline --ignore-scripts --no-audit --no-fund \
   /external/packages/telemetry-sdk-0.1.0.tgz
