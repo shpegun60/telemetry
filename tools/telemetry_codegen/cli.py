@@ -29,7 +29,7 @@ TARGETS = ("cpp", "js", "ts", "qml")
 
 
 def _json(value):
-    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True, allow_nan=False) + "\n"
 
 
 def _path(name):
@@ -68,18 +68,56 @@ def symbol_mapping(schema):
     return {"endpoints": [asdict(endpoint) for endpoint in schema.endpoints], "types": types}
 
 
-def render(schema, targets, client_runtime=False):
+def _ux_extension():
+    """Load only on explicit UX selection; no bundled alternate implementation."""
+    from .emitter_api import API_VERSION, IR_VERSION, SDK_VERSION
+    try:
+        extension = importlib.import_module('telemetry_ux_codegen')
+    except ModuleNotFoundError as error:
+        if error.name == 'telemetry_ux_codegen':
+            raise ImportError('UX generation requires telemetry-ux-codegen==' + SDK_VERSION +
+                              '; install it in the generator environment') from error
+        raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+    except ImportError as error:
+        raise ImportError('Cannot import installed Telemetry UX: ' + str(error)) from error
+    for name, expected in (('API_VERSION', API_VERSION), ('IR_VERSION', IR_VERSION),
+                           ('SDK_VERSION', SDK_VERSION)):
+        actual = getattr(extension, name, None)
+        if type(actual) is not type(expected) or actual != expected:
+            raise ValueError('Incompatible Telemetry UX ' + name + '; expected ' + str(expected))
+    return extension
+
+
+def _ux_target(extension, name, schema):
+    from .emitter_api import GeneratedTarget
+    from collections.abc import Mapping
+    generate = getattr(extension, name, None)
+    if not callable(generate):
+        raise ValueError('Telemetry UX must provide ' + name + '(schema)')
+    result = generate(schema)
+    if (not isinstance(result, GeneratedTarget) or not isinstance(result.files, Mapping)
+            or not isinstance(result.symbol_mapping, dict)):
+        raise ValueError('Telemetry UX must return GeneratedTarget with a symbol_mapping dictionary')
+    return result
+
+
+def render(schema, targets, client_runtime=False, structural_metadata=False, ux_starter=None,
+           wire_editing=False):
     """Import selected emitters lazily; no transport or compiler is required."""
     targets = _targets(targets)
     if client_runtime and not set(targets) & {"js", "ts"}:
         raise ValueError("--client-runtime requires a js or ts target")
+    if ux_starter not in (None, 'web'):
+        raise ValueError('--ux-starter must be web')
+    if ux_starter == 'web' and ('js' not in targets or not structural_metadata):
+        raise ValueError('--ux-starter web requires an explicit js target and --structural-metadata')
+    wire_editing = wire_editing or ux_starter == 'web'
+    if wire_editing and not set(targets) & {'js', 'ts'}:
+        raise ValueError('--wire-editing requires a js or ts target')
     files, seen = {}, set()
     effective = tuple(sorted(set(targets) | ({"cpp"} if "qml" in targets else set())))
-    for target in effective:
-        module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
-                                         __package__)
-        generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
-        result = generate(schema, client_runtime=True) if client_runtime and target in ("js", "ts") else generate(schema)
+
+    def append(result):
         if not isinstance(result, dict):
             raise ValueError("generator must return a relative-path/text dictionary")
         for name, content in result.items():
@@ -90,6 +128,37 @@ def render(schema, targets, client_runtime=False):
                 raise ValueError("generator output must be text")
             seen.add(name.casefold())
             files[name] = content.encode("utf-8")
+
+    qml_result = web_result = None
+    if 'qml' in targets or ux_starter is not None:
+        # Resolve only an explicitly requested extension. Incompatible installed
+        # UX is an error; no bundled second implementation or silent fallback.
+        extension = _ux_extension()
+        if 'qml' in targets:
+            qml_result = _ux_target(extension, 'generate_qml', schema)
+        if ux_starter == 'web':
+            web_result = _ux_target(extension, 'generate_web_starter', schema)
+
+    for target in effective:
+        if target == 'qml':
+            append(dict(qml_result.files))
+            continue
+        module = importlib.import_module(".generators." + (target if target in ("cpp", "qml") else "web"),
+                                         __package__)
+        generate = getattr(module, "generate" if target in ("cpp", "qml") else "generate_" + target)
+        options = {}
+        if target in ('js', 'ts'):
+            if client_runtime:
+                options['client_runtime'] = True
+            if wire_editing:
+                options['wire_editing'] = True
+        result = generate(schema, **options)
+        append(result)
+    if structural_metadata:
+        from .generators.metadata import generate
+        append(generate(schema, effective))
+    if web_result is not None:
+        append(dict(web_result.files))
     hashes = {name: hashlib.sha256(data).hexdigest() for name, data in sorted(files.items())}
     manifest = dict(format=FORMAT, descriptor_sha256=schema.descriptor_sha256,
                     descriptor_fingerprint=f"0x{schema.fingerprint:016x}",
@@ -98,9 +167,15 @@ def render(schema, targets, client_runtime=False):
                     generated_files=hashes, generated_symbol_mapping=symbol_mapping(schema))
     if client_runtime:
         manifest["options"]["client_runtime"] = True
+    if structural_metadata:
+        manifest["options"]["structural_metadata"] = True
+    if wire_editing:
+        manifest['options']['wire_editing'] = True
     if "qml" in targets:
-        from .generators.qml import symbol_mapping as qml_symbols
-        manifest["generated_symbol_mapping"]["qml"] = qml_symbols(schema)
+        manifest["generated_symbol_mapping"]["qml"] = qml_result.symbol_mapping
+    if web_result is not None:
+        manifest['options']['ux_starter'] = ux_starter
+        manifest['generated_symbol_mapping']['web_starter'] = web_result.symbol_mapping
     files[MANIFEST] = _json(manifest).encode("utf-8")
     return files
 
@@ -288,6 +363,12 @@ def main(argv=None):
     generate.add_argument("descriptor")
     generate.add_argument("--targets", default="cpp,ts,js")
     generate.add_argument("--client-runtime", action="store_true", help="include optional JS/TS asynchronous FIFO client")
+    generate.add_argument("--structural-metadata", action="store_true",
+                          help="include optional wire type/catalog/endpoint metadata; no UI hints")
+    generate.add_argument('--ux-starter', choices=('web',),
+                          help='include an optional host-client-owned UX web mount; requires js and structural metadata')
+    generate.add_argument('--wire-editing', action='store_true',
+                          help='include optional JS/TS codecs preserving original NaN wire bits; enabled by the web starter')
     generate.add_argument("--namespace", default="device_api")
     generate.add_argument("--output", required=True)
     generate.add_argument("--check", action="store_true", help="compare without modifying any files")
@@ -314,7 +395,9 @@ def main(argv=None):
                              type_count=len(schema.types), endpoint_count=len(schema.endpoints),
                              symbols=symbol_mapping(schema))), end="")
         else:
-            files = render(schema, _targets(args.targets), client_runtime=args.client_runtime)
+            files = render(schema, _targets(args.targets), client_runtime=args.client_runtime,
+                           structural_metadata=args.structural_metadata, ux_starter=args.ux_starter,
+                           wire_editing=args.wire_editing)
             publish(files, args.output, args.check)
             print(("Verified " if args.check else "Generated ") + str(len(files) - 1) + " files")
         return 0

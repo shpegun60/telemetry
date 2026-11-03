@@ -1,6 +1,6 @@
 # Repository guidance
 
-This is the standalone `shpegun60/telemetry` repository, checked out inside
+This is the standalone `shpegun60/telemetry-sdk` repository, checked out inside
 the power analyzer workspace. Its changes do not update analyzer firmware
 automatically. The public API is one C++20 `telemetry` library; `ts` may be
 an application alias. See [README.md](README.md), [API](lib/telemetry/README.md)

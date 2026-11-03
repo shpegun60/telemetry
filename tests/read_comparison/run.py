@@ -74,7 +74,7 @@ def main(*, example='read_comparison', target='read-comparison', validator=None,
                           HERE, cobs / 'src/cobs', cobs / 'src/wire', cobs / 'src/crc'):
             paths.update(files_below(directory, suffixes))
         paths.update((ROOT / 'CMakeLists.txt', ROOT / '.github/workflows/ci.yml',
-                      ROOT / 'examples/inspector_serial/SerialProfile.hpp'))
+                      ROOT / 'lib/integration/serial/Profile.hpp'))
         result = {}
         for path in sorted(paths):
             if path.is_relative_to(ROOT):

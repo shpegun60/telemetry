@@ -20,23 +20,44 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def sources(cobs):
+def sources(cobs, ux, sdk):
     result = {}
-    for base, label, directories in ((ROOT, '', (HERE, ROOT / 'examples/inspector_qml',
-            ROOT / 'examples/inspector_serial', ROOT / 'lib', ROOT / 'cmake')),
-            (cobs, 'COBS_ROOT/', (cobs / 'src',))):
+    # The GUI consumes the installed SDK. Only the maintained board peer and
+    # its private serial profile remain SDK source fixtures in this gate.
+    for base, label, directories in ((ROOT, 'sdk-fixture/', (HERE,)),
+            (ux, 'ux/', (ux / 'apps/inspector',)),
+            (cobs, 'COBS_ROOT/', (cobs / 'src',)),
+            (sdk, 'installed-sdk/', (sdk,))):
         for directory in directories:
             for parent, names, files in os.walk(directory):
                 names[:] = [name for name in names if name not in ('.git', '__pycache__', 'build')
                             and (not label or name != 'tests')]
                 for name in files:
                     path = Path(parent) / name
-                    if path.suffix in ('.h', '.hpp', '.cpp', '.py', '.txt', '.cmake', '.qml'):
+                    if label == 'installed-sdk/' or path.suffix in ('.h', '.hpp', '.cpp', '.py', '.txt', '.cmake', '.qml'):
                         result[label + path.relative_to(base).as_posix()] = digest(path)
-    for path in (ROOT / 'CMakeLists.txt', ROOT / '.github/workflows/ci.yml',
-                 ROOT / 'examples/nucleo_h7s3l8/Protocol.hpp'):
-        result[path.relative_to(ROOT).as_posix()] = digest(path)
+    for path in (ROOT / 'examples/nucleo_h7s3l8/Protocol.hpp',
+                 ROOT / 'lib/integration/serial/Profile.hpp'):
+        result['sdk-fixture/' + path.relative_to(ROOT).as_posix()] = digest(path)
     return dict(sorted(result.items()))
+
+
+def sdk_identity(prefix):
+    configs = sorted(prefix.rglob('TelemetryConfig.cmake'))
+    metadata_files = sorted(prefix.rglob('SDKMetadata.json'))
+    if len(configs) != 1 or len(metadata_files) != 1:
+        raise ValueError('--sdk-prefix must contain one installed Telemetry package and SDKMetadata.json')
+    metadata = metadata_files[0]
+    value = json.loads(metadata.read_text(encoding='utf-8'))
+    if (not isinstance(value, dict) or value.get('sdkVersion') != '0.1.0' or
+            value.get('descriptorWireVersion') != [3, 0] or
+            any(type(n) is not int for n in value['descriptorWireVersion']) or
+            type(value.get('encodedWireVersion')) is not int or value['encodedWireVersion'] != 1 or
+            not isinstance(value.get('sourceRevision'), str) or
+            (value['sourceRevision'] and not re.fullmatch('[0-9a-fA-F]{40}', value['sourceRevision']))):
+        raise ValueError('Installed SDK metadata is incompatible with this serial gate')
+    return configs[0].parent, dict(prefix=str(prefix), metadata=value,
+        metadata_path=metadata.relative_to(prefix).as_posix(), metadata_sha256=digest(metadata))
 
 
 def main():
@@ -44,6 +65,10 @@ def main():
     parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--qt-prefix', type=Path, required=True)
     parser.add_argument('--cobs-root', type=Path, required=True)
+    parser.add_argument('--ux-root', type=Path, required=True,
+                        help='External telemetry-ux checkout containing apps/inspector')
+    parser.add_argument('--sdk-prefix', type=Path, required=True,
+                        help='Installed Telemetry SDK; the GUI never builds SDK sources')
     parser.add_argument('--serial-prefix', type=Path)
     parser.add_argument('--cxx', default='g++')
     parser.add_argument('--cmake', default='cmake')
@@ -52,7 +77,12 @@ def main():
     parser.add_argument('--sanitize', action='store_true')
     args = parser.parse_args()
     output, cobs = args.build_dir.resolve(), args.cobs_root.resolve()
-    if output == ROOT or ROOT in output.parents or output in ROOT.parents:
+    ux, sdk = args.ux_root.resolve(), args.sdk_prefix.resolve()
+    if not (ux / 'apps/inspector/CMakeLists.txt').is_file() or ux == ROOT:
+        parser.error('--ux-root must contain the external UX Inspector application')
+    if not sdk.is_dir() or sdk == ROOT or ROOT in sdk.parents or sdk == ux or ux in sdk.parents:
+        parser.error('--sdk-prefix must be an installed SDK outside both source repositories')
+    if any(output == path or path in output.parents or output in path.parents for path in (ROOT, ux, sdk, cobs)):
         parser.error('--build-dir must be a dedicated external directory')
     if output.exists() and any(output.iterdir()):
         parser.error('--build-dir must be fresh and empty')
@@ -63,7 +93,8 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     report = dict(passed=False, hardware=False, sanitize=args.sanitize, commands=[],
                   started_utc=datetime.now(timezone.utc).isoformat(),
-                  source_sha256_before=sources(cobs), external_cobs=str(cobs))
+                  source_sha256_before=sources(cobs, ux, sdk), external_cobs=str(cobs),
+                  ux_root=str(ux), sdk_source_fixture_root=str(ROOT), sdk_source_build=False)
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1', QT_QPA_PLATFORM='offscreen',
                QT_QUICK_BACKEND='software', QT_FORCE_STDERR_LOGGING='1')
     if args.sanitize:
@@ -93,24 +124,29 @@ def main():
         return text
 
     try:
+        sdk_config, report['installed_sdk'] = sdk_identity(sdk)
         tools = {name: Path(shutil.which(getattr(args, name)) or getattr(args, name)).absolute()
                  for name in ('cxx', 'cmake', 'ninja')}
         for path in tools.values():
             if not path.is_file():
                 raise ValueError('Missing required tool: ' + str(path))
         qt = args.qt_prefix.resolve()
-        prefixes = [qt] + ([args.serial_prefix.resolve()] if args.serial_prefix else [])
+        prefixes = [sdk, qt] + ([args.serial_prefix.resolve()] if args.serial_prefix else [])
         env['PATH'] = os.pathsep.join([str(tools['cxx'].parent)] +
             [str(path / 'bin') for path in prefixes] + [env.get('PATH', '')])
         report['tool_sha256'] = {str(path): digest(path) for path in tools.values()}
         report['source_head'] = run('source-head', ['git', 'rev-parse', 'HEAD']).strip()
+        report['ux_head'] = run('ux-head', ['git', '-C', ux, 'rev-parse', 'HEAD']).strip()
         report['cobs_head'] = run('cobs-head', ['git', '-C', cobs, 'rev-parse', 'HEAD']).strip()
         build = output / 'build'
         flags = '-Wall -Wextra -Werror'
         configure = [tools['cmake'], '-S', HERE, '-B', build, '-G', 'Ninja',
             '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_CXX_COMPILER=' + str(tools['cxx']),
             '-DCMAKE_MAKE_PROGRAM=' + str(tools['ninja']),
-            '-DCMAKE_PREFIX_PATH=' + ';'.join(map(str, prefixes)), '-DCOBS_ROOT=' + str(cobs)]
+            '-DCMAKE_PREFIX_PATH=' + ';'.join(map(str, prefixes)), '-DCOBS_ROOT=' + str(cobs),
+            '-DTelemetry_DIR=' + str(sdk_config), '-DTELEMETRY_UX_ROOT=' + str(ux),
+            '-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF', '-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF',
+            '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON']
         if args.serial_prefix:
             configure += ['-DQt6SerialPort_DIR=' +
                           str(args.serial_prefix.resolve() / 'lib/cmake/Qt6SerialPort')]
@@ -122,7 +158,7 @@ def main():
         run('build', [tools['cmake'], '--build', build, '-j', args.jobs])
         exe = build / ('telemetry_inspector_serial_check.exe' if os.name == 'nt'
                        else 'telemetry_inspector_serial_check')
-        gui = build / 'telemetry-inspector-qml.exe' if os.name == 'nt' else build / 'example/telemetry-inspector-qml'
+        gui = build / 'example' / ('telemetry-inspector-qml' + ('.exe' if os.name == 'nt' else ''))
         receipts = output / 'device-check'
         runtime = run('runtime', [exe, gui, receipts])
         counted = re.search(r'Inspector Serial checks=(\d+) reads=(\d+) admissions=(\d+) pty=(\d) Qt=(\S+)', runtime)
@@ -170,7 +206,8 @@ def main():
                                                   sha256=digest(path), passed=observed['passed']))
         report['serial_runtime_sha256'] = {str(path): digest(path) for prefix in prefixes
             for path in (prefix / 'bin').glob('Qt6SerialPort.dll')}
-        report['source_sha256_after'] = sources(cobs)
+        report['compile_commands_sha256'] = digest(build / 'compile_commands.json')
+        report['source_sha256_after'] = sources(cobs, ux, sdk)
         if report['source_sha256_before'] != report['source_sha256_after']:
             raise RuntimeError('Source inputs changed during qualification')
         report['passed'] = True

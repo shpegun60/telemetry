@@ -36,3 +36,9 @@ through native/generated codecs and retain checksums. Optional ARM measurements
 record sections, undefined symbols and compiler stack reports. These are
 compiler/host observations, not measured hardware speed or whole-firmware RAM.
 Existing frozen golden files and historical hardware receipts remain unchanged.
+
+`WireEditing.mjs` additionally checks opt-in JS and compiled TS preserving codecs
+against the actual native Descriptor. It compares exact F32/F64 NaN/signed-zero
+bytes, nested edits, offset views, seed ownership, invalid originals and ordinary
+finite writes. A deliberately corrupted preservation branch must fail the same
+byte oracle. Default generated SDKs retain their prior output without that option.

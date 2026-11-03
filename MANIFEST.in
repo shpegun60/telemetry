@@ -1,0 +1,3 @@
+include VERSION LICENSE
+recursive-include tools/telemetry_codegen *.py
+include lib/client/web/Client.ts lib/client/web/Client.js lib/client/web/Client.d.ts

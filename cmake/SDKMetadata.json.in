@@ -1,0 +1,6 @@
+{
+  "sdkVersion": "@PROJECT_VERSION@",
+  "sourceRevision": "@TELEMETRY_SOURCE_REVISION@",
+  "descriptorWireVersion": [3, 0],
+  "encodedWireVersion": 1
+}

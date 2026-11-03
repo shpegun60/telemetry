@@ -372,7 +372,7 @@ public:
 
 void framingControls()
 {
-	using Link = cobs::Endpoint<wire::Pool<1, 1>, inspector_serial::FrameFormat>;
+	using Link = cobs::Endpoint<wire::Pool<1, 1>, telemetry::integration::serial::FrameFormat>;
 	std::array<std::byte, 2049> body{};
 	for (std::size_t i = 0; i < body.size(); ++i)
 		body[i] = std::byte((i * 37u) & 0xffu);

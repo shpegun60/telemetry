@@ -20,12 +20,17 @@
 [Typed C++ ReadMany](StaticReadMany.md) ·
 [JS/TS ReadMany](JsReadMany.md) ·
 [JS/TS Mixed Batch](JsBatch.md) ·
+[Dynamic JS/TS client](DynamicJsClient.md) ·
+[Optional structural metadata](GeneratedMetadata.md) ·
+[Installed SDK packages](SDKPackages.md) ·
+[Optional UX generator](UXGeneratorExtension.md) ·
+[Optional Qt transport components](QtTransport.md) ·
 [Typed C++ Mixed Batch](StaticBatch.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·
 [Mixed Batch host example](../examples/batch/README.md) ·
 [Qt/QML scalar Watchlist](ReadManyWatchlist.md) ·
-[Qt/QML Inspector example](../examples/inspector_qml/README.md) ·
+[Qt/QML Inspector example](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md) ·
 [NUCLEO-H7S3L8 UART/DMA](../examples/nucleo_h7s3l8/README.md) ·
 [SDK and UX roadmap](SdkUxRoadmap.md) ·
 [Усі приклади та build entry points](../examples/README.md)

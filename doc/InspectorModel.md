@@ -106,7 +106,7 @@ Encoded dispatcher. Its values are demonstration data, not live board readings.
 The [host suite](../tests/inspector/README.md) checks the same model contracts
 through Encoded and RPC.
 
-For a ready-to-run interface, use the [Qt/QML Universal Inspector](../examples/inspector_qml/README.md).
+For a ready-to-run interface, use the [Qt/QML Universal Inspector](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md).
 It provides the device tree, selected-Field viewer, local demo, TCP discovery and
 optional COBS/UART connection. Qt models, connection policy and the executable
 stay in that application; this portable component remains independent of Qt.

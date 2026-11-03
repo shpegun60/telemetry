@@ -29,6 +29,8 @@ remain under `lib/integration`.
 | `rpc_server` | `integration/telemetry/v3/RpcMailbox.hpp` | `core`, `resource`, `rpc_wire` | One deferred RPC mailbox provider |
 | `rpc_sessions` | `integration/telemetry/v3/RpcSessionPool.hpp` | `rpc_server`, `resource_protocol` | Independently owned mailboxes and Resource packet routing |
 | `tcp_server` | `integration/tcp/Server.hpp` | `encoded_server`, `resource_protocol` | Frame Resource/TEQ1 streams in caller-owned storage |
+| `qt_transport` | `integration/qt/DeviceTransport.hpp`, `DescriptorBootstrap.hpp` | `client`, `resource_wire`, `encoded_wire`, Qt Core | Optional host transport boundary and sequential Descriptor discovery |
+| `qt_serial_transport` | `integration/qt/SerialTransport.hpp` | `qt_transport`, Qt SerialPort | Optional UART adapter with privately built COBS framing |
 
 Client adapters, the runtime client, Inspector and TCP integration use
 `telemetry::integration::<adapter>`. The Descriptor/Values/RPC file providers
@@ -36,9 +38,11 @@ use `resource::telemetry::v3`: this is an extension implemented here, and does
 not add Telemetry knowledge to `lib/resource`. The shared byte contracts are in
 `lib/wire`; native RPC client code is in `lib/client/rpc`.
 
-The TCP component contains no socket implementation. Qt sockets, serial-port
-selection, COBS ports and GUI controllers belong to the application; maintained
-examples are [Inspector QML](../../examples/inspector_qml/README.md),
+The TCP component contains no socket implementation. The reusable Qt serial
+adapter belongs to the optional SDK components described in
+[Qt transport](../../doc/QtTransport.md). Socket implementations, serial-port
+selection and GUI controllers belong to the application; maintained
+examples are [Inspector QML](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md),
 [COBS integration](../../examples/cobs_integration/README.md) and
 [NUCLEO-H7S3L8](../../examples/nucleo_h7s3l8/README.md).
 

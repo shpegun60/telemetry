@@ -1,6 +1,6 @@
 /* Actual serial CLI and board Protocol over real host PTYs. MIT. */
 #include "../../examples/nucleo_h7s3l8/Protocol.hpp"
-#include "../../examples/inspector_serial/SerialProfile.hpp"
+#include "../../lib/integration/serial/Profile.hpp"
 #include <cobs/Cobs.h>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QElapsedTimer>
@@ -33,7 +33,7 @@ unsigned checks = 0;
 		}                                                                                          \
 	} while (false)
 #ifdef Q_OS_UNIX
-using Link = cobs::Endpoint<wire::Pool<4, 1>, inspector_serial::FrameFormat>;
+using Link = cobs::Endpoint<wire::Pool<4, 1>, telemetry::integration::serial::FrameFormat>;
 namespace ew = telemetry::protocol::encoded;
 
 class Peer {

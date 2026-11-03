@@ -7,7 +7,7 @@ RPC v1.0 retain their existing contracts. Firmware does not run this tool.
 
 ## Generate an SDK
 
-Python 3.10 or newer and the repository checkout suffice. No Python packages,
+Python 3.10 or newer and the repository checkout suffice for C++/JS/TS. No Python packages,
 compiler, device, RPC connection or network access are needed for generation.
 From the repository root:
 
@@ -18,12 +18,22 @@ python3 -m tools.telemetry_codegen generate descriptor.bin --targets cpp,ts,js -
 ```
 
 `--targets` accepts a comma-separated selection of `cpp`, `ts`, `js`, `qml`.
-The optional [Qt/QML target](GeneratedQmlApi.md) uses the existing C++ DTOs and
+The optional [Qt/QML target](GeneratedQmlApi.md) requires the matching installed
+[`telemetry-ux-codegen` extension](UXGeneratorExtension.md). It uses the existing C++ DTOs and
 codecs and automatically includes the unchanged `cpp` output. Qt is needed only
 to build that module, not to run the generator. The default remains `cpp,ts,js`.
 `--namespace` is a valid ASCII C++ namespace, optionally nested with `::`.
 It changes C++ namespaces and their directory paths. JS/TS expose named catalog
 exports from `device.js`/`device.ts` instead of an extra namespace wrapper.
+
+Optional `--wire-editing` adds `encodePreserving(value, originalPayload)` to JS/TS
+value codecs and writable bindings. It uses the existing typed writer with an
+owned copy of the exact original payload, retaining each NaN's wire bytes when
+its new value is also NaN. Finite edits encode normally; invalid lengths, Bool
+representations or edited values refuse the complete output. The original input
+is never modified. Default generated output and ordinary `encode` stay unchanged.
+The option requires a `js` or `ts` target and needs no UX package. Selecting the
+[UX browser starter](UXGeneratorExtension.md) enables it automatically.
 
 For the default namespace the outputs are:
 

@@ -16,7 +16,7 @@ clock is 600 MHz, AXI 300 MHz and APB1 150 MHz, matching the local H7S bench.
 
 ## Wire profile and ownership
 
-The shared [SerialProfile.hpp](../inspector_serial/SerialProfile.hpp) selects
+The shared [Profile.hpp](../../lib/integration/serial/Profile.hpp) selects
 `cobs::Format<crc::Crc16Bitwise, 2048>`: a two-byte little-endian body length,
 ordinary payload, existing CRC16 and COBS delimiter. Each decoded body is one
 unchanged Resource request/reply or TEQ1 request/reply. There is no route byte,

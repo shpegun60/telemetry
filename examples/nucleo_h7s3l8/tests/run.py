@@ -55,7 +55,7 @@ def main():
                 files += [Path(base) / name for name in names
                           if Path(name).suffix in ('.cpp', '.c', '.hpp', '.h', '.txt',
                                                    '.cmake', '.py', '.ps1', '.ld')]
-        files += [ROOT / 'examples/inspector_serial/SerialProfile.hpp']
+        files += [ROOT / 'lib/integration/serial/Profile.hpp']
         return {str(path): digest(path) for path in sorted(set(files))}
 
     report = dict(passed=False, hardware=False, startedUtc=datetime.now(timezone.utc).isoformat(),

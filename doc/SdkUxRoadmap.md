@@ -24,9 +24,9 @@ descriptor IR. A transition distribution must preserve the existing QML CLI
 and output; removing that distribution requires an announced compatibility
 change. Minimal C++/JS/TS generation must work without importing UX.
 
-The proposed repository names are `telemetry-sdk` and `telemetry-ux`. Rename the
-existing repository while preserving its history, then update remotes, workflow
-references, documentation and downstream consumers in a dedicated migration.
+The repositories are now `telemetry-sdk` and `telemetry-ux`. The SDK rename
+preserves its history, issue and PR identities. Current remotes and documentation
+use the canonical name; sealed historical evidence keeps its original identity.
 Do not rename namespaces, include paths or CMake targets merely to rename the
 product. Existing portable Inspector/Workbench public targets initially stay
 available and are reused by UX; their ownership logic must not be copied.
@@ -48,7 +48,13 @@ available and are reused by UX; their ownership logic must not be copied.
 
 Each stage may contain several small PRs. Do not combine repository migration,
 wire changes, several clients and a new GUI into one unreviewable change.
-The first implementation stage is S1; later rows remain planned until qualified.
+S1 is integrated. S2-S4 have separate implementation PRs with their own
+qualification records. S5 adds optional structural metadata, installed SDK
+packages and the [four-surface conformance suite](../tests/sdk_conformance/README.md).
+Local qualification and integration into `main` remain separate milestones.
+U1 has begun with the separately packaged QML generator and a versioned public
+emitter seam; application migration, reusable components and self-hosting still
+have their own acceptance gates.
 
 ## Contracts that every stage preserves
 

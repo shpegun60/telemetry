@@ -7,7 +7,6 @@ Authors: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 from __future__ import annotations
 
 import json
-import struct
 
 
 def _quote(value: str) -> str:
@@ -65,7 +64,7 @@ def _reachable_types(schema):
     return tuple(schema.types[type_id] for type_id in sorted(reached))
 
 
-def _types(schema) -> list[str]:
+def _types(schema, wire_editing=False) -> list[str]:
     lines = [
         "export type ByteInput = ArrayBuffer | ArrayBufferView;",
         "export interface ValueCodec<T> {",
@@ -76,6 +75,8 @@ def _types(schema) -> list[str]:
         "  decode(input: ByteInput): T;",
         "}",
     ]
+    if wire_editing:
+        lines.insert(-1, "  encodePreserving(value: T, original: ByteInput): Uint8Array;")
     scalars = {1: "boolean", 8: "bigint", 9: "bigint"}
     for row in _reachable_types(schema):
         name = _type_name(row["id"])
@@ -155,7 +156,7 @@ _ACCESSORS = {1: "Uint8", 2: "Uint8", 3: "Int8", 4: "Uint16", 5: "Int16",
               10: "Float32", 11: "Float64"}
 
 
-def _write_body(schema, row) -> list[str]:
+def _write_body(schema, row, wire_editing=False) -> list[str]:
     kind = row["kind"]
     if kind == 0:
         return _scalar_checks(row)
@@ -163,17 +164,29 @@ def _write_body(schema, row) -> list[str]:
         code = row["code"]
         value = "value ? 1 : 0" if code == 1 else "value"
         endian = ", true" if row["wire"] > 1 else ""
-        return _scalar_checks(row) + [f"view.set{_ACCESSORS[code]}(offset, {value}{endian});"]
+        checks = _scalar_checks(row)
+        if wire_editing:
+            checks += ["if (original) {"]
+            if code in (10, 11):
+                checks += [f"  const previous = _read_{row['id']}(original, offset);",
+                           "  if (Number.isNaN(value) && Number.isNaN(previous)) {",
+                           f"    for (let i = 0; i < {row['wire']}; ++i) view.setUint8(offset + i, original.getUint8(offset + i));",
+                           "    return;", "  }"]
+            else:
+                checks += [f"  _read_{row['id']}(original, offset);"]
+            checks += ["}"]
+        return checks + [f"view.set{_ACCESSORS[code]}(offset, {value}{endian});"]
+    seed = ", original" if wire_editing else ""
     if kind == 2:
-        return [f"_write_{row['underlying']}(view, offset, value);"]
+        return [f"_write_{row['underlying']}(view, offset, value{seed});"]
     if kind == 4:
         size = schema.types[row["element"]]["wire"]
         return [f"_require(Array.isArray(value) && value.length === {row['count']}, 'Exact array length');",
-                f"for (let i = 0; i < {row['count']}; ++i) _write_{row['element']}(view, offset + i * {size}, value[i]);"]
+                f"for (let i = 0; i < {row['count']}; ++i) _write_{row['element']}(view, offset + i * {size}, value[i]{seed});"]
     result, offset = [f"_object(value, {len(row['members'])});"], 0
     for child, member in row["members"]:
         result.append(f"_require(Object.hasOwn(value, {_quote(member)}), 'Missing struct member');")
-        result.append(f"_write_{child}(view, offset + {offset}, value[{_quote(member)}]);")
+        result.append(f"_write_{child}(view, offset + {offset}, value[{_quote(member)}]{seed});")
         offset += schema.types[child]["wire"]
     return result
 
@@ -206,13 +219,14 @@ def _read_body(schema, row, typed: bool) -> list[str]:
     return result + ["return result;"]
 
 
-def _codec_functions(schema, typed: bool) -> list[str]:
+def _codec_functions(schema, typed: bool, wire_editing=False) -> list[str]:
     a = lambda annotation: annotation if typed else ""
     lines = []
     for row in _reachable_types(schema):
         i, name, size = row["id"], _type_name(row["id"]), row["wire"]
-        lines.append(f"function _write_{i}(view{a(': DataView')}, offset{a(': number')}, value{a(': ' + name)}){a(': void')} {{")
-        lines += ["  " + line for line in _write_body(schema, row)]
+        seed = ", original" + a("?: DataView") if wire_editing else ""
+        lines.append(f"function _write_{i}(view{a(': DataView')}, offset{a(': number')}, value{a(': ' + name)}{seed}){a(': void')} {{")
+        lines += ["  " + line for line in _write_body(schema, row, wire_editing)]
         lines += ["}", f"function _read_{i}(view{a(': DataView')}, offset{a(': number')}){a(': ' + name)} {{"]
         lines += ["  " + line for line in _read_body(schema, row, typed)]
         lines += ["}", f"function _encodeInto_{i}(value{a(': ' + name)}, output{a(': ByteInput')}){a(': void')} {{",
@@ -226,6 +240,15 @@ def _codec_functions(schema, typed: bool) -> list[str]:
                   "  const view = _view(input);",
                   f"  _require(view.byteLength === {size}, 'Exact value payload length');",
                   f"  return _read_{i}(view, 0);", "}"]
+        if wire_editing:
+            lines += [f"function _encodePreserving_{i}(value{a(': ' + name)}, input{a(': ByteInput')}){a(': Uint8Array')} {{",
+                      "  const source = _view(input);",
+                      f"  _require(source.byteLength === {size}, 'Exact original payload length');",
+                      "  const seed = new Uint8Array(new Uint8Array(source.buffer, source.byteOffset, source.byteLength));",
+                      "  const original = new DataView(seed.buffer);",
+                      f"  const bytes = new Uint8Array({size});",
+                      f"  _write_{i}(new DataView(bytes.buffer), 0, value, original);",
+                      "  return bytes;", "}"]
     return lines
 
 
@@ -244,7 +267,7 @@ def _read_many_scalar(schema, type_id: int) -> int | None:
     return row["code"] if row["kind"] == 1 else None
 
 
-def _endpoint_expression(schema, endpoint) -> str:
+def _endpoint_expression(schema, endpoint, wire_editing=False) -> str:
     parts = [f"id: {endpoint.id}", f"category: {endpoint.category}",
              f"catalogName: {_quote(endpoint.catalog_name)}", f"name: {_quote(endpoint.name)}"]
     if endpoint.category == 1:
@@ -254,7 +277,8 @@ def _endpoint_expression(schema, endpoint) -> str:
         parts += [f"valueTypeId: {i}", f"capabilities: {endpoint.capabilities}",
                   f"read: Object.freeze({{fingerprint, operation: Operation.FieldRead, id: {endpoint.id}, typeId: {i}, requestBytes: 0, responseBytes: {schema.types[i]['wire']}, {marker}decode: _decode_{i}}})"]
         if endpoint.capabilities == 3:
-            parts.append(f"write: Object.freeze({{fingerprint, operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, requestBytes: {schema.types[i]['wire']}, responseBytes: 0, encode: _encode_{i}, encodeInto: _encodeInto_{i}}})")
+            seed = f", encodePreserving: _encodePreserving_{i}" if wire_editing else ""
+            parts.append(f"write: Object.freeze({{fingerprint, operation: Operation.FieldWrite, id: {endpoint.id}, typeId: {i}, requestBytes: {schema.types[i]['wire']}, responseBytes: 0, encode: _encode_{i}, encodeInto: _encodeInto_{i}{seed}}})")
     else:
         i = endpoint.request_type
         operation = "Command" if endpoint.category == 2 else "Service"
@@ -268,13 +292,9 @@ def _endpoint_expression(schema, endpoint) -> str:
     return "Object.freeze({" + ", ".join(parts) + "})"
 
 
-def _runtime_exports(schema, typed: bool) -> list[str]:
+def _runtime_exports(schema, typed: bool, wire_editing=False) -> list[str]:
     a = lambda annotation: annotation if typed else ""
-    raw, counts = schema.raw, []
-    for catalogs, endpoints in zip(raw["catalogs"], raw["endpoints"]):
-        counts.extend((len(catalogs), len(endpoints)))
-    header = struct.pack("<4sHHHHIQ10I", b"TDS3", 3, 0, 64, 0, raw["total"],
-                         schema.fingerprint, len(schema.types), *counts, *raw["offsets"])
+    header = schema.descriptor_header
     lines = [f"export const fingerprint = {schema.fingerprint}n;",
              f"export const descriptorSha256 = {_quote(schema.descriptor_sha256)};",
              "export const wireVersion = Object.freeze({major: 3, minor: 0});",
@@ -292,7 +312,8 @@ def _runtime_exports(schema, typed: bool) -> list[str]:
              "}", "export const codecs = Object.freeze({"]
     for row in _reachable_types(schema):
         i = row["id"]
-        expression = f"Object.freeze({{wireBytes: {row['wire']}, encode: _encode_{i}, encodeInto: _encodeInto_{i}, decode: _decode_{i}}})"
+        seed = f", encodePreserving: _encodePreserving_{i}" if wire_editing else ""
+        expression = f"Object.freeze({{wireBytes: {row['wire']}, encode: _encode_{i}, encodeInto: _encodeInto_{i}, decode: _decode_{i}{seed}}})"
         lines.append(f"  {_type_name(i)}: {expression},")
     lines += ["});", "export const enums = Object.freeze({"]
     for row in _reachable_types(schema):
@@ -325,7 +346,7 @@ def _runtime_exports(schema, typed: bool) -> list[str]:
             lines.append(start)
             for endpoint in endpoints:
                 if endpoint.category == category:
-                    lines.append(f"    [{_quote(endpoint.symbol)}]: {_endpoint_expression(schema, endpoint)},")
+                    lines.append(f"    [{_quote(endpoint.symbol)}]: {_endpoint_expression(schema, endpoint, wire_editing)},")
             lines.append("  });" if typed else "  }),")
         lines.append("}" if typed else "});")
         if typed:
@@ -333,9 +354,9 @@ def _runtime_exports(schema, typed: bool) -> list[str]:
     return lines
 
 
-def _declarations(schema) -> str:
+def _declarations(schema, wire_editing=False) -> str:
     lines = ["// Generated telemetry v3.0 contract. SPDX-License-Identifier: MIT."]
-    lines += _types(schema)
+    lines += _types(schema, wire_editing)
     lines += ["export declare class TelemetryCodecError extends Error { constructor(reason: string); }",
               f"export declare const fingerprint: {schema.fingerprint}n;",
               "export declare const descriptorSha256: string;",
@@ -377,7 +398,8 @@ def _declarations(schema) -> str:
                     fields += [f"readonly valueTypeId: {i}", f"readonly capabilities: {endpoint.capabilities}",
                                f"readonly read: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldRead'; id: {endpoint.id}; typeId: {i}; requestBytes: 0; responseBytes: {schema.types[i]['wire']}; {marker}decode: ValueCodec<Type_{i}>['decode']}}>" ]
                     if endpoint.capabilities == 3:
-                        fields.append(f"readonly write: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; requestBytes: {schema.types[i]['wire']}; responseBytes: 0; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']}}>")
+                        seed = f"; encodePreserving: ValueCodec<Type_{i}>['encodePreserving']" if wire_editing else ""
+                        fields.append(f"readonly write: Readonly<{{readonly fingerprint: typeof fingerprint; operation: 'FieldWrite'; id: {endpoint.id}; typeId: {i}; requestBytes: {schema.types[i]['wire']}; responseBytes: 0; encode: ValueCodec<Type_{i}>['encode']; encodeInto: ValueCodec<Type_{i}>['encodeInto']{seed}}}>")
                 else:
                     operation = "Command" if category == 2 else "Service"
                     fields += ["readonly fingerprint: typeof fingerprint", f"readonly operation: '{operation}'", f"readonly requestTypeId: {i}",
@@ -394,31 +416,31 @@ def _declarations(schema) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _runtime(schema, typed: bool) -> str:
+def _runtime(schema, typed: bool, wire_editing=False) -> str:
     lines = ["// Generated telemetry v3.0 codec. SPDX-License-Identifier: MIT.",
              "// Pure payloads only: transport status envelopes are owned by the application.",
              "// Arrays are ordinary JS arrays. Decoded aggregates own their data.",
              "// Aggregate encodeInto may write a prefix before a later member is rejected.",
              "// encodeInto reuses caller payload storage; DataView output also reuses its view."]
     if typed:
-        lines += _types(schema)
+        lines += _types(schema, wire_editing)
     lines += _helpers(typed)
-    lines += _codec_functions(schema, typed)
-    lines += _runtime_exports(schema, typed)
+    lines += _codec_functions(schema, typed, wire_editing)
+    lines += _runtime_exports(schema, typed, wire_editing)
     return "\n".join(lines) + "\n"
 
 
-def generate_js(schema, client_runtime=False) -> dict[str, str]:
+def generate_js(schema, client_runtime=False, wire_editing=False) -> dict[str, str]:
     """Return plain ESM plus declarations, without runtime descriptor parsing."""
-    files = {"js/device.js": _runtime(schema, False), "js/device.d.ts": _declarations(schema)}
+    files = {"js/device.js": _runtime(schema, False, wire_editing), "js/device.d.ts": _declarations(schema, wire_editing)}
     if client_runtime:
         files.update(_client_files("js", ("js", "d.ts")))
     return files
 
 
-def generate_ts(schema, client_runtime=False) -> dict[str, str]:
+def generate_ts(schema, client_runtime=False, wire_editing=False) -> dict[str, str]:
     """Return strict ES2022 TypeScript, sharing all runtime codec statements."""
-    files = {"ts/device.ts": _runtime(schema, True)}
+    files = {"ts/device.ts": _runtime(schema, True, wire_editing)}
     if client_runtime:
         files.update(_client_files("ts", ("ts",)))
     return files
@@ -426,7 +448,17 @@ def generate_ts(schema, client_runtime=False) -> dict[str, str]:
 
 def _client_files(target, extensions):
     """Copy the optional self-contained runtime; codecs keep no runtime import."""
+    from importlib.resources import files
     from pathlib import Path
-    runtime = Path(__file__).resolve().parents[3] / "lib/client/web"
+    packaged = files("tools.telemetry_codegen").joinpath("_runtime")
+    if packaged.is_dir():
+        if not all(packaged.joinpath(f"Client.{extension}").is_file() for extension in extensions):
+            raise ValueError("Installed codegen client runtime assets are incomplete")
+        return {f"{target}/client.{extension}": packaged.joinpath(f"Client.{extension}").read_text(encoding="utf-8")
+                for extension in extensions}
+    source = Path(__file__).resolve().parents[3]
+    if not (source / "VERSION").is_file() or not (source / "pyproject.toml").is_file():
+        raise ValueError("Installed codegen client runtime assets are missing")
+    runtime = source / "lib/client/web"
     return {f"{target}/client.{extension}": (runtime / f"Client.{extension}").read_text(encoding="utf-8")
             for extension in extensions}

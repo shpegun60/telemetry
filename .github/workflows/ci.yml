@@ -294,6 +294,16 @@ jobs:
           python3 -B tests/client_batch_web/run.py --node node \
             --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
             --cxx clang++-18 --sanitize --build-dir "$RUNNER_TEMP/batch-web-sanitized"
+      - name: Dynamic Descriptor client and six-operation native parity
+        run: |
+          python3 -B tests/client_dynamic_web/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx g++ --build-dir "$RUNNER_TEMP/dynamic-web"
+      - name: Sanitized dynamic Descriptor client interoperability
+        run: |
+          python3 -B tests/client_dynamic_web/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx clang++-18 --sanitize --build-dir "$RUNNER_TEMP/dynamic-web-sanitized"
       - name: Retain cross-language evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -305,6 +315,8 @@ jobs:
             ${{ runner.temp }}/read-many-web-sanitized/
             ${{ runner.temp }}/batch-web/
             ${{ runner.temp }}/batch-web-sanitized/
+            ${{ runner.temp }}/dynamic-web/
+            ${{ runner.temp }}/dynamic-web-sanitized/
           if-no-files-found: error
 
   source-style:
@@ -824,6 +836,41 @@ jobs:
           qmake6 "$GITHUB_WORKSPACE/examples/codegen_cpp/codegen_cpp.pro" CODEGEN_SDK="$RUNNER_TEMP/codegen-cmake/generated"
           make -j2
           ./codegen_cpp
+      - name: Optional structural metadata through standalone consumers
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          if [ '${{ matrix.mode }}' = release ]; then options+=(--arm-cxx arm-none-eabi-g++); fi
+          python3 -B tests/sdk_metadata/run.py --cxx '${{ matrix.compiler }}' \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-metadata-${{ matrix.mode }}" "${options[@]}"
+      - name: Four-surface installed SDK conformance
+        run: |
+          options=()
+          if [ '${{ matrix.mode }}' = sanitized ]; then options+=(--sanitize); fi
+          python3 -B tests/sdk_conformance/run.py --cxx '${{ matrix.compiler }}' \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-conformance-${{ matrix.mode }}" "${options[@]}"
+      - name: Check out the versioned optional UX generator
+        if: matrix.mode == 'release'
+        uses: actions/checkout@v4
+        with:
+          repository: shpegun60/telemetry-ux
+          ref: e1a875cf80296e3c5911541468deb81bf026f73d
+          path: .ci/telemetry-ux
+      - name: Relocated CMake, packed ESM and installed Python consumers
+        if: matrix.mode == 'release'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/sdk-package-tools"
+          "$RUNNER_TEMP/sdk-package-tools/bin/pip" install setuptools==80.9.0 wheel==0.45.1
+          "$RUNNER_TEMP/sdk-package-tools/bin/python" -B tests/sdk_packages/run.py \
+            --node node --tsc "$RUNNER_TEMP/codegen-tools/node_modules/typescript/bin/tsc" \
+            --build-dir "$RUNNER_TEMP/sdk-packages"
+      - name: Installed core, optional UX and complete distribution ownership
+        if: matrix.mode == 'release'
+        run: |
+          "$RUNNER_TEMP/sdk-package-tools/bin/python" -B tests/ux_codegen_extension/run.py \
+            --ux-root .ci/telemetry-ux --build-dir "$RUNNER_TEMP/ux-codegen-extension"
       - name: Retain generated SDK qualification logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -836,6 +883,12 @@ jobs:
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/*.elf
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/generated/manifest.json
             ${{ runner.temp }}/codegen-${{ matrix.mode }}/native/descriptor.bin
+            ${{ runner.temp }}/sdk-metadata-${{ matrix.mode }}/
+            ${{ runner.temp }}/sdk-conformance-${{ matrix.mode }}/
+            ${{ runner.temp }}/sdk-packages/*.json
+            ${{ runner.temp }}/sdk-packages/*.log
+            ${{ runner.temp }}/ux-codegen-extension/*.json
+            ${{ runner.temp }}/ux-codegen-extension/*.log
           if-no-files-found: ignore
   arm:
     name: Cortex-M7 compile and link
@@ -1105,6 +1158,19 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Check out the versioned optional UX generator
+        uses: actions/checkout@v4
+        with:
+          repository: shpegun60/telemetry-ux
+          ref: da08ef7d2e4b80cba9eb018527cf7ce27f248e7f
+          path: .ci/telemetry-ux
+      - name: Install only the selected UX emitter for source runtime tests
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ux-generator-tools"
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install setuptools==80.9.0 wheel==0.45.1
+          "$RUNNER_TEMP/ux-generator-tools/bin/pip" install --no-deps --no-build-isolation \
+            --target "$RUNNER_TEMP/ux-generator" .ci/telemetry-ux
+          echo "PYTHONPATH=$RUNNER_TEMP/ux-generator" >> "$GITHUB_ENV"
       - name: Install Qt host development and QML runtime
         run: |
           sudo apt-get update
@@ -1115,23 +1181,31 @@ jobs:
         run: |
           python3 tests/codegen_qml/run.py --build-dir "$RUNNER_TEMP/codegen-qml" \
             --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
-      - name: Execute runtime Inspector Qt models and offscreen QML
-        run: |
-          python3 -B tests/inspector_qml/run.py --build-dir "$RUNNER_TEMP/inspector-qml" \
-            --qt-prefix /usr --cxx /usr/bin/g++ --cmake /usr/bin/cmake --ninja /usr/bin/ninja
-      - name: Sanitized TCP discovery, fault injection and actual QML window
-        run: |
-          python3 -B tests/inspector_tcp/run.py --build-dir "$RUNNER_TEMP/inspector-tcp" \
-            --qt-prefix /usr --cxx /usr/bin/clang++-18 --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Check out the qualified COBS transport
         uses: actions/checkout@v4
         with:
           repository: shpegun60/cobs
           ref: 2e0abf260848fcb74e4a57b37532188047759643
           path: build/dependencies/cobs
+      - name: Relocated optional Qt transport consumers
+        run: |
+          python3 -B tests/qt_transport/run.py --build-dir "$RUNNER_TEMP/qt-transport-packages" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
+            --cxx /usr/bin/g++ --cmake cmake --ninja ninja
+      - name: Install the current SDK for the cross-repository GUI peer test
+        run: |
+          cmake -S . -B "$RUNNER_TEMP/ux-sdk-build" -G Ninja \
+            '-DTELEMETRY_COMPONENTS=inspector;workbench;read_many_workbench;encoded_backend;encoded_server;core;tcp_server;qt_serial_transport;resource_adapter' \
+            -DCOBS_ROOT="$GITHUB_WORKSPACE/build/dependencies/cobs" -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_COMPILER=/usr/bin/clang++-18 \
+            '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -g -DNDEBUG -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer' \
+            -DTELEMETRY_SOURCE_REVISION="$(git rev-parse HEAD)" \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/ux-sdk-prefix"
+          cmake --build "$RUNNER_TEMP/ux-sdk-build" --target install --parallel 2
       - name: Sanitized serial discovery and fault injection through real PTYs
         run: |
           python3 -B tests/inspector_serial/run.py --build-dir "$RUNNER_TEMP/inspector-serial" \
+            --ux-root "$GITHUB_WORKSPACE/.ci/telemetry-ux" --sdk-prefix "$RUNNER_TEMP/ux-sdk-prefix" \
             --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
             --cxx /usr/bin/clang++-18 --sanitize --cmake /usr/bin/cmake --ninja /usr/bin/ninja
       - name: Sanitized Nucleo dispatch and physical TX ownership gate
@@ -1167,9 +1241,8 @@ jobs:
           name: generated-qml-sdk
           path: |
             ${{ runner.temp }}/codegen-qml/
-            ${{ runner.temp }}/inspector-qml/
-            ${{ runner.temp }}/inspector-tcp/
             ${{ runner.temp }}/inspector-serial/
+            ${{ runner.temp }}/qt-transport-packages/
             ${{ runner.temp }}/nucleo-host/
             ${{ runner.temp }}/read-many-serial/
             ${{ runner.temp }}/read-comparison-gcc/

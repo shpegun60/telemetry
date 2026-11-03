@@ -17,7 +17,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "tests/codegen")]
 from test_core import descriptor, golden
 from tools.telemetry_codegen import load_schema
 from tools.telemetry_codegen.cli import publish, render
-from tools.telemetry_codegen.generators import qml
+from telemetry_ux_codegen import qml
 
 
 class QmlGeneratorTests(unittest.TestCase):

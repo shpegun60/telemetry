@@ -13,6 +13,10 @@ synchronous Promise result reactions. Async work started inside a `.then` handle
 does not hold the queue. All methods execute on one JavaScript owner event loop.
 One backend instance and mailbox belong exclusively to one client.
 
+For unknown schemas, the optional [headless DynamicClient](../../../doc/DynamicJsClient.md)
+privately owns this same client and binds a full validated Descriptor/session.
+It keeps operation outcomes independent of stale or invalid runtime values.
+
 Logical completion and physical I/O ownership are separate. Cancellation and
 enqueue deadlines resolve requests promptly, including requests waiting in the
 FIFO, but no subsequent backend invocation starts until the previous invocation
@@ -42,6 +46,16 @@ Late old settlements are ignored. Re-admitting a descriptor alone does not detac
 old I/O or clear recovery. `drained` becomes true after `close()` only when no
 logical requests or backend invocation remain; `pendingCount === 0` alone is not
 physical drain evidence. No finite physical drain time is guaranteed.
+
+`invalidateAdmission()` revokes future execution while preserving an already
+authorized active request for passive completion or its existing deadline.
+Queued and unprepared work is cancelled. Backend authors must check `handoff()`
+before every physical send. If it refuses and `context.admissionRevoked?.()` is
+true, retain passive correlation without another send; existing transport errors,
+packet deadlines and the owner's abort still terminate it. The built-in Encoded,
+Retrying Encoded and RPC backends implement this optional contract. A custom
+backend that immediately fails every refused handoff does not provide this
+passive-completion guarantee. Invalidation alone proves no physical quiescence.
 
 Capacities bound accepted request count and total snapshot bytes; JS allocation
 and application codec costs still apply. The snapshot budget does not include

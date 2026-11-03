@@ -4,8 +4,7 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include "SerialTransport.hpp"
-#include "../inspector_serial/SerialProfile.hpp"
+#include <integration/qt/SerialTransport.hpp>
 #include <integration/encoded/Backend.hpp>
 #include <integration/read_many/Client.hpp>
 #include <QtCore/QCoreApplication>
@@ -116,7 +115,7 @@ class Check {
 	std::array<std::byte, 546> tx_{}, rx_{};
 	telemetry::integration::encoded::EncodedBackend backend_{tx_, rx_, clock_, 30000, true};
 	dy::DynamicClient<4, 130, 640> client_{backend_, clock_};
-	inspector_qml::SerialTransport port_;
+	telemetry::integration::qt::SerialTransport port_;
 	QString failure_, identity_;
 	QString name_;
 	qint32 baud_;
@@ -383,20 +382,20 @@ public:
 	{
 		elapsed_.start();
 		port_.setReadManyDiscovery(true);
-		QObject::connect(&port_, &inspector_qml::DeviceTransport::descriptorReceived, &port_,
-		                 [this](QByteArray bytes) {
+		QObject::connect(&port_, &telemetry::integration::qt::DeviceTransport::descriptorReceived,
+		                 &port_, [this](QByteArray bytes) {
 			                 discovered_ = std::move(bytes);
 		                 });
-		QObject::connect(&port_, &inspector_qml::DeviceTransport::transportError, &port_,
-		                 [this](const QString& error) {
+		QObject::connect(&port_, &telemetry::integration::qt::DeviceTransport::transportError,
+		                 &port_, [this](const QString& error) {
 			                 failure_ = error;
 		                 });
-		QObject::connect(&port_, &inspector_qml::DeviceTransport::packetAccepted, &port_,
-		                 [this](quint32 session, quint32 id) {
+		QObject::connect(&port_, &telemetry::integration::qt::DeviceTransport::packetAccepted,
+		                 &port_, [this](quint32 session, quint32 id) {
 			                 (void)client_.onSendAccepted(session, id);
 		                 });
-		QObject::connect(&port_, &inspector_qml::DeviceTransport::packetReceived, &port_,
-		                 [this](QByteArray bytes, quint32 session, quint32 id) {
+		QObject::connect(&port_, &telemetry::integration::qt::DeviceTransport::packetReceived,
+		                 &port_, [this](QByteArray bytes, quint32 session, quint32 id) {
 			                 if (hold_) {
 				                 held_ = std::move(bytes);
 				                 heldSession_ = session;
@@ -574,8 +573,8 @@ int main(int argc, char** argv)
 	                   {"passed", false}};
 	try {
 		require(!port.isEmpty() && !path.isEmpty() && baudOk &&
-		            baud >= int(inspector_serial::minBaudRate) &&
-		            baud <= int(inspector_serial::maxBaudRate),
+		            baud >= int(telemetry::integration::qt::SerialTransport::minBaudRate()) &&
+		            baud <= int(telemetry::integration::qt::SerialTransport::maxBaudRate()),
 		        "Usage: telemetry-read-many-uart --serial PORT --baud 115200 --report FILE");
 		require(loadOk && loadSeconds >= 0 && loadSeconds <= 1800 &&
 		            arguments.count("--load-seconds") <= 1 &&

@@ -1,6 +1,15 @@
 # Independent C++20 modules and relocatable installation. MIT.
 cmake_minimum_required(VERSION 3.20)
-project(Telemetry LANGUAGES CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" TELEMETRY_SDK_VERSION LIMIT_COUNT 1)
+project(Telemetry VERSION ${TELEMETRY_SDK_VERSION} LANGUAGES CXX)
+set(TELEMETRY_SOURCE_REVISION "" CACHE STRING "Optional immutable source revision supplied by the SDK packager")
+if(TELEMETRY_SOURCE_REVISION AND NOT TELEMETRY_SOURCE_REVISION MATCHES "^[0-9a-fA-F]+$")
+    message(FATAL_ERROR "TELEMETRY_SOURCE_REVISION must be empty or a 40-digit Git revision")
+endif()
+string(LENGTH "${TELEMETRY_SOURCE_REVISION}" _revision_length)
+if(TELEMETRY_SOURCE_REVISION AND NOT _revision_length EQUAL 40)
+    message(FATAL_ERROR "TELEMETRY_SOURCE_REVISION must be empty or a 40-digit Git revision")
+endif()
 # Give GNUInstallDirs and the generated install/export rules the same lexical
 # paths. Filesystem symlinks must not reinterpret a later uncollapsed "..".
 foreach(_directory CMAKE_INSTALL_PREFIX CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR
@@ -26,8 +35,20 @@ install(EXPORT TelemetryTargets NAMESPACE Telemetry:: DESTINATION ${CMAKE_INSTAL
 configure_package_config_file(cmake/TelemetryConfig.cmake.in
     "${CMAKE_CURRENT_BINARY_DIR}/TelemetryConfig.cmake"
     INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Telemetry)
+set(_version_architecture ARCH_INDEPENDENT)
+foreach(_component IN LISTS _telemetry_selected)
+    get_target_property(_component_type telemetry_${_component} TYPE)
+    if(NOT _component_type STREQUAL "INTERFACE_LIBRARY")
+        set(_version_architecture "")
+    endif()
+endforeach()
+write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/TelemetryConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION} COMPATIBILITY ExactVersion ${_version_architecture})
+configure_file(cmake/SDKMetadata.json.in "${CMAKE_CURRENT_BINARY_DIR}/SDKMetadata.json" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/TelemetryConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/TelemetryConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Telemetry)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/SDKMetadata.json" DESTINATION ${CMAKE_INSTALL_DATADIR}/telemetry)
 install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/telemetry)
 if(TARGET telemetry_delegate)
     install(FILES lib/delegate/LICENSE DESTINATION ${CMAKE_INSTALL_DATADIR}/telemetry/dependencies/delegate)

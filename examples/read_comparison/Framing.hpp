@@ -8,7 +8,7 @@
 #define TELEMETRY_EXAMPLES_READ_COMPARISON_FRAMING_HPP
 #pragma once
 
-#include "../inspector_serial/SerialProfile.hpp"
+#include "../../lib/integration/serial/Profile.hpp"
 #include <cobs/Cobs.h>
 #include <cstddef>
 #include <cstdint>
@@ -21,9 +21,9 @@ namespace read_comparison {
 // Zero denotes failure; even an empty body has a nonempty framed representation.
 [[nodiscard]] inline std::size_t framedBytes(std::span<const std::byte> body) noexcept
 {
-	if (body.size() > inspector_serial::maxBodyBytes)
+	if (body.size() > telemetry::integration::serial::maxBodyBytes)
 		return 0;
-	using Link = cobs::Endpoint<wire::Pool<1, 1>, inspector_serial::FrameFormat>;
+	using Link = cobs::Endpoint<wire::Pool<1, 1>, telemetry::integration::serial::FrameFormat>;
 	// Bound the helper's local fixed pool independently of payload contents.
 	static_assert(sizeof(Link) <= 8192);
 	Link encoder;

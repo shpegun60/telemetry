@@ -43,7 +43,7 @@ filesystem/protocol та Descriptor/Values providers. Повні host прикл
 Прив'язка getter до telemetry не запускає ADC, task або TCP server.
 
 Підтвердження готовності конкретної ревізії дивіться у
-[CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml),
+[CI](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml),
 [qualification](../StructuredTelemetryV3FinalQualification.md) та
 [image evidence](../../tests/resources/evidence/README.md). Апаратні звіти
 мають власні source identities. Підключений прилад із вашими callbacks треба

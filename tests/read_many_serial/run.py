@@ -20,8 +20,8 @@ def digest(path):
 def sources(cobs):
     result = {}
     for base, label, directories in (
-        (ROOT, "", ("lib", "cmake", "examples/read_many_uart", "examples/inspector_qml",
-                     "examples/inspector_serial", "examples/nucleo_h7s3l8", "tests/read_many_serial")),
+        (ROOT, "", ("lib", "cmake", "examples/read_many_uart",
+                     "examples/nucleo_h7s3l8", "tests/read_many_serial")),
         (cobs, "COBS/", ("src",)),
     ):
         for directory in directories:

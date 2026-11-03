@@ -1,4 +1,4 @@
-# Telemetry
+# Telemetry SDK
 
 Оберіть точку входу за своїм завданням:
 
@@ -7,21 +7,21 @@
 | Описати свій пристрій і викликати Field / Command / Service локально | [Перша інтеграція](doc/user/GettingStarted.md), [NativeOnly.cpp](examples/user_guide/NativeOnly.cpp) |
 | Віддалені виклики з відомими типами та Codec; Generated SDK необов'язковий | [Асинхронний DeviceClient](doc/AsyncClient.md) |
 | Віддалений клієнт для невідомих наперед структур | [RuntimeSchema](doc/RuntimeSchema.md) → [DynamicClient](doc/DynamicClientUsage.md) |
-| Запустити готовий універсальний GUI | [Qt/QML Inspector: Demo, TCP або UART](examples/inspector_qml/README.md) |
-| Редагувати Field і прочитати застосоване значення | [FieldWrite Workbench: Writable demo та TCP](examples/inspector_qml/README.md#read-edit-write-and-refresh) |
-| Виконати Command через універсальну форму аргументів | [Command Workbench: аргументи та Execute](examples/inspector_qml/README.md#command-arguments-and-execute) |
-| Викликати Service і переглянути відповідь без Generated SDK | [Service Workbench: Request та Response](examples/inspector_qml/README.md#service-requests-and-responses) |
+| Запустити готовий універсальний GUI | [Qt/QML Inspector: Demo, TCP або UART](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md) |
+| Редагувати Field і прочитати застосоване значення | [FieldWrite Workbench: Writable demo та TCP](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md#read-edit-write-and-refresh) |
+| Виконати Command через універсальну форму аргументів | [Command Workbench: аргументи та Execute](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md#command-arguments-and-execute) |
+| Викликати Service і переглянути відповідь без Generated SDK | [Service Workbench: Request та Response](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md#service-requests-and-responses) |
 | Виконати кілька Read / Write / Command / Service одним Encoded-запитом | [Mixed Batch: контракт і повтори](doc/MixedBatchEncoded.md), [готовий host-приклад](examples/batch/README.md) |
 | Порівняти читання окремих полів, aggregate Field та ValuesFile | [Вимірювальний приклад](examples/read_comparison/README.md) |
-| Підключити NUCLEO-H7S3L8 через UART/DMA | [Прошивка плати](examples/nucleo_h7s3l8/README.md), [serial-збірка Inspector](examples/inspector_qml/README.md#nucleo-h7s3l8-through-st-link-serial) |
+| Підключити NUCLEO-H7S3L8 через UART/DMA | [Прошивка плати](examples/nucleo_h7s3l8/README.md), [serial-збірка Inspector](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md#nucleo-h7s3l8-through-st-link-serial) |
 | Підключити окремі модулі до CMake або qmake | [Модулі, залежності та build targets](doc/Modules.md) |
 
 [Усі приклади та їхні точки збирання](examples/README.md).
 `CMakeLists.txt` у корені збирає бібліотеку; `telemetry.pro` — окремий
 [Qt Widgets playground](app/README.md). Для Universal Inspector відкривайте
-`examples/inspector_qml/CMakeLists.txt`.
+`telemetry-ux/apps/inspector/CMakeLists.txt`.
 
-[![CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml)
+[![CI](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)](lib/telemetry/README.md)
 [![Reflection](https://img.shields.io/badge/reflection-Boost.PFR-blueviolet)](doc/Architecture.md)
 [![Boost.PFR](https://img.shields.io/badge/Boost.PFR-1.92.0-orange)](lib/boost_pfr/VERSION.md)
@@ -371,7 +371,7 @@ MinGW kit. Він використовує симульовані дані; до
 Про known clangd issue і перевірений editor executable читайте
 [editor checks](tests/editor/README.md).
 
-[Qt/QML Universal Inspector](examples/inspector_qml/README.md) працює без
+[Qt/QML Universal Inspector](https://github.com/shpegun60/telemetry-ux/blob/main/apps/inspector/README.md) працює без
 Generated SDK: дерево endpoint-ів, асинхронне читання Field, точні 64-бітні
 значення та порційний перегляд масивів. TCP-адаптер або optional UART/COBS-адаптер
 завантажує Descriptor через Resource і читає поля пристрою через Encoded.
@@ -387,7 +387,7 @@ python tests/run_checks.py --build-dir /tmp/telemetry-checks
 python tests/resources/run.py --build-dir /tmp/telemetry-resources
 ```
 
-[CI](https://github.com/shpegun60/telemetry/actions/workflows/ci.yml) перевіряє
+[CI](https://github.com/shpegun60/telemetry-sdk/actions/workflows/ci.yml) перевіряє
 GCC/Clang C++20, санітайзери, null-check mode, ARM compile/link/codegen/stack,
 Qt consumers, API/wire freeze і compile/run приклади. Badge показує published
 branch; локальні незапушені зміни мають окремі результати.

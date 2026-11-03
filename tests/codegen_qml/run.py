@@ -18,6 +18,8 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def executable_image(path: str) -> Path:
@@ -63,9 +65,15 @@ def main() -> int:
     for directory in ("lib/telemetry", "lib/resource", "lib/client", "lib/common", "lib/wire", "lib/integration"):
         source_paths += [path for path in (ROOT / directory).rglob("*")
                          if path.suffix in (".hpp", ".h", ".cpp")]
+    source_locations = {}
     for path in sorted(source_paths):
         if path.is_file():
-            summary["source_sha256"][path.relative_to(ROOT).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+            source_locations[path.relative_to(ROOT).as_posix()] = path
+    import telemetry_ux_codegen
+    for path in sorted(Path(telemetry_ux_codegen.__file__).resolve().parent.glob('*.py')):
+        source_locations['telemetry_ux_codegen/' + path.name] = path
+    summary['source_sha256'] = {key: hashlib.sha256(path.read_bytes()).hexdigest()
+                                for key, path in source_locations.items()}
 
     def run(command, name):
         command = list(map(str, command))
@@ -141,8 +149,8 @@ def main() -> int:
              native / "config.bin", "--smoke"], "example-runtime")
         run([example / ("telemetry_qml_example" + suffix), native / "descriptor.bin",
              native / "config.bin", "--rpc", "--smoke"], "example-rpc-runtime")
-        summary["source_sha256_after"] = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
-                                          for path in summary["source_sha256"]}
+        summary["source_sha256_after"] = {key: hashlib.sha256(path.read_bytes()).hexdigest()
+                                          for key, path in source_locations.items()}
         if summary["source_sha256_after"] != summary["source_sha256"]:
             raise RuntimeError("source inputs changed during qualification; rerun from stable sources")
         summary["status"] = "passed"

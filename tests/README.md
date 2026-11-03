@@ -44,6 +44,11 @@ The [JS/TS Mixed Batch suite](client_batch_web/README.md) checks all four item
 operations through that FIFO, inferred DTO tuples, independent mutation outcomes,
 canonical payload failures, deterministic lifecycle and the native Model trace.
 
+The [dynamic JS/TS suite](client_dynamic_web/README.md) uses a full validated
+Descriptor and compares all six operations with the generated static SDK over
+the native Model. It checks opaque admission, passive invalidation, explicit
+quiescence and controlled Encoded/RPC deadlines without a browser or GUI.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public
@@ -53,13 +58,13 @@ The same maintained runner executes [FieldWrite Workbench checks](workbench/READ
 with shared snapshot ownership, transactional scalar edits, real Encoded/RPC
 Write/Refresh, deterministic mutation deadlines and independent result handling.
 
-The [Qt/QML Inspector suite](inspector_qml/README.md) checks real Qt model
+The [Qt/QML Inspector suite](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_qml/README.md) checks real Qt model
 invariants, lazy snapshot browsing, exact scalar text, asynchronous read-only
 controller behavior and actual QML edit/Apply handlers over the native Encoded peer.
 
 The [native TCP suite](tcp_stream/README.md) checks bounded Resource/TEQ1 stream
 framing, real dispatch, preflight, reentrancy, no-heap and Cortex-M7 compilation.
-The [TCP Inspector suite](inspector_tcp/README.md) adds actual Qt sockets,
+The [TCP Inspector suite](https://github.com/shpegun60/telemetry-ux/blob/main/tests/inspector_tcp/README.md) adds actual Qt sockets,
 Resource Descriptor discovery, partial transmission, connection failures, stale
 replies, recovery and a separate-process TCP/QML window smoke test.
 

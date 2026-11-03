@@ -7,13 +7,16 @@ enumerated or opened by these checks, and no board is programmed.
 
 ```sh
 python3 -B tests/inspector_serial/run.py --build-dir /external/inspector-serial \
+  --ux-root /path/to/telemetry-ux --sdk-prefix /path/to/sdk-prefix \
   --qt-prefix /usr --cobs-root /path/to/COBS --cxx /usr/bin/g++
 ```
 
 Qt 6.4 or newer requires SerialPort, Network, Quick Controls and Test. COBS remains
-an explicitly selected external checkout. Its compiled source/header hashes and
-Git identity are retained with the Telemetry source inventory. The fresh external
-build keeps logs, binaries and `summary.json` outside both repositories.
+an explicitly selected external checkout for the test peer. The GUI comes from
+Telemetry UX and consumes the installed SDK; the peer uses the actual SDK NUCLEO
+Protocol and private serial profile. UX sources, SDK fixtures, installed SDK
+metadata/bytes and COBS inputs have separate retained identities. The fresh
+external build keeps logs, binaries and `summary.json` outside all source trees.
 
 The separate Watchlist executable uses the actual optional NUCLEO ReadMany
 Protocol over fragmented PTYs. It checks TRM1 discovery and fingerprint/session

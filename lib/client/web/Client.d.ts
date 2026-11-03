@@ -210,6 +210,7 @@ export type Exchange = (packet: Uint8Array, context?: ExchangeContext) => ByteIn
 export interface BackendContext extends ExchangeContext {
     readonly clock: Clock;
     handoff(mayExecute: boolean): boolean;
+    admissionRevoked?(): boolean;
 }
 export interface Backend {
     supports?(operation: Operation): boolean;
@@ -242,6 +243,7 @@ export declare class DeviceClient {
     private recoveryEpoch;
     private stopped;
     private admitted;
+    private revoked;
     private timer?;
     private scheduled;
     private pumping;
@@ -258,6 +260,7 @@ export declare class DeviceClient {
     openSession(generation: number, header: ByteInput): boolean;
     confirmSessionClosed(generation: number): boolean;
     resetSession(): void;
+    invalidateAdmission(): void;
     close(): void;
     read<T>(field: Field<T> | ReadBinding<T>, timeoutMs?: number): RequestPromise<T>;
     write<T>(field: Field<T> | WriteBinding<T>, value: T, timeoutMs?: number): RequestPromise<undefined>;

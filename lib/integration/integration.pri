@@ -1,4 +1,10 @@
 # Explicit integration selection; dependency modules remain independent. MIT.
+contains(CONFIG, telemetry_qt_transport) {
+    include($$PWD/qt/qt_transport.pri)
+}
+contains(CONFIG, telemetry_qt_serial_transport) {
+    include($$PWD/qt/qt_serial_transport.pri)
+}
 contains(CONFIG, telemetry_batch_server) {
     include($$PWD/batch/batch_server.pri)
 }

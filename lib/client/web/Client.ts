@@ -284,6 +284,9 @@ export interface BackendContext extends ExchangeContext {
 	readonly clock: Clock;
 	// Immediately before the first possible external transfer. False means do not send.
 	handoff(mayExecute: boolean): boolean;
+	// Explicit admission revocation after a prior authorized execution-capable handoff.
+	// A denied new handoff then preserves passive correlation until a terminal event/abort.
+	admissionRevoked?(): boolean;
 }
 export interface Backend {
 	// Pure synchronous opt-in for optional operations; legacy operations do not need a hook.
@@ -371,6 +374,7 @@ export class DeviceClient {
 	private recoveryEpoch = 0;
 	private stopped = false;
 	private admitted = false;
+	private revoked = false;
 	private timer?: unknown;
 	private scheduled = false;
 	private pumping = false;
@@ -448,6 +452,7 @@ export class DeviceClient {
 		this.epoch = this.lastEpoch = generation;
 		this.nextId = 1;
 		this.admitted = true;
+		this.revoked = false;
 		return true;
 	}
 
@@ -486,6 +491,18 @@ export class DeviceClient {
 	{
 		this.admitted = false;
 		this.cancelAll(Status.SessionLost);
+	}
+
+	// Revoke future execution without cancelling a possibly executed active request.
+	// Application-owned physical/remote cleanup is still required before readmission.
+	invalidateAdmission(): void
+	{
+		this.revoked = true;
+		this.admitted = false;
+		for (const pending of this.pending.slice()) {
+			if (pending !== this.active || !pending.possibleExecution)
+				this.finish(pending, Status.Cancelled);
+		}
 	}
 
 	close(): void
@@ -1144,6 +1161,9 @@ export class DeviceClient {
 					requestId : pending.request.requestId,
 					signal : pending.controller.signal,
 					clock : this.clock,
+					admissionRevoked : () => this.revoked && pending === this.active &&
+					                         !pending.done && pending.possibleExecution &&
+					                         !pending.controller.signal.aborted,
 					handoff : mayExecute => {
 					    if ((pending.request.operation === 'ReadMany' ||
 					         pending.request.operation === 'Batch') &&
@@ -1439,6 +1459,8 @@ class EncodedEngine implements Backend {
 					return;
 				}
 				if (!context.handoff(true)) {
+					if (context.admissionRevoked?.() === true && !context.signal.aborted)
+						return; // Keep the original receiver; do not schedule another send.
 					finish(undefined, new BackendFailure(Status.Cancelled, 'Handoff refused'));
 					return;
 				}
@@ -2032,6 +2054,7 @@ export class RpcBackend implements Backend {
 			const ownedPacket = packet.slice();
 			const controller = new AbortController();
 			let done = false;
+			let passiveAbort: (() => void)|undefined;
 			let interrupted: {error: unknown}|undefined;
 			const settle = (error?: unknown, reply?: ByteInput, failed = true) => {
 				if (done)
@@ -2039,6 +2062,8 @@ export class RpcBackend implements Backend {
 				done = true;
 				context.clock.clearTimeout(timer);
 				context.signal.removeEventListener('abort', abort);
+				if (passiveAbort)
+					context.signal.removeEventListener('abort', passiveAbort);
 				controller.abort();
 				if (interrupted || failed)
 					reject(interrupted ? interrupted.error : error);
@@ -2060,6 +2085,17 @@ export class RpcBackend implements Backend {
 				return;
 			}
 			if (!context.handoff(mayExecute)) {
+				if (context.admissionRevoked?.() === true && !context.signal.aborted) {
+					// No exchange started, so abort can settle immediately after passive waiting.
+					context.clock.clearTimeout(timer);
+					context.signal.removeEventListener('abort', abort);
+					passiveAbort = () =>
+					    settle(new BackendFailure(Status.Cancelled, 'RPC admission revoked'));
+					context.signal.addEventListener('abort', passiveAbort, {once : true});
+					if (context.signal.aborted)
+						passiveAbort();
+					return;
+				}
 				settle(new BackendFailure(Status.Cancelled, 'RPC handoff refused'));
 				return;
 			}

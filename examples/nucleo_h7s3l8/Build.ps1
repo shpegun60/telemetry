@@ -91,7 +91,7 @@ function Input-Hashes {
             $_.FullName -notmatch '\\(out|build|tests|\.git)\\'
         }
     }
-    $files += Get-Item -LiteralPath (Join-Path $repo 'examples\inspector_serial\SerialProfile.hpp')
+    $files += Get-Item -LiteralPath (Join-Path $repo 'lib\integration\serial\Profile.hpp')
     foreach ($file in ($files | Sort-Object FullName -Unique)) {
         $hashes[$file.FullName] = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
