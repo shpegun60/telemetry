@@ -3,7 +3,7 @@
 #include "uart/Uart.h"
 #include "adapters/cobs/UartAdapter.h"
 #include "cobs/Cobs.h"
-#include "../inspector_serial/SerialProfile.hpp"
+#include "../../lib/integration/serial/Profile.hpp"
 #include "ServerLoop.hpp"
 
 struct Diagnostics {
@@ -16,7 +16,7 @@ volatile Diagnostics telemetry_h7s_diagnostics{0x54484e37, 1, 0, 0, 0, 0, 0, 0, 
 }
 
 namespace {
-using Link = cobs::Endpoint<wire::Pool<4, 1>, inspector_serial::FrameFormat>;
+using Link = cobs::Endpoint<wire::Pool<4, 1>, telemetry::integration::serial::FrameFormat>;
 /* Ordinary .bss = AXI SRAM 0x24000000. Keep the complete Uart and COBS pool
    here: they contain the DMA buffers and must never be moved to DTCM. */
 Uart<256, 8> serial;

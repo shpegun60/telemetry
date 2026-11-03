@@ -261,7 +261,7 @@ install dependencies automatically.
 UART controls appear only in a build configured with `INSPECTOR_ENABLE_SERIAL=ON`.
 The matching [Nucleo firmware](../nucleo_h7s3l8/README.md) serves demonstration
 values through USART3 DMA. Both peers use
-[SerialProfile.hpp](../inspector_serial/SerialProfile.hpp): existing COBS framing/CRC
+[Profile.hpp](../../lib/integration/serial/Profile.hpp): existing COBS framing/CRC
 with at most 2048 body bytes. Each body is an ordinary Resource packet or complete
 TEQ1 message, without an extra application route. Descriptor and TEQ1 formats
 are unchanged. Field payloads above 2016 bytes remain browsable as metadata but

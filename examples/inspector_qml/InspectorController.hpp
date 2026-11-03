@@ -20,8 +20,11 @@
 #include <optional>
 #include <utility>
 
-namespace inspector_qml {
+namespace telemetry::integration::qt {
 class DeviceTransport;
+}
+
+namespace inspector_qml {
 
 class InspectorController final : public QObject {
 
@@ -280,7 +283,7 @@ private:
 	struct State;
 	std::unique_ptr<State> state_;
 	std::unique_ptr<State> retiredState_;
-	std::unique_ptr<DeviceTransport> transport_;
+	std::unique_ptr<telemetry::integration::qt::DeviceTransport> transport_;
 	EndpointModel endpoints_;
 	ValueModel values_;
 	ValueModel responses_;

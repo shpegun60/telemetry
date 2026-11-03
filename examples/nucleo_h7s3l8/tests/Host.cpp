@@ -16,7 +16,7 @@ unsigned checks = 0;
 			std::abort();                                                                          \
 		}                                                                                          \
 	} while (false)
-using Link = cobs::Endpoint<wire::Pool<4, 1>, inspector_serial::FrameFormat>;
+using Link = cobs::Endpoint<wire::Pool<4, 1>, telemetry::integration::serial::FrameFormat>;
 namespace rc = resource::protocol::client;
 namespace ew = telemetry::protocol::encoded;
 using Input = resource::Input;

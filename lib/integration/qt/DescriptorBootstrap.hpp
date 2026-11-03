@@ -4,8 +4,8 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_EXAMPLES_INSPECTOR_QML_DESCRIPTOR_BOOTSTRAP_HPP
-#define TELEMETRY_EXAMPLES_INSPECTOR_QML_DESCRIPTOR_BOOTSTRAP_HPP
+#ifndef TELEMETRY_INTEGRATION_QT_DESCRIPTOR_BOOTSTRAP_HPP
+#define TELEMETRY_INTEGRATION_QT_DESCRIPTOR_BOOTSTRAP_HPP
 #pragma once
 
 #include <resource/protocol/Packets.hpp>
@@ -16,7 +16,7 @@
 #include <optional>
 #include <span>
 
-namespace inspector_qml {
+namespace telemetry::integration::qt {
 class DescriptorBootstrap {
 public:
 	void reset(bool requireReadMany = false)
@@ -166,5 +166,5 @@ private:
 	resource::protocol::Op operation_ = resource::protocol::Op::List;
 	bool complete_ = false, requireReadMany_ = false, readingCapability_ = false;
 };
-} // namespace inspector_qml
+} // namespace telemetry::integration::qt
 #endif

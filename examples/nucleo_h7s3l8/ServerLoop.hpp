@@ -8,7 +8,7 @@
 #define TELEMETRY_EXAMPLES_NUCLEO_H7S3L8_SERVER_LOOP_HPP
 #pragma once
 #include "Protocol.hpp"
-#include "../inspector_serial/SerialProfile.hpp"
+#include "../../lib/integration/serial/Profile.hpp"
 #include <cobs/Cobs.h>
 
 namespace nucleo_demo {
@@ -64,7 +64,7 @@ private:
 	Serial& serial_;
 	Endpoint& endpoint_;
 	Protocol protocol_;
-	std::array<std::byte, inspector_serial::maxBodyBytes> reply_{};
+	std::array<std::byte, telemetry::integration::serial::maxBodyBytes> reply_{};
 	typename Endpoint::Message pending_;
 };
 } // namespace nucleo_demo

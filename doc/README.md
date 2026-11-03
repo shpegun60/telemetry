@@ -24,6 +24,7 @@
 [Optional structural metadata](GeneratedMetadata.md) ·
 [Installed SDK packages](SDKPackages.md) ·
 [Optional UX generator](UXGeneratorExtension.md) ·
+[Optional Qt transport components](QtTransport.md) ·
 [Typed C++ Mixed Batch](StaticBatch.md) ·
 [ReadMany mapping prototype](ReadManyMapping.md) ·
 [Mixed Encoded Batch](MixedBatchEncoded.md) ·

@@ -4,9 +4,9 @@
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#include "SerialTransport.hpp"
-#include "DescriptorBootstrap.hpp"
-#include "../inspector_serial/SerialProfile.hpp"
+#include <integration/qt/SerialTransport.hpp>
+#include <integration/qt/DescriptorBootstrap.hpp>
+#include "../serial/Profile.hpp"
 #include <adapters/qt/SerialAdapter.h>
 #include <cobs/Cobs.h>
 #include <wire/EncodedWire.hpp>
@@ -21,9 +21,9 @@
 #include <limits>
 #include <optional>
 
-namespace inspector_qml {
+namespace telemetry::integration::qt {
 namespace {
-using Link = cobs::Endpoint<wire::Pool<2, 2>, inspector_serial::FrameFormat>;
+using Link = cobs::Endpoint<wire::Pool<2, 2>, telemetry::integration::serial::FrameFormat>;
 namespace encoded = telemetry::protocol::encoded;
 using Input = telemetry::client::Input;
 
@@ -78,7 +78,7 @@ struct SerialTransport::Impl {
 	int exchangeTimeout(std::size_t requestBytes, std::size_t responseBytes) const noexcept
 	{
 		return timeoutMs != 0 ? timeoutMs
-		                      : static_cast<int>(inspector_serial::exchangeTimeoutMs(
+		                      : static_cast<int>(telemetry::integration::serial::exchangeTimeoutMs(
 		                            requestBytes, responseBytes, baudRate, 5000));
 	}
 
@@ -98,7 +98,7 @@ struct SerialTransport::Impl {
 		timeout.setSingleShot(true);
 		discoveryTimeout.setSingleShot(true);
 		serviceTimer.setInterval(5);
-		port.setReadBufferSize(4 * qint64(inspector_serial::maxBodyBytes));
+		port.setReadBufferSize(4 * qint64(telemetry::integration::serial::maxBodyBytes));
 		QObject::connect(&timeout, &QTimer::timeout, &owner, [this] {
 			fail(QStringLiteral("Serial exchange timed out"));
 		});
@@ -193,7 +193,8 @@ struct SerialTransport::Impl {
 			    message.append_bytes(std::span<const std::uint8_t>{
 			        reinterpret_cast<const std::uint8_t*>(bytes.data()), built.written})) {
 				awaiting = true;
-				timeout.start(exchangeTimeout(built.written, inspector_serial::maxBodyBytes));
+				timeout.start(
+				    exchangeTimeout(built.written, telemetry::integration::serial::maxBodyBytes));
 				sent = sendMessage(message);
 			}
 		}
@@ -276,15 +277,38 @@ SerialTransport::~SerialTransport()
 	impl_->close();
 }
 
+std::size_t SerialTransport::maxBodyBytes() noexcept
+{
+	return telemetry::integration::serial::maxBodyBytes;
+}
+
+std::uint32_t SerialTransport::minBaudRate() noexcept
+{
+	return telemetry::integration::serial::minBaudRate;
+}
+
+std::uint32_t SerialTransport::maxBaudRate() noexcept
+{
+	return telemetry::integration::serial::maxBaudRate;
+}
+
+std::uint32_t SerialTransport::exchangeTimeoutMs(std::size_t requestBody, std::size_t responseBody,
+                                                 std::uint32_t baud,
+                                                 std::uint32_t marginMs) noexcept
+{
+	return telemetry::integration::serial::exchangeTimeoutMs(requestBody, responseBody, baud,
+	                                                         marginMs);
+}
+
 void SerialTransport::connectTo(const QString& name, qint32 baud)
 {
 	impl_->close();
 	impl_->identity.clear();
 	impl_->discovery.reset(impl_->discoverReadMany);
 	impl_->port.setPortName(name);
-	if (name.trimmed().isEmpty() || baud < qint32(inspector_serial::minBaudRate) ||
-	    baud > qint32(inspector_serial::maxBaudRate) || !impl_->port.setBaudRate(baud) ||
-	    !impl_->port.setDataBits(QSerialPort::Data8) ||
+	if (name.trimmed().isEmpty() || baud < qint32(telemetry::integration::serial::minBaudRate) ||
+	    baud > qint32(telemetry::integration::serial::maxBaudRate) ||
+	    !impl_->port.setBaudRate(baud) || !impl_->port.setDataBits(QSerialPort::Data8) ||
 	    !impl_->port.setParity(QSerialPort::NoParity) ||
 	    !impl_->port.setStopBits(QSerialPort::OneStop) ||
 	    !impl_->port.setFlowControl(QSerialPort::NoFlowControl) ||
@@ -365,11 +389,13 @@ bool SerialTransport::canStage() const noexcept
 
 bool SerialTransport::stage(telemetry::client::Packet packet)
 {
-	if (!canStage() || !packet || packet.bytes.size() > inspector_serial::maxBodyBytes)
+	if (!canStage() || !packet ||
+	    packet.bytes.size() > telemetry::integration::serial::maxBodyBytes)
 		return false;
 	const auto parsed = encoded::parse(packet.bytes);
 	if (!parsed || parsed.header.reply ||
-	    parsed.header.expectedResponseBytes > inspector_serial::maxBodyBytes - encoded::headerBytes)
+	    parsed.header.expectedResponseBytes >
+	        telemetry::integration::serial::maxBodyBytes - encoded::headerBytes)
 		return false;
 	auto message = impl_->link->make_message(packet.bytes.size());
 	if (!message ||
@@ -430,4 +456,4 @@ void SerialTransport::setTimeout(int milliseconds) noexcept
 {
 	impl_->timeoutMs = std::clamp(milliseconds, 1, 60000);
 }
-} // namespace inspector_qml
+} // namespace telemetry::integration::qt

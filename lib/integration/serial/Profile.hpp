@@ -1,11 +1,11 @@
 /*
- * @file SerialProfile.hpp
+ * @file Profile.hpp
  * @brief Shared host and board COBS geometry for ordinary Resource and TEQ1 bodies.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_EXAMPLES_INSPECTOR_SERIAL_SERIAL_PROFILE_HPP
-#define TELEMETRY_EXAMPLES_INSPECTOR_SERIAL_SERIAL_PROFILE_HPP
+#ifndef TELEMETRY_INTEGRATION_SERIAL_PROFILE_HPP
+#define TELEMETRY_INTEGRATION_SERIAL_PROFILE_HPP
 #pragma once
 
 #include <cobs/Format.h>
@@ -13,7 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace inspector_serial {
+namespace telemetry::integration::serial {
 inline constexpr std::size_t maxBodyBytes = 2048;
 inline constexpr std::uint32_t minBaudRate = 1200, maxBaudRate = 4000000;
 using FrameFormat = cobs::Format<crc::Crc16Bitwise, maxBodyBytes>;
@@ -35,5 +35,5 @@ static_assert(FrameFormat::length_size == 2 && FrameFormat::crc_size == 2);
 	const auto timeout = (bytes * 10000u + baud - 1u) / baud + marginMs;
 	return timeout <= 60000u ? static_cast<std::uint32_t>(timeout) : 0u;
 }
-} // namespace inspector_serial
-#endif // TELEMETRY_EXAMPLES_INSPECTOR_SERIAL_SERIAL_PROFILE_HPP
+} // namespace telemetry::integration::serial
+#endif // TELEMETRY_INTEGRATION_SERIAL_PROFILE_HPP

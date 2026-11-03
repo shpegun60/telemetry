@@ -1,6 +1,6 @@
 /* Deterministic ordinary Resource bootstrap controls; no port or hardware. MIT. */
-#include "DescriptorBootstrap.hpp"
-#include "SerialTransport.hpp"
+#include <integration/qt/DescriptorBootstrap.hpp>
+#include <integration/qt/SerialTransport.hpp>
 #include <algorithm>
 #include <array>
 #include <cstdio>
@@ -13,7 +13,7 @@
 namespace {
 namespace rc = resource::protocol::client;
 namespace many = telemetry::protocol::encoded::read_many;
-using Bootstrap = inspector_qml::DescriptorBootstrap;
+using Bootstrap = telemetry::integration::qt::DescriptorBootstrap;
 using Bytes = std::vector<std::byte>;
 using Input = std::span<const std::byte>;
 using Op = resource::protocol::Op;
@@ -171,7 +171,7 @@ void positiveAndLegacy()
 	CHECK(bootstrap.accept(stat(64)));
 	CHECK(bootstrap.accept(chunk(64, true, descriptor)));
 	CHECK(bootstrap.complete() && bootstrap.capability().isEmpty());
-	inspector_qml::SerialTransport transport;
+	telemetry::integration::qt::SerialTransport transport;
 	transport.setReadManyDiscovery(true);
 	CHECK(!transport.ready() && transport.readManyCapability().isEmpty());
 	transport.close();

@@ -6,8 +6,8 @@
  */
 #include "DemoPeer.hpp"
 #include "InspectorController.hpp"
-#include "SerialTransport.hpp"
-#include "../inspector_serial/SerialProfile.hpp"
+#include <integration/qt/SerialTransport.hpp>
+#include "../../lib/integration/serial/Profile.hpp"
 #include "../../examples/nucleo_h7s3l8/Protocol.hpp"
 #include <cobs/Cobs.h>
 #include <resource/BytesFile.hpp>
@@ -62,11 +62,11 @@ unsigned checks = 0, reads = 0, admissions = 0;
 
 void timingPolicyChecks()
 {
-	using inspector_serial::exchangeTimeoutMs;
+	using telemetry::integration::serial::exchangeTimeoutMs;
 	static_assert(exchangeTimeoutMs(32, 2048, 1200, 3000) == 20500);
 	static_assert(exchangeTimeoutMs(13, 885, 1200, 5000) == 12609);
-	CHECK(inspector_serial::FrameFormat::tx_storage_size_for_capacity(32) == 38);
-	CHECK(inspector_serial::FrameFormat::tx_storage_size_for_capacity(2048) == 2062);
+	CHECK(telemetry::integration::serial::FrameFormat::tx_storage_size_for_capacity(32) == 38);
+	CHECK(telemetry::integration::serial::FrameFormat::tx_storage_size_for_capacity(2048) == 2062);
 	CHECK(exchangeTimeoutMs(32, 544, 1200, 3000) == 7917);
 	CHECK(exchangeTimeoutMs(32, 2048, 115200, 3000) == 3183);
 	CHECK(exchangeTimeoutMs(32, 2048, 4000000, 3000) == 3006);
@@ -109,7 +109,8 @@ template<class Integrity = crc::Crc16Bitwise>
 QByteArray frame(const QByteArray& body)
 {
 	using Encoder =
-	    cobs::Endpoint<wire::Pool<1, 1>, cobs::Format<Integrity, inspector_serial::maxBodyBytes>>;
+	    cobs::Endpoint<wire::Pool<1, 1>,
+	                   cobs::Format<Integrity, telemetry::integration::serial::maxBodyBytes>>;
 	Encoder encoder;
 	QByteArray result;
 	CHECK(encoder.bind(
@@ -192,7 +193,7 @@ private:
 		}
 	};
 
-	using Link = cobs::Endpoint<wire::Pool<4, 1>, inspector_serial::FrameFormat>;
+	using Link = cobs::Endpoint<wire::Pool<4, 1>, telemetry::integration::serial::FrameFormat>;
 	int fd_ = -1;
 	QString path_;
 	ui::DemoPeer native_;
@@ -511,10 +512,10 @@ void controllerReads()
 void transportBoundsAndShortWrite()
 {
 	Peer peer;
-	ui::SerialTransport port;
-	QSignalSpy descriptors{&port, &ui::DeviceTransport::descriptorReceived};
-	QSignalSpy errors{&port, &ui::DeviceTransport::transportError};
-	QSignalSpy packets{&port, &ui::DeviceTransport::packetReceived};
+	telemetry::integration::qt::SerialTransport port;
+	QSignalSpy descriptors{&port, &telemetry::integration::qt::DeviceTransport::descriptorReceived};
+	QSignalSpy errors{&port, &telemetry::integration::qt::DeviceTransport::transportError};
+	QSignalSpy packets{&port, &telemetry::integration::qt::DeviceTransport::packetReceived};
 	port.connectTo(peer.path());
 	CHECK(await([&] {
 		return descriptors.count() == 1;
@@ -618,9 +619,10 @@ void staleResourceTranscript()
 			old[10] = 64;
 		}
 		peer.inject(frame(old));
-		ui::SerialTransport port;
-		QSignalSpy admitted{&port, &ui::DeviceTransport::descriptorReceived};
-		QSignalSpy errors{&port, &ui::DeviceTransport::transportError};
+		telemetry::integration::qt::SerialTransport port;
+		QSignalSpy admitted{&port,
+		                    &telemetry::integration::qt::DeviceTransport::descriptorReceived};
+		QSignalSpy errors{&port, &telemetry::integration::qt::DeviceTransport::transportError};
 		port.connectTo(peer.path());
 		CHECK(await([&] {
 			return !admitted.isEmpty() || !errors.isEmpty();
@@ -636,9 +638,9 @@ void resourceTailAndQueuedReconnect()
 {
 	Peer peer;
 	peer.resourcePartialTail = true;
-	ui::SerialTransport port;
-	QSignalSpy admitted{&port, &ui::DeviceTransport::descriptorReceived};
-	QSignalSpy errors{&port, &ui::DeviceTransport::transportError};
+	telemetry::integration::qt::SerialTransport port;
+	QSignalSpy admitted{&port, &telemetry::integration::qt::DeviceTransport::descriptorReceived};
+	QSignalSpy errors{&port, &telemetry::integration::qt::DeviceTransport::transportError};
 	port.connectTo(peer.path());
 	CHECK(await([&] {
 		return !errors.isEmpty();
@@ -666,11 +668,13 @@ void lowBaudDeadlines()
 	bootstrap.responseBaud = 1200;
 	shortBootstrap.responseBaud = 1200;
 	ui::InspectorController bootstrapClient, fieldClient, shortClient;
-	ui::SerialTransport shortPort;
+	telemetry::integration::qt::SerialTransport shortPort;
 	QSignalSpy completed{&fieldClient, &ui::InspectorController::readFinished};
 	QSignalSpy shortCompleted{&shortClient, &ui::InspectorController::readFinished};
-	QSignalSpy shortErrors{&shortPort, &ui::DeviceTransport::transportError};
-	QSignalSpy shortDescriptors{&shortPort, &ui::DeviceTransport::descriptorReceived};
+	QSignalSpy shortErrors{&shortPort,
+	                       &telemetry::integration::qt::DeviceTransport::transportError};
+	QSignalSpy shortDescriptors{&shortPort,
+	                            &telemetry::integration::qt::DeviceTransport::descriptorReceived};
 	CHECK(fieldClient.connectSerial(field.path(), 1200));
 	CHECK(shortClient.connectSerial(shortField.path(), 1200));
 	CHECK(await([&] {
@@ -800,7 +804,7 @@ int main(int argc, char** argv)
 {
 	QGuiApplication app{argc, argv};
 	timingPolicyChecks();
-	ui::SerialTransport idle;
+	telemetry::integration::qt::SerialTransport idle;
 	CHECK(!idle.ready() && idle.locallyQuiescent());
 	idle.close();
 	CHECK(idle.locallyQuiescent());

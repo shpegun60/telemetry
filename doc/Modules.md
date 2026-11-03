@@ -61,6 +61,8 @@ They do not own a request FIFO; asynchronous JS/TS operations use `lib/client/we
 | Read-only Inspector Model | `integration/inspector/InspectorModel.hpp` | `telemetry::integration::inspector` |
 | FieldWrite, Command and Service Workbench | `integration/workbench/WorkbenchModel.hpp` | `telemetry::integration::workbench` |
 | Native TCP framing/server | `integration/tcp/Server.hpp` | `telemetry::integration::tcp` |
+| Optional Qt transport/bootstrap | `integration/qt/DeviceTransport.hpp`, `DescriptorBootstrap.hpp` | `telemetry::integration::qt` |
+| Optional Qt UART transport | `integration/qt/SerialTransport.hpp` | `telemetry::integration::qt` |
 
 The Resource provider namespace denotes an extension implemented by Integration;
 generic Resource contains no Telemetry headers or providers. The descriptor
@@ -93,12 +95,19 @@ target_link_libraries(application PRIVATE Telemetry::core)
 Available components are `core`, `runtime`, `resource`, `resource_protocol`, `client`,
 `codec`, `resource_adapter`, `encoded_server`, `rpc_server`, `rpc_sessions`,
 `encoded_backend`, `rpc_client`, `rpc_backend`, `dynamic_client`, `read_many_client`, `read_many_static_client`, `batch_client`, `batch_static_client`, `batch_server`, `inspector`, `workbench`, `read_many_workbench` and
-`tcp_server`. Shared header components
+`tcp_server`, `qt_transport` and `qt_serial_transport`. Shared header components
 `common`, `delegate`, `reflection`, `resource_wire`, `encoded_wire` and `rpc_wire`
 are selected automatically as needed. Multiple components use a semicolon list.
 The native RPC engine is `rpc_client`; its DeviceClient adapter is `rpc_backend`.
 The default root build includes the Inspector, Workbench and TCP components. Set
 `TELEMETRY_COMPONENTS` explicitly to build and install a smaller selection.
+The two Qt components are excluded from that default. `qt_transport` requires
+Qt Core; `qt_serial_transport` adds Qt SerialPort and builds the existing COBS
+implementation privately. Installed serial consumers need Qt and the SDK prefix,
+without a COBS checkout. Select Qt components explicitly in downstream
+`find_package(Telemetry ... COMPONENTS ...)`; requesting only `client` does not
+search for Qt, even when the prefix also contains transport libraries. See
+[Qt transport](QtTransport.md) for source and installed builds.
 `rpc_server` supplies the mailbox provider with `core`, `resource` and `rpc_wire`;
 it does not compile the generic Resource packet processor. `rpc_sessions` adds
 `resource_protocol` because the session pool actually routes Resource packets.

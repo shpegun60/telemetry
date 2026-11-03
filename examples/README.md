@@ -59,7 +59,7 @@ client with an application Codec do not require a Generated SDK.
 | [RPC sessions](rpc_multi_session/README.md) | Multiple independent server mailbox sessions |
 | [Structured client](structured_client/README.md) | Descriptor/codec browser and Qt consumers |
 | [Bind/Exchange](structured_protocol/README.md) | Optional application-owned agreement example |
-| [Shared Inspector serial profile](inspector_serial/README.md) | Header used by both Inspector and Nucleo; not a separate executable |
+| [Shared serial profile](../lib/integration/serial/README.md) | SDK header used by both Inspector and Nucleo; not a separate executable |
 
 Reusable transport-neutral adapters belong to [Integration](../lib/integration/README.md).
 The [experimental ReadMany comparison](read_many_mapping/README.md) measures

@@ -78,6 +78,10 @@ FORBIDDEN = {
                    'integration/dynamic/DynamicClient.hpp', 'telemetry/runtime/RuntimeSchema.hpp'),
 }
 for _module in MODULES:
+    FORBIDDEN[_module] += ('integration/qt/DeviceTransport.hpp',
+                            'integration/qt/DescriptorBootstrap.hpp',
+                            'integration/qt/SerialTransport.hpp',
+                            'integration/serial/Profile.hpp')
     if _module != 'batch_static_client':
         FORBIDDEN[_module] += ('integration/batch/StaticClient.hpp',)
     if _module != 'read_many_static_client':

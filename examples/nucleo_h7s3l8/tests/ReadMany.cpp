@@ -25,16 +25,19 @@ namespace rm = ew::read_many;
 namespace demo = nucleo_demo;
 using Input = resource::Input;
 using Output = resource::Output;
-using Link = cobs::Endpoint<wire::Pool<4, 1>, inspector_serial::FrameFormat>;
+using Link = cobs::Endpoint<wire::Pool<4, 1>, telemetry::integration::serial::FrameFormat>;
 
 static_assert(!std::is_copy_constructible_v<demo::Protocol> &&
               !std::is_move_constructible_v<demo::Protocol>);
 static_assert(ew::headerBytes + rm::maxRequestPayload == 162 &&
               ew::headerBytes + rm::maxReplyPayload == 546);
-static_assert(inspector_serial::maxBodyBytes >= ew::headerBytes + rm::maxReplyPayload);
-static_assert(inspector_serial::FrameFormat::tx_storage_size_for_capacity(162) == 168 &&
-              inspector_serial::FrameFormat::tx_storage_size_for_capacity(546) == 554);
-static_assert(inspector_serial::exchangeTimeoutMs(162, 546, 115200, 100) == 163);
+static_assert(telemetry::integration::serial::maxBodyBytes >=
+              ew::headerBytes + rm::maxReplyPayload);
+static_assert(telemetry::integration::serial::FrameFormat::tx_storage_size_for_capacity(162) ==
+                  168 &&
+              telemetry::integration::serial::FrameFormat::tx_storage_size_for_capacity(546) ==
+                  554);
+static_assert(telemetry::integration::serial::exchangeTimeoutMs(162, 546, 115200, 100) == 163);
 
 std::uint64_t load(Input bytes)
 {

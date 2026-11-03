@@ -8,8 +8,7 @@
 #include "DemoPeer.hpp"
 #include "TcpTransport.hpp"
 #ifdef INSPECTOR_ENABLE_SERIAL
-#include "SerialTransport.hpp"
-#include "../inspector_serial/SerialProfile.hpp"
+#include <integration/qt/SerialTransport.hpp>
 #include <QtSerialPort/QSerialPortInfo>
 #endif
 #include <integration/encoded/Backend.hpp>
@@ -529,7 +528,8 @@ bool InspectorController::replaceDescriptor(QByteArray bytes, bool demo, bool re
 #ifdef INSPECTOR_ENABLE_SERIAL
 	if (remote && serial_ && transport_) {
 		const auto capabilityBytes =
-		    static_cast<SerialTransport*>(transport_.get())->readManyCapability();
+		    static_cast<telemetry::integration::qt::SerialTransport*>(transport_.get())
+		        ->readManyCapability();
 		if (!capabilityBytes.isEmpty()) {
 			const auto parsed = rm::wire::parseCapability(
 			    {reinterpret_cast<const std::byte*>(capabilityBytes.constData()),
@@ -709,13 +709,13 @@ void InspectorController::bindTransportSignals()
 {
 	const auto epoch = epoch_;
 	connect(
-	    transport_.get(), &DeviceTransport::descriptorReceived, this,
+	    transport_.get(), &telemetry::integration::qt::DeviceTransport::descriptorReceived, this,
 	    [this, epoch](QByteArray bytes) {
 		    transportDescriptor(epoch, std::move(bytes));
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    transport_.get(), &DeviceTransport::packetAccepted, this,
+	    transport_.get(), &telemetry::integration::qt::DeviceTransport::packetAccepted, this,
 	    [this, epoch](quint32 session, quint32 id) {
 		    if (epoch == epoch_ && state_ && state_->remote &&
 		        session == state_->inspector.session() && id == state_->remoteRequestId)
@@ -723,7 +723,7 @@ void InspectorController::bindTransportSignals()
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    transport_.get(), &DeviceTransport::packetReceived, this,
+	    transport_.get(), &telemetry::integration::qt::DeviceTransport::packetReceived, this,
 	    [this, epoch](const QByteArray& bytes, quint32 session, quint32 id) {
 		    if (epoch != epoch_ || !state_ || !state_->remote ||
 		        session != state_->inspector.session() || id != state_->remoteRequestId ||
@@ -734,7 +734,7 @@ void InspectorController::bindTransportSignals()
 	    },
 	    Qt::QueuedConnection);
 	connect(
-	    transport_.get(), &DeviceTransport::transportError, this,
+	    transport_.get(), &telemetry::integration::qt::DeviceTransport::transportError, this,
 	    [this, epoch](const QString& error) {
 		    transportFailed(epoch, error);
 	    },
@@ -770,8 +770,9 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	return false;
 #else
 	if (updating_ || values_.changing() || responses_.changing() || endpoints_.changing() ||
-	    port.trimmed().isEmpty() || baud < qint32(inspector_serial::minBaudRate) ||
-	    baud > qint32(inspector_serial::maxBaudRate))
+	    port.trimmed().isEmpty() ||
+	    baud < qint32(telemetry::integration::qt::SerialTransport::minBaudRate()) ||
+	    baud > qint32(telemetry::integration::qt::SerialTransport::maxBaudRate()))
 		return false;
 	updating_ = true;
 	const auto retiredApply = retire();
@@ -788,9 +789,9 @@ bool InspectorController::connectSerial(const QString& port, qint32 baud)
 	serialBaud_ = baud;
 	connecting_ = true;
 	status_ = QStringLiteral("Opening serial port and loading Descriptor...");
-	transport_ = std::make_unique<SerialTransport>();
+	transport_ = std::make_unique<telemetry::integration::qt::SerialTransport>();
 	transport_->setWriteChunkBytes(serialWriteChunk_);
-	auto* serial = static_cast<SerialTransport*>(transport_.get());
+	auto* serial = static_cast<telemetry::integration::qt::SerialTransport*>(transport_.get());
 	serial->setReadManyDiscovery(readManyDiscovery_);
 	bindTransportSignals();
 	serial->connectTo(name, baud);
@@ -1268,13 +1269,14 @@ bool InspectorController::refresh()
 #ifdef INSPECTOR_ENABLE_SERIAL
 	if (state_->serial) {
 		const auto* type = state_->schema.type(state_->inspector.snapshotInfo().type);
-		if (!type || type->wireBytes > inspector_serial::maxBodyBytes - 32u) {
+		if (!type ||
+		    type->wireBytes > telemetry::integration::qt::SerialTransport::maxBodyBytes() - 32u) {
 			status_ = QStringLiteral("Selected Field exceeds the serial frame payload limit.");
 			Q_EMIT stateChanged();
 			return false;
 		}
 		if (!readTimeoutExplicit_)
-			readTimeout = inspector_serial::exchangeTimeoutMs(
+			readTimeout = telemetry::integration::qt::SerialTransport::exchangeTimeoutMs(
 			    32u, 32u + type->wireBytes, static_cast<std::uint32_t>(serialBaud_), 3000);
 	}
 #endif
@@ -1483,9 +1485,9 @@ bool InspectorController::submitWatch()
 		}
 #ifdef INSPECTOR_ENABLE_SERIAL
 		if (state.serial && !readTimeoutExplicit_)
-			timeout = inspector_serial::exchangeTimeoutMs(34u + 4u * watchlist_.count(),
-			                                              32u + binding.binding.responseBytes(),
-			                                              quint32(serialBaud_), 3000);
+			timeout = telemetry::integration::qt::SerialTransport::exchangeTimeoutMs(
+			    34u + 4u * watchlist_.count(), 32u + binding.binding.responseBytes(),
+			    quint32(serialBaud_), 3000);
 #endif
 		submitted = rm::readMany(
 		    state.inspector, binding.binding,
@@ -1536,7 +1538,8 @@ bool InspectorController::submitWatch()
 		}
 #ifdef INSPECTOR_ENABLE_SERIAL
 		if (state.serial && !readTimeoutExplicit_)
-			timeout = inspector_serial::exchangeTimeoutMs(32u, 40u, quint32(serialBaud_), 3000);
+			timeout = telemetry::integration::qt::SerialTransport::exchangeTimeoutMs(
+			    32u, 40u, quint32(serialBaud_), 3000);
 #endif
 		submitted = rm::readFieldValue(
 		    state.inspector, binding.endpoint,

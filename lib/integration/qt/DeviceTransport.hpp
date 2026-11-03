@@ -1,18 +1,18 @@
 /*
  * @file DeviceTransport.hpp
- * @brief Application transport boundary for the Inspector owner loop.
+ * @brief Application transport boundary for the application owner loop.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_EXAMPLES_INSPECTOR_QML_DEVICE_TRANSPORT_HPP
-#define TELEMETRY_EXAMPLES_INSPECTOR_QML_DEVICE_TRANSPORT_HPP
+#ifndef TELEMETRY_INTEGRATION_QT_DEVICE_TRANSPORT_HPP
+#define TELEMETRY_INTEGRATION_QT_DEVICE_TRANSPORT_HPP
 #pragma once
 
 #include <client/Backend.hpp>
 #include <QtCore/QByteArray>
 #include <QtCore/QObject>
 
-namespace inspector_qml {
+namespace telemetry::integration::qt {
 class DeviceTransport : public QObject {
 	Q_OBJECT
 public:
@@ -36,5 +36,5 @@ Q_SIGNALS:
 	void packetReceived(QByteArray bytes, quint32 session, quint32 requestId);
 	void transportError(QString message);
 };
-} // namespace inspector_qml
+} // namespace telemetry::integration::qt
 #endif

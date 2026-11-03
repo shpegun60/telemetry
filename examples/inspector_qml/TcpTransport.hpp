@@ -8,11 +8,11 @@
 #define TELEMETRY_EXAMPLES_INSPECTOR_QML_TCP_TRANSPORT_HPP
 #pragma once
 
-#include "DeviceTransport.hpp"
+#include <integration/qt/DeviceTransport.hpp>
 #include <memory>
 
 namespace inspector_qml {
-class TcpTransport final : public DeviceTransport {
+class TcpTransport final : public telemetry::integration::qt::DeviceTransport {
 
 	Q_OBJECT
 

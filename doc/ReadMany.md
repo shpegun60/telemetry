@@ -151,5 +151,5 @@ References: [FieldIndex](../lib/telemetry/field/FieldCatalogs.hpp),
 [TEQ1](../lib/wire/EncodedWire.hpp), [RPC](../lib/client/rpc/RpcClient.cpp),
 [Encoded backend](../lib/integration/encoded/Backend.hpp),
 [RPC backend](../lib/integration/rpc/Backend.hpp),
-[serial profile](../examples/inspector_serial/SerialProfile.hpp),
+[serial profile](../lib/integration/serial/Profile.hpp),
 [DynamicClient lifecycle](DynamicClient.md).

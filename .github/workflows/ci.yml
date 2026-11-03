@@ -1195,6 +1195,11 @@ jobs:
           repository: shpegun60/cobs
           ref: 2e0abf260848fcb74e4a57b37532188047759643
           path: build/dependencies/cobs
+      - name: Relocated optional Qt transport consumers
+        run: |
+          python3 -B tests/qt_transport/run.py --build-dir "$RUNNER_TEMP/qt-transport-packages" \
+            --cobs-root "$GITHUB_WORKSPACE/build/dependencies/cobs" --qt-prefix /usr \
+            --cxx /usr/bin/g++ --cmake cmake --ninja ninja
       - name: Sanitized serial discovery and fault injection through real PTYs
         run: |
           python3 -B tests/inspector_serial/run.py --build-dir "$RUNNER_TEMP/inspector-serial" \
@@ -1236,6 +1241,7 @@ jobs:
             ${{ runner.temp }}/inspector-qml/
             ${{ runner.temp }}/inspector-tcp/
             ${{ runner.temp }}/inspector-serial/
+            ${{ runner.temp }}/qt-transport-packages/
             ${{ runner.temp }}/nucleo-host/
             ${{ runner.temp }}/read-many-serial/
             ${{ runner.temp }}/read-comparison-gcc/

@@ -1,22 +1,31 @@
 /*
  * @file SerialTransport.hpp
- * @brief Qt SerialPort and existing COBS endpoint for the Inspector owner loop.
+ * @brief Qt SerialPort and existing COBS endpoint for the application owner loop.
  * @author Ruslan Kovtun (shpegun60), codexAi
  * SPDX-License-Identifier: MIT
  */
-#ifndef TELEMETRY_EXAMPLES_INSPECTOR_QML_SERIAL_TRANSPORT_HPP
-#define TELEMETRY_EXAMPLES_INSPECTOR_QML_SERIAL_TRANSPORT_HPP
+#ifndef TELEMETRY_INTEGRATION_QT_SERIAL_TRANSPORT_HPP
+#define TELEMETRY_INTEGRATION_QT_SERIAL_TRANSPORT_HPP
 #pragma once
 
-#include "DeviceTransport.hpp"
+#include <integration/qt/DeviceTransport.hpp>
 #include <memory>
+#include <cstddef>
+#include <cstdint>
 
-namespace inspector_qml {
+namespace telemetry::integration::qt {
 class SerialTransport final : public DeviceTransport {
 public:
 	explicit SerialTransport(QObject* parent = nullptr);
 	~SerialTransport() override;
 	void connectTo(const QString& port, qint32 baud = 115200);
+	// Selected SDK serial framing limits and absolute airtime budget. The
+	// canonical COBS/CRC profile stays private to the implementation/firmware.
+	static std::size_t maxBodyBytes() noexcept;
+	static std::uint32_t minBaudRate() noexcept;
+	static std::uint32_t maxBaudRate() noexcept;
+	static std::uint32_t exchangeTimeoutMs(std::size_t requestBody, std::size_t responseBody,
+	                                       std::uint32_t baud, std::uint32_t marginMs) noexcept;
 	// Opt-in configuration for the next connect; ordinary Inspector discovery
 	// remains Descriptor-only. The returned capability is owned and ready-gated.
 	void setReadManyDiscovery(bool enabled) noexcept;
@@ -37,5 +46,5 @@ private:
 	struct Impl;
 	std::unique_ptr<Impl> impl_;
 };
-} // namespace inspector_qml
-#endif // TELEMETRY_EXAMPLES_INSPECTOR_QML_SERIAL_TRANSPORT_HPP
+} // namespace telemetry::integration::qt
+#endif // TELEMETRY_INTEGRATION_QT_SERIAL_TRANSPORT_HPP

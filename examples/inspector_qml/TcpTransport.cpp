@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include "TcpTransport.hpp"
-#include "DescriptorBootstrap.hpp"
+#include <integration/qt/DescriptorBootstrap.hpp>
 #include <integration/tcp/Framing.hpp>
 #include <resource/protocol/Packets.hpp>
 #include <telemetry/type/WireTypes.hpp>
@@ -52,7 +52,7 @@ struct TcpTransport::Impl {
 	std::array<std::byte, 65568> rx{};
 	tcp::FrameReader reader{rx, tcp::Mode::ResourceReply, Op::List};
 	QByteArray incoming, tx;
-	DescriptorBootstrap discovery;
+	telemetry::integration::qt::DescriptorBootstrap discovery;
 	qsizetype offset = 0;
 	int writeChunk = std::numeric_limits<int>::max(), timeoutMs = 10000;
 	quint32 session = 0, requestId = 0;
@@ -298,7 +298,7 @@ struct TcpTransport::Impl {
 };
 
 TcpTransport::TcpTransport(QObject* parent)
-    : DeviceTransport(parent), impl_(std::make_unique<Impl>(*this))
+    : telemetry::integration::qt::DeviceTransport(parent), impl_(std::make_unique<Impl>(*this))
 {}
 
 TcpTransport::~TcpTransport()
