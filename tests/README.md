@@ -40,6 +40,10 @@ The [JS/TS ReadMany suite](client_read_many_web/README.md) checks inferred gener
 tuples, owned results, canonical scalar validation, controlled clocks and the
 actual C++ Encoded dispatcher, including a sanitized native peer.
 
+The [JS/TS Mixed Batch suite](client_batch_web/README.md) checks all four item
+operations through that FIFO, inferred DTO tuples, independent mutation outcomes,
+canonical payload failures, deterministic lifecycle and the native Model trace.
+
 The [Inspector suite](inspector/README.md) checks read-only runtime browsing,
 owned snapshots, exact scalar presentation, stale node/callback rejection and
 real Encoded/RPC reads without Qt. Installed-module checks isolate its public

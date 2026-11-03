@@ -65,6 +65,15 @@ scalar/open-enum Fields are eligible. RPC refuses this operation before transfer
 See [JS/TS ReadMany](../../../doc/JsReadMany.md) for a checked example and the
 [native interoperability tests](../../../tests/client_read_many_web/README.md).
 
+## Optional Encoded Mixed Batch
+
+Enable `{batch: true}` on the Encoded backend and discover its matching TBM1.
+`client.batch(tbm1, Batch.items(Batch.write(field, draft), Batch.read(field), ...))`
+submits one ordered request through the same FIFO. Check each item outcome and
+`valueStatus` independently; outer success does not imply usable values or that
+every endpoint succeeded. See [JS/TS Mixed Batch](../../../doc/JsBatch.md) and its
+[native qualification](../../../tests/client_batch_web/README.md).
+
 ## Optional Encoded retries
 
 `EncodedBackend` performs one TEQ1 request/reply exchange. Choose the separate

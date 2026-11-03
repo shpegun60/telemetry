@@ -20,13 +20,14 @@ export declare const Status: Readonly<{
     readonly Unsupported: 18;
 }>;
 export type ClientStatus = typeof Status[keyof typeof Status];
-export type Operation = 'FieldWrite' | 'Command' | 'Service' | 'FieldRead' | 'ReadMany';
+export type Operation = 'FieldWrite' | 'Command' | 'Service' | 'FieldRead' | 'ReadMany' | 'Batch';
 export declare const Operations: Readonly<{
     readonly FieldWrite: 1;
     readonly Command: 2;
     readonly Service: 3;
     readonly FieldRead: 4;
     readonly ReadMany: 5;
+    readonly Batch: 6;
 }>;
 export type ByteInput = ArrayBuffer | ArrayBufferView;
 export interface ReadBinding<T> {
@@ -112,6 +113,57 @@ export interface Field<T> {
     readonly read: ReadBinding<T>;
     readonly write?: WriteBinding<T>;
 }
+export type BatchOperation = 'FieldRead' | 'FieldWrite' | 'Command' | 'Service';
+export declare const BatchValueStatus: Readonly<{
+    readonly Ok: "Ok";
+    readonly NoValue: "NoValue";
+    readonly InvalidPayload: "InvalidPayload";
+    readonly Stale: "Stale";
+}>;
+export type BatchValueStatus = typeof BatchValueStatus[keyof typeof BatchValueStatus];
+declare const batchTypes: unique symbol;
+export interface BatchItem<T> {
+    readonly operation: BatchOperation;
+    readonly [batchTypes]: T;
+}
+export type BatchItemResult<T> = Omit<Result<T>, 'value'> & {
+    readonly id: number;
+} & ({
+    readonly valueStatus: typeof BatchValueStatus.Ok;
+    readonly value: T;
+} | {
+    readonly valueStatus: Exclude<BatchValueStatus, typeof BatchValueStatus.Ok>;
+    readonly value: undefined;
+});
+export type BatchItems<I extends readonly BatchItem<unknown>[]> = {
+    readonly [K in keyof I]: BatchItemResult<I[K] extends BatchItem<infer T> ? T : never>;
+};
+type BatchRequest<B extends {
+    encode: (value: never) => Uint8Array;
+}> = Parameters<B['encode']>[0];
+type BatchArguments<B extends {
+    encode: (value: never) => Uint8Array;
+}> = [
+    BatchRequest<B>
+] extends [void] ? [value?: BatchRequest<B>] : [value: BatchRequest<B>];
+export interface BatchResult<T extends readonly unknown[]> extends Result<undefined> {
+    readonly items: T | undefined;
+    readonly valueStatus: BatchValueStatus;
+}
+export interface BatchPromise<T extends readonly unknown[]> extends Promise<BatchResult<T>> {
+    readonly requestId: number;
+    readonly session: number;
+    cancel(): boolean;
+}
+export declare const Batch: Readonly<{
+    items<const I extends readonly BatchItem<unknown>[]>(...items: I): I;
+    read<T>(field: Field<T> | ReadBinding<T>): BatchItem<T>;
+    write<T>(field: {
+        readonly write: WriteBinding<T>;
+    } | WriteBinding<T>, value: NoInfer<T>): BatchItem<undefined>;
+    command<const B extends CommandBinding<never>>(binding: B, ...value: BatchArguments<NoInfer<B>>): BatchItem<undefined>;
+    service<const B extends ServiceBinding<never, unknown>>(binding: B, ...value: BatchArguments<NoInfer<B>>): BatchItem<ReturnType<B["decodeResponse"]>>;
+}>;
 export interface Result<T = undefined> {
     readonly status: ClientStatus;
     readonly operation: Operation;
@@ -213,7 +265,11 @@ export declare class DeviceClient {
     service<Q, R>(binding: ServiceBinding<Q, R>, value: Q, timeoutMs?: number): RequestPromise<R>;
     bindReadMany<const F extends readonly ReadManyField<unknown>[]>(capability: ByteInput, fields: F): ReadManyBindingResult<ReadManyValues<F>>;
     readMany<T extends readonly unknown[]>(binding: ReadManyBinding<T>, timeoutMs?: number): RequestPromise<T>;
-    private readManyGate;
+    batch<const I extends readonly BatchItem<unknown>[]>(capability: ByteInput, items: I, timeoutMs?: number): BatchPromise<BatchItems<I>>;
+    private refusedBatch;
+    private decodeBatch;
+    private makeBatchResult;
+    private optionalGate;
     private decodeReadMany;
     private refused;
     private enqueue;
@@ -228,6 +284,7 @@ export declare class DeviceClient {
 export type EncodedSend = (packet: Uint8Array, context: ExchangeContext) => void | Promise<void>;
 export interface EncodedOptions {
     readonly readMany?: boolean;
+    readonly batch?: boolean;
 }
 export interface EncodedRetryOptions extends EncodedOptions {
     readonly replyTimeoutMs?: number;
@@ -241,9 +298,10 @@ declare class EncodedEngine implements Backend {
     private readonly send;
     private readonly retry?;
     private readonly readManyEnabled;
+    private readonly batchEnabled;
     private execution?;
     private waiting?;
-    constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined, readManyEnabled?: boolean);
+    constructor(send: EncodedSend, retry?: EncodedRetryPolicy | undefined, readManyEnabled?: boolean, batchEnabled?: boolean);
     supports(operation: Operation): boolean;
     confirmSessionClosed(generation: number): boolean;
     execute(request: WireRequest, context: BackendContext): Promise<WireResult>;
