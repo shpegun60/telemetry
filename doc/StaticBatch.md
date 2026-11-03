@@ -43,9 +43,10 @@ const auto submitted = bt::batch(client, bound.binding, request, storage,
             return; // This is the outer transport/batch result.
         const auto written = result.template get<0>();
         const auto readback = result.template get<1>();
-        if (written && written->operation.succeeded() &&
-            readback && readback->hasValue()) {
-            // readback->value() is the typed device value, including normalization.
+        if (written && written->operation.succeeded() && readback) {
+            if (const auto* value = readback->valueIf()) {
+                // *value is the typed device value, including normalization.
+            }
         }
     });
 if (!submitted)
@@ -60,6 +61,13 @@ Endpoint names in this fragment are illustrative. The maintained
 endpoints and a native Model. Request arguments use exact declared types and
 lvalue references; implicit numeric conversions and borrowed temporaries are
 rejected at compile time. Void calls have overloads without a placeholder.
+
+`valueIf()` returns a nullable pointer, combining the value check and access.
+`value()` remains checked and fail-fast on invalid use; that failure path can
+pull target libc support into a linked binary when a compiler does not eliminate
+it. Embedded consumers can use `valueIf()` to avoid that dependency without
+assuming a value is present. The ARM qualification uses this checked pointer API
+and still refuses allocation symbols.
 
 ## Storage and publication
 

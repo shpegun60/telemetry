@@ -214,6 +214,13 @@ public:
 		return (value_->value);
 	}
 
+	// One checked access without invoking a target libc fail-fast path.
+	[[nodiscard]] const T* valueIf() const noexcept
+	    requires(!std::is_void_v<T>)
+	{
+		return hasValue() ? std::addressof(value_->value) : nullptr;
+	}
+
 private:
 	const detail::StaticSlot<T>* value_ = nullptr;
 	friend struct detail::StaticBatchAccess;

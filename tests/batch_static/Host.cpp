@@ -39,16 +39,21 @@ static void ordered() noexcept
 		const auto final = result.template get<7>();
 		CHECK(write && write->operation.succeeded() && !write->hasValue());
 		CHECK(read && read->hasValue());
+		CHECK(read->valueIf() == std::addressof(read->value()));
 		exact(read->value(), 1000);
 		CHECK(command && command->operation.executed() && !command->hasValue());
 		CHECK(counter && counter->hasValue() && counter->value() == (37u ^ 0x55u));
+		CHECK(counter->valueIf() && *counter->valueIf() == (37u ^ 0x55u));
 		CHECK(service && service->hasValue());
+		CHECK(service->valueIf() == std::addressof(service->value()));
 		exact(service->value(), 99);
 		CHECK(accepted && accepted->operation.accepted() && !accepted->operation.executed());
 		CHECK(busy && !busy->operation.succeeded() && !busy->hasValue());
+		CHECK(busy->valueIf() == nullptr);
 		CHECK(busy->operation.endpointStatus ==
 		      static_cast<unsigned>(telemetry::ServiceStatus::Busy));
 		CHECK(final && final->hasValue());
+		CHECK(final->valueIf() == std::addressof(final->value()));
 		exact(final->value(), 37u ^ 0x55u);
 	}));
 	CHECK(storage.busy() && h.client.pending() == 1 && calls == 0 && native::traceCount == 0);
@@ -114,11 +119,13 @@ static void zeroWire() noexcept
 		CHECK(result.template get<1>() && result.template get<1>()->operation.executed());
 		CHECK(result.template get<2>() && !result.template get<2>()->hasValue());
 		CHECK(result.template get<3>() && result.template get<3>()->hasValue());
+		CHECK(result.template get<3>()->valueIf() != nullptr);
 		CHECK(result.template get<3>()->operation.payload.empty());
 		CHECK(result.template get<4>() && !result.template get<4>()->hasValue());
 		CHECK(result.template get<5>() && result.template get<5>()->hasValue());
 		exact(result.template get<5>()->value(), 0);
 		CHECK(result.template get<6>() && result.template get<6>()->hasValue());
+		CHECK(result.template get<6>()->valueIf() != nullptr);
 		CHECK(result.template get<6>()->operation.payload.empty());
 	}));
 	h.send(h.offered());
@@ -306,15 +313,19 @@ static void malformedLast() noexcept
 			    const auto later = result.template get<1>();
 			    CHECK(!earlier || !earlier->hasValue());
 			    CHECK(!later || !later->hasValue());
+			    CHECK(!earlier || earlier->valueIf() == nullptr);
+			    CHECK(!later || later->valueIf() == nullptr);
 			    if (earlier) {
 				    auto copied = *earlier;
 				    copied.valueStatus = bt::StaticValueStatus::Ok;
 				    CHECK(!copied.hasValue());
+				    CHECK(copied.valueIf() == nullptr);
 			    }
 			    if (later) {
 				    auto copied = *later;
 				    copied.valueStatus = bt::StaticValueStatus::Ok;
 				    CHECK(!copied.hasValue());
+				    CHECK(copied.valueIf() == nullptr);
 			    }
 			    if (mutation == 0) {
 				    CHECK(earlier && later && earlier->operation.succeeded() &&
@@ -485,9 +496,11 @@ static void codecReentry() noexcept
 			          result.valueStatus == bt::StaticValueStatus::Stale);
 			    CHECK(result.template get<0>() && result.template get<0>()->operation.succeeded());
 			    CHECK(result.template get<1>() && !result.template get<1>()->hasValue());
+			    CHECK(result.template get<1>()->valueIf() == nullptr);
 			    auto copied = *result.template get<1>();
 			    copied.valueStatus = bt::StaticValueStatus::Ok;
 			    CHECK(!copied.hasValue());
+			    CHECK(copied.valueIf() == nullptr);
 		    });
 		if (duringDecode) {
 			CHECK(submitted);
@@ -601,9 +614,11 @@ static void sameFifoAndFailures() noexcept
 		    CHECK(command->operation.endpointStatus ==
 		          static_cast<unsigned>(telemetry::CommandResult::InvalidValue));
 		    CHECK(service && !service->operation.succeeded() && !service->hasValue());
+		    CHECK(service->valueIf() == nullptr);
 		    CHECK(service->operation.endpointStatus ==
 		          static_cast<unsigned>(telemetry::ServiceStatus::Busy));
 		    CHECK(unavailable && !unavailable->operation.succeeded() && !unavailable->hasValue());
+		    CHECK(unavailable->valueIf() == nullptr);
 		    CHECK(unavailable->operation.dispatch != 0);
 		    CHECK(read && read->hasValue());
 		    exact(read->value(), 42);
