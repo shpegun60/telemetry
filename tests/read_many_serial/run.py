@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +34,19 @@ def sources(cobs):
                         result[label + path.relative_to(base).as_posix()] = digest(path)
     result["CMakeLists.txt"] = digest(ROOT / "CMakeLists.txt")
     return dict(sorted(result.items()))
+
+
+def counted_result(text, label, minimum, pty=None):
+    if pty is None:
+        matches = re.findall(r'^ReadMany bootstrap checks=(\d+) passed, hardware=(\d+)\s*$', text, re.M)
+        expected = 0
+    else:
+        matches = re.findall(r'^ReadMany Serial checks=(\d+) pty=(\d+)\s*$', text, re.M)
+        expected = int(pty)
+    if (len(matches) != 1 or int(matches[0][0]) < minimum or int(matches[0][0]) <= 0
+            or int(matches[0][1]) != expected):
+        raise ValueError('Missing/invalid counted result: ' + label)
+    return int(matches[0][0])
 
 
 def main():
@@ -100,12 +114,35 @@ def main():
         bootstrap = executable("read_many_bootstrap_check")
         serial = executable("read_many_serial_check")
         cli = executable("telemetry-read-many-uart")
-        run("bootstrap", [bootstrap])
+        # Exit zero is insufficient for a counted gate. Exercise the actual
+        # subprocess path with silent, duplicate, zero and reduced reports.
+        controls = 0
+        for label, pattern, pty in (
+                ('bootstrap', 'ReadMany bootstrap checks={} passed, hardware=0', None),
+                ('serial', 'ReadMany Serial checks={} pty=' + str(int(os.name != 'nt')), os.name != 'nt')):
+            good = pattern.format(2)
+            for name, text in (
+                    ('missing', ''), ('multiple', good + '\n' + good),
+                    ('multiple-same-line', good + ' ' + good),
+                    ('zero', pattern.format(0)), ('below-floor', pattern.format(1)),
+                    ('wrong-profile', good[:-1] + ('1' if good[-1] == '0' else '0'))):
+                emitted = run('report-control-' + label + '-' + name,
+                    [sys.executable, '-B', '-c', 'import sys; sys.stdout.write(sys.argv[1])', text])
+                try:
+                    counted_result(emitted, label, 2, pty)
+                except ValueError:
+                    controls += 1
+                else:
+                    raise ValueError('Counted-report control accepted: ' + label + '/' + name)
+            if counted_result(good + '\n', label, 2, pty) != 2:
+                raise ValueError('Counted-report positive control failed: ' + label)
+        report['counted_report_controls'] = dict(expected_rejections=controls, positive=2)
+        bootstrap_output = run("bootstrap", [bootstrap])
+        bootstrap_checks = counted_result(bootstrap_output, 'bootstrap', 4593)
         runtime = run("runtime", [serial, cli, output])
-        count = re.search(r"ReadMany Serial checks=(\d+) pty=(\d)", runtime)
-        if not count or bool(int(count[2])) != (os.name != "nt"):
-            raise ValueError("Missing actual PTY execution marker")
-        report["executions"] = dict(checks=int(count[1]), pty=bool(int(count[2])))
+        pty = os.name != 'nt'
+        serial_checks = counted_result(runtime, 'serial', 220 if pty else 1, pty)
+        report["executions"] = dict(bootstrap_checks=bootstrap_checks, checks=serial_checks, pty=pty)
         run("invalid-arguments", [cli, "--report", output / "invalid.json"], expected=1)
         if json.loads((output / "invalid.json").read_text())["passed"]:
             raise ValueError("Invalid CLI arguments reported success")
