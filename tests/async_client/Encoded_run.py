@@ -97,7 +97,7 @@ def main():
         run(test_flags + [HERE / 'Encoded.cpp'] + SOURCES + ['-o', executable], 'build')
         output = run([executable], 'runtime')
         counts = re.findall(r'^encoded checks=(\d+) failures=(\d+)\s*$', output, re.M)
-        if len(counts) != 1 or int(counts[0][0]) < 300 or int(counts[0][1]) != 0:
+        if len(counts) != 1 or int(counts[0][0]) < 348 or int(counts[0][1]) != 0:
             raise RuntimeError('Missing successful positive runtime coverage report')
         report['checks'] = int(counts[0][0])
         if args.no_heap:
