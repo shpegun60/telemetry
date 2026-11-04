@@ -4,6 +4,10 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# build.py compares TypeScript output byte-for-byte on every supported host.
+lib/client/web/Client.js text eol=lf
+lib/client/web/Client.d.ts text eol=lf
+
 # Preserve upstream bytes documented in each dependency's README.md.
 lib/delegate/tiny_delegate.hpp -text
 lib/delegate/LICENSE -text
