@@ -331,6 +331,51 @@ class PublicationTests(unittest.TestCase):
             cli.publish(first, output, check=True)
             self.assertEqual(sorted(path.name for path in Path(temporary).iterdir()), ["out"])
 
+    def test_application_directory_case_alias_refuses_before_publication(self):
+        for application, generated in (("JS/application.txt", "js/device.js"),
+                                       ("app/Cache/notes.txt", "app/cache/device.js"),
+                                       ("JS", "js/device.js")):
+            with self.subTest(application=application), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / "out"
+                first = self.files("old/owned.js")
+                cli.publish(first, output)
+                canary = output / application
+                canary.parent.mkdir(parents=True, exist_ok=True)
+                canary.write_bytes(b"application data\x00\xff")
+                before = {path.relative_to(output).as_posix(): path.read_bytes()
+                          for path in output.rglob("*") if path.is_file()}
+                for check in (False, True):
+                    with self.assertRaisesRegex(ValueError, "case-colliding"):
+                        cli.publish(self.files(generated), output, check=check)
+                    self.assertEqual(before, {path.relative_to(output).as_posix(): path.read_bytes()
+                                             for path in output.rglob("*") if path.is_file()})
+                    self.assertEqual(sorted(path.name for path in Path(temporary).iterdir()), ["out"])
+                cli.publish(first, output, check=True)
+
+    def test_planned_directory_aliases_and_file_prefixes_are_refused(self):
+        for paths in (("js/a.js", "JS/b.js"), ("js", "js/device.js"),
+                      ("manifest.json/extra.js",)):
+            with self.subTest(paths=paths), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary) / "out"
+                files = {path: b"generated\n" for path in paths}
+                files[cli.MANIFEST] = json.dumps({"format": cli.FORMAT, "generated_files":
+                    {path: hashlib.sha256(data).hexdigest() for path, data in files.items()}}).encode()
+                with self.assertRaisesRegex(ValueError, "case-colliding|file/directory"):
+                    cli.publish(files, output)
+                self.assertFalse(output.exists())
+                self.assertEqual(list(Path(temporary).iterdir()), [])
+
+    def test_stale_owned_directory_case_can_change_without_application_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "out"
+            cli.publish(self.files("JS/old.js"), output)
+            second = self.files("js/device.js")
+            cli.publish(second, output)
+            cli.publish(second, output, check=True)
+            self.assertEqual(sorted(path.relative_to(output).as_posix()
+                                    for path in output.rglob("*") if path.is_file()),
+                             ["js/device.js", cli.MANIFEST])
+
     def test_unsafe_paths_and_symlinks(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "out"

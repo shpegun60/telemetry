@@ -265,6 +265,21 @@ def _ownership(existing):
     return owned
 
 
+def _output_layout(names):
+    """Require one portable spelling and kind for every output component."""
+    components = {}
+    for name in names:
+        parts = name.split("/")
+        for index in range(len(parts)):
+            prefix = "/".join(parts[:index + 1])
+            directory = index + 1 < len(parts)
+            previous = components.setdefault(prefix.casefold(), (prefix, directory))
+            if previous[0] != prefix:
+                raise ValueError("case-colliding output path components: " + prefix)
+            if previous[1] != directory:
+                raise ValueError("file/directory output path conflict: " + prefix)
+
+
 def publish(files, output, check=False):
     """Keep modified/unowned application files intact, including stale outputs."""
     if MANIFEST not in files:
@@ -288,6 +303,10 @@ def publish(files, output, check=False):
         if other is not None and (other != name or (name not in owned and name != MANIFEST)):
             raise ValueError("refusing to overwrite unowned output file: " + other)
     stale = set(owned) - set(files)
+    # Stale owned files are removed, while unrelated application paths retain
+    # their spelling. Check the resulting tree before creating a staging tree.
+    kept = (name for name in existing if name not in stale and name not in files)
+    _output_layout((*kept, *files))
     if check:
         different = [name for name, data in files.items()
                      if name not in existing or existing[name].read_bytes() != data]
