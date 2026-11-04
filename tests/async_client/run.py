@@ -20,6 +20,14 @@ ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve().parent
 
 
+def counted_result(output, minimum, stem):
+    matches = re.findall(r'(?<!\S)checks=(\d+) failures=(\d+)(?!\S)', output)
+    if (len(matches) != 1 or int(matches[0][0]) < minimum
+            or int(matches[0][0]) <= 0 or int(matches[0][1]) != 0):
+        raise RuntimeError('Missing/invalid counted result: ' + stem)
+    return int(matches[0][0])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', required=True, type=Path)
@@ -73,23 +81,41 @@ def main():
     rpc = ['lib/client/rpc/RpcClient.cpp', 'lib/integration/telemetry/v3/RpcMailbox.cpp',
            'lib/resource/protocol/Protocol.cpp', *native]
 
-    def executable(stem, source, sources=(), extra=(), arguments=(), minimum=0):
+    def executable(stem, source, sources=(), extra=(), arguments=(), *, minimum):
         target = build / (stem + suffix)
         run([*flags, *extra, source, *sources, '-o', target], stem + '-build')
         output = run([target, *arguments], stem + '-run')
-        matches = re.findall(r'checks=(\d+) failures=(\d+)', output)
-        if matches:
-            if len(matches) != 1 or int(matches[0][0]) <= 0 or int(matches[0][1]):
-                raise RuntimeError('Invalid counted result: ' + stem)
-            report['checks'][stem] = int(matches[0][0])
-        if minimum and (not matches or int(matches[0][0]) < minimum):
-            raise RuntimeError('Missing/insufficient counted result: ' + stem)
+        if minimum is not None:
+            report['checks'][stem] = counted_result(output, minimum, stem)
         report['artifacts'][str(target)] = hashlib.sha256(target.read_bytes()).hexdigest()
         print(stem + ': ' + (output.strip() or 'PASS'), flush=True)
         return target
 
     try:
         report['compiler'] = run([args.cxx, '--version'], 'compiler')
+        # These are real successful subprocesses: exit zero alone must never
+        # qualify a counted test which silently stopped executing assertions.
+        invalid_reports = {
+            'missing': '',
+            'multiple': 'control checks=2 failures=0\ncontrol checks=2 failures=0',
+            'multiple-same-line': 'control checks=2 failures=0 control checks=2 failures=0',
+            'zero': 'control checks=0 failures=0',
+            'failing': 'control checks=2 failures=1',
+            'below-floor': 'control checks=1 failures=0',
+        }
+        for name, value in invalid_reports.items():
+            output = run([sys.executable, '-B', '-c', 'import sys; sys.stdout.write(sys.argv[1])',
+                          value], 'report-control-' + name)
+            try:
+                counted_result(output, 2, name)
+            except RuntimeError:
+                pass
+            else:
+                raise RuntimeError('Counted-report control was accepted: ' + name)
+        if counted_result('control checks=2 failures=0\n', 2, 'positive') != 2:
+            raise RuntimeError('Counted-report positive control failed')
+        report['counted_report_controls'] = {'expected_rejections': len(invalid_reports),
+                                             'positive': 1}
         patterns = {
             1: r'Completion ownership must be constructed without exceptions',
             2: r'Completion ownership must be constructed without exceptions',
@@ -105,10 +131,10 @@ def main():
             if case and not re.search(patterns[case], output):
                 raise RuntimeError('Compile refusal missed its intended diagnostic: ' + str(case))
         report['compile_contracts'] = {'positive': 1, 'expected_rejections': 7}
-        executable('core', HERE / 'Core.cpp', extra=['-pthread'])
+        executable('core', HERE / 'Core.cpp', extra=['-pthread'], minimum=148)
         if not args.thread_sanitize:
-            executable('noheap', HERE / 'NoHeap.cpp')
-            executable('encoded', HERE / 'Encoded.cpp', encoded)
+            executable('noheap', HERE / 'NoHeap.cpp', minimum=130)
+            executable('encoded', HERE / 'Encoded.cpp', encoded, minimum=348)
             retrying = executable('retrying', HERE / 'Retrying.cpp', encoded, minimum=800)
             noheap_retrying = executable('retrying-noheap', HERE / 'RetryingNoHeap.cpp',
                                          encoded, minimum=800)
@@ -122,20 +148,21 @@ def main():
                 if control.count('RETRY_INVALID_OPTIONS_CONTROL') != 1:
                     raise RuntimeError('Retry option rejection lost its control marker')
             report['retrying_controls'] = {'allocation_trap': 1, 'invalid_options': 2}
-            executable('rpc', HERE / 'RpcChecks.cpp', rpc)
+            executable('rpc', HERE / 'RpcChecks.cpp', rpc, minimum=1104)
             fixtures = build / 'fixtures'
             fixtures.mkdir(exist_ok=True)
-            executable('producer', ROOT / 'tests/codegen/Producer.cpp', native, arguments=[fixtures])
+            executable('producer', ROOT / 'tests/codegen/Producer.cpp', native,
+                       arguments=[fixtures], minimum=None)
             generated = build / 'generated'
             run([sys.executable, '-B', '-m', 'tools.telemetry_codegen', 'generate',
                  fixtures / 'descriptor.bin', '--targets', 'cpp', '--namespace', 'device_api',
                  '--output', generated], 'generate')
             include = '-I' + str(generated / 'cpp')
             executable('bare-metal-host', ROOT / 'examples/async_client/BareMetal.cpp',
-                       [HERE / 'BareMetalHost.cpp', *encoded], extra=[include])
+                       [HERE / 'BareMetalHost.cpp', *encoded], extra=[include], minimum=None)
             executable('retry-bare-metal-host', ROOT / 'examples/async_client/BareMetal.cpp',
                        [HERE / 'BareMetalHost.cpp', *encoded],
-                       extra=[include, '-DTELEMETRY_EXAMPLE_RETRY_ENCODED'])
+                       extra=[include, '-DTELEMETRY_EXAMPLE_RETRY_ENCODED'], minimum=None)
             if args.arm_cxx:
                 obj = build / 'bare-metal.o'
                 arm_flags = [args.arm_cxx, '-std=c++20', '-Os', '-Wall', '-Wextra', '-Werror',
