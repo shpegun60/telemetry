@@ -10,9 +10,10 @@ and commits a complete encoded value.
 
 These types live in `telemetry::runtime`. They use the same fixed wire kinds,
 limits and descriptor constants as the producer, without native reflection,
-Resource, Client, Integration, Qt or an operating system. Dynamic request
-scheduling remains future work. Existing dispatchers, clients,
-Descriptor v3.0, TEQ1 and RPC wire contracts are unchanged.
+Resource, Client, Integration, Qt or an operating system. Remote runtime
+requests use the separate [DynamicClient integration](DynamicClientUsage.md)
+and its existing DeviceClient FIFO; the runtime module itself schedules no
+requests. Existing Descriptor v3.0, TEQ1 and RPC wire contracts are unchanged.
 
 ## Read an unknown value
 
