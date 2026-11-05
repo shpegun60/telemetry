@@ -65,8 +65,8 @@
       "reviewers": [
         "root"
       ],
-      "lines": 1331,
-      "sha256_lf": "bf02d205adc3aad4cb19d0509600d7da3e28ce33f857ca3caee7d2155d468a6e"
+      "lines": 1365,
+      "sha256_lf": "e3767f49177dcfe9571d164ef32c193b4857b770ce48d8e1a6eb64a50aa196a4"
     },
     {
       "repo": "telemetry-sdk",
@@ -8371,6 +8371,6 @@
   ],
   "summary": {
     "files": 832,
-    "lines": 156580
+    "lines": 156614
   }
 }

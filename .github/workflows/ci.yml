@@ -175,17 +175,34 @@ jobs:
   async-client:
     name: Portable async client (${{ matrix.cxx }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         cxx: [g++, clang++-18]
     steps:
       - uses: actions/checkout@v4
-      - name: Install host and bare-metal compilers
+      - name: Bound package downloads and prefer official Ubuntu mirrors
+        shell: bash
         run: |
+          # The x64 runner's mirror list preserves source suites and signing keys.
+          if [[ $(dpkg --print-architecture) == amd64 && -f /etc/apt/apt-mirrors.txt ]]; then
+            printf '%s\n' https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/ |
+              sudo tee /etc/apt/apt-mirrors.txt
+          fi
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' |
+            sudo tee /etc/apt/apt.conf.d/zz-telemetry-ci
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+      - name: Install selected host and bare-metal compilers
+        shell: bash
+        run: |
+          packages=(clang-18)
+          if [[ '${{ matrix.cxx }}' == 'g++' ]]; then
+            # ARM probes compile objects; only C++ headers and newlib are needed.
+            packages=(gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-dev)
+          fi
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang-18 gcc-arm-none-eabi \
-            binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
       - name: Core, noheap, real backends and unchanged bare-metal loop
         shell: bash
         run: |
@@ -806,12 +823,29 @@ jobs:
           node-version: '22'
       - name: Install pinned TypeScript
         run: npm install --prefix "$RUNNER_TEMP/codegen-tools" typescript@5.9.3 --no-audit --no-fund
-      - name: Install host compiler and example tools
-        run: sudo apt-get update && sudo apt-get install -y clang-18 ninja-build qt6-base-dev
+      - name: Bound package downloads and prefer official Ubuntu mirrors
+        shell: bash
+        run: |
+          # The x64 runner's mirror list preserves source suites and signing keys.
+          if [[ $(dpkg --print-architecture) == amd64 && -f /etc/apt/apt-mirrors.txt ]]; then
+            printf '%s\n' https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/ |
+              sudo tee /etc/apt/apt-mirrors.txt
+          fi
+          printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' |
+            sudo tee /etc/apt/apt.conf.d/zz-telemetry-ci
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+      - name: Install selected host compiler and example tools
+        shell: bash
+        run: |
+          packages=(ninja-build qt6-base-dev)
+          if [[ '${{ matrix.compiler }}' == 'clang++-18' ]]; then packages+=(clang-18); fi
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
       - name: Install offline ARM and browser tools
         if: matrix.mode == 'release'
         run: |
-          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          # Linked codec roots explicitly use -nostdlib, -lgcc, -lc and -lnosys.
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-dev
           python3 -m venv "$RUNNER_TEMP/codegen-browser"
           "$RUNNER_TEMP/codegen-browser/bin/pip" install playwright==1.63.0
           "$RUNNER_TEMP/codegen-browser/bin/python" -m playwright install --with-deps chromium
