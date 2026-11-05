@@ -149,6 +149,57 @@ static void goldenWire() noexcept
 	CHECK(alias == expected);
 }
 
+static void headerAliasing() noexcept
+{
+	struct Storage {
+		wire::Header header{};
+		std::array<std::byte, wire::headerBytes + 8> padding{};
+	};
+
+	wire::Header header{};
+	header.reply = true;
+	header.operation = wire::Operation::Service;
+	header.session = 0x12345678u;
+	header.requestId = 0x87654321u;
+	header.endpoint = 0xaabbccddu;
+	std::array<std::byte, wire::headerBytes> expected{};
+	CHECK(wire::writeHeader(expected, header) == wire::Status::Ok);
+	CHECK(wire::parse(expected));
+	// Aligned native source and byte destinations at/within the same object.
+	// Displaced output can overwrite integer fields before they are serialized.
+	for (const std::size_t displacement : {0u, 1u, 4u}) {
+		Storage storage{};
+		storage.header = header;
+		auto bytes = std::as_writable_bytes(std::span{&storage, std::size_t{1}});
+		std::array<std::byte, sizeof(Storage)> before{};
+		std::memcpy(before.data(), bytes.data(), bytes.size());
+		const auto output = bytes.subspan(displacement, wire::headerBytes);
+		CHECK(wire::writeHeader(output, storage.header) == wire::Status::Ok);
+		CHECK(std::equal(output.begin(), output.end(), expected.begin()));
+		const auto parsed = wire::parse(output);
+		CHECK(parsed && parsed.header.reply && parsed.header.operation == header.operation);
+		CHECK(parsed.header.session == header.session &&
+		      parsed.header.requestId == header.requestId &&
+		      parsed.header.endpoint == header.endpoint);
+		CHECK(std::equal(bytes.begin(), bytes.begin() + displacement, before.begin()));
+		CHECK(std::equal(bytes.begin() + displacement + wire::headerBytes, bytes.end(),
+		                 before.begin() + displacement + wire::headerBytes));
+	}
+	for (const bool invalid : {false, true}) {
+		Storage storage{};
+		storage.header = header;
+		if (invalid)
+			storage.header.session = 0;
+		auto bytes = std::as_writable_bytes(std::span{&storage, std::size_t{1}});
+		std::array<std::byte, sizeof(Storage)> before{};
+		std::memcpy(before.data(), bytes.data(), bytes.size());
+		const auto output = invalid ? bytes : bytes.first(wire::headerBytes - 1);
+		CHECK(wire::writeHeader(output, storage.header) ==
+		      (invalid ? wire::Status::InvalidHeader : wire::Status::BufferTooSmall));
+		CHECK(std::equal(bytes.begin(), bytes.end(), before.begin()));
+	}
+}
+
 static void realModel() noexcept
 {
 	device = Device{};
@@ -489,6 +540,7 @@ int main(int argc, char** argv)
 	static_assert(!std::is_copy_constructible_v<::telemetry::integration::encoded::EncodedBackend>);
 	static_assert(!std::is_move_constructible_v<::telemetry::integration::encoded::EncodedBackend>);
 	goldenWire();
+	headerAliasing();
 	realModel();
 	rejectsBeforeEffects();
 	endpointStatusLayers();

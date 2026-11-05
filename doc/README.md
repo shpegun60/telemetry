@@ -169,3 +169,5 @@ user guide пояснює використання; module guides і wire refere
 і вимірювання залишаються у своїх evidence directories з початковими
 source identities. Вони доступні для перевірки походження результатів;
 чинний API визначають довідники вище.
+
+[SDK + UX source audit](evidence/sdk-ux-audit-2026-11-05/README.md) ? source coverage, confirmed repairs and qualification limits.

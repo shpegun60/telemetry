@@ -203,17 +203,20 @@ constexpr void store32(std::span<std::byte> bytes, std::size_t offset, std::uint
 		return status;
 	if (output.size() < headerBytes)
 		return Status::BufferTooSmall;
+	// The destination may cover the native Header object. Preserve all source
+	// fields before publishing bytes, including its bool representation.
+	const Header value = header;
 	detail::store32(output, 0, magic);
 	output[4] = std::byte{version};
-	output[5] = std::byte(header.reply ? 1 : 0);
-	output[6] = std::byte(static_cast<std::uint8_t>(header.operation));
-	output[7] = std::byte{header.dispatch};
-	detail::store32(output, 8, header.session);
-	detail::store32(output, 12, header.requestId);
-	detail::store32(output, 16, header.endpoint);
-	detail::store32(output, 20, header.payloadBytes);
-	detail::store32(output, 24, header.expectedResponseBytes);
-	output[28] = std::byte{header.endpointStatus};
+	output[5] = std::byte(value.reply ? 1 : 0);
+	output[6] = std::byte(static_cast<std::uint8_t>(value.operation));
+	output[7] = std::byte{value.dispatch};
+	detail::store32(output, 8, value.session);
+	detail::store32(output, 12, value.requestId);
+	detail::store32(output, 16, value.endpoint);
+	detail::store32(output, 20, value.payloadBytes);
+	detail::store32(output, 24, value.expectedResponseBytes);
+	output[28] = std::byte{value.endpointStatus};
 	output[29] = output[30] = output[31] = std::byte{0};
 	return Status::Ok;
 }

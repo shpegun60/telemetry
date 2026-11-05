@@ -74,6 +74,11 @@ def main() -> None:
                      *link_flags, "-o", str(program)], f"link-{name}")
         if not args.arm:
             run([str(program)], f"execute-{name}")
+            native = output / ("native-scalars" + extension)
+            run(flags + [f"-{optimization}", str(SOURCES / "NativeScalars.cpp"),
+                         "-o", str(native)], "link-native-scalars")
+            run([str(native), str(output / "native-scalars.bin"),
+                 str(output / "native-scalars-value.bin")], "execute-native-scalars")
 
         for case, diagnostic in ((1, "Type is absent from this TypeRegistry"),
                                  (2, "TypeId is outside this TypeRegistry")):

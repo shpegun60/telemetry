@@ -15,6 +15,8 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -71,6 +73,8 @@ def main():
         parser.error('Sanitizers require host execution')
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # A failed rerun must not retain successful evidence from an earlier run.
+    (output / 'summary.json').write_text('{"completed": false}\n', encoding='utf-8')
     compiler = Path(shutil.which(args.cxx) or args.cxx).absolute()
     environment = os.environ.copy()
     environment['PATH'] = str(compiler.parent) + os.pathsep + environment.get('PATH', '')
@@ -81,7 +85,8 @@ def main():
               'arm': args.arm, 'sanitize': args.sanitize, 'null_checks': args.null_checks,
               'commands': 0, 'rejections': 0, 'executions': {}, 'sections': {}, 'frames': {},
               'input_hashes': {}, 'completed': False}
-    captured = sorted([*SOURCE.glob('*.cpp'), SOURCE / 'run.py', ABI, PROTOCOL,
+    captured = sorted([*SOURCE.glob('*.cpp'), SOURCE / 'run.py', SOURCE / 'Runner.py',
+                       ROOT / 'tests/docs/run.py', ROOT / 'tests/codegen/run.py', ABI, PROTOCOL,
                        *ROOT.joinpath('lib/telemetry').rglob('*.hpp'),
                        *ROOT.joinpath('lib/telemetry').rglob('*.h'),
                        *ROOT.joinpath('lib/resource').rglob('*.hpp')])
@@ -128,6 +133,16 @@ def main():
     for number, header in enumerate(new_headers):
         run(flags + ['-x', 'c++', '-fsyntax-only', '-'], f'header-{number}',
             input_text=f'#include <{header}>\n')
+    # CI may keep its build tree inside the checkout; the regression's generated
+    # source copies must still live outside it. Preserve their logs on failure.
+    reuse = output / 'runner-reuse'
+    reuse.mkdir(exist_ok=True)
+    (reuse / 'summary.json').write_text('{"completed": false}\n', encoding='utf-8')
+    with tempfile.TemporaryDirectory(prefix='telemetry-runner-reuse-') as temporary:
+        try:
+            run([sys.executable, SOURCE / 'Runner.py', '--build-dir', temporary], 'runner-reuse')
+        finally:
+            shutil.copytree(temporary, reuse, dirs_exist_ok=True)
     opts = ('O2', 'Os', 'Og') if args.arm else ('O2',)
     positives = ['Basics', 'Traversal', 'Fields', 'NativeCalls', 'ResourceClient', 'ResultAccessors']
     for opt in opts:

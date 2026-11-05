@@ -8,9 +8,10 @@
 /*
  * Assigns Model-wide identifiers to exact C++ types and their dependencies.
  *
- * Built-in positions are fixed; user types follow deterministic first use with
- * dependencies recorded first. Exact type identity deduplicates roots even
- * when different types have the same wire shape. Static descriptor storage
+ * Built-in positions are fixed; native scalar spellings share their canonical
+ * wire ID. User types follow deterministic first use with dependencies recorded
+ * first. Exact type identity deduplicates user roots even when different types
+ * have the same wire shape. Static descriptor storage
  * contains structural facts only and never references application owners.
  */
 
@@ -214,7 +215,8 @@ struct CollectDependencies<List, T, TypeKind::Struct> {
 // Dependencies are collected before the containing type. Once present, the
 // exact normalized C++ type is not traversed again; equal wire shape alone
 // does not merge two different C++ types.
-template<class List, class T, bool Present = Contains<List, T>::value>
+template<class List, class T,
+         bool Present = Contains<List, T>::value || Type<T>::kind == TypeKind::Scalar>
 struct CollectOne {
 	using type = List;
 };
@@ -274,7 +276,11 @@ public:
 	[[nodiscard]] static consteval TypeId typeId() noexcept
 	{
 		using Normal = std::remove_cvref_t<T>;
-		if constexpr (detail::Contains<Ordered, Normal>::value) {
+		if constexpr (Type<Normal>::kind == TypeKind::Scalar) {
+			// Scalar IDs are reserved by wire representation, independently of
+			// whether int64_t names long or long long on the native ABI.
+			return static_cast<TypeId>(Type<Normal>::code);
+		} else if constexpr (detail::Contains<Ordered, Normal>::value) {
 			return []<class... Present>(detail::TypeList<Present...>) {
 				return detail::Position<Normal, Present...>::value;
 			}(Ordered{});

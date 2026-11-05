@@ -63,6 +63,8 @@ def main():
         parser.error("--sanitize is a host execution mode")
     output = args.build_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    # Compiler discovery can fail before the detailed report's try/finally.
+    (output / "summary.json").write_text('{"completed": false}\n', encoding="utf-8")
     # Preserve the C++ driver spelling when clang++ is a symlink to clang.
     compiler = Path(shutil.which(args.cxx) or args.cxx).absolute()
     environment = os.environ.copy()

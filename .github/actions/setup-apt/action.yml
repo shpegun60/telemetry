@@ -1,0 +1,16 @@
+# Bound host package downloads without changing Ubuntu source suites or signing keys.
+name: Configure bounded Ubuntu package downloads
+description: Prefer official x64 mirrors and bound APT retries and connection timeouts.
+runs:
+  using: composite
+  steps:
+    - name: Configure runner-local APT sources and download limits
+      shell: bash
+      run: |
+        if [[ $(dpkg --print-architecture) == amd64 && -f /etc/apt/apt-mirrors.txt ]]; then
+          printf '%s\n' https://archive.ubuntu.com/ubuntu/ https://security.ubuntu.com/ubuntu/ |
+            sudo tee /etc/apt/apt-mirrors.txt
+        fi
+        printf '%s\n' 'Acquire::Retries "1";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' |
+          sudo tee /etc/apt/apt.conf.d/zz-telemetry-ci
+        apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
