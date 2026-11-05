@@ -2,7 +2,7 @@
 
 The audit covers maintained production sources, examples, executable tests,
 build scripts and package configuration. The complete source ledger contains
-982 files / 190,938 physical lines across both repositories, including the new
+982 files / 190,947 physical lines across both repositories, including the new
 runner regression. This repository's exact subset is in [coverage.json](coverage.json).
 SHA-256 values normalize CRLF to LF so another checkout can verify the inputs.
 
