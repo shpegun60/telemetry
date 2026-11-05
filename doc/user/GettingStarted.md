@@ -296,9 +296,13 @@ packed integer може позначати Field 0, Command 0 і Service 0.
 для borrowed getter. Для великого payload використайте його borrowed native
 read або encoded path, якщо копія не потрібна.
 
-Runtime Command/Service з довільним Request викликайте через `visit` або
-encoded API. Загального `callAs` немає. Compile-time Command/Service
-викликаються через `call<Position>()` / `call<PackedId>(request)`.
+Коли runtime ID та exact native Request/Response відомі, Command викликайте
+через `commands.call(id, request)`, а Service — через
+`services.callAs<Reply>(id, request)`. Для операцій без Request аргумент
+`request` не потрібний. [Flat runtime API](FlatNative.md) описує статуси,
+перевірку сигнатур та borrowed result. `visit` лишається для generic обходу,
+а encoded API — для wire payload. Compile-time Command/Service викликаються
+через `call<Position>()` / `call<PackedId>(request)`.
 
 ## Крок 9. Рознесіть application і metadata по своїх файлах
 

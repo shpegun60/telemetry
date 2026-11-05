@@ -4,17 +4,21 @@ Typed generated/handwritten C++ clients can select the independent
 [Static ReadMany adapter](StaticReadMany.md). The runtime adapter described
 below retains its existing API and component dependencies.
 
-The first production mapping is C++ complete-frame Encoded v1 only. It reads
+This page describes the C++ complete-frame Encoded v1 mapping. It reads
 1–32 distinct scalar/open-enum Fields from any catalogs through **one existing
 DynamicClient FIFO request**. Struct and Array Fields are unsupported even when
 their wire size is small. Scalar lengths are 1, 2, 4 or 8 bytes.
 
 This is sequential reading, without an atomic snapshot guarantee. Use an
 application Aggregate/Snapshot Field when values must represent one instant.
-For one Field, normal FieldRead remains smaller. There is no implicit fan-out,
-automatic polling, GUI watchlist, RPC batch or JS/TS batch API. Device firmware
-enables ReadMany explicitly, as in the optional NUCLEO profile. Existing
-Inspector/Workbench and four-operation SDKs keep working.
+For one Field, normal FieldRead remains smaller. This adapter adds no implicit
+fan-out or polling scheduler, and RPC does not support this operation.
+[JS/TS ReadMany](JsReadMany.md) uses the same Encoded mapping. The optional
+[Qt/QML Watchlist](ReadManyWatchlist.md) and
+[browser Configurator](https://github.com/shpegun60/telemetry-ux/blob/main/web/README.md)
+provide polling above the existing FIFO. Device firmware enables ReadMany
+explicitly, as in the optional NUCLEO profile. Existing Inspector/Workbench and
+four-operation SDKs keep working.
 
 ## Select the modules
 
@@ -195,4 +199,6 @@ the existing serial transport, Resource discovery and the same DynamicClient
 FIFO. The [NUCLEO-H7S3L8 qualification](evidence/read-many-uart-2026-11-01/README.md)
 records physical 8/12/16/32-field batches, controlled timeout/recovery and
 byte-verified original Flash restoration. Sustained UART/DMA/cache load, physical
-cable interruption and the Inspector watchlist remain separate work.
+cable interruption remain separate hardware qualification work. The
+[Inspector watchlist](ReadManyWatchlist.md) is implemented separately in UX;
+its host tests do not extend those historical hardware results.
