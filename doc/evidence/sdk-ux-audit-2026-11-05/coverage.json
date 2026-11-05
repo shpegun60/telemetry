@@ -82,6 +82,16 @@
     },
     {
       "repo": "telemetry-sdk",
+      "path": ".gitignore",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 44,
+      "sha256_lf": "1836e7ae354dfe07d85ca5cf6c700fd04988a57e964a7dd622202f1b690f1db9"
+    },
+    {
+      "repo": "telemetry-sdk",
       "path": "CMakeLists.txt",
       "review": "full-source-read",
       "reviewers": [
@@ -99,6 +109,16 @@
       ],
       "lines": 3,
       "sha256_lf": "8dc54c79536a9bd289729c55c948c1f75f898dc0b6f010a2701d61cc0fb1767b"
+    },
+    {
+      "repo": "telemetry-sdk",
+      "path": "VERSION",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 1,
+      "sha256_lf": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67"
     },
     {
       "repo": "telemetry-sdk",
@@ -149,6 +169,16 @@
       ],
       "lines": 47,
       "sha256_lf": "572d141db49a8ec40f4aab9c26023e2e86f6f05ea8f2a9e09e1da2dac2e81567"
+    },
+    {
+      "repo": "telemetry-sdk",
+      "path": "app/mainwindow.ui",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 37,
+      "sha256_lf": "2f5fbe4e7eaa757e1c004e194f1120471bbac79171a242f7c9f3a36058f8c42c"
     },
     {
       "repo": "telemetry-sdk",
@@ -3149,6 +3179,16 @@
     },
     {
       "repo": "telemetry-sdk",
+      "path": "packaging/full/VERSION",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 1,
+      "sha256_lf": "e9dd8507f4bf0c6f42458e41aea833ad0bd3f6127272335eee9bf4d58541ed67"
+    },
+    {
+      "repo": "telemetry-sdk",
       "path": "packaging/full/pyproject.toml",
       "review": "full-source-read",
       "reviewers": [
@@ -3877,6 +3917,16 @@
       ],
       "lines": 184,
       "sha256_lf": "0512b562972442a965a5ecb8950a25adef7eadc102b69ec7721702dfe1714f39"
+    },
+    {
+      "repo": "telemetry-sdk",
+      "path": "tests/client_web/traces.json",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 8,
+      "sha256_lf": "eb6ef56aa03c937154a72a3d3cce881b98cde96ebba001a05835f8477e5d7b03"
     },
     {
       "repo": "telemetry-sdk",
@@ -4698,6 +4748,16 @@
       ],
       "lines": 555,
       "sha256_lf": "925905c923aa58d05f537e87d69bd8b06cabec695f158309811cbc74a83afb77"
+    },
+    {
+      "repo": "telemetry-sdk",
+      "path": "tests/nucleo_h7s3l8/MockHardware.cs",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 336,
+      "sha256_lf": "4f73a779c390058987cd7df4700be614a602137aabbbd09b40d335a01e7ea473"
     },
     {
       "repo": "telemetry-sdk",
@@ -6852,6 +6912,16 @@
     },
     {
       "repo": "telemetry-sdk",
+      "path": "tests/structured/freeze/contract.json",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 44,
+      "sha256_lf": "6398971b7ad349b2510f22856f1b4f88294d84d006432e207c954e28e930946e"
+    },
+    {
+      "repo": "telemetry-sdk",
       "path": "tests/structured/freeze/run.py",
       "review": "full-source-read",
       "reviewers": [
@@ -7272,6 +7342,16 @@
     },
     {
       "repo": "telemetry-sdk",
+      "path": "tests/structured/registry/NativeScalars.cpp",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 138,
+      "sha256_lf": "97d8ed0567fcf7dc97725a443284fb43d1e89a8726d4a99d45179e4408da01f0"
+    },
+    {
+      "repo": "telemetry-sdk",
       "path": "tests/structured/registry/ProbeTypes.hpp",
       "review": "full-source-read",
       "reviewers": [
@@ -7439,6 +7519,16 @@
       ],
       "lines": 118,
       "sha256_lf": "62f426f5590f436209f96615007ca36e2f3f5e72040396ea9081d84eec53d034"
+    },
+    {
+      "repo": "telemetry-sdk",
+      "path": "tests/structured/resources/h7s/Golden.inc",
+      "review": "full-source-read",
+      "reviewers": [
+        "core"
+      ],
+      "lines": 12,
+      "sha256_lf": "432d1afd7ed3dcc86b9b65b150c97432aa64cd6074dbacce6c848547e613058a"
     },
     {
       "repo": "telemetry-sdk",
@@ -8382,7 +8472,7 @@
     }
   ],
   "summary": {
-    "files": 833,
-    "lines": 156630
+    "files": 842,
+    "lines": 157251
   }
 }
