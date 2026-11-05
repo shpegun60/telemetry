@@ -57,18 +57,22 @@ static_assert(Empty::recordsBytes == 20 + 11 * 24);
 
 // Native integer spellings can differ from fixed-width aliases on each ABI.
 // They still occupy the reserved wire scalar ID, never an extra Scalar row.
-using NativeScalars = TypeRegistry<signed char, unsigned char, short, unsigned short, int,
-                                   unsigned, long, unsigned long, long long, unsigned long long>;
+using NativeScalars = TypeRegistry<signed char, unsigned char, short, unsigned short, int, unsigned,
+                                   long, unsigned long, long long, unsigned long long>;
 static_assert(NativeScalars::typeCount == 12);
+
 template<class... T>
 consteval bool nativeScalarIds(telemetry::detail::TypeList<T...>)
 {
-	return ((NativeScalars::typeId<T>() == static_cast<telemetry::TypeId>(telemetry::Type<T>::code) &&
-	         Empty::typeId<T>() == NativeScalars::typeId<T>()) && ...);
+	return (
+	    (NativeScalars::typeId<T>() == static_cast<telemetry::TypeId>(telemetry::Type<T>::code) &&
+	     Empty::typeId<T>() == NativeScalars::typeId<T>()) &&
+	    ...);
 }
-static_assert(nativeScalarIds(telemetry::detail::TypeList<
-              signed char, unsigned char, short, unsigned short, int, unsigned, long,
-              unsigned long, long long, unsigned long long>{}));
+
+static_assert(nativeScalarIds(
+    telemetry::detail::TypeList<signed char, unsigned char, short, unsigned short, int, unsigned,
+                                long, unsigned long, long long, unsigned long long>{}));
 
 // A nested member is registered before its parent; later roots are deduped.
 static_assert(Registry::typeId<Reading>() == 12);

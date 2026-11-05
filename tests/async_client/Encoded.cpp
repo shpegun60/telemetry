@@ -155,6 +155,7 @@ static void headerAliasing() noexcept
 		wire::Header header{};
 		std::array<std::byte, wire::headerBytes + 8> padding{};
 	};
+
 	wire::Header header{};
 	header.reply = true;
 	header.operation = wire::Operation::Service;
@@ -177,7 +178,8 @@ static void headerAliasing() noexcept
 		CHECK(std::equal(output.begin(), output.end(), expected.begin()));
 		const auto parsed = wire::parse(output);
 		CHECK(parsed && parsed.header.reply && parsed.header.operation == header.operation);
-		CHECK(parsed.header.session == header.session && parsed.header.requestId == header.requestId &&
+		CHECK(parsed.header.session == header.session &&
+		      parsed.header.requestId == header.requestId &&
 		      parsed.header.endpoint == header.endpoint);
 		CHECK(std::equal(bytes.begin(), bytes.begin() + displacement, before.begin()));
 		CHECK(std::equal(bytes.begin() + displacement + wire::headerBytes, bytes.end(),

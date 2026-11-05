@@ -88,6 +88,9 @@ def main():
             started_at_utc=datetime.now(timezone.utc).isoformat(),
             original_checks=report["checks"]))
 
+    # Load legitimate supplements first, then invalidate before input/tool hashing.
+    (build / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
+
     def run(command, name, *, cwd=ROOT, expected_failure=False):
         command = list(map(str, command))
         started_at_utc = datetime.now(timezone.utc).isoformat()
@@ -233,8 +236,6 @@ def main():
         if not snapshot["unchanged"]:
             raise RuntimeError("source or selected tool input changed during qualification")
 
-    # A prior receipt must never look current while a new run/supplement is active.
-    (build / "summary.json").write_text(json.dumps(report, indent=2) + "\n")
     try:
         if args.large_arm_only:
             large_arm()
