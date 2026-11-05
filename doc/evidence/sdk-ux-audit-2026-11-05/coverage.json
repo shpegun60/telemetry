@@ -60,13 +60,25 @@
     },
     {
       "repo": "telemetry-sdk",
+      "path": ".github/actions/setup-apt/action.yml",
+      "review": "full-source-read",
+      "reviewers": [
+        "root",
+        "client",
+        "core"
+      ],
+      "lines": 16,
+      "sha256_lf": "45d8a6880b537ef923ed307bb91ecfe06063f98133c6f2845d492c317e702455"
+    },
+    {
+      "repo": "telemetry-sdk",
       "path": ".github/workflows/ci.yml",
       "review": "full-source-read",
       "reviewers": [
         "root"
       ],
       "lines": 1365,
-      "sha256_lf": "e3767f49177dcfe9571d164ef32c193b4857b770ce48d8e1a6eb64a50aa196a4"
+      "sha256_lf": "a036a08023a3339848e5d10f03017216204a9391b7f437962c0eb9d081831410"
     },
     {
       "repo": "telemetry-sdk",
@@ -8370,7 +8382,7 @@
     }
   ],
   "summary": {
-    "files": 832,
-    "lines": 156614
+    "files": 833,
+    "lines": 156630
   }
 }
