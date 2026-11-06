@@ -115,7 +115,9 @@ void operator delete[](void*, std::align_val_t, const std::nothrow_t&) noexcept
 }
 
 #define main workbenchHostMain
-#ifdef WORKBENCH_SERVICE_SUITE
+#ifdef WORKBENCH_BORROWED_SUITE
+#include "Borrowed.cpp"
+#elif defined(WORKBENCH_SERVICE_SUITE)
 #include "Service.cpp"
 #elif defined(WORKBENCH_COMMAND_SUITE)
 #include "Command.cpp"

@@ -61,39 +61,105 @@ struct ServiceResult {
 // A completion callback may reenter read/edit APIs; another apply while that
 // callback is executing returns Busy. Destruction requires close/process/drained
 // and actual transport release, and must wait until callbacks have returned.
-template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t SnapshotBytes = 4096,
-         std::size_t CallbackBytes = 256>
-class WorkbenchModel {
+namespace detail {
+template<std::size_t N, std::size_t PayloadBytes, std::size_t SnapshotBytes,
+         std::size_t CallbackBytes, bool Borrowed>
+class WorkbenchState {
 public:
-	explicit WorkbenchModel(client::Backend& backend, client::Clock clock) noexcept
-	    : WorkbenchModel(backend, clock, {})
+	explicit WorkbenchState(client::Backend& backend, client::Clock clock) noexcept
+	    requires(!Borrowed)
+	    : WorkbenchState(backend, clock, {})
 	{}
 
 	// Response storage remains exclusive, disjoint and alive through close/drain.
 	// The two-argument constructor reserves no implicit response payload array:
 	// Void and zero-byte Struct responses still work without one.
-	WorkbenchModel(client::Backend& backend, client::Clock clock,
+	WorkbenchState(client::Backend& backend, client::Clock clock,
 	               std::span<std::byte> responseStorage) noexcept
+	    requires(!Borrowed)
 	    : model_(backend, clock),
 	      requestStore_(request_,
 	                    {this,
 	                     +[](const void* context) noexcept {
-		                     return static_cast<const WorkbenchModel*>(context)->model_.isCurrent();
+		                     return static_cast<const WorkbenchState*>(context)->model_.isCurrent();
 	                     }}),
 	      responseStorage_(responseStorage),
 	      responseStore_(
 	          responseStorage,
 	          {this,
 	           +[](const void* context) noexcept {
-		           return static_cast<const WorkbenchModel*>(context)->model_.isCurrent();
+		           return static_cast<const WorkbenchState*>(context)->model_.isCurrent();
 	           }}),
 	      editor_(draft_, request_)
 	{}
 
-	WorkbenchModel(const WorkbenchModel&) = delete;
-	WorkbenchModel& operator=(const WorkbenchModel&) = delete;
-	WorkbenchModel(WorkbenchModel&&) = delete;
-	WorkbenchModel& operator=(WorkbenchModel&&) = delete;
+	WorkbenchState(WorkbenchState<N, PayloadBytes, SnapshotBytes, CallbackBytes, false>& owner,
+	               std::span<std::byte> responseStorage) noexcept
+	    requires Borrowed
+	    : model_(owner.model_),
+	      requestStore_(request_,
+	                    {this,
+	                     +[](const void* context) noexcept {
+		                     return static_cast<const WorkbenchState*>(context)->model_.isCurrent();
+	                     }}),
+	      responseStorage_(responseStorage),
+	      responseStore_(
+	          responseStorage,
+	          {this,
+	           +[](const void* context) noexcept {
+		           return static_cast<const WorkbenchState*>(context)->model_.isCurrent();
+	           }}),
+	      editor_(draft_, request_),
+	      responseOwnerOverlap_(runtime::writer_detail::overlaps(
+	          responseStorage, runtime::writer_detail::objectBytes(owner)))
+	{}
+
+	[[nodiscard]] client::Status synchronize() noexcept
+	    requires Borrowed
+	{
+		if (publishing_ || completionActive_ || !model_.drained())
+			return client::Status::Busy;
+		if (model_.isCurrent())
+			return client::Status::Ok;
+		if (!requestStore_.canAdmit() || !responseStore_.canAdmit())
+			return client::Status::IdsExhausted;
+		const auto status = model_.synchronize();
+		if (status != client::Status::Ok)
+			return status;
+		if (!responseMemoryValid(model_.schema())) {
+			model_.snapshot_.invalidate();
+			return client::Status::InvalidArgument;
+		}
+		cancelEdit();
+		if (requestStore_.admit(model_.schema(), model_.session()) != inspector::ModelStatus::Ok ||
+		    responseStore_.admit(model_.schema(), model_.session()) != inspector::ModelStatus::Ok) {
+			model_.snapshot_.invalidate();
+			return client::Status::InvalidArgument;
+		}
+		return client::Status::Ok;
+	}
+
+	// Data freshness is local, independent of shared admission. Accepted callbacks
+	// retain operation facts but a superseded read cannot republish old data.
+	void invalidateData() noexcept
+	{
+		responseStore_.clearSelection();
+		retireEditor();
+		model_.invalidateData();
+	}
+
+	void retire() noexcept
+	    requires Borrowed
+	{
+		responseStore_.invalidate();
+		retireEditor();
+		model_.retire();
+	}
+
+	WorkbenchState(const WorkbenchState&) = delete;
+	WorkbenchState& operator=(const WorkbenchState&) = delete;
+	WorkbenchState(WorkbenchState&&) = delete;
+	WorkbenchState& operator=(WorkbenchState&&) = delete;
 
 	[[nodiscard]] client::Status admit(const runtime::RuntimeSchema& schema, client::Input header,
 	                                   std::uint32_t session) noexcept
@@ -339,7 +405,7 @@ public:
 			return false;
 		const auto snapshot = model_.snapshotInfo();
 		return snapshot.ready && snapshot.bytes <= PayloadBytes &&
-		       bool(model_.client_.bind(client::Operation::FieldWrite, snapshot.fieldId));
+		       bool(model_.client().bind(client::Operation::FieldWrite, snapshot.fieldId));
 	}
 
 	// Dirty compares bytes only when requested; scalar updates never copy or
@@ -365,7 +431,7 @@ public:
 			return runtime::Status::Stale;
 		if (snapshot.bytes > PayloadBytes)
 			return runtime::Status::Capacity;
-		const auto writable = model_.client_.bind(client::Operation::FieldWrite, snapshot.fieldId);
+		const auto writable = model_.client().bind(client::Operation::FieldWrite, snapshot.fieldId);
 		if (!writable)
 			return runtime::Status::TypeMismatch;
 		const auto status = editor_.begin(model_.snapshot_);
@@ -423,7 +489,7 @@ public:
 		if constexpr (std::is_pointer_v<std::remove_reference_t<F>>)
 			if (callback == nullptr)
 				return {client::Status::InvalidArgument, inspector::ModelStatus::Ok, {}};
-		const Publication publication{publishing_};
+		const Publication publication{*this};
 		const auto committed = editor_.commit();
 		if (!committed)
 			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
@@ -431,12 +497,22 @@ public:
 		    [fn = std::forward<F>(callback)](const Completion& result) mutable noexcept {
 			    fn(result.field);
 		    });
+		const auto gateAfterMove = model_.admissionGate();
+		const auto capturedGate = gateAfterMove == client::Status::Ok && !editor_.current()
+		                              ? client::Status::Cancelled
+		                              : gateAfterMove;
+		if (capturedGate != client::Status::Ok) {
+			completion_.reset();
+			(void)editor_.rearm();
+			return {capturedGate, inspector::ModelStatus::Ok, {}};
+		}
 		applyResult_ = {};
-		const auto submitted = model_.client_.writeField(
+		const auto submitted = model_.client().writeField(
 		    editWrite_, committed.value,
-		    [this, refreshTimeout](const dynamic::DynamicResult& result) noexcept {
-			    writeCompleted(result, refreshTimeout);
-		    },
+		    model_.holdCallback(
+		        [this, refreshTimeout](const dynamic::DynamicResult& result) noexcept {
+			        writeCompleted(result, refreshTimeout);
+		        }),
 		    writeTimeout);
 		if (!submitted) {
 			completion_.reset();
@@ -445,19 +521,26 @@ public:
 			(void)editor_.rearm();
 			return {submitted.status, inspector::ModelStatus::Ok, {}};
 		}
+		const bool localRevoked = [&]() noexcept {
+			if constexpr (Borrowed)
+				return model_.admissionGate() != client::Status::Ok || !editor_.current();
+			return false;
+		}();
 		editor_.clear();
 		model_.snapshot_.retire();
 		responseStore_.clearSelection();
 		applyAdmission_ = model_.snapshot_.admission();
 		applyRevision_ = model_.snapshot_.revision();
 		phase_ = Phase::Writing;
+		if (localRevoked)
+			(void)model_.client().cancel(submitted.handle);
 		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
 	}
 
 	[[nodiscard]] dynamic::EndpointResult bindCommand(std::uint32_t id) const noexcept
 	{
 		const auto gate = model_.submissionGate();
-		return gate == client::Status::Ok ? model_.client_.bind(client::Operation::Command, id)
+		return gate == client::Status::Ok ? model_.client().bind(client::Operation::Command, id)
 		                                  : dynamic::EndpointResult{gate, {}};
 	}
 
@@ -469,7 +552,7 @@ public:
 	[[nodiscard]] dynamic::EndpointResult bindService(std::uint32_t id) const noexcept
 	{
 		const auto gate = model_.submissionGate();
-		return gate == client::Status::Ok ? model_.client_.bind(client::Operation::Service, id)
+		return gate == client::Status::Ok ? model_.client().bind(client::Operation::Service, id)
 		                                  : dynamic::EndpointResult{gate, {}};
 	}
 
@@ -588,12 +671,14 @@ public:
 
 private:
 	friend struct ::telemetry::integration::read_many::detail::WorkbenchAccess;
+	template<std::size_t, std::size_t, std::size_t, std::size_t, bool>
+	friend class WorkbenchState;
 
 	// Optional read integrations use this same FIFO without exposing it to
 	// applications or adding wire dependencies/storage to the Workbench.
 	[[nodiscard]] auto& readOnlyClient() noexcept
 	{
-		return model_.client_;
+		return model_.client();
 	}
 
 	[[nodiscard]] client::Status readOnlyGate() const noexcept
@@ -601,7 +686,8 @@ private:
 		return model_.submissionGate();
 	}
 
-	inspector::InspectorModel<N, PayloadBytes, SnapshotBytes, CallbackBytes> model_;
+	inspector::detail::InspectorState<N, PayloadBytes, SnapshotBytes, CallbackBytes, Borrowed>
+	    model_;
 	std::array<std::byte, PayloadBytes> draft_{}, request_{};
 	inspector::SnapshotStore requestStore_;
 	std::span<std::byte> responseStorage_;
@@ -612,22 +698,17 @@ private:
 	std::uint64_t applyAdmission_ = 0, applyRevision_ = 0, serviceRevision_ = 0;
 	Phase phase_ = Phase::Idle;
 	bool completionActive_ = false, requestSelected_ = false, publishing_ = false;
+	bool responseOwnerOverlap_ = false;
 
 	// Owning a callable may run its user-defined move/destructor. Keep request,
 	// binding and completion publication indivisible to those owner reentries.
 	// Revocation remains allowed; no callbacks or transport progress occur here.
 	struct Publication {
-		bool& active;
+		dynamic::detail::CallbackScope active, owner;
 
-		explicit Publication(bool& flag) noexcept : active(flag)
-		{
-			active = true;
-		}
-
-		~Publication()
-		{
-			active = false;
-		}
+		explicit Publication(WorkbenchState& self) noexcept
+		    : active(self.publishing_), owner(self.model_.ownerPublishing())
+		{}
 	};
 
 	struct Completion {
@@ -641,7 +722,7 @@ private:
 
 	[[nodiscard]] bool responseMemoryValid(const runtime::RuntimeSchema& schema) const noexcept
 	{
-		return schema.valid() &&
+		return schema.valid() && !responseOwnerOverlap_ &&
 		       !runtime::writer_detail::overlaps(responseStorage_,
 		                                         runtime::writer_detail::objectBytes(*this)) &&
 		       !runtime::writer_detail::overlaps(responseStorage_,
@@ -676,11 +757,11 @@ private:
 		    phase_ == Phase::Refreshing || phase_ == Phase::Executing ||
 		    (phase_ == Phase::Editing && !requestSelected_))
 			return client::Status::Busy;
-		if (!model_.client_.isCurrent(binding))
+		if (!model_.client().isCurrent(binding))
 			return client::Status::NotAdmitted;
 		if (binding.operation() != operation)
 			return client::Status::InvalidArgument;
-		const auto rebound = model_.client_.bind(operation, binding.id());
+		const auto rebound = model_.client().bind(operation, binding.id());
 		if (!rebound)
 			return rebound.status;
 		if (binding.requestBytes() > request_.size())
@@ -740,7 +821,7 @@ private:
 				return {
 				    client::Status::InvalidArgument, inspector::ModelStatus::InvalidPayload, {}};
 		}
-		const Publication publication{publishing_};
+		const Publication publication{*this};
 		const auto committed = editor_.commit();
 		if (!committed)
 			return {client::Status::CodecError, inspector::ModelStatus::InvalidPayload, {}};
@@ -751,17 +832,33 @@ private:
 			    else
 				    fn(result.command);
 		    });
-		const auto completed = [this](const dynamic::DynamicResult& result) noexcept {
+		const auto gateAfterMove = model_.admissionGate();
+		const auto capturedGate = gateAfterMove == client::Status::Ok && !editor_.current()
+		                              ? client::Status::Cancelled
+		                              : gateAfterMove;
+		if (capturedGate != client::Status::Ok) {
+			completion_.reset();
+			(void)editor_.rearm();
+			return {capturedGate, inspector::ModelStatus::Ok, {}};
+		}
+		auto completed = model_.holdCallback([this](const dynamic::DynamicResult& result) noexcept {
 			if constexpr (Service)
 				serviceCompleted(result);
 			else
 				commandCompleted(result.operation);
-		};
+		});
 		const auto submitted = [&]() noexcept {
 			if constexpr (Service)
-				return model_.client_.service(requestBinding_, committed.value, completed, timeout);
+				return model_.client().service(requestBinding_, committed.value,
+				                               std::move(completed), timeout);
 			else
-				return model_.client_.command(requestBinding_, committed.value, completed, timeout);
+				return model_.client().command(requestBinding_, committed.value,
+				                               std::move(completed), timeout);
+		}();
+		const bool localRevoked = [&]() noexcept {
+			if constexpr (Borrowed)
+				return model_.admissionGate() != client::Status::Ok || !editor_.current();
+			return false;
 		}();
 		(void)editor_.rearm();
 		if (!submitted) {
@@ -777,6 +874,8 @@ private:
 		} else
 			responseStore_.clearSelection();
 		phase_ = Phase::Executing;
+		if (localRevoked)
+			(void)model_.client().cancel(submitted.handle);
 		return {client::Status::Ok, inspector::ModelStatus::Ok, submitted.handle};
 	}
 
@@ -828,6 +927,13 @@ private:
 		                    requestBinding_.id(),
 		                    serviceRevision_,
 		                    false};
+		if (Borrowed && result.valueStatus != dynamic::ValueStatus::NoValue &&
+		    (!model_.isCurrent() || !responseStore_.isCurrent() ||
+		     responseStore_.revision() != serviceRevision_)) {
+			owned.valueStatus = dynamic::ValueStatus::Stale;
+			finishRequest(Completion{{}, {}, owned});
+			return;
+		}
 		if (result.valueStatus == dynamic::ValueStatus::NoValue)
 			owned.modelStatus = inspector::ModelStatus::Ok;
 		else if (result.valueStatus == dynamic::ValueStatus::TypeMismatch)
@@ -853,7 +959,7 @@ private:
 		completionActive_ = true;
 		completion_.invoke(result);
 		{
-			const Publication publication{publishing_};
+			const Publication publication{*this};
 			completion_.reset();
 		}
 		completionActive_ = false;
@@ -866,7 +972,7 @@ private:
 		completionActive_ = true;
 		completion_.invoke(Completion{result, {}});
 		{
-			const Publication publication{publishing_};
+			const Publication publication{*this};
 			completion_.reset();
 		}
 		completionActive_ = false;
@@ -910,6 +1016,92 @@ private:
 		if (!submitted)
 			finishApply();
 	}
+};
+
+} // namespace detail
+
+// Existing owning API. It alone admits sessions and drives the shared transport.
+template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t SnapshotBytes = 4096,
+         std::size_t CallbackBytes = 256>
+class WorkbenchModel
+    : public detail::WorkbenchState<N, PayloadBytes, SnapshotBytes, CallbackBytes, false> {
+	using Base = detail::WorkbenchState<N, PayloadBytes, SnapshotBytes, CallbackBytes, false>;
+
+public:
+	using Base::Base;
+};
+
+// Independent local presentation state over an existing owner's one client/FIFO.
+// The owner and schema backing storage outlive this object. Before destruction,
+// retire and wait for drained(): callbacks and their captured destructors must
+// return. This local proof says nothing about physical or remote quiescence.
+template<std::size_t N = 8, std::size_t PayloadBytes = 4096, std::size_t SnapshotBytes = 4096,
+         std::size_t CallbackBytes = 256>
+class WorkbenchView
+    : private detail::WorkbenchState<N, PayloadBytes, SnapshotBytes, CallbackBytes, true> {
+	using Base = detail::WorkbenchState<N, PayloadBytes, SnapshotBytes, CallbackBytes, true>;
+
+public:
+	explicit WorkbenchView(WorkbenchModel<N, PayloadBytes, SnapshotBytes, CallbackBytes>& owner,
+	                       std::span<std::byte> responseStorage = {}) noexcept
+	    : Base(owner, responseStorage)
+	{}
+
+	using Base::catalogs;
+	using Base::endpoints;
+	using Base::fields;
+	using Base::commands;
+	using Base::services;
+	using Base::bindField;
+	using Base::selectField;
+	using Base::clearSelection;
+	using Base::readField;
+	using Base::refresh;
+	using Base::snapshotInfo;
+	using Base::root;
+	using Base::info;
+	using Base::childCount;
+	using Base::child;
+	using Base::scalar;
+	using Base::decimal;
+	using Base::isCurrent;
+	using Base::phase;
+	using Base::editing;
+	using Base::canEdit;
+	using Base::dirty;
+	using Base::canApply;
+	using Base::beginEdit;
+	using Base::setScalar;
+	using Base::editScalar;
+	using Base::cancelEdit;
+	using Base::apply;
+	using Base::bindCommand;
+	using Base::selectCommand;
+	using Base::bindService;
+	using Base::selectService;
+	using Base::commandSelected;
+	using Base::serviceSelected;
+	using Base::canExecute;
+	using Base::canCallService;
+	using Base::editorSnapshotInfo;
+	using Base::editorRoot;
+	using Base::editorInfo;
+	using Base::editorChild;
+	using Base::editorChildCount;
+	using Base::execute;
+	using Base::callService;
+	using Base::serviceSnapshotInfo;
+	using Base::serviceRoot;
+	using Base::serviceInfo;
+	using Base::serviceChild;
+	using Base::serviceChildCount;
+	using Base::serviceScalar;
+	using Base::serviceDecimal;
+	using Base::session;
+	using Base::drained;
+	using Base::synchronize;
+	using Base::retire;
+	using Base::invalidateData;
 };
 
 } // namespace telemetry::integration::workbench

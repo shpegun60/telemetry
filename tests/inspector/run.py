@@ -140,7 +140,7 @@ def main():
         sources = [HERE / name for name in ('Host.cpp', 'Lifetime.cpp', 'Negative.cpp', 'NoHeap.cpp', 'Snapshot.cpp')]
         sources += [workbench / name for name in ('Host.cpp', 'NoHeap.cpp', 'Command.cpp',
                                                  'CommandNoHeap.cpp', 'Service.cpp', 'ServiceNoHeap.cpp',
-                                                 'Standalone.cpp', 'Negative.cpp')]
+                                                 'Standalone.cpp', 'Negative.cpp', 'Borrowed.cpp')]
         example = ROOT / 'examples/inspector/Host.cpp'
         if example.is_file():
             sources.append(example)
@@ -186,6 +186,20 @@ def main():
         output = run('execute-WorkbenchHost', [workbench_host])
         count('WorkbenchHost', output, 1647)
         timeout_phases('WorkbenchHost', output, workbench=True)
+        borrowed = build('WorkbenchBorrowed', workbench / 'Borrowed.cpp', native_link=True)
+        count('WorkbenchBorrowed', run('execute-WorkbenchBorrowed', [borrowed]), 1436)
+        borrowed_noheap = build('WorkbenchBorrowedNoHeap', workbench / 'NoHeap.cpp',
+                                ['-DWORKBENCH_BORROWED_SUITE=1'], native_link=True,
+                                allocation_trap=True)
+        count('WorkbenchBorrowedNoHeap', run('execute-WorkbenchBorrowedNoHeap', [borrowed_noheap]),
+              report['executions']['WorkbenchBorrowed'])
+        borrowed_control = build('WorkbenchBorrowedNoHeapControl', workbench / 'NoHeap.cpp',
+                                 ['-DWORKBENCH_BORROWED_SUITE=1', '-DWORKBENCH_HEAP_CONTROL=1'],
+                                 native_link=True, allocation_trap=True)
+        output = run('execute-WorkbenchBorrowedNoHeapControl', [borrowed_control], expected=86)
+        if 'workbench heap allocation refused' not in output:
+            raise RuntimeError('Borrowed allocation negative control did not reach its trap')
+        report['borrowed_noheap_negative_exit'] = 86
         workbench_noheap = build('WorkbenchNoHeap', workbench / 'NoHeap.cpp', native_link=True,
                                 allocation_trap=True)
         output = run('execute-WorkbenchNoHeap', [workbench_noheap])
