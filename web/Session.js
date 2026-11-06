@@ -435,6 +435,9 @@ class SessionOwner {
     write(endpoint, value, timeoutMs) {
         return this.submit('FieldWrite', endpoint, value, timeoutMs);
     }
+    writePreserving(endpoint, value, originalPayload, timeoutMs) {
+        return this.submit('FieldWrite', endpoint, value, timeoutMs, originalPayload, true);
+    }
     command(endpoint, value, timeoutMs) {
         return this.submit('Command', endpoint, value, timeoutMs);
     }
@@ -449,11 +452,23 @@ class SessionOwner {
         return Object.assign(Promise.resolve(Object.freeze({ ...rawResult,
             valueStatus: this.ready ? 'NoValue' : 'Stale', rawResult })), { requestId: 0, session: rawResult.session, cancel: () => false });
     }
-    submit(operation, endpoint, value, timeoutMs) {
+    submit(operation, endpoint, value, timeoutMs, originalPayload, preserving = false) {
         if (!this.ready)
             return this.refused(operation, this.terminal ? Status.Closed :
                 this.recoveryRequired ? Status.RecoveryRequired : Status.NotAdmitted);
         const revision = this.revision;
+        let seed;
+        if (preserving) {
+            // Own the seed before binding accessors or DTO conversion can reenter/mutate it.
+            if (!(originalPayload instanceof ArrayBuffer) && !ArrayBuffer.isView(originalPayload))
+                return this.refused(operation, Status.InvalidArgument);
+            try {
+                seed = copy(originalPayload);
+            }
+            catch {
+                return this.refused(operation, Status.InvalidArgument);
+            }
+        }
         let raw;
         if (this.core instanceof DynamicClient) {
             if (typeof endpoint !== 'number' || !Number.isInteger(endpoint) || endpoint < 0 || endpoint > 0xffffffff)
@@ -462,11 +477,35 @@ class SessionOwner {
             if (binding.status !== Status.Ok)
                 return this.refused(operation, binding.status);
             raw = operation === 'FieldRead' ? this.core.readField(binding.endpoint, timeoutMs)
-                : operation === 'FieldWrite' ? this.core.writeField(binding.endpoint, value, timeoutMs)
+                : operation === 'FieldWrite'
+                    ? preserving
+                        ? this.core.writeFieldPreserving(binding.endpoint, value, seed, timeoutMs)
+                        : this.core.writeField(binding.endpoint, value, timeoutMs)
                     : operation === 'Command' ? this.core.command(binding.endpoint, value, timeoutMs)
                         : this.core.service(binding.endpoint, value, timeoutMs);
         }
         else {
+            if (preserving) {
+                try {
+                    if (!endpoint || (typeof endpoint !== 'object' && typeof endpoint !== 'function'))
+                        return this.refused(operation, Status.InvalidArgument);
+                    const field = endpoint;
+                    const write = 'read' in field ? field.write : field;
+                    if (!write)
+                        return this.refused(operation, Status.ReadOnly);
+                    const { fingerprint, operation: declared, id, requestBytes, responseBytes } = write;
+                    if (declared !== 'FieldWrite')
+                        return this.refused(operation, Status.InvalidArgument);
+                    const encode = write.encodePreserving;
+                    if (typeof encode !== 'function')
+                        return this.refused(operation, Status.Unsupported);
+                    endpoint = { fingerprint, operation: declared, id, requestBytes, responseBytes,
+                        encode: (edited) => encode.call(write, edited, seed) };
+                }
+                catch {
+                    return this.refused(operation, Status.InvalidArgument);
+                }
+            }
             raw = operation === 'FieldRead'
                 ? this.core.read(endpoint, timeoutMs)
                 : operation === 'FieldWrite'
@@ -528,12 +567,15 @@ function facade(owner) {
         close: owner.close.bind(owner),
         read: owner.read.bind(owner),
         write: owner.write.bind(owner),
+        writePreserving: owner.writePreserving.bind(owner),
         command: owner.command.bind(owner),
         service: owner.service.bind(owner)
     };
     Object.defineProperty(publicSession, owner.mode === 'static' ? 'metadata' : 'schema', {
         enumerable: true, get: () => owner.mode === 'static' ? owner.metadata : owner.schema
     });
+    if (owner.mode === 'static')
+        Object.defineProperty(publicSession, 'sdk', { enumerable: true, get: () => owner.sdk });
     return Object.freeze(publicSession);
 }
 export async function connectStatic(options) {
