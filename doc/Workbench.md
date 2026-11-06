@@ -25,6 +25,67 @@ schema generation before metadata or payload access. A new schema/session,
 selection, accepted read or invalidation retires the appropriate handles.
 Handles must not outlive their owner.
 
+## Independent borrowed views
+
+`WorkbenchView` provides independent selection, Field snapshot, argument editor
+and Service response over an existing `WorkbenchModel`. It constructs no client,
+backend, queue or transport. Both types reuse the same inspection, editing and
+completion implementation; the existing four-parameter owning APIs remain valid.
+
+```cpp
+using Owner = telemetry::integration::workbench::WorkbenchModel<8, 4096, 65536, 768>;
+using View = telemetry::integration::workbench::WorkbenchView<8, 4096, 65536, 768>;
+
+Owner owner{backend, clock, ownerResponse};
+// Admit owner using the existing schema/header/session API first.
+View left{owner, leftResponse};
+View right{owner, rightResponse};
+if (left.synchronize() != telemetry::client::Status::Ok ||
+    right.synchronize() != telemetry::client::Status::Ok)
+    return;
+```
+
+Each view uses the existing bind/read/refresh/navigation/edit/apply/Command/Service
+methods. Only `owner` runs process and the transport loop. Requests from all views
+use its one FIFO and shared capacity. Refused submissions do not consume an entry
+or discard a valid draft. Caller-provided response buffers are exclusive, disjoint
+from each other, the owner, views and schema storage, and outlive pending callbacks.
+
+`synchronize()` admits local stores to the owner's current admission without
+admitting the shared client again. Owner revocation or replacement immediately
+makes old views, handles and editors stale. After an owner has established a new
+admission and this view's callbacks have drained, synchronize prepares empty local
+stores; it does not transfer old selections or issue reads.
+
+`invalidateData()` retires only this view's cached values and editing leases. A
+pending Read or Service cannot publish into its old revision. A pending Apply
+retains its Write outcome but does not start an obsolete readback. A host with
+multiple views should invoke it on siblings after an accepted managed mutation;
+direct native operations require the same explicit freshness coordination.
+Admission and data freshness are separate: this method does not revoke the client.
+
+`retire()` irreversibly stops this view from admitting new operations and hides its
+values. Previously accepted operations remain owned by the shared FIFO: removal of
+a panel neither cancels another view nor changes a possible mutation into failure.
+Callbacks still report the original operation facts, including Accepted, Executed,
+confirmed Write or OutcomeUnknown. Retired views never add an automatic replay or
+readback. The view deliberately exposes no admit, close, invalidate, process,
+packet/handoff/reply, cancellation or quiescence API for the shared client.
+
+Keep the owner and its backing schema alive until every view is destroyed. Before
+destroying a view, retire it and wait for `drained()`: local submissions, callbacks
+and their captured destructors must have returned. Its local drain says nothing
+about physical TX release, the owner's other requests or remote-session recovery.
+In particular, do not destroy a view from inside its own completion callback.
+Qt adapters can retain a view and its owner through an explicit lifetime lease.
+
+The view's memory budgets are explicit: it has its own `SnapshotBytes` snapshot,
+two `PayloadBytes` editor/request arrays and fixed metadata. Service response
+storage is additional. A MinGW x86-64 comparison against `8851044`, using identical
+`8,4096,65536,768` template parameters, records unchanged owning sizes (Inspector
+76,960 B, Workbench 86,608 B) and a 75,392 B borrowed view. These are object RAM
+sizes on that ABI, not total firmware RAM, linked Flash or complete stack usage.
+
 ## Editing and submission
 
 Editing starts from a successfully read canonical value of a writable Field.

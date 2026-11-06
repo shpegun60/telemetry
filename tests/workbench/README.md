@@ -25,6 +25,22 @@ deliberate allocation control exiting 86. Separate compile refusals prove that
 the facade exposes no raw-payload Command/Service submission or client/core access,
 and rejects a non-callable completion.
 
+`Borrowed.cpp` runs independent `WorkbenchView` instances through the same real
+Encoded/RPC owner. It checks shared FIFO capacity and request identity, independent
+selections/drafts/Service stores, transactional QueueFull, local retirement without
+peer cancellation, stale publication after data invalidation, owner admission
+replacement, explicit Refresh after data invalidation, and caller-move/Clock
+reentry during publication. Clock retirement or freshness revocation is tested
+for Apply, Command and Service before handoff; no mutating endpoint executes.
+The owning standalone callback-fit control preserves the existing 152-byte
+noexcept callable budget at CallbackBytes=256, and an owning supersession test
+retains the runtime-value versus model-publication status distinction. Both signs of quiet and
+signaling F32/F64 NaNs and signed zero retain their exact bits through a Field
+write/readback and an independent Service response. Compile-time access checks
+prove that a view exposes no shared transport, admission, close or cancellation
+API. The runner also executes this suite with allocation traps and its deliberate
+allocation control, and the standalone ARM probe instantiates borrowed operations.
+
 Three compile refusals also reject a potentially throwing lvalue callable copy
 through Apply, Execute and Service, even when invocation and moves are noexcept.
 The positive control instantiates all three paths with noexcept move-only targets;

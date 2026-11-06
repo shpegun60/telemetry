@@ -26,12 +26,22 @@ namespace telemetry::integration::workbench {
 class RequestEditor;
 template<std::size_t, std::size_t, std::size_t, std::size_t>
 class WorkbenchModel;
+
+namespace detail {
+template<std::size_t, std::size_t, std::size_t, std::size_t, bool>
+class WorkbenchState;
+}
 } // namespace telemetry::integration::workbench
 
 namespace telemetry::integration::inspector {
 
 template<std::size_t, std::size_t, std::size_t, std::size_t>
 class InspectorModel;
+
+namespace detail {
+template<std::size_t, std::size_t, std::size_t, std::size_t, bool>
+class InspectorState;
+}
 
 enum class ModelStatus : std::uint8_t {
 	Ok,
@@ -429,6 +439,10 @@ public:
 private:
 	template<std::size_t, std::size_t, std::size_t, std::size_t>
 	friend class InspectorModel;
+	template<std::size_t, std::size_t, std::size_t, std::size_t, bool>
+	friend class detail::InspectorState;
+	template<std::size_t, std::size_t, std::size_t, std::size_t, bool>
+	friend class ::telemetry::integration::workbench::detail::WorkbenchState;
 	friend class ::telemetry::integration::workbench::RequestEditor;
 	template<std::size_t, std::size_t, std::size_t, std::size_t>
 	friend class ::telemetry::integration::workbench::WorkbenchModel;
