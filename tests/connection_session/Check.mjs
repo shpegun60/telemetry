@@ -156,6 +156,9 @@ function harness(mode, settings = {})
 	const read = (session, field = F.Counter) => session.read(mode === 'static' ? field : field.id);
 	const write = (session, value = dto(90)) =>
 	    session.write(mode === 'static' ? F.Config : F.Config.id, value);
+	const preserving = (session, value, original, endpoint = F.Config, timeout) =>
+	    session.writePreserving(mode === 'static' ? endpoint : endpoint.id, value, original,
+	                            timeout);
 	const command = (session, endpoint = C.Configure, value = dto()) =>
 	    session.command(mode === 'static' ? endpoint : endpoint.id, value);
 	const service = (session, endpoint = S.Echo, ...values) => session.service(
@@ -172,6 +175,7 @@ function harness(mode, settings = {})
 		connect,
 		read,
 		write,
+		preserving,
 		command,
 		service,
 		get sends() {
@@ -202,6 +206,169 @@ equal(connectStatic, sessions.connectStatic);
 equal(connectDynamic, sessions.connectDynamic);
 
 for (const mode of ['static', 'dynamic']) {
+	await test(
+	    mode, 'preserving writes own offset seed bytes and share the existing FIFO', async () => {
+		    const h = harness(mode), session = await h.connect();
+		    const source = F.Config.write.encode(dto(12)), expected = source.slice();
+		    const bits = new DataView(source.buffer);
+		    bits.setUint32(source.length - 12, 0xff812345, true);
+		    bits.setBigUint64(source.length - 8, 0x8000000000000000n, true);
+		    expected.set(source);
+		    new DataView(expected.buffer).setUint32(0, 23, true);
+		    const storage = new Uint8Array(source.length + 6);
+		    storage.set(source, 3);
+		    const seed = new DataView(storage.buffer, 3, source.length);
+		    const value = F.Config.read.decode(source);
+		    Object.defineProperty(value, 'number', {
+			    get() {
+			        storage.fill(0);
+			        return 23;
+			    }
+		    });
+		    let endpoint = F.Config;
+		    if (mode === 'static')
+			    endpoint = {
+				    read : F.Config.read,
+				    write : {
+					    ...F.Config.write,
+					    get encodePreserving() {
+				            storage.fill(0);
+				            return F.Config.write.encodePreserving;
+					    }
+				    }
+			    };
+		    const first = h.read(session), request = h.preserving(session, value, seed, endpoint);
+		    storage.fill(255);
+		    equal(request.requestId, 2);
+		    equal(request.session, 17);
+		    await flush();
+		    equal(h.calls.length, 1);
+		    h.calls[0].reply();
+		    await first;
+		    await flush();
+		    equal(h.calls.length, 2);
+		    equal(h.calls[1].request.operation, 'FieldWrite');
+		    equal(h.calls[1].request.payload, expected);
+		    h.calls[1].reply();
+		    const result = await request;
+		    equal(result.succeeded, true);
+		    equal(result.valueStatus, 'NoValue');
+		    facts(result);
+		    equal(h.peak, 1);
+		    await session.close();
+	    });
+	await test(
+	    mode, 'preserving invalid seeds and binding policy refuse without canonical fallback',
+	    async () => {
+		    const h = harness(mode), session = await h.connect(),
+		          seed = F.Config.write.encode(dto());
+		    const refused = async (request, status) => {
+			    equal(request.requestId, 0);
+			    equal(request.session, 17);
+			    equal(request.cancel(), false);
+			    const result = await request;
+			    equal(result.status, status);
+			    equal(result.operation, 'FieldWrite');
+			    equal(result.succeeded, false);
+			    facts(result);
+		    };
+		    await refused(h.preserving(session, dto(), null), Status.InvalidArgument);
+		    await refused(h.preserving(session, dto(), seed.subarray(1)), Status.CodecError);
+		    const invalidBool = seed.slice();
+		    invalidBool[4] = 2;
+		    await refused(h.preserving(session, dto(), invalidBool), Status.CodecError);
+		    await refused(h.preserving(session, dto(), seed, F.ReadOnly), Status.ReadOnly);
+		    await refused(h.preserving(session, dto(), seed, F.Config, 0), Status.InvalidArgument);
+		    if (mode === 'static') {
+			    let ordinary = 0;
+			    const unsupported = {
+				    ...F.Config.write,
+				    encode() {
+				        ordinary++;
+				        return seed;
+				    },
+				    encodePreserving : undefined
+			    };
+			    await refused(h.preserving(session, dto(), seed, unsupported), Status.Unsupported);
+			    equal(ordinary, 0);
+			    await refused(h.preserving(session, dto(), seed,
+			                               {...F.Config.write, fingerprint : sdk.fingerprint ^ 1n}),
+			                  Status.NotAdmitted);
+			    await refused(
+			        h.preserving(session, dto(), seed, {...F.Config.write, operation : 'Command'}),
+			        Status.InvalidArgument);
+		    } else {
+			    await refused(session.writePreserving(NaN, dto(), seed), Status.InvalidArgument);
+			    await refused(session.writePreserving(0xffffffff, dto(), seed),
+			                  Status.InvalidArgument);
+		    }
+		    await flush();
+		    equal(h.calls.length, 0);
+		    await session.close();
+		    const closed = await h.preserving(session, dto(), seed);
+		    equal(closed.status, Status.Closed);
+		    equal(closed.valueStatus, 'Stale');
+	    });
+	await test(mode, 'preserving requests retain queued and handed-off cancellation facts',
+	           async () => {
+		           const seed = F.Config.write.encode(dto());
+		           const h = harness(mode), session = await h.connect(), first = h.read(session);
+		           const queued = h.preserving(session, dto(), seed);
+		           equal(queued.requestId, 2);
+		           truth(queued.cancel());
+		           const cancelled = await queued;
+		           equal(cancelled.status, Status.Cancelled);
+		           equal(cancelled.requestId, 2);
+		           equal(cancelled.session, 17);
+		           facts(cancelled);
+		           equal(queued.cancel(), false);
+		           await flush();
+		           equal(h.calls.length, 1);
+		           h.calls[0].reply();
+		           await first;
+		           await session.close();
+		           const k = harness(mode), active = await k.connect();
+		           const sent = k.preserving(active, dto(), seed);
+		           await flush();
+		           truth(sent.cancel());
+		           const unknown = await sent;
+		           equal(unknown.status, Status.OutcomeUnknown);
+		           equal(unknown.requestId, sent.requestId);
+		           equal(unknown.session, sent.session);
+		           facts(unknown);
+		           truth(active.recoveryRequired);
+		           k.calls[0].reply();
+		           await active.close();
+		           equal(k.sends, 1);
+	           });
+	await test(mode, 'preserving getter revocation cannot submit into a retired admission',
+	           async () => {
+		           const h = harness(mode), session = await h.connect(),
+		                 seed = F.Config.write.encode(dto());
+		           const value = dto();
+		           let disconnected;
+		           Object.defineProperty(value, 'number', {
+			           get() {
+			               disconnected = session.disconnect();
+			               return 42;
+			           }
+		           });
+		           const request = h.preserving(session, value, seed), result = await request;
+		           equal(request.requestId, 0);
+		           equal(result.status, Status.NotAdmitted);
+		           equal(result.valueStatus, 'Stale');
+		           facts(result);
+		           await disconnected;
+		           await flush();
+		           equal(h.calls.length, 0);
+		           await session.reconnect();
+		           const current = h.preserving(session, dto(), seed);
+		           equal(current.session, 18);
+		           await flush();
+		           h.calls[0].reply();
+		           equal((await current).succeeded, true);
+		           await session.close();
+	           });
 	await test(mode, 'admission, generated values, all operations and one FIFO', async () => {
 		const h = harness(mode), session = await h.connect();
 		equal(session.state, 'ready');
@@ -213,6 +380,7 @@ for (const mode of ['static', 'dynamic']) {
 			equal(internal in session, false,
 			      'No untracked execution/lifecycle escape hatch: ' + internal);
 		equal(session.mode, mode);
+		equal(mode === 'static' ? session.sdk : 'sdk' in session, mode === 'static' ? sdk : false);
 		equal(session.fingerprint, sdk.fingerprint);
 		equal(mode === 'dynamic' ? session.schema.fields.length : session.metadata,
 		      mode === 'dynamic' ? 12 : undefined);

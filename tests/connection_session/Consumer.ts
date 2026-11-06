@@ -1,12 +1,13 @@
 // Public installed types: generated static inference and deliberately unknown Dynamic values. MIT.
 import {connectStatic, connectDynamic, Status} from 'telemetry-sdk';
-import {type ConnectionProfile, type SessionResult, type SessionRequest} from 'telemetry-sdk/session';
+import {type ConnectionProfile, type SessionResult, type SessionRequest, type StaticSdk} from 'telemetry-sdk/session';
 import {demoWebSocket, bindWebSocket} from 'telemetry-sdk/transports/websocket';
 import {bindWebSocket as borrowedCarrier} from 'telemetry-sdk/transports/websocket/carrier';
 import * as sdk from './generated/js/device.js';
 
 export async function staticConsumer(transport: ConnectionProfile) {
     const session = await connectStatic({sdk, transport});
+	const generatedContext: StaticSdk = session.sdk;
     const read: SessionRequest<sdk.control.types.Config> = session.read(sdk.control.fields.Config);
     const id: number = read.requestId, generation: number = read.session;
     const cancelled: boolean = read.cancel();
@@ -18,6 +19,9 @@ export async function staticConsumer(transport: ConnectionProfile) {
     }
     session.write(sdk.control.fields.Config, {number: 1, enabled: true, gains: [1, 2, 3],
         mode: -123, large: 1n, negative: -1n, f32: 0, f64: -0});
+	const preserving: SessionRequest<undefined> = session.writePreserving(sdk.control.fields.Config,
+	    {number: 1, enabled: true, gains: [1, 2, 3], mode: -123, large: 1n,
+	     negative: -1n, f32: 0, f64: -0}, new Uint8Array(41));
     session.command(sdk.control.commands.Reset, undefined);
     session.service(sdk.control.services.Echo, {number: 2, enabled: true, gains: [1, 2, 3],
         mode: -123, large: 1n, negative: -1n, f32: 0, f64: 0});
@@ -25,6 +29,12 @@ export async function staticConsumer(transport: ConnectionProfile) {
     session.read(65536);
     // @ts-expect-error Generated Config DTO cannot be replaced with an arbitrary number.
     session.write(sdk.control.fields.Config, 123);
+	// @ts-expect-error Preserving writes retain generated DTO inference.
+	session.writePreserving(sdk.control.fields.Config, 123, new Uint8Array(41));
+	// @ts-expect-error Original payload must be bytes, not serialized text.
+	session.writePreserving(sdk.control.fields.Config, result.value!, '00');
+	// @ts-expect-error Generated context cannot be replaced after connection.
+	session.sdk = sdk;
     // @ts-expect-error Static inference retains exact bigint leaves.
     const rounded: number = result.value!.large;
     // @ts-expect-error Core is private; no untracked lifecycle/execution escape hatch.
@@ -32,6 +42,7 @@ export async function staticConsumer(transport: ConnectionProfile) {
     const unsubscribe = session.subscribe(snapshot => { const ready: boolean = snapshot.ready; void ready; });
     unsubscribe(); await session.disconnect(); await session.reconnect(); await session.close();
     void id; void generation; void cancelled; void status; void rounded;
+	void generatedContext; void preserving;
 }
 export async function dynamicConsumer(transport: ConnectionProfile) {
     const session = await connectDynamic({transport});
@@ -46,8 +57,14 @@ export async function dynamicConsumer(transport: ConnectionProfile) {
     // @ts-expect-error Dynamic API deliberately uses current runtime IDs, not generated static bindings.
     session.read(sdk.control.fields.Config);
     session.write(65536, {}); session.command(65537); session.service(65537);
+	const preserving: SessionRequest<undefined> = session.writePreserving(65536, {}, new DataView(new ArrayBuffer(41)));
+	// @ts-expect-error Dynamic preserving writes use numeric runtime IDs.
+	session.writePreserving(sdk.control.fields.Config, {}, new Uint8Array(41));
+	// @ts-expect-error Dynamic Session has no generated SDK context.
+	void session.sdk;
     const schema = session.schema, capabilities = session.capabilities;
     void guessed; void schema; void capabilities;
+	void preserving;
     await session.close();
 }
 const reference: ConnectionProfile = demoWebSocket('http://localhost:8080');

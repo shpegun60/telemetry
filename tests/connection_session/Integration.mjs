@@ -132,6 +132,55 @@ for (const mode of ['static', 'dynamic']) {
 		equal(state.commands, 2);
 		equal(state.services, 4);
 		equal(state.decoy, [ 0, 0, 0, 0 ]);
+		// Native round trips keep both signs of quiet/signaling NaNs and signed zero.
+		// Seed and edit through the supported Session API, then compare actual read bytes.
+		const patterns = [
+			[ 0x7f812345, 0x7ff0000000001234n ], [ 0xff812345, 0xfff0000000001234n ],
+			[ 0x7fcabcde, 0x7ff8123456789abcn ], [ 0xffcabcde, 0xfff8123456789abcn ],
+			[ 0x00000000, 0x0000000000000000n ], [ 0x80000000, 0x8000000000000000n ]
+		];
+		for (const [index, [ f32, f64 ]] of patterns.entries()) {
+			const original = F.Config.write.encode(dto(100 + index));
+			const data = new DataView(original.buffer);
+			data.setUint32(original.length - 12, f32, true);
+			data.setBigUint64(original.length - 8, f64, true);
+			const seed = session.writePreserving(endpoint(F.Config), F.Config.read.decode(original),
+			                                     original);
+			equal(seed.session, 17);
+			equal((await seed).succeeded, true);
+			const before = await session.read(endpoint(F.Config));
+			equal(before.payload, original);
+			equal(before.valueStatus, 'Ok');
+			const expected = original.slice();
+			new DataView(expected.buffer).setUint32(0, 200 + index, true);
+			const callerSeed = before.payload.slice(), edited = {...before.value};
+			Object.defineProperty(edited, 'number', {
+				get() {
+				    callerSeed.fill(0);
+				    return 200 + index;
+				}
+			});
+			const writing = session.writePreserving(endpoint(F.Config), edited, callerSeed);
+			callerSeed.fill(255);
+			const applied = await writing;
+			equal(applied.succeeded, true);
+			equal(applied.valueStatus, 'NoValue');
+			equal(applied.requestId, writing.requestId);
+			equal(applied.rawResult.status, Status.Ok);
+			const after = await session.read(endpoint(F.Config));
+			equal(after.payload, expected);
+			const actual = new DataView(after.payload.buffer, after.payload.byteOffset,
+			                            after.payload.byteLength);
+			equal(actual.getUint32(after.payload.length - 12, true), f32);
+			equal(actual.getBigUint64(after.payload.length - 8, true), f64);
+			equal(after.value.number, 200 + index);
+		}
+		equal(peak, 1);
+		const preserved = JSON.parse(await native('state'));
+		equal(preserved.reads, state.reads + 12);
+		equal(preserved.writes, state.writes + 12);
+		equal(preserved.commands, state.commands);
+		equal(preserved.services, state.services);
 		outcomes.push(results.map(result => ({
 			                          status : result.status,
 			                          operation : result.operation,

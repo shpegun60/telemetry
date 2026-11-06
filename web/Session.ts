@@ -93,10 +93,15 @@ export interface ConnectionSession extends SessionSnapshot {
 	close(): Promise<void>;
 }
 export interface StaticConnectionSession extends ConnectionSession {
+	/** The original generated SDK module; no client or connection ownership. */
+	readonly sdk: StaticSdk;
 	readonly metadata: unknown;
 	read<T>(field: Field<T>|ReadBinding<T>, timeoutMs?: number): SessionRequest<T>;
 	write<T>(field: Field<T>|WriteBinding<T>, value: T,
 	         timeoutMs?: number): SessionRequest<undefined>;
+	/** Edit using the original FieldRead bytes. Requires generated --wire-editing support. */
+	writePreserving<T>(field: Field<T>|WriteBinding<T>, value: T, originalPayload: ByteInput,
+	                   timeoutMs?: number): SessionRequest<undefined>;
 	command<T>(endpoint: CommandBinding<T>, value: T,
 	           timeoutMs?: number): SessionRequest<undefined>;
 	service<Q, R>(endpoint: ServiceBinding<Q, R>, value: Q,
@@ -106,6 +111,8 @@ export interface DynamicConnectionSession extends ConnectionSession {
 	readonly schema: RuntimeSchema|undefined;
 	read(id: number, timeoutMs?: number): SessionRequest<unknown>;
 	write(id: number, value: unknown, timeoutMs?: number): SessionRequest<undefined>;
+	writePreserving(id: number, value: unknown, originalPayload: ByteInput,
+	                timeoutMs?: number): SessionRequest<undefined>;
 	command(id: number, value?: unknown, timeoutMs?: number): SessionRequest<undefined>;
 	service(id: number, value?: unknown, timeoutMs?: number): SessionRequest<unknown>;
 }
@@ -197,7 +204,7 @@ class SessionOwner {
 	readonly metadata: unknown;
 	private readonly profile: ConnectionProfile;
 	private readonly record: ProfileRecord;
-	private readonly sdk?: StaticSdk;
+	readonly sdk?: StaticSdk;
 	private readonly limits?: Partial<Limits>;
 	private readonly forwarder = new ForwardingBackend();
 	private readonly core: DeviceClient|DynamicClient;
@@ -590,6 +597,11 @@ class SessionOwner {
 	{
 		return this.submit('FieldWrite', endpoint, value, timeoutMs);
 	}
+	writePreserving(endpoint: unknown, value: unknown, originalPayload: ByteInput,
+	                timeoutMs?: number): SessionRequest<unknown>
+	{
+		return this.submit('FieldWrite', endpoint, value, timeoutMs, originalPayload, true);
+	}
 	command(endpoint: unknown, value?: unknown, timeoutMs?: number): SessionRequest<unknown>
 	{
 		return this.submit('Command', endpoint, value, timeoutMs);
@@ -609,12 +621,21 @@ class SessionOwner {
 		    {requestId : 0, session : rawResult.session, cancel : () => false});
 	}
 	private submit(operation: EndpointOperation, endpoint: unknown, value: unknown,
-	               timeoutMs?: number): SessionRequest<unknown>
+	               timeoutMs?: number, originalPayload?: ByteInput,
+	               preserving = false): SessionRequest<unknown>
 	{
 		if (!this.ready)
 			return this.refused(operation, this.terminal ? Status.Closed :
 			    this.recoveryRequired ? Status.RecoveryRequired : Status.NotAdmitted);
 		const revision = this.revision;
+		let seed: Uint8Array|undefined;
+		if (preserving) {
+			// Own the seed before binding accessors or DTO conversion can reenter/mutate it.
+			if (!(originalPayload instanceof ArrayBuffer) && !ArrayBuffer.isView(originalPayload))
+				return this.refused(operation, Status.InvalidArgument);
+			try { seed = copy(originalPayload); }
+			catch { return this.refused(operation, Status.InvalidArgument); }
+		}
 		let raw: RawRequest;
 		if (this.core instanceof DynamicClient) {
 			if (typeof endpoint !== 'number' || !Number.isInteger(endpoint) || endpoint < 0 || endpoint > 0xffffffff)
@@ -622,10 +643,30 @@ class SessionOwner {
 			const binding = this.core.bind(operation, endpoint);
 			if (binding.status !== Status.Ok) return this.refused(operation, binding.status);
 			raw = operation === 'FieldRead' ? this.core.readField(binding.endpoint, timeoutMs)
-			      : operation === 'FieldWrite' ? this.core.writeField(binding.endpoint, value, timeoutMs)
+			      : operation === 'FieldWrite'
+			          ? preserving
+			                ? this.core.writeFieldPreserving(binding.endpoint, value, seed!, timeoutMs)
+			                : this.core.writeField(binding.endpoint, value, timeoutMs)
 			      : operation === 'Command' ? this.core.command(binding.endpoint, value, timeoutMs)
 			                                : this.core.service(binding.endpoint, value, timeoutMs);
 		} else {
+			if (preserving) {
+				try {
+					if (!endpoint || (typeof endpoint !== 'object' && typeof endpoint !== 'function'))
+						return this.refused(operation, Status.InvalidArgument);
+					const field = endpoint as Field<unknown>|WriteBinding<unknown>;
+					const write = 'read' in field ? field.write : field;
+					if (!write) return this.refused(operation, Status.ReadOnly);
+					const {fingerprint, operation: declared, id, requestBytes, responseBytes} = write;
+					if (declared !== 'FieldWrite') return this.refused(operation, Status.InvalidArgument);
+					const encode = (write as WriteBinding<unknown> & {
+						encodePreserving?: (value: unknown, original: ByteInput) => Uint8Array
+					}).encodePreserving;
+					if (typeof encode !== 'function') return this.refused(operation, Status.Unsupported);
+					endpoint = {fingerprint, operation: declared, id, requestBytes, responseBytes,
+					            encode: (edited: unknown) => encode.call(write, edited, seed!)};
+				} catch { return this.refused(operation, Status.InvalidArgument); }
+			}
 			raw = operation === 'FieldRead'
 			          ? this.core.read(endpoint as Field<unknown>|ReadBinding<unknown>, timeoutMs)
 			      : operation === 'FieldWrite'
@@ -687,12 +728,15 @@ function facade(owner: SessionOwner): object
 		close: owner.close.bind(owner),
 		read: owner.read.bind(owner),
 		write: owner.write.bind(owner),
+		writePreserving: owner.writePreserving.bind(owner),
 		command: owner.command.bind(owner),
 		service: owner.service.bind(owner)
 	};
 	Object.defineProperty(publicSession, owner.mode === 'static' ? 'metadata' : 'schema', {
 		enumerable: true, get: () => owner.mode === 'static' ? owner.metadata : owner.schema
 	});
+	if (owner.mode === 'static')
+		Object.defineProperty(publicSession, 'sdk', {enumerable: true, get: () => owner.sdk});
 	return Object.freeze(publicSession);
 }
 export async function connectStatic(options: StaticSessionOptions): Promise<StaticConnectionSession>

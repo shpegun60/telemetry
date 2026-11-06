@@ -76,9 +76,13 @@ export interface ConnectionSession extends SessionSnapshot {
     close(): Promise<void>;
 }
 export interface StaticConnectionSession extends ConnectionSession {
+    /** The original generated SDK module; no client or connection ownership. */
+    readonly sdk: StaticSdk;
     readonly metadata: unknown;
     read<T>(field: Field<T> | ReadBinding<T>, timeoutMs?: number): SessionRequest<T>;
     write<T>(field: Field<T> | WriteBinding<T>, value: T, timeoutMs?: number): SessionRequest<undefined>;
+    /** Edit using the original FieldRead bytes. Requires generated --wire-editing support. */
+    writePreserving<T>(field: Field<T> | WriteBinding<T>, value: T, originalPayload: ByteInput, timeoutMs?: number): SessionRequest<undefined>;
     command<T>(endpoint: CommandBinding<T>, value: T, timeoutMs?: number): SessionRequest<undefined>;
     service<Q, R>(endpoint: ServiceBinding<Q, R>, value: Q, timeoutMs?: number): SessionRequest<R>;
 }
@@ -86,6 +90,7 @@ export interface DynamicConnectionSession extends ConnectionSession {
     readonly schema: RuntimeSchema | undefined;
     read(id: number, timeoutMs?: number): SessionRequest<unknown>;
     write(id: number, value: unknown, timeoutMs?: number): SessionRequest<undefined>;
+    writePreserving(id: number, value: unknown, originalPayload: ByteInput, timeoutMs?: number): SessionRequest<undefined>;
     command(id: number, value?: unknown, timeoutMs?: number): SessionRequest<undefined>;
     service(id: number, value?: unknown, timeoutMs?: number): SessionRequest<unknown>;
 }

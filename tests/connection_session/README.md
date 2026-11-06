@@ -21,6 +21,11 @@ close, reentrant observers and retained recovery across a replacement owner.
 An `async_hooks` boundary sweep proves whether the public request Promise has
 resolved before revocation, covering stale value suppression after Dynamic
 decoding and before Session projection while retaining checked operation facts.
+Preserving-write cases also cover offset byte views, seed copying before binding
+getters/DTO conversion, invalid original bytes, unsupported/read-only/foreign
+bindings, queued and handed-off cancellation, and reentrant admission revocation.
+The Static SDK getter retains the supplied generated module without exposing a
+client; Dynamic Session has no generated SDK getter.
 
 `Profile.mjs` injects controlled fetch/WebSocket/clock surfaces into the named
 reference profile. It checks advertised routes/subprotocol, bounded greetings,
@@ -35,6 +40,12 @@ exercise all four Session operations, Accepted, endpoint refusal, empty aggregat
 Void and exact 64-bit data through both modes. A concurrent second physical
 exchange is rejected by the test peer. A separate acceptance run against the
 existing reference HTTP/WS server establishes network and same-peer lease behavior.
+Additional native round trips seed both signs of quiet/signaling F32/F64 NaNs and
+positive/negative zero, edit a different member through `writePreserving`, mutate
+the caller's seed during conversion, and compare the actual native read payload
+byte for byte. Seed provenance is a caller responsibility: plain original bytes
+cannot identify their source Field or admission, so the Session method does not
+claim a cache/version or compare-and-swap guarantee.
 
 `Consumer.ts` strictly compiles public root/subpath imports against installed
 declarations, including generated Static inference, Dynamic `unknown`, request

@@ -162,9 +162,9 @@ def main():
         run('strict-consumer', [node, tsc, consumer / 'Consumer.ts', '--strict', '--noUnusedLocals',
             '--noUnusedParameters', '--target', 'ES2022', '--module', 'NodeNext',
             '--moduleResolution', 'NodeNext', '--noEmit'], cwd=consumer)
-        run('lifecycle', [node, consumer / 'Check.mjs'], cwd=consumer, floor=906, expected_cases=48)
+        run('lifecycle', [node, consumer / 'Check.mjs'], cwd=consumer, floor=1230, expected_cases=56)
         run('reference-profile', [node, consumer / 'Profile.mjs'], cwd=consumer, floor=184, expected_cases=35)
-        run('native-integration', [node, consumer / 'Integration.mjs', bridge], cwd=consumer, floor=303)
+        run('native-integration', [node, consumer / 'Integration.mjs', bridge], cwd=consumer, floor=450)
         report['source_sha256_after'] = inputs()
         check(report['source_sha256_before'] == report['source_sha256_after'], 'Source inputs changed during checks')
         report['checks'] += sum(item['checks'] for item in report['executions'])

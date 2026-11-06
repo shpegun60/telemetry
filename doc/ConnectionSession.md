@@ -29,7 +29,7 @@ try {
 
 The endpoint name above belongs to the generated application Model. Generate the
 JS/TS SDK from **your** Descriptor and use its own catalog and binding names.
-Typed reads do not require structural metadata. A future UX adapter also needs
+Typed reads do not require structural metadata. A generic UX adapter also needs
 `--structural-metadata`; preservation-safe Field editing needs `--wire-editing`.
 
 For an unknown schema:
@@ -60,6 +60,20 @@ See the [complete runnable consumer](../examples/connection_session/README.md).
 | `write` | Generated Field/write binding and typed DTO | Current Field ID and runtime DTO |
 | `command` | Generated Command binding and typed arguments | Current Command ID and runtime arguments |
 | `service` | Generated Service binding and typed arguments | Current Service ID and runtime arguments |
+
+For editing a previously read Field, both modes expose
+`writePreserving(endpoint, editedValue, originalPayload, timeoutMs?)`. Supply the
+checked payload from that Field's read in the same session. The method copies the
+seed before user bindings or DTO conversion can run and submits through the same
+FIFO and lifecycle tracker as `write()`. Untouched floating leaves retain their
+original NaN/signaling/sign/payload bits and signed zero. Invalid input refuses
+the whole submission. Static bindings require `--wire-editing`; a missing
+preserving helper reports `Unsupported`, without a plain-encoding fallback.
+This does not add compare-and-write or protect against concurrent device changes.
+
+A static Session exposes its original `sdk` module and optional `metadata` for
+presentation adapters. These are codec/structural context, not access to the
+private DeviceClient. Dynamic Sessions expose only their validated `schema`.
 
 Every request keeps `requestId`, `session` and `cancel()` on its Promise. Ordinary
 operation failures resolve to a result; invalid connection/bootstrap fails with
