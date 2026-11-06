@@ -2,6 +2,12 @@
 
 Author: Ruslan Kovtun (shpegun60), codexAi. SPDX-License-Identifier: MIT.
 
+For an owned host connection, start with [Connection Session](../doc/ConnectionSession.md):
+`connectStatic({sdk, transport})` or `connectDynamic({transport})`, using the named
+`demoWebSocket(origin)` reference-server profile or a custom `ConnectionProfile`.
+It coordinates the existing FIFO, bootstrap, cancellation and local close. Advanced
+client, codec and borrowed-carrier entry points remain available.
+
 [telemetry.js](telemetry.js) validates Descriptor v3, provides runtime type and
 endpoint lookup, and encodes/decodes values without a Generated SDK. It is used by
 the [structured browser example](https://github.com/shpegun60/telemetry-ux/blob/a336b8c2984d5adf235b0791b545a37d3da3cc8b/examples/structured_client/README.md).

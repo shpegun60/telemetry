@@ -21,6 +21,8 @@
 [JS/TS ReadMany](JsReadMany.md) ·
 [JS/TS Mixed Batch](JsBatch.md) ·
 [Dynamic JS/TS client](DynamicJsClient.md) ·
+[JS/TS connection Session](ConnectionSession.md) ·
+[Simpler host API: reviewed plan and acceptance](HostApiRoadmap.md) ·
 [Optional structural metadata](GeneratedMetadata.md) ·
 [Installed SDK packages](SDKPackages.md) ·
 [Optional UX generator](UXGeneratorExtension.md) ·

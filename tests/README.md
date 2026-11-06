@@ -1,5 +1,9 @@
 # Telemetry checks
 
+The optional [connection Session suite](connection_session/README.md) checks a
+packed, offline-installed JS/TS consumer, deterministic bootstrap/recovery,
+actual local close fences and native Encoded parity over the existing FIFO.
+
 The active checks use the final C++20 telemetry API. Core tests do not require
 Qt. The resource, protocol and client suites have separate runners; the CI
 matrix also builds Cortex-M7 objects and the Qt playground and client.

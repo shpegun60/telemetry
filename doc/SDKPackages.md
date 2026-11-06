@@ -59,9 +59,13 @@ entrypoints contain the canonical SDK implementation and matching declarations:
 import {DeviceClient, EncodedBackend, Batch} from 'telemetry-sdk';
 import {parseDescriptor} from 'telemetry-sdk/runtime';
 import {DynamicClient} from 'telemetry-sdk/dynamic';
+import {connectStatic, connectDynamic, demoWebSocket} from 'telemetry-sdk';
 ```
 
-`telemetry-sdk/client` is an explicit alias for the default client entrypoint.
+`telemetry-sdk/client` retains the low-level client exports. The optional
+[connection Session](ConnectionSession.md) coordinates bootstrap, admission and
+local cleanup over the same FIFO, with `telemetry-sdk/session` and
+`telemetry-sdk/transports/websocket` as explicit subpaths.
 The runtime modules need no Qt or `document`/UI framework. They use standard
 JavaScript APIs such as Promise, AbortController and BigInt. Existing source-tree
 imports remain supported; new applications need not copy SDK files into their UI.

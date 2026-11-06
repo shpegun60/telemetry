@@ -1,5 +1,10 @@
 # Telemetry SDK
 
+Для host JS/TS почніть із [Connection Session](doc/ConnectionSession.md):
+`connectStatic({sdk, transport})` або `connectDynamic({transport})` керують
+підключенням і чинною FIFO. [Перевірений план спрощення SDK/UX](doc/HostApiRoadmap.md)
+відділяє готовий Session API від наступних етапів GUI.
+
 Оберіть точку входу за своїм завданням:
 
 | Потрібно | Звідки почати |
