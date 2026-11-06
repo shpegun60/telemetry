@@ -330,7 +330,8 @@ for (const mode of ['static', 'dynamic']) {
 			});
 			const pending = operation === 'ReadMany' ? f.session.readMany(cap(operation), selected)
 			                                         : f.session.batch(cap(operation), selected);
-			truth(pending.requestId > 0, 'one captured array length admits a valid bounded selection');
+			truth(pending.requestId > 0,
+			      'one captured array length admits a valid bounded selection');
 			equal(lengthReads, 1);
 			await flush();
 			await f.complete(operation === 'ReadMany' ? rmBody() : batchBody());
