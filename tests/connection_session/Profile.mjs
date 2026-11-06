@@ -582,4 +582,17 @@ await test(async () => {
 	equal(borrowed.listenerCount(), 0);
 	equal(borrowed.readyState, 1);
 });
+for (const [enableReadMany, enableBatch] of [[ true, false ], [ false, true ], [ true, true ]])
+	await test(async () => {
+		const e = environment({options : {enableReadMany, enableBatch}}), opening = e.open();
+		await flush();
+		e.sockets[0].greet();
+		const lease = await opening.promise;
+		equal(lease.backend.supports('ReadMany'), enableReadMany);
+		equal(lease.backend.supports('Batch'), enableBatch);
+		const closing = lease.close();
+		e.sockets[0].finishClose();
+		await closing;
+		equal(e.sockets[0].listenerCount(), 0);
+	});
 console.log('connection-profile checks=' + checks + ' cases=' + scenarios + ' failures=0');

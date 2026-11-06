@@ -1,5 +1,5 @@
 // Public installed types: generated static inference and deliberately unknown Dynamic values. MIT.
-import {connectStatic, connectDynamic, Status} from 'telemetry-sdk';
+import {connectStatic, connectDynamic, Status, Batch} from 'telemetry-sdk';
 import {type ConnectionProfile, type SessionResult, type SessionRequest, type StaticSdk} from 'telemetry-sdk/session';
 import {demoWebSocket, bindWebSocket} from 'telemetry-sdk/transports/websocket';
 import {bindWebSocket as borrowedCarrier} from 'telemetry-sdk/transports/websocket/carrier';
@@ -69,3 +69,57 @@ export async function dynamicConsumer(transport: ConnectionProfile) {
 }
 const reference: ConnectionProfile = demoWebSocket('http://localhost:8080');
 void reference; void bindWebSocket; void borrowedCarrier;
+
+export async function optionalConsumer(transport: ConnectionProfile, capability: Uint8Array)
+{
+	const session = await connectStatic({sdk, transport});
+	const selected = await session.readMany(
+	    capability, [ sdk.control.fields.Counter, sdk.control.fields.Bool ] as const);
+	if (selected.items) {
+		const count: number|undefined = selected.items[0].value;
+		const flag: boolean|undefined = selected.items[1].value;
+		// @ts-expect-error The first item's scalar type is not boolean.
+		const wrong: boolean = selected.items[0].value!;
+		void count;
+		void flag;
+		void wrong;
+	}
+	const result =
+	    await session.batch(capability, Batch.items(Batch.read(sdk.control.fields.Config),
+	                                                Batch.command(sdk.control.commands.Reset),
+	                                                Batch.service(sdk.control.services.Echo, {
+		                                                number : 1,
+		                                                enabled : false,
+		                                                gains : [ 1, 2, 3 ],
+		                                                mode : -123,
+		                                                large : 1n,
+		                                                negative : -1n,
+		                                                f32 : 0,
+		                                                f64 : 0
+	                                                })));
+	if (result.items) {
+		const first: sdk.control.types.Config|undefined = result.items[0].value;
+		const absent: undefined = result.items[1].value;
+		const echo: sdk.control.types.Config|undefined = result.items[2].value;
+		// @ts-expect-error Batch keeps the service DTO, not a scalar.
+		const wrong: number = result.items[2].value!;
+		void first;
+		void absent;
+		void echo;
+		void wrong;
+	}
+	// @ts-expect-error ReadMany rejects aggregate fields at the Static type boundary.
+	session.readMany(capability, [ sdk.control.fields.Config ]);
+	// @ts-expect-error Static Batch requires branded typed selectors, not runtime recipes.
+	session.batch(capability, [ {operation : 'Command', id : 1} ]);
+	const dynamic = await connectDynamic({transport});
+	const runtime = await dynamic.batch(
+	    capability, [ {operation : 'FieldRead', id : 65537}, {operation : 'Command', id : 65537} ]);
+	// @ts-expect-error Dynamic item values remain unknown.
+	const guessed: number = runtime.items![0].value;
+	// @ts-expect-error Numeric runtime IDs are required for Dynamic ReadMany.
+	dynamic.readMany(capability, [ sdk.control.fields.Counter ]);
+	void guessed;
+	await session.close();
+	await dynamic.close();
+}

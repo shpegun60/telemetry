@@ -34,16 +34,27 @@ HTTP failures, cleanup and the extracted borrowed-carrier ownership contract.
 These checks establish local profile behavior; fake receipts do not establish a
 remote server's lease guarantee.
 
+`Optional.mjs` uses those same actual Static/Dynamic clients with controlled
+queued/offered/prepared handoff states for ReadMany and Batch. It covers shared
+FIFO/QueueFull, independent opt-ins, current/old/invalid capabilities, owned
+selection bytes, one bounded integer length capture even for Proxy arrays,
+duplicate and unsupported selections, short per-item refusal
+responses, invalid canonical data, preserved Accepted facts, cancellation,
+timeout/recovery, reentrant revocation and a final-Promise microtask sweep.
+No optional request fans out, reads back or replays after reconnect.
+
 `Integration.mjs` reuses the existing SDK `client_dynamic_web/Bridge.cpp` and
 `batch_static/Model.hpp`. Actual Descriptor generation and native Encoded dispatch
-exercise all four Session operations, Accepted, endpoint refusal, empty aggregate,
+exercise all six Session operations, Accepted, endpoint refusal, empty aggregate,
 Void and exact 64-bit data through both modes. A concurrent second physical
 exchange is rejected by the test peer. A separate acceptance run against the
 existing reference HTTP/WS server establishes network and same-peer lease behavior.
 Additional native round trips seed both signs of quiet/signaling F32/F64 NaNs and
 positive/negative zero, edit a different member through `writePreserving`, mutate
 the caller's seed during conversion, and compare the actual native read payload
-byte for byte. Seed provenance is a caller responsibility: plain original bytes
+byte for byte. Native ReadMany and mixed Batch include repeated Field IDs,
+per-item Service refusal and a shorter successful envelope than its reply budget.
+Seed provenance is a caller responsibility: plain original bytes
 cannot identify their source Field or admission, so the Session method does not
 claim a cache/version or compare-and-swap guarantee.
 

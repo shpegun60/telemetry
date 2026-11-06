@@ -41,8 +41,11 @@ export function demoWebSocket(baseUrl, options = {})
 	const bufferLimit =
 	    limit(options.maxBufferedBytes ?? 65536, frameLimit, 0x7fffffff, 'maxBufferedBytes');
 	const credentials = options.credentials ?? 'same-origin';
+	const enableReadMany = options.enableReadMany ?? false,
+	      enableBatch = options.enableBatch ?? false;
 	if (typeof fetcher !== 'function' || typeof Socket !== 'function' || !clock ||
 	    !['now', 'setTimeout', 'clearTimeout'].every(key => typeof clock[key] === 'function') ||
+	    typeof enableReadMany !== 'boolean' || typeof enableBatch !== 'boolean' ||
 	    !['omit', 'same-origin', 'include'].includes(credentials))
 		throw new ConnectionError('InvalidArgument',
 		                          'Invalid WebSocket profile dependencies or credentials');
@@ -288,12 +291,12 @@ export function demoWebSocket(baseUrl, options = {})
 				    throw new ConnectionError('BootstrapFailed',
 				                              'Capability record must contain exactly 24 bytes');
 			    check();
-			    // Discovery bytes are not capability admission. This facade exposes only
-			    // the four ordinary operations; advanced callers bind capabilities separately.
+			    // Local support and remote capability admission remain independent.
 			    carrier = bindWebSocket(socket, {
 				    onDisconnect : notify,
 				    maxFrameBytes : frameLimit,
-				    maxBufferedBytes : bufferLimit
+				    maxBufferedBytes : bufferLimit,
+				    encodedOptions : {readMany : enableReadMany, batch : enableBatch}
 			    });
 			    published = true;
 			    return Object.freeze({

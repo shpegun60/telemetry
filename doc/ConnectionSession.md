@@ -60,6 +60,8 @@ See the [complete runnable consumer](../examples/connection_session/README.md).
 | `write` | Generated Field/write binding and typed DTO | Current Field ID and runtime DTO |
 | `command` | Generated Command binding and typed arguments | Current Command ID and runtime arguments |
 | `service` | Generated Service binding and typed arguments | Current Service ID and runtime arguments |
+| `readMany` | Capability and ordered scalar Field tuple | Capability and ordered scalar Field ID list |
+| `batch` | Capability and `Batch.items(...)` typed recipe | Capability and ordered `{operation, id, value?}` list |
 
 For editing a previously read Field, both modes expose
 `writePreserving(endpoint, editedValue, originalPayload, timeoutMs?)`. Supply the
@@ -87,6 +89,70 @@ bytes. A Void response has `NoValue`. Invalidating a session never rewrites a
 confirmed operation result as a fictitious cancellation. `Accepted` does not mean
 application work has finished. `OutcomeUnknown` never triggers automatic replay.
 
+## Optional ReadMany and Mixed Batch
+
+Both methods use the same Session FIFO, request IDs, capacity and cancellation.
+Remote capability records and local backend support are checked separately for
+every submission. They never fall back to individual requests. On the reference
+profile, opt in explicitly and independently:
+
+```js
+import {connectStatic, demoWebSocket, Batch} from 'telemetry-sdk';
+import * as sdk from './generated/js/device.js';
+
+const session = await connectStatic({sdk, transport: demoWebSocket(
+    'http://127.0.0.1:8080', {enableReadMany: true, enableBatch: true})});
+try {
+    const capabilities = session.capabilities;
+    if (capabilities?.readMany) {
+        // Use the scalar Field names generated for your own Model.
+        const result = await session.readMany(capabilities.readMany,
+            [sdk.control.fields.Counter, sdk.control.fields.Bool]);
+        for (const item of result.items ?? [])
+            console.log(item.id, item.status, item.valueStatus, item.value);
+    }
+    if (capabilities?.batch) {
+        const result = await session.batch(capabilities.batch, Batch.items(
+            Batch.read(sdk.control.fields.Counter),
+            Batch.command(sdk.control.commands.Reset)));
+        // Inspect each checked result; outer success does not imply item success.
+        for (const item of result.items ?? [])
+            console.log(item.operation, item.accepted, item.executed, item.valueStatus);
+    }
+} finally {
+    await session.close();
+}
+```
+
+ReadMany accepts 1–32 distinct scalar/open-enum Fields. Struct/Array selections
+are unsupported. Results retain selection order and per-Field availability.
+Static TypeScript tuples preserve each generated value type; Dynamic item values
+remain `unknown`. Dynamic Batch uses current numeric IDs, for example
+`session.batch(capability, [{operation: 'FieldRead', id}, {operation: 'Command', id: commandId}])`.
+Repeated Batch IDs are permitted. Batch writes replace the complete DTO; they do
+not perform preservation editing, hidden reads or automatic readback.
+
+Optional results expose aggregate `valueStatus` and frozen ordered `items`.
+Each item owns separate payload bytes. These bytes remain mutable arrays; freezing
+their containing object does not make their contents immutable. `rawResult`
+retains the actual checked operation facts, including Static ReadMany `CodecError`
+versus Dynamic checked-operation `Ok` plus `InvalidPayload`. A malformed item body
+does not invent partial results. A checked Batch mutation remains Accepted or
+Executed even if another value is invalid. Neither operation promises atomic or
+coherent sampling, transactional execution or exactly-once behavior.
+
+At the final Session Promise projection, a revoked admission hides pending typed
+values as `Stale`, preserving checked item facts and known `NoValue` outcomes.
+Already-fulfilled results remain historical snapshots. Capabilities are bound to
+the current session and schema; reacquire them after reconnect. Uncertain ReadMany
+retains a read failure status and requires recovery; uncertain Batch retains its
+existing conservative `OutcomeUnknown` behavior. Reconnect never replays either.
+
+The WebSocket carrier limits the **complete** frame to 65,536 bytes by default.
+A protocol-maximum 65,535-byte body plus its 32-byte Encoded header exceeds that
+limit. Choose request/reply budgets that fit the carrier; no fragmentation or
+unbounded growth is added by these Session helpers.
+
 ## Lifecycle
 
 `subscribe(listener)` immediately sends an immutable snapshot. It reports state,
@@ -112,8 +178,9 @@ or advanced clients: the server must enforce its own exclusive ownership rules.
 The bootstrap profile owns the socket. Its single absolute timeout covers HTTP
 discovery, greeting, Descriptor and capability fetching, without extending the
 deadline on each byte. Response bodies are bounded. Capability records are copied
-as discovery data only; this initial facade exposes the four ordinary operations,
-not ReadMany or Mixed Batch. Advanced capability binding APIs remain available.
+as discovery data only. ReadMany/Batch still require current operation-specific
+admission and independent local support. Both reference-profile opt-ins default
+to false. Advanced capability binding APIs remain available.
 
 The lower-level `bindWebSocket()` instead **borrows** an already-open socket. Use
 `telemetry-sdk/transports/websocket/carrier` to import only that carrier, without

@@ -156,15 +156,17 @@ def main():
         prepared.rename(out / 'unavailable-prepared-package')
         shutil.copytree(generated, consumer / 'generated')
         shutil.copy2(descriptor, consumer / 'descriptor.bin')
-        for name in ('Check.mjs', 'Consumer.ts', 'Integration.mjs', 'Profile.mjs'):
+        for name in ('Check.mjs', 'Consumer.ts', 'Integration.mjs', 'Profile.mjs', 'Optional.mjs'):
             shutil.copy2(HERE / name, consumer / name)
         shutil.copy2(ROOT / 'tests/client_web/Trace.mjs', consumer / 'Trace.mjs')
         run('strict-consumer', [node, tsc, consumer / 'Consumer.ts', '--strict', '--noUnusedLocals',
             '--noUnusedParameters', '--target', 'ES2022', '--module', 'NodeNext',
             '--moduleResolution', 'NodeNext', '--noEmit'], cwd=consumer)
         run('lifecycle', [node, consumer / 'Check.mjs'], cwd=consumer, floor=1230, expected_cases=56)
-        run('reference-profile', [node, consumer / 'Profile.mjs'], cwd=consumer, floor=184, expected_cases=35)
-        run('native-integration', [node, consumer / 'Integration.mjs', bridge], cwd=consumer, floor=450)
+        run('reference-profile', [node, consumer / 'Profile.mjs'], cwd=consumer, floor=193, expected_cases=38)
+        run('optional-operations', [node, consumer / 'Optional.mjs'], cwd=consumer,
+            floor=876, expected_cases=58)
+        run('native-integration', [node, consumer / 'Integration.mjs', bridge], cwd=consumer, floor=481)
         report['source_sha256_after'] = inputs()
         check(report['source_sha256_before'] == report['source_sha256_after'], 'Source inputs changed during checks')
         report['checks'] += sum(item['checks'] for item in report['executions'])
