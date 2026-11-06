@@ -318,6 +318,16 @@ jobs:
           python3 -B tests/client_dynamic_web/run.py --node node \
             --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
             --cxx clang++-18 --sanitize --build-dir "$RUNNER_TEMP/dynamic-web-sanitized"
+      - name: Installed connection facade and deterministic ownership contracts
+        run: |
+          python3 -B tests/connection_session/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx g++ --build-dir "$RUNNER_TEMP/connection-session"
+      - name: Sanitized native connection facade interoperability
+        run: |
+          python3 -B tests/connection_session/run.py --node node \
+            --tsc "$RUNNER_TEMP/async-tools/node_modules/typescript/bin/tsc" \
+            --cxx clang++-18 --sanitize --build-dir "$RUNNER_TEMP/connection-session-sanitized"
       - name: Retain cross-language evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -331,6 +341,8 @@ jobs:
             ${{ runner.temp }}/batch-web-sanitized/
             ${{ runner.temp }}/dynamic-web/
             ${{ runner.temp }}/dynamic-web-sanitized/
+            ${{ runner.temp }}/connection-session/
+            ${{ runner.temp }}/connection-session-sanitized/
           if-no-files-found: error
 
   source-style:

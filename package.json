@@ -6,14 +6,20 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": {"types": "./lib/client/web/Client.d.ts", "default": "./lib/client/web/Client.js"},
+    ".": {"types": "./web/index.d.ts", "default": "./web/index.js"},
     "./client": {"types": "./lib/client/web/Client.d.ts", "default": "./lib/client/web/Client.js"},
     "./runtime": {"types": "./web/telemetry.d.ts", "default": "./web/telemetry.js"},
-    "./dynamic": {"types": "./web/DynamicClient.d.ts", "default": "./web/DynamicClient.js"}
+    "./dynamic": {"types": "./web/DynamicClient.d.ts", "default": "./web/DynamicClient.js"},
+    "./session": {"types": "./web/Session.d.ts", "default": "./web/Session.js"},
+    "./transports/websocket": {"types": "./web/WebSocketConnection.d.ts", "default": "./web/WebSocketConnection.js"},
+    "./transports/websocket/carrier": {"types": "./web/WebSocketTransport.d.ts", "default": "./web/WebSocketTransport.js"}
   },
   "files": [
     "VERSION", "LICENSE", "lib/client/web/Client.js", "lib/client/web/Client.d.ts",
     "lib/client/web/package.json", "web/telemetry.js", "web/telemetry.d.ts",
-    "web/DynamicClient.js", "web/DynamicClient.d.ts", "web/package.json"
+    "web/DynamicClient.js", "web/DynamicClient.d.ts", "web/package.json",
+    "web/Session.js", "web/Session.d.ts", "web/index.js", "web/index.d.ts",
+    "web/WebSocketTransport.js", "web/WebSocketTransport.d.ts",
+    "web/WebSocketConnection.js", "web/WebSocketConnection.d.ts"
   ]
 }
