@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {readFile} from 'node:fs/promises';
-import {connectStatic, connectDynamic, EncodedBackend, Status} from 'telemetry-sdk';
+import {connectStatic, connectDynamic, EncodedBackend, Status, Batch} from 'telemetry-sdk';
 import * as sdk from './generated/js/device.js';
 
 const [executable] = process.argv.slice(2);
@@ -28,6 +28,16 @@ const dto = number => ({
 	f64 : -0
 });
 const outcomes = [];
+const capability = kind => {
+	const bytes = new Uint8Array(24), view = new DataView(bytes.buffer);
+	bytes.set(kind === 'ReadMany' ? [ 84, 82, 77, 49, 1, 32, 1, 1 ]
+	                              : [ 84, 66, 77, 49, 1, 32, 1, 1 ]);
+	view.setUint16(8, kind === 'ReadMany' ? 130 : 8192, true);
+	view.setUint16(10, kind === 'ReadMany' ? 514 : 8192, true);
+	view.setUint32(12, 17, true);
+	view.setBigUint64(16, new DataView(descriptor.buffer).getBigUint64(16, true), true);
+	return bytes;
+};
 for (const mode of ['static', 'dynamic']) {
 	const child = spawn(executable, [], {stdio : [ 'pipe', 'pipe', 'pipe' ]});
 	let pending, errors = '', active = 0, peak = 0;
@@ -61,7 +71,7 @@ for (const mode of ['static', 'dynamic']) {
 		} finally {
 			active--;
 		}
-	});
+	}, {readMany : true, batch : true});
 	const profile = {
 		async open() {
 		    return {
@@ -69,6 +79,8 @@ for (const mode of ['static', 'dynamic']) {
 			    session : 17,
 			    header : descriptor.slice(0, 64),
 			    descriptor,
+			    readMany : capability('ReadMany'),
+			    batch : capability('Batch'),
 			    backend,
 			    async close() {
 			        child.stdin.end();
@@ -181,6 +193,35 @@ for (const mode of ['static', 'dynamic']) {
 		equal(preserved.writes, state.writes + 12);
 		equal(preserved.commands, state.commands);
 		equal(preserved.services, state.services);
+		const watch = session.readMany(session.capabilities.readMany,
+		                               mode === 'static' ? [ F.Counter, F.Bool ]
+		                                                 : [ F.Counter.id, F.Bool.id ]);
+		const recipe = mode === 'static'
+		                   ? Batch.items(Batch.read(F.Counter), Batch.command(C.Accepted, dto(19)),
+		                                 Batch.service(S.Busy, dto(20)),
+		                                 Batch.service(S.Echo, dto(21)), Batch.read(F.Counter))
+		                   : [
+			                     {operation : 'FieldRead', id : F.Counter.id},
+			                     {operation : 'Command', id : C.Accepted.id, value : dto(19)},
+			                     {operation : 'Service', id : S.Busy.id, value : dto(20)},
+			                     {operation : 'Service', id : S.Echo.id, value : dto(21)},
+			                     {operation : 'FieldRead', id : F.Counter.id}
+		                     ];
+		const mixed = session.batch(session.capabilities.batch, recipe);
+		truth(watch.requestId > 0);
+		equal(mixed.requestId, watch.requestId + 1);
+		const watchResult = await watch, mixedResult = await mixed;
+		equal(watchResult.valueStatus, 'Ok');
+		equal(watchResult.items.map(row => row.value), [ preserved.number, true ]);
+		equal(itemFacts(mixedResult), [ true, false, 3, 'NoValue', 21, preserved.number ]);
+		equal(mixedResult.succeeded, true);
+		equal(mixedResult.items[2].succeeded, false);
+		const optionalState = JSON.parse(await native('state'));
+		equal(optionalState.reads, preserved.reads + 4);
+		equal(optionalState.commands, preserved.commands + 1);
+		equal(optionalState.services, preserved.services + 2);
+		equal(optionalState.writes, preserved.writes);
+		equal(peak, 1);
 		outcomes.push(results.map(result => ({
 			                          status : result.status,
 			                          operation : result.operation,
@@ -196,5 +237,14 @@ for (const mode of ['static', 'dynamic']) {
 		await session.close();
 	}
 }
+
+function itemFacts(result)
+{
+	return [
+		result.items[1].accepted, result.items[1].executed, result.items[2].endpointStatus,
+		result.items[2].valueStatus, result.items[3].value.number, result.items[4].value
+	];
+}
+
 equal(outcomes[0], outcomes[1]);
 console.log('connection-session-native checks=' + checks + ' packets=' + packets + ' failures=0');

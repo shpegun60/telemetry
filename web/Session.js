@@ -444,6 +444,153 @@ class SessionOwner {
     service(endpoint, value, timeoutMs) {
         return this.submit('Service', endpoint, value, timeoutMs);
     }
+    gate() {
+        return this.terminal ? Status.Closed
+            : this.recoveryRequired ? Status.RecoveryRequired
+                : this.ready ? Status.Ok
+                    : Status.NotAdmitted;
+    }
+    stillCurrent(revision) {
+        return this.ready && revision === this.revision;
+    }
+    optionalRefused(operation, status) {
+        const refused = this.refused(operation, status);
+        const mapped = refused.then(result => Object.freeze({ ...result, value: undefined, items: undefined }));
+        return Object.assign(mapped, { requestId: 0, session: refused.session, cancel: () => false });
+    }
+    readMany(capability, fields, timeoutMs) {
+        const gate = this.gate();
+        if (gate !== Status.Ok)
+            return this.optionalRefused('ReadMany', gate);
+        const revision = this.revision;
+        let record, selected;
+        try {
+            record = copy(capability);
+            if (!Array.isArray(fields))
+                throw new TypeError('ReadMany requires 1..32 Fields');
+            const count = fields.length;
+            if (!Number.isInteger(count) || count < 1 || count > 32)
+                throw new TypeError('ReadMany requires 1..32 Fields');
+            selected = [];
+            for (let i = 0; i < count; ++i)
+                selected.push(fields[i]);
+        }
+        catch {
+            return this.optionalRefused('ReadMany', this.stillCurrent(revision) ? Status.InvalidArgument : this.gate());
+        }
+        if (!this.stillCurrent(revision))
+            return this.optionalRefused('ReadMany', this.gate());
+        let raw;
+        if (this.core instanceof DynamicClient) {
+            const endpoints = [];
+            for (const id of selected) {
+                if (typeof id !== 'number' || !Number.isInteger(id) || id < 0 || id > 0xffffffff)
+                    return this.optionalRefused('ReadMany', Status.InvalidArgument);
+                const bound = this.core.bind('FieldRead', id);
+                if (bound.status !== Status.Ok)
+                    return this.optionalRefused('ReadMany', bound.status);
+                endpoints.push(bound.endpoint);
+            }
+            const bound = this.core.bindReadMany(record, endpoints);
+            if (bound.status !== Status.Ok)
+                return this.optionalRefused('ReadMany', bound.status);
+            raw = this.core.readMany(bound.binding, timeoutMs);
+        }
+        else {
+            const bound = this.core.bindReadMany(record, selected);
+            if (bound.status !== Status.Ok)
+                return this.optionalRefused('ReadMany', bound.status);
+            if (!this.stillCurrent(revision))
+                return this.optionalRefused('ReadMany', this.gate());
+            raw = this.core.readMany(bound.binding, timeoutMs);
+        }
+        return this.track(raw, result => {
+            const dynamic = this.mode === 'dynamic' ? result : undefined;
+            const rawResult = dynamic ? dynamic.operation : result;
+            const current = this.stillCurrent(revision) && rawResult.session === this.session;
+            const valueStatus = !current ? 'Stale'
+                : dynamic ? dynamic.valueStatus
+                    : rawResult.status === Status.CodecError ? 'InvalidPayload'
+                        : rawResult.succeeded && Array.isArray(rawResult.value) ? 'Ok'
+                            : 'NoValue';
+            const rows = dynamic ? dynamic.items
+                : rawResult.value;
+            const items = Array.isArray(rows) ? Object.freeze(rows.map(row => {
+                const status = row.status === 0 ? current ? valueStatus : 'Stale' : 'NoValue';
+                return Object.freeze({
+                    id: row.id,
+                    status: row.status,
+                    payload: copy(row.payload),
+                    valueStatus: status,
+                    value: status === 'Ok' ? row.value : undefined
+                });
+            }))
+                : undefined;
+            return Object.freeze({ ...rawResult, rawResult, valueStatus, value: undefined, items });
+        });
+    }
+    batch(capability, items, timeoutMs) {
+        const refuse = (status) => this.optionalRefused('Batch', status);
+        const gate = this.gate();
+        if (gate !== Status.Ok)
+            return refuse(gate);
+        const revision = this.revision;
+        let record, selected;
+        try {
+            record = copy(capability);
+            if (!Array.isArray(items))
+                throw new TypeError('Batch requires 1..32 items');
+            const count = items.length;
+            if (!Number.isInteger(count) || count < 1 || count > 32)
+                throw new TypeError('Batch requires 1..32 items');
+            selected = [];
+            for (let i = 0; i < count; ++i) {
+                const item = items[i];
+                selected.push(this.mode === 'dynamic'
+                    ? { operation: item.operation, id: item.id, value: item.value }
+                    : item);
+            }
+        }
+        catch {
+            return refuse(this.stillCurrent(revision) ? Status.InvalidArgument : this.gate());
+        }
+        if (!this.stillCurrent(revision))
+            return refuse(this.gate());
+        let raw;
+        if (this.core instanceof DynamicClient) {
+            const requests = [];
+            for (const item of selected) {
+                if (!['FieldRead', 'FieldWrite', 'Command', 'Service'].includes(item.operation) ||
+                    !Number.isInteger(item.id) || item.id < 0 || item.id > 0xffffffff)
+                    return refuse(Status.InvalidArgument);
+                const bound = this.core.bind(item.operation, item.id);
+                if (bound.status !== Status.Ok)
+                    return refuse(bound.status);
+                requests.push({ endpoint: bound.endpoint, value: item.value });
+            }
+            raw = this.core.batch(record, requests, timeoutMs);
+        }
+        else {
+            raw = this.core.batch(record, selected, timeoutMs);
+        }
+        return this.track(raw, result => {
+            const dynamic = this.mode === 'dynamic' ? result : undefined;
+            const rawResult = dynamic ? dynamic.operation : result;
+            const source = dynamic ?? result;
+            const current = this.stillCurrent(revision) && rawResult.session === this.session;
+            const valueStatus = current ? source.valueStatus : 'Stale';
+            const items = source.items && Object.freeze(source.items.map(row => {
+                const status = !current && row.valueStatus !== 'NoValue' ? 'Stale' : row.valueStatus;
+                return Object.freeze({
+                    ...row,
+                    payload: copy(row.payload),
+                    valueStatus: status,
+                    value: status === 'Ok' ? row.value : undefined
+                });
+            }));
+            return Object.freeze({ ...rawResult, rawResult, valueStatus, value: undefined, items });
+        });
+    }
     refused(operation, status) {
         const rawResult = Object.freeze({ status, operation,
             session: this.session, requestId: 0, dispatch: 0, endpointStatus: 0,
@@ -514,7 +661,7 @@ class SessionOwner {
                         ? this.core.command(endpoint, value, timeoutMs)
                         : this.core.service(endpoint, value, timeoutMs);
         }
-        const mapped = raw.then(result => {
+        return this.track(raw, result => {
             const dynamic = this.mode === 'dynamic' ? result : undefined;
             const rawResult = dynamic ? dynamic.operation : result;
             const current = this.ready && revision === this.revision && rawResult.session === this.session;
@@ -523,15 +670,25 @@ class SessionOwner {
                     : rawResult.succeeded && rawResult.value !== undefined ? 'Ok' : 'NoValue';
             const projected = Object.freeze({ ...rawResult, rawResult, valueStatus,
                 value: valueStatus === 'Ok' ? dynamic ? dynamic.value : rawResult.value : undefined });
+            return projected;
+        });
+    }
+    track(raw, project) {
+        const mapped = Promise.resolve(raw).then(result => {
+            const projected = project(result);
             if (this.core.recoveryRequired && !this.terminal && this.stateValue === 'ready')
-                void this.disconnect().catch(() => { });
+                void this.disconnect().catch(() => {
+                });
             return projected;
         });
         const item = { raw, mapped };
         this.requests.add(item);
-        mapped.then(() => { this.requests.delete(item); }, () => { this.requests.delete(item); });
-        return Object.assign(mapped, { requestId: raw.requestId, session: raw.session,
-            cancel: () => raw.cancel() });
+        mapped.then(() => {
+            this.requests.delete(item);
+        }, () => {
+            this.requests.delete(item);
+        });
+        return Object.assign(mapped, { requestId: raw.requestId, session: raw.session, cancel: () => raw.cancel() });
     }
 }
 async function connect(mode, options) {
@@ -569,7 +726,9 @@ function facade(owner) {
         write: owner.write.bind(owner),
         writePreserving: owner.writePreserving.bind(owner),
         command: owner.command.bind(owner),
-        service: owner.service.bind(owner)
+        service: owner.service.bind(owner),
+        readMany: owner.readMany.bind(owner),
+        batch: owner.batch.bind(owner)
     };
     Object.defineProperty(publicSession, owner.mode === 'static' ? 'metadata' : 'schema', {
         enumerable: true, get: () => owner.mode === 'static' ? owner.metadata : owner.schema

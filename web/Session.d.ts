@@ -1,4 +1,4 @@
-import { type Backend, type ByteInput, type Clock, type CommandBinding, type Field, type ReadBinding, type Result, type ServiceBinding, type WriteBinding } from '../lib/client/web/Client.js';
+import { type Backend, type ByteInput, type Clock, type BatchItem, type BatchItems, type BatchOperation, type CommandBinding, type Field, type ReadBinding, type ReadManyField, type Result, type ServiceBinding, type WriteBinding } from '../lib/client/web/Client.js';
 import { type Limits, type RuntimeSchema } from './telemetry.js';
 export type SessionMode = 'static' | 'dynamic';
 export type SessionState = 'connecting' | 'bootstrapping' | 'ready' | 'disconnecting' | 'disconnected' | 'recovery-required' | 'closed';
@@ -45,10 +45,42 @@ export type SessionResult<T = undefined> = Readonly<Omit<Result<T>, 'value'> & {
     /** Unmodified common operation Result, including historical checked facts. */
     readonly rawResult: Result<T>;
 }>;
-export interface SessionRequest<T> extends Promise<SessionResult<T>> {
+export interface SessionOperationRequest<R> extends Promise<R> {
     readonly requestId: number;
     readonly session: number;
     cancel(): boolean;
+}
+export interface SessionRequest<T> extends SessionOperationRequest<SessionResult<T>> {
+}
+export interface SessionReadManyItem<T = unknown> {
+    readonly id: number;
+    readonly status: 0 | 1 | 2 | 3 | 4;
+    readonly payload: Uint8Array;
+    readonly valueStatus: SessionValueStatus;
+    readonly value: T | undefined;
+}
+export type SessionBatchItem<T = unknown> = Readonly<Omit<Result<T>, 'value'> & {
+    readonly id: number;
+    readonly valueStatus: SessionValueStatus;
+    readonly value: T | undefined;
+}>;
+export type SessionItemsResult<I extends readonly unknown[]> = Readonly<Omit<SessionResult<undefined>, 'rawResult'> & {
+    readonly rawResult: Result<unknown>;
+    readonly items: I | undefined;
+}>;
+type ReadManyValue<F> = F extends {
+    readonly read: ReadBinding<infer T>;
+} ? T : F extends ReadBinding<infer T> ? T : never;
+export type SessionReadManyItems<F extends readonly ReadManyField<unknown>[]> = {
+    readonly [K in keyof F]: SessionReadManyItem<ReadManyValue<F[K]>>;
+};
+export type SessionBatchItems<I extends readonly BatchItem<unknown>[]> = {
+    readonly [K in keyof I]: SessionBatchItem<BatchItems<I>[K]['value']>;
+};
+export interface SessionBatchOperation {
+    readonly operation: BatchOperation;
+    readonly id: number;
+    readonly value?: unknown;
 }
 export interface SessionSnapshot {
     readonly mode: SessionMode;
@@ -85,6 +117,8 @@ export interface StaticConnectionSession extends ConnectionSession {
     writePreserving<T>(field: Field<T> | WriteBinding<T>, value: T, originalPayload: ByteInput, timeoutMs?: number): SessionRequest<undefined>;
     command<T>(endpoint: CommandBinding<T>, value: T, timeoutMs?: number): SessionRequest<undefined>;
     service<Q, R>(endpoint: ServiceBinding<Q, R>, value: Q, timeoutMs?: number): SessionRequest<R>;
+    readMany<const F extends readonly ReadManyField<unknown>[]>(capability: ByteInput, fields: F, timeoutMs?: number): SessionOperationRequest<SessionItemsResult<SessionReadManyItems<F>>>;
+    batch<const I extends readonly BatchItem<unknown>[]>(capability: ByteInput, items: I, timeoutMs?: number): SessionOperationRequest<SessionItemsResult<SessionBatchItems<I>>>;
 }
 export interface DynamicConnectionSession extends ConnectionSession {
     readonly schema: RuntimeSchema | undefined;
@@ -93,6 +127,8 @@ export interface DynamicConnectionSession extends ConnectionSession {
     writePreserving(id: number, value: unknown, originalPayload: ByteInput, timeoutMs?: number): SessionRequest<undefined>;
     command(id: number, value?: unknown, timeoutMs?: number): SessionRequest<undefined>;
     service(id: number, value?: unknown, timeoutMs?: number): SessionRequest<unknown>;
+    readMany(capability: ByteInput, ids: readonly number[], timeoutMs?: number): SessionOperationRequest<SessionItemsResult<readonly SessionReadManyItem[]>>;
+    batch(capability: ByteInput, items: readonly SessionBatchOperation[], timeoutMs?: number): SessionOperationRequest<SessionItemsResult<readonly SessionBatchItem[]>>;
 }
 export interface StaticSdk {
     matchesHeader(header: ByteInput): boolean;
@@ -115,3 +151,4 @@ export interface DynamicSessionOptions extends ConnectionOptions {
 }
 export declare function connectStatic(options: StaticSessionOptions): Promise<StaticConnectionSession>;
 export declare function connectDynamic(options: DynamicSessionOptions): Promise<DynamicConnectionSession>;
+export {};

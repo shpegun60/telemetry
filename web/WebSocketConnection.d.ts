@@ -2,7 +2,11 @@
 import type {Clock} from '../lib/client/web/Client.js';
 import type {ConnectionProfile} from './Session.js';
 export {bindWebSocket} from './WebSocketTransport.js';
-export type {WebSocketDisconnect, WebSocketTransportOptions, WebSocketTransport} from './WebSocketTransport.js';
+export type {
+	WebSocketDisconnect,
+	WebSocketTransportOptions,
+	WebSocketTransport
+} from './WebSocketTransport.js';
 
 export interface DemoWebSocketOptions {
 	readonly fetch?: typeof globalThis.fetch;
@@ -17,6 +21,9 @@ export interface DemoWebSocketOptions {
 	/** Maximum buffered TX bytes; default 65536, at least maxFrameBytes. */
 	readonly maxBufferedBytes?: number;
 	readonly credentials?: RequestCredentials;
+	/** Independent local opt-ins; current matching remote capabilities remain required. Default false. */
+	readonly enableReadMany?: boolean;
+	readonly enableBatch?: boolean;
 }
 
 /** Owns discovery and the socket for the current Telemetry UX reference HTTP/WS server.
@@ -25,4 +32,5 @@ export interface DemoWebSocketOptions {
  * Local socket close alone is never such proof. A server generation reset is refused.
  * Authentication, production access rules and arbitrary HTTP/WS servers are not inferred.
  */
-export function demoWebSocket(baseUrl: string | URL, options?: DemoWebSocketOptions): ConnectionProfile;
+export function demoWebSocket(baseUrl: string|URL,
+                              options?: DemoWebSocketOptions): ConnectionProfile;
